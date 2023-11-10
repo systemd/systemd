@@ -91,6 +91,7 @@ static void export_variables(EFI_LOADED_IMAGE_PROTOCOL *loaded_image) {
                 EFI_STUB_FEATURE_REPORT_BOOT_PARTITION |    /* We set LoaderDevicePartUUID */
                 EFI_STUB_FEATURE_PICK_UP_CREDENTIALS |      /* We pick up credentials from the boot partition */
                 EFI_STUB_FEATURE_PICK_UP_SYSEXTS |          /* We pick up system extensions from the boot partition */
+                EFI_STUB_FEATURE_PICK_UP_CONFEXTS |         /* We pick up configuration extensions from the boot partition */
                 EFI_STUB_FEATURE_THREE_PCRS |               /* We can measure kernel image, parameters and sysext */
                 EFI_STUB_FEATURE_RANDOM_SEED |              /* We pass a random seed to the kernel */
                 EFI_STUB_FEATURE_CMDLINE_ADDONS |           /* We pick up .cmdline addons */
@@ -497,8 +498,8 @@ static EFI_STATUS load_addons(
 }
 
 static EFI_STATUS run(EFI_HANDLE image) {
-        _cleanup_free_ void *credential_initrd = NULL, *global_credential_initrd = NULL, *sysext_initrd = NULL, *pcrsig_initrd = NULL, *pcrpkey_initrd = NULL;
-        size_t credential_initrd_size = 0, global_credential_initrd_size = 0, sysext_initrd_size = 0, pcrsig_initrd_size = 0, pcrpkey_initrd_size = 0;
+        _cleanup_free_ void *credential_initrd = NULL, *global_credential_initrd = NULL, *sysext_initrd = NULL, *confext_initrd = NULL, *pcrsig_initrd = NULL, *pcrpkey_initrd = NULL;
+        size_t credential_initrd_size = 0, global_credential_initrd_size = 0, sysext_initrd_size = 0, confext_initrd_size = 0, pcrsig_initrd_size = 0, pcrpkey_initrd_size = 0;
         void **dt_bases_addons_global = NULL, **dt_bases_addons_uki = NULL;
         char16_t **dt_filenames_addons_global = NULL, **dt_filenames_addons_uki = NULL;
         _cleanup_free_ size_t *dt_sizes_addons_global = NULL, *dt_sizes_addons_uki = NULL;
@@ -510,7 +511,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
         _cleanup_free_ char16_t *cmdline = NULL, *cmdline_addons_global = NULL, *cmdline_addons_uki = NULL;
         int sections_measured = -1, parameters_measured = -1;
         _cleanup_free_ char *uname = NULL;
-        bool sysext_measured = false, m;
+        bool sysext_measured = false, confext_measured = false, m;
         uint64_t loader_features = 0;
         EFI_STATUS err;
 
@@ -660,8 +661,9 @@ static EFI_STATUS run(EFI_HANDLE image) {
         export_variables(loaded_image);
 
         if (pack_cpio(loaded_image,
-                      NULL,
+                      /* dropin_dir= */ NULL,
                       u".cred",
+                      /* exclude_suffix= */ NULL,
                       ".extra/credentials",
                       /* dir_mode= */ 0500,
                       /* access_mode= */ 0400,
@@ -675,6 +677,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
         if (pack_cpio(loaded_image,
                       u"\\loader\\credentials",
                       u".cred",
+                      /* exclude_suffix= */ NULL,
                       ".extra/global_credentials",
                       /* dir_mode= */ 0500,
                       /* access_mode= */ 0400,
@@ -686,8 +689,9 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 parameters_measured = parameters_measured < 0 ? m : (parameters_measured && m);
 
         if (pack_cpio(loaded_image,
-                      NULL,
-                      u".raw",
+                      /* dropin_dir= */ NULL,
+                      u".raw",         /* ideally we'd pick up only *.sysext.raw here, but for compat we pick up *.raw instead … */
+                      u".confext.raw", /* … but then exclude *.confext.raw again */
                       ".extra/sysext",
                       /* dir_mode= */ 0555,
                       /* access_mode= */ 0444,
@@ -697,6 +701,20 @@ static EFI_STATUS run(EFI_HANDLE image) {
                       &sysext_initrd_size,
                       &m) == EFI_SUCCESS)
                 sysext_measured = m;
+
+        if (pack_cpio(loaded_image,
+                      /* dropin_dir= */ NULL,
+                      u".confext.raw",
+                      /* exclude_suffix= */ NULL,
+                      ".extra/confext",
+                      /* dir_mode= */ 0555,
+                      /* access_mode= */ 0444,
+                      /* tpm_pcr= */ TPM2_PCR_KERNEL_CONFIG,
+                      u"Configuration extension initrd",
+                      &confext_initrd,
+                      &confext_initrd_size,
+                      &m) == EFI_SUCCESS)
+                confext_measured = m;
 
         dt_size = szs[UNIFIED_SECTION_DTB];
         dt_base = dt_size != 0 ? POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[UNIFIED_SECTION_DTB] : 0;
@@ -728,6 +746,8 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 (void) efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"StubPcrKernelParameters", TPM2_PCR_KERNEL_CONFIG, 0);
         if (sysext_measured)
                 (void) efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"StubPcrInitRDSysExts", TPM2_PCR_SYSEXTS, 0);
+        if (confext_measured)
+                (void) efivar_set_uint_string(MAKE_GUID_PTR(LOADER), u"StubPcrInitRDConfExts", TPM2_PCR_KERNEL_CONFIG, 0);
 
         /* If the PCR signature was embedded in the PE image, then let's wrap it in a cpio and also pass it
          * to the kernel, so that it can be read from /.extra/tpm2-pcr-signature.json. Note that this section
@@ -773,7 +793,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
         initrd_base = initrd_size != 0 ? POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[UNIFIED_SECTION_INITRD] : 0;
 
         _cleanup_pages_ Pages initrd_pages = {};
-        if (credential_initrd || global_credential_initrd || sysext_initrd || pcrsig_initrd || pcrpkey_initrd) {
+        if (credential_initrd || global_credential_initrd || sysext_initrd || confext_initrd || pcrsig_initrd || pcrpkey_initrd) {
                 /* If we have generated initrds dynamically, let's combine them with the built-in initrd. */
                 err = combine_initrd(
                                 initrd_base, initrd_size,
@@ -781,6 +801,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                                         credential_initrd,
                                         global_credential_initrd,
                                         sysext_initrd,
+                                        confext_initrd,
                                         pcrsig_initrd,
                                         pcrpkey_initrd,
                                 },
@@ -788,10 +809,11 @@ static EFI_STATUS run(EFI_HANDLE image) {
                                         credential_initrd_size,
                                         global_credential_initrd_size,
                                         sysext_initrd_size,
+                                        confext_initrd_size,
                                         pcrsig_initrd_size,
                                         pcrpkey_initrd_size,
                                 },
-                                5,
+                                6,
                                 &initrd_pages, &initrd_size);
                 if (err != EFI_SUCCESS)
                         return err;
@@ -802,6 +824,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 credential_initrd = mfree(credential_initrd);
                 global_credential_initrd = mfree(global_credential_initrd);
                 sysext_initrd = mfree(sysext_initrd);
+                confext_initrd = mfree(confext_initrd);
                 pcrsig_initrd = mfree(pcrsig_initrd);
                 pcrpkey_initrd = mfree(pcrpkey_initrd);
         }
