@@ -4047,6 +4047,9 @@ static int unit_get_memory_attr_raw(Unit *u, const char* mem_attribute, uint64_t
         assert(mem_attribute);
         assert(ret);
 
+        if (!UNIT_CGROUP_BOOL(u, memory_accounting))
+                return -ENODATA;
+
         if (!u->cgroup_path)
                 return -ENODATA;
 
@@ -4075,9 +4078,6 @@ static int unit_get_memory_attr_cached(Unit *u,  const char* mem_attribute, uint
         assert(last);
         assert(ret);
 
-        if (!UNIT_CGROUP_BOOL(u, memory_accounting))
-                return -ENODATA;
-
         r = unit_get_memory_attr_raw(u, mem_attribute, &bytes);
         if (r == -ENODATA && *last != UINT64_MAX) {
                 /* If we can't get the memory peak anymore (because the cgroup was already removed, for example),
@@ -4099,6 +4099,10 @@ static int unit_get_memory_attr_cached(Unit *u,  const char* mem_attribute, uint
 
 int unit_get_memory_peak(Unit *u, uint64_t *ret) {
         return unit_get_memory_attr_cached(u, "memory.peak", &u->memory_peak_last, ret);
+}
+
+int unit_get_memory_swap_current(Unit *u, uint64_t *ret) {
+        return unit_get_memory_attr_raw(u, "memory.swap.current", ret);
 }
 
 int unit_get_memory_swap_peak(Unit *u, uint64_t *ret) {
