@@ -26,3 +26,4 @@ int mknod_label(const char *pathname, mode_t mode, dev_t dev);
 int btrfs_subvol_make_label(const char *path);
 
 int mac_init(void);
+int mac_init_lazy(void);
