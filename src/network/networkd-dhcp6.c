@@ -99,13 +99,15 @@ int dhcp6_check_ready(Link *link) {
         int r;
 
         assert(link);
+        assert(link->network);
 
         if (link->dhcp6_messages > 0) {
                 log_link_debug(link, "%s(): DHCPv6 addresses and routes are not set.", __func__);
                 return 0;
         }
 
-        if (!link_check_addresses_ready(link, NETWORK_CONFIG_SOURCE_DHCP6)) {
+        if (link->network->dhcp6_use_address &&
+            !link_check_addresses_ready(link, NETWORK_CONFIG_SOURCE_DHCP6)) {
                 Address *address;
 
                 SET_FOREACH(address, link->addresses)
