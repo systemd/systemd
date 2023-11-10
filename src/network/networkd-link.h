@@ -127,7 +127,7 @@ typedef struct Link {
         sd_dhcp_lease *dhcp_lease;
         char *lease_file;
         unsigned dhcp4_messages;
-        bool dhcp4_configured:1;
+        bool dhcp4_configured;
         char *dhcp4_6rd_tunnel_name;
 
         Hashmap *ipv4acd_by_address;
