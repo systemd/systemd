@@ -24,7 +24,7 @@
 #include "kernel-image.h"
 #include "log.h"
 #include "machine-credential.h"
-#include "macro-fundamental.h"
+#include "macro.h"
 #include "main-func.h"
 #include "mkdir.h"
 #include "pager.h"
@@ -39,7 +39,7 @@
 #include "sd-id128.h"
 #include "signal-util.h"
 #include "socket-util.h"
-#include "string-util-fundamental.h"
+#include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
 #include "unit-name.h"
@@ -60,6 +60,8 @@ static int arg_tpm = -1;
 static char *arg_linux = NULL;
 static char *arg_initrd = NULL;
 static bool arg_qemu_gui = false;
+static bool arg_network_tap = false;
+static bool arg_network_user_mode = false;
 static int arg_secure_boot = -1;
 static MachineCredentialContext arg_credentials = {};
 static SettingsMask arg_settings_mask = 0;
@@ -107,6 +109,8 @@ static int help(void) {
                "     --linux=PATH           Specify the linux kernel for direct kernel boot\n"
                "     --initrd=PATH          Specify the initrd for direct kernel boot\n"
                "     --qemu-gui             Start QEMU in graphical mode\n"
+               "  -n --network-tap          Create a TAP device for networking with QEMU.\n"
+               "     --network-user-mode    Use user mode networking with QEMU.\n"
                "     --secure-boot=BOOL     Configure whether to search for firmware which\n"
                "                            supports Secure Boot\n"
                "     --firmware=PATH|list   Select firmware definition file (or list available)\n"
@@ -143,6 +147,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_LINUX,
                 ARG_INITRD,
                 ARG_QEMU_GUI,
+                ARG_NETWORK_USER_MODE,
                 ARG_SECURE_BOOT,
                 ARG_SET_CREDENTIAL,
                 ARG_LOAD_CREDENTIAL,
@@ -150,25 +155,27 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         static const struct option options[] = {
-                { "help",            no_argument,       NULL, 'h'                 },
-                { "version",         no_argument,       NULL, ARG_VERSION         },
-                { "quiet",           no_argument,       NULL, 'q'                 },
-                { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
-                { "image",           required_argument, NULL, 'i'                 },
-                { "machine",         required_argument, NULL, 'M'                 },
-                { "qemu-smp",        required_argument, NULL, ARG_QEMU_SMP        },
-                { "qemu-mem",        required_argument, NULL, ARG_QEMU_MEM        },
-                { "qemu-kvm",        required_argument, NULL, ARG_QEMU_KVM        },
-                { "qemu-vsock",      required_argument, NULL, ARG_QEMU_VSOCK      },
-                { "vsock-cid",       required_argument, NULL, ARG_VSOCK_CID       },
-                { "tpm",             required_argument, NULL, ARG_TPM             },
-                { "linux",           required_argument, NULL, ARG_LINUX           },
-                { "initrd",          required_argument, NULL, ARG_INITRD          },
-                { "qemu-gui",        no_argument,       NULL, ARG_QEMU_GUI        },
-                { "secure-boot",     required_argument, NULL, ARG_SECURE_BOOT     },
-                { "set-credential",  required_argument, NULL, ARG_SET_CREDENTIAL  },
-                { "load-credential", required_argument, NULL, ARG_LOAD_CREDENTIAL },
-                { "firmware",        required_argument, NULL, ARG_FIRMWARE        },
+                { "help",              no_argument,       NULL, 'h'                   },
+                { "version",           no_argument,       NULL, ARG_VERSION           },
+                { "quiet",             no_argument,       NULL, 'q'                   },
+                { "no-pager",          no_argument,       NULL, ARG_NO_PAGER          },
+                { "image",             required_argument, NULL, 'i'                   },
+                { "machine",           required_argument, NULL, 'M'                   },
+                { "qemu-smp",          required_argument, NULL, ARG_QEMU_SMP          },
+                { "qemu-mem",          required_argument, NULL, ARG_QEMU_MEM          },
+                { "qemu-kvm",          required_argument, NULL, ARG_QEMU_KVM          },
+                { "qemu-vsock",        required_argument, NULL, ARG_QEMU_VSOCK        },
+                { "vsock-cid",         required_argument, NULL, ARG_VSOCK_CID         },
+                { "tpm",               required_argument, NULL, ARG_TPM               },
+                { "linux",             required_argument, NULL, ARG_LINUX             },
+                { "initrd",            required_argument, NULL, ARG_INITRD            },
+                { "qemu-gui",          no_argument,       NULL, ARG_QEMU_GUI          },
+                { "network-tap",       no_argument,       NULL, 'n'                   },
+                { "network-user-mode", no_argument,       NULL, ARG_NETWORK_USER_MODE },
+                { "secure-boot",       required_argument, NULL, ARG_SECURE_BOOT       },
+                { "set-credential",    required_argument, NULL, ARG_SET_CREDENTIAL    },
+                { "load-credential",   required_argument, NULL, ARG_LOAD_CREDENTIAL   },
+                { "firmware",          required_argument, NULL, ARG_FIRMWARE          },
                 {}
         };
 
@@ -178,7 +185,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         optind = 0;
-        while ((c = getopt_long(argc, argv, "+hi:M:q", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hi:M:nq", options, NULL)) >= 0)
                 switch (c) {
                 case 'h':
                         return help();
@@ -277,6 +284,14 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_QEMU_GUI:
                         arg_qemu_gui = true;
+                        break;
+
+                case 'n':
+                        arg_network_tap = true;
+                        break;
+
+                case ARG_NETWORK_USER_MODE:
+                        arg_network_user_mode = true;
                         break;
 
                 case ARG_SECURE_BOOT:
@@ -698,8 +713,7 @@ static int run_virtual_machine(void) {
                 "-smp", arg_qemu_smp ?: "1",
                 "-m", mem,
                 "-object", "rng-random,filename=/dev/urandom,id=rng0",
-                "-device", "virtio-rng-pci,rng=rng0,id=rng-device0",
-                "-nic", "user,model=virtio-net-pci"
+                "-device", "virtio-rng-pci,rng=rng0,id=rng-device0"
         );
         if (!cmdline)
                 return log_oom();
@@ -716,6 +730,15 @@ static int run_virtual_machine(void) {
                         arg_runtime_directory_created = true;
                 }
         }
+
+        if (arg_network_tap)
+                r = strv_extend_many(&cmdline, "-nic", "tap,script=no,model=virtio-net-pci");
+        else if (arg_network_user_mode)
+                r = strv_extend_many(&cmdline, "-nic", "user,model=virtio-net-pci");
+        else
+                r = strv_extend_many(&cmdline, "-nic", "none");
+        if (r < 0)
+                return log_oom();
 
         bool use_vsock = arg_qemu_vsock > 0 && ARCHITECTURE_SUPPORTS_SMBIOS;
         if (arg_qemu_vsock < 0) {
@@ -1073,6 +1096,16 @@ static int determine_names(void) {
         return 0;
 }
 
+static int verify_arguments(void) {
+        if (arg_network_tap && getuid() != 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EPERM), "--network-tap requires root privileges, aborting.");
+
+        if (arg_network_tap && arg_network_user_mode)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--network-tap and --network-user-mode may not be combined.");
+
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         int r;
 
@@ -1083,6 +1116,10 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         r = determine_names();
+        if (r < 0)
+                return r;
+
+        r = verify_arguments();
         if (r < 0)
                 return r;
 
