@@ -3,19 +3,21 @@
 # Traditional Chinese translation for systemd.
 # Jeff Huang <s8321414@gmail.com>, 2015, 2016.
 # pan93412 <pan93412@gmail.com>, 2019.
+# Cheng-Chia Tseng <pswo10680@gmail.com>, 2023.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2023-07-14 10:32+0100\n"
-"PO-Revision-Date: 2021-08-10 11:36+0800\n"
-"Last-Translator: pan93412 <pan93412@gmail.com>\n"
-"Language-Team: Chinese <chinese-l10n@googlegroups.com>\n"
+"PO-Revision-Date: 2023-11-10 11:30+0000\n"
+"Last-Translator: Cheng-Chia Tseng <pswo10680@gmail.com>\n"
+"Language-Team: Chinese (Traditional) <https://translate.fedoraproject.org/"
+"projects/systemd/master/zh_TW/>\n"
 "Language: zh_TW\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Poedit 2.2.1\n"
+"X-Generator: Weblate 5.1.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -126,7 +128,7 @@ msgstr ""
 
 #: src/home/pam_systemd_home.c:304
 msgid "Password: "
-msgstr ""
+msgstr "密碼： "
 
 #: src/home/pam_systemd_home.c:306
 #, c-format
