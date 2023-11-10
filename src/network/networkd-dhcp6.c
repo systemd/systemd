@@ -96,27 +96,20 @@ static int dhcp6_address_ready_callback(Address *address) {
 }
 
 int dhcp6_check_ready(Link *link) {
-        bool has_ready = false;
-        Address *address;
         int r;
 
         assert(link);
+        assert(link->network);
 
         if (link->dhcp6_messages > 0) {
                 log_link_debug(link, "%s(): DHCPv6 addresses and routes are not set.", __func__);
                 return 0;
         }
 
-        SET_FOREACH(address, link->addresses) {
-                if (address->source != NETWORK_CONFIG_SOURCE_DHCP6)
-                        continue;
-                if (address_is_ready(address)) {
-                        has_ready = true;
-                        break;
-                }
-        }
+        if (link->network->dhcp6_use_address &&
+            !link_check_addresses_ready(link, NETWORK_CONFIG_SOURCE_DHCP6)) {
+                Address *address;
 
-        if (!has_ready) {
                 SET_FOREACH(address, link->addresses)
                         if (address->source == NETWORK_CONFIG_SOURCE_DHCP6)
                                 address->callback = dhcp6_address_ready_callback;
