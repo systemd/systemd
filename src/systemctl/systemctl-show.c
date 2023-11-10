@@ -251,6 +251,7 @@ typedef struct UnitStatusInfo {
         /* CGroup */
         uint64_t memory_current;
         uint64_t memory_peak;
+        uint64_t memory_swap_peak;
         uint64_t memory_min;
         uint64_t memory_low;
         uint64_t startup_memory_low;
@@ -703,7 +704,10 @@ static void print_status_info(
         if (i->memory_current != UINT64_MAX) {
                 printf("     Memory: %s", FORMAT_BYTES(i->memory_current));
 
+                bool show_memory_swap_peak = i->memory_swap_peak != CGROUP_LIMIT_MAX
+                        && i->memory_swap_peak != 0;
                 if (i->memory_peak != CGROUP_LIMIT_MAX ||
+                    show_memory_swap_peak ||
                     i->memory_min > 0 ||
                     i->memory_low > 0 || i->startup_memory_low > 0 ||
                     i->memory_high != CGROUP_LIMIT_MAX || i->startup_memory_high != CGROUP_LIMIT_MAX ||
@@ -769,6 +773,10 @@ static void print_status_info(
                         }
                         if (i->memory_peak != CGROUP_LIMIT_MAX) {
                                 printf("%speak: %s", prefix, FORMAT_BYTES(i->memory_peak));
+                                prefix = " ";
+                        }
+                        if (show_memory_swap_peak) {
+                                printf("%sswap peak: %s", prefix, FORMAT_BYTES(i->memory_swap_peak));
                                 prefix = " ";
                         }
                         printf(")");
@@ -2038,6 +2046,7 @@ static int show_one(
                 { "What",                           "s",               NULL,           offsetof(UnitStatusInfo, what)                              },
                 { "MemoryCurrent",                  "t",               NULL,           offsetof(UnitStatusInfo, memory_current)                    },
                 { "MemoryPeak",                     "t",               NULL,           offsetof(UnitStatusInfo, memory_peak)                       },
+                { "MemorySwapPeak",                 "t",               NULL,           offsetof(UnitStatusInfo, memory_swap_peak)                  },
                 { "MemoryAvailable",                "t",               NULL,           offsetof(UnitStatusInfo, memory_available)                  },
                 { "DefaultMemoryMin",               "t",               NULL,           offsetof(UnitStatusInfo, default_memory_min)                },
                 { "DefaultMemoryLow",               "t",               NULL,           offsetof(UnitStatusInfo, default_memory_low)                },
@@ -2095,6 +2104,7 @@ static int show_one(
                 .startup_memory_zswap_max = CGROUP_LIMIT_MAX,
                 .memory_limit = CGROUP_LIMIT_MAX,
                 .memory_peak = CGROUP_LIMIT_MAX,
+                .memory_swap_peak = CGROUP_LIMIT_MAX,
                 .memory_available = CGROUP_LIMIT_MAX,
                 .cpu_usage_nsec = UINT64_MAX,
                 .tasks_current = UINT64_MAX,
