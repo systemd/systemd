@@ -6086,7 +6086,8 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
                           '11-dummy.netdev', '25-dhcp-pd-downstream-test1.network',
                           '25-dhcp-pd-downstream-dummy97.network',
                           '12-dummy.netdev', '25-dhcp-pd-downstream-dummy98.network',
-                          '13-dummy.netdev', '25-dhcp-pd-downstream-dummy99.network')
+                          '13-dummy.netdev', '25-dhcp-pd-downstream-dummy99.network',
+                          copy_dropins=False)
 
         self.setup_nftset('addr6', 'ipv6_addr')
         self.setup_nftset('network6', 'ipv6_addr', 'flags interval;')
@@ -6095,8 +6096,14 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         start_networkd()
         self.wait_online(['veth-peer:routable'])
         start_isc_dhcpd(conf_file='isc-dhcpd-dhcp6pd.conf', ipv='-6')
-        self.wait_online(['veth99:routable', 'test1:routable', 'dummy98:routable', 'dummy99:degraded',
-                          'veth97:routable', 'veth97-peer:routable', 'veth98:routable', 'veth98-peer:routable'])
+        self.wait_online(['veth99:degraded'])
+
+        # First, test UseAddress=no and Assign=no (issue #29979).
+        # Note, due to the bug #29701, this test must be done at first.
+        print('### ip -6 address show dev veth99 scope global')
+        output = check_output('ip -6 address show dev veth99 scope global')
+        print(output)
+        self.assertNotIn('inet6 3ffe:501:ffff', output)
 
         # Check DBus assigned prefix information to veth99
         prefixInfo = get_dhcp6_prefix('veth99')
@@ -6113,6 +6120,11 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         self.assertEqual(prefixInfo['PrefixLength'], 56)
         self.assertGreater(prefixInfo['PreferredLifetimeUSec'], 0)
         self.assertGreater(prefixInfo['ValidLifetimeUSec'], 0)
+
+        copy_network_unit('25-dhcp6pd-upstream.network.d/with-address.conf')
+        networkctl_reload()
+        self.wait_online(['veth99:routable', 'test1:routable', 'dummy98:routable', 'dummy99:degraded',
+                          'veth97:routable', 'veth97-peer:routable', 'veth98:routable', 'veth98-peer:routable'])
 
         print('### ip -6 address show dev veth-peer scope global')
         output = check_output('ip -6 address show dev veth-peer scope global')
