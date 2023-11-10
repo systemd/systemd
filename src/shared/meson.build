@@ -137,6 +137,7 @@ shared_sources = files(
         'pcrextend-util.c',
         'pe-binary.c',
         'pkcs11-util.c',
+        'plymouth-util.c',
         'pretty-print.c',
         'ptyfwd.c',
         'qrcode-util.c',
