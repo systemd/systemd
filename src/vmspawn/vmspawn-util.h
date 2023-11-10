@@ -39,6 +39,23 @@ static inline const char *ovmf_config_vars_format(const OvmfConfig *c) {
 OvmfConfig* ovmf_config_free(OvmfConfig *ovmf_config);
 DEFINE_TRIVIAL_CLEANUP_FUNC(OvmfConfig*, ovmf_config_free);
 
+typedef enum QemuNetworkStack {
+        QEMU_NET_TAP,
+        QEMU_NET_USER,
+        QEMU_NET_NONE,
+        _QEMU_NET_MAX,
+        _QEMU_NET_INVALID = -EINVAL,
+} QemuNetworkStack;
+
+static const char* const qemu_network_stack_table[_QEMU_NET_MAX] = {
+        [QEMU_NET_TAP]  = "tap",
+        [QEMU_NET_USER] = "user",
+        [QEMU_NET_NONE] = "none",
+};
+
+const char* qemu_network_stack_to_string(QemuNetworkStack type) _const_;
+QemuNetworkStack qemu_network_stack_from_string(const char *s) _pure_;
+
 int qemu_check_kvm_support(void);
 int qemu_check_vsock_support(void);
 int list_ovmf_config(char ***ret);
