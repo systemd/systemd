@@ -585,8 +585,7 @@ int mac_selinux_create_file_prepare_at(
         _cleanup_free_ char *abspath = NULL;
         int r;
 
-        if (dir_fd < 0 && dir_fd != AT_FDCWD)
-                return -EBADF;
+        assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
         r = selinux_init(/* is_lazy= */ true);
         if (r <= 0)
