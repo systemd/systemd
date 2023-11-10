@@ -7038,7 +7038,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r != -ENOENT)
                                 log_warning_errno(r, "Search for pcrlock.json failed, assuming it does not exist: %m");
                 } else
-                        log_info("Automatically using pcrlock policy '%s'.", arg_tpm2_pcrlock);
+                        log_debug("Automatically using pcrlock policy '%s'.", arg_tpm2_pcrlock);
         }
 
         if (auto_public_key_pcr_mask) {
