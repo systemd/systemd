@@ -33,6 +33,19 @@ OvmfConfig* ovmf_config_free(OvmfConfig *config) {
         return mfree(config);
 }
 
+QemuNetworkStack parse_qemu_network_stack(const char *s) {
+        assert(s);
+
+        if (streq(s, "user"))
+                return QEMU_NET_USER;
+        if (streq(s, "tap"))
+                return QEMU_NET_TAP;
+        if (streq(s, "none"))
+                return QEMU_NET_NONE;
+
+        return _QEMU_NET_INVALID;
+}
+
 int qemu_check_kvm_support(void) {
         if (access("/dev/kvm", F_OK) >= 0)
                 return true;
