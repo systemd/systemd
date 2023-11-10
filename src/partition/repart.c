@@ -4277,6 +4277,8 @@ static int context_copy_blocks(Context *context) {
                 assert(p->copy_blocks_size != UINT64_MAX);
                 assert(p->new_size >= p->copy_blocks_size + (p->encrypt != ENCRYPT_OFF ? LUKS2_METADATA_KEEP_FREE : 0));
 
+                usec_t start_timestamp = now(CLOCK_MONOTONIC);
+
                 r = partition_target_prepare(context, p, p->new_size,
                                              /*need_path=*/ p->encrypt != ENCRYPT_OFF || p->siblings[VERITY_HASH],
                                              &t);
@@ -4289,11 +4291,16 @@ static int context_copy_blocks(Context *context) {
                                 return r;
                 }
 
-                log_info("Copying in '%s' (%s) on block level into future partition %" PRIu64 ".",
-                         p->copy_blocks_path, FORMAT_BYTES(p->copy_blocks_size), p->partno);
+                if (p->copy_blocks_offset == UINT64_MAX)
+                        log_info("Copying in '%s' (%s) on block level into future partition %" PRIu64 ".",
+                                 p->copy_blocks_path, FORMAT_BYTES(p->copy_blocks_size), p->partno);
+                else {
+                        log_info("Copying in '%s' @ %" PRIu64 " (%s) on block level into future partition %" PRIu64 ".",
+                                 p->copy_blocks_path, p->copy_blocks_offset, FORMAT_BYTES(p->copy_blocks_size), p->partno);
 
-                if (p->copy_blocks_offset != UINT64_MAX && lseek(p->copy_blocks_fd, p->copy_blocks_offset, SEEK_SET) < 0)
-                        return log_error_errno(errno, "Failed to seek to copy blocks offset in %s: %m", p->copy_blocks_path);
+                        if (lseek(p->copy_blocks_fd, p->copy_blocks_offset, SEEK_SET) < 0)
+                                return log_error_errno(errno, "Failed to seek to copy blocks offset in %s: %m", p->copy_blocks_path);
+                }
 
                 r = copy_bytes(p->copy_blocks_fd, partition_target_fd(t), p->copy_blocks_size, COPY_REFLINK);
                 if (r < 0)
@@ -4310,6 +4317,14 @@ static int context_copy_blocks(Context *context) {
                 r = partition_target_sync(context, p, t);
                 if (r < 0)
                         return r;
+
+                usec_t time_spent = usec_sub_unsigned(now(CLOCK_MONOTONIC), start_timestamp);
+                if (time_spent > 250 * USEC_PER_MSEC) /* Show throughput, but not if we spent too little time on it, since it's just noise then */
+                        log_info("Block level copying and synchronization of partition %" PRIu64 " complete in %s (%s/s).",
+                                 p->partno, FORMAT_TIMESPAN(time_spent, 0), FORMAT_BYTES((uint64_t) ((double) p->copy_blocks_size / time_spent * USEC_PER_SEC)));
+                else
+                        log_info("Block level copying and synchronization of partition %" PRIu64 " complete in %s.",
+                                 p->partno, FORMAT_TIMESPAN(time_spent, 0));
 
                 if (p->siblings[VERITY_HASH] && !partition_type_defer(&p->siblings[VERITY_HASH]->type)) {
                         r = partition_format_verity_hash(context, p->siblings[VERITY_HASH],
@@ -5494,7 +5509,7 @@ static int context_write_partition_table(Context *context) {
                 return 0;
         }
 
-        log_info("Applying changes.");
+        log_info("Applying changes to %s.", context->node);
 
         if (context->from_scratch && arg_empty != EMPTY_CREATE) {
                 /* Erase everything if we operate from scratch, except if the image was just created anyway, and thus is definitely empty. */
@@ -7023,7 +7038,7 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r != -ENOENT)
                                 log_warning_errno(r, "Search for pcrlock.json failed, assuming it does not exist: %m");
                 } else
-                        log_info("Automatically using pcrlock policy '%s'.", arg_tpm2_pcrlock);
+                        log_debug("Automatically using pcrlock policy '%s'.", arg_tpm2_pcrlock);
         }
 
         if (auto_public_key_pcr_mask) {
