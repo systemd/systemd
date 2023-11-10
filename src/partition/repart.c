@@ -4193,11 +4193,16 @@ static int context_copy_blocks(Context *context) {
                                 return r;
                 }
 
-                log_info("Copying in '%s' (%s) on block level into future partition %" PRIu64 ".",
-                         p->copy_blocks_path, FORMAT_BYTES(p->copy_blocks_size), p->partno);
+                if (p->copy_blocks_offset == UINT64_MAX)
+                        log_info("Copying in '%s' (%s) on block level into future partition %" PRIu64 ".",
+                                 p->copy_blocks_path, FORMAT_BYTES(p->copy_blocks_size), p->partno);
+                else {
+                        log_info("Copying in '%s' @ %" PRIu64 " (%s) on block level into future partition %" PRIu64 ".",
+                                 p->copy_blocks_path, p->copy_blocks_offset, FORMAT_BYTES(p->copy_blocks_size), p->partno);
 
-                if (p->copy_blocks_offset != UINT64_MAX && lseek(p->copy_blocks_fd, p->copy_blocks_offset, SEEK_SET) < 0)
-                        return log_error_errno(errno, "Failed to seek to copy blocks offset in %s: %m", p->copy_blocks_path);
+                        if (lseek(p->copy_blocks_fd, p->copy_blocks_offset, SEEK_SET) < 0)
+                                return log_error_errno(errno, "Failed to seek to copy blocks offset in %s: %m", p->copy_blocks_path);
+                }
 
                 r = copy_bytes(p->copy_blocks_fd, partition_target_fd(t), p->copy_blocks_size, COPY_REFLINK);
                 if (r < 0)
