@@ -35,6 +35,7 @@
 #include "stat-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "udev-util.h"
 #include "umask-util.h"
 #include "unit-def.h"
 #include "unit-name.h"
@@ -1133,20 +1134,6 @@ static int acquire_mount_options(sd_device *d) {
         return 1;
 }
 
-static const char *get_model(sd_device *d) {
-        const char *model;
-
-        assert(d);
-
-        if (sd_device_get_property_value(d, "ID_MODEL_FROM_DATABASE", &model) >= 0)
-                return model;
-
-        if (sd_device_get_property_value(d, "ID_MODEL", &model) >= 0)
-                return model;
-
-        return NULL;
-}
-
 static const char* get_label(sd_device *d) {
         const char *label;
 
@@ -1174,7 +1161,7 @@ static int acquire_mount_where(sd_device *d) {
 
                 name = get_label(d);
                 if (!name)
-                        name = get_model(d);
+                        (void) device_get_model_string(d, &name);
                 if (!name) {
                         const char *dn;
 
@@ -1240,12 +1227,12 @@ static int acquire_mount_where_for_loop_dev(sd_device *dev) {
 }
 
 static int acquire_description(sd_device *d) {
-        const char *model, *label;
+        const char *model = NULL, *label;
 
         if (arg_description)
                 return 0;
 
-        model = get_model(d);
+        (void) device_get_model_string(d, &model);
 
         label = get_label(d);
         if (!label)
@@ -1466,7 +1453,7 @@ static int list_devices(void) {
                                 break;
 
                         case COLUMN_MODEL:
-                                x = get_model(d);
+                                (void) device_get_model_string(d, &x);
                                 break;
 
                         case COLUMN_WWN:
