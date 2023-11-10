@@ -71,9 +71,10 @@ EFI_STATUS devicetree_install(struct devicetree_state *state, EFI_FILE *root_dir
         assert(root_dir);
         assert(name);
 
+        /* Note: The return value of this function is intentionally not checked. In cases where the system fw
+         * has no devicetree, we still want to load a given devicetree, so a NULL value from this function is
+         * fine. */
         state->orig = find_configuration_table(MAKE_GUID_PTR(EFI_DTB_TABLE));
-        if (!state->orig)
-                return EFI_UNSUPPORTED;
 
         err = root_dir->Open(root_dir, &handle, name, EFI_FILE_MODE_READ, EFI_FILE_READ_ONLY);
         if (err != EFI_SUCCESS)
@@ -112,9 +113,10 @@ EFI_STATUS devicetree_install_from_memory(
         assert(state);
         assert(dtb_buffer && dtb_length > 0);
 
+        /* Note: The return value of this function is intentionally not checked. In cases where the system fw
+         * has no devicetree, we still want to load a given devicetree, so a NULL value from this function is
+         * fine. */
         state->orig = find_configuration_table(MAKE_GUID_PTR(EFI_DTB_TABLE));
-        if (!state->orig)
-                return EFI_UNSUPPORTED;
 
         err = devicetree_allocate(state, dtb_length);
         if (err != EFI_SUCCESS)
