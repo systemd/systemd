@@ -665,7 +665,8 @@ static int dhcp_request_unreachable_route(
                 NetworkConfigSource source,
                 const union in_addr_union *server_address,
                 unsigned *counter,
-                route_netlink_handler_t callback) {
+                route_netlink_handler_t callback,
+                bool *configured) {
 
         _cleanup_(route_freep) Route *route = NULL;
         Route *existing;
@@ -677,6 +678,7 @@ static int dhcp_request_unreachable_route(
         assert(server_address);
         assert(counter);
         assert(callback);
+        assert(configured);
 
         if (prefixlen >= 64) {
                 log_link_debug(link, "Not adding a blocking route for DHCP delegated prefix %s since the prefix has length >= 64.",
@@ -699,7 +701,7 @@ static int dhcp_request_unreachable_route(
         route->lifetime_usec = lifetime_usec;
 
         if (route_get(link->manager, NULL, route, &existing) < 0)
-                link->dhcp6_configured = false;
+                *configured = false;
         else
                 route_unmark(existing);
 
@@ -720,7 +722,8 @@ static int dhcp4_request_unreachable_route(
 
         return dhcp_request_unreachable_route(link, addr, prefixlen, lifetime_usec,
                                               NETWORK_CONFIG_SOURCE_DHCP4, server_address,
-                                              &link->dhcp4_messages, dhcp4_unreachable_route_handler);
+                                              &link->dhcp4_messages, dhcp4_unreachable_route_handler,
+                                              &link->dhcp4_configured);
 }
 
 static int dhcp6_request_unreachable_route(
@@ -732,7 +735,8 @@ static int dhcp6_request_unreachable_route(
 
         return dhcp_request_unreachable_route(link, addr, prefixlen, lifetime_usec,
                                               NETWORK_CONFIG_SOURCE_DHCP6, server_address,
-                                              &link->dhcp6_messages, dhcp6_unreachable_route_handler);
+                                              &link->dhcp6_messages, dhcp6_unreachable_route_handler,
+                                              &link->dhcp6_configured);
 }
 
 static int dhcp_pd_prefix_add(Link *link, const struct in6_addr *prefix, uint8_t prefixlen) {
