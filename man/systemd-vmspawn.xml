@@ -177,6 +177,31 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-n</option></term>
+        <term><option>--network-tap</option></term>
+
+        <listitem>
+          <para>Create a TAP device to network with the virtual machine.</para>
+          <para>
+            Note: root privileges are required to use TAP networking.
+            Additionally requires a correctly setup
+            <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            to be running on the host to ensure the host interface is correctly configured.
+            The relevant <literal>.network</literal> file can be found at <filename>/usr/lib/systemd/network/80-vm-vt.network</filename>.
+          </para>
+          <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--network-user-mode</option></term>
+
+        <listitem><para>Use user mode networking with QEMU.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--firmware=</option><replaceable>PATH</replaceable></term>
 
         <listitem><para>Takes an absolute path, or a relative path beginning with
