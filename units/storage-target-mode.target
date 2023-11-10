@@ -10,7 +10,7 @@
 [Unit]
 Description=Storage Target Mode
 Documentation=man:systemd.special(7)
-Wants=systemd-storagetm.service systemd-udevd.service systemd-udev-trigger.service systemd-networkd.service systemd-network-generator.service systemd-journald.socket systemd-journald-dev-log.socket
+Wants=systemd-storagetm.service systemd-udevd.service systemd-udev-trigger.service systemd-networkd.service systemd-network-generator.service systemd-journald.socket systemd-journald-dev-log.socket plymouth-start.service
 Conflicts=rescue.service rescue.target
-After=systemd-storagetm.service systemd-udevd.service systemd-udev-trigger.service systemd-networkd.service systemd-network-generator.service systemd-journald.socket systemd-journald-dev-log.socket rescue.service rescue.target
+After=systemd-storagetm.service systemd-udevd.service systemd-udev-trigger.service systemd-networkd.service systemd-network-generator.service systemd-journald.socket systemd-journald-dev-log.socket plymouth-start.service rescue.service rescue.target
 AllowIsolate=yes
