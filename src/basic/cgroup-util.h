@@ -279,6 +279,7 @@ int cg_pid_get_path_shifted(pid_t pid, const char *cached_root, char **ret_cgrou
 int cg_pid_get_session(pid_t pid, char **ret_session);
 int cg_pid_get_owner_uid(pid_t pid, uid_t *ret_uid);
 int cg_pid_get_unit(pid_t pid, char **ret_unit);
+int cg_pidref_get_unit(const PidRef *pidref, char **ret);
 int cg_pid_get_user_unit(pid_t pid, char **ret_unit);
 int cg_pid_get_machine_name(pid_t pid, char **ret_machine);
 int cg_pid_get_slice(pid_t pid, char **ret_slice);
