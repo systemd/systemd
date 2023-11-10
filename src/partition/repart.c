@@ -5407,7 +5407,7 @@ static int context_write_partition_table(Context *context) {
                 return 0;
         }
 
-        log_info("Applying changes.");
+        log_info("Applying changes to %s.", context->node);
 
         if (context->from_scratch && arg_empty != EMPTY_CREATE) {
                 /* Erase everything if we operate from scratch, except if the image was just created anyway, and thus is definitely empty. */
