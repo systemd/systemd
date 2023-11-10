@@ -16,8 +16,10 @@
 #include "local-addresses.h"
 #include "loop-util.h"
 #include "main-func.h"
+#include "os-util.h"
 #include "parse-argument.h"
 #include "path-util.h"
+#include "plymouth-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "random-util.h"
@@ -219,7 +221,81 @@ static NvmeSubsystem *nvme_subsystem_destroy(NvmeSubsystem *s) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(NvmeSubsystem*, nvme_subsystem_destroy);
 
-static int nvme_subsystem_add(const char *node, int consumed_fd, NvmeSubsystem **ret) {
+static int nvme_subsystem_write_metadata(int subsystem_fd, sd_device *device) {
+        _cleanup_free_ char *image_id = NULL, *image_version = NULL, *os_id = NULL, *os_version = NULL, *combined_model = NULL, *synthetic_serial = NULL;
+        const char *hwmodel = NULL, *hwserial = NULL, *w;
+        int r;
+
+        assert(subsystem_fd >= 0);
+
+        (void) parse_os_release(
+                        /* root= */ NULL,
+                        "IMAGE_ID", &image_id,
+                        "IMAGE_VERSION", &image_version,
+                        "ID", &os_id,
+                        "VERSION_ID", &os_version);
+
+        if (device) {
+                (void) device_get_model_string(device, &hwmodel);
+                (void) sd_device_get_property_value(device, "ID_SERIAL_SHORT", &hwserial);
+        }
+
+        if (hwmodel && (image_id || os_id)) {
+                if (asprintf(&combined_model, "%s (%s)", hwmodel, image_id ?: os_id) < 0)
+                        return log_oom();
+                w = combined_model;
+        } else
+                w = hwmodel ?: image_id ?: os_id;
+        if (w) {
+                _cleanup_free_ char *truncated = strndup(w, 40); /* kernel refuses more than 40 chars (as per nvme spec) */
+
+                /* The default string stored in 'attr_model' is "Linux" btw. */
+                r = write_string_file_at(subsystem_fd, "attr_model", truncated, WRITE_STRING_FILE_DISABLE_BUFFER);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set model of subsystem to '%s', ignoring: %m", w);
+        }
+
+        w = image_version ?: os_version;
+        if (w) {
+                _cleanup_free_ char *truncated = strndup(w, 8); /* kernel refuses more than 8 chars (as per nvme spec) */
+                if (!truncated)
+                        return log_oom();
+
+                 /* The default string stored in 'attr_firmware' is `uname -r` btw, but truncated to 8 chars. */
+                r = write_string_file_at(subsystem_fd, "attr_firmware", truncated, WRITE_STRING_FILE_DISABLE_BUFFER);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set model of subsystem to '%s', ignoring: %m", truncated);
+        }
+
+        if (hwserial)
+                w = hwserial;
+        else {
+                sd_id128_t mid;
+
+                r = sd_id128_get_machine_app_specific(SD_ID128_MAKE(39,7f,4d,bf,1e,bf,46,6d,b3,cb,45,b8,0d,49,5b,c1), &mid);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to get machine ID, ignoring: %m");
+                else {
+                        if (asprintf(&synthetic_serial, SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(mid)) < 0)
+                                return log_oom();
+                        w = synthetic_serial;
+                }
+        }
+        if (w) {
+                _cleanup_free_ char *truncated = strndup(w, 20); /* kernel refuses more than 20 chars (as per nvme spec) */
+                if (!truncated)
+                        return log_oom();
+
+                r = write_string_file_at(subsystem_fd, "attr_serial", truncated, WRITE_STRING_FILE_DISABLE_BUFFER);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set serial of subsystem to '%s', ignoring: %m", truncated);
+        }
+
+        return 0;
+}
+
+static int nvme_subsystem_add(const char *node, int consumed_fd, sd_device *device, NvmeSubsystem **ret) {
+        _cleanup_(sd_device_unrefp) sd_device *allocated_device = NULL;
         _cleanup_close_ int fd = consumed_fd; /* always take possession of the fd */
         int r;
 
@@ -245,7 +321,15 @@ static int nvme_subsystem_add(const char *node, int consumed_fd, NvmeSubsystem *
         struct stat st;
         if (fstat(fd, &st) < 0)
                 return log_error_errno(errno, "Failed to fstat '%s': %m", node);
-        if (!S_ISBLK(st.st_mode)) {
+        if (S_ISBLK(st.st_mode)) {
+                if (!device) {
+                        r = sd_device_new_from_devnum(&allocated_device, 'b', st.st_dev);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get device information for device '%s': %m", node);
+
+                        device = allocated_device;
+                }
+        } else {
                 r = stat_verify_regular(&st);
                 if (r < 0)
                         return log_error_errno(r, "Not a block device or regular file, refusing: %s", node);
@@ -269,6 +353,8 @@ static int nvme_subsystem_add(const char *node, int consumed_fd, NvmeSubsystem *
         r = write_string_file_at(subsystem_fd, "attr_allow_any_host", "1", WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return log_error_errno(r, "Failed to set 'attr_allow_any_host' flag: %m");
+
+        (void) nvme_subsystem_write_metadata(subsystem_fd, device);
 
         _cleanup_close_ int namespace_fd = -EBADF;
         namespace_fd = open_mkdir_at(subsystem_fd, "namespaces/1", O_EXCL|O_RDONLY|O_CLOEXEC, 0777);
@@ -568,7 +654,41 @@ static int nvme_subsystem_report(NvmeSubsystem *subsystem, NvmePort *ipv4, NvmeP
         return 0;
 }
 
-static int nvme_port_report(NvmePort *port) {
+static int plymouth_send_text(const char *text) {
+        _cleanup_free_ char *plymouth_message = NULL;
+        int c, r;
+
+        assert(text);
+
+        c = asprintf(&plymouth_message,
+                     "M\x02%c%s%c"
+                     "A%c", /* pause spinner */
+                     (int) strlen(text) + 1, text, '\x00',
+                     '\x00');
+        if (c < 0)
+                return log_oom();
+
+        r = plymouth_send_raw(plymouth_message, c, SOCK_NONBLOCK);
+        if (r < 0)
+                return log_full_errno(ERRNO_IS_NO_PLYMOUTH(r) ? LOG_DEBUG : LOG_WARNING, r,
+                                      "Failed to communicate with plymouth, ignoring: %m");
+
+        return 0;
+}
+
+static int plymouth_notify_port(NvmePort *port, struct local_address *a) {
+        _cleanup_free_ char *m = NULL;
+
+        if (!port || !a)
+                return 0;
+
+        if (asprintf(&m, "nvme connect-all -t tcp -a %s -s %" PRIu16, IN_ADDR_TO_STRING(a->family, &a->address), port->portnr) < 0)
+                return log_oom();
+
+        return plymouth_send_text(m);
+}
+
+static int nvme_port_report(NvmePort *port, bool *plymouth_done) {
         if (!port)
                 return 0;
 
@@ -589,6 +709,11 @@ static int nvme_port_report(NvmePort *port) {
                          special_glyph(a >= addresses + (n_addresses - 1) ? SPECIAL_GLYPH_TREE_RIGHT : SPECIAL_GLYPH_TREE_BRANCH),
                          IN_ADDR_TO_STRING(a->family, &a->address),
                          port->portnr);
+
+        if (plymouth_done && !*plymouth_done) {
+                (void) plymouth_notify_port(port, n_addresses > 0 ? addresses : NULL);
+                *plymouth_done = n_addresses > 0;
+        }
 
         return 0;
 }
@@ -786,7 +911,7 @@ static int device_added(Context *c, sd_device *device) {
         }
 
         _cleanup_(nvme_subsystem_destroyp) NvmeSubsystem *s = NULL;
-        r = nvme_subsystem_add(devname, TAKE_FD(fd), &s);
+        r = nvme_subsystem_add(devname, TAKE_FD(fd), device, &s);
         if (r < 0)
                 return r;
 
@@ -861,8 +986,15 @@ static int on_display_refresh(sd_event_source *s, uint64_t usec, void *userdata)
         if (isatty(STDERR_FILENO) > 0)
                 fputs(ANSI_HOME_CLEAR, stderr);
 
-        (void) nvme_port_report(c->ipv4_port);
-        (void) nvme_port_report(c->ipv6_port);
+        /* If we have both IPv4 and IPv6, we display IPv4 info via Plymouth, since it doesn't have much
+         * space, and IPv4 is simply shorter (and easy to type off screen) */
+
+        bool plymouth_done = false;
+        (void) nvme_port_report(c->ipv4_port, &plymouth_done);
+        (void) nvme_port_report(c->ipv6_port, &plymouth_done);
+
+        if (!plymouth_done)
+                (void) plymouth_send_text("Network disconnected.");
 
         NvmeSubsystem *i;
         HASHMAP_FOREACH(i, c->subsystems)
@@ -927,7 +1059,7 @@ static int run(int argc, char* argv[]) {
         STRV_FOREACH(i, arg_devices) {
                 _cleanup_(nvme_subsystem_destroyp) NvmeSubsystem *subsys = NULL;
 
-                r = nvme_subsystem_add(*i, -EBADF, &subsys);
+                r = nvme_subsystem_add(*i, -EBADF, /* device= */ NULL, &subsys);
                 if (r < 0)
                         return r;
 
@@ -946,15 +1078,19 @@ static int run(int argc, char* argv[]) {
         if (r < 0)
                 return r;
 
-        nvme_port_report(context.ipv4_port);
+        bool plymouth_done = false;
+        nvme_port_report(context.ipv4_port, &plymouth_done);
 
         if (socket_ipv6_is_enabled()) {
                 r = nvme_port_add(arg_nqn, AF_INET6, &context.ipv6_port);
                 if (r < 0)
                         return r;
 
-                nvme_port_report(context.ipv6_port);
+                nvme_port_report(context.ipv6_port, &plymouth_done);
         }
+
+        if (!plymouth_done)
+                (void) plymouth_send_text("Network disconnected.");
 
         NvmeSubsystem *i;
         HASHMAP_FOREACH(i, context.subsystems) {
