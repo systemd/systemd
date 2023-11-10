@@ -9,14 +9,14 @@
 
 #include "battery-util.h"
 #include "build.h"
-#include "constants.h"
 #include "errno-util.h"
-#include "glyph-util.h"
 #include "fd-util.h"
+#include "glyph-util.h"
 #include "io-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "parse-util.h"
+#include "plymouth-util.h"
 #include "pretty-print.h"
 #include "proc-cmdline.h"
 #include "socket-util.h"
@@ -51,14 +51,8 @@ static int help(void) {
         return 0;
 }
 
-static bool ERRNO_IS_NO_PLYMOUTH(int r) {
-        return IN_SET(abs(r), EAGAIN, ENOENT) || ERRNO_IS_DISCONNECT(r);
-}
-
 static int plymouth_send_message(const char *mode, const char *message) {
-        static const union sockaddr_union sa = PLYMOUTH_SOCKET;
         _cleanup_free_ char *plymouth_message = NULL;
-        _cleanup_close_ int fd = -EBADF;
         int c, r;
 
         assert(mode);
@@ -72,20 +66,11 @@ static int plymouth_send_message(const char *mode, const char *message) {
         if (c < 0)
                 return log_oom();
 
-        /* We set SOCK_NONBLOCK here so that we rather drop the
-         * message than wait for plymouth */
-        fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0);
-        if (fd < 0)
-                return log_warning_errno(errno, "socket() failed: %m");
-
-        if (connect(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un)) < 0)
-                return log_full_errno(ERRNO_IS_NO_PLYMOUTH(errno) ? LOG_DEBUG : LOG_WARNING, errno,
-                                      "Failed to connect to plymouth: %m");
-
-        r = loop_write(fd, plymouth_message, c);
+        /* We set SOCK_NONBLOCK here so that we rather drop the message than wait for plymouth */
+        r = plymouth_send_raw(plymouth_message, c, SOCK_NONBLOCK);
         if (r < 0)
                 return log_full_errno(ERRNO_IS_NO_PLYMOUTH(r) ? LOG_DEBUG : LOG_WARNING, r,
-                                      "Failed to write to plymouth: %m");
+                                      "Failed to communicate with plymouth: %m");
 
         return 0;
 }
