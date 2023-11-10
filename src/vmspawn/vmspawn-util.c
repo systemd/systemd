@@ -20,6 +20,7 @@
 #include "siphash24.h"
 #include "socket-util.h"
 #include "sort-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "vmspawn-util.h"
@@ -34,6 +35,8 @@ OvmfConfig* ovmf_config_free(OvmfConfig *config) {
         free(config->vars_format);
         return mfree(config);
 }
+
+DEFINE_STRING_TABLE_LOOKUP(qemu_network_stack, QemuNetworkStack);
 
 int qemu_check_kvm_support(void) {
         if (access("/dev/kvm", F_OK) >= 0)
