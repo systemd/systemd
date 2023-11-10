@@ -4179,6 +4179,8 @@ static int context_copy_blocks(Context *context) {
                 assert(p->copy_blocks_size != UINT64_MAX);
                 assert(p->new_size >= p->copy_blocks_size + (p->encrypt != ENCRYPT_OFF ? LUKS2_METADATA_KEEP_FREE : 0));
 
+                usec_t start_timestamp = now(CLOCK_MONOTONIC);
+
                 r = partition_target_prepare(context, p, p->new_size,
                                              /*need_path=*/ p->encrypt != ENCRYPT_OFF || p->siblings[VERITY_HASH],
                                              &t);
@@ -4212,6 +4214,14 @@ static int context_copy_blocks(Context *context) {
                 r = partition_target_sync(context, p, t);
                 if (r < 0)
                         return r;
+
+                usec_t time_spent = usec_sub_unsigned(now(CLOCK_MONOTONIC), start_timestamp);
+                if (time_spent > 250 * USEC_PER_MSEC) /* Show throughput, but not if we spent too little time on it, since it's just noise then */
+                        log_info("Block level copying and synchronization of partition %" PRIu64 " complete in %s (%s/s).",
+                                 p->partno, FORMAT_TIMESPAN(time_spent, 0), FORMAT_BYTES((uint64_t) ((double) p->copy_blocks_size / time_spent * USEC_PER_SEC)));
+                else
+                        log_info("Block level copying and synchronization of partition %" PRIu64 " complete in %s.",
+                                 p->partno, FORMAT_TIMESPAN(time_spent, 0));
 
                 if (p->siblings[VERITY_HASH] && !partition_type_defer(&p->siblings[VERITY_HASH]->type)) {
                         r = partition_format_verity_hash(context, p->siblings[VERITY_HASH],
