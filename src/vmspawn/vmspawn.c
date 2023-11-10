@@ -24,7 +24,7 @@
 #include "kernel-image.h"
 #include "log.h"
 #include "machine-credential.h"
-#include "macro-fundamental.h"
+#include "macro.h"
 #include "main-func.h"
 #include "mkdir.h"
 #include "pager.h"
@@ -39,7 +39,7 @@
 #include "sd-id128.h"
 #include "signal-util.h"
 #include "socket-util.h"
-#include "string-util-fundamental.h"
+#include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
 #include "unit-name.h"
@@ -60,6 +60,7 @@ static int arg_tpm = -1;
 static char *arg_linux = NULL;
 static char **arg_initrds = NULL;
 static bool arg_qemu_gui = false;
+static QemuNetworkStack arg_qemu_net = QEMU_NET_NONE;
 static int arg_secure_boot = -1;
 static MachineCredentialContext arg_credentials = {};
 static SettingsMask arg_settings_mask = 0;
@@ -104,6 +105,8 @@ static int help(void) {
                "     --linux=PATH           Specify the linux kernel for direct kernel boot\n"
                "     --initrd=PATH          Specify the initrd for direct kernel boot\n"
                "     --qemu-gui             Start QEMU in graphical mode\n"
+               "     --qemu-net=user|tap|none\n"
+               "                            Configure QEMU's networking stack\n"
                "     --secure-boot=BOOL     Configure whether to search for firmware which\n"
                "                            supports Secure Boot\n"
                "     --firmware=PATH|list   Select firmware definition file (or list available)\n"
@@ -140,6 +143,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_LINUX,
                 ARG_INITRD,
                 ARG_QEMU_GUI,
+                ARG_QEMU_NET,
                 ARG_SECURE_BOOT,
                 ARG_SET_CREDENTIAL,
                 ARG_LOAD_CREDENTIAL,
@@ -162,6 +166,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "linux",           required_argument, NULL, ARG_LINUX           },
                 { "initrd",          required_argument, NULL, ARG_INITRD          },
                 { "qemu-gui",        no_argument,       NULL, ARG_QEMU_GUI        },
+                { "qemu-net",        required_argument, NULL, ARG_QEMU_NET        },
                 { "secure-boot",     required_argument, NULL, ARG_SECURE_BOOT     },
                 { "set-credential",  required_argument, NULL, ARG_SET_CREDENTIAL  },
                 { "load-credential", required_argument, NULL, ARG_LOAD_CREDENTIAL },
@@ -279,6 +284,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_QEMU_GUI:
                         arg_qemu_gui = true;
+                        break;
+
+                case ARG_QEMU_NET:
+                        arg_qemu_net = qemu_network_stack_from_string(optarg);
+                        if (arg_qemu_net < 0)
+                                return log_error_errno(arg_qemu_net, "Failed to parse --qemu-net=%s: %m", optarg);
                         break;
 
                 case ARG_SECURE_BOOT:
@@ -708,8 +719,7 @@ static int run_virtual_machine(void) {
                 "-smp", arg_qemu_smp ?: "1",
                 "-m", mem,
                 "-object", "rng-random,filename=/dev/urandom,id=rng0",
-                "-device", "virtio-rng-pci,rng=rng0,id=rng-device0",
-                "-nic", "user,model=virtio-net-pci"
+                "-device", "virtio-rng-pci,rng=rng0,id=rng-device0"
         );
         if (!cmdline)
                 return log_oom();
@@ -724,6 +734,25 @@ static int run_virtual_machine(void) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to create runtime directory: %m");
         }
+
+        switch (arg_qemu_net) {
+        case QEMU_NET_NONE:
+                r = strv_extend_many(&cmdline, "-nic", "none");
+                break;
+        case QEMU_NET_USER:
+                r = strv_extend_many(&cmdline, "-nic", "user,model=virtio-net-pci");
+                break;
+        case QEMU_NET_TAP:
+                if (getuid() != 0)
+                        return log_error_errno(SYNTHETIC_ERRNO(EPERM), "--qemu-net=tap requires root privileges, aborting.");
+
+                r = strv_extend_many(&cmdline, "-nic", "tap,script=no,model=virtio-net-pci");
+                break;
+        default:
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid state for arg_qemu_net (%d), aborting.", arg_qemu_net);
+        }
+        if (r < 0)
+                return log_oom();
 
         bool use_vsock = arg_qemu_vsock > 0 && ARCHITECTURE_SUPPORTS_SMBIOS;
         if (arg_qemu_vsock < 0) {
