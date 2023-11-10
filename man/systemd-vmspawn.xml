@@ -166,6 +166,19 @@
         </varlistentry>
 
         <varlistentry>
+          <term><option>--qemu-net=</option><replaceable>user|tap|none</replaceable></term>
+
+          <listitem><para>Configure QEMU's networking stack</para>
+          <para></para>
+          <para>If <literal>user</literal> networking is selected QEMU user mode networking.
+          If <literal>tap</literal> networking is selected a TAP device will be setup for the VM to use.
+          If <literal>none</literal> is selected this disables the default networking QEMU sets up.
+          By default <literal>none</literal> is selected.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><option>--firmware=</option><replaceable>PATH</replaceable></term>
 
           <listitem><para>Takes an absolute path, or a relative path beginning with
