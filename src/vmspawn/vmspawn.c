@@ -20,7 +20,7 @@
 #include "hostname-util.h"
 #include "log.h"
 #include "machine-credential.h"
-#include "macro-fundamental.h"
+#include "macro.h"
 #include "main-func.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -32,7 +32,7 @@
 #include "sd-event.h"
 #include "signal-util.h"
 #include "socket-util.h"
-#include "string-util-fundamental.h"
+#include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
 #include "vmspawn-scope.h"
@@ -51,6 +51,7 @@ static int arg_vtpm = -1;
 static char *arg_kernel = NULL;
 static char **arg_initrds = NULL;
 static bool arg_qemu_gui = false;
+static QemuNetworkStack arg_qemu_net = QEMU_NET_USER;
 static int arg_secure_boot = -1;
 static MachineCredentialContext arg_credentials = {};
 static SettingsMask arg_settings_mask = 0;
@@ -94,6 +95,8 @@ static int help(void) {
                "     --kernel=PATH          Specify the kernel for direct kernel boot\n"
                "     --initrd=PATH          Specify the initrd for direct kernel boot\n"
                "     --qemu-gui             Start QEMU in graphical mode\n"
+               "     --qemu-net=user|tap|none\n"
+               "                            Configure QEMU's networking stack\n"
                "     --secure-boot=BOOL     Configure whether to search for firmware which\n"
                "                            supports Secure Boot\n\n"
                "%3$sCredentials:%4$s\n"
@@ -126,6 +129,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_KERNEL,
                 ARG_INITRD,
                 ARG_QEMU_GUI,
+                ARG_QEMU_NET,
                 ARG_SECURE_BOOT,
                 ARG_SET_CREDENTIAL,
                 ARG_LOAD_CREDENTIAL,
@@ -146,6 +150,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "kernel",          required_argument, NULL, ARG_KERNEL          },
                 { "initrd",          required_argument, NULL, ARG_INITRD          },
                 { "qemu-gui",        no_argument,       NULL, ARG_QEMU_GUI        },
+                { "qemu-net",        required_argument, NULL, ARG_QEMU_NET        },
                 { "secure-boot",     required_argument, NULL, ARG_SECURE_BOOT     },
                 { "set-credential",  required_argument, NULL, ARG_SET_CREDENTIAL  },
                 { "load-credential", required_argument, NULL, ARG_LOAD_CREDENTIAL },
@@ -257,6 +262,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_QEMU_GUI:
                         arg_qemu_gui = true;
+                        break;
+
+                case ARG_QEMU_NET:
+                        r = parse_qemu_network_stack(optarg, &arg_qemu_net);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --qemu-net=%s: %m", optarg);
                         break;
 
                 case ARG_SECURE_BOOT:
@@ -655,10 +666,25 @@ static int run_virtual_machine(void) {
                 "-smp", arg_qemu_smp ?: "1",
                 "-m", mem,
                 "-object", "rng-random,filename=/dev/urandom,id=rng0",
-                "-device", "virtio-rng-pci,rng=rng0,id=rng-device0",
-                "-nic", "user,model=virtio-net-pci"
+                "-device", "virtio-rng-pci,rng=rng0,id=rng-device0"
         );
         if (!cmdline)
+                return log_oom();
+
+        switch (arg_qemu_net) {
+        case QEMU_NET_NONE:
+                r = strv_extend_strv(&cmdline, STRV_MAKE("-nic", "none"), /* filter_duplicates= */ false);
+                break;
+        case QEMU_NET_USER:
+                r = strv_extend_strv(&cmdline, STRV_MAKE("-nic", "user,model=virtio-net-pci"), /* filter_duplicates= */ false);
+                break;
+        case QEMU_NET_TAP:
+                r = strv_extend_strv(&cmdline, STRV_MAKE("-nic", "tap,script=no,model=virtio-net-pci"), /* filter_duplicates= */ false);
+                break;
+        default:
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid state for arg_qemu_net (%d), aborting.", arg_qemu_net);
+        }
+        if (r < 0)
                 return log_oom();
 
         bool use_vsock = arg_qemu_vsock > 0 && ARCHITECTURE_SUPPORTS_SMBIOS;

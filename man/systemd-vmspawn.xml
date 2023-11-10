@@ -166,6 +166,18 @@
         </varlistentry>
 
         <varlistentry>
+          <term><option>--qemu-net=</option><replaceable>user|tap|none</replaceable></term>
+
+          <listitem><para>Configure QEMU's networking stack</para>
+          <para></para>
+          <para>By default <literal>user</literal> networking is used.
+          If <literal>tap</literal> networking is selected a TAP device will be setup for the VM to use.
+          If <literal>none</literal> is selected this disables the default networking QEMU sets up.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><option>--secure-boot=</option><replaceable>BOOL</replaceable></term>
 
           <listitem><para>Configure whether to search for firmware which supports Secure Boot.</para>
