@@ -3,7 +3,6 @@
 #include <getopt.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <sys/wait.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -27,6 +26,7 @@
 #include "path-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
+#include "rm-rf.h"
 #include "sd-event.h"
 #include "signal-util.h"
 #include "socket-util.h"
@@ -43,17 +43,20 @@ static uint64_t arg_qemu_mem = 2ULL * 1024ULL * 1024ULL * 1024ULL;
 static int arg_qemu_kvm = -1;
 static int arg_qemu_vsock = -1;
 static uint64_t arg_vsock_cid = UINT64_MAX;
+static int arg_qemu_swtpm = -1;
+static char *arg_qemu_kernel = NULL;
 static bool arg_qemu_gui = false;
 static int arg_secure_boot = -1;
 static MachineCredential *arg_credentials = NULL;
 static size_t arg_n_credentials = 0;
 static SettingsMask arg_settings_mask = 0;
-static char **arg_parameters = NULL;
+static char **arg_kernel_cmdline_extra = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_machine, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_qemu_smp, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_parameters, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_qemu_kernel, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline_extra, strv_freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -79,6 +82,8 @@ static int help(void) {
                "     --qemu-kvm=BOOL        Configure whether to use KVM or not\n"
                "     --qemu-vsock=BOOL      Configure whether to use qemu with a vsock or not\n"
                "     --vsock-cid=           Specify the CID to use for the qemu guest's vsock\n"
+               "     --qemu-swtpm=BOOL      Configure whether to use qemu with swtpm or not\n"
+               "     --qemu-kernel=BOOL     Specify the kernel for qemu direct kernel boot\n"
                "     --qemu-gui             Start QEMU in graphical mode\n"
                "     --secure-boot=BOOL     Configure whether to search for firmware which\n"
                "                            supports Secure Boot\n\n"
@@ -110,6 +115,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_QEMU_KVM,
                 ARG_QEMU_VSOCK,
                 ARG_VSOCK_CID,
+                ARG_QEMU_SWTPM,
+                ARG_QEMU_KERNEL,
                 ARG_QEMU_GUI,
                 ARG_SECURE_BOOT,
                 ARG_SET_CREDENTIAL,
@@ -127,6 +134,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "qemu-kvm",        required_argument, NULL, ARG_QEMU_KVM        },
                 { "qemu-vsock",      required_argument, NULL, ARG_QEMU_VSOCK      },
                 { "vsock-cid",       required_argument, NULL, ARG_VSOCK_CID       },
+                { "qemu-swtpm",      required_argument, NULL, ARG_QEMU_SWTPM      },
+                { "qemu-kernel",     required_argument, NULL, ARG_QEMU_KERNEL      },
                 { "qemu-gui",        no_argument,       NULL, ARG_QEMU_GUI        },
                 { "secure-boot",     required_argument, NULL, ARG_SECURE_BOOT     },
                 { "set-credential",  required_argument, NULL, ARG_SET_CREDENTIAL  },
@@ -213,6 +222,18 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_QEMU_SWTPM:
+                        r = parse_tristate(optarg, &arg_qemu_swtpm);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --qemu-swtpm=%s: %m", optarg);
+                        break;
+
+                case ARG_QEMU_KERNEL:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_qemu_kernel);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case ARG_QEMU_GUI:
                         arg_qemu_gui = true;
                         break;
@@ -252,9 +273,9 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (argc > optind) {
-                strv_free(arg_parameters);
-                arg_parameters = strv_copy(argv + optind);
-                if (!arg_parameters)
+                strv_free(arg_kernel_cmdline_extra);
+                arg_kernel_cmdline_extra = strv_copy(argv + optind);
+                if (!arg_kernel_cmdline_extra)
                         return log_oom();
 
                 arg_settings_mask |= SETTING_START_MODE;
@@ -438,6 +459,94 @@ static int cmdline_add_vsock(char ***cmdline, int vsock_fd) {
         return 0;
 }
 
+static int start_swtpm(const char *swtpm, char **ret_state_tempdir, int *ret_sock_fd, pid_t *ret_pid) {
+        _cleanup_(rm_rf_physical_and_freep) char *state = NULL;
+        _cleanup_strv_free_ char **cmdline = NULL;
+        _cleanup_close_ int sock_fd = -EBADF;
+        _cleanup_free_ char *sock_path = NULL;
+        int r;
+        union sockaddr_union sa;
+
+        assert(swtpm);
+        assert(ret_state_tempdir);
+        assert(ret_sock_fd);
+        assert(ret_pid);
+
+        r = mkdtemp_malloc("/tmp/vmspawn-swtpm-XXXXXX", &state);
+        if (r < 0)
+                return r;
+
+        /* remove SOCK_CLOEXEC when starting swtpm */
+        sock_fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
+        if (sock_fd < 0)
+                return sock_fd;
+
+        sock_path = strjoin(state, "/sock");
+        if (!sock_path)
+                return log_oom();
+
+        r = sockaddr_un_set_path(&sa.un, sock_path);
+        if (r < 0)
+                return r;
+
+        r = bind(sock_fd, &sa.un, r);
+        if (r < 0)
+                return r;
+
+        r = listen(sock_fd, SOMAXCONN_DELUXE);
+        if (r < 0)
+                return r;
+
+        cmdline = strv_new(
+            "swtpm",
+            "socket",
+            "--tpm2",
+            "--tpmstate"
+        );
+        if (!cmdline)
+                return log_oom();
+
+        r = strv_extendf(&cmdline, "dir=%s", state);
+        if (r < 0)
+                return log_oom();
+
+        r = strv_extend(&cmdline, "--ctrl");
+        if (r < 0)
+                return log_oom();
+
+        r = strv_extendf(&cmdline, "type=unixio,fd=%d", sock_fd);
+        if (r < 0)
+                return log_oom();
+
+        _cleanup_(sigkill_nowaitp) pid_t child_pid = 0;
+        r = safe_fork_full(
+                        swtpm,
+                        NULL,
+                        &sock_fd, 1, /* pass the socket fd to swtpm */
+                        FORK_CLOEXEC_OFF,
+                        &child_pid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to fork off %s: %m", swtpm);
+        if (r == 0) {
+                /* set TERM and LANG if they are missing */
+                if (setenv("TERM", "vt220", 0) < 0)
+                        return log_oom();
+
+                if (setenv("LANG", "C.UTF-8", 0) < 0)
+                        return log_oom();
+
+                execve(swtpm, cmdline, environ);
+                log_error_errno(errno, "Failed to execve %s: %m", swtpm);
+                _exit(EXIT_FAILURE);
+        }
+
+        *ret_state_tempdir = TAKE_PTR(state);
+        *ret_sock_fd = TAKE_FD(sock_fd);
+        *ret_pid = TAKE_PID(child_pid);
+
+        return 0;
+}
+
 static int run_virtual_machine(void) {
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
         _cleanup_strv_free_ char **cmdline = NULL;
@@ -469,6 +578,10 @@ static int run_virtual_machine(void) {
                 machine = strjoin("type=q35,accel=", accel, ",smm=", on_off(ovmf_config->supports_sb));
         if (!machine)
                 return log_oom();
+
+        if (arg_qemu_kernel && access(arg_qemu_kernel, F_OK) < 0)
+                return log_error_errno(errno, "Kernel not found at %s: %m", arg_qemu_kernel);
+
 
         r = find_qemu_binary(&qemu_binary);
         if (r == -EOPNOTSUPP)
@@ -606,6 +719,12 @@ static int run_virtual_machine(void) {
                         return log_oom();
         }
 
+        if (arg_qemu_kernel) {
+                r = strv_extend_strv(&cmdline, STRV_MAKE("-kernel", arg_qemu_kernel), /* filter_duplicates= */ false);
+                if (r < 0)
+                        return log_oom();
+        }
+
         r = strv_extend(&cmdline, "-drive");
         if (r < 0)
                 return log_oom();
@@ -621,21 +740,78 @@ static int run_virtual_machine(void) {
         if (r < 0)
                 return log_oom();
 
-        if (!strv_isempty(arg_parameters)) {
-                if (ARCHITECTURE_SUPPORTS_SMBIOS) {
-                        _cleanup_free_ char *kcl = strv_join(arg_parameters, " ");
-                        if (!kcl)
-                                return log_oom();
+        _cleanup_free_ char *swtpm = NULL;
+        if (arg_qemu_swtpm != 0) {
+                r = find_executable("swtpm", &swtpm);
+                if (r < 0) {
+                        /* log if the user asked for swtpm and we cannot find it */
+                        if (arg_qemu_swtpm > 0)
+                                return log_error_errno(r, "Failed to find swtpm binary: %m");
+                        /* also log if we got an error other than ENOENT from find_executable */
+                        else if (r != -ENOENT && arg_qemu_swtpm < 0)
+                                return log_error_errno(r, "Error detecting swtpm: %m");
+                }
+        }
 
-                        r = strv_extend(&cmdline, "-smbios");
+        _cleanup_(rm_rf_physical_and_freep) char *swtpm_state_tempdir = NULL;
+        _cleanup_close_ int swtpm_sock_fd = -EBADF;
+        _cleanup_(sigkill_waitp) pid_t swtpm_pid = 0;
+        if (swtpm) {
+                r = start_swtpm(swtpm, &swtpm_state_tempdir, &swtpm_sock_fd, &swtpm_pid);
+                if (r < 0) {
+                        /* only bail if the user asked for a swtpm */
+                        if (arg_qemu_swtpm > 0)
+                                return log_error_errno(r, "Failed to start swtpm: %m");
+                        log_debug_errno(r, "Failed to start swtpm: %m");
+                }
+
+                r = strv_extend(&cmdline, "-chardev");
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extendf(&cmdline, "socket,id=chrtpm,path=%s/sock", swtpm_state_tempdir);
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extend_strv(&cmdline, STRV_MAKE("-tpmdev", "emulator,id=tpm0,chardev=chrtpm"),
+                                /* filter_duplicates= */ false);
+                if (r < 0)
+                        return log_oom();
+
+                if (native_architecture() == ARCHITECTURE_X86_64) {
+                        r = strv_extend_strv(&cmdline, STRV_MAKE("-device", "tpm-tis,tpmdev=tpm0"),
+                                        /* filter_duplicates= */ false);
                         if (r < 0)
                                 return log_oom();
-
-                        r = strv_extendf(&cmdline, "type=11,value=io.systemd.stub.kernel-cmdline-extra=%s", kcl);
+                } else if (IN_SET(native_architecture(), ARCHITECTURE_ARM64, ARCHITECTURE_ARM64_BE)) {
+                        r = strv_extend_strv(&cmdline, STRV_MAKE("-device", "tpm-tis-device,tpmdev=tpm0"),
+                                        /* filter_duplicates= */ false);
                         if (r < 0)
                                 return log_oom();
-                } else
-                        log_warning("Cannot append extra args to kernel cmdline, native architecture doesn't support SMBIOS");
+                }
+        }
+
+        if (!strv_isempty(arg_kernel_cmdline_extra)) {
+                _cleanup_free_ char *kcl = strv_join(arg_kernel_cmdline_extra, " ");
+                if (!kcl)
+                        return log_oom();
+
+                if (arg_qemu_kernel) {
+                        r = strv_extend_strv(&cmdline, STRV_MAKE("-append", kcl), /* filter_duplicates= */ false);
+                        if (r < 0)
+                                log_oom();
+                } else {
+                        if (ARCHITECTURE_SUPPORTS_SMBIOS) {
+                                r = strv_extend(&cmdline, "-smbios");
+                                if (r < 0)
+                                        return log_oom();
+
+                                r = strv_extendf(&cmdline, "type=11,value=io.systemd.stub.kernel-cmdline-extra=%s", kcl);
+                                if (r < 0)
+                                        return log_oom();
+                        } else
+                                log_warning("Cannot append extra args to kernel cmdline, native architecture doesn't support SMBIOS");
+                }
         }
 
         if (use_vsock) {
@@ -679,7 +855,6 @@ static int run_virtual_machine(void) {
                 log_error_errno(errno, "Failed to execve %s: %m", qemu_binary);
                 _exit(EXIT_FAILURE);
         }
-
 
         int exit_status = INT_MAX;
         if (use_vsock) {
