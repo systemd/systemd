@@ -131,7 +131,7 @@ Session* session_free(Session *s);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Session *, session_free);
 
 void session_set_user(Session *s, User *u);
-int session_set_leader_consume(Session *s, PidRef _leader);
+int session_set_leader_consume(Session *s, PidRef leader);
 bool session_may_gc(Session *s, bool drop_not_started);
 void session_add_to_gc_queue(Session *s);
 int session_activate(Session *s);
