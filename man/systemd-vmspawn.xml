@@ -177,6 +177,25 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--qemu-net=</option><replaceable>user|tap|none</replaceable></term>
+
+        <listitem><para>Configure QEMU's networking stack</para>
+
+        <para>If <literal>user</literal> networking is selected QEMU user mode networking.
+        If <literal>tap</literal> networking is selected a TAP device will be setup for the VM to use.
+        If <literal>none</literal> is selected this disables the default networking QEMU sets up.
+        By default <literal>none</literal> is selected.</para>
+
+        <para>Note: root privileges are required to use <literal>tap</literal> networking.
+        Additionally requires a correctly setup
+        <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        to be running on the host to ensure the host interface is correctly configured.
+        The relevant <literal>.network</literal> file can be found at <filename>/usr/lib/systemd/network/80-vm-vt.network</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--firmware=</option><replaceable>PATH</replaceable></term>
 
         <listitem><para>Takes an absolute path, or a relative path beginning with
