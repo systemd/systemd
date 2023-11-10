@@ -14,12 +14,13 @@
 #include "networkd-link.h"
 #include "networkd-manager.h"
 #include "networkd-neighbor.h"
-#include "networkd-nexthop.h"
 #include "networkd-network.h"
+#include "networkd-nexthop.h"
 #include "networkd-route-util.h"
 #include "networkd-route.h"
 #include "networkd-routing-policy-rule.h"
 #include "sort-util.h"
+#include "udev-util.h"
 #include "user-util.h"
 #include "wifi-util.h"
 
@@ -407,11 +408,8 @@ static int device_append_json(sd_device *device, JsonVariant **v) {
 
         (void) sd_device_get_property_value(device, "ID_PATH", &path);
 
-        if (sd_device_get_property_value(device, "ID_VENDOR_FROM_DATABASE", &vendor) < 0)
-                (void) sd_device_get_property_value(device, "ID_VENDOR", &vendor);
-
-        if (sd_device_get_property_value(device, "ID_MODEL_FROM_DATABASE", &model) < 0)
-                (void) sd_device_get_property_value(device, "ID_MODEL", &model);
+        (void) device_get_vendor_string(device, &vendor);
+        (void) device_get_model_string(device, &model);
 
         return json_variant_merge_objectb(
                         v,

@@ -69,6 +69,7 @@
 #include "strv.h"
 #include "strxcpyx.h"
 #include "terminal-util.h"
+#include "udev-util.h"
 #include "unit-def.h"
 #include "verbs.h"
 #include "virt.h"
@@ -1722,12 +1723,8 @@ static int link_status_one(
 
                 (void) sd_device_get_property_value(info->sd_device, "ID_NET_DRIVER", &driver);
                 (void) sd_device_get_property_value(info->sd_device, "ID_PATH", &path);
-
-                if (sd_device_get_property_value(info->sd_device, "ID_VENDOR_FROM_DATABASE", &vendor) < 0)
-                        (void) sd_device_get_property_value(info->sd_device, "ID_VENDOR", &vendor);
-
-                if (sd_device_get_property_value(info->sd_device, "ID_MODEL_FROM_DATABASE", &model) < 0)
-                        (void) sd_device_get_property_value(info->sd_device, "ID_MODEL", &model);
+                (void) device_get_vendor_string(info->sd_device, &vendor);
+                (void) device_get_model_string(info->sd_device, &model);
         }
 
         r = net_get_type_string(info->sd_device, info->iftype, &t);
