@@ -1537,7 +1537,7 @@ int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Process " PID_FMT " not owned by target unit's UID. Refusing.", pid);
                 }
 
-                r = set_ensure_consume(&pids, &pidref_hash_ops, TAKE_PTR(pidref));
+                r = set_ensure_consume(&pids, &pidref_hash_ops_free, TAKE_PTR(pidref));
                 if (r < 0)
                         return r;
         }
