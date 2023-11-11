@@ -278,9 +278,8 @@ static int pidref_compare_func(const PidRef *a, const PidRef *b) {
         return CMP(a->pid, b->pid);
 }
 
-DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
-                pidref_hash_ops,
-                PidRef,
-                pidref_hash_func,
-                pidref_compare_func,
-                pidref_free);
+DEFINE_HASH_OPS(pidref_hash_ops, PidRef, pidref_hash_func, pidref_compare_func);
+
+DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(pidref_hash_ops_free,
+                                    PidRef, pidref_hash_func, pidref_compare_func,
+                                    pidref_free);
