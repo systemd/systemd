@@ -2865,14 +2865,14 @@ int unit_watch_pidref(Unit *u, PidRef *pid, bool exclusive) {
                 return r;
 
         /* First, insert into the set of PIDs maintained by the unit */
-        r = set_ensure_put(&u->pids, &pidref_hash_ops, pid_dup);
+        r = set_ensure_put(&u->pids, &pidref_hash_ops_free, pid_dup);
         if (r < 0)
                 return r;
 
         pid = TAKE_PTR(pid_dup); /* continue with our copy now that we have installed it properly in our set */
 
         /* Second, insert it into the simple global table, see if that works */
-        r = hashmap_ensure_put(&u->manager->watch_pids, &pidref_hash_ops, pid, u);
+        r = hashmap_ensure_put(&u->manager->watch_pids, &pidref_hash_ops_free, pid, u);
         if (r != -EEXIST)
                 return r;
 
@@ -2898,7 +2898,7 @@ int unit_watch_pidref(Unit *u, PidRef *pid, bool exclusive) {
         new_array[n+1] = NULL;
 
         /* Make sure the hashmap is allocated */
-        r = hashmap_ensure_allocated(&u->manager->watch_pids_more, &pidref_hash_ops);
+        r = hashmap_ensure_allocated(&u->manager->watch_pids_more, &pidref_hash_ops_free);
         if (r < 0)
                 return r;
 
