@@ -130,8 +130,9 @@ CHANGES WITH 255 in spe:
           machinectl bind and mount-image verbs will now cause the new mount to
           replace the old mount (if any), instead of overmounting it.
 
-        * Units now have a MemoryPeak property, which contains the value of
-          cgroup v2's memory.peak property.
+        * Units now have a MemoryPeak and MemorySwapPeak property, which
+          contain the value of cgroup v2's memory.peak and memory.swap.peak
+          property.
 
         TPM2 Support + Disk Encryption & Authentication:
 
