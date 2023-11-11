@@ -19,12 +19,7 @@ typedef struct Network Network;
 
 void network_adjust_bridge_vlan(Network *network);
 
-int bridge_vlan_append_info(
-                const Link * link,
-                sd_netlink_message *req,
-                uint16_t pvid,
-                const uint32_t *br_vid_bitmap,
-                const uint32_t *br_untagged_bitmap);
+int bridge_vlan_set_message(Link *link, sd_netlink_message *m);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_brvlan_pvid);
 CONFIG_PARSER_PROTOTYPE(config_parse_brvlan_vlan);

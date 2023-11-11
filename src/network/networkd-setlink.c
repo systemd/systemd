@@ -326,29 +326,9 @@ static int link_configure_fill_message(
                         return r;
                 break;
         case REQUEST_TYPE_SET_LINK_BRIDGE_VLAN:
-                r = sd_rtnl_message_link_set_family(req, AF_BRIDGE);
+                r = bridge_vlan_set_message(link, req);
                 if (r < 0)
                         return r;
-
-                r = sd_netlink_message_open_container(req, IFLA_AF_SPEC);
-                if (r < 0)
-                        return r;
-
-                if (link->master_ifindex <= 0) {
-                        /* master needs BRIDGE_FLAGS_SELF flag */
-                        r = sd_netlink_message_append_u16(req, IFLA_BRIDGE_FLAGS, BRIDGE_FLAGS_SELF);
-                        if (r < 0)
-                                return r;
-                }
-
-                r = bridge_vlan_append_info(link, req, link->network->pvid, link->network->br_vid_bitmap, link->network->br_untagged_bitmap);
-                if (r < 0)
-                        return r;
-
-                r = sd_netlink_message_close_container(req);
-                if (r < 0)
-                        return r;
-
                 break;
         case REQUEST_TYPE_SET_LINK_CAN:
                 r = can_set_netlink_message(link, req);
