@@ -99,26 +99,45 @@ const char *exec_context_tty_path(const ExecContext *context) {
         return "/dev/console";
 }
 
-int exec_context_tty_size(const ExecContext *context, unsigned *ret_rows, unsigned *ret_cols) {
+static void exec_context_determine_tty_size(
+                const ExecContext *context,
+                const char *tty_path,
+                unsigned *ret_rows,
+                unsigned *ret_cols) {
+
         unsigned rows, cols;
-        const char *tty;
 
         assert(context);
         assert(ret_rows);
         assert(ret_cols);
 
+        if (!tty_path)
+                tty_path = exec_context_tty_path(context);
+
         rows = context->tty_rows;
         cols = context->tty_cols;
 
-        tty = exec_context_tty_path(context);
-        if (tty)
-                (void) proc_cmdline_tty_size(tty, rows == UINT_MAX ? &rows : NULL, cols == UINT_MAX ? &cols : NULL);
+        if (tty_path && (rows == UINT_MAX || cols == UINT_MAX))
+                (void) proc_cmdline_tty_size(
+                                tty_path,
+                                rows == UINT_MAX ? &rows : NULL,
+                                cols == UINT_MAX ? &cols : NULL);
 
         *ret_rows = rows;
         *ret_cols = cols;
-
-        return 0;
 }
+
+int exec_context_apply_tty_size(
+                const ExecContext *context,
+                int tty_fd,
+                const char *tty_path) {
+
+        unsigned rows, cols;
+
+        exec_context_determine_tty_size(context, tty_path, &rows, &cols);
+
+        return terminal_set_size_fd(tty_fd, tty_path, rows, cols);
+ }
 
 void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p) {
         _cleanup_close_ int _fd = -EBADF, lock_fd = -EBADF;
@@ -150,14 +169,9 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p)
                 (void) terminal_vhangup_fd(fd);
 
         if (context->tty_reset)
-                (void) reset_terminal_fd(fd, true);
+                (void) reset_terminal_fd(fd, /* switch_to_text= */ true);
 
-        if (p && p->stdin_fd >= 0) {
-                unsigned rows = context->tty_rows, cols = context->tty_cols;
-
-                (void) exec_context_tty_size(context, &rows, &cols);
-                (void) terminal_set_size_fd(p->stdin_fd, path, rows, cols);
-        }
+        (void) exec_context_apply_tty_size(context, fd, path);
 
         if (context->tty_vt_disallocate && path)
                 (void) vt_disallocate(path);

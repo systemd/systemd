@@ -224,7 +224,11 @@ struct ExecContext {
         ExecInput std_input;
         ExecOutput std_output;
         ExecOutput std_error;
+
+        /* At least one of stdin/stdout/stderr was initialized from an fd passed in. This boolean survives
+         * the fds being closed. This only makes sense for transient units. */
         bool stdio_as_fds;
+
         char *stdio_fdname[3];
         char *stdio_file[3];
 
@@ -513,7 +517,7 @@ int exec_context_get_clean_directories(ExecContext *c, char **prefix, ExecCleanM
 int exec_context_get_clean_mask(ExecContext *c, ExecCleanMask *ret);
 
 const char *exec_context_tty_path(const ExecContext *context);
-int exec_context_tty_size(const ExecContext *context, unsigned *ret_rows, unsigned *ret_cols);
+int exec_context_apply_tty_size(const ExecContext *context, int tty_fd, const char *tty_path);
 void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p);
 
 uint64_t exec_context_get_rlimit(const ExecContext *c, const char *name);

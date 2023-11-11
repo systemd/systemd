@@ -392,12 +392,12 @@ static int setup_input(
 
                 /* Try to make this the controlling tty, if it is a tty, and reset it */
                 if (isatty(STDIN_FILENO)) {
-                        unsigned rows = context->tty_rows, cols = context->tty_cols;
-
-                        (void) exec_context_tty_size(context, &rows, &cols);
                         (void) ioctl(STDIN_FILENO, TIOCSCTTY, context->std_input == EXEC_INPUT_TTY_FORCE);
-                        (void) reset_terminal_fd(STDIN_FILENO, true);
-                        (void) terminal_set_size_fd(STDIN_FILENO, NULL, rows, cols);
+
+                        if (context->tty_reset)
+                                (void) reset_terminal_fd(STDIN_FILENO, /* switch_to_text= */ true);
+
+                        (void) exec_context_apply_tty_size(context, STDIN_FILENO, /* tty_path= */ NULL);
                 }
 
                 return STDIN_FILENO;
@@ -413,26 +413,29 @@ static int setup_input(
         case EXEC_INPUT_TTY:
         case EXEC_INPUT_TTY_FORCE:
         case EXEC_INPUT_TTY_FAIL: {
-                unsigned rows, cols;
-                int fd;
+                _cleanup_close_ int tty_fd = -EBADF;
+                const char *tty_path;
 
-                fd = acquire_terminal(exec_context_tty_path(context),
-                                      i == EXEC_INPUT_TTY_FAIL  ? ACQUIRE_TERMINAL_TRY :
-                                      i == EXEC_INPUT_TTY_FORCE ? ACQUIRE_TERMINAL_FORCE :
-                                                                  ACQUIRE_TERMINAL_WAIT,
-                                      USEC_INFINITY);
-                if (fd < 0)
-                        return fd;
+                tty_path = ASSERT_PTR(exec_context_tty_path(context));
 
-                r = exec_context_tty_size(context, &rows, &cols);
+                tty_fd = acquire_terminal(tty_path,
+                                          i == EXEC_INPUT_TTY_FAIL  ? ACQUIRE_TERMINAL_TRY :
+                                          i == EXEC_INPUT_TTY_FORCE ? ACQUIRE_TERMINAL_FORCE :
+                                                                      ACQUIRE_TERMINAL_WAIT,
+                                          USEC_INFINITY);
+                if (tty_fd < 0)
+                        return tty_fd;
+
+                r = exec_context_apply_tty_size(context, tty_fd, tty_path);
                 if (r < 0)
                         return r;
 
-                r = terminal_set_size_fd(fd, exec_context_tty_path(context), rows, cols);
+                r = move_fd(tty_fd, STDIN_FILENO, /* cloexec= */ false);
                 if (r < 0)
                         return r;
 
-                return move_fd(fd, STDIN_FILENO, false);
+                TAKE_FD(tty_fd);
+                return r;
         }
 
         case EXEC_INPUT_SOCKET:
@@ -692,7 +695,6 @@ static int setup_confirm_stdio(
                 int *ret_saved_stdout) {
 
         _cleanup_close_ int fd = -EBADF, saved_stdin = -EBADF, saved_stdout = -EBADF;
-        unsigned rows, cols;
         int r;
 
         assert(ret_saved_stdin);
@@ -714,15 +716,11 @@ static int setup_confirm_stdio(
         if (r < 0)
                 return r;
 
-        r = reset_terminal_fd(fd, true);
+        r = reset_terminal_fd(fd, /* switch_to_text= */ true);
         if (r < 0)
                 return r;
 
-        r = exec_context_tty_size(context, &rows, &cols);
-        if (r < 0)
-                return r;
-
-        r = terminal_set_size_fd(fd, vc, rows, cols);
+        r = exec_context_apply_tty_size(context, fd, vc);
         if (r < 0)
                 return r;
 
