@@ -42,29 +42,22 @@ static int find_next_bit(int i, uint32_t x) {
         return j ? j + i : 0;
 }
 
-int bridge_vlan_append_info(
-                const Link *link,
-                sd_netlink_message *req,
-                uint16_t pvid,
-                const uint32_t *br_vid_bitmap,
-                const uint32_t *br_untagged_bitmap) {
-
+int bridge_vlan_append_info(Link *link, sd_netlink_message *req) {
         struct bridge_vlan_info br_vlan;
         bool done, untagged = false;
-        uint16_t begin, end;
+        uint16_t pvid, begin, end;
         int r, cnt;
 
         assert(link);
+        assert(link->network);
         assert(req);
-        assert(br_vid_bitmap);
-        assert(br_untagged_bitmap);
 
         cnt = 0;
-
+        pvid = link->network->pvid;
         begin = end = UINT16_MAX;
         for (int k = 0; k < BRIDGE_VLAN_BITMAP_LEN; k++) {
-                uint32_t untagged_map = br_untagged_bitmap[k];
-                uint32_t vid_map = br_vid_bitmap[k];
+                uint32_t untagged_map = link->network->br_untagged_bitmap[k];
+                uint32_t vid_map = link->network->br_vid_bitmap[k];
                 unsigned base_bit = k * 32;
                 int i = -1;
 

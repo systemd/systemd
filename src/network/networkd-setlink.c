@@ -341,7 +341,7 @@ static int link_configure_fill_message(
                                 return r;
                 }
 
-                r = bridge_vlan_append_info(link, req, link->network->pvid, link->network->br_vid_bitmap, link->network->br_untagged_bitmap);
+                r = bridge_vlan_append_info(link, req);
                 if (r < 0)
                         return r;
 
