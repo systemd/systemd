@@ -448,6 +448,8 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .priority = LINK_BRIDGE_PORT_PRIORITY_INVALID,
                 .multicast_router = _MULTICAST_ROUTER_INVALID,
 
+                .pvid = UINT16_MAX,
+
                 .lldp_mode = LLDP_MODE_ROUTERS_ONLY,
                 .lldp_multicast_mode = _SD_LLDP_MULTICAST_MODE_INVALID,
 
