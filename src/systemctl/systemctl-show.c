@@ -705,8 +705,9 @@ static void print_status_info(
         if (i->memory_current != UINT64_MAX) {
                 printf("     Memory: %s", FORMAT_BYTES(i->memory_current));
 
-                bool show_memory_swap_current = !IN_SET(i->memory_swap_current, 0, CGROUP_LIMIT_MAX),
-                        show_memory_swap_peak = !IN_SET(i->memory_swap_peak, 0, CGROUP_LIMIT_MAX);
+                bool show_memory_swap_peak = !IN_SET(i->memory_swap_peak, 0, CGROUP_LIMIT_MAX);
+                /* Only show current swap if it ever was non-zero or is currently non-zero. */
+                bool show_memory_swap_current = i->memory_swap_current != CGROUP_LIMIT_MAX && show_memory_swap_peak;
                 if (i->memory_peak != CGROUP_LIMIT_MAX ||
                     show_memory_swap_current ||
                     show_memory_swap_peak ||
