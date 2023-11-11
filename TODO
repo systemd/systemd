@@ -155,7 +155,7 @@ Features:
   - support measuring to nvindex with PCR update semantics ("fake PCRs")
   - add api for "allocating" such an nvindex
   - once we have that start measuring every sysext we apply, every confext,
-    every RootImage= we apply, evey nspawn and so on. All in separate fake
+    every RootImage= we apply, every nspawn and so on. All in separate fake
     PCRs.
 
 * vmspawn:
