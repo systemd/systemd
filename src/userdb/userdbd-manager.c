@@ -67,8 +67,8 @@ static int on_deferred_start_worker(sd_event_source *s, uint64_t usec, void *use
 DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 event_source_hash_ops,
                 sd_event_source,
-                (void (*)(const sd_event_source*, struct siphash*)) trivial_hash_func,
-                (int (*)(const sd_event_source*, const sd_event_source*)) trivial_compare_func,
+                trivial_hash_func,
+                trivial_compare_func,
                 sd_event_source_disable_unref);
 
 int manager_new(Manager **ret) {

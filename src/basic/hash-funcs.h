@@ -16,11 +16,17 @@ struct hash_ops {
 };
 
 #define _DEFINE_HASH_OPS(uq, name, type, hash_func, compare_func, free_key_func, free_value_func, scope) \
-        _unused_ static void (* UNIQ_T(static_hash_wrapper, uq))(const type *, struct siphash *) = hash_func; \
-        _unused_ static int (* UNIQ_T(static_compare_wrapper, uq))(const type *, const type *) = compare_func; \
+        static void UNIQ_T(static_hash_wrapper, uq)(const void *p, struct siphash *state) { \
+                const type *q = p;                                      \
+                hash_func(q, state);                                    \
+        }                                                               \
+        static int UNIQ_T(static_compare_wrapper, uq)(const void *a, const void *b) { \
+                const type *x = a, *y = b;                              \
+                return compare_func(x, y);                              \
+        }                                                               \
         scope const struct hash_ops name = {                            \
-                .hash = (hash_func_t) hash_func,                        \
-                .compare = (compare_func_t) compare_func,               \
+                .hash = UNIQ_T(static_hash_wrapper, uq),                \
+                .compare = UNIQ_T(static_compare_wrapper, uq),          \
                 .free_key = free_key_func,                              \
                 .free_value = free_value_func,                          \
         }
