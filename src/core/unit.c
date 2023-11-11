@@ -2865,14 +2865,14 @@ int unit_watch_pidref(Unit *u, PidRef *pid, bool exclusive) {
                 return r;
 
         /* First, insert into the set of PIDs maintained by the unit */
-        r = set_ensure_put(&u->pids, &pidref_hash_ops, pid_dup);
+        r = set_ensure_put(&u->pids, &pidref_hash_ops_free, pid_dup);
         if (r < 0)
                 return r;
 
         pid = TAKE_PTR(pid_dup); /* continue with our copy now that we have installed it properly in our set */
 
         /* Second, insert it into the simple global table, see if that works */
-        r = hashmap_ensure_put(&u->manager->watch_pids, &pidref_hash_ops, pid, u);
+        r = hashmap_ensure_put(&u->manager->watch_pids, &pidref_hash_ops_free, pid, u);
         if (r != -EEXIST)
                 return r;
 
@@ -2898,7 +2898,7 @@ int unit_watch_pidref(Unit *u, PidRef *pid, bool exclusive) {
         new_array[n+1] = NULL;
 
         /* Make sure the hashmap is allocated */
-        r = hashmap_ensure_allocated(&u->manager->watch_pids_more, &pidref_hash_ops);
+        r = hashmap_ensure_allocated(&u->manager->watch_pids_more, &pidref_hash_ops_free);
         if (r < 0)
                 return r;
 
@@ -2944,7 +2944,7 @@ void unit_unwatch_pidref(Unit *u, PidRef *pid) {
 
         if (uu == u)
                 /* OK, we are in the first table. Let's remove it there then, and we are done already. */
-                assert_se(hashmap_remove_value(u->manager->watch_pids, pid2, uu) == uu);
+                assert_se(hashmap_remove_value(u->manager->watch_pids, pid2, uu));
         else {
                 /* We weren't in the first table, then let's consult the 2nd table that points to an array */
                 PidRef *pid3 = NULL;
@@ -2962,7 +2962,7 @@ void unit_unwatch_pidref(Unit *u, PidRef *pid) {
 
                 if (m == 0) {
                         /* The array is now empty, remove the entire entry */
-                        assert_se(hashmap_remove_value(u->manager->watch_pids_more, pid3, array) == array);
+                        assert_se(hashmap_remove_value(u->manager->watch_pids_more, pid3, array));
                         free(array);
                 } else {
                         /* The array is not empty, but let's make sure the entry is not keyed by the PidRef
