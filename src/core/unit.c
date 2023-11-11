@@ -2963,7 +2963,7 @@ void unit_unwatch_pidref(Unit *u, PidRef *pid) {
 
         if (uu == u)
                 /* OK, we are in the first table. Let's remove it there then, and we are done already. */
-                assert_se(hashmap_remove_value(u->manager->watch_pids, pid2, uu) == uu);
+                assert_se(hashmap_remove_value(u->manager->watch_pids, pid2, uu));
         else {
                 /* We weren't in the first table, then let's consult the 2nd table that points to an array */
                 PidRef *pid3 = NULL;
@@ -2981,7 +2981,7 @@ void unit_unwatch_pidref(Unit *u, PidRef *pid) {
 
                 if (m == 0) {
                         /* The array is now empty, remove the entire entry */
-                        assert_se(hashmap_remove_value(u->manager->watch_pids_more, pid3, array) == array);
+                        assert_se(hashmap_remove_value(u->manager->watch_pids_more, pid3, array));
                         free(array);
                 } else {
                         /* The array is not empty, but let's make sure the entry is not keyed by the PidRef
