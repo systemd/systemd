@@ -98,7 +98,7 @@ int bridge_vlan_append_info(Link *link, sd_netlink_message *m) {
                         continue;
                 }
 
-                if (k > 0 && k == link->network->pvid) {
+                if (k == link->network->pvid) {
                         /* PVID needs to be sent alone. Finish previous bits. */
                         if (begin != UINT16_MAX) {
                                 assert(begin < k);
@@ -157,7 +157,7 @@ void network_adjust_bridge_vlan(Network *network) {
                 return;
 
         /* pvid might not be in br_vid_bitmap yet */
-        if (network->pvid)
+        if (network->pvid != UINT16_MAX)
                 set_bit(network->pvid, network->br_vid_bitmap);
 }
 

@@ -5859,7 +5859,7 @@ ServerAddress=192.168.0.1/24</programlisting>
           <term><varname>VLAN=</varname></term>
           <listitem>
             <para>The VLAN ID allowed on the port. This can be either a single ID or a range M-N. Takes
-            an integer in the range 1…4094.</para>
+            an integer in the range 0…4094.</para>
 
             <xi:include href="version-info.xml" xpointer="v231"/>
           </listitem>
