@@ -253,6 +253,7 @@ typedef struct UnitStatusInfo {
         uint64_t memory_peak;
         uint64_t memory_swap_current;
         uint64_t memory_swap_peak;
+        uint64_t memory_zswap_current;
         uint64_t memory_min;
         uint64_t memory_low;
         uint64_t startup_memory_low;
@@ -707,9 +708,11 @@ static void print_status_info(
 
                 /* Only show current swap if it ever was non-zero or is currently non-zero. In both cases
                    memory_swap_peak will be non-zero (and not CGROUP_LIMIT_MAX). */
-                bool show_memory_swap = !IN_SET(i->memory_swap_peak, 0, CGROUP_LIMIT_MAX);
+                bool show_memory_swap = !IN_SET(i->memory_swap_peak, 0, CGROUP_LIMIT_MAX),
+                     show_memory_zswap_current = !IN_SET(i->memory_zswap_current, 0, CGROUP_LIMIT_MAX);
                 if (i->memory_peak != CGROUP_LIMIT_MAX ||
                     show_memory_swap ||
+                    show_memory_zswap_current ||
                     i->memory_min > 0 ||
                     i->memory_low > 0 || i->startup_memory_low > 0 ||
                     i->memory_high != CGROUP_LIMIT_MAX || i->startup_memory_high != CGROUP_LIMIT_MAX ||
@@ -778,11 +781,12 @@ static void print_status_info(
                                 prefix = " ";
                         }
                         if (show_memory_swap) {
-                                printf("%sswap: %s", prefix, FORMAT_BYTES(i->memory_swap_current));
+                                printf("%sswap: %s swap peak: %s", prefix,
+                                       FORMAT_BYTES(i->memory_swap_current), FORMAT_BYTES(i->memory_swap_peak));
                                 prefix = " ";
                         }
-                        if (show_memory_swap) {
-                                printf("%sswap peak: %s", prefix, FORMAT_BYTES(i->memory_swap_peak));
+                        if (show_memory_zswap_current) {
+                                printf("%szswap: %s", prefix, FORMAT_BYTES(i->memory_zswap_current));
                                 prefix = " ";
                         }
                         printf(")");
@@ -2054,6 +2058,7 @@ static int show_one(
                 { "MemoryPeak",                     "t",               NULL,           offsetof(UnitStatusInfo, memory_peak)                       },
                 { "MemorySwapCurrent",              "t",               NULL,           offsetof(UnitStatusInfo, memory_swap_current)               },
                 { "MemorySwapPeak",                 "t",               NULL,           offsetof(UnitStatusInfo, memory_swap_peak)                  },
+                { "MemoryZswapCurrent",             "t",               NULL,           offsetof(UnitStatusInfo, memory_zswap_current)              },
                 { "MemoryAvailable",                "t",               NULL,           offsetof(UnitStatusInfo, memory_available)                  },
                 { "DefaultMemoryMin",               "t",               NULL,           offsetof(UnitStatusInfo, default_memory_min)                },
                 { "DefaultMemoryLow",               "t",               NULL,           offsetof(UnitStatusInfo, default_memory_low)                },
@@ -2113,6 +2118,7 @@ static int show_one(
                 .memory_peak = CGROUP_LIMIT_MAX,
                 .memory_swap_current = CGROUP_LIMIT_MAX,
                 .memory_swap_peak = CGROUP_LIMIT_MAX,
+                .memory_zswap_current = CGROUP_LIMIT_MAX,
                 .memory_available = CGROUP_LIMIT_MAX,
                 .cpu_usage_nsec = UINT64_MAX,
                 .tasks_current = UINT64_MAX,

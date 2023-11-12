@@ -4111,6 +4111,10 @@ int unit_get_memory_swap_peak(Unit *u, uint64_t *ret) {
         return unit_get_memory_attr_cached(u, "memory.swap.peak", &u->memory_swap_peak_last, ret);
 }
 
+int unit_get_memory_zswap_current(Unit *u, uint64_t *ret) {
+        return unit_get_memory_attr_raw(u, "memory.zswap.current", ret);
+}
+
 int unit_get_tasks_current(Unit *u, uint64_t *ret) {
         assert(u);
         assert(ret);
