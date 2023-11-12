@@ -6,4 +6,8 @@ Name=bridge99
 IPv6AcceptRA=false
 
 [BridgeVLAN]
-VLAN=4060-4094
+PVID=1020
+VLAN=1018-1023
+VLAN=1200-1210
+EgressUntagged=1022-1025
+EgressUntagged=1203-1208
