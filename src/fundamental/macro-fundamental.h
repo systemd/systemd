@@ -86,6 +86,12 @@
 #  define _fallthrough_
 #endif
 
+#if defined(__clang__)
+#  define _no_sanitize_incorrect_function_pointer_type_ __attribute__((no_sanitize("function")))
+#else
+#  define _no_sanitize_incorrect_function_pointer_type_
+#endif
+
 #define XSTRINGIFY(x) #x
 #define STRINGIFY(x) XSTRINGIFY(x)
 

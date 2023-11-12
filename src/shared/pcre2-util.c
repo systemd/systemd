@@ -18,8 +18,8 @@ PCRE2_SIZE* (*sym_pcre2_get_ovector_pointer)(pcre2_match_data *);
 DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
         pcre2_code_hash_ops_free,
         pcre2_code,
-        (void (*)(const pcre2_code *, struct siphash*))trivial_hash_func,
-        (int (*)(const pcre2_code *, const pcre2_code*))trivial_compare_func,
+        trivial_hash_func,
+        trivial_compare_func,
         sym_pcre2_code_free);
 #else
 const struct hash_ops pcre2_code_hash_ops_free = {};
