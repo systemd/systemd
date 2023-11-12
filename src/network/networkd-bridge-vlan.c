@@ -182,6 +182,67 @@ int bridge_vlan_set_message(Link *link, sd_netlink_message *m) {
         return 0;
 }
 
+#define RTA_TYPE(rta) ((rta)->rta_type & NLA_TYPE_MASK)
+
+int link_update_bridge_vlan(Link *link, sd_netlink_message *m) {
+        _cleanup_free_ void *data = NULL;
+        size_t len;
+        uint16_t begin = UINT16_MAX;
+        int r, family;
+
+        assert(link);
+        assert(m);
+
+        r = sd_rtnl_message_get_family(m, &family);
+        if (r < 0)
+                return r;
+
+        if (family != AF_BRIDGE)
+                return 0;
+
+        r = sd_netlink_message_read_data(m, IFLA_AF_SPEC, &len, &data);
+        if (r == -ENODATA)
+                return 0;
+        if (r < 0)
+                return r;
+
+        memzero(link->bridge_vlan_bitmap, sizeof(link->bridge_vlan_bitmap));
+
+        for (struct rtattr *rta = data; RTA_OK(rta, len); rta = RTA_NEXT(rta, len)) {
+                struct bridge_vlan_info *p;
+
+                if (RTA_TYPE(rta) != IFLA_BRIDGE_VLAN_INFO)
+                        continue;
+                if (RTA_PAYLOAD(rta) != sizeof(struct bridge_vlan_info))
+                        continue;
+
+                p = RTA_DATA(rta);
+
+                if (FLAGS_SET(p->flags, BRIDGE_VLAN_INFO_RANGE_BEGIN)) {
+                        begin = p->vid;
+                        continue;
+                }
+
+                if (FLAGS_SET(p->flags, BRIDGE_VLAN_INFO_RANGE_END)) {
+                        for (uint16_t k = begin; k <= p->vid; k++)
+                                set_bit(k, link->bridge_vlan_bitmap);
+
+                        begin = UINT16_MAX;
+                        continue;
+                }
+
+                if (FLAGS_SET(p->flags, BRIDGE_VLAN_INFO_PVID)) {
+                        link->bridge_vlan_pvid = p->vid;
+                        link->bridge_vlan_pvid_is_untagged = FLAGS_SET(p->flags, BRIDGE_VLAN_INFO_UNTAGGED);
+                }
+
+                set_bit(p->vid, link->bridge_vlan_bitmap);
+                begin = UINT16_MAX;
+        }
+
+        return 0;
+}
+
 void network_adjust_bridge_vlan(Network *network) {
         assert(network);
 

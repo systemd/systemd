@@ -21,5 +21,7 @@ void network_adjust_bridge_vlan(Network *network);
 
 int bridge_vlan_set_message(Link *link, sd_netlink_message *m);
 
+int link_update_bridge_vlan(Link *link, sd_netlink_message *m);
+
 CONFIG_PARSER_PROTOTYPE(config_parse_bridge_vlan_id);
 CONFIG_PARSER_PROTOTYPE(config_parse_bridge_vlan_id_range);
