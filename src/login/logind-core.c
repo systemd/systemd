@@ -349,21 +349,27 @@ int manager_process_button_device(Manager *m, sd_device *d) {
         return 0;
 }
 
-int manager_get_session_by_pid(Manager *m, pid_t pid, Session **ret) {
+int manager_get_session_by_pidref(Manager *m, const PidRef *pid, Session **ret) {
         _cleanup_free_ char *unit = NULL;
         Session *s;
         int r;
 
         assert(m);
 
-        if (!pid_is_valid(pid))
+        if (!pidref_is_set(pid))
                 return -EINVAL;
 
-        s = hashmap_get(m->sessions_by_leader, PID_TO_PTR(pid));
-        if (!s) {
-                r = cg_pid_get_unit(pid, &unit);
-                if (r >= 0)
-                        s = hashmap_get(m->session_units, unit);
+        s = hashmap_get(m->sessions_by_leader, pid);
+        if (s) {
+                r = pidref_verify(pid);
+                if (r < 0)
+                        return r;
+        } else {
+                r = cg_pidref_get_unit(pid, &unit);
+                if (r < 0)
+                        return r;
+
+                s = hashmap_get(m->session_units, unit);
         }
 
         if (ret)
@@ -734,8 +740,7 @@ int manager_read_utmp(Manager *m) {
                 if (isempty(t))
                         continue;
 
-                s = hashmap_get(m->sessions_by_leader, PID_TO_PTR(u->ut_pid));
-                if (!s)
+                if (manager_get_session_by_pidref(m, &PIDREF_MAKE_FROM_PID(u->ut_pid), &s) <= 0)
                         continue;
 
                 if (s->tty_validity == TTY_FROM_UTMP && !streq_ptr(s->tty, t)) {
