@@ -83,7 +83,7 @@ int bridge_vlan_append_info(Link *link, sd_netlink_message *m) {
 
         for (uint16_t k = 0; k < BRIDGE_VLAN_BITMAP_MAX; k++) {
 
-                if (!is_bit_set(k, link->network->br_vid_bitmap)) {
+                if (!is_bit_set(k, link->network->bridge_vlan_bitmap)) {
                         /* This bit is not set. Finish previous bits. */
                         if (begin != UINT16_MAX) {
                                 assert(begin < k);
@@ -98,7 +98,7 @@ int bridge_vlan_append_info(Link *link, sd_netlink_message *m) {
                         continue;
                 }
 
-                if (k == link->network->pvid) {
+                if (k == link->network->bridge_vlan_pvid) {
                         /* PVID needs to be sent alone. Finish previous bits. */
                         if (begin != UINT16_MAX) {
                                 assert(begin < k);
@@ -110,7 +110,7 @@ int bridge_vlan_append_info(Link *link, sd_netlink_message *m) {
                                 begin = UINT16_MAX;
                         }
 
-                        untagged = is_bit_set(k, link->network->br_untagged_bitmap);
+                        untagged = is_bit_set(k, link->network->bridge_vlan_untagged_bitmap);
                         r = add_single(m, k, untagged, /* is_pvid = */ true);
                         if (r < 0)
                                 return r;
@@ -123,7 +123,7 @@ int bridge_vlan_append_info(Link *link, sd_netlink_message *m) {
 
                         assert(begin < k);
 
-                        u = is_bit_set(k, link->network->br_untagged_bitmap);
+                        u = is_bit_set(k, link->network->bridge_vlan_untagged_bitmap);
                         if (untagged == u)
                                 continue;
 
@@ -139,7 +139,7 @@ int bridge_vlan_append_info(Link *link, sd_netlink_message *m) {
 
                 /* This is the starting point of a new bit sequence. Save the position and the tagging flag. */
                 begin = k;
-                untagged = is_bit_set(k, link->network->br_untagged_bitmap);
+                untagged = is_bit_set(k, link->network->bridge_vlan_untagged_bitmap);
         }
 
         /* No pending bit sequence.
@@ -153,15 +153,15 @@ int bridge_vlan_append_info(Link *link, sd_netlink_message *m) {
 void network_adjust_bridge_vlan(Network *network) {
         assert(network);
 
-        if (!network->use_br_vlan)
-                return;
+        for (uint16_t k = 0; k < BRIDGE_VLAN_BITMAP_MAX; k++)
+                if (is_bit_set(k, network->bridge_vlan_untagged_bitmap))
+                        set_bit(k, network->bridge_vlan_bitmap);
 
-        /* pvid might not be in br_vid_bitmap yet */
-        if (network->pvid != UINT16_MAX)
-                set_bit(network->pvid, network->br_vid_bitmap);
+        if (network->bridge_vlan_pvid != UINT16_MAX)
+                set_bit(network->bridge_vlan_pvid, network->bridge_vlan_bitmap);
 }
 
-int config_parse_brvlan_pvid(
+int config_parse_bridge_vlan_id(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -173,21 +173,32 @@ int config_parse_brvlan_pvid(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
-        uint16_t pvid;
+        uint16_t v, *id = ASSERT_PTR(data);
         int r;
 
-        r = parse_vlanid(rvalue, &pvid);
-        if (r < 0)
-                return r;
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
 
-        network->pvid = pvid;
-        network->use_br_vlan = true;
+        if (isempty(rvalue)) {
+                *id = UINT16_MAX;
+                return 0;
+        }
 
+        r = parse_vlanid(rvalue, &v);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s=, ignoring: %s",
+                           lvalue, rvalue);
+                return 0;
+        }
+
+        *id = v;
         return 0;
 }
 
-int config_parse_brvlan_vlan(
+int config_parse_bridge_vlan_id_range(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -199,7 +210,7 @@ int config_parse_brvlan_vlan(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        uint32_t *bitmap = ASSERT_PTR(data);
         uint16_t vid, vid_end;
         int r;
 
@@ -207,54 +218,22 @@ int config_parse_brvlan_vlan(
         assert(section);
         assert(lvalue);
         assert(rvalue);
-        assert(data);
+
+        if (isempty(rvalue)) {
+                memzero(bitmap, BRIDGE_VLAN_BITMAP_LEN * sizeof(uint32_t));
+                return 0;
+        }
 
         r = parse_vid_range(rvalue, &vid, &vid_end);
         if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse VLAN, ignoring: %s", rvalue);
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse %s=, ignoring: %s",
+                           lvalue, rvalue);
                 return 0;
         }
 
         for (; vid <= vid_end; vid++)
-                set_bit(vid, network->br_vid_bitmap);
+                set_bit(vid, bitmap);
 
-        network->use_br_vlan = true;
-        return 0;
-}
-
-int config_parse_brvlan_untagged(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Network *network = userdata;
-        uint16_t vid, vid_end;
-        int r;
-
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = parse_vid_range(rvalue, &vid, &vid_end);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r, "Could not parse VLAN: %s", rvalue);
-                return 0;
-        }
-
-        for (; vid <= vid_end; vid++) {
-                set_bit(vid, network->br_vid_bitmap);
-                set_bit(vid, network->br_untagged_bitmap);
-        }
-
-        network->use_br_vlan = true;
         return 0;
 }
