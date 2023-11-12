@@ -35,6 +35,7 @@
 #include "networkd-address.h"
 #include "networkd-bridge-fdb.h"
 #include "networkd-bridge-mdb.h"
+#include "networkd-bridge-vlan.h"
 #include "networkd-can.h"
 #include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-dhcp-server.h"
@@ -2432,6 +2433,10 @@ static int link_update(Link *link, sd_netlink_message *message) {
                 return r;
 
         r = link_update_flags(link, message);
+        if (r < 0)
+                return r;
+
+        r = link_update_bridge_vlan(link, message);
         if (r < 0)
                 return r;
 

@@ -6,6 +6,7 @@
 ***/
 
 #include <inttypes.h>
+#include <stdbool.h>
 
 #include "sd-netlink.h"
 
@@ -19,13 +20,9 @@ typedef struct Network Network;
 
 void network_adjust_bridge_vlan(Network *network);
 
-int bridge_vlan_append_info(
-                const Link * link,
-                sd_netlink_message *req,
-                uint16_t pvid,
-                const uint32_t *br_vid_bitmap,
-                const uint32_t *br_untagged_bitmap);
+int link_update_bridge_vlan(Link *link, sd_netlink_message *m);
 
-CONFIG_PARSER_PROTOTYPE(config_parse_brvlan_pvid);
-CONFIG_PARSER_PROTOTYPE(config_parse_brvlan_vlan);
-CONFIG_PARSER_PROTOTYPE(config_parse_brvlan_untagged);
+int bridge_vlan_set_message(Link *link, sd_netlink_message *m, bool is_set);
+
+CONFIG_PARSER_PROTOTYPE(config_parse_bridge_vlan_id);
+CONFIG_PARSER_PROTOTYPE(config_parse_bridge_vlan_id_range);

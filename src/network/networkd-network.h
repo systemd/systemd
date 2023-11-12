@@ -289,10 +289,9 @@ struct Network {
         MulticastRouter multicast_router;
 
         /* Bridge VLAN */
-        bool use_br_vlan;
-        uint16_t pvid;
-        uint32_t br_vid_bitmap[BRIDGE_VLAN_BITMAP_LEN];
-        uint32_t br_untagged_bitmap[BRIDGE_VLAN_BITMAP_LEN];
+        uint16_t bridge_vlan_pvid;
+        uint32_t bridge_vlan_bitmap[BRIDGE_VLAN_BITMAP_LEN];
+        uint32_t bridge_vlan_untagged_bitmap[BRIDGE_VLAN_BITMAP_LEN];
 
         /* CAN support */
         uint32_t can_bitrate;
