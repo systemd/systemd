@@ -21,6 +21,7 @@
 #include "log-link.h"
 #include "netif-util.h"
 #include "network-util.h"
+#include "networkd-bridge-vlan.h"
 #include "networkd-ipv6ll.h"
 #include "networkd-util.h"
 #include "ordered-set.h"
@@ -71,6 +72,9 @@ typedef struct Link {
         uint32_t original_mtu;
         sd_device *dev;
         char *driver;
+
+        /* bridge vlan */
+        uint32_t bridge_vlan_bitmap[BRIDGE_VLAN_BITMAP_LEN];
 
         /* to prevent multiple ethtool calls */
         bool ethtool_driver_read;
@@ -149,6 +153,8 @@ typedef struct Link {
         bool activated:1;
         bool master_set:1;
         bool stacked_netdevs_created:1;
+        bool bridge_vlan_synced:1;
+        bool bridge_vlan_removed:1;
 
         sd_dhcp_server *dhcp_server;
 
