@@ -781,11 +781,8 @@ static void print_status_info(
                                 prefix = " ";
                         }
                         if (show_memory_swap) {
-                                printf("%sswap: %s", prefix, FORMAT_BYTES(i->memory_swap_current));
-                                prefix = " ";
-                        }
-                        if (show_memory_swap) {
-                                printf("%sswap peak: %s", prefix, FORMAT_BYTES(i->memory_swap_peak));
+                                printf("%sswap: %s swap peak: %s", prefix,
+                                       FORMAT_BYTES(i->memory_swap_current), FORMAT_BYTES(i->memory_swap_peak));
                                 prefix = " ";
                         }
                         if (show_memory_zswap_current) {
