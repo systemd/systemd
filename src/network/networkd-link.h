@@ -155,6 +155,7 @@ typedef struct Link {
         bool activated:1;
         bool master_set:1;
         bool stacked_netdevs_created:1;
+        bool bridge_vlan_set:1;
 
         sd_dhcp_server *dhcp_server;
 
