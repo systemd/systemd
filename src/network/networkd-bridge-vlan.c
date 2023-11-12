@@ -150,6 +150,91 @@ int bridge_vlan_append_info(Link *link, sd_netlink_message *m) {
         return 0;
 }
 
+#define RTA_TYPE(rta) ((rta)->rta_type & NLA_TYPE_MASK)
+
+int bridge_vlan_parse_message(Link *link, sd_netlink_message *m) {
+        _cleanup_free_ void *data = NULL;
+        size_t len;
+        uint16_t begin = UINT16_MAX;
+        int r;
+
+        assert(link);
+        assert(m);
+
+        memzero(link->bridge_vlan_bitmap, sizeof(link->bridge_vlan_bitmap));
+
+        r = sd_netlink_message_read_data(m, IFLA_AF_SPEC, &len, &data);
+        if (r < 0)
+                return r;
+
+        for (struct rtattr *rta = data; RTA_OK(rta, len); rta = RTA_NEXT(rta, len)) {
+                struct bridge_vlan_info *p;
+
+                if (RTA_TYPE(rta) != IFLA_BRIDGE_VLAN_INFO)
+                        continue;
+                if (RTA_PAYLOAD(rta) != sizeof(struct bridge_vlan_info))
+                        continue;
+
+                p = RTA_DATA(rta);
+
+                if (FLAGS_SET(p->flags, BRIDGE_VLAN_INFO_RANGE_BEGIN)) {
+                        begin = p->vid;
+                        continue;
+                }
+
+                if (FLAGS_SET(p->flags, BRIDGE_VLAN_INFO_RANGE_END)) {
+                        for (uint16_t k = begin; k <= p->vid; k++)
+                                set_bit(k, link->bridge_vlan_bitmap);
+
+                        begin = UINT16_MAX;
+                        continue;
+                }
+
+                set_bit(p->vid, link->bridge_vlan_bitmap);
+                begin = UINT16_MAX;
+        }
+
+        return 0;
+}
+
+int bridge_vlan_append_del_info(Link *link, sd_netlink_message *m) {
+        uint16_t begin = UINT16_MAX;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(m);
+
+        for (uint16_t k = 0; k < BRIDGE_VLAN_BITMAP_MAX; k++) {
+
+                if (!is_bit_set(k, link->bridge_vlan_bitmap) ||
+                    is_bit_set(k, link->network->br_vid_bitmap)) {
+                        /* This bit is not necessary to be removed. Finish previous bits. */
+                        if (begin != UINT16_MAX) {
+                                assert(begin < k);
+
+                                r = add_range(m, begin, k - 1, /* untagged = */ false);
+                                if (r < 0)
+                                        return r;
+
+                                begin = UINT16_MAX;
+                        }
+
+                        continue;
+                }
+
+                if (begin != UINT16_MAX)
+                        continue;
+
+                /* This is the starting point of a new bit sequence. Save the position. */
+                begin = k;
+        }
+
+        /* No pending bit sequence. */
+        assert(begin == UINT16_MAX);
+        return 0;
+}
+
 void network_adjust_bridge_vlan(Network *network) {
         assert(network);
 
