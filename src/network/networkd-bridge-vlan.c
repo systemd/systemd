@@ -72,7 +72,7 @@ static int add_range(sd_netlink_message *m, uint16_t begin, uint16_t end, bool u
         return 0;
 }
 
-int bridge_vlan_append_info(Link *link, sd_netlink_message *m) {
+static int bridge_vlan_append_set_info(Link *link, sd_netlink_message *m) {
         uint16_t begin = UINT16_MAX;
         bool untagged;
         int r;
@@ -147,6 +147,135 @@ int bridge_vlan_append_info(Link *link, sd_netlink_message *m) {
          * the above loop, we run 0…4095. */
         assert_cc(BRIDGE_VLAN_BITMAP_MAX > VLANID_MAX);
         assert(begin == UINT16_MAX);
+        return 0;
+}
+
+#define RTA_TYPE(rta) ((rta)->rta_type & NLA_TYPE_MASK)
+
+int link_update_bridge_vlan(Link *link, sd_netlink_message *m) {
+        _cleanup_free_ void *data = NULL;
+        size_t len;
+        uint16_t begin = UINT16_MAX;
+        int r, family;
+
+        assert(link);
+        assert(m);
+
+        r = sd_rtnl_message_get_family(m, &family);
+        if (r < 0)
+                return r;
+
+        if (family != AF_BRIDGE)
+                return 0;
+
+        r = sd_netlink_message_read_data(m, IFLA_AF_SPEC, &len, &data);
+        if (r == -ENODATA)
+                return 0;
+        if (r < 0)
+                return r;
+
+        memzero(link->bridge_vlan_bitmap, sizeof(link->bridge_vlan_bitmap));
+
+        for (struct rtattr *rta = data; RTA_OK(rta, len); rta = RTA_NEXT(rta, len)) {
+                struct bridge_vlan_info *p;
+
+                if (RTA_TYPE(rta) != IFLA_BRIDGE_VLAN_INFO)
+                        continue;
+                if (RTA_PAYLOAD(rta) != sizeof(struct bridge_vlan_info))
+                        continue;
+
+                p = RTA_DATA(rta);
+
+                if (FLAGS_SET(p->flags, BRIDGE_VLAN_INFO_RANGE_BEGIN)) {
+                        begin = p->vid;
+                        continue;
+                }
+
+                if (FLAGS_SET(p->flags, BRIDGE_VLAN_INFO_RANGE_END)) {
+                        for (uint16_t k = begin; k <= p->vid; k++)
+                                set_bit(k, link->bridge_vlan_bitmap);
+
+                        begin = UINT16_MAX;
+                        continue;
+                }
+
+                set_bit(p->vid, link->bridge_vlan_bitmap);
+                begin = UINT16_MAX;
+        }
+
+        return 0;
+}
+
+static int bridge_vlan_append_del_info(Link *link, sd_netlink_message *m) {
+        uint16_t begin = UINT16_MAX;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(m);
+
+        for (uint16_t k = 0; k < BRIDGE_VLAN_BITMAP_MAX; k++) {
+
+                if (!is_bit_set(k, link->bridge_vlan_bitmap) ||
+                    is_bit_set(k, link->network->bridge_vlan_bitmap)) {
+                        /* This bit is not necessary to be removed. Finish previous bits. */
+                        if (begin != UINT16_MAX) {
+                                assert(begin < k);
+
+                                r = add_range(m, begin, k - 1, /* untagged = */ false);
+                                if (r < 0)
+                                        return r;
+
+                                begin = UINT16_MAX;
+                        }
+
+                        continue;
+                }
+
+                if (begin != UINT16_MAX)
+                        continue;
+
+                /* This is the starting point of a new bit sequence. Save the position. */
+                begin = k;
+        }
+
+        /* No pending bit sequence. */
+        assert(begin == UINT16_MAX);
+        return 0;
+}
+
+int bridge_vlan_set_message(Link *link, sd_netlink_message *m, bool is_set) {
+        int r;
+
+        assert(link);
+        assert(m);
+
+        r = sd_rtnl_message_link_set_family(m, AF_BRIDGE);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_open_container(m, IFLA_AF_SPEC);
+        if (r < 0)
+                return r;
+
+        if (link->master_ifindex <= 0) {
+                /* master needs BRIDGE_FLAGS_SELF flag */
+                r = sd_netlink_message_append_u16(m, IFLA_BRIDGE_FLAGS, BRIDGE_FLAGS_SELF);
+                if (r < 0)
+                        return r;
+        }
+
+        if (is_set)
+                r = bridge_vlan_append_set_info(link, m);
+        else
+                r = bridge_vlan_append_del_info(link, m);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_message_close_container(m);
+        if (r < 0)
+                return r;
+
         return 0;
 }
 
