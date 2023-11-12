@@ -23,8 +23,8 @@ static bool is_bit_set(unsigned nr, const uint32_t *addr) {
 }
 
 static void set_bit(unsigned nr, uint32_t *addr) {
-        if (nr < BRIDGE_VLAN_BITMAP_MAX)
-                addr[nr / 32] |= (UINT32_C(1) << (nr % 32));
+        assert(nr < BRIDGE_VLAN_BITMAP_MAX);
+        addr[nr / 32] |= (UINT32_C(1) << (nr % 32));
 }
 
 static int add_single(sd_netlink_message *m, uint16_t id, bool untagged, bool is_pvid) {
