@@ -51,15 +51,13 @@ int config_item_table_lookup(
                 void **ret_data,
                 void *userdata) {
 
-        const ConfigTableItem *t;
-
         assert(table);
         assert(lvalue);
         assert(ret_func);
         assert(ret_ltype);
         assert(ret_data);
 
-        for (t = table; t->lvalue; t++) {
+        for (const ConfigTableItem *t = table; t->lvalue; t++) {
 
                 if (!streq(lvalue, t->lvalue))
                         continue;
