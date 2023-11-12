@@ -687,7 +687,8 @@ int link_request_to_set_bridge_vlan(Link *link) {
         assert(link);
         assert(link->network);
 
-        if (!link->network->use_br_vlan)
+        /* If nothing configured, use the default vlan ID. */
+        if (memeqzero(link->network->bridge_vlan_bitmap, BRIDGE_VLAN_BITMAP_LEN * sizeof(uint32_t)))
                 return 0;
 
         if (!link->network->bridge && !streq_ptr(link->kind, "bridge")) {
