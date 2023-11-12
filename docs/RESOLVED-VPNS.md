@@ -48,18 +48,18 @@ a network interface may configure.
 
 2. Routing domains: these are very similar to search domains, but are purely
    about DNS domain name lookup routing — they are not used for qualifying
-   single-label domain names. When it comes to routing assigning a routing
+   single-label domain names. When it comes to routing, assigning a routing
    domain to a network interface is identical to assigning a search domain to
    it.
 
    Why the need to have both concepts, i.e. search *and* routing domains?
    Mostly because in many cases the qualifying of single-label names is not
-   desirable (since security-sensitive), but needs to be supported for specific
-   use-cases. Routing domains are a concept `systemd-resolved.service`
+   desirable (as it has security implications), but needs to be supported for
+   specific use-cases. Routing domains are a concept `systemd-resolved.service`
    introduced, while search domains are traditionally available and are part of
    DHCP/IPv6RA/PPP leases and thus universally supported. In many cases routing
    domains are probably the more appropriate concept, but not easily available,
-   since not part of DHCP/IPv6RA/PPP.
+   since they are not part of DHCP/IPv6RA/PPP.
 
    Routing domains for `systemd-resolved.service` are usually presented along
    with search domains in mostly the same way, but prefixed with `~` to
@@ -79,7 +79,7 @@ a network interface may configure.
    these (or sub-domains thereof) defined as routing domains, will be preferably
    used for doing reverse IP to domain name lookups. e.g. declaring
    `~168.192.in-addr.arpa` on an interface means that all lookups to find the
-   domain names for IPv4 addresses 192.168.x.y are preferable routed to it.
+   domain names for IPv4 addresses 192.168.x.y are preferably routed to it.
 
 3. The `default-route` boolean. This is a simple boolean value that may be set
    on an interface. If true (the default), any DNS lookups for which no
