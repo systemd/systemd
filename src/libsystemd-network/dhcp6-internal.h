@@ -11,7 +11,7 @@
 #include "sd-event.h"
 #include "sd-dhcp6-client.h"
 
-#include "dhcp-identifier.h"
+#include "dhcp-duid-internal.h"
 #include "dhcp6-client-internal.h"
 #include "dhcp6-option.h"
 #include "dhcp6-protocol.h"
@@ -64,8 +64,7 @@ struct sd_dhcp6_client {
         DHCP6IA ia_na;
         DHCP6IA ia_pd;
         DHCP6RequestIA request_ia;
-        struct duid duid;
-        size_t duid_len;
+        sd_dhcp_duid duid;
         be16_t *req_opts;
         size_t n_req_opts;
         char *fqdn;
