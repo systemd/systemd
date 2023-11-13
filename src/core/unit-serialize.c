@@ -69,24 +69,24 @@ static int deserialize_markers(Unit *u, const char *value) {
         }
 }
 
-static const char *const ip_accounting_metric_field[_CGROUP_IP_ACCOUNTING_METRIC_MAX] = {
-        [CGROUP_IP_INGRESS_BYTES] = "ip-accounting-ingress-bytes",
+static const char* const ip_accounting_metric_field[_CGROUP_IP_ACCOUNTING_METRIC_MAX] = {
+        [CGROUP_IP_INGRESS_BYTES]   = "ip-accounting-ingress-bytes",
         [CGROUP_IP_INGRESS_PACKETS] = "ip-accounting-ingress-packets",
-        [CGROUP_IP_EGRESS_BYTES] = "ip-accounting-egress-bytes",
-        [CGROUP_IP_EGRESS_PACKETS] = "ip-accounting-egress-packets",
+        [CGROUP_IP_EGRESS_BYTES]    = "ip-accounting-egress-bytes",
+        [CGROUP_IP_EGRESS_PACKETS]  = "ip-accounting-egress-packets",
 };
 
-static const char *const io_accounting_metric_field_base[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
-        [CGROUP_IO_READ_BYTES] = "io-accounting-read-bytes-base",
-        [CGROUP_IO_WRITE_BYTES] = "io-accounting-write-bytes-base",
-        [CGROUP_IO_READ_OPERATIONS] = "io-accounting-read-operations-base",
+static const char* const io_accounting_metric_field_base[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
+        [CGROUP_IO_READ_BYTES]       = "io-accounting-read-bytes-base",
+        [CGROUP_IO_WRITE_BYTES]      = "io-accounting-write-bytes-base",
+        [CGROUP_IO_READ_OPERATIONS]  = "io-accounting-read-operations-base",
         [CGROUP_IO_WRITE_OPERATIONS] = "io-accounting-write-operations-base",
 };
 
-static const char *const io_accounting_metric_field_last[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
-        [CGROUP_IO_READ_BYTES] = "io-accounting-read-bytes-last",
-        [CGROUP_IO_WRITE_BYTES] = "io-accounting-write-bytes-last",
-        [CGROUP_IO_READ_OPERATIONS] = "io-accounting-read-operations-last",
+static const char* const io_accounting_metric_field_last[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
+        [CGROUP_IO_READ_BYTES]       = "io-accounting-read-bytes-last",
+        [CGROUP_IO_WRITE_BYTES]      = "io-accounting-write-bytes-last",
+        [CGROUP_IO_READ_OPERATIONS]  = "io-accounting-read-operations-last",
         [CGROUP_IO_WRITE_OPERATIONS] = "io-accounting-write-operations-last",
 };
 
