@@ -114,15 +114,18 @@ Unit* unit_new(Manager *m, size_t size) {
         u->ref_uid = UID_INVALID;
         u->ref_gid = GID_INVALID;
         u->cpu_usage_last = NSEC_INFINITY;
-        u->memory_peak_last = UINT64_MAX;
-        u->memory_swap_peak_last = UINT64_MAX;
+
+        FOREACH_ARRAY(i, u->memory_accounting_last, ELEMENTSOF(u->memory_accounting_last))
+                *i = UINT64_MAX;
+
         u->cgroup_invalidated_mask |= CGROUP_MASK_BPF_FIREWALL;
         u->failure_action_exit_status = u->success_action_exit_status = -1;
 
         u->ip_accounting_ingress_map_fd = -EBADF;
         u->ip_accounting_egress_map_fd = -EBADF;
-        for (CGroupIOAccountingMetric i = 0; i < _CGROUP_IO_ACCOUNTING_METRIC_MAX; i++)
-                u->io_accounting_last[i] = UINT64_MAX;
+
+        FOREACH_ARRAY(i, u->io_accounting_last, _CGROUP_IO_ACCOUNTING_METRIC_MAX)
+                *i = UINT64_MAX;
 
         u->ipv4_allow_map_fd = -EBADF;
         u->ipv6_allow_map_fd = -EBADF;
