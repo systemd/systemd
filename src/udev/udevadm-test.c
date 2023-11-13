@@ -138,7 +138,7 @@ int test_main(int argc, char *argv[], void *userdata) {
                 char program[UDEV_PATH_SIZE];
                 bool truncated;
 
-                (void) udev_event_apply_format(event, cmd, program, sizeof(program), false, &truncated);
+                (void) udev_event_apply_format(event, cmd, program, sizeof(program), false, NULL, &truncated);
                 if (truncated)
                         log_warning("The command '%s' is truncated while substituting into '%s'.", program, cmd);
                 printf("run: '%s'\n", program);
