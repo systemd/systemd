@@ -261,6 +261,16 @@ typedef enum CGroupIOAccountingMetric {
         _CGROUP_IO_ACCOUNTING_METRIC_INVALID = -EINVAL,
 } CGroupIOAccountingMetric;
 
+typedef enum CGroupMemoryAccountingMetric {
+        CGROUP_MEMORY_PEAK,
+        CGROUP_MEMORY_SWAP_PEAK,
+        CGROUP_MEMORY_SWAP_CURRENT,
+        CGROUP_MEMORY_ZSWAP_CURRENT,
+        _CGROUP_MEMORY_ACCOUNTING_METRIC_MAX,
+        _CGROUP_MEMORY_ACCOUNTING_METRIC_CACHED_LAST = CGROUP_MEMORY_SWAP_PEAK,
+        _CGROUP_MEMORY_ACCOUNTING_METRIC_INVALID = -EINVAL,
+} CGroupMemoryAccountingMetric;
+
 typedef struct Unit Unit;
 typedef struct Manager Manager;
 typedef enum ManagerState ManagerState;
@@ -352,12 +362,9 @@ int unit_watch_all_pids(Unit *u);
 
 int unit_synthesize_cgroup_empty_event(Unit *u);
 
-int unit_get_memory_current(Unit *u, uint64_t *ret);
-int unit_get_memory_peak(Unit *u, uint64_t *ret);
-int unit_get_memory_swap_current(Unit *u, uint64_t *ret);
-int unit_get_memory_swap_peak(Unit *u, uint64_t *ret);
-int unit_get_memory_zswap_current(Unit *u, uint64_t *ret);
 int unit_get_memory_available(Unit *u, uint64_t *ret);
+int unit_get_memory_current(Unit *u, uint64_t *ret);
+int unit_get_memory_accounting(Unit *u, CGroupMemoryAccountingMetric metric, uint64_t *ret);
 int unit_get_tasks_current(Unit *u, uint64_t *ret);
 int unit_get_cpu_usage(Unit *u, nsec_t *ret);
 int unit_get_io_accounting(Unit *u, CGroupIOAccountingMetric metric, bool allow_cache, uint64_t *ret);
@@ -410,3 +417,6 @@ CGroupIPAccountingMetric cgroup_ip_accounting_metric_from_string(const char *s) 
 
 const char* cgroup_io_accounting_metric_to_string(CGroupIOAccountingMetric m) _const_;
 CGroupIOAccountingMetric cgroup_io_accounting_metric_from_string(const char *s) _pure_;
+
+const char* cgroup_memory_accounting_metric_to_string(CGroupMemoryAccountingMetric m) _const_;
+CGroupMemoryAccountingMetric cgroup_memory_accounting_metric_from_string(const char *s) _pure_;
