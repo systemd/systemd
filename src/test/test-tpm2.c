@@ -995,6 +995,8 @@ TEST(tpm2_get_srk_template) {
 }
 
 static void check_best_srk_template(Tpm2Context *c) {
+        TEST_LOG_FUNC();
+
         TPMT_PUBLIC template;
         assert_se(tpm2_get_best_srk_template(c, &template) >= 0);
 
@@ -1008,6 +1010,8 @@ static void check_best_srk_template(Tpm2Context *c) {
 
 static void check_test_parms(Tpm2Context *c) {
         assert(c);
+
+        TEST_LOG_FUNC();
 
         TPMU_PUBLIC_PARMS parms = {
                 .symDetail.sym = {
@@ -1031,6 +1035,8 @@ static void check_test_parms(Tpm2Context *c) {
 static void check_supports_alg(Tpm2Context *c) {
         assert(c);
 
+        TEST_LOG_FUNC();
+
         /* Test invalid algs */
         assert_se(!tpm2_supports_alg(c, TPM2_ALG_ERROR));
         assert_se(!tpm2_supports_alg(c, TPM2_ALG_LAST + 1));
@@ -1043,6 +1049,8 @@ static void check_supports_alg(Tpm2Context *c) {
 
 static void check_supports_command(Tpm2Context *c) {
         assert(c);
+
+        TEST_LOG_FUNC();
 
         /* Test invalid commands. TPM specification Part 2 ("Structures") section "TPM_CC (Command Codes)"
          * states bits 31:30 and 28:16 are reserved and must be 0. */
@@ -1062,6 +1070,8 @@ static void check_supports_command(Tpm2Context *c) {
 }
 
 static void check_get_or_create_srk(Tpm2Context *c) {
+        TEST_LOG_FUNC();
+
         _cleanup_free_ TPM2B_PUBLIC *public = NULL;
         _cleanup_free_ TPM2B_NAME *name = NULL, *qname = NULL;
         _cleanup_(tpm2_handle_freep) Tpm2Handle *handle = NULL;
@@ -1131,6 +1141,8 @@ static void calculate_seal_and_unseal(
 static int check_calculate_seal(Tpm2Context *c) {
         assert(c);
         int r;
+
+        TEST_LOG_FUNC();
 
         _cleanup_free_ TPM2B_PUBLIC *srk_public = NULL;
         assert_se(tpm2_get_srk(c, NULL, &srk_public, NULL, NULL, NULL) >= 0);
@@ -1203,6 +1215,8 @@ static void check_seal_unseal(Tpm2Context *c) {
         int r;
 
         assert(c);
+
+        TEST_LOG_FUNC();
 
         check_seal_unseal_for_handle(c, 0);
         check_seal_unseal_for_handle(c, TPM2_SRK_HANDLE);
