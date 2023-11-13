@@ -1437,6 +1437,7 @@ static int list_devices(void) {
                 return log_error_errno(r, "Failed to set sort index: %m");
 
         table_set_header(table, arg_legend);
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         FOREACH_DEVICE(e, d) {
                 for (unsigned c = 0; c < _COLUMN_MAX; c++) {
@@ -1473,7 +1474,7 @@ static int list_devices(void) {
                                 break;
                         }
 
-                        r = table_add_cell(table, NULL, c == COLUMN_NODE ? TABLE_PATH : TABLE_STRING, strna(x));
+                        r = table_add_cell(table, NULL, c == COLUMN_NODE ? TABLE_PATH : TABLE_STRING, x);
                         if (r < 0)
                                 return table_log_add_error(r);
                 }
