@@ -9,6 +9,7 @@
 #include "hexdecoct.h"
 #include "id128-util.h"
 #include "io-util.h"
+#include "sha256.h"
 #include "stdio-util.h"
 #include "string-util.h"
 #include "sync-util.h"
@@ -233,4 +234,22 @@ int id128_get_product(sd_id128_t *ret) {
 
         *ret = uuid;
         return 0;
+}
+
+sd_id128_t id128_digest(const void *data, size_t size) {
+        assert(data || size == 0);
+
+        /* Hashes a UUID from some arbitrary data */
+
+        if (size == SIZE_MAX)
+                size = strlen(data);
+
+        uint8_t h[SHA256_DIGEST_SIZE];
+        sd_id128_t id;
+
+        /* Take the first half of the SHA256 result */
+        assert_cc(sizeof(h) >= sizeof(id.bytes));
+        memcpy(id.bytes, sha256_direct(data, size, h), sizeof(id.bytes));
+
+        return id128_make_v4_uuid(id);
 }
