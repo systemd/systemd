@@ -10,9 +10,9 @@ systemctl start sys-kernel-config.mount
 
 dd if=/dev/urandom of=/var/tmp/storagetm.test bs=1024 count=10240
 
-systemd-run -u teststoragetm.service -p Type=notify /usr/lib/systemd/systemd-storagetm /var/tmp/storagetm.test --nqn=quux
-NVME_SERIAL="$(</sys/kernel/config/nvmet/subsystems/quux.storagetm.test/attr_serial)"
-NVME_DEVICE="/dev/disk/by-id/nvme-Linux_${NVME_SERIAL:?}"
+NVME_UUID="$(cat /proc/sys/kernel/random/uuid)"
+systemd-run -u teststoragetm.service -p Type=notify -p "Environment=SYSTEMD_NVME_UUID=${NVME_UUID:?}" /usr/lib/systemd/systemd-storagetm /var/tmp/storagetm.test --nqn=quux
+NVME_DEVICE="/dev/disk/by-id/nvme-uuid.${NVME_UUID:?}"
 
 nvme connect-all -t tcp -a 127.0.0.1 -s 16858 --hostid="$(cat /proc/sys/kernel/random/uuid)"
 udevadm wait --settle "$NVME_DEVICE"
