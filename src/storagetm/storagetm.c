@@ -13,9 +13,11 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "id128-util.h"
 #include "local-addresses.h"
 #include "loop-util.h"
 #include "main-func.h"
+#include "os-util.h"
 #include "parse-argument.h"
 #include "path-util.h"
 #include "pretty-print.h"
@@ -219,7 +221,137 @@ static NvmeSubsystem *nvme_subsystem_destroy(NvmeSubsystem *s) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(NvmeSubsystem*, nvme_subsystem_destroy);
 
-static int nvme_subsystem_add(const char *node, int consumed_fd, NvmeSubsystem **ret) {
+static int nvme_subsystem_write_metadata(int subsystem_fd, sd_device *device) {
+        _cleanup_free_ char *image_id = NULL, *image_version = NULL, *os_id = NULL, *os_version = NULL, *combined_model = NULL, *synthetic_serial = NULL;
+        const char *hwmodel = NULL, *hwserial = NULL, *w;
+        int r;
+
+        assert(subsystem_fd >= 0);
+
+        (void) parse_os_release(
+                        /* root= */ NULL,
+                        "IMAGE_ID", &image_id,
+                        "IMAGE_VERSION", &image_version,
+                        "ID", &os_id,
+                        "VERSION_ID", &os_version);
+
+        if (device) {
+                (void) device_get_model_string(device, &hwmodel);
+                (void) sd_device_get_property_value(device, "ID_SERIAL_SHORT", &hwserial);
+        }
+
+        w = secure_getenv("SYSTEMD_NVME_MODEL");
+        if (!w) {
+                if (hwmodel && (image_id || os_id)) {
+                        if (asprintf(&combined_model, "%s (%s)", hwmodel, image_id ?: os_id) < 0)
+                                return log_oom();
+                        w = combined_model;
+                } else
+                        w = hwmodel ?: image_id ?: os_id;
+        }
+        if (w) {
+                _cleanup_free_ char *truncated = strndup(w, 40); /* kernel refuses more than 40 chars (as per nvme spec) */
+
+                /* The default string stored in 'attr_model' is "Linux" btw. */
+                r = write_string_file_at(subsystem_fd, "attr_model", truncated, WRITE_STRING_FILE_DISABLE_BUFFER);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set model of subsystem to '%s', ignoring: %m", w);
+        }
+
+        w = secure_getenv("SYSTEMD_NVME_FIRMWARE");
+        if (!w)
+                w = image_version ?: os_version;
+        if (w) {
+                _cleanup_free_ char *truncated = strndup(w, 8); /* kernel refuses more than 8 chars (as per nvme spec) */
+                if (!truncated)
+                        return log_oom();
+
+                 /* The default string stored in 'attr_firmware' is `uname -r` btw, but truncated to 8 chars. */
+                r = write_string_file_at(subsystem_fd, "attr_firmware", truncated, WRITE_STRING_FILE_DISABLE_BUFFER);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set model of subsystem to '%s', ignoring: %m", truncated);
+        }
+
+        w = secure_getenv("SYSTEMD_NVME_SERIAL");
+        if (!w) {
+                if (hwserial)
+                        w = hwserial;
+                else {
+                        sd_id128_t mid;
+
+                        r = sd_id128_get_machine_app_specific(SD_ID128_MAKE(39,7f,4d,bf,1e,bf,46,6d,b3,cb,45,b8,0d,49,5b,c1), &mid);
+                        if (r < 0)
+                                log_warning_errno(r, "Failed to get machine ID, ignoring: %m");
+                        else {
+                                if (asprintf(&synthetic_serial, SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(mid)) < 0)
+                                        return log_oom();
+                                w = synthetic_serial;
+                        }
+                }
+        }
+        if (w) {
+                _cleanup_free_ char *truncated = strndup(w, 20); /* kernel refuses more than 20 chars (as per nvme spec) */
+                if (!truncated)
+                        return log_oom();
+
+                r = write_string_file_at(subsystem_fd, "attr_serial", truncated, WRITE_STRING_FILE_DISABLE_BUFFER);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set serial of subsystem to '%s', ignoring: %m", truncated);
+        }
+
+        return 0;
+}
+
+static int nvme_namespace_write_metadata(int namespace_fd, sd_device *device, const char *node) {
+        sd_id128_t id = SD_ID128_NULL;
+        const char *e;
+        int r;
+
+        assert(namespace_fd >= 0);
+
+        e = secure_getenv("SYSTEMD_NVME_UUID");
+        if (e) {
+                r = sd_id128_from_string(e, &id);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to parse $SYSTEMD_NVME_UUID, ignoring: %s", e);
+        }
+
+        if (sd_id128_is_null(id)) {
+                const char *serial = NULL;
+                sd_id128_t mid = SD_ID128_NULL;
+
+                /* We combine machine ID and ID_SERIAL and hash a UUID from it */
+
+                if (device) {
+                        (void) sd_device_get_property_value(device, "ID_SERIAL", &serial);
+                        if (!serial)
+                                sd_device_get_devpath(device, &serial);
+                } else
+                        serial = node;
+
+                r = sd_id128_get_machine(&mid);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to get machine ID, ignoring: %m");
+
+                size_t l = sizeof(mid) + strlen_ptr(serial);
+                _cleanup_free_ void *j = malloc(l + 1);
+                if (!j)
+                        return log_oom();
+
+                strcpy(mempcpy(j, &mid, sizeof(mid)), strempty(serial));
+
+                id = id128_digest(j, l);
+        }
+
+        r = write_string_file_at(namespace_fd, "device_uuid", SD_ID128_TO_UUID_STRING(id), WRITE_STRING_FILE_DISABLE_BUFFER);
+        if (r < 0)
+                log_warning_errno(r, "Failed to set uuid of namespace to '%s', ignoring: %m", SD_ID128_TO_UUID_STRING(id));
+
+        return 0;
+}
+
+static int nvme_subsystem_add(const char *node, int consumed_fd, sd_device *device, NvmeSubsystem **ret) {
+        _cleanup_(sd_device_unrefp) sd_device *allocated_device = NULL;
         _cleanup_close_ int fd = consumed_fd; /* always take possession of the fd */
         int r;
 
@@ -245,7 +377,15 @@ static int nvme_subsystem_add(const char *node, int consumed_fd, NvmeSubsystem *
         struct stat st;
         if (fstat(fd, &st) < 0)
                 return log_error_errno(errno, "Failed to fstat '%s': %m", node);
-        if (!S_ISBLK(st.st_mode)) {
+        if (S_ISBLK(st.st_mode)) {
+                if (!device) {
+                        r = sd_device_new_from_devnum(&allocated_device, 'b', st.st_dev);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get device information for device '%s': %m", node);
+
+                        device = allocated_device;
+                }
+        } else {
                 r = stat_verify_regular(&st);
                 if (r < 0)
                         return log_error_errno(r, "Not a block device or regular file, refusing: %s", node);
@@ -270,10 +410,14 @@ static int nvme_subsystem_add(const char *node, int consumed_fd, NvmeSubsystem *
         if (r < 0)
                 return log_error_errno(r, "Failed to set 'attr_allow_any_host' flag: %m");
 
+        (void) nvme_subsystem_write_metadata(subsystem_fd, device);
+
         _cleanup_close_ int namespace_fd = -EBADF;
         namespace_fd = open_mkdir_at(subsystem_fd, "namespaces/1", O_EXCL|O_RDONLY|O_CLOEXEC, 0777);
         if (namespace_fd < 0)
                 return log_error_errno(namespace_fd, "Failed to create NVME namespace '1': %m");
+
+        (void) nvme_namespace_write_metadata(namespace_fd, device, node);
 
         /* We use /proc/$PID/fd/$FD rather than /proc/self/fd/$FD, because this string is visible to others
          * via configfs, and by including the PID it's clear to who the stuff belongs. */
@@ -786,7 +930,7 @@ static int device_added(Context *c, sd_device *device) {
         }
 
         _cleanup_(nvme_subsystem_destroyp) NvmeSubsystem *s = NULL;
-        r = nvme_subsystem_add(devname, TAKE_FD(fd), &s);
+        r = nvme_subsystem_add(devname, TAKE_FD(fd), device, &s);
         if (r < 0)
                 return r;
 
@@ -927,7 +1071,7 @@ static int run(int argc, char* argv[]) {
         STRV_FOREACH(i, arg_devices) {
                 _cleanup_(nvme_subsystem_destroyp) NvmeSubsystem *subsys = NULL;
 
-                r = nvme_subsystem_add(*i, -EBADF, &subsys);
+                r = nvme_subsystem_add(*i, -EBADF, /* device= */ NULL, &subsys);
                 if (r < 0)
                         return r;
 
