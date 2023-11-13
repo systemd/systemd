@@ -17,7 +17,7 @@
 #include "sd-event.h"
 
 #include "alloc-util.h"
-#include "dhcp-identifier.h"
+#include "dhcp-duid-internal.h"
 #include "dhcp-network.h"
 #include "dhcp-option.h"
 #include "dhcp-packet.h"
@@ -165,19 +165,18 @@ static int check_options(uint8_t code, uint8_t len, const void *option, void *us
         switch (code) {
         case SD_DHCP_OPTION_CLIENT_IDENTIFIER:
         {
+                sd_dhcp_duid duid;
                 uint32_t iaid;
-                struct duid duid;
-                size_t duid_len;
 
-                assert_se(dhcp_identifier_set_duid_en(&duid, &duid_len) >= 0);
+                assert_se(sd_dhcp_duid_set_en(&duid) >= 0);
                 assert_se(dhcp_identifier_set_iaid(NULL, &hw_addr, /* legacy = */ true, &iaid) >= 0);
 
-                assert_se(len == sizeof(uint8_t) + sizeof(uint32_t) + duid_len);
+                assert_se(len == sizeof(uint8_t) + sizeof(uint32_t) + duid.size);
                 assert_se(len == 19);
                 assert_se(((uint8_t*) option)[0] == 0xff);
 
                 assert_se(memcmp((uint8_t*) option + 1, &iaid, sizeof(iaid)) == 0);
-                assert_se(memcmp((uint8_t*) option + 5, &duid, duid_len) == 0);
+                assert_se(memcmp((uint8_t*) option + 5, &duid.duid, duid.size) == 0);
                 break;
         }
 
