@@ -4,6 +4,7 @@
 #include "alloc-util.h"
 
 /* hey glibc, APIs with callbacks without a user pointer are so useless */
+_no_sanitize_incorrect_function_pointer_type_
 void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
                  comparison_userdata_fn_t compar, void *arg) {
         size_t l, u, idx;
