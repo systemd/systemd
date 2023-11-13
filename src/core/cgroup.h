@@ -371,6 +371,7 @@ int unit_get_io_accounting(Unit *u, CGroupIOAccountingMetric metric, bool allow_
 int unit_get_ip_accounting(Unit *u, CGroupIPAccountingMetric metric, uint64_t *ret);
 
 int unit_reset_cpu_accounting(Unit *u);
+void unit_reset_memory_accounting(Unit *u);
 int unit_reset_ip_accounting(Unit *u);
 int unit_reset_io_accounting(Unit *u);
 int unit_reset_accounting(Unit *u);
