@@ -70,6 +70,14 @@ EFI_ARCHES: list[str] = sum(EFI_ARCH_MAP.values(), [])
 DEFAULT_CONFIG_DIRS = ['/run/systemd', '/etc/systemd', '/usr/local/lib/systemd', '/usr/lib/systemd']
 DEFAULT_CONFIG_FILE = 'ukify.conf'
 
+class Style:
+    bold = "\033[0;1;39m" if sys.stderr.isatty() else ""
+    gray = "\033[0;38;5;245m" if sys.stderr.isatty() else ""
+    red = "\033[31;1m" if sys.stderr.isatty() else ""
+    yellow = "\033[33;1m" if sys.stderr.isatty() else ""
+    reset = "\033[0m" if sys.stderr.isatty() else ""
+
+
 def guess_efi_arch():
     arch = os.uname().machine
 
@@ -1161,7 +1169,7 @@ CONFIG_ITEMS = [
         'positional',
         metavar = 'VERB',
         nargs = '*',
-        help = f"operation to perform ({','.join(VERBS)})",
+        help = argparse.SUPPRESS,
     ),
 
     ConfigItem(
@@ -1499,11 +1507,13 @@ class PagerHelpAction(argparse._HelpAction):  # pylint: disable=protected-access
 def create_parser():
     p = argparse.ArgumentParser(
         description='Build and sign Unified Kernel Images',
+        usage='\n  ' + textwrap.dedent('''\
+          ukify {b}build{e} [--linux=LINUX] [--initrd=INITRD] [options…]
+            ukify {b}genkey{e} [options…]
+            ukify {b}inspect{e} FILE… [options…]
+        ''').format(b=Style.bold, e=Style.reset),
         allow_abbrev=False,
         add_help=False,
-        usage='''\
-ukify [options…] VERB
-''',
         epilog='\n  '.join(('config file:', *config_example())),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
