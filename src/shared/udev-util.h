@@ -3,6 +3,7 @@
 
 #include "sd-device.h"
 
+#include "hashmap.h"
 #include "time-util.h"
 
 int udev_set_max_log_level(char *str);
@@ -25,3 +26,9 @@ bool udev_available(void);
 
 int device_get_vendor_string(sd_device *device, const char **ret);
 int device_get_model_string(sd_device *device, const char **ret);
+
+int device_get_property_value_with_fallback(
+                sd_device *device,
+                const char *prop,
+                Hashmap *extra_props,
+                const char **ret);

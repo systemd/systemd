@@ -410,3 +410,30 @@ int device_get_model_string(sd_device *device, const char **ret) {
 
         return -ENOENT;
 }
+
+int device_get_property_value_with_fallback(
+                sd_device *device,
+                const char *prop,
+                Hashmap *extra_props,
+                const char **ret) {
+        const char *value;
+        int r;
+
+        assert(device);
+        assert(prop);
+        assert(ret);
+
+        r = sd_device_get_property_value(device, prop, &value);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        return r;
+
+                value = hashmap_get(extra_props, prop);
+                if (!value)
+                        return -ENOENT;
+        }
+
+        *ret = value;
+
+        return 1;
+}
