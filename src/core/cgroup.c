@@ -4040,12 +4040,22 @@ int unit_get_memory_current(Unit *u, uint64_t *ret) {
         return cg_get_attribute_as_uint64("memory", u->cgroup_path, r > 0 ? "memory.current" : "memory.usage_in_bytes", ret);
 }
 
-static int unit_get_memory_attr_raw(Unit *u, const char* mem_attribute, uint64_t *ret) {
+int unit_get_memory_accounting(Unit *u, CGroupMemoryAccountingMetric metric, uint64_t *ret) {
+
+        static const char* const attributes_table[_CGROUP_MEMORY_ACCOUNTING_METRIC_MAX] = {
+                [CGROUP_MEMORY_CURRENT]       = "memory.current",
+                [CGROUP_MEMORY_PEAK]          = "memory.peak",
+                [CGROUP_MEMORY_SWAP_CURRENT]  = "memory.swap.current",
+                [CGROUP_MEMORY_SWAP_PEAK]     = "memory.swap.peak",
+                [CGROUP_MEMORY_ZSWAP_CURRENT] = "memory.zswap.current",
+        };
+
+        uint64_t bytes;
         int r;
 
         assert(u);
-        assert(mem_attribute);
-        assert(ret);
+        assert(metric >= 0);
+        assert(metric < _CGROUP_MEMORY_ACCOUNTING_METRIC_MAX);
 
         if (!UNIT_CGROUP_BOOL(u, memory_accounting))
                 return -ENODATA;
@@ -4057,62 +4067,32 @@ static int unit_get_memory_attr_raw(Unit *u, const char* mem_attribute, uint64_t
         if (unit_has_host_root_cgroup(u))
                 return -ENODATA;
 
-        if ((u->cgroup_realized_mask & CGROUP_MASK_MEMORY) == 0)
+        if (!FLAGS_SET(u->cgroup_realized_mask, CGROUP_MASK_MEMORY))
                 return -ENODATA;
 
         r = cg_all_unified();
         if (r < 0)
                 return r;
-        if (!r)
+        if (r == 0)
                 return -ENODATA;
 
-        return cg_get_attribute_as_uint64("memory", u->cgroup_path, mem_attribute, ret);
-}
-
-static int unit_get_memory_attr_cached(Unit *u, const char* mem_attribute, uint64_t* last, uint64_t *ret) {
-        uint64_t bytes;
-        int r;
-
-        assert(u);
-        assert(mem_attribute);
-        assert(last);
-
-        if (!UNIT_CGROUP_BOOL(u, memory_accounting))
-                return -ENODATA;
-
-        r = unit_get_memory_attr_raw(u, mem_attribute, &bytes);
-        if (r == -ENODATA && *last != UINT64_MAX) {
-                /* If we can't get the memory peak anymore (because the cgroup was already removed, for example),
-                 * use our cached value. */
-
-                if (ret)
-                        *ret = *last;
-                return 0;
-        }
-        if (r < 0)
+        r = cg_get_attribute_as_uint64("memory", u->cgroup_path, attributes_table[metric], &bytes);
+        if (r < 0 && (r != -ENODATA || metric > _CGROUP_MEMORY_ACCOUNTING_METRIC_CACHED_LAST))
                 return r;
 
-        *last = bytes;
+        if (metric <= _CGROUP_MEMORY_ACCOUNTING_METRIC_CACHED_LAST) {
+                uint64_t *last = &u->memory_accounting_last[metric];
+
+                if (r >= 0)
+                        *last = bytes;
+                else if (*last != UINT64_MAX)
+                        bytes = *last;
+        }
+
         if (ret)
                 *ret = bytes;
 
         return 0;
-}
-
-int unit_get_memory_peak(Unit *u, uint64_t *ret) {
-        return unit_get_memory_attr_cached(u, "memory.peak", &u->memory_peak_last, ret);
-}
-
-int unit_get_memory_swap_current(Unit *u, uint64_t *ret) {
-        return unit_get_memory_attr_raw(u, "memory.swap.current", ret);
-}
-
-int unit_get_memory_swap_peak(Unit *u, uint64_t *ret) {
-        return unit_get_memory_attr_cached(u, "memory.swap.peak", &u->memory_swap_peak_last, ret);
-}
-
-int unit_get_memory_zswap_current(Unit *u, uint64_t *ret) {
-        return unit_get_memory_attr_raw(u, "memory.zswap.current", ret);
 }
 
 int unit_get_tasks_current(Unit *u, uint64_t *ret) {
@@ -4650,3 +4630,13 @@ static const char* const cgroup_io_accounting_metric_table[_CGROUP_IO_ACCOUNTING
 };
 
 DEFINE_STRING_TABLE_LOOKUP(cgroup_io_accounting_metric, CGroupIOAccountingMetric);
+
+static const char* const cgroup_memory_accounting_metric_table[_CGROUP_MEMORY_ACCOUNTING_METRIC_MAX] = {
+        [CGROUP_MEMORY_CURRENT]      = "MemoryCurrent",
+        [CGROUP_MEMORY_PEAK]         = "MemoryPeak",
+        [CGROUP_MEMORY_SWAP_CURRENT] = "MemorySwapCurrent",
+        [CGROUP_MEMORY_SWAP_PEAK]    = "MemorySwapPeak",
+        [CGROUP_MEMORY_ZSWAP_PEAK]   = "MemoryZSwapPeak",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(cgroup_memory_accounting_metric, CGroupMemoryAccountingMetric);
