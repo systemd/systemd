@@ -265,6 +265,7 @@ DEFAULT_SECTIONS_TO_SHOW = {
         '.pcrpkey'  : 'text',
         '.pcrsig'   : 'text',
         '.sbat'     : 'text',
+        '.sbom'     : 'text',
 }
 
 @dataclasses.dataclass
