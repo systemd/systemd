@@ -1631,7 +1631,7 @@ const sd_bus_vtable bus_unit_cgroup_vtable[] = {
         SD_BUS_PROPERTY("MemoryPeak", "t", property_get_peak_memory, 0, 0),
         SD_BUS_PROPERTY("MemorySwapCurrent", "t", property_get_current_swap_memory, 0, 0),
         SD_BUS_PROPERTY("MemorySwapPeak", "t", property_get_peak_swap_memory, 0, 0),
-        SD_BUS_PROPERTY("MemoryZswapCurrent", "t", property_get_current_zswap_memory, 0, 0),
+        SD_BUS_PROPERTY("MemoryZSwapCurrent", "t", property_get_current_zswap_memory, 0, 0),
         SD_BUS_PROPERTY("MemoryAvailable", "t", property_get_available_memory, 0, 0),
         SD_BUS_PROPERTY("CPUUsageNSec", "t", property_get_cpu_usage, 0, 0),
         SD_BUS_PROPERTY("EffectiveCPUs", "ay", property_get_cpuset_cpus, 0, 0),
