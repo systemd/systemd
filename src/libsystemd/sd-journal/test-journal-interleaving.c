@@ -64,7 +64,7 @@ static void append_number(JournalFile *f, int n, const sd_id128_t *boot_id, uint
         struct iovec iovec[2];
         size_t n_iov = 0;
 
-        dual_timestamp_get(&ts);
+        dual_timestamp_now(&ts);
 
         if (ts.monotonic <= previous_ts.monotonic)
                 ts.monotonic = previous_ts.monotonic + 1;

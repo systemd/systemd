@@ -1779,7 +1779,7 @@ static bool unit_test_condition(Unit *u) {
 
         assert(u);
 
-        dual_timestamp_get(&u->condition_timestamp);
+        dual_timestamp_now(&u->condition_timestamp);
 
         r = manager_get_effective_environment(u->manager, &env);
         if (r < 0) {
@@ -1803,7 +1803,7 @@ static bool unit_test_assert(Unit *u) {
 
         assert(u);
 
-        dual_timestamp_get(&u->assert_timestamp);
+        dual_timestamp_now(&u->assert_timestamp);
 
         r = manager_get_effective_environment(u->manager, &env);
         if (r < 0) {
@@ -2740,7 +2740,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
         /* Update timestamps for state changes */
         if (!MANAGER_IS_RELOADING(m)) {
-                dual_timestamp_get(&u->state_change_timestamp);
+                dual_timestamp_now(&u->state_change_timestamp);
 
                 if (UNIT_IS_INACTIVE_OR_FAILED(os) && !UNIT_IS_INACTIVE_OR_FAILED(ns))
                         u->inactive_exit_timestamp = u->state_change_timestamp;
@@ -5079,10 +5079,7 @@ bool unit_type_supported(UnitType t) {
         static int8_t cache[_UNIT_TYPE_MAX] = {}; /* -1: disabled, 1: enabled: 0: don't know */
         int r;
 
-        if (_unlikely_(t < 0))
-                return false;
-        if (_unlikely_(t >= _UNIT_TYPE_MAX))
-                return false;
+        assert(t >= 0 && t < _UNIT_TYPE_MAX);
 
         if (cache[t] == 0) {
                 char *e;

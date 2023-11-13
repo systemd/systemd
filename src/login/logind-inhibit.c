@@ -176,7 +176,7 @@ int inhibitor_start(Inhibitor *i) {
         if (i->started)
                 return 0;
 
-        dual_timestamp_get(&i->since);
+        dual_timestamp_now(&i->since);
 
         log_debug("Inhibitor %s (%s) pid="PID_FMT" uid="UID_FMT" mode=%s started.",
                   strna(i->who), strna(i->why),

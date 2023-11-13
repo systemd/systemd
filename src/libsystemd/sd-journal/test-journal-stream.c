@@ -85,7 +85,7 @@ static void run_test(void) {
                 dual_timestamp ts;
                 struct iovec iovec[2];
 
-                dual_timestamp_get(&ts);
+                dual_timestamp_now(&ts);
 
                 if (ts.monotonic <= previous_ts.monotonic)
                         ts.monotonic = previous_ts.monotonic + 1;

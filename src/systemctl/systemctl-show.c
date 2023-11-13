@@ -484,7 +484,7 @@ static void print_status_info(
                 dual_timestamp nw, next = {i->next_elapse_real, i->next_elapse_monotonic};
                 usec_t next_elapse;
 
-                dual_timestamp_get(&nw);
+                dual_timestamp_now(&nw);
                 next_elapse = calc_next_elapse(&nw, &next);
 
                 if (timestamp_is_set(next_elapse))
