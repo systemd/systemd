@@ -1397,18 +1397,18 @@ static int discover_device(void) {
         return 0;
 }
 
-enum {
-        COLUMN_NODE,
-        COLUMN_PATH,
-        COLUMN_MODEL,
-        COLUMN_WWN,
-        COLUMN_FSTYPE,
-        COLUMN_LABEL,
-        COLUMN_UUID,
-        _COLUMN_MAX,
-};
-
 static int list_devices(void) {
+        enum {
+                COLUMN_NODE,
+                COLUMN_PATH,
+                COLUMN_MODEL,
+                COLUMN_WWN,
+                COLUMN_FSTYPE,
+                COLUMN_LABEL,
+                COLUMN_UUID,
+                _COLUMN_MAX,
+        };
+
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *e = NULL;
         _cleanup_(table_unrefp) Table *table = NULL;
         int r;
@@ -1425,7 +1425,7 @@ static int list_devices(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add property match: %m");
 
-        table = table_new("NODE", "PATH", "MODEL", "WWN", "TYPE", "LABEL", "UUID");
+        table = table_new("NODE", "PATH", "MODEL", "WWN", "FSTYPE", "LABEL", "UUID");
         if (!table)
                 return log_oom();
 
@@ -1437,6 +1437,7 @@ static int list_devices(void) {
                 return log_error_errno(r, "Failed to set sort index: %m");
 
         table_set_header(table, arg_legend);
+        table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
 
         FOREACH_DEVICE(e, d) {
                 for (unsigned c = 0; c < _COLUMN_MAX; c++) {
@@ -1473,7 +1474,7 @@ static int list_devices(void) {
                                 break;
                         }
 
-                        r = table_add_cell(table, NULL, c == COLUMN_NODE ? TABLE_PATH : TABLE_STRING, strna(x));
+                        r = table_add_cell(table, NULL, c == COLUMN_NODE ? TABLE_PATH : TABLE_STRING, x);
                         if (r < 0)
                                 return table_log_add_error(r);
                 }
