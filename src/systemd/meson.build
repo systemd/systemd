@@ -21,6 +21,7 @@ systemd_headers = files(_systemd_headers)
 
 _not_installed_headers = [
         'sd-dhcp-client.h',
+        'sd-dhcp-duid.h',
         'sd-dhcp-lease.h',
         'sd-dhcp-option.h',
         'sd-dhcp-protocol.h',

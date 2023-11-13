@@ -8,7 +8,7 @@
 #include "sd-netlink.h"
 #include "sd-resolve.h"
 
-#include "dhcp-identifier.h"
+#include "dhcp-duid-internal.h"
 #include "firewall-util.h"
 #include "hashmap.h"
 #include "networkd-link.h"
