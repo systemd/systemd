@@ -1981,10 +1981,9 @@ static int udev_rule_apply_token_to_event(
         case TK_M_NAME:
                 return token_match_string(token, event->name);
         case TK_M_ENV: {
-                const char *val;
+                const char *val = NULL;
 
-                if (sd_device_get_property_value(dev, token->data, &val) < 0)
-                        val = hashmap_get(properties_list, token->data);
+                (void) device_get_property_value_with_fallback(dev, token->data, properties_list, &val);
 
                 return token_match_string(token, val);
         }
