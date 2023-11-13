@@ -564,14 +564,12 @@ static int config_parse_many_files(
                 r = config_parse(NULL, *fn, f, sections, lookup, table, flags, userdata, &st);
                 if (r < 0)
                         return r;
-                if (r > 0) {
-                        if (ret_stats_by_path) {
-                                r = hashmap_put_stats_by_path(&stats_by_path, *fn, &st);
-                                if (r < 0)
-                                        return r;
-                        }
+                assert(r > 0);
 
-                        break;
+                if (ret_stats_by_path) {
+                        r = hashmap_put_stats_by_path(&stats_by_path, *fn, &st);
+                        if (r < 0)
+                                return r;
                 }
         }
 
@@ -583,8 +581,7 @@ static int config_parse_many_files(
                 r = config_parse(NULL, path_dropin, f_dropin, sections, lookup, table, flags, userdata, &st);
                 if (r < 0)
                         return r;
-                if (r == 0)
-                        continue;
+                assert(r > 0);
 
                 if (ret_stats_by_path) {
                         r = hashmap_put_stats_by_path(&stats_by_path, path_dropin, &st);
