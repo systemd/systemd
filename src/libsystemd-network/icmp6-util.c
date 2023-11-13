@@ -214,7 +214,7 @@ int icmp6_receive(
                 if (triple_timestamp_is_set(&t))
                         *ret_timestamp = t;
                 else
-                        triple_timestamp_get(ret_timestamp);
+                        triple_timestamp_now(ret_timestamp);
         }
 
         if (ret_sender)

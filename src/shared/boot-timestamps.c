@@ -15,7 +15,7 @@ int boot_timestamps(const dual_timestamp *n, dual_timestamp *firmware, dual_time
         assert(loader);
 
         if (!n) {
-                dual_timestamp_get(&_n);
+                dual_timestamp_now(&_n);
                 n = &_n;
         }
 

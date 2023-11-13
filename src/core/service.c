@@ -378,7 +378,7 @@ static void service_extend_timeout(Service *s, usec_t extend_timeout_usec) {
 static void service_reset_watchdog(Service *s) {
         assert(s);
 
-        dual_timestamp_get(&s->watchdog_timestamp);
+        dual_timestamp_now(&s->watchdog_timestamp);
         service_start_watchdog(s);
 }
 
