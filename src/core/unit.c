@@ -119,8 +119,9 @@ Unit* unit_new(Manager *m, size_t size) {
 
         u->ip_accounting_ingress_map_fd = -EBADF;
         u->ip_accounting_egress_map_fd = -EBADF;
-        for (CGroupIOAccountingMetric i = 0; i < _CGROUP_IO_ACCOUNTING_METRIC_MAX; i++)
-                u->io_accounting_last[i] = UINT64_MAX;
+
+        FOREACH_ARRAY(i, u->io_accounting_last, _CGROUP_IO_ACCOUNTING_METRIC_MAX)
+                *i = UINT64_MAX;
 
         u->ipv4_allow_map_fd = -EBADF;
         u->ipv6_allow_map_fd = -EBADF;

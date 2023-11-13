@@ -4201,19 +4201,19 @@ int unit_reset_cpu_accounting(Unit *u) {
 }
 
 int unit_reset_ip_accounting(Unit *u) {
-        int r = 0, q = 0;
+        int r = 0;
 
         assert(u);
 
         if (u->ip_accounting_ingress_map_fd >= 0)
-                r = bpf_firewall_reset_accounting(u->ip_accounting_ingress_map_fd);
+                RET_GATHER(r, bpf_firewall_reset_accounting(u->ip_accounting_ingress_map_fd));
 
         if (u->ip_accounting_egress_map_fd >= 0)
-                q = bpf_firewall_reset_accounting(u->ip_accounting_egress_map_fd);
+                RET_GATHER(r, bpf_firewall_reset_accounting(u->ip_accounting_egress_map_fd));
 
         zero(u->ip_accounting_extra);
 
-        return r < 0 ? r : q;
+        return r;
 }
 
 int unit_reset_io_accounting(Unit *u) {
@@ -4221,8 +4221,8 @@ int unit_reset_io_accounting(Unit *u) {
 
         assert(u);
 
-        for (CGroupIOAccountingMetric i = 0; i < _CGROUP_IO_ACCOUNTING_METRIC_MAX; i++)
-                u->io_accounting_last[i] = UINT64_MAX;
+        FOREACH_ARRAY(i, u->io_accounting_last, _CGROUP_IO_ACCOUNTING_METRIC_MAX)
+                *i = UINT64_MAX;
 
         r = unit_get_io_accounting_raw(u, u->io_accounting_base);
         if (r < 0) {
@@ -4234,15 +4234,15 @@ int unit_reset_io_accounting(Unit *u) {
 }
 
 int unit_reset_accounting(Unit *u) {
-        int r, q, v;
+        int r = 0;
 
         assert(u);
 
-        r = unit_reset_cpu_accounting(u);
-        q = unit_reset_io_accounting(u);
-        v = unit_reset_ip_accounting(u);
+        RET_GATHER(r, unit_reset_cpu_accounting(u));
+        RET_GATHER(r, unit_reset_io_accounting(u));
+        RET_GATHER(r, unit_reset_ip_accounting(u));
 
-        return r < 0 ? r : q < 0 ? q : v;
+        return r;
 }
 
 void unit_invalidate_cgroup(Unit *u, CGroupMask m) {
