@@ -114,15 +114,16 @@ Unit* unit_new(Manager *m, size_t size) {
         u->ref_uid = UID_INVALID;
         u->ref_gid = GID_INVALID;
         u->cpu_usage_last = NSEC_INFINITY;
-        u->memory_peak_last = UINT64_MAX;
-        u->memory_swap_peak_last = UINT64_MAX;
+
+        unit_reset_memory_accounting_last(u);
+
+        unit_reset_io_accounting_last(u);
+
         u->cgroup_invalidated_mask |= CGROUP_MASK_BPF_FIREWALL;
         u->failure_action_exit_status = u->success_action_exit_status = -1;
 
         u->ip_accounting_ingress_map_fd = -EBADF;
         u->ip_accounting_egress_map_fd = -EBADF;
-        for (CGroupIOAccountingMetric i = 0; i < _CGROUP_IO_ACCOUNTING_METRIC_MAX; i++)
-                u->io_accounting_last[i] = UINT64_MAX;
 
         u->ipv4_allow_map_fd = -EBADF;
         u->ipv6_allow_map_fd = -EBADF;
@@ -2371,7 +2372,7 @@ static int unit_log_resources(Unit *u) {
                                         nsec > NOTICEWORTHY_CPU_NSEC);
         }
 
-        (void) unit_get_memory_peak(u, &memory_peak);
+        (void) unit_get_memory_accounting(u, CGROUP_MEMORY_PEAK, &memory_peak);
         if (memory_peak != UINT64_MAX) {
                 /* Format peak memory for inclusion in the structured log message */
                 if (asprintf(&t, "MEMORY_PEAK=%" PRIu64, memory_peak) < 0) {
@@ -2389,7 +2390,7 @@ static int unit_log_resources(Unit *u) {
                 message_parts[n_message_parts++] = t;
         }
 
-        (void) unit_get_memory_swap_peak(u, &memory_swap_peak);
+        (void) unit_get_memory_accounting(u, CGROUP_MEMORY_SWAP_PEAK, &memory_swap_peak);
         if (memory_swap_peak != UINT64_MAX) {
                 /* Format peak swap memory for inclusion in the structured log message */
                 if (asprintf(&t, "MEMORY_SWAP_PEAK=%" PRIu64, memory_swap_peak) < 0) {
