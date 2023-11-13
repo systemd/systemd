@@ -96,6 +96,13 @@ static const char* const io_accounting_metric_field_last[_CGROUP_IO_ACCOUNTING_M
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(io_accounting_metric_field_last, CGroupIOAccountingMetric);
 
+static const char* const memory_accounting_metric_field_last[_CGROUP_MEMORY_ACCOUNTING_METRIC_CACHED_LAST + 1] = {
+        [CGROUP_MEMORY_PEAK]      = "memory-accounting-peak",
+        [CGROUP_MEMORY_SWAP_PEAK] = "memory-accounting-swap-peak",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(io_accounting_metric_field_last, CGroupMemoryAccountingMetric);
+
 int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         int r;
 
@@ -163,6 +170,14 @@ int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
 
                 if (u->io_accounting_last[im] != UINT64_MAX)
                         (void) serialize_item_format(f, io_accounting_metric_field_last[im], "%" PRIu64, u->io_accounting_last[im]);
+        }
+
+        for (CGroupMemoryAccountingMetric metric = 0; metric <= _CGROUP_MEMORY_ACCOUNTING_METRIC_CACHED_LAST; metric++) {
+                uint64_t v;
+
+                r = unit_get_memory_accounting(u, metric, &v);
+                if (r >= 0)
+                        (void) serialize_item_format(f, memory_accounting_metric_field_last[metric], "%" PRIu64, v);
         }
 
         if (u->cgroup_path)
@@ -471,6 +486,18 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                         r = deserialize_markers(u, v);
                         if (r < 0)
                                 log_unit_debug_errno(u, r, "Failed to deserialize \"%s=%s\", ignoring: %m", l, v);
+                        continue;
+                }
+
+                m = memory_accounting_metric_field_last_from_string(l);
+                if (m >= 0) {
+                        uint64_t c;
+
+                        r = safe_atou64(v, &c);
+                        if (r < 0)
+                                log_unit_debug(u, "Failed to parse memory accounting last value %s, ignoring.", v);
+                        else
+                                u->memory_accounting_last[m] = c;
                         continue;
                 }
 
