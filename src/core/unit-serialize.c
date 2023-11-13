@@ -146,6 +146,11 @@ int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         if (u->cpu_usage_last != NSEC_INFINITY)
                 (void) serialize_item_format(f, "cpu-usage-last", "%" PRIu64, u->cpu_usage_last);
 
+        if (u->memory_peak_last != UINT64_MAX)
+                (void) serialize_item_format(f, "memory-peak-last", "%" PRIu64, u->memory_peak_last);
+        if (u->memory_swap_peak_last != UINT64_MAX)
+                (void) serialize_item_format(f, "memory-swap-peak-last", "%" PRIu64, u->memory_swap_peak_last);
+
         if (u->managed_oom_kill_last > 0)
                 (void) serialize_item_format(f, "managed-oom-kill-last", "%" PRIu64, u->managed_oom_kill_last);
 
@@ -354,6 +359,12 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                         continue;
 
                 else if (MATCH_DESERIALIZE_IMMEDIATE("cpu-usage-last", l, v, safe_atou64, u->cpu_usage_last))
+                        continue;
+
+                else if (MATCH_DESERIALIZE_IMMEDIATE("memory-peak-last", l, v, safe_atou64, u->memory_peak_last))
+                        continue;
+
+                else if (MATCH_DESERIALIZE_IMMEDIATE("memory-swap-peak-last", l, v, safe_atou64, u->memory_swap_peak_last))
                         continue;
 
                 else if (MATCH_DESERIALIZE_IMMEDIATE("managed-oom-kill-last", l, v, safe_atou64, u->managed_oom_kill_last))
