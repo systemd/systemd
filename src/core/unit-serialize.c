@@ -69,26 +69,32 @@ static int deserialize_markers(Unit *u, const char *value) {
         }
 }
 
-static const char* const ip_accounting_metric_field[_CGROUP_IP_ACCOUNTING_METRIC_MAX] = {
+static const char* const ip_accounting_metric_field_table[_CGROUP_IP_ACCOUNTING_METRIC_MAX] = {
         [CGROUP_IP_INGRESS_BYTES]   = "ip-accounting-ingress-bytes",
         [CGROUP_IP_INGRESS_PACKETS] = "ip-accounting-ingress-packets",
         [CGROUP_IP_EGRESS_BYTES]    = "ip-accounting-egress-bytes",
         [CGROUP_IP_EGRESS_PACKETS]  = "ip-accounting-egress-packets",
 };
 
-static const char* const io_accounting_metric_field_base[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(ip_accounting_metric_field, CGroupIPAccountingMetric);
+
+static const char* const io_accounting_metric_field_base_table[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
         [CGROUP_IO_READ_BYTES]       = "io-accounting-read-bytes-base",
         [CGROUP_IO_WRITE_BYTES]      = "io-accounting-write-bytes-base",
         [CGROUP_IO_READ_OPERATIONS]  = "io-accounting-read-operations-base",
         [CGROUP_IO_WRITE_OPERATIONS] = "io-accounting-write-operations-base",
 };
 
-static const char* const io_accounting_metric_field_last[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(io_accounting_metric_field_base, CGroupIOAccountingMetric);
+
+static const char* const io_accounting_metric_field_last_table[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
         [CGROUP_IO_READ_BYTES]       = "io-accounting-read-bytes-last",
         [CGROUP_IO_WRITE_BYTES]      = "io-accounting-write-bytes-last",
         [CGROUP_IO_READ_OPERATIONS]  = "io-accounting-read-operations-last",
         [CGROUP_IO_WRITE_OPERATIONS] = "io-accounting-write-operations-last",
 };
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(io_accounting_metric_field_last, CGroupIOAccountingMetric);
 
 int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         int r;
@@ -153,10 +159,10 @@ int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
                 (void) serialize_item_format(f, "oom-kill-last", "%" PRIu64, u->oom_kill_last);
 
         for (CGroupIOAccountingMetric im = 0; im < _CGROUP_IO_ACCOUNTING_METRIC_MAX; im++) {
-                (void) serialize_item_format(f, io_accounting_metric_field_base[im], "%" PRIu64, u->io_accounting_base[im]);
+                (void) serialize_item_format(f, io_accounting_metric_field_base_to_string(im), "%" PRIu64, u->io_accounting_base[im]);
 
                 if (u->io_accounting_last[im] != UINT64_MAX)
-                        (void) serialize_item_format(f, io_accounting_metric_field_last[im], "%" PRIu64, u->io_accounting_last[im]);
+                        (void) serialize_item_format(f, io_accounting_metric_field_last_to_string(im), "%" PRIu64, u->io_accounting_last[im]);
         }
 
         if (u->cgroup_path)
@@ -195,7 +201,7 @@ int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
 
                 r = unit_get_ip_accounting(u, m, &v);
                 if (r >= 0)
-                        (void) serialize_item_format(f, ip_accounting_metric_field[m], "%" PRIu64, v);
+                        (void) serialize_item_format(f, ip_accounting_metric_field_to_string(m), "%" PRIu64, v);
         }
 
         if (!switching_root) {
@@ -482,7 +488,7 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                 }
 
                 /* Check if this is an IP accounting metric serialization field */
-                m = string_table_lookup(ip_accounting_metric_field, ELEMENTSOF(ip_accounting_metric_field), l);
+                m = ip_accounting_metric_field_from_string(l);
                 if (m >= 0) {
                         uint64_t c;
 
@@ -494,7 +500,7 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                         continue;
                 }
 
-                m = string_table_lookup(io_accounting_metric_field_base, ELEMENTSOF(io_accounting_metric_field_base), l);
+                m = io_accounting_metric_field_base_from_string(l);
                 if (m >= 0) {
                         uint64_t c;
 
@@ -506,7 +512,7 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                         continue;
                 }
 
-                m = string_table_lookup(io_accounting_metric_field_last, ELEMENTSOF(io_accounting_metric_field_last), l);
+                m = io_accounting_metric_field_last_from_string(l);
                 if (m >= 0) {
                         uint64_t c;
 
