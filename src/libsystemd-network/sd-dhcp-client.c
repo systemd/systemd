@@ -16,7 +16,7 @@
 #include "alloc-util.h"
 #include "device-util.h"
 #include "dhcp-client-internal.h"
-#include "dhcp-identifier.h"
+#include "dhcp-duid-internal.h"
 #include "dhcp-lease-internal.h"
 #include "dhcp-network.h"
 #include "dhcp-option.h"
@@ -451,29 +451,45 @@ static int dhcp_client_set_iaid(
         return 0;
 }
 
+static int dhcp_client_set_iaid_duid(
+                sd_dhcp_client *client,
+                bool iaid_set,
+                uint32_t iaid,
+                sd_dhcp_duid *duid) {
+
+        int r;
+
+        assert_return(client, -EINVAL);
+        assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
+        assert_return(duid, -EINVAL);
+        assert_return(sd_dhcp_duid_is_set(duid), -ESTALE);
+
+        r = dhcp_client_set_iaid(client, iaid_set, iaid);
+        if (r < 0)
+                return r;
+
+        memcpy(&client->client_id.ns.duid, &duid->duid, duid->size);
+        client->client_id_len = sizeof(client->client_id.type) + sizeof(client->client_id.ns.iaid) + duid->size;
+        return 0;
+}
+
 int sd_dhcp_client_set_iaid_duid_llt(
                 sd_dhcp_client *client,
                 bool iaid_set,
                 uint32_t iaid,
                 usec_t llt_time) {
 
-        size_t len;
+        sd_dhcp_duid duid;
         int r;
 
         assert_return(client, -EINVAL);
         assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
 
-        r = dhcp_client_set_iaid(client, iaid_set, iaid);
+        r = sd_dhcp_duid_set_llt(&duid, client->hw_addr.bytes, client->hw_addr.length, client->arp_type, llt_time);
         if (r < 0)
                 return r;
 
-        r = dhcp_identifier_set_duid_llt(&client->hw_addr, client->arp_type, llt_time, &client->client_id.ns.duid, &len);
-        if (r < 0)
-                return log_dhcp_client_errno(client, r, "Failed to set DUID-LLT: %m");
-
-        client->client_id_len = sizeof(client->client_id.type) + sizeof(client->client_id.ns.iaid) + len;
-
-        return 0;
+        return dhcp_client_set_iaid_duid(client, iaid_set, iaid, &duid);
 }
 
 int sd_dhcp_client_set_iaid_duid_ll(
@@ -481,23 +497,17 @@ int sd_dhcp_client_set_iaid_duid_ll(
                 bool iaid_set,
                 uint32_t iaid) {
 
-        size_t len;
+        sd_dhcp_duid duid;
         int r;
 
         assert_return(client, -EINVAL);
         assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
 
-        r = dhcp_client_set_iaid(client, iaid_set, iaid);
+        r = sd_dhcp_duid_set_ll(&duid, client->hw_addr.bytes, client->hw_addr.length, client->arp_type);
         if (r < 0)
                 return r;
 
-        r = dhcp_identifier_set_duid_ll(&client->hw_addr, client->arp_type, &client->client_id.ns.duid, &len);
-        if (r < 0)
-                return log_dhcp_client_errno(client, r, "Failed to set DUID-LL: %m");
-
-        client->client_id_len = sizeof(client->client_id.type) + sizeof(client->client_id.ns.iaid) + len;
-
-        return 0;
+        return dhcp_client_set_iaid_duid(client, iaid_set, iaid, &duid);
 }
 
 int sd_dhcp_client_set_iaid_duid_en(
@@ -505,23 +515,17 @@ int sd_dhcp_client_set_iaid_duid_en(
                 bool iaid_set,
                 uint32_t iaid) {
 
-        size_t len;
+        sd_dhcp_duid duid;
         int r;
 
         assert_return(client, -EINVAL);
         assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
 
-        r = dhcp_client_set_iaid(client, iaid_set, iaid);
+        r = sd_dhcp_duid_set_en(&duid);
         if (r < 0)
                 return r;
 
-        r = dhcp_identifier_set_duid_en(&client->client_id.ns.duid, &len);
-        if (r < 0)
-                return log_dhcp_client_errno(client, r, "Failed to set DUID-EN: %m");
-
-        client->client_id_len = sizeof(client->client_id.type) + sizeof(client->client_id.ns.iaid) + len;
-
-        return 0;
+        return dhcp_client_set_iaid_duid(client, iaid_set, iaid, &duid);
 }
 
 int sd_dhcp_client_set_iaid_duid_uuid(
@@ -529,23 +533,17 @@ int sd_dhcp_client_set_iaid_duid_uuid(
                 bool iaid_set,
                 uint32_t iaid) {
 
-        size_t len;
+        sd_dhcp_duid duid;
         int r;
 
         assert_return(client, -EINVAL);
         assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
 
-        r = dhcp_client_set_iaid(client, iaid_set, iaid);
+        r = sd_dhcp_duid_set_uuid(&duid);
         if (r < 0)
                 return r;
 
-        r = dhcp_identifier_set_duid_uuid(&client->client_id.ns.duid, &len);
-        if (r < 0)
-                return log_dhcp_client_errno(client, r, "Failed to set DUID-UUID: %m");
-
-        client->client_id_len = sizeof(client->client_id.type) + sizeof(client->client_id.ns.iaid) + len;
-
-        return 0;
+        return dhcp_client_set_iaid_duid(client, iaid_set, iaid, &duid);
 }
 
 int sd_dhcp_client_set_iaid_duid_raw(
@@ -553,27 +551,21 @@ int sd_dhcp_client_set_iaid_duid_raw(
                 bool iaid_set,
                 uint32_t iaid,
                 uint16_t duid_type,
-                const uint8_t *duid,
-                size_t duid_len) {
+                const uint8_t *duid_data,
+                size_t duid_data_len) {
 
-        size_t len;
+        sd_dhcp_duid duid;
         int r;
 
         assert_return(client, -EINVAL);
         assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
-        assert_return(duid || duid_len == 0, -EINVAL);
+        assert_return(duid_data || duid_data_len == 0, -EINVAL);
 
-        r = dhcp_client_set_iaid(client, iaid_set, iaid);
+        r = sd_dhcp_duid_set(&duid, duid_type, duid_data, duid_data_len);
         if (r < 0)
                 return r;
 
-        r = dhcp_identifier_set_duid_raw(duid_type, duid, duid_len, &client->client_id.ns.duid, &len);
-        if (r < 0)
-                return log_dhcp_client_errno(client, r, "Failed to set DUID: %m");
-
-        client->client_id_len = sizeof(client->client_id.type) + sizeof(client->client_id.ns.iaid) + len;
-
-        return 0;
+        return dhcp_client_set_iaid_duid(client, iaid_set, iaid, &duid);
 }
 
 int sd_dhcp_client_set_rapid_commit(sd_dhcp_client *client, bool rapid_commit) {
