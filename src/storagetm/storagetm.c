@@ -18,6 +18,7 @@
 #include "main-func.h"
 #include "parse-argument.h"
 #include "path-util.h"
+#include "plymouth-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "random-util.h"
@@ -568,7 +569,41 @@ static int nvme_subsystem_report(NvmeSubsystem *subsystem, NvmePort *ipv4, NvmeP
         return 0;
 }
 
-static int nvme_port_report(NvmePort *port) {
+static int plymouth_send_text(const char *text) {
+        _cleanup_free_ char *plymouth_message = NULL;
+        int c, r;
+
+        assert(text);
+
+        c = asprintf(&plymouth_message,
+                     "M\x02%c%s%c"
+                     "A%c", /* pause spinner */
+                     (int) strlen(text) + 1, text, '\x00',
+                     '\x00');
+        if (c < 0)
+                return log_oom();
+
+        r = plymouth_send_raw(plymouth_message, c, SOCK_NONBLOCK);
+        if (r < 0)
+                return log_full_errno(ERRNO_IS_NO_PLYMOUTH(r) ? LOG_DEBUG : LOG_WARNING, r,
+                                      "Failed to communicate with plymouth, ignoring: %m");
+
+        return 0;
+}
+
+static int plymouth_notify_port(NvmePort *port, struct local_address *a) {
+        _cleanup_free_ char *m = NULL;
+
+        if (!port || !a)
+                return 0;
+
+        if (asprintf(&m, "nvme connect-all -t tcp -a %s -s %" PRIu16, IN_ADDR_TO_STRING(a->family, &a->address), port->portnr) < 0)
+                return log_oom();
+
+        return plymouth_send_text(m);
+}
+
+static int nvme_port_report(NvmePort *port, bool *plymouth_done) {
         if (!port)
                 return 0;
 
@@ -589,6 +624,11 @@ static int nvme_port_report(NvmePort *port) {
                          special_glyph(a >= addresses + (n_addresses - 1) ? SPECIAL_GLYPH_TREE_RIGHT : SPECIAL_GLYPH_TREE_BRANCH),
                          IN_ADDR_TO_STRING(a->family, &a->address),
                          port->portnr);
+
+        if (plymouth_done && !*plymouth_done) {
+                (void) plymouth_notify_port(port, n_addresses > 0 ? addresses : NULL);
+                *plymouth_done = n_addresses > 0;
+        }
 
         return 0;
 }
@@ -861,8 +901,15 @@ static int on_display_refresh(sd_event_source *s, uint64_t usec, void *userdata)
         if (isatty(STDERR_FILENO) > 0)
                 fputs(ANSI_HOME_CLEAR, stderr);
 
-        (void) nvme_port_report(c->ipv4_port);
-        (void) nvme_port_report(c->ipv6_port);
+        /* If we have both IPv4 and IPv6, we display IPv4 info via Plymouth, since it doesn't have much
+         * space, and IPv4 is simply shorter (and easy to type off screen) */
+
+        bool plymouth_done = false;
+        (void) nvme_port_report(c->ipv4_port, &plymouth_done);
+        (void) nvme_port_report(c->ipv6_port, &plymouth_done);
+
+        if (!plymouth_done)
+                (void) plymouth_send_text("Network disconnected.");
 
         NvmeSubsystem *i;
         HASHMAP_FOREACH(i, c->subsystems)
@@ -946,15 +993,19 @@ static int run(int argc, char* argv[]) {
         if (r < 0)
                 return r;
 
-        nvme_port_report(context.ipv4_port);
+        bool plymouth_done = false;
+        nvme_port_report(context.ipv4_port, &plymouth_done);
 
         if (socket_ipv6_is_enabled()) {
                 r = nvme_port_add(arg_nqn, AF_INET6, &context.ipv6_port);
                 if (r < 0)
                         return r;
 
-                nvme_port_report(context.ipv6_port);
+                nvme_port_report(context.ipv6_port, &plymouth_done);
         }
+
+        if (!plymouth_done)
+                (void) plymouth_send_text("Network disconnected.");
 
         NvmeSubsystem *i;
         HASHMAP_FOREACH(i, context.subsystems) {

@@ -182,7 +182,6 @@ Features:
     as mass storage devices on systems that have a USB controller that can
     operate in device mode
   - add NVMe authentication
-  - show login details also via plymouth
 
 * add support for activating nvme-oF devices at boot automatically via kernel
   cmdline, and maybe even support a syntax such as
