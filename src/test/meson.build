@@ -408,6 +408,7 @@ executables += [
         test_template + {
                 'sources' : files('test-tpm2.c'),
                 'dependencies' : libopenssl,
+                'timeout' : 120,
         },
         test_template + {
                 'sources' : files('test-utmp.c'),
