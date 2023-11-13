@@ -1080,98 +1080,6 @@ static int property_get_current_memory(
         return sd_bus_message_append(reply, "t", sz);
 }
 
-static int property_get_peak_memory(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        uint64_t sz = UINT64_MAX;
-        Unit *u = ASSERT_PTR(userdata);
-        int r;
-
-        assert(bus);
-        assert(reply);
-
-        r = unit_get_memory_peak(u, &sz);
-        if (r < 0 && r != -ENODATA)
-                log_unit_warning_errno(u, r, "Failed to get memory.peak attribute: %m");
-
-        return sd_bus_message_append(reply, "t", sz);
-}
-
-static int property_get_current_swap_memory(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        uint64_t sz = UINT64_MAX;
-        Unit *u = ASSERT_PTR(userdata);
-        int r;
-
-        assert(bus);
-        assert(reply);
-
-        r = unit_get_memory_swap_current(u, &sz);
-        if (r < 0 && r != -ENODATA)
-                log_unit_warning_errno(u, r, "Failed to get memory.swap.current attribute: %m");
-
-        return sd_bus_message_append(reply, "t", sz);
-}
-
-static int property_get_peak_swap_memory(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        uint64_t sz = UINT64_MAX;
-        Unit *u = ASSERT_PTR(userdata);
-        int r;
-
-        assert(bus);
-        assert(reply);
-
-        r = unit_get_memory_swap_peak(u, &sz);
-        if (r < 0 && r != -ENODATA)
-                log_unit_warning_errno(u, r, "Failed to get memory.swap.peak attribute: %m");
-
-        return sd_bus_message_append(reply, "t", sz);
-}
-
-static int property_get_current_zswap_memory(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        uint64_t sz = UINT64_MAX;
-        Unit *u = ASSERT_PTR(userdata);
-        int r;
-
-        assert(bus);
-        assert(reply);
-
-        r = unit_get_memory_swap_current(u, &sz);
-        if (r < 0 && r != -ENODATA)
-                log_unit_warning_errno(u, r, "Failed to get memory.zswap.current attribute: %m");
-
-        return sd_bus_message_append(reply, "t", sz);
-}
-
 static int property_get_available_memory(
                 sd_bus *bus,
                 const char *path,
@@ -1192,6 +1100,27 @@ static int property_get_available_memory(
         if (r < 0 && r != -ENODATA)
                 log_unit_warning_errno(u, r, "Failed to get total available memory from cgroup: %m");
 
+        return sd_bus_message_append(reply, "t", sz);
+}
+
+static int property_get_memory_accounting(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Unit *u = ASSERT_PTR(userdata);
+        CGroupMemoryAccountingMetric metric;
+        uint64_t sz = UINT64_MAX;
+
+        assert(bus);
+        assert(reply);
+
+        assert_se((metric = cgroup_memory_accounting_metric_from_string(property)) >= 0);
+        (void) unit_get_memory_accounting(u, metric, &sz);
         return sd_bus_message_append(reply, "t", sz);
 }
 
@@ -1628,10 +1557,10 @@ const sd_bus_vtable bus_unit_cgroup_vtable[] = {
         SD_BUS_PROPERTY("ControlGroup", "s", property_get_cgroup, 0, 0),
         SD_BUS_PROPERTY("ControlGroupId", "t", NULL, offsetof(Unit, cgroup_id), 0),
         SD_BUS_PROPERTY("MemoryCurrent", "t", property_get_current_memory, 0, 0),
-        SD_BUS_PROPERTY("MemoryPeak", "t", property_get_peak_memory, 0, 0),
-        SD_BUS_PROPERTY("MemorySwapCurrent", "t", property_get_current_swap_memory, 0, 0),
-        SD_BUS_PROPERTY("MemorySwapPeak", "t", property_get_peak_swap_memory, 0, 0),
-        SD_BUS_PROPERTY("MemoryZSwapCurrent", "t", property_get_current_zswap_memory, 0, 0),
+        SD_BUS_PROPERTY("MemoryPeak", "t", property_get_memory_accounting, 0, 0),
+        SD_BUS_PROPERTY("MemorySwapCurrent", "t", property_get_memory_accounting, 0, 0),
+        SD_BUS_PROPERTY("MemorySwapPeak", "t", property_get_memory_accounting, 0, 0),
+        SD_BUS_PROPERTY("MemoryZSwapCurrent", "t", property_get_memory_accounting, 0, 0),
         SD_BUS_PROPERTY("MemoryAvailable", "t", property_get_available_memory, 0, 0),
         SD_BUS_PROPERTY("CPUUsageNSec", "t", property_get_cpu_usage, 0, 0),
         SD_BUS_PROPERTY("EffectiveCPUs", "ay", property_get_cpuset_cpus, 0, 0),
