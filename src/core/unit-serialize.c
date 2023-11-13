@@ -69,25 +69,30 @@ static int deserialize_markers(Unit *u, const char *value) {
         }
 }
 
-static const char *const ip_accounting_metric_field[_CGROUP_IP_ACCOUNTING_METRIC_MAX] = {
-        [CGROUP_IP_INGRESS_BYTES] = "ip-accounting-ingress-bytes",
+static const char* const ip_accounting_metric_field[_CGROUP_IP_ACCOUNTING_METRIC_MAX] = {
+        [CGROUP_IP_INGRESS_BYTES]   = "ip-accounting-ingress-bytes",
         [CGROUP_IP_INGRESS_PACKETS] = "ip-accounting-ingress-packets",
-        [CGROUP_IP_EGRESS_BYTES] = "ip-accounting-egress-bytes",
-        [CGROUP_IP_EGRESS_PACKETS] = "ip-accounting-egress-packets",
+        [CGROUP_IP_EGRESS_BYTES]    = "ip-accounting-egress-bytes",
+        [CGROUP_IP_EGRESS_PACKETS]  = "ip-accounting-egress-packets",
 };
 
-static const char *const io_accounting_metric_field_base[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
-        [CGROUP_IO_READ_BYTES] = "io-accounting-read-bytes-base",
-        [CGROUP_IO_WRITE_BYTES] = "io-accounting-write-bytes-base",
-        [CGROUP_IO_READ_OPERATIONS] = "io-accounting-read-operations-base",
+static const char* const io_accounting_metric_field_base[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
+        [CGROUP_IO_READ_BYTES]       = "io-accounting-read-bytes-base",
+        [CGROUP_IO_WRITE_BYTES]      = "io-accounting-write-bytes-base",
+        [CGROUP_IO_READ_OPERATIONS]  = "io-accounting-read-operations-base",
         [CGROUP_IO_WRITE_OPERATIONS] = "io-accounting-write-operations-base",
 };
 
-static const char *const io_accounting_metric_field_last[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
-        [CGROUP_IO_READ_BYTES] = "io-accounting-read-bytes-last",
-        [CGROUP_IO_WRITE_BYTES] = "io-accounting-write-bytes-last",
-        [CGROUP_IO_READ_OPERATIONS] = "io-accounting-read-operations-last",
+static const char* const io_accounting_metric_field_last[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
+        [CGROUP_IO_READ_BYTES]       = "io-accounting-read-bytes-last",
+        [CGROUP_IO_WRITE_BYTES]      = "io-accounting-write-bytes-last",
+        [CGROUP_IO_READ_OPERATIONS]  = "io-accounting-read-operations-last",
         [CGROUP_IO_WRITE_OPERATIONS] = "io-accounting-write-operations-last",
+};
+
+static const char* const memory_accounting_metric_field_last[_CGROUP_MEMORY_ACCOUNTING_METRIC_CACHED_LAST + 1] = {
+        [CGROUP_MEMORY_PEAK]      = "memory-accounting-peak",
+        [CGROUP_MEMORY_SWAP_PEAK] = "memory-accounting-swap-peak",
 };
 
 int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
@@ -157,6 +162,14 @@ int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
 
                 if (u->io_accounting_last[im] != UINT64_MAX)
                         (void) serialize_item_format(f, io_accounting_metric_field_last[im], "%" PRIu64, u->io_accounting_last[im]);
+        }
+
+        for (CGroupMemoryAccountingMetric metric = 0; metric <= _CGROUP_MEMORY_ACCOUNTING_METRIC_CACHED_LAST; metric++) {
+                uint64_t v;
+
+                r = unit_get_memory_accounting(u, metric, &v);
+                if (r >= 0)
+                        (void) serialize_item_format(f, memory_accounting_metric_field_last[metric], "%" PRIu64, v);
         }
 
         if (u->cgroup_path)
@@ -465,6 +478,18 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                         r = deserialize_markers(u, v);
                         if (r < 0)
                                 log_unit_debug_errno(u, r, "Failed to deserialize \"%s=%s\", ignoring: %m", l, v);
+                        continue;
+                }
+
+                m = string_table_lookup(memory_accounting_metric_field_last, ELEMENTSOF(memory_accounting_metric_field_last), l);
+                if (m >= 0) {
+                        uint64_t c;
+
+                        r = safe_atou64(v, &c);
+                        if (r < 0)
+                                log_unit_debug(u, "Failed to parse memory accounting last value %s, ignoring.", v);
+                        else
+                                u->memory_accounting_last[m] = c;
                         continue;
                 }
 
