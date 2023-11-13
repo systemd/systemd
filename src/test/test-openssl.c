@@ -308,7 +308,7 @@ TEST(kdf_kb_hmac_derive) {
         assert_se(kdf_kb_hmac_derive("COUNTER", "SHA256", key, key_len, salt, strlen(salt), info, info_len, /* seed= */ NULL, /* seed_size= */ 0, 64, &derived_key) >= 0);
         assert_se(memcmp_nn(derived_key, 64, expected_derived_key, expected_derived_key_len) == 0);
 #else
-        log_tests_skipped("KDF-KB requires Openssl >= 3");
+        log_tests_skipped("KDF-KB requires OpenSSL >= 3");
 #endif
 }
 
@@ -345,7 +345,7 @@ TEST(kdf_ss_derive) {
                 "ed25a0043d6c1eb28296da1f9ab138dafee18f4c937bfc43601d4ee6e7634199",
                 "30EB1A1E9DEA7DE4DDB8F3FDF50A01E30581D606C1228D98AFF691DF743AC2EE9D99EFD2AE1946C079AA18C9524877FA65D5065F0DAED058AB3416AF80EB2B73");
 #else
-        log_tests_skipped("KDF-SS requires Openssl >= 3");
+        log_tests_skipped("KDF-SS requires OpenSSL >= 3");
 #endif
 }
 
