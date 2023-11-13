@@ -4372,6 +4372,13 @@ int unit_reset_cpu_accounting(Unit *u) {
         return 0;
 }
 
+void unit_reset_memory_accounting(Unit *u) {
+        assert(u);
+
+        FOREACH_ARRAY(i, u->memory_accounting_last, ELEMENTSOF(u->memory_accounting_last))
+                *i = UINT64_MAX;
+}
+
 int unit_reset_ip_accounting(Unit *u) {
         int r = 0;
 
@@ -4411,6 +4418,7 @@ int unit_reset_accounting(Unit *u) {
         assert(u);
 
         RET_GATHER(unit_reset_cpu_accounting(u));
+        unit_reset_memory_accounting(u);
         RET_GATHER(unit_reset_io_accounting(u));
         RET_GATHER(unit_reset_ip_accounting(u));
 
