@@ -1425,7 +1425,7 @@ static int list_devices(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to add property match: %m");
 
-        table = table_new("NODE", "PATH", "MODEL", "WWN", "TYPE", "LABEL", "UUID");
+        table = table_new("NODE", "PATH", "MODEL", "WWN", "FSTYPE", "LABEL", "UUID");
         if (!table)
                 return log_oom();
 
