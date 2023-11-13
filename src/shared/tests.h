@@ -104,6 +104,9 @@ extern const TestFunc _weak_ __stop_SYSTEMD_TEST_TABLE[];
         REGISTER_TEST(test_##name, ##__VA_ARGS__); \
         static int test_##name(void)
 
+#define TEST_LOG_FUNC() \
+        log_info("/* %s() */", __func__)
+
 static inline int run_test_table(void) {
         _cleanup_strv_free_ char **tests = NULL;
         int r = EXIT_SUCCESS;
