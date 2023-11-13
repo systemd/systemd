@@ -2058,7 +2058,7 @@ static int show_one(
                 { "MemoryPeak",                     "t",               NULL,           offsetof(UnitStatusInfo, memory_peak)                       },
                 { "MemorySwapCurrent",              "t",               NULL,           offsetof(UnitStatusInfo, memory_swap_current)               },
                 { "MemorySwapPeak",                 "t",               NULL,           offsetof(UnitStatusInfo, memory_swap_peak)                  },
-                { "MemoryZswapCurrent",             "t",               NULL,           offsetof(UnitStatusInfo, memory_zswap_current)              },
+                { "MemoryZSwapCurrent",             "t",               NULL,           offsetof(UnitStatusInfo, memory_zswap_current)              },
                 { "MemoryAvailable",                "t",               NULL,           offsetof(UnitStatusInfo, memory_available)                  },
                 { "DefaultMemoryMin",               "t",               NULL,           offsetof(UnitStatusInfo, default_memory_min)                },
                 { "DefaultMemoryLow",               "t",               NULL,           offsetof(UnitStatusInfo, default_memory_low)                },
