@@ -4373,6 +4373,13 @@ int unit_reset_cpu_accounting(Unit *u) {
         return 0;
 }
 
+void unit_reset_memory_accounting_last(Unit *u) {
+        assert(u);
+
+        FOREACH_ARRAY(i, u->memory_accounting_last, ELEMENTSOF(u->memory_accounting_last))
+                *i = UINT64_MAX;
+}
+
 int unit_reset_ip_accounting(Unit *u) {
         int r = 0;
 
@@ -4389,13 +4396,19 @@ int unit_reset_ip_accounting(Unit *u) {
         return r;
 }
 
+void unit_reset_io_accounting_last(Unit *u) {
+        assert(u);
+
+        FOREACH_ARRAY(i, u->io_accounting_last, _CGROUP_IO_ACCOUNTING_METRIC_MAX)
+                *i = UINT64_MAX;
+}
+
 int unit_reset_io_accounting(Unit *u) {
         int r;
 
         assert(u);
 
-        FOREACH_ARRAY(i, u->io_accounting_last, _CGROUP_IO_ACCOUNTING_METRIC_MAX)
-                *i = UINT64_MAX;
+        unit_reset_io_accounting_last(u);
 
         r = unit_get_io_accounting_raw(u, u->io_accounting_base);
         if (r < 0) {
@@ -4414,6 +4427,7 @@ int unit_reset_accounting(Unit *u) {
         RET_GATHER(r, unit_reset_cpu_accounting(u));
         RET_GATHER(r, unit_reset_io_accounting(u));
         RET_GATHER(r, unit_reset_ip_accounting(u));
+        unit_reset_memory_accounting_last(u);
 
         return r;
 }
