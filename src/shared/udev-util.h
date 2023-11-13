@@ -3,6 +3,7 @@
 
 #include "sd-device.h"
 
+#include "hashmap.h"
 #include "time-util.h"
 
 int udev_set_max_log_level(char *str);
@@ -22,3 +23,5 @@ size_t udev_replace_chars(char *str, const char *allow);
 int udev_queue_is_empty(void);
 
 bool udev_available(void);
+
+int udev_get_property_value(sd_device *dev, const char *prop, Hashmap *extra_props, const char **ret);

@@ -382,3 +382,26 @@ bool udev_available(void) {
 
         return (cache = (path_is_read_only_fs("/sys/") <= 0));
 }
+
+int udev_get_property_value(sd_device *dev, const char *prop, Hashmap *extra_props, const char **ret) {
+        const char *value;
+        int r;
+
+        assert(dev);
+        assert(prop);
+        assert(ret);
+
+        r = sd_device_get_property_value(dev, prop, &value);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        return r;
+
+                value = hashmap_get(extra_props, prop);
+                if (!value)
+                        return -ENOENT;
+        }
+
+        *ret = value;
+
+        return 1;
+}
