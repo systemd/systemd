@@ -158,16 +158,17 @@ static int selinux_init(bool force) {
         };
         int r;
 
+        if (!mac_selinux_use())
+                return 0;
+
         if (initialized == INITIALIZED)
                 return 1;
 
         /* Internal call from this module? Unless we were explicitly configured to allow lazy initialization
-         * bail out immediately. */
+         * bail out immediately. Pretend all is good, we do not want callers to abort here, for example at
+         * early boot when the policy is being initialised. */
         if (!force && initialized != LAZY_INITIALIZED)
-                return 0;
-
-        if (!mac_selinux_use())
-                return 0;
+                return 1;
 
         r = selinux_status_open(/* netlink fallback */ 1);
         if (r < 0) {
