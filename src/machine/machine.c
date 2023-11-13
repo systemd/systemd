@@ -470,7 +470,7 @@ int machine_start(Machine *m, sd_bus_message *properties, sd_bus_error *error) {
                    LOG_MESSAGE("New machine %s.", m->name));
 
         if (!dual_timestamp_is_set(&m->timestamp))
-                dual_timestamp_get(&m->timestamp);
+                dual_timestamp_now(&m->timestamp);
 
         m->started = true;
 

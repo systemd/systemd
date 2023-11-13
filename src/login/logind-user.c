@@ -460,7 +460,7 @@ int user_start(User *u) {
 
         if (!u->started) {
                 if (!dual_timestamp_is_set(&u->timestamp))
-                        dual_timestamp_get(&u->timestamp);
+                        dual_timestamp_now(&u->timestamp);
                 user_send_signal(u, true);
                 u->started = true;
         }

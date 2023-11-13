@@ -566,7 +566,7 @@ static int manager_receive_response(sd_event_source *source, int fd, uint32_t re
                   m->poll_interval_usec / USEC_PER_SEC);
 
         /* Get current monotonic/realtime clocks immediately before adjusting the latter */
-        triple_timestamp_get(&dts);
+        triple_timestamp_now(&dts);
 
         if (!spike) {
                 /* Fix up our idea of the time. */
