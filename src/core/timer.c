@@ -382,7 +382,7 @@ static void timer_enter_waiting(Timer *t, bool time_change) {
                 goto fail;
         }
 
-        triple_timestamp_get(&ts);
+        triple_timestamp_now(&ts);
         t->next_elapse_monotonic_or_boottime = t->next_elapse_realtime = 0;
 
         LIST_FOREACH(value, v, t->values) {
@@ -618,7 +618,7 @@ static void timer_enter_running(Timer *t) {
                 goto fail;
         }
 
-        dual_timestamp_get(&t->last_trigger);
+        dual_timestamp_now(&t->last_trigger);
         ACTIVATION_DETAILS_TIMER(details)->last_trigger = t->last_trigger;
 
         job_set_activation_details(job, details);

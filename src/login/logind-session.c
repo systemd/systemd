@@ -794,7 +794,7 @@ int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error) {
                    LOG_MESSAGE("New session %s of user %s.", s->id, s->user->user_record->user_name));
 
         if (!dual_timestamp_is_set(&s->timestamp))
-                dual_timestamp_get(&s->timestamp);
+                dual_timestamp_now(&s->timestamp);
 
         if (s->seat)
                 seat_read_active_vt(s->seat);
@@ -1088,7 +1088,7 @@ int session_set_idle_hint(Session *s, bool b) {
                 return 0;
 
         s->idle_hint = b;
-        dual_timestamp_get(&s->idle_hint_timestamp);
+        dual_timestamp_now(&s->idle_hint_timestamp);
 
         session_send_changed(s, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic", NULL);
 

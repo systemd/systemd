@@ -64,23 +64,19 @@ nsec_t now_nsec(clockid_t clock_id) {
         return timespec_load_nsec(&ts);
 }
 
-dual_timestamp* dual_timestamp_get(dual_timestamp *ts) {
+void dual_timestamp_now(dual_timestamp *ts) {
         assert(ts);
 
         ts->realtime = now(CLOCK_REALTIME);
         ts->monotonic = now(CLOCK_MONOTONIC);
-
-        return ts;
 }
 
-triple_timestamp* triple_timestamp_get(triple_timestamp *ts) {
+void triple_timestamp_now(triple_timestamp *ts) {
         assert(ts);
 
         ts->realtime = now(CLOCK_REALTIME);
         ts->monotonic = now(CLOCK_MONOTONIC);
         ts->boottime = now(CLOCK_BOOTTIME);
-
-        return ts;
 }
 
 static usec_t map_clock_usec_internal(usec_t from, usec_t from_base, usec_t to_base) {
@@ -124,84 +120,62 @@ usec_t map_clock_usec(usec_t from, clockid_t from_clock, clockid_t to_clock) {
         return map_clock_usec_internal(from, now(from_clock), now(to_clock));
 }
 
-dual_timestamp* dual_timestamp_from_realtime(dual_timestamp *ts, usec_t u) {
+void dual_timestamp_from_realtime(dual_timestamp *ts, usec_t u) {
         assert(ts);
 
-        if (!timestamp_is_set(u)) {
+        if (timestamp_is_set(u)) {
+                ts->realtime = u;
+                ts->monotonic = map_clock_usec(u, CLOCK_REALTIME, CLOCK_MONOTONIC);
+        } else
                 ts->realtime = ts->monotonic = u;
-                return ts;
-        }
-
-        ts->realtime = u;
-        ts->monotonic = map_clock_usec(u, CLOCK_REALTIME, CLOCK_MONOTONIC);
-        return ts;
 }
 
-triple_timestamp* triple_timestamp_from_realtime(triple_timestamp *ts, usec_t u) {
-        usec_t nowr;
-
+void triple_timestamp_from_realtime(triple_timestamp *ts, usec_t u) {
         assert(ts);
 
-        if (!timestamp_is_set(u)) {
+        if (timestamp_is_set(u)) {
+                usec_t nowr = now(CLOCK_REALTIME);
+
+                ts->realtime = u;
+                ts->monotonic = map_clock_usec_internal(u, nowr, now(CLOCK_MONOTONIC));
+                ts->boottime = map_clock_usec_internal(u, nowr, now(CLOCK_BOOTTIME));
+        } else
                 ts->realtime = ts->monotonic = ts->boottime = u;
-                return ts;
-        }
-
-        nowr = now(CLOCK_REALTIME);
-
-        ts->realtime = u;
-        ts->monotonic = map_clock_usec_internal(u, nowr, now(CLOCK_MONOTONIC));
-        ts->boottime = map_clock_usec_internal(u, nowr, now(CLOCK_BOOTTIME));
-
-        return ts;
 }
 
-triple_timestamp* triple_timestamp_from_boottime(triple_timestamp *ts, usec_t u) {
-        usec_t nowb;
-
+void triple_timestamp_from_boottime(triple_timestamp *ts, usec_t u) {
         assert(ts);
 
-        if (u == USEC_INFINITY) {
+        if (u != USEC_INFINITY) {
+                usec_t nowb = now(CLOCK_BOOTTIME);
+
+                ts->boottime = u;
+                ts->monotonic = map_clock_usec_internal(u, nowb, now(CLOCK_MONOTONIC));
+                ts->realtime = map_clock_usec_internal(u, nowb, now(CLOCK_REALTIME));
+        } else
                 ts->realtime = ts->monotonic = ts->boottime = u;
-                return ts;
-        }
-
-        nowb = now(CLOCK_BOOTTIME);
-
-        ts->boottime = u;
-        ts->monotonic = map_clock_usec_internal(u, nowb, now(CLOCK_MONOTONIC));
-        ts->realtime = map_clock_usec_internal(u, nowb, now(CLOCK_REALTIME));
-
-        return ts;
 }
 
-dual_timestamp* dual_timestamp_from_monotonic(dual_timestamp *ts, usec_t u) {
+void dual_timestamp_from_monotonic(dual_timestamp *ts, usec_t u) {
         assert(ts);
 
-        if (u == USEC_INFINITY) {
+        if (u != USEC_INFINITY) {
+                ts->monotonic = u;
+                ts->realtime = map_clock_usec(u, CLOCK_MONOTONIC, CLOCK_REALTIME);
+        } else
                 ts->realtime = ts->monotonic = USEC_INFINITY;
-                return ts;
-        }
-
-        ts->monotonic = u;
-        ts->realtime = map_clock_usec(u, CLOCK_MONOTONIC, CLOCK_REALTIME);
-        return ts;
 }
 
-dual_timestamp* dual_timestamp_from_boottime(dual_timestamp *ts, usec_t u) {
-        usec_t nowm;
-
+void dual_timestamp_from_boottime(dual_timestamp *ts, usec_t u) {
         assert(ts);
 
-        if (u == USEC_INFINITY) {
-                ts->realtime = ts->monotonic = USEC_INFINITY;
-                return ts;
-        }
+        if (u != USEC_INFINITY) {
+                usec_t nowm = now(CLOCK_BOOTTIME);
 
-        nowm = now(CLOCK_BOOTTIME);
-        ts->monotonic = map_clock_usec_internal(u, nowm, now(CLOCK_MONOTONIC));
-        ts->realtime = map_clock_usec_internal(u, nowm, now(CLOCK_REALTIME));
-        return ts;
+                ts->monotonic = map_clock_usec_internal(u, nowm, now(CLOCK_MONOTONIC));
+                ts->realtime = map_clock_usec_internal(u, nowm, now(CLOCK_REALTIME));
+        } else
+                ts->realtime = ts->monotonic = USEC_INFINITY;
 }
 
 usec_t triple_timestamp_by_clock(triple_timestamp *ts, clockid_t clock) {
