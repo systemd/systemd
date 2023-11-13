@@ -2,8 +2,9 @@
 
 #include "hexdecoct.h"
 #include "macro.h"
-#include "tpm2-util.h"
 #include "tests.h"
+#include "tpm2-util.h"
+#include "virt.h"
 
 TEST(tpm2_pcr_index_from_string) {
         assert_se(tpm2_pcr_index_from_string("platform-code") == 0);
@@ -1142,6 +1143,11 @@ static int check_calculate_seal(Tpm2Context *c) {
         assert(c);
         int r;
 
+        if (detect_virtualization() == VIRTUALIZATION_NONE && !slow_tests_enabled()) {
+                log_notice("Skipping slow calculate seal TPM2 tests. Physical system detected, and slow tests disabled.");
+                return 0;
+        }
+
         TEST_LOG_FUNC();
 
         _cleanup_free_ TPM2B_PUBLIC *srk_public = NULL;
@@ -1215,6 +1221,11 @@ static void check_seal_unseal(Tpm2Context *c) {
         int r;
 
         assert(c);
+
+        if (detect_virtualization() == VIRTUALIZATION_NONE && !slow_tests_enabled()) {
+                log_notice("Skipping slow seal/unseal TPM2 tests. Physical system detected, and slow tests disabled.");
+                return;
+        }
 
         TEST_LOG_FUNC();
 
