@@ -4133,7 +4133,7 @@ static int tpm2_ecc_curve_from_openssl_curve_id(int openssl_ecc_curve_id, TPM2_E
                 }
 
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                               "Openssl ECC curve id %d not supported.", openssl_ecc_curve_id);
+                               "OpenSSL ECC curve id %d not supported.", openssl_ecc_curve_id);
 }
 
 static int tpm2_ecc_curve_to_openssl_curve_id(TPM2_ECC_CURVE tpm2_ecc_curve_id, int *ret) {
@@ -4882,7 +4882,7 @@ static int tpm2_calculate_seal_rsa_seed(
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *parent_pkey = NULL;
         r = tpm2_tpm2b_public_to_openssl_pkey(parent, &parent_pkey);
         if (r < 0)
-                return log_debug_errno(r, "Could not convert TPM2B_PUBLIC to Openssl PKEY: %m");
+                return log_debug_errno(r, "Could not convert TPM2B_PUBLIC to OpenSSL PKEY: %m");
 
         r = tpm2_hash_alg_to_size(parent->publicArea.nameAlg);
         if (r < 0)
@@ -4944,7 +4944,7 @@ static int tpm2_calculate_seal_ecc_seed(
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *parent_pkey = NULL;
         r = tpm2_tpm2b_public_to_openssl_pkey(parent, &parent_pkey);
         if (r < 0)
-                return log_debug_errno(r, "Could not convert TPM2B_PUBLIC to Openssl PKEY: %m");
+                return log_debug_errno(r, "Could not convert TPM2B_PUBLIC to OpenSSL PKEY: %m");
 
         int curve_id;
         r = ecc_pkey_to_curve_x_y(
