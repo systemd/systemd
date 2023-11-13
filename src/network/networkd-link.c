@@ -17,7 +17,6 @@
 #include "bus-util.h"
 #include "device-private.h"
 #include "device-util.h"
-#include "dhcp-identifier.h"
 #include "dhcp-lease-internal.h"
 #include "env-file.h"
 #include "ethtool-util.h"
