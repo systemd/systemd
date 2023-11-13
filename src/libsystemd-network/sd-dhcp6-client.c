@@ -12,7 +12,7 @@
 
 #include "alloc-util.h"
 #include "device-util.h"
-#include "dhcp-identifier.h"
+#include "dhcp-duid-internal.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
 #include "dns-domain.h"
@@ -191,10 +191,10 @@ int sd_dhcp6_client_add_vendor_option(sd_dhcp6_client *client, sd_dhcp6_option *
 static int client_ensure_duid(sd_dhcp6_client *client) {
         assert(client);
 
-        if (client->duid_len != 0)
+        if (sd_dhcp_duid_is_set(&client->duid))
                 return 0;
 
-        return dhcp_identifier_set_duid_en(&client->duid, &client->duid_len);
+        return sd_dhcp6_client_set_duid_en(client);
 }
 
 /**
@@ -208,7 +208,7 @@ int sd_dhcp6_client_set_duid_llt(sd_dhcp6_client *client, uint64_t llt_time) {
         assert_return(client, -EINVAL);
         assert_return(!sd_dhcp6_client_is_running(client), -EBUSY);
 
-        r = dhcp_identifier_set_duid_llt(&client->hw_addr, client->arp_type, llt_time, &client->duid, &client->duid_len);
+        r = sd_dhcp_duid_set_llt(&client->duid, client->hw_addr.bytes, client->hw_addr.length, client->arp_type, llt_time);
         if (r < 0)
                 return log_dhcp6_client_errno(client, r, "Failed to set DUID-LLT: %m");
 
@@ -221,7 +221,7 @@ int sd_dhcp6_client_set_duid_ll(sd_dhcp6_client *client) {
         assert_return(client, -EINVAL);
         assert_return(!sd_dhcp6_client_is_running(client), -EBUSY);
 
-        r = dhcp_identifier_set_duid_ll(&client->hw_addr, client->arp_type, &client->duid, &client->duid_len);
+        r = sd_dhcp_duid_set_ll(&client->duid, client->hw_addr.bytes, client->hw_addr.length, client->arp_type);
         if (r < 0)
                 return log_dhcp6_client_errno(client, r, "Failed to set DUID-LL: %m");
 
@@ -234,7 +234,7 @@ int sd_dhcp6_client_set_duid_en(sd_dhcp6_client *client) {
         assert_return(client, -EINVAL);
         assert_return(!sd_dhcp6_client_is_running(client), -EBUSY);
 
-        r = dhcp_identifier_set_duid_en(&client->duid, &client->duid_len);
+        r = sd_dhcp_duid_set_en(&client->duid);
         if (r < 0)
                 return log_dhcp6_client_errno(client, r, "Failed to set DUID-EN: %m");
 
@@ -247,7 +247,7 @@ int sd_dhcp6_client_set_duid_uuid(sd_dhcp6_client *client) {
         assert_return(client, -EINVAL);
         assert_return(!sd_dhcp6_client_is_running(client), -EBUSY);
 
-        r = dhcp_identifier_set_duid_uuid(&client->duid, &client->duid_len);
+        r = sd_dhcp_duid_set_uuid(&client->duid);
         if (r < 0)
                 return log_dhcp6_client_errno(client, r, "Failed to set DUID-UUID: %m");
 
@@ -261,7 +261,7 @@ int sd_dhcp6_client_set_duid_raw(sd_dhcp6_client *client, uint16_t duid_type, co
         assert_return(!sd_dhcp6_client_is_running(client), -EBUSY);
         assert_return(duid || duid_len == 0, -EINVAL);
 
-        r = dhcp_identifier_set_duid_raw(duid_type, duid, duid_len, &client->duid, &client->duid_len);
+        r = sd_dhcp_duid_set(&client->duid, duid_type, duid, duid_len);
         if (r < 0)
                 return log_dhcp6_client_errno(client, r, "Failed to set DUID: %m");
 
@@ -276,21 +276,21 @@ int sd_dhcp6_client_duid_as_string(
         int r;
 
         assert_return(client, -EINVAL);
-        assert_return(client->duid_len > offsetof(struct duid, raw.data), -ENODATA);
+        assert_return(sd_dhcp_duid_is_set(&client->duid), -ENODATA);
         assert_return(duid, -EINVAL);
 
-        v = duid_type_to_string(be16toh(client->duid.type));
+        v = duid_type_to_string(be16toh(client->duid.duid.type));
         if (v) {
                 s = strdup(v);
                 if (!s)
                         return -ENOMEM;
         } else {
-                r = asprintf(&s, "%0x", client->duid.type);
+                r = asprintf(&s, "%0x", client->duid.duid.type);
                 if (r < 0)
                         return -ENOMEM;
         }
 
-        t = hexmem(client->duid.raw.data, client->duid_len - offsetof(struct duid, raw.data));
+        t = hexmem(client->duid.duid.data, client->duid.size - offsetof(struct duid, data));
         if (!t)
                 return -ENOMEM;
 
@@ -825,9 +825,9 @@ int dhcp6_client_send_message(sd_dhcp6_client *client) {
         if (r < 0)
                 return r;
 
-        assert(client->duid_len > 0);
+        assert(sd_dhcp_duid_is_set(&client->duid));
         r = dhcp6_option_append(&buf, &offset, SD_DHCP6_OPTION_CLIENTID,
-                                client->duid_len, &client->duid);
+                                client->duid.size, &client->duid.duid);
         if (r < 0)
                 return r;
 
