@@ -2,6 +2,7 @@
 
 #include "devicetree.h"
 #include "proto/dt-fixup.h"
+#include "smbios.h"
 #include "util.h"
 
 #define FDT_V1_SIZE (7*4)
@@ -204,13 +205,9 @@ EFI_STATUS devicetree_match(const void *dtb_buffer, size_t dtb_length) {
                 return EFI_INVALID_PARAMETER;
 
         const void *fw_dtb = find_configuration_table(MAKE_GUID_PTR(EFI_DTB_TABLE));
-        if (!fw_dtb)
-                return EFI_UNSUPPORTED;
-
-        const char *fw_compat = devicetree_get_compatible(fw_dtb);
-        printf("DEBUG: dtb fw_compat = %s\n", fw_compat);
-        if (!fw_compat)
-                return EFI_INVALID_PARAMETER;
+        const char *fw_compat = fw_dtb
+                                ? devicetree_get_compatible(fw_dtb)
+                                : smbios_system_product_name();
 
         const char *compat = devicetree_get_compatible(dtb_buffer);
         if (!compat)

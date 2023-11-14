@@ -14,6 +14,7 @@
 #include "sbat.h"
 #include "secure-boot.h"
 #include "shim.h"
+#include "smbios.h"
 #include "splash.h"
 #include "tpm2-pcr.h"
 #include "uki.h"
@@ -850,7 +851,6 @@ static EFI_STATUS run(EFI_HANDLE image) {
                         }
                 }
         }
-
 
         PeSectionDescriptor *section_linux = ASSERT_PTR(pe_find_unified_section(sections, n_sections, UNIFIED_SECTION_LINUX));
         linux_size = section_linux->size;
