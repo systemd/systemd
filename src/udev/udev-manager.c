@@ -1296,30 +1296,12 @@ static int setup_ctrl(Manager *manager) {
         return 0;
 }
 
-int manager_main(Manager *manager) {
-        int fd_worker, r;
+static int setup_event(Manager *manager, int fd_worker) {
+        int r;
 
-        manager_set_default_children_max(manager);
-
-        /* unnamed socket from workers to the main daemon */
-        r = socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, manager->worker_watch);
-        if (r < 0)
-                return log_error_errno(errno, "Failed to create socketpair for communicating with workers: %m");
-
-        fd_worker = manager->worker_watch[READ_END];
-
-        r = setsockopt_int(fd_worker, SOL_SOCKET, SO_PASSCRED, true);
-        if (r < 0)
-                return log_error_errno(r, "Failed to enable SO_PASSCRED: %m");
-
-        manager->inotify_fd = inotify_init1(IN_CLOEXEC);
-        if (manager->inotify_fd < 0)
-                return log_error_errno(errno, "Failed to create inotify descriptor: %m");
-
-        udev_watch_restore(manager->inotify_fd);
-
-        /* block SIGCHLD for listening child events. */
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD) >= 0);
+        assert(manager);
+        assert(pid_is_valid(fd_worker));
+        assert(!manager->event);
 
         r = sd_event_default(&manager->event);
         if (r < 0)
@@ -1340,10 +1322,6 @@ int manager_main(Manager *manager) {
         r = sd_event_set_watchdog(manager->event, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to create watchdog event source: %m");
-
-        r = setup_ctrl(manager);
-        if (r < 0)
-                return r;
 
         r = sd_event_add_io(manager->event, &manager->inotify_event, manager->inotify_fd, EPOLLIN, on_inotify, manager);
         if (r < 0)
@@ -1375,6 +1353,42 @@ int manager_main(Manager *manager) {
                                 (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate SIGRTMIN+18 event source, ignoring: %m");
+
+        return 0;
+}
+
+int manager_main(Manager *manager) {
+        int fd_worker, r;
+
+        manager_set_default_children_max(manager);
+
+        /* unnamed socket from workers to the main daemon */
+        r = socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, manager->worker_watch);
+        if (r < 0)
+                return log_error_errno(errno, "Failed to create socketpair for communicating with workers: %m");
+
+        fd_worker = manager->worker_watch[READ_END];
+
+        r = setsockopt_int(fd_worker, SOL_SOCKET, SO_PASSCRED, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable SO_PASSCRED: %m");
+
+        manager->inotify_fd = inotify_init1(IN_CLOEXEC);
+        if (manager->inotify_fd < 0)
+                return log_error_errno(errno, "Failed to create inotify descriptor: %m");
+
+        udev_watch_restore(manager->inotify_fd);
+
+        /* block SIGCHLD for listening child events. */
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
+
+        r = setup_event(manager, fd_worker);
+        if (r < 0)
+                return r;
+
+        r = setup_ctrl(manager);
+        if (r < 0)
+                return r;
 
         manager->last_usec = now(CLOCK_MONOTONIC);
 
