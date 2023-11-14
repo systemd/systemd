@@ -1,6 +1,5 @@
 _llseek
 _newselect	6022
-_sysctl	6152
 accept	6042
 accept4	6297
 access	6020
@@ -15,7 +14,6 @@ arch_prctl
 arm_fadvise64_64
 atomic_barrier
 atomic_cmpxchg_32
-bdflush
 bind	6048
 bpf	6319
 brk	6012
@@ -40,14 +38,12 @@ clock_nanosleep_time64	6407
 clock_settime	6225
 clock_settime64	6404
 clone	6055
-clone2
 clone3	6435
 close	6003
 close_range	6436
 connect	6041
 copy_file_range	6324
 creat	6083
-create_module	6167
 delete_module	6169
 dipc
 dup	6031
@@ -106,10 +102,12 @@ fsync	6072
 ftruncate	6075
 ftruncate64
 futex	6194
+futex_requeue	6456
 futex_time64	6422
+futex_wait	6455
 futex_waitv	6449
+futex_wake	6454
 futimesat	6255
-get_kernel_syms	6170
 get_mempolicy	6232
 get_robust_list	6273
 get_thread_area
@@ -134,7 +132,6 @@ getpeername	6051
 getpgid	6119
 getpgrp	6109
 getpid	6038
-getpmsg	6174
 getppid	6108
 getpriority	6137
 getrandom	6317
@@ -151,12 +148,10 @@ gettid	6178
 gettimeofday	6094
 getuid	6100
 getuid32
-getunwind
 getxattr	6183
 getxgid
 getxpid
 getxuid
-idle
 init_module	6168
 inotify_add_watch	6248
 inotify_init	6247
@@ -202,7 +197,7 @@ lsetxattr	6181
 lstat	6006
 lstat64
 madvise	6027
-map_shadow_stack
+map_shadow_stack	6453
 mbind	6231
 membarrier	6322
 memfd_create	6318
@@ -246,10 +241,8 @@ munmap	6011
 name_to_handle_at	6303
 nanosleep	6034
 newfstatat	6256
-nfsservctl	6173
 nice
 old_adjtimex
-old_getpagesize
 oldfstat
 oldlstat
 oldolduname
@@ -262,116 +255,36 @@ open_tree	6428
 openat	6251
 openat2	6437
 or1k_atomic
-osf_adjtime
-osf_afs_syscall
-osf_alt_plock
-osf_alt_setsid
-osf_alt_sigpending
-osf_asynch_daemon
-osf_audcntl
-osf_audgen
-osf_chflags
-osf_execve
-osf_exportfs
-osf_fchflags
-osf_fdatasync
-osf_fpathconf
 osf_fstat
 osf_fstatfs
 osf_fstatfs64
-osf_fuser
-osf_getaddressconf
 osf_getdirentries
 osf_getdomainname
-osf_getfh
-osf_getfsstat
-osf_gethostid
 osf_getitimer
-osf_getlogin
-osf_getmnt
 osf_getrusage
 osf_getsysinfo
 osf_gettimeofday
-osf_kloadcall
-osf_kmodcall
 osf_lstat
-osf_memcntl
-osf_mincore
 osf_mount
-osf_mremap
-osf_msfs_syscall
-osf_msleep
-osf_mvalid
-osf_mwakeup
-osf_naccept
-osf_nfssvc
-osf_ngetpeername
-osf_ngetsockname
-osf_nrecvfrom
-osf_nrecvmsg
-osf_nsendmsg
-osf_ntp_adjtime
-osf_ntp_gettime
-osf_old_creat
-osf_old_fstat
-osf_old_getpgrp
-osf_old_killpg
-osf_old_lstat
-osf_old_open
-osf_old_sigaction
-osf_old_sigblock
-osf_old_sigreturn
-osf_old_sigsetmask
-osf_old_sigvec
-osf_old_stat
-osf_old_vadvise
-osf_old_vtrace
-osf_old_wait
-osf_oldquota
-osf_pathconf
-osf_pid_block
-osf_pid_unblock
-osf_plock
-osf_priocntlset
-osf_profil
 osf_proplist_syscall
-osf_reboot
-osf_revoke
-osf_sbrk
-osf_security
 osf_select
 osf_set_program_attributes
-osf_set_speculative
-osf_sethostid
 osf_setitimer
-osf_setlogin
 osf_setsysinfo
 osf_settimeofday
 osf_shmat
-osf_signal
 osf_sigprocmask
-osf_sigsendset
 osf_sigstack
-osf_sigwaitprim
-osf_sstk
 osf_stat
 osf_statfs
 osf_statfs64
-osf_subsys_info
-osf_swapctl
 osf_swapon
 osf_syscall
 osf_sysinfo
-osf_table
-osf_uadmin
 osf_usleep_thread
-osf_uswitch
-osf_utc_adjtime
-osf_utc_gettime
 osf_utimes
 osf_utsname
 osf_wait4
-osf_waitid
 pause	6033
 pciconfig_iobase
 pciconfig_read
@@ -406,7 +319,6 @@ ptrace	6099
 pwrite64	6017
 pwritev	6294
 pwritev2	6326
-query_module	6171
 quotactl	6172
 quotactl_fd	6443
 read	6000
@@ -584,7 +496,6 @@ uname	6061
 unlink	6085
 unlinkat	6257
 unshare	6266
-uselib
 userfaultfd	6321
 ustat	6133
 utime	6130
