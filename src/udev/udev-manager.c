@@ -1279,6 +1279,32 @@ int manager_init(Manager *manager, int fd_ctrl, int fd_uevent) {
         return 0;
 }
 
+static int setup_ctrl(Manager *manager) {
+        int r;
+
+        assert(manager);
+        assert(manager->ctrl);
+        assert(manager->event);
+
+        r = udev_ctrl_attach_event(manager->ctrl, manager->event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to attach event to udev control: %m");
+
+        r = udev_ctrl_start(manager->ctrl, on_ctrl_msg, manager);
+        if (r < 0)
+                return log_error_errno(r, "Failed to start udev control: %m");
+
+        /* This needs to be after the inotify and uevent handling, to make sure
+         * that the ping is send back after fully processing the pending uevents
+         * (including the synthetic ones we may create due to inotify events).
+         */
+        r = sd_event_source_set_priority(udev_ctrl_get_event_source(manager->ctrl), SD_EVENT_PRIORITY_IDLE);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set IDLE event priority for udev control event source: %m");
+
+        return 0;
+}
+
 int manager_main(Manager *manager) {
         int fd_worker, r;
 
@@ -1324,21 +1350,9 @@ int manager_main(Manager *manager) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create watchdog event source: %m");
 
-        r = udev_ctrl_attach_event(manager->ctrl, manager->event);
+        r = setup_ctrl(manager);
         if (r < 0)
-                return log_error_errno(r, "Failed to attach event to udev control: %m");
-
-        r = udev_ctrl_start(manager->ctrl, on_ctrl_msg, manager);
-        if (r < 0)
-                return log_error_errno(r, "Failed to start udev control: %m");
-
-        /* This needs to be after the inotify and uevent handling, to make sure
-         * that the ping is send back after fully processing the pending uevents
-         * (including the synthetic ones we may create due to inotify events).
-         */
-        r = sd_event_source_set_priority(udev_ctrl_get_event_source(manager->ctrl), SD_EVENT_PRIORITY_IDLE);
-        if (r < 0)
-                return log_error_errno(r, "Failed to set IDLE event priority for udev control event source: %m");
+                return r;
 
         r = sd_event_add_io(manager->event, &manager->inotify_event, manager->inotify_fd, EPOLLIN, on_inotify, manager);
         if (r < 0)
