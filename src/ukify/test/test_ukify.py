@@ -104,7 +104,7 @@ def test_apply_config(tmp_path):
                          pathlib.Path('initrd3')]
     assert ns.cmdline == '1 2 3 4 5\n6 7 8'
     assert ns.os_release == '@some/path1'
-    assert ns.devicetree == pathlib.Path('some/path2')
+    assert ns.devicetree == [pathlib.Path('some/path2')]
     assert ns.splash == pathlib.Path('some/path3')
     assert ns.efi_arch == 'arm'
     assert ns.stub == pathlib.Path('some/path4')
@@ -127,7 +127,7 @@ def test_apply_config(tmp_path):
                          pathlib.Path('initrd3')]
     assert ns.cmdline == '1 2 3 4 5 6 7 8'
     assert ns.os_release == pathlib.Path('some/path1')
-    assert ns.devicetree == pathlib.Path('some/path2')
+    assert ns.devicetree == [pathlib.Path('some/path2')]
     assert ns.splash == pathlib.Path('some/path3')
     assert ns.efi_arch == 'arm'
     assert ns.stub == pathlib.Path('some/path4')
@@ -179,7 +179,7 @@ def test_parse_args_many_deprecated():
     assert opts.initrd == [pathlib.Path('/ARG2'), pathlib.Path('/ARG3 WITH SPACE')]
     assert opts.cmdline == 'a b c'
     assert opts.os_release == 'K1=V1\nK2=V2'
-    assert opts.devicetree == pathlib.Path('DDDDTTTT')
+    assert opts.devicetree == [pathlib.Path('DDDDTTTT')]
     assert opts.splash == pathlib.Path('splash')
     assert opts.pcrpkey == pathlib.Path('PATH')
     assert opts.uname == '1.2.3'
@@ -225,7 +225,7 @@ def test_parse_args_many():
     assert opts.initrd == [pathlib.Path('/ARG2'), pathlib.Path('/ARG3 WITH SPACE')]
     assert opts.cmdline == 'a b c'
     assert opts.os_release == 'K1=V1\nK2=V2'
-    assert opts.devicetree == pathlib.Path('DDDDTTTT')
+    assert opts.devicetree == [pathlib.Path('DDDDTTTT')]
     assert opts.splash == pathlib.Path('splash')
     assert opts.pcrpkey == pathlib.Path('PATH')
     assert opts.uname == '1.2.3'
@@ -332,7 +332,7 @@ def test_config_priority(tmp_path):
                            pathlib.Path('/ARG3 WITH SPACE')]
     assert opts.cmdline == 'a b c'
     assert opts.os_release == 'K1=V1\nK2=V2'
-    assert opts.devicetree == pathlib.Path('DDDDTTTT')
+    assert opts.devicetree == [pathlib.Path('some/path2'), pathlib.Path('DDDDTTTT')]
     assert opts.splash == pathlib.Path('splash')
     assert opts.pcrpkey == pathlib.Path('PATH')
     assert opts.uname == '1.2.3'
