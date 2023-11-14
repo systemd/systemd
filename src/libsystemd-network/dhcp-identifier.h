@@ -8,7 +8,6 @@
 #include "macro.h"
 #include "sparse-endian.h"
 #include "time-util.h"
-#include "unaligned.h"
 
 #define SYSTEMD_PEN    43793
 

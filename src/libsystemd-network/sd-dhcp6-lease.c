@@ -10,6 +10,7 @@
 #include "dhcp6-lease-internal.h"
 #include "network-common.h"
 #include "strv.h"
+#include "unaligned.h"
 
 #define IRT_DEFAULT (1 * USEC_PER_DAY)
 #define IRT_MINIMUM (600 * USEC_PER_SEC)
