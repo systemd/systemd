@@ -20,6 +20,8 @@
     <refname>systemd-mkswap@.service</refname>
     <refname>systemd-growfs@.service</refname>
     <refname>systemd-growfs-root.service</refname>
+    <refname>systemd-growfs-gpt@.service</refname>
+    <refname>systemd-growfs-root-gpt.service</refname>
     <refname>systemd-makefs</refname>
     <refname>systemd-growfs</refname>
     <refpurpose>Creating and growing file systems on demand</refpurpose>
@@ -30,6 +32,8 @@
     <para><filename>systemd-mkswap@<replaceable>device</replaceable>.service</filename></para>
     <para><filename>systemd-growfs@<replaceable>mountpoint</replaceable>.service</filename></para>
     <para><filename>systemd-growfs-root.service</filename></para>
+    <para><filename>systemd-growfs-gpt@<replaceable>mountpoint</replaceable>.service</filename></para>
+    <para><filename>systemd-growfs-root-gpt.service</filename></para>
     <para><filename>/usr/lib/systemd/systemd-makefs</filename></para>
     <para><filename>/usr/lib/systemd/systemd-growfs</filename></para>
   </refsynopsisdiv>
@@ -39,8 +43,10 @@
 
     <para><filename>systemd-makefs@.service</filename>,
     <filename>systemd-mkswap@.service</filename>,
-    <filename>systemd-growfs@.service</filename>, and
-    <filename>systemd-growfs-root.service</filename> are used to implement the
+    <filename>systemd-growfs@.service</filename>,
+    <filename>systemd-growfs-root.service</filename>,
+    <filename>systemd-growfs-gpt@.service</filename> and
+    <filename>systemd-growfs-root-gpt.service</filename> are used to implement the
     <option>x-systemd.makefs</option> and <option>x-systemd.growfs</option> options
     in <citerefentry project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
     see <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
@@ -50,6 +56,9 @@
 
     <para>These services are started at boot, either right before or right after the
     mount point or swap device are used.</para>
+
+    <para>The <literal>-gpt</literal> variants of the units will act only if the partition is part of a GPT
+    image and the <literal>growfs</literal> GPT flag is set on the partition.</para>
 
     <para><filename>systemd-makefs</filename> knows very little about specific file
     systems and swap devices, and after checking that the block device does not already

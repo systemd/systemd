@@ -90,6 +90,8 @@
 #define SPECIAL_UDEVD_SERVICE "systemd-udevd.service"
 #define SPECIAL_GROWFS_SERVICE "systemd-growfs@.service"
 #define SPECIAL_GROWFS_ROOT_SERVICE "systemd-growfs-root.service"
+#define SPECIAL_GROWFS_GPT_SERVICE "systemd-growfs-gpt@.service"
+#define SPECIAL_GROWFS_ROOT_GPT_SERVICE "systemd-growfs-root-gpt.service"
 #define SPECIAL_PCRFS_SERVICE "systemd-pcrfs@.service"
 #define SPECIAL_PCRFS_ROOT_SERVICE "systemd-pcrfs-root.service"
 #define SPECIAL_HIBERNATE_RESUME_SERVICE "systemd-hibernate-resume.service"
