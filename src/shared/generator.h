@@ -80,7 +80,8 @@ int generator_hook_up_mkfs(
 int generator_hook_up_growfs(
         const char *dir,
         const char *where,
-        const char *target);
+        const char *target,
+        bool gpt_growfs);
 int generator_hook_up_pcrfs(
         const char *dir,
         const char *where,

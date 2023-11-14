@@ -623,7 +623,8 @@ int generator_hook_up_mkfs(
 int generator_hook_up_growfs(
                 const char *dir,
                 const char *where,
-                const char *target) {
+                const char *target,
+                bool gpt_growfs) {
 
         const char *growfs_unit, *growfs_unit_path;
         _cleanup_free_ char *where_unit = NULL, *instance = NULL;
@@ -637,11 +638,13 @@ int generator_hook_up_growfs(
                 return log_error_errno(r, "Failed to make unit name from path '%s': %m", where);
 
         if (empty_or_root(where)) {
-                growfs_unit = SPECIAL_GROWFS_ROOT_SERVICE;
-                growfs_unit_path = SYSTEM_DATA_UNIT_DIR "/" SPECIAL_GROWFS_ROOT_SERVICE;
+                growfs_unit = gpt_growfs ? SPECIAL_GROWFS_ROOT_GPT_SERVICE : SPECIAL_GROWFS_ROOT_SERVICE;
+                growfs_unit_path = strjoina(SYSTEM_DATA_UNIT_DIR, "/",
+                                gpt_growfs ? SPECIAL_GROWFS_ROOT_GPT_SERVICE : SPECIAL_GROWFS_ROOT_SERVICE);
         } else {
-                growfs_unit = SPECIAL_GROWFS_SERVICE;
-                growfs_unit_path = SYSTEM_DATA_UNIT_DIR "/" SPECIAL_GROWFS_SERVICE;
+                growfs_unit = gpt_growfs ? SPECIAL_GROWFS_GPT_SERVICE : SPECIAL_GROWFS_SERVICE;
+                growfs_unit_path = strjoina(SYSTEM_DATA_UNIT_DIR, "/",
+                                gpt_growfs ? SPECIAL_GROWFS_GPT_SERVICE : SPECIAL_GROWFS_SERVICE);
 
                 r = unit_name_path_escape(where, &instance);
                 if (r < 0)
