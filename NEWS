@@ -130,9 +130,10 @@ CHANGES WITH 255 in spe:
           machinectl bind and mount-image verbs will now cause the new mount to
           replace the old mount (if any), instead of overmounting it.
 
-        * Units now have a MemoryPeak and MemorySwapPeak property, which
-          contain the value of cgroup v2's memory.peak and memory.swap.peak
-          property.
+        * Units now have MemoryPeak, MemorySwapPeak, MemorySwapCurrent and
+          MemoryZSwapCurrent properties, which respectively contain the values of
+          the cgroup v2's memory.peak, memory.swap.peak, memory.swap.current and
+          memory.zswap.current properties.
 
         TPM2 Support + Disk Encryption & Authentication:
 
@@ -142,11 +143,17 @@ CHANGES WITH 255 in spe:
         * systemd-cryptenroll now allows specifying a TPM2 key handle to be used
           instead of the default SRK via the new --tpm2-seal-key-handle= option.
 
+        * systemd-cryptenroll now allows enrolling using only a TPM2 public key,
+          without access to the TPM2 itself, which enables remote sealing.
+
         * systemd-cryptsetup is now installed in /usr/bin/ and is no longer an
           internal-only executable.
 
         * The TPM2 Storage Root Key will now be set up, if not already present,
-          by a new systemd-tpm2-setup.service early boot service.
+          by a new systemd-tpm2-setup.service early boot service. The SRK will be
+          stored in PEM format and TPM2_PUBLIC format for easier access. A new
+          srk verb has been added to systemd-analyze to allow extracting it on
+          demand if it is already set up.
 
         * The internal systemd-pcrphase executable has been renamed to
           systemd-pcrextend.
@@ -223,6 +230,9 @@ CHANGES WITH 255 in spe:
           passed from systemd-boot when running inside Confidential VMs with UEFI
           SecureBoot enabled.
 
+        * systemd-stub will now load a Devicetree blob even if the firmware did
+          not load any beforehand (e.g.: for ACPI systems).
+
         * ukify is no longer considered experimental, and now ships in /usr/bin/.
 
         * ukify gained a new verb inspect to describe the sections of a UKI and
@@ -233,6 +243,12 @@ CHANGES WITH 255 in spe:
 
         * The 90-loaderentry kernel-install hook now supports installing device
           trees.
+
+        * kernel-install now supports --json, --root, --image and --image-policy
+          options for the inspect verb.
+
+        * kernel-install now supports new list and add-all verbs. The latter will
+          install all the kernels it can find to the ESP.
 
         systemd-repart:
 
@@ -257,10 +273,17 @@ CHANGES WITH 255 in spe:
           files, to indicate which directories in the target partition should be
           btrfs subvolumes.
 
+        * A new --tpm2-device-key= option can be used to encrypt a disk against
+          a remote TPM2 using its public key.
+
         Journal:
 
         * The journalctl --lines= parameter now accepts +N to show the oldest N
           entries instead of the newest.
+
+        * journald now ensures that sealing happens once per epoch, and sets a
+          new compatibility flag to distinguish old journal files that were
+          created before this change, for backward compatibility.
 
         Device Management:
 
@@ -456,6 +479,9 @@ CHANGES WITH 255 in spe:
 
         * seccomp now supports the LoongArch64 architecture.
 
+        * seccomp may now be enabled for services running as a non-root User=
+          without NoNewPrivileges=yes.
+
         * systemd-id128 now supports a new -P option to show only values. The
           combination of -P and --app options is also supported.
 
@@ -538,6 +564,8 @@ CHANGES WITH 255 in spe:
           daemon-reexec for all user managers, and %systemd_postun_with_reload
           and %systemd_user_postun_with_reload do a reload for system and user
           units on upgrades.
+
+        * coredumpctl now propagates SIGTERM to the debugger process.
 
         Contributions from: 김인수, Abderrahim Kitouni, Adam Williamson,
         Alexandre Peixoto Ferreira, Alex Hudspith, Alvin Alvarado,
