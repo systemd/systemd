@@ -22,7 +22,7 @@ test -f /usr/share/selinux/devel/include/system/systemd.if && find /etc/selinux 
 . "${TEST_BASE_DIR:?}/test-functions"
 
 SETUP_SELINUX=yes
-KERNEL_APPEND="${KERNEL_APPEND:=} selinux=1 security=selinux"
+KERNEL_APPEND="${KERNEL_APPEND:=} selinux=1 security=selinux enforcing=0"
 
 test_append_files() {
     local workspace="${1:?}"
@@ -52,6 +52,9 @@ test_append_files() {
     image_install -o sesearch
     image_install -o /usr/libexec/selinux/hll/pp # Fedora/RHEL/...
     image_install -o /usr/lib/selinux/hll/pp     # Debian/Ubuntu/...
+
+    # Config file has (unfortunately) always precedence, so let's switch it there as well
+    sed -i '/^SELINUX=disabled$/s/disabled/permissive/' "$workspace/etc/selinux/config"
 
     if ! chroot "$workspace" make -C /systemd-test-module -f /usr/share/selinux/devel/Makefile clean load systemd_test.pp QUIET=n; then
         dfatal "Failed to build the systemd test module"
