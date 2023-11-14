@@ -290,6 +290,8 @@ units = [
         { 'file' : 'systemd-fsck@.service.in' },
         { 'file' : 'systemd-growfs-root.service.in' },
         { 'file' : 'systemd-growfs@.service.in' },
+        { 'file' : 'systemd-growfs-root-gpt.service.in' },
+        { 'file' : 'systemd-growfs-gpt@.service.in' },
         { 'file' : 'systemd-halt.service' },
         {
           'file' : 'systemd-hibernate-resume.service.in',

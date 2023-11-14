@@ -675,7 +675,7 @@ static int add_mount(
         }
 
         if (flags & MOUNT_GROWFS) {
-                r = generator_hook_up_growfs(dest, where, target_unit);
+                r = generator_hook_up_growfs(dest, where, target_unit, /* gpt_growfs= */ false);
                 if (r < 0)
                         return r;
         }

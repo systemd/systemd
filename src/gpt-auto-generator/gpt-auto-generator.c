@@ -46,6 +46,12 @@ static char *arg_root_options = NULL;
 static int arg_root_rw = -1;
 static ImagePolicy *arg_image_policy = NULL;
 
+typedef enum GrowFS {
+        GROWFS_NO,
+        GROWFS_YES,
+        GROWFS_AUTO,
+} GrowFS;
+
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 STATIC_DESTRUCTOR_REGISTER(arg_root_fstype, freep);
@@ -169,7 +175,7 @@ static int add_mount(
                 const char *where,
                 const char *fstype,
                 bool rw,
-                bool growfs,
+                GrowFS growfs,
                 bool measure,
                 const char *options,
                 const char *description,
@@ -250,8 +256,8 @@ static int add_mount(
         if (r < 0)
                 return log_error_errno(r, "Failed to write unit %s: %m", unit);
 
-        if (growfs) {
-                r = generator_hook_up_growfs(arg_dest, where, post);
+        if (growfs != GROWFS_NO) {
+                r = generator_hook_up_growfs(arg_dest, where, post, growfs == GROWFS_AUTO);
                 if (r < 0)
                         return r;
         }
@@ -334,7 +340,7 @@ static int add_partition_mount(
                         where,
                         p->fstype,
                         p->rw,
-                        p->growfs,
+                        p->growfs ? GROWFS_YES : GROWFS_NO,
                         /* measure= */ STR_IN_SET(id, "root", "var"), /* by default measure rootfs and /var, since they contain the "identity" of the system */
                         options,
                         description,
@@ -426,7 +432,7 @@ static int add_automount(
                       where,
                       fstype,
                       rw,
-                      growfs,
+                      growfs ? GROWFS_YES : GROWFS_NO,
                       /* measure= */ false,
                       options,
                       description,
@@ -733,7 +739,7 @@ static int add_root_mount(void) {
                         in_initrd() ? "/sysroot" : "/",
                         arg_root_fstype,
                         /* rw= */ arg_root_rw > 0,
-                        /* growfs= */ false,
+                        GROWFS_AUTO,
                         /* measure= */ true,
                         options,
                         "Root Partition",

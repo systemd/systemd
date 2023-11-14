@@ -37,6 +37,7 @@
 
 static const char *arg_target = NULL;
 static bool arg_dry_run = false;
+static bool arg_gpt_growfs = false;
 
 #if HAVE_LIBCRYPTSETUP
 static int resize_crypt_luks_device(dev_t devno, const char *fstype, dev_t main_devno) {
@@ -143,6 +144,57 @@ static int maybe_resize_underlying_device(
         return 0;
 }
 
+static int growfs_enabled(int devfd) {
+        _cleanup_(sd_device_unrefp) sd_device *whole_dev = NULL, *partdev = NULL;
+        _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
+        _cleanup_(loop_device_unrefp) LoopDevice *loop = NULL;
+        const char *v;
+        int partno, r;
+
+        assert(devfd >= 0);
+
+        if (!arg_gpt_growfs)
+                return 1;
+
+        /* Check if the GPT partition we are working on has the growfs flag set. Return 1 if it does. */
+
+        r = block_device_new_from_fd(devfd, BLOCK_DEVICE_LOOKUP_WHOLE_DISK | BLOCK_DEVICE_LOOKUP_BACKING, &whole_dev);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine whole disk of %s: %m", arg_target);
+
+        r = loop_device_open(whole_dev, O_RDONLY, LOCK_SH, &loop);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to open loop device for %s: %m", arg_target);
+
+        r = dissect_loop_device(
+                        loop,
+                        /* verity= */ NULL,
+                        /* mount_options= */ NULL,
+                        /* image_policy= */ NULL,
+                        DISSECT_IMAGE_GPT_ONLY,
+                        &m);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to dissect loop device for %s: %m", arg_target);
+
+        r = block_device_new_from_fd(devfd, BLOCK_DEVICE_LOOKUP_BACKING, &partdev);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine device of %s: %m", arg_target);
+
+        r = sd_device_get_property_value(partdev, "PARTN", &v);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to determine partition number of %s: %m", arg_target);
+
+        r = safe_atoi(v, &partno);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to parse partition number from %s: %m", v);
+
+        FOREACH_ARRAY (p, m->partitions, _PARTITION_DESIGNATOR_MAX)
+                if (p->found && p->partno == partno && p->growfs)
+                        return 1; /* Found it, nothing else to do */
+
+        return 0;
+}
+
 static int help(void) {
         _cleanup_free_ char *link = NULL;
         int r;
@@ -157,6 +209,8 @@ static int help(void) {
                "  -h --help          Show this help and exit\n"
                "     --version       Print version string and exit\n"
                "  -n --dry-run       Just print what would be done\n"
+               "  -a --gpt-growfs    Grow the filesystem only if the GPT\n"
+               "                     'growfs' partition flag is set\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                link);
@@ -175,13 +229,14 @@ static int parse_argv(int argc, char *argv[]) {
                 { "help",         no_argument,       NULL, 'h'           },
                 { "version" ,     no_argument,       NULL, ARG_VERSION   },
                 { "dry-run",      no_argument,       NULL, 'n'           },
+                { "gpt-growfs",   no_argument,       NULL, 'a'           },
                 {}
         };
 
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hn", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hna", options, NULL)) >= 0)
                 switch (c) {
                 case 'h':
                         return help();
@@ -191,6 +246,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'n':
                         arg_dry_run = true;
+                        break;
+
+                case 'a':
+                        arg_gpt_growfs = true;
                         break;
 
                 case '?':
@@ -241,14 +300,22 @@ static int run(int argc, char *argv[]) {
         if (devno == 0)
                 return log_error_errno(SYNTHETIC_ERRNO(ENODEV), "File system \"%s\" not backed by block device.", arg_target);
 
-        r = maybe_resize_underlying_device(mountfd, arg_target, devno);
-        if (r < 0)
-                log_warning_errno(r, "Unable to resize underlying device of \"%s\", proceeding anyway: %m", arg_target);
-
         devfd = r = device_open_from_devnum(S_IFBLK, devno, O_RDONLY|O_CLOEXEC, &devpath);
         if (r < 0)
                 return log_error_errno(r, "Failed to open block device " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(devno));
+
+        r = growfs_enabled(devfd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to determine if growfs is enabled for \"%s\": %m", arg_target);
+        if (r == 0) {
+                log_info("Growfs GPT flag not set for \"%s\", ignoring.", arg_target);
+                return 0;
+        }
+
+        r = maybe_resize_underlying_device(mountfd, arg_target, devno);
+        if (r < 0)
+                log_warning_errno(r, "Unable to resize underlying device of \"%s\", proceeding anyway: %m", arg_target);
 
         if (ioctl(devfd, BLKGETSIZE64, &size) != 0)
                 return log_error_errno(errno, "Failed to query size of \"%s\": %m", devpath);
