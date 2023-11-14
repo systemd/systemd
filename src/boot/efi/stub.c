@@ -789,15 +789,46 @@ static EFI_STATUS run(EFI_HANDLE image) {
                                 &pcrpkey_initrd_size,
                                 /* ret_measured= */ NULL);
 
-        /* Try to locate then install a compatible dtb */
+        /*
+         * Try to locate then install a compatible dtb, in the following order:
+         *  - UKI specific addons first
+         *  - Then try global addons
+         *  - Finally the UKI itself
+         */
+
+        bool had_compatible_dtb = false;
+
+        for (size_t dtb_idx = 0; !had_compatible_dtb && dtb_idx < n_dts_addons_uki; ++dtb_idx) {
+                if (devicetree_match(dt_bases_addons_uki[dtb_idx], dt_sizes_addons_uki[dtb_idx]) == EFI_SUCCESS) {
+                        err = devicetree_install_from_memory(
+                                &dt_state, dt_bases_addons_uki[dtb_idx], dt_sizes_addons_uki[dtb_idx]);
+                        if (err != EFI_SUCCESS)
+                                log_error_status(err, "Error loading addon devicetree: %m");
+                        had_compatible_dtb = true;
+                }
+        }
+
+
+        for (size_t dtb_idx = 0; !had_compatible_dtb && dtb_idx < n_dts_addons_global; ++dtb_idx) {
+                if (devicetree_match(dt_bases_addons_global[dtb_idx], dt_sizes_addons_global[dtb_idx]) == EFI_SUCCESS) {
+                        err = devicetree_install_from_memory(
+                                &dt_state, dt_bases_addons_global[dtb_idx], dt_sizes_addons_global[dtb_idx]);
+                        if (err != EFI_SUCCESS)
+                                log_error_status(err, "Error loading addon devicetree: %m");
+                        had_compatible_dtb = true;
+                }
+        }
 
         PeSectionDescriptor *section_dtb = pe_find_unified_section(sections, n_sections, UNIFIED_SECTION_DTB);
-        if (section_dtb) {
-                err = devicetree_install_from_memory(
-                                &dt_state, (const uint8_t*) loaded_image->ImageBase + section_dtb->offset, section_dtb->size);
-                if (err != EFI_SUCCESS)
-                        log_error_status(err, "Error loading embedded devicetree: %m");
+        for (; !had_compatible_dtb && section_dtb && section_dtb < sections + n_sections; ++section_dtb) {
+                if (devicetree_match((const uint8_t*) loaded_image->ImageBase + section_dtb->offset, section_dtb->size) == EFI_SUCCESS) {
+                        err = devicetree_install_from_memory(&dt_state, (const uint8_t*) loaded_image->ImageBase + section_dtb->offset, section_dtb->size);
+                        if (err != EFI_SUCCESS)
+                                log_error_status(err, "Error loading embedded devicetree: %m");
+                        had_compatible_dtb = true;
+                }
         }
+
 
         PeSectionDescriptor *section_linux = ASSERT_PTR(pe_find_unified_section(sections, n_sections, UNIFIED_SECTION_LINUX));
         linux_size = section_linux->size;
