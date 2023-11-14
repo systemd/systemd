@@ -58,7 +58,6 @@ struct duid {
         };
 } _packed_;
 
-int dhcp_validate_duid_len(DUIDType duid_type, size_t duid_len, bool strict);
 int dhcp_identifier_set_duid_llt(
                 const struct hw_addr_data *hw_addr,
                 uint16_t arp_type,
