@@ -6863,6 +6863,18 @@ D38000-D38FFF     (base 16)		CUU LONG TECHNOLOGY AND TRADING COMPANY LIMITED
 				Ho Chi Minh  Ho Chi Minh  700000
 				VN
 
+8C-1F-64   (hex)		Code Blue Corporation 
+141000-141FFF     (base 16)		Code Blue Corporation 
+				259 Hedcor Street
+				Holland  MI  49423
+				US
+
+8C-1F-64   (hex)		SurveyorLabs LLC
+FA6000-FA6FFF     (base 16)		SurveyorLabs LLC
+				905 George St #1044
+				De Pere  WI  54115
+				US
+
 8C-1F-64   (hex)		Jacobs Technology, Inc.
 A98000-A98FFF     (base 16)		Jacobs Technology, Inc.
 				7765 Old Telegraph Road
@@ -13742,6 +13754,30 @@ BAE000-BAEFFF     (base 16)		Tieline Research Pty Ltd
 				MALAGA  Western Australia  6944
 				AU
 
+8C-1F-64   (hex)		Wuxi Zetai Microelectronics Co., LTD
+5E4000-5E4FFF     (base 16)		Wuxi Zetai Microelectronics Co., LTD
+				30th floor, Building A, Building 8, Phase III, Vanke Yuncheng, Lixin Fourth Street, Xili Community, Xili Street, Nanshan District
+				Shenzhen  Guangdong  518000
+				CN
+
+8C-1F-64   (hex)		YUJUN ELECTRICITY INDUSTRY CO., LTD
+BF2000-BF2FFF     (base 16)		YUJUN ELECTRICITY INDUSTRY CO., LTD
+				4F.-5, No. 91, Dashun 1st Rd., Zuoying Dist., Kaohsiung City, Taiwan (R.O.C.)
+				Kaohsiung City    81357
+				TW
+
+8C-1F-64   (hex)		Axion Lighting
+5B4000-5B4FFF     (base 16)		Axion Lighting
+				572 John Ross Pkwy Ste 107140
+				Rock Hill  SC  29730
+				US
+
+8C-1F-64   (hex)		ATON GREEN STORAGE SPA
+062000-062FFF     (base 16)		ATON GREEN STORAGE SPA
+				via Guido Rossa 5
+				Spilamberto  MO  41057
+				IT
+
 8C-1F-64   (hex)		Vision Systems Safety Tech
 E6F000-E6FFFF     (base 16)		Vision Systems Safety Tech
 				5 Chemin de Chiradie
@@ -16891,12 +16927,6 @@ AEC000-AECFFF     (base 16)		Paratec Ltd.
 				63 Crane Lake Drive
 				Halifax  NS  B3S 1B5
 				CA
-
-70-B3-D5   (hex)		hiSky S.C.S LTD
-2E1000-2E1FFF     (base 16)		hiSky S.C.S LTD
-				24 Ammal
-				Rosh Hain    4809268
-				IL
 
 70-B3-D5   (hex)		Niron systems & Projects
 FED000-FEDFFF     (base 16)		Niron systems & Projects
@@ -20524,6 +20554,30 @@ C1A000-C1AFFF     (base 16)		ViewSonic Corp
 				710 N Maple Rd
 				Saline  MI  48176
 				US
+
+8C-1F-64   (hex)		GS Elektromedizinsiche Geräte G. Stemple GmbH
+2E5000-2E5FFF     (base 16)		GS Elektromedizinsiche Geräte G. Stemple GmbH
+				Hauswiesenstr. 26
+				Kaufering  Bayern  86916
+				DE
+
+8C-1F-64   (hex)		DEUTA Werke GmbH
+2BC000-2BCFFF     (base 16)		DEUTA Werke GmbH
+				ET
+				Bergisch Gladbach  NRW  51465
+				DE
+
+70-B3-D5   (hex)		hiSky SCS Ltd
+2E1000-2E1FFF     (base 16)		hiSky SCS Ltd
+				24 Ammal
+				Rosh Hain    4809268
+				IL
+
+8C-1F-64   (hex)		Power Electronics Espana, S.L.
+AF8000-AF8FFF     (base 16)		Power Electronics Espana, S.L.
+				C/ Leonardo Da Vinci, 24-26
+				Paterna  Valencia  46980
+				ES
 
 8C-1F-64   (hex)		Flow Power
 82B000-82BFFF     (base 16)		Flow Power
@@ -27356,11 +27410,29 @@ FC1000-FC1FFF     (base 16)		Nidec asi spa
 				Montebello Vicentino  vicenza  36054
 				IT
 
+8C-1F-64   (hex)		EL.EN. SPA
+094000-094FFF     (base 16)		EL.EN. SPA
+				VIA BALDANZESE 17
+				CALENZANO  FIRENZE  50041
+				IT
+
 8C-1F-64   (hex)		Nokia Bell Labs
 AF4000-AF4FFF     (base 16)		Nokia Bell Labs
 				21 JJ Thomson Avenue
 				Cambridge    CB3 0FA
 				GB
+
+8C-1F-64   (hex)		Fracarro Radioindustrie Srl
+170000-170FFF     (base 16)		Fracarro Radioindustrie Srl
+				Via Cazzaro 3
+				Castelfranco Veneto  Treviso  31033
+				IT
+
+8C-1F-64   (hex)		E2 Nova Corporation
+2CE000-2CEFFF     (base 16)		E2 Nova Corporation
+				5F, 316, Sec. 1 Neihu Rd., Neihu Dist. 
+				Taipei  Taipei  114
+				TW
 
 8C-1F-64   (hex)		Mobileye
 D63000-D63FFF     (base 16)		Mobileye
@@ -34075,3 +34147,51 @@ C9B000-C9BFFF     (base 16)		J.M. Voith SE & Co. KG
 				St. Poeltener Str. 43
 				Heidenheim    89522
 				DE
+
+8C-1F-64   (hex)		hiSky SCS Ltd
+C1B000-C1BFFF     (base 16)		hiSky SCS Ltd
+				Haamal 24
+				Rosh Ha'ayin    4809270
+				IL
+
+8C-1F-64   (hex)		iC-Haus GmbH
+CB9000-CB9FFF     (base 16)		iC-Haus GmbH
+				Am Kuemmerling 18
+				Bodenheim  Rhineland-Palatinate  55294
+				DE
+
+8C-1F-64   (hex)		SUS Corporation
+65B000-65BFFF     (base 16)		SUS Corporation
+				6F, S-patio Bldg. 14-25 Minami-cho, Suruga-ku,
+				Shizuoka city,  Shizuoka  422-8067
+				JP
+
+8C-1F-64   (hex)		MEDIASCOPE Inc.
+673000-673FFF     (base 16)		MEDIASCOPE Inc.
+				514, 11-41, Simin-daero 327beon-gil, Dongan-gu
+				Anyang-si  Gyeonggi-do  14055
+				KR
+
+8C-1F-64   (hex)		TWIN DEVELOPMENT
+5D1000-5D1FFF     (base 16)		TWIN DEVELOPMENT
+				FAUBOURG DE BRUXELLES 320
+				GOSSSELIES    6041
+				BE
+
+8C-1F-64   (hex)		MB connect line GmbH Fernwartungssysteme
+388000-388FFF     (base 16)		MB connect line GmbH Fernwartungssysteme
+				Winnettener Straße 6
+				Dinkelsbuehl  Bavaria  91550
+				DE
+
+8C-1F-64   (hex)		ODYSSEE-SYSTEMES
+5E6000-5E6FFF     (base 16)		ODYSSEE-SYSTEMES
+				840 ROUTE DE LA ROQUETTE
+				MOUANS-SARTOUX    06370
+				FR
+
+8C-1F-64   (hex)		QUALSEN(GUANGZHOU)TECHNOLOGIES CO.,LTD
+496000-496FFF     (base 16)		QUALSEN(GUANGZHOU)TECHNOLOGIES CO.,LTD
+				Room 303, Building C1, No. 182, Science Avenue, Huangpu District
+				Guangzhou    510663
+				CN
