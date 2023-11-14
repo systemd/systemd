@@ -1289,7 +1289,7 @@ int manager_main(Manager *manager) {
 
         r = udev_ctrl_start(manager->ctrl, on_ctrl_msg, manager);
         if (r < 0)
-                return log_error_errno(r, "Failed to start device monitor: %m");
+                return log_error_errno(r, "Failed to start udev control: %m");
 
         /* This needs to be after the inotify and uevent handling, to make sure
          * that the ping is send back after fully processing the pending uevents
