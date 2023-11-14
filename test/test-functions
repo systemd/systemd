@@ -924,16 +924,13 @@ setup_selinux() {
         return 0
     fi
 
-    local conf_dir=/etc/selinux
-    local fixfiles_tools=(awk bash cat chcon expr egrep find grep head secon setfiles rm sort uname uniq)
-
-    # Make sure the following statement can't expand to "/" to prevent
-    # a potential where-are-my-backups situation
-    rm -rf "${initdir:?}/$conf_dir"
-    if ! cp -ar "$conf_dir" "$initdir/$conf_dir"; then
-        dfatal "Failed to copy $conf_dir"
-        exit 1
-    fi
+    for dir in /etc/selinux /usr/share/selinux; do
+        rm -rf "${initdir:?}/$dir"
+        if ! cp -ar "$dir" "$initdir/$dir"; then
+            dfatal "Failed to copy $dir"
+            exit 1
+        fi
+    done
 
     # We use a custom autorelabel service instead of the SELinux provided set
     # of units & a generator, since the generator overrides the default target
@@ -944,13 +941,13 @@ setup_selinux() {
     # and does the relabeling unconditionally which always ends with a reboot, so
     # we end up in a reboot loop (and it also spews quite a lot of errors as it
     # wants /etc/fstab and dracut-initramfs-restore).
-
     touch "$initdir/.autorelabel"
     mkdir -p "$initdir/usr/lib/systemd/tests/testdata/units/basic.target.wants"
     ln -sf ../autorelabel.service "$initdir/usr/lib/systemd/tests/testdata/units/basic.target.wants/"
 
-    image_install "${fixfiles_tools[@]}"
-    image_install fixfiles sestatus
+    # Tools requires by fixfiles
+    image_install awk bash cat chcon expr egrep find grep head secon setfiles rm sort uname uniq
+    image_install fixfiles getenforce load_policy selinuxenabled sestatus
 }
 
 install_valgrind() {
