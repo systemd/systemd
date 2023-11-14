@@ -18,6 +18,7 @@
 #include "socket-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "unaligned.h"
 
 static void security_association_clear(SecurityAssociation *sa) {
         if (!sa)
