@@ -287,7 +287,7 @@ static void cmdline_append_and_measure_addons(
         *cmdline_append = xasprintf("%ls%ls%ls", strempty(tmp), isempty(tmp) ? u"" : u" ", merged);
 }
 
-static void dtb_install_addons(
+static void dtb_measure_addons(
                 struct devicetree_state *dt_state,
                 void **dt_bases,
                 size_t *dt_sizes,
@@ -303,28 +303,23 @@ static void dtb_install_addons(
         assert(ret_parameters_measured);
 
         for (size_t i = 0; i < n_dts; ++i) {
-                err = devicetree_install_from_memory(dt_state, dt_bases[i], dt_sizes[i]);
+                bool m = false;
+
+                err = tpm_log_tagged_event(
+                                TPM2_PCR_KERNEL_CONFIG,
+                                POINTER_TO_PHYSICAL_ADDRESS(dt_bases[i]),
+                                dt_sizes[i],
+                                DEVICETREE_ADDON_EVENT_TAG_ID,
+                                dt_filenames[i],
+                                &m);
                 if (err != EFI_SUCCESS)
-                        log_error_status(err, "Error loading addon devicetree, ignoring: %m");
-                else {
-                        bool m = false;
+                        return (void) log_error_status(
+                                        err,
+                                        "Unable to add measurement of DTB addon #%zu to PCR %i: %m",
+                                        i,
+                                        TPM2_PCR_KERNEL_CONFIG);
 
-                        err = tpm_log_tagged_event(
-                                        TPM2_PCR_KERNEL_CONFIG,
-                                        POINTER_TO_PHYSICAL_ADDRESS(dt_bases[i]),
-                                        dt_sizes[i],
-                                        DEVICETREE_ADDON_EVENT_TAG_ID,
-                                        dt_filenames[i],
-                                        &m);
-                        if (err != EFI_SUCCESS)
-                                return (void) log_error_status(
-                                                err,
-                                                "Unable to add measurement of DTB addon #%zu to PCR %i: %m",
-                                                i,
-                                                TPM2_PCR_KERNEL_CONFIG);
-
-                        parameters_measured = parameters_measured < 0 ? m : (parameters_measured && m);
-                }
+                parameters_measured = parameters_measured < 0 ? m : (parameters_measured && m);
         }
 
         *ret_parameters_measured = parameters_measured;
@@ -470,7 +465,7 @@ static EFI_STATUS load_addons(
 
                 if (ret_dt_bases) {
                         PeSectionDescriptor *section_dtb = pe_find_unified_section(sections, n_sections, UNIFIED_SECTION_DTB);
-                        if (section_dtb) {
+                        for (; section_dtb && section_dtb < sections + n_sections && streq8(section_dtb->name, ".dtb") == 0; ++section_dtb) {
                                 dt_sizes = xrealloc(dt_sizes,
                                                     n_dt * sizeof(size_t),
                                                     (n_dt + 1)  * sizeof(size_t));
@@ -590,7 +585,31 @@ static EFI_STATUS run(EFI_HANDLE image) {
                         continue;
 
                 PeSectionDescriptor *section = pe_find_unified_section(sections, n_sections, unified_section);
-                if (section)  {
+                if (unified_section == UNIFIED_SECTION_DTB) {
+                        for (; section && section < sections + n_sections && streq8(section->name, ".dtb") == 0; ++section) {
+                                m = false;
+
+                                /* First measure the name of the section */
+                                (void) tpm_log_event_ascii(
+                                                TPM2_PCR_KERNEL_BOOT,
+                                                POINTER_TO_PHYSICAL_ADDRESS(section->name),
+                                                strsize8(section->name), /* including NUL byte */
+                                                section->name,
+                                                &m);
+
+                                sections_measured = sections_measured < 0 ? m : (sections_measured && m);
+
+                                /* Then measure the data of the section */
+                                (void) tpm_log_event_ascii(
+                                                TPM2_PCR_KERNEL_BOOT,
+                                                POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + section->offset,
+                                                section->size,
+                                                section->name,
+                                                &m);
+
+                                sections_measured = sections_measured < 0 ? m : (sections_measured && m);
+                        }
+                } else if (section) {
                         m = false;
 
                         /* First measure the name of the section */
@@ -728,23 +747,15 @@ static EFI_STATUS run(EFI_HANDLE image) {
                       &m) == EFI_SUCCESS)
                 confext_measured = m;
 
-        /* First load the base device tree, then fix it up using addons - global first, then per-UKI. */
-        PeSectionDescriptor *section_dtb = pe_find_unified_section(sections, n_sections, UNIFIED_SECTION_DTB);
-        if (section_dtb) {
-                err = devicetree_install_from_memory(
-                                &dt_state, (const uint8_t*) loaded_image->ImageBase + section_dtb->offset, section_dtb->size);
-                if (err != EFI_SUCCESS)
-                        log_error_status(err, "Error loading embedded devicetree: %m");
-        }
-
-        dtb_install_addons(&dt_state,
+        /* Measure DTBs contained in addons */
+        dtb_measure_addons(&dt_state,
                            dt_bases_addons_global,
                            dt_sizes_addons_global,
                            dt_filenames_addons_global,
                            n_dts_addons_global,
                            &m);
         parameters_measured = parameters_measured < 0 ? m : (parameters_measured && m);
-        dtb_install_addons(&dt_state,
+        dtb_measure_addons(&dt_state,
                            dt_bases_addons_uki,
                            dt_sizes_addons_uki,
                            dt_filenames_addons_uki,
@@ -797,6 +808,16 @@ static EFI_STATUS run(EFI_HANDLE image) {
                                 &pcrpkey_initrd,
                                 &pcrpkey_initrd_size,
                                 /* ret_measured= */ NULL);
+
+        /* Try to locate then install a compatible dtb */
+
+        PeSectionDescriptor *section_dtb = pe_find_unified_section(sections, n_sections, UNIFIED_SECTION_DTB);
+        if (section_dtb) {
+                err = devicetree_install_from_memory(
+                                &dt_state, (const uint8_t*) loaded_image->ImageBase + section_dtb->offset, section_dtb->size);
+                if (err != EFI_SUCCESS)
+                        log_error_status(err, "Error loading embedded devicetree: %m");
+        }
 
         PeSectionDescriptor *section_linux = ASSERT_PTR(pe_find_unified_section(sections, n_sections, UNIFIED_SECTION_LINUX));
         linux_size = section_linux->size;
