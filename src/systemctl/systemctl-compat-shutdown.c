@@ -6,6 +6,7 @@
 #include "pretty-print.h"
 #include "reboot-util.h"
 #include "systemctl-compat-shutdown.h"
+#include "systemctl-logind.h"
 #include "systemctl-sysv-compat.h"
 #include "systemctl.h"
 #include "terminal-util.h"
@@ -136,8 +137,9 @@ int shutdown_parse_argv(int argc, char *argv[]) {
                         log_error("Failed to parse time specification: %s", argv[optind]);
                         return r;
                 }
-        } else
-                arg_when = now(CLOCK_REALTIME) + USEC_PER_MINUTE;
+        } else {
+                arg_when = USEC_INFINITY; /* logind chooses on server side */
+        }
 
         if (argc > optind && arg_action == ACTION_CANCEL_SHUTDOWN)
                 /* No time argument for shutdown cancel */
