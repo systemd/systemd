@@ -326,8 +326,9 @@ static int nvme_namespace_write_metadata(int namespace_fd, sd_device *device, co
                 if (device) {
                         (void) sd_device_get_property_value(device, "ID_SERIAL", &serial);
                         if (!serial)
-                                sd_device_get_devpath(device, &serial);
-                } else
+                                (void) sd_device_get_devname(device, &serial);
+                }
+                if (!serial)
                         serial = node;
 
                 r = sd_id128_get_machine(&mid);
