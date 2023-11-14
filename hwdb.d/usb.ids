@@ -9,8 +9,8 @@
 #	The latest version can be obtained from
 #		http://www.linux-usb.org/usb.ids
 #
-# Version: 2023.08.24
-# Date:    2023-08-24 20:34:10
+# Version: 2023.11.08
+# Date:    2023-11-08 20:34:02
 #
 
 # Vendors, devices and interfaces. Please keep sorted.
@@ -2734,6 +2734,7 @@
 	0301  USB 1.0 Hub
 	0500  Serial & Parallel Ports
 	ff10  Virtual Keyboard and Mouse
+	ff20  Virtual CDROM
 046c  Toshiba Corp., Digital Media Equipment
 046d  Logitech, Inc.
 	0082  Acer Aspire 5672 Webcam
@@ -3564,6 +3565,7 @@
 	e07a  Broadcom BCM20702A1 Bluetooth
 	e0c8  MediaTek MT7921 Bluetooth
 	e0cd  MediaTek Bluetooth Adapter
+	e0d8  Bluetooth Adapter
 048a  S-MOS Systems, Inc.
 048c  Alps Electric Ireland, Ltd
 048d  Integrated Technology Express, Inc.
@@ -6725,6 +6727,10 @@
 052f  Unicore Software, Inc.
 0530  American Microsystems, Inc.
 0531  Wacom Technology Corp.
+	0100  CTC4110WL [One (S)]
+	0102  CTC6110WL [One (M)]
+	0104  CTC4110WL [One (S)]
+	0105  CTC6110WL [One (M)]
 0532  Systech Corp.
 0533  Alcatel Mobile Phones
 0534  Motorola, Inc.
@@ -7429,6 +7435,7 @@
 	4037  FlexScan EV3285
 	4044  FlexScan EV2457
 	4059  FlexScan EV2760
+	405a  FlexScan EV2360
 	405b  FlexScan EV2460
 	405f  FlexScan EV2795
 	4065  FlexScan EV3895
@@ -8908,6 +8915,7 @@
 	c75c  JumpDrive V10
 05dd  Delta Electronics, Inc.
 	a011  HID UPS Battery
+	a0a0  Minuteman Entrust-LCD Series UPS
 	ff31  AWU-120
 	ff32  FriendlyNET AeroLAN AL2011
 	ff35  PCW 100 - Wireless 802.11b Adapter
@@ -10967,6 +10975,7 @@
 07b4  Olympus Optical Co., Ltd
 	0100  Camedia C-2100/C-3000 Ultra Zoom Camera
 	0102  Camedia E-10/C-220/C-50 Camera
+	0104  Camedia Digital Color Printer P-400
 	0105  Camedia C-310Z/C-700/C-750UZ/C-755/C-765UZ/C-3040/C-4000/C-5050Z/D-560/C-3020Z Zoom Camera
 	0109  C-370Z/C-500Z/D-535Z/X-450
 	010a  MAUSB-10 xD and SmartMedia Card Reader
@@ -11126,6 +11135,7 @@
 	a867  AVerTV DVB-T (A867)
 	b300  A300 DVB-T TV receiver
 	b800  MR800 FM Radio
+	c039  DVD EZMaker 7
 	e880  MPEG-2 Capture Device (E880)
 	e882  MPEG-2 Capture Device (E882)
 07cb  Kingmax Technology, Inc.
@@ -11309,6 +11319,7 @@
 	0001  Internet Access Device
 07f2  Microcomputer Applications, Inc.
 	0001  KEYLOK II
+	0003  KEYLOK3
 07f6  Circuit Assembly Corp.
 07f7  Century Corp.
 	0005  ScanLogic/Century Corporation uATA
@@ -11337,6 +11348,7 @@
 	0001  Mini Swipe Reader (Keyboard Emulation)
 	0002  Mini Swipe Reader
 	0003  Magstripe Insert Reader
+	0011  MagTek - Mini Swipe Reader
 0802  Mako Technologies, LLC
 0803  Zoom Telephonics, Inc.
 	1300  V92 Faxmodem
@@ -11382,7 +11394,7 @@
 081e  AlphaSmart, Inc.
 	df00  Handheld
 081f  Manta
-	e401  MM812
+	e401  gamepad
 0822  Reudo Corp.
 	2001  IRXpress Infrared Device
 0825  GC Protronics
@@ -11550,6 +11562,7 @@
 	9051  A6200v2 802.11a/b/g/n/ac (2x2) Wireless Adapter [Realtek RTL8812AU]
 	9052  A6100 AC600 DB Wireless Adapter [Realtek RTL8811AU]
 	9054  Nighthawk A7000 802.11ac Wireless Adapter AC1900 [Realtek 8814AU]
+	9055  A6150 Dual Band AC1200 Wireless Adapter [Realtek RTL8812BU]
 	a001  PA101 10 Mbps HPNA Home Phoneline RJ-1
 	f001  On Networks N300MA 802.11bgn [Realtek RTL8192CU]
 084d  Minton Optic Industry Co., Inc.
@@ -11559,6 +11572,7 @@
 	0014  Praktica DC 32
 	0019  Praktica DPix3000
 	0025  Praktica DC 60
+	002b  Technika SH-Z625 6MP Digital Camera
 	1001  ScanHex SX-35d
 084e  KB Gear
 	0001  JamCam Camera
@@ -11844,6 +11858,7 @@
 	0102  ADSL
 	0301  RNIS ISDN TA [HFC-S]
 08e4  Pioneer Corp.
+	017a  BD-XD07 BD/DVD/CD Writer
 	0184  DDJ-WeGO
 	0185  DDJ-WeGO2
 08e5  Litronic
@@ -12019,12 +12034,15 @@
 0908  Siemens AG
 	01f4  SIMATIC NET CP 5711
 	01fe  SIMATIC NET PC Adapter A2
+	02e7  RNDIS for OZW/OCI
 	04b1  MediSET
 	04b2  NC interface
 	04b3  keyboard front panel Cockpit
 	04b4  SCR_CCID
 	2701  ShenZhen SANZHAI Technology Co.,Ltd Spy Pen VGA
 0909  Audio-Technica Corp.
+	001b  ATR2100-USB
+	001c  AT2020USB+
 090a  Trumpion Microelectronics, Inc.
 	1001  T33520 Flash Card Controller
 	1100  Comotron C3310 MP3 player
@@ -12121,7 +12139,10 @@
 	26a1  Nuvi 55
 	2802  fenix 3
 	28db  Drive 5
+	2bf5  Drive 52M
 	47fb  nuviCam
+	4c05  Forerunner 245 Music
+	4cda  Fenix 6 Sapphire
 	4cdb  Fenix 6
 0920  Echelon Co.
 	7500  Network Interface
@@ -12309,10 +12330,12 @@
 	2624  Webcam
 	2628  Webcam Genius iLook 300
 	2700  GE 1.3 MP MiniCam Pro
+	2811  Macally IceCam II
 093b  Plextor Corp.
 	0010  Storage Adapter
 	0011  PlexWriter 40/12/40U
 	0012  PlexWriter 48/24/48U
+	0023  PX-608CU DVD RW
 	0041  PX-708A DVD RW
 	0042  PX-712UF DVD RW
 	a002  ConvertX M402U XLOADER
@@ -12339,6 +12362,7 @@
 	010e  nanoPAD pad controller
 	010f  nanoKONTROL studio controller
 	0117  nanoKONTROL2 MIDI Controller
+	012f  SQ-1
 	0f03  K-Series K61P MIDI studio controller
 0945  Pasco Scientific
 0948  Kronauer music in digital
@@ -12382,17 +12406,22 @@
 	1656  DataTraveler Ultimate G2
 	1660  Data Traveller 108
 	1665  Digital DataTraveler SE9
-	1666  DataTraveler 100 G3/G4/SE9 G2/50
+	1666  DataTraveler 100 G3/G4/SE9 G2/50 Kyson
 	1689  DataTraveler SE9
 	168a  DataTraveler Micro
 	168c  DT Elite 3.0
+	169d  DataTraveler Locker+ G3 Flash Drive
+	16a3  DataTraveler (DT) microDuo 3.0
 	16a4  HyperX 7.1 Audio
 	16b3  HyperX Savage
+	16c4  Hyperx Cloud Flight wireless headset
 	16d2  HX-KB4BL1-US [HYPERX Alloy FPS Pro]
 	16d4  HyperX SavageEXO [0382]
 	16d5  DataTraveler Elite G2
 	16df  HyperX QuadCast
 	16e4  HyperX Pulsefire Raid
+	173c  DataTraveler Duo
+	177f  DataTraveler Max
 0954  RPM Systems Corp.
 0955  NVIDIA Corp.
 	7005  Bootloader
@@ -12400,6 +12429,7 @@
 	701a  U-Boot running on Tegra
 	7020  L4T (Linux for Tegra) running on Tegra
 	7030  T30 [Tegra 3] recovery mode
+	7035  Jetson device in initrd flashing mode
 	7100  Tegra Device
 	7140  T124 [Tegra K1/Logan 32-bit]
 	7210  SHIELD Controller
@@ -12447,11 +12477,15 @@
 	0309  ePass3000GM
 	0401  ePass3000
 	0405  Zzkey Dongle
+	0503  SCR301
 	0608  SC Reader KP382
 	0702  ePass3003
 	0703  ePass3003Auto
+	0801  Token
 	0802  ePass2000 (G&D STARCOS SPK 2.4)
 	0807  ePass2003
+	085a  Multipass FIDO
+	0891  Jubiter Wallet
 0971  Gretag-Macbeth AG
 	2000  i1 Pro
 	2001  i1 Monitor
@@ -12901,16 +12935,20 @@
 	bd1f  BCM43242 802.11abgn Wireless Adapter
 	d11b  Eminent EM4045 [Broadcom 4320 USB]
 0a5d  Diatrend Corp.
-0a5f  Zebra
+0a5f  Zebra Technologies
 	0009  LP2844 Printer
+	0027  ZTC LP2844-Z-200dpi
 	0050  P120i / WM120i
 	0080  GK420d Label Printer
 	0081  GK420t Label Printer
 	0084  GX420d Desktop Label Printer
 	008b  HC100 wristbands Printer
 	008c  ZP 450 Printer
-	00d1  Zebra GC420d Label Printer
+	00d1  GC420d Label Printer
 	0110  ZD500 Desktop Label Printer
+	011c  ZD410 Direct Thermal Label Printer
+	0141  ZD620
+	0172  ZT411 Barcode Label Printer
 	930a  Printer
 0a62  MPMan
 	0010  MPMan MP-F40 MP3 Player
@@ -23878,6 +23916,22 @@ C 0e  Video
 	01  Video Control
 	02  Video Streaming
 	03  Video Interface Collection
+C 0f  Personal Healthcare
+C 10  Audio/Video
+	01  AVData Control
+	02  AVData Video Stream
+	03  AVData Audio Stream
+C 11  Billboard
+C 12  Type-C Bridge
+C 13  Bulk Display
+C 14  MCTCP over USB
+	00  MCTCP Management
+		01  MCTCP 1.x
+		02  MCTCP 2.x
+	01  MCTCP Host
+		01  MCTCP 1.x
+		02  MCTCP 2.x
+C 3c  I3C
 C 58  Xbox
 	42  Controller
 C dc  Diagnostic

@@ -251,6 +251,51 @@ usb:v*p*d*dc0Edsc02*
 usb:v*p*d*dc0Edsc03*
  ID_USB_SUBCLASS_FROM_DATABASE=Video Interface Collection
 
+usb:v*p*d*dc0F*
+ ID_USB_CLASS_FROM_DATABASE=Personal Healthcare
+
+usb:v*p*d*dc10*
+ ID_USB_CLASS_FROM_DATABASE=Audio/Video
+
+usb:v*p*d*dc10dsc01*
+ ID_USB_SUBCLASS_FROM_DATABASE=AVData Control
+
+usb:v*p*d*dc10dsc02*
+ ID_USB_SUBCLASS_FROM_DATABASE=AVData Video Stream
+
+usb:v*p*d*dc10dsc03*
+ ID_USB_SUBCLASS_FROM_DATABASE=AVData Audio Stream
+
+usb:v*p*d*dc11*
+ ID_USB_CLASS_FROM_DATABASE=Billboard
+
+usb:v*p*d*dc12*
+ ID_USB_CLASS_FROM_DATABASE=Type-C Bridge
+
+usb:v*p*d*dc13*
+ ID_USB_CLASS_FROM_DATABASE=Bulk Display
+
+usb:v*p*d*dc14*
+ ID_USB_CLASS_FROM_DATABASE=MCTCP over USB
+
+usb:v*p*d*dc14dsc00dp01*
+ ID_USB_PROTOCOL_FROM_DATABASE=MCTCP 1.x
+
+usb:v*p*d*dc14dsc00dp02*
+ ID_USB_PROTOCOL_FROM_DATABASE=MCTCP 2.x
+
+usb:v*p*d*dc14dsc01*
+ ID_USB_SUBCLASS_FROM_DATABASE=MCTCP Host
+
+usb:v*p*d*dc14dsc01dp01*
+ ID_USB_PROTOCOL_FROM_DATABASE=MCTCP 1.x
+
+usb:v*p*d*dc14dsc01dp02*
+ ID_USB_PROTOCOL_FROM_DATABASE=MCTCP 2.x
+
+usb:v*p*d*dc3C*
+ ID_USB_CLASS_FROM_DATABASE=I3C
+
 usb:v*p*d*dc58*
  ID_USB_CLASS_FROM_DATABASE=Xbox
 
