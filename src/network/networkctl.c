@@ -29,6 +29,7 @@
 #include "bus-wait-for-jobs.h"
 #include "conf-files.h"
 #include "device-util.h"
+#include "dhcp-client-id-internal.h"
 #include "edit-util.h"
 #include "escape.h"
 #include "ether-addr-util.h"
@@ -1418,8 +1419,9 @@ static int dump_dhcp_leases(Table *table, const char *prefix, sd_bus *bus, const
 
         while ((r = sd_bus_message_enter_container(reply, 'r', "uayayayayt")) > 0) {
                 _cleanup_free_ char *id = NULL, *ip = NULL;
-                const void *client_id, *addr, *gtw, *hwaddr;
-                size_t client_id_sz, sz;
+                const void *client_id_bin, *addr, *gtw, *hwaddr;
+                sd_dhcp_client_id client_id;
+                size_t sz;
                 uint64_t expiration;
                 uint32_t family;
 
@@ -1427,9 +1429,11 @@ static int dump_dhcp_leases(Table *table, const char *prefix, sd_bus *bus, const
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = sd_bus_message_read_array(reply, 'y', &client_id, &client_id_sz);
+                r = sd_bus_message_read_array(reply, 'y', &client_id_bin, &client_id.size);
                 if (r < 0)
                         return bus_log_parse_error(r);
+
+                memcpy(&client_id.id, client_id_bin, client_id.size);
 
                 r = sd_bus_message_read_array(reply, 'y', &addr, &sz);
                 if (r < 0 || sz != 4)
@@ -1447,7 +1451,7 @@ static int dump_dhcp_leases(Table *table, const char *prefix, sd_bus *bus, const
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = sd_dhcp_client_id_to_string(client_id, client_id_sz, &id);
+                r = sd_dhcp_client_id_to_string(&client_id, &id);
                 if (r < 0)
                         return bus_log_parse_error(r);
 
@@ -2260,8 +2264,7 @@ static int link_status_one(
         }
 
         if (lease) {
-                const void *client_id;
-                size_t client_id_len;
+                sd_dhcp_client_id *client_id;
                 const char *tz;
 
                 r = sd_dhcp_lease_get_timezone(lease, &tz);
@@ -2273,11 +2276,11 @@ static int link_status_one(
                                 return table_log_add_error(r);
                 }
 
-                r = sd_dhcp_lease_get_client_id(lease, &client_id, &client_id_len);
+                r = sd_dhcp_lease_get_client_id(lease, &client_id);
                 if (r >= 0) {
                         _cleanup_free_ char *id = NULL;
 
-                        r = sd_dhcp_client_id_to_string(client_id, client_id_len, &id);
+                        r = sd_dhcp_client_id_to_string(client_id, &id);
                         if (r >= 0) {
                                 r = table_add_many(table,
                                                    TABLE_FIELD, "DHCP4 Client ID",
