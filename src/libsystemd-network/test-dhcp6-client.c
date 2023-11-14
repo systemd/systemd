@@ -25,6 +25,7 @@
 #include "strv.h"
 #include "tests.h"
 #include "time-util.h"
+#include "unaligned.h"
 
 #define DHCP6_CLIENT_EVENT_TEST_ADVERTISED 77
 #define IA_ID_BYTES                                                     \
