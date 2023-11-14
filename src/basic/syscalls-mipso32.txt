@@ -1,6 +1,5 @@
 _llseek	4140
 _newselect	4142
-_sysctl	4153
 accept	4168
 accept4	4334
 access	4033
@@ -15,7 +14,6 @@ arch_prctl
 arm_fadvise64_64
 atomic_barrier
 atomic_cmpxchg_32
-bdflush	4134
 bind	4169
 bpf	4355
 brk	4045
@@ -40,14 +38,12 @@ clock_nanosleep_time64	4407
 clock_settime	4262
 clock_settime64	4404
 clone	4120
-clone2
 clone3	4435
 close	4006
 close_range	4436
 connect	4170
 copy_file_range	4360
 creat	4008
-create_module	4127
 delete_module	4129
 dipc
 dup	4041
@@ -106,10 +102,12 @@ fsync	4118
 ftruncate	4093
 ftruncate64	4212
 futex	4238
+futex_requeue	4456
 futex_time64	4422
+futex_wait	4455
 futex_waitv	4449
+futex_wake	4454
 futimesat	4292
-get_kernel_syms	4130
 get_mempolicy	4269
 get_robust_list	4310
 get_thread_area
@@ -134,7 +132,6 @@ getpeername	4171
 getpgid	4132
 getpgrp	4065
 getpid	4020
-getpmsg	4208
 getppid	4064
 getpriority	4096
 getrandom	4353
@@ -151,12 +148,10 @@ gettid	4222
 gettimeofday	4078
 getuid	4024
 getuid32
-getunwind
 getxattr	4227
 getxgid
 getxpid
 getxuid
-idle	4112
 init_module	4128
 inotify_add_watch	4285
 inotify_init	4284
@@ -202,7 +197,7 @@ lsetxattr	4225
 lstat	4107
 lstat64	4214
 madvise	4218
-map_shadow_stack
+map_shadow_stack	4453
 mbind	4268
 membarrier	4358
 memfd_create	4354
@@ -246,10 +241,8 @@ munmap	4091
 name_to_handle_at	4339
 nanosleep	4166
 newfstatat
-nfsservctl	4189
 nice	4034
 old_adjtimex
-old_getpagesize
 oldfstat
 oldlstat
 oldolduname
@@ -262,116 +255,36 @@ open_tree	4428
 openat	4288
 openat2	4437
 or1k_atomic
-osf_adjtime
-osf_afs_syscall
-osf_alt_plock
-osf_alt_setsid
-osf_alt_sigpending
-osf_asynch_daemon
-osf_audcntl
-osf_audgen
-osf_chflags
-osf_execve
-osf_exportfs
-osf_fchflags
-osf_fdatasync
-osf_fpathconf
 osf_fstat
 osf_fstatfs
 osf_fstatfs64
-osf_fuser
-osf_getaddressconf
 osf_getdirentries
 osf_getdomainname
-osf_getfh
-osf_getfsstat
-osf_gethostid
 osf_getitimer
-osf_getlogin
-osf_getmnt
 osf_getrusage
 osf_getsysinfo
 osf_gettimeofday
-osf_kloadcall
-osf_kmodcall
 osf_lstat
-osf_memcntl
-osf_mincore
 osf_mount
-osf_mremap
-osf_msfs_syscall
-osf_msleep
-osf_mvalid
-osf_mwakeup
-osf_naccept
-osf_nfssvc
-osf_ngetpeername
-osf_ngetsockname
-osf_nrecvfrom
-osf_nrecvmsg
-osf_nsendmsg
-osf_ntp_adjtime
-osf_ntp_gettime
-osf_old_creat
-osf_old_fstat
-osf_old_getpgrp
-osf_old_killpg
-osf_old_lstat
-osf_old_open
-osf_old_sigaction
-osf_old_sigblock
-osf_old_sigreturn
-osf_old_sigsetmask
-osf_old_sigvec
-osf_old_stat
-osf_old_vadvise
-osf_old_vtrace
-osf_old_wait
-osf_oldquota
-osf_pathconf
-osf_pid_block
-osf_pid_unblock
-osf_plock
-osf_priocntlset
-osf_profil
 osf_proplist_syscall
-osf_reboot
-osf_revoke
-osf_sbrk
-osf_security
 osf_select
 osf_set_program_attributes
-osf_set_speculative
-osf_sethostid
 osf_setitimer
-osf_setlogin
 osf_setsysinfo
 osf_settimeofday
 osf_shmat
-osf_signal
 osf_sigprocmask
-osf_sigsendset
 osf_sigstack
-osf_sigwaitprim
-osf_sstk
 osf_stat
 osf_statfs
 osf_statfs64
-osf_subsys_info
-osf_swapctl
 osf_swapon
 osf_syscall
 osf_sysinfo
-osf_table
-osf_uadmin
 osf_usleep_thread
-osf_uswitch
-osf_utc_adjtime
-osf_utc_gettime
 osf_utimes
 osf_utsname
 osf_wait4
-osf_waitid
 pause	4029
 pciconfig_iobase
 pciconfig_read
@@ -406,7 +319,6 @@ ptrace	4026
 pwrite64	4201
 pwritev	4331
 pwritev2	4362
-query_module	4187
 quotactl	4131
 quotactl_fd	4443
 read	4003
@@ -584,7 +496,6 @@ uname	4122
 unlink	4010
 unlinkat	4294
 unshare	4303
-uselib	4086
 userfaultfd	4357
 ustat	4062
 utime	4030
