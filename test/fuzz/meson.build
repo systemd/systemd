@@ -40,11 +40,7 @@ else
 endif
 
 fuzz_c_args = get_option('c_args')
-if cxx_cmd != ''
-        fuzz_cpp_args = get_option('cpp_args')
-else
-        fuzz_cpp_args = []
-endif
+fuzz_cpp_args = cxx_cmd != '' ? get_option('cpp_args') : []
 
 sanitize_address_undefined = custom_target(
         'sanitize-address-undefined-fuzzers',
