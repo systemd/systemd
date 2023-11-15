@@ -653,7 +653,7 @@ int image_discover(
                         if (r < 0)
                                 return r;
 
-                        image = NULL;
+                        TAKE_PTR(image);
                 }
         }
 
