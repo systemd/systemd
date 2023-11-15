@@ -53,6 +53,7 @@ follow14.final        A     10.0.0.14
 myservice             A     10.0.0.20
 myservice             AAAA  fd00:dead:beef:cafe::17
 _mysvc._tcp           SRV   10 5 1234 myservice
+_mysvc._tcp           TXT   "This is TXT for myservice"
 
 _invalidsvc._udp      SRV   5 5 1111 invalidservice
 

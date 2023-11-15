@@ -32,6 +32,33 @@ static VARLINK_DEFINE_METHOD(
                 VARLINK_DEFINE_OUTPUT_BY_TYPE(names, ResolvedName, VARLINK_ARRAY),
                 VARLINK_DEFINE_OUTPUT(flags, VARLINK_INT, 0));
 
+static VARLINK_DEFINE_STRUCT_TYPE(
+                ResolvedService,
+                VARLINK_DEFINE_FIELD(priority, VARLINK_INT, 0),
+                VARLINK_DEFINE_FIELD(weight, VARLINK_INT, 0),
+                VARLINK_DEFINE_FIELD(port, VARLINK_INT, 0),
+                VARLINK_DEFINE_FIELD(hostname, VARLINK_STRING, 0));
+
+static VARLINK_DEFINE_STRUCT_TYPE(
+                ResolvedCanonical,
+                VARLINK_DEFINE_FIELD(name, VARLINK_STRING, 0),
+                VARLINK_DEFINE_FIELD(type, VARLINK_STRING, 0),
+                VARLINK_DEFINE_FIELD(domain, VARLINK_STRING, 0));
+
+static VARLINK_DEFINE_METHOD(
+                ResolveService,
+                VARLINK_DEFINE_INPUT(name, VARLINK_STRING, 0),
+                VARLINK_DEFINE_INPUT(type, VARLINK_STRING, 0),
+                VARLINK_DEFINE_INPUT(domain, VARLINK_STRING, 0),
+                VARLINK_DEFINE_INPUT(ifindex, VARLINK_INT, VARLINK_NULLABLE),
+                VARLINK_DEFINE_INPUT(family, VARLINK_INT, VARLINK_NULLABLE),
+                VARLINK_DEFINE_INPUT(flags, VARLINK_INT, VARLINK_NULLABLE),
+                VARLINK_DEFINE_OUTPUT_BY_TYPE(srv, ResolvedService, 0),
+                VARLINK_DEFINE_OUTPUT_BY_TYPE(addr, ResolvedAddress, VARLINK_ARRAY),
+                VARLINK_DEFINE_OUTPUT(txt, VARLINK_STRING, VARLINK_ARRAY),
+                VARLINK_DEFINE_OUTPUT(normalized, VARLINK_STRING, 0),
+                VARLINK_DEFINE_OUTPUT_BY_TYPE(canonical, ResolvedCanonical, 0));
+
 static VARLINK_DEFINE_ERROR(NoNameServers);
 static VARLINK_DEFINE_ERROR(NoSuchResourceRecord);
 static VARLINK_DEFINE_ERROR(QueryTimedOut);
@@ -61,8 +88,11 @@ VARLINK_DEFINE_INTERFACE(
                 "io.systemd.Resolve",
                 &vl_method_ResolveHostname,
                 &vl_method_ResolveAddress,
+                &vl_method_ResolveService,
                 &vl_type_ResolvedAddress,
                 &vl_type_ResolvedName,
+                &vl_type_ResolvedService,
+                &vl_type_ResolvedCanonical,
                 &vl_error_NoNameServers,
                 &vl_error_NoSuchResourceRecord,
                 &vl_error_QueryTimedOut,
