@@ -2201,7 +2201,6 @@ static int client_receive_message_raw(
                 .msg_control = &control,
                 .msg_controllen = sizeof(control),
         };
-        struct cmsghdr *cmsg;
         bool checksum = true;
         triple_timestamp t = {};
         ssize_t buflen, len;
@@ -2231,15 +2230,13 @@ static int client_receive_message_raw(
                 return 0;
         }
 
-        CMSG_FOREACH(cmsg, &msg)
-                if (cmsg->cmsg_level == SOL_PACKET && cmsg->cmsg_type == PACKET_AUXDATA) {
-                        struct tpacket_auxdata *aux = CMSG_TYPED_DATA(cmsg, struct tpacket_auxdata);
-                        checksum = !(aux->tp_status & TP_STATUS_CSUMNOTREADY);
+        struct tpacket_auxdata *aux = CMSG_FIND_AND_COPY_DATA(&msg, SOL_PACKET, PACKET_AUXDATA, struct tpacket_auxdata);
+        if (aux)
+                checksum = !(aux->tp_status & TP_STATUS_CSUMNOTREADY);
 
-                } else if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_TIMESTAMP) {
-                        struct timeval *tv = CMSG_TYPED_DATA(cmsg, struct timeval);
-                        triple_timestamp_from_realtime(&t, timeval_load(tv));
-                }
+        struct timeval *tv = CMSG_FIND_AND_COPY_DATA(&msg, SOL_SOCKET, SCM_TIMESTAMP, struct timeval);
+        if (tv)
+                triple_timestamp_from_realtime(&t, timeval_load(tv));
 
         if (dhcp_packet_verify_headers(packet, len, checksum, client->port) < 0)
                 return 0;
