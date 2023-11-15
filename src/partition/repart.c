@@ -3687,7 +3687,6 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
         _cleanup_free_ char *hp = NULL, *vol = NULL, *dm_name = NULL;
         const char *passphrase = NULL;
         size_t passphrase_size = 0;
-        TPM2Flags flags = 0;
         const char *vt;
         int r;
 
@@ -3782,6 +3781,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 size_t secret_size, blob_size, pubkey_size = 0, srk_buf_size = 0;
                 ssize_t base64_encoded_size;
                 int keyslot;
+                TPM2Flags flags = 0;
 
                 if (arg_tpm2_public_key_pcr_mask != 0) {
                         r = tpm2_load_pcr_public_key(arg_tpm2_public_key, &pubkey, &pubkey_size);
