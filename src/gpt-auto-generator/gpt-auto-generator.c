@@ -648,7 +648,9 @@ static int add_partition_root_rw(DissectedPartition *p) {
                 return 0;
         }
 
-        (void) generator_enable_remount_fs_service(arg_dest);
+        r = generator_enable_remount_fs_service(arg_dest);
+        if (r < 0)
+                return r;
 
         path = strjoina(arg_dest, "/systemd-remount-fs.service.d/50-remount-rw.conf");
 
