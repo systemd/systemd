@@ -739,6 +739,10 @@ static int netdev_request_to_create(NetDev *netdev) {
         int r;
 
         assert(netdev);
+        assert(netdev->manager);
+
+        if (netdev->manager->test_mode)
+                return 0;
 
         if (netdev_is_stacked(netdev))
                 return 0;
