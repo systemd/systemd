@@ -22,11 +22,12 @@ typedef enum DUIDType {
         _DUID_TYPE_FORCE_U16 = UINT16_MAX,
 } DUIDType;
 
-/* RFC 3315 section 9.1:
- *      A DUID can be no more than 128 octets long (not including the type code).
- */
-#define MAX_DUID_LEN 128
-#define MAX_DUID_DATA_LEN (MAX_DUID_LEN - sizeof(be16_t))
+/* RFC 8415 section 11.1:
+ * A DUID consists of a 2-octet type code represented in network byte order, followed by a variable number of
+ * octets that make up the actual identifier. The length of the DUID (not including the type code) is at
+ * least 1 octet and at most 128 octets. */
+#define MAX_DUID_DATA_LEN 128
+#define MAX_DUID_LEN (sizeof(be16_t) + MAX_DUID_DATA_LEN)
 
 /* https://tools.ietf.org/html/rfc3315#section-9.1 */
 struct duid {
@@ -58,7 +59,6 @@ struct duid {
         };
 } _packed_;
 
-int dhcp_validate_duid_len(DUIDType duid_type, size_t duid_len, bool strict);
 int dhcp_identifier_set_duid_llt(
                 const struct hw_addr_data *hw_addr,
                 uint16_t arp_type,
