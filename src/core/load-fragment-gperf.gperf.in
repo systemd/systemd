@@ -408,6 +408,7 @@ Service.ExecStartPre,                    config_parse_exec,                     
 Service.ExecStart,                       config_parse_exec,                           SERVICE_EXEC_START,                 offsetof(Service, exec_command)
 Service.ExecStartPost,                   config_parse_exec,                           SERVICE_EXEC_START_POST,            offsetof(Service, exec_command)
 Service.ExecReload,                      config_parse_exec,                           SERVICE_EXEC_RELOAD,                offsetof(Service, exec_command)
+Service.ExecRestartPre,                  config_parse_exec,                           SERVICE_EXEC_RESTART_PRE,           offsetof(Service, exec_command)
 Service.ExecStop,                        config_parse_exec,                           SERVICE_EXEC_STOP,                  offsetof(Service, exec_command)
 Service.ExecStopPost,                    config_parse_exec,                           SERVICE_EXEC_STOP_POST,             offsetof(Service, exec_command)
 Service.RestartSec,                      config_parse_sec,                            0,                                  offsetof(Service, restart_usec)
@@ -421,6 +422,7 @@ Service.TimeoutStartFailureMode,         config_parse_service_timeout_failure_mo
 Service.TimeoutStopFailureMode,          config_parse_service_timeout_failure_mode,   0,                                  offsetof(Service, timeout_stop_failure_mode)
 Service.RuntimeMaxSec,                   config_parse_sec,                            0,                                  offsetof(Service, runtime_max_usec)
 Service.RuntimeRandomizedExtraSec,       config_parse_sec,                            0,                                  offsetof(Service, runtime_rand_extra_usec)
+Service.RuntimePassiveMaxSec,            config_parse_sec,                            0,                                  offsetof(Service, runtime_passive_max_usec)
 Service.WatchdogSec,                     config_parse_sec,                            0,                                  offsetof(Service, watchdog_usec)
 {# The following five only exist for compatibility, they moved into Unit, see above #}
 Service.StartLimitInterval,              config_parse_sec,                            0,                                  offsetof(Unit, start_ratelimit.interval)

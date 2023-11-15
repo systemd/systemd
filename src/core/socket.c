@@ -1378,7 +1378,7 @@ int socket_load_service_unit(Socket *s, int cfd, Unit **ret) {
         /* For accepting sockets, we don't know how the instance will be called until we get a connection and
          * can figure out what the peer name is. So let's use "internal" as the instance to make it clear
          * that this is not an actual peer name. We use "unknown" when we cannot figure out the peer. */
-        r = unit_name_build(prefix, instance ?: "internal", ".service", &name);
+        r = unit_name_build(prefix, UNIT_ARG_INSTANCE(instance ?: "internal"), ".service", &name);
         if (r < 0)
                 return r;
 

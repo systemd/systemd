@@ -55,15 +55,15 @@ int unit_symlink_name_compatible(const char *symlink, const char *target, bool i
         un_type2 = unit_name_classify(target);
 
         /* An instance name points to a target that is just the template name */
-        if (un_type1 == UNIT_NAME_INSTANCE &&
-            un_type2 == UNIT_NAME_TEMPLATE &&
+        if (un_type1 & UNIT_NAME_UINSTANCE &&
+            un_type2 & UNIT_NAME_UTEMPLATE &&
             streq(template, target))
                 return 1;
 
         /* foo@.target.requires/bar@.service: instance will be propagated */
         if (instance_propagation &&
-            un_type1 == UNIT_NAME_TEMPLATE &&
-            un_type2 == UNIT_NAME_TEMPLATE &&
+            un_type1 & UNIT_NAME_UTEMPLATE &&
+            un_type2 & UNIT_NAME_UTEMPLATE &&
             streq(template, target))
                 return 1;
 
@@ -72,7 +72,7 @@ int unit_symlink_name_compatible(const char *symlink, const char *target, bool i
 
 int unit_validate_alias_symlink_or_warn(int log_level, const char *filename, const char *target) {
         _cleanup_free_ char *src = NULL, *dst = NULL;
-        _cleanup_free_ char *src_instance = NULL, *dst_instance = NULL;
+        _cleanup_(unit_instance_freep) UnitInstanceArg src_instance = {}, dst_instance = {};
         UnitType src_unit_type, dst_unit_type;
         UnitNameFlags src_name_type, dst_name_type;
         int r;
@@ -131,15 +131,15 @@ int unit_validate_alias_symlink_or_warn(int log_level, const char *filename, con
                                       filename, dst);
 
         if (!(dst_name_type == src_name_type ||
-              (src_name_type == UNIT_NAME_INSTANCE && dst_name_type == UNIT_NAME_TEMPLATE)))
+              (src_name_type & UNIT_NAME_UINSTANCE && dst_name_type & UNIT_NAME_UTEMPLATE)))
                 return log_full_errno(log_level, SYNTHETIC_ERRNO(EXDEV),
                                       "%s: symlink target name type \"%s\" does not match source, rejecting.",
                                       filename, dst);
 
-        if (dst_name_type == UNIT_NAME_INSTANCE) {
-                assert(src_instance);
-                assert(dst_instance);
-                if (!streq(src_instance, dst_instance))
+        if (dst_name_type & UNIT_NAME_UINSTANCE) {
+                assert(!unit_instance_is_null(src_instance));
+                assert(!unit_instance_is_null(dst_instance));
+                if (!unit_instance_eq(src_instance, dst_instance))
                         return log_full_errno(log_level, SYNTHETIC_ERRNO(EXDEV),
                                               "%s: unit symlink target \"%s\" instance name doesn't match, rejecting.",
                                               filename, dst);
@@ -586,7 +586,8 @@ int unit_file_build_name_map(
         /* Let's also put the names in the reverse db. */
         const char *dummy, *src;
         HASHMAP_FOREACH_KEY(dummy, src, ids) {
-                _cleanup_free_ char *inst = NULL, *dst_inst = NULL;
+                _cleanup_(unit_instance_freep) UnitInstanceArg inst = {};
+                _cleanup_free_ char *dst_name = NULL;
                 const char *dst;
 
                 r = unit_ids_map_get(ids, src, &dst);
@@ -604,17 +605,18 @@ int unit_file_build_name_map(
                         UnitNameFlags t = unit_name_to_instance(src, &inst);
                         if (t < 0)
                                 return log_error_errno(t, "Failed to extract instance part from %s: %m", src);
-                        if (t == UNIT_NAME_INSTANCE) {
-                                r = unit_name_replace_instance(dst, inst, &dst_inst);
+                        if (t & UNIT_NAME_INSTANCE) {
+                                r = unit_name_replace_instance(dst, inst, &dst_name);
                                 if (r < 0) {
                                         /* This might happen e.g. if the combined length is too large.
                                          * Let's not make too much of a fuss. */
-                                        log_debug_errno(r, "Failed to build alias name (%s + %s), ignoring: %m",
-                                                        dst, inst);
+                                        // XXX use proper unit_instance_to_string
+                                        log_debug_errno(r, "Failed to build alias name (%s + %s%s), ignoring: %m",
+                                                        dst, inst.instance, inst.generation);
                                         continue;
                                 }
 
-                                dst = dst_inst;
+                                dst = dst_name;
                         }
                 }
 
@@ -658,18 +660,18 @@ static int add_names(
                 const char *unit_name,
                 const char *fragment_basename,  /* Only set when adding additional names based on fragment path */
                 UnitNameFlags name_type,
-                const char *instance,
+                UnitInstanceArg instance,
                 Set **names,
                 const char *name) {
 
         char **aliases;
         int r;
 
-        assert(name_type == UNIT_NAME_PLAIN || instance);
+        assert(name_type == UNIT_NAME_PLAIN || !unit_instance_is_null(instance));
 
         /* The unit has its own name if it's not a template. If we're looking at a fragment, the fragment
          * name (possibly with instance inserted), is also always one of the unit names. */
-        if (name_type != UNIT_NAME_TEMPLATE) {
+        if (name_type & ~UNIT_NAME_TEMPLATE) {
                 r = add_name(unit_name, names, name);
                 if (r < 0)
                         return r;
@@ -681,14 +683,15 @@ static int add_names(
          * set of names for any of the aliases. */
         aliases = hashmap_get(unit_name_map, name);
         STRV_FOREACH(alias, aliases) {
-                if (name_type == UNIT_NAME_INSTANCE && unit_name_is_valid(*alias, UNIT_NAME_TEMPLATE)) {
+                if (name_type & UNIT_NAME_INSTANCE && unit_name_is_valid(*alias, UNIT_NAME_TEMPLATE)) {
                         _cleanup_free_ char *inst = NULL;
                         const char *inst_fragment = NULL;
 
                         r = unit_name_replace_instance(*alias, instance, &inst);
                         if (r < 0)
-                                return log_debug_errno(r, "Cannot build instance name %s + %s: %m",
-                                                       *alias, instance);
+                                // XXX use proper unit_instance_to_string
+                                return log_debug_errno(r, "Cannot build instance name %s + %s%s: %m",
+                                                       *alias, instance.instance, instance.generation);
 
                         /* Exclude any aliases that point in some other direction.
                          *
@@ -723,7 +726,8 @@ int unit_file_find_fragment(
                 Set **ret_names) {
 
         const char *fragment = NULL;
-        _cleanup_free_ char *template = NULL, *instance = NULL;
+        _cleanup_free_ char *template = NULL;
+        _cleanup_(unit_instance_freep) UnitInstanceArg instance = {};
         _cleanup_set_free_ Set *names = NULL;
         int r;
 
@@ -739,6 +743,12 @@ int unit_file_find_fragment(
          * foo@bar.service → …/foo@.service, {foo@bar.service, foo-alias@bar.service},
          * foo-alias@bar.service → …/foo@.service, {foo@bar.service, foo-alias@bar.service},
          * foo-alias@inst.service → …/foo@inst.service, {foo@inst.service, foo-alias@inst.service}.
+         *
+         * Rtemplates can be used under handle service name...
+         * foo.service -> foo#.service
+         * ...and as regular
+         * foo@bar#gen.service -> foo@#.service
+         * foo#gen.service -> foo#.service
          */
 
         UnitNameFlags name_type = unit_name_to_instance(unit_name, &instance);
@@ -756,12 +766,22 @@ int unit_file_find_fragment(
         if (r < 0 && !IN_SET(r, -ENOENT, -ENXIO))
                 return log_debug_errno(r, "Cannot load unit %s: %m", unit_name);
 
-        if (!fragment && name_type == UNIT_NAME_INSTANCE) {
+        if (!fragment && name_type & UNIT_NAME_INSTANCE) {
                 /* Look for a fragment under the template name */
 
                 r = unit_name_template(unit_name, &template);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to determine template name: %m");
+
+                r = unit_ids_map_get(unit_ids_map, template, &fragment);
+                if (r < 0 && !IN_SET(r, -ENOENT, -ENXIO))
+                        return log_debug_errno(r, "Cannot load template %s: %m", template);
+        } else if (!fragment && name_type & UNIT_NAME_PLAIN) {
+                /* Is this rtemplate handle service?
+                 * foo.service should load fragment from foo#.service */
+                r = unit_name_make_rtemplate(unit_name, &template);
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to make rtemplate name: %m");
 
                 r = unit_ids_map_get(unit_ids_map, template, &fragment);
                 if (r < 0 && !IN_SET(r, -ENOENT, -ENXIO))

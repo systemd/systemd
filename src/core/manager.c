@@ -1347,8 +1347,9 @@ static void unit_gc_sweep(Unit *u, unsigned gc_marker) {
 
         assert(u);
 
+        /* Processed in this round? */
         if (IN_SET(u->gc_marker - gc_marker,
-                   GC_OFFSET_GOOD, GC_OFFSET_BAD, GC_OFFSET_UNSURE, GC_OFFSET_IN_PATH))
+                   GC_OFFSET_GOOD, GC_OFFSET_BAD, GC_OFFSET_IN_PATH))
                 return;
 
         if (u->in_cleanup_queue)
@@ -2332,8 +2333,8 @@ int manager_load_unit_prepare(
 
         UnitType t = unit_name_to_type(name);
 
-        if (t == _UNIT_TYPE_INVALID || !unit_name_is_valid(name, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE)) {
-                if (unit_name_is_valid(name, UNIT_NAME_TEMPLATE))
+        if (t == _UNIT_TYPE_INVALID || !unit_name_is_valid(name, UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE|UNIT_NAME_GENERATION)) {
+                if (unit_name_is_valid(name, UNIT_NAME_TEMPLATE|UNIT_NAME_RTEMPLATE))
                         return sd_bus_error_setf(e, SD_BUS_ERROR_INVALID_ARGS, "Unit name %s is missing the instance name.", name);
 
                 return sd_bus_error_setf(e, SD_BUS_ERROR_INVALID_ARGS, "Unit name %s is not valid.", name);

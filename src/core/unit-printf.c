@@ -39,7 +39,7 @@ static int specifier_prefix_unescaped(char specifier, const void *data, const ch
 static int specifier_instance_unescaped(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const Unit *u = ASSERT_PTR(userdata);
 
-        return unit_name_unescape(strempty(u->instance), ret);
+        return unit_name_unescape(strempty(u->instance.instance), ret);
 }
 
 static int specifier_last_component(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
@@ -74,8 +74,9 @@ static int specifier_last_component_unescaped(char specifier, const void *data, 
 static int specifier_filename(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
         const Unit *u = ASSERT_PTR(userdata);
 
-        if (u->instance)
-                return unit_name_path_unescape(u->instance, ret);
+        // XXX generation?
+        if (u->instance.instance)
+                return unit_name_path_unescape(u->instance.instance, ret);
         else
                 return unit_name_to_path(u->id, ret);
 }
@@ -177,7 +178,7 @@ int unit_name_printf(const Unit *u, const char* format, char **ret) {
          */
 
         const Specifier table[] = {
-                { 'i', specifier_string,              u->instance },
+                { 'i', specifier_string,              u->instance.instance },
                 { 'j', specifier_last_component,      NULL },
                 { 'n', specifier_string,              u->id },
                 { 'N', specifier_prefix_and_instance, NULL },
@@ -226,7 +227,7 @@ int unit_full_printf_full(const Unit *u, const char *format, size_t max_length, 
         assert(ret);
 
         const Specifier table[] = {
-                { 'i', specifier_string,                   u->instance },
+                { 'i', specifier_string,                   u->instance.instance },
                 { 'I', specifier_instance_unescaped,       NULL },
                 { 'j', specifier_last_component,           NULL },
                 { 'J', specifier_last_component_unescaped, NULL },
