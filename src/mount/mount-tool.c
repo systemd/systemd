@@ -975,7 +975,6 @@ static int stop_mounts(
 }
 
 static int umount_by_device(sd_bus *bus, sd_device *dev) {
-        _cleanup_(sd_device_unrefp) sd_device *d = NULL;
         _cleanup_strv_free_ char **list = NULL;
         const char *v;
         int r, ret = 0;
@@ -983,7 +982,7 @@ static int umount_by_device(sd_bus *bus, sd_device *dev) {
         assert(bus);
         assert(dev);
 
-        if (sd_device_get_property_value(d, "SYSTEMD_MOUNT_WHERE", &v) >= 0)
+        if (sd_device_get_property_value(dev, "SYSTEMD_MOUNT_WHERE", &v) >= 0)
                 ret = stop_mounts(bus, v);
 
         r = sd_device_get_devname(dev, &v);
