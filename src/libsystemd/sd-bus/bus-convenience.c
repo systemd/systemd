@@ -655,7 +655,7 @@ _public_ int sd_bus_query_sender_creds(sd_bus_message *call, uint64_t mask, sd_b
         c = sd_bus_message_get_creds(call);
 
         /* All data we need? */
-        if (c && (mask & ~c->mask) == 0) {
+        if (c && (mask & ~SD_BUS_CREDS_AUGMENT & ~c->mask) == 0) {
                 *ret = sd_bus_creds_ref(c);
                 return 0;
         }
