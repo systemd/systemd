@@ -9,7 +9,7 @@ c_args="${4:?}"
 cpp_args="${5:?}"
 options="${6:?}"
 CC="${7:?}"
-CXX="${8:?}"
+CXX="$8"
 
 if [ ! -f "$builddir/build.ninja" ]; then
     # shellcheck disable=SC2086
