@@ -209,6 +209,7 @@ Prepare a testbed image for autopkgtest (tweak the release as necessary):
 And finally run the autopkgtest itself:
 
 # autopkgtest -o logs *.deb systemd/ \
+              --env=TEST_UPSTREAM=1 \
               --timeout-factor=3 \
               --test-name=boot-and-services \
               --shell-fail \
