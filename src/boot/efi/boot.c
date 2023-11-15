@@ -1566,7 +1566,7 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
 
         err = file_read(root_dir, u"\\loader\\loader.conf", 0, 0, &content, &content_size);
         if (err == EFI_SUCCESS) {
-                config_defaults_load_from_file(config, content);
+                /* First, measure. */
                 err = tpm_log_tagged_event(
                                 TPM2_PCR_BOOT_LOADER_CONFIG,
                                 POINTER_TO_PHYSICAL_ADDRESS(content),
@@ -1576,6 +1576,9 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                                 /* ret_measured= */ NULL);
                 if (err != EFI_SUCCESS)
                         log_error_status(err, "Error measuring loader.conf into TPM: %m");
+
+                /* Then: parse */
+                config_defaults_load_from_file(config, content);
         }
 
         err = efivar_get_timeout(u"LoaderConfigTimeout", &config->timeout_sec_efivar);
