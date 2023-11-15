@@ -634,11 +634,9 @@ static int add_partition_root_rw(DissectedPartition *p) {
         int r;
 
         assert(p);
+        assert(!in_initrd());
 
-        if (in_initrd()) {
-                log_debug("In initrd, not generating drop-in for systemd-remount-fs.service.");
-                return 0;
-        }
+        /* Invoked on the main system (not initrd), to honour GPT flag 60 on the root fs (ro) */
 
         if (arg_root_rw >= 0) {
                 log_debug("Parameter ro/rw specified on kernel command line, not generating drop-in for systemd-remount-fs.service.");
@@ -650,7 +648,9 @@ static int add_partition_root_rw(DissectedPartition *p) {
                 return 0;
         }
 
-        (void) generator_enable_remount_fs_service(arg_dest);
+        r = generator_enable_remount_fs_service(arg_dest);
+        if (r < 0)
+                return r;
 
         path = strjoina(arg_dest, "/systemd-remount-fs.service.d/50-remount-rw.conf");
 
@@ -663,6 +663,33 @@ static int add_partition_root_rw(DissectedPartition *p) {
                 return log_error_errno(r, "Failed to write drop-in file %s: %m", path);
 
         return 0;
+}
+
+static int add_partition_root_growfs(DissectedPartition *p) {
+
+        assert(p);
+        assert(!in_initrd());
+
+        /* Invoked on the main system (not initrd), to honour GPT flag 59 on the root fs (growfs) */
+
+        if (!p->growfs) {
+                log_debug("Root partition not marked for growing the file system in the GPT partition table, not generating drop-in for systemd-growfs-root.service.");
+                return 0;
+        }
+
+        return generator_hook_up_growfs(arg_dest, "/", SPECIAL_LOCAL_FS_TARGET);
+}
+
+static int add_partition_root_flags(DissectedPartition *p) {
+        int r = 0;
+
+        assert(p);
+        assert(!in_initrd());
+
+        RET_GATHER(r, add_partition_root_growfs(p));
+        RET_GATHER(r, add_partition_root_rw(p));
+
+        return r;
 }
 
 #if ENABLE_EFI
@@ -710,8 +737,9 @@ static int add_root_mount(void) {
                         return r;
         }
 
-        /* Note that we do not need to enable systemd-remount-fs.service here. If
-         * /etc/fstab exists, systemd-fstab-generator will pull it in for us. */
+        /* Note that we do not need to enable systemd-remount-fs.service here. If /etc/fstab exists,
+         * systemd-fstab-generator will pull it in for us, and otherwise add_partition_root_flags() will do
+         * it, after the initrd transition. */
 
         r = partition_pick_mount_options(
                         PARTITION_ROOT,
@@ -795,6 +823,11 @@ static int enumerate_partitions(dev_t devnum) {
         _cleanup_free_ char *devname = NULL;
         int r;
 
+        assert(!in_initrd());
+
+        /* Run on the final root fs (not in the initrd), to mount auxiliary partitions, and hook in rw
+         * remount and growfs of the root partition */
+
         r = block_get_whole_disk(devnum, &devnum);
         if (r < 0)
                 return log_debug_errno(r, "Failed to get whole block device for " DEVNUM_FORMAT_STR ": %m",
@@ -855,7 +888,7 @@ static int enumerate_partitions(dev_t devnum) {
                                                   "var-tmp", "/var/tmp", "Temporary Data Partition"));
 
         if (m->partitions[PARTITION_ROOT].found)
-                RET_GATHER(r, add_partition_root_rw(m->partitions + PARTITION_ROOT));
+                RET_GATHER(r, add_partition_root_flags(m->partitions + PARTITION_ROOT));
 
         return r;
 }
