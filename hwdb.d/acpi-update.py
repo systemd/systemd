@@ -2,7 +2,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 from csv import reader
-from enum import Enum
 
 def read_table(a):
 
