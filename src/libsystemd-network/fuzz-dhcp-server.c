@@ -35,15 +35,11 @@ static int add_lease(sd_dhcp_server *server, const struct in_addr *server_addres
                 .hlen = ETH_ALEN,
                 .htype = ARPHRD_ETHER,
 
-                .client_id.length = 2,
+                .client_id.size = 2,
         };
 
-        lease->client_id.data = new(uint8_t, lease->client_id.length);
-        if (!lease->client_id.data)
-                return -ENOMEM;
-
-        lease->client_id.data[0] = 2;
-        lease->client_id.data[1] = i;
+        lease->client_id.raw[0] = 2;
+        lease->client_id.raw[1] = i;
 
         lease->server = server; /* This must be set just before hashmap_put(). */
 
