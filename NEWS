@@ -131,29 +131,35 @@ CHANGES WITH 255 in spe:
           replace the old mount (if any), instead of overmounting it.
 
         * Units now have MemoryPeak, MemorySwapPeak, MemorySwapCurrent and
-          MemoryZSwapCurrent properties, which respectively contain the values of
-          the cgroup v2's memory.peak, memory.swap.peak, memory.swap.current and
-          memory.zswap.current properties.
+          MemoryZSwapCurrent properties, which respectively contain the values
+          of the cgroup v2's memory.peak, memory.swap.peak, memory.swap.current
+          and memory.zswap.current properties. This information is also show in
+          "systemctl status" output, if available.
 
         TPM2 Support + Disk Encryption & Authentication:
 
         * systemd-cryptenroll now allows specifying a PCR bank and explicit hash
           value in the --tpm2-pcrs= option.
 
-        * systemd-cryptenroll now allows specifying a TPM2 key handle to be used
-          instead of the default SRK via the new --tpm2-seal-key-handle= option.
+        * systemd-cryptenroll now allows specifying a TPM2 key handle (nv
+          index) to be used instead of the default SRK via the new
+          --tpm2-seal-key-handle= option.
 
-        * systemd-cryptenroll now allows enrolling using only a TPM2 public key,
-          without access to the TPM2 itself, which enables remote sealing.
+        * systemd-cryptenroll now allows TPM2 enrollment using only a TPM2
+          public key (in TPM2B_PUBLIC format) – without access to the TPM2
+          device itself – which enables offline sealing of LUKS images for a
+          specific TPM2 chip, as long as the SRK public key is known. Pass the
+          public to the tool via the new --tpm2-device-key= switch.
 
         * systemd-cryptsetup is now installed in /usr/bin/ and is no longer an
           internal-only executable.
 
         * The TPM2 Storage Root Key will now be set up, if not already present,
-          by a new systemd-tpm2-setup.service early boot service. The SRK will be
-          stored in PEM format and TPM2_PUBLIC format for easier access. A new
-          srk verb has been added to systemd-analyze to allow extracting it on
-          demand if it is already set up.
+          by a new systemd-tpm2-setup.service early boot service. The SRK will
+          be stored in PEM format and TPM2_PUBLIC format (the latter is useful
+          for systemd-cryptenroll --tpm2-device-key=, as mentioned above) for
+          easier access. A new "srk" verb has been added to systemd-analyze to
+          allow extracting it on demand if it is already set up.
 
         * The internal systemd-pcrphase executable has been renamed to
           systemd-pcrextend.
@@ -244,11 +250,13 @@ CHANGES WITH 255 in spe:
         * The 90-loaderentry kernel-install hook now supports installing device
           trees.
 
-        * kernel-install now supports --json, --root, --image and --image-policy
-          options for the inspect verb.
+        * kernel-install now supports the --json=, --root=, --image= and
+        --image-policy= options for the inspect verb.
 
-        * kernel-install now supports new list and add-all verbs. The latter will
-          install all the kernels it can find to the ESP.
+        * kernel-install now supports new list and add-all verbs. The former
+          lists all installed kernel images (if those are available in
+          /usr/lib/modules/). The latter will install all the kernels it can
+          find to the ESP.
 
         systemd-repart:
 
@@ -273,8 +281,9 @@ CHANGES WITH 255 in spe:
           files, to indicate which directories in the target partition should be
           btrfs subvolumes.
 
-        * A new --tpm2-device-key= option can be used to encrypt a disk against
-          a remote TPM2 using its public key.
+        * A new --tpm2-device-key= option can be used to lock a disk against a
+          specific TPM2 public key. This matches the same switch the
+          systemd-cryptenroll tool now supports (see above).
 
         Journal:
 
