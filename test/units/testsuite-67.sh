@@ -88,6 +88,8 @@ do
     # Make sure we are in a consistent state, e.g. not already active before we start
     systemctl stop systemd-integritysetup@"${DM_NAME}".service || exit 1
     systemctl start systemd-integritysetup@"${DM_NAME}".service || exit 1
+    # Reset the start-limit counters, as we're going to restart the service a couple of times
+    systemctl reset-failed systemd-integritysetup@"${DM_NAME}".service
 
     # Check the signature on the FS to ensure we can retrieve it and that is matches
     if [ -e "${FULL_DM_DEV_NAME}" ]; then
