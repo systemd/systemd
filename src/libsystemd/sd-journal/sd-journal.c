@@ -235,7 +235,8 @@ _public_ int sd_journal_add_match(sd_journal *j, const void *data, size_t size) 
         if (size == 0)
                 size = strlen(data);
 
-        assert_return(match_is_valid(data, size), -EINVAL);
+        if (!match_is_valid(data, size))
+                return -EINVAL;
 
         /* level 0: AND term
          * level 1: OR terms
