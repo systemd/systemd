@@ -18,7 +18,6 @@
 #include "dns-domain.h"
 #include "event-util.h"
 #include "fd-util.h"
-#include "hexdecoct.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
 #include "iovec-util.h"
@@ -288,39 +287,18 @@ int sd_dhcp6_client_get_duid(sd_dhcp6_client *client, sd_dhcp_duid **ret) {
         return 0;
 }
 
-int sd_dhcp6_client_duid_as_string(
-                sd_dhcp6_client *client,
-                char **duid) {
-        _cleanup_free_ char *p = NULL, *s = NULL, *t = NULL;
-        const char *v;
+int sd_dhcp6_client_get_duid_as_string(sd_dhcp6_client *client, char **ret) {
+        sd_dhcp_duid *duid;
         int r;
 
         assert_return(client, -EINVAL);
-        assert_return(sd_dhcp_duid_is_set(&client->duid), -ENODATA);
-        assert_return(duid, -EINVAL);
+        assert_return(ret, -EINVAL);
 
-        v = duid_type_to_string(be16toh(client->duid.duid.type));
-        if (v) {
-                s = strdup(v);
-                if (!s)
-                        return -ENOMEM;
-        } else {
-                r = asprintf(&s, "%0x", client->duid.duid.type);
-                if (r < 0)
-                        return -ENOMEM;
-        }
+        r = sd_dhcp6_client_get_duid(client, &duid);
+        if (r < 0)
+                return r;
 
-        t = hexmem(client->duid.duid.data, client->duid.size - offsetof(struct duid, data));
-        if (!t)
-                return -ENOMEM;
-
-        p = strjoin(s, ":", t);
-        if (!p)
-                return -ENOMEM;
-
-        *duid = TAKE_PTR(p);
-
-        return 0;
+        return sd_dhcp_duid_to_string(duid, ret);
 }
 
 int sd_dhcp6_client_set_iaid(sd_dhcp6_client *client, uint32_t iaid) {

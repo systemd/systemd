@@ -68,6 +68,8 @@ int sd_dhcp_duid_set_ll(
 int sd_dhcp_duid_set_en(sd_dhcp_duid *duid);
 int sd_dhcp_duid_set_uuid(sd_dhcp_duid *duid);
 
+int sd_dhcp_duid_to_string(sd_dhcp_duid *duid, char **ret);
+
 _SD_END_DECLARATIONS;
 
 #endif
