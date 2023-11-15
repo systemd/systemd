@@ -1436,9 +1436,7 @@ static int client_parse_message(
                 return r;
 
         if (sd_dhcp_client_id_is_set(&client->client_id)) {
-                r = dhcp_lease_set_client_id(lease,
-                                             client->client_id.raw,
-                                             client->client_id.size);
+                r = dhcp_lease_set_client_id(lease, &client->client_id);
                 if (r < 0)
                         return r;
         }
