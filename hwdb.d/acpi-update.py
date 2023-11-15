@@ -28,5 +28,5 @@ print('# This file is part of systemd.\n'
       '#     https://uefi.org/uefi-pnp-export\n'
       '#     https://uefi.org/uefi-acpi-export')
 
-read_table("acpi_id_registry.html")
-read_table("pnp_id_registry.html")
+read_table('acpi_id_registry.csv')
+read_table('pnp_id_registry.csv')
