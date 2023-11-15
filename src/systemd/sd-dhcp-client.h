@@ -164,8 +164,6 @@ sd_dhcp_client *sd_dhcp_client_unref(sd_dhcp_client *client);
  * options when using RFC7844 Anonymity Profiles */
 int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize);
 
-int sd_dhcp_client_id_to_string(const void *data, size_t len, char **ret);
-
 int sd_dhcp_client_attach_event(
                 sd_dhcp_client *client,
                 sd_event *event,
