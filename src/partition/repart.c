@@ -3758,6 +3758,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 ssize_t base64_encoded_size;
                 uint16_t pcr_bank, primary_alg;
                 int keyslot;
+                TPM2Flags flags = 0;
 
                 if (arg_tpm2_public_key_pcr_mask != 0) {
                         r = tpm2_load_pcr_public_key(arg_tpm2_public_key, &pubkey, &pubkey_size);
