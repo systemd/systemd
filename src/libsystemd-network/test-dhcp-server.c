@@ -223,7 +223,7 @@ static void test_message_handler(void) {
         assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL) == DHCP_ACK);
 }
 
-static uint64_t client_id_hash_helper(DHCPClientId *id, uint8_t key[HASH_KEY_SIZE]) {
+static uint64_t client_id_hash_helper(sd_dhcp_client_id *id, uint8_t key[HASH_KEY_SIZE]) {
         struct siphash state;
 
         siphash24_init(&state, key);
@@ -233,10 +233,10 @@ static uint64_t client_id_hash_helper(DHCPClientId *id, uint8_t key[HASH_KEY_SIZ
 }
 
 static void test_client_id_hash(void) {
-        DHCPClientId a = {
-                .length = 4,
+        sd_dhcp_client_id a = {
+                .size = 4,
         }, b = {
-                .length = 4,
+                .size = 4,
         };
         uint8_t hash_key[HASH_KEY_SIZE] = {
                 '0', '1', '2', '3', '4', '5', '6', '7',
@@ -245,29 +245,25 @@ static void test_client_id_hash(void) {
 
         log_debug("/* %s */", __func__);
 
-        a.data = (uint8_t*)strdup("abcd");
-        b.data = (uint8_t*)strdup("abcd");
+        memcpy(a.raw, "abcd", 4);
+        memcpy(b.raw, "abcd", 4);
 
         assert_se(client_id_compare_func(&a, &b) == 0);
         assert_se(client_id_hash_helper(&a, hash_key) == client_id_hash_helper(&b, hash_key));
-        a.length = 3;
+        a.size = 3;
         assert_se(client_id_compare_func(&a, &b) != 0);
-        a.length = 4;
+        a.size = 4;
         assert_se(client_id_compare_func(&a, &b) == 0);
         assert_se(client_id_hash_helper(&a, hash_key) == client_id_hash_helper(&b, hash_key));
 
-        b.length = 3;
+        b.size = 3;
         assert_se(client_id_compare_func(&a, &b) != 0);
-        b.length = 4;
+        b.size = 4;
         assert_se(client_id_compare_func(&a, &b) == 0);
         assert_se(client_id_hash_helper(&a, hash_key) == client_id_hash_helper(&b, hash_key));
 
-        free(b.data);
-        b.data = (uint8_t*)strdup("abce");
+        memcpy(b.raw, "abce", 4);
         assert_se(client_id_compare_func(&a, &b) != 0);
-
-        free(a.data);
-        free(b.data);
 }
 
 static void test_static_lease(void) {
