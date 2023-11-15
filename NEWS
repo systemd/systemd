@@ -177,7 +177,7 @@ CHANGES WITH 255 in spe:
           journal, where they however were subject to rotation and similar.
 
         * A new component "systemd-pcrlock" has been added that allows managing
-          local TPM2 PCR policies for PCRs 0-7 and similar, which are hard to
+          local TPM2 PCR policies for PCRs 0-7 and similar, which are hard to
           predict by the OS vendor because of the inherently local nature of
           what measurements they contain, such as firmware versions of the
           system and extension cards and suchlike. pcrlock can predict PCR
@@ -221,11 +221,11 @@ CHANGES WITH 255 in spe:
           set-timeout option, to allow completely disabling the boot menu,
           including the hotkey.
 
-        * systemd-boot will now measure the content of loader.conf in TPM2 PCR
-          5.
+        * systemd-boot will now measure the content of loader.conf in TPM2
+          PCR 5.
 
         * systemd-stub will now concatenate the content of all kernel
-          command-line addons before measuring them in TPM2 PCR 12, in a single
+          command-line addons before measuring them in TPM2 PCR 12, in a single
           measurement, instead of measuring them individually.
 
         * systemd-stub will now measure and load Devicetree Blob addons, which
@@ -250,8 +250,8 @@ CHANGES WITH 255 in spe:
         * The 90-loaderentry kernel-install hook now supports installing device
           trees.
 
-        * kernel-install now supports the --json=, --root=, --image= and
-        --image-policy= options for the inspect verb.
+        * kernel-install now supports the --json=, --root=, --image=, and
+          --image-policy= options for the inspect verb.
 
         * kernel-install now supports new list and add-all verbs. The former
           lists all installed kernel images (if those are available in
@@ -940,7 +940,7 @@ CHANGES WITH 254:
           kernel command line it invokes. This is useful for VMMs such as qemu
           to pass additional kernel command lines into the system even when
           booting via full UEFI. The contents of the field are measured into
-          TPM PCR 12.
+          TPM PCR 12.
 
         * The KERNEL_INSTALL_LAYOUT= setting for kernel-install gained a new
           value "auto". With this value, a kernel will be automatically
@@ -1463,7 +1463,7 @@ CHANGES WITH 253:
           manager is also enabled and used.
 
         * Some compatibility helpers were dropped: EmergencyAction= in the user
-          manager, as well as measuring kernel command line into PCR 8 in
+          manager, as well as measuring kernel command line into PCR 8 in
           systemd-stub, along with the -Defi-tpm-pcr-compat compile-time
           option.
 
@@ -1868,8 +1868,8 @@ CHANGES WITH 253:
           specified via root=.
 
         * systemd-pcrphase gained new options --machine-id and --file-system=
-          to measure the machine-id and mount point information into PCR 15. New
-          service unit files systemd-pcrmachine.service and
+          to measure the machine-id and mount point information into PCR 15.
+          New service unit files systemd-pcrmachine.service and
           systemd-pcrfs@.service have been added that invoke the tool with
           these switches during early boot.
 
@@ -2127,7 +2127,7 @@ CHANGES WITH 252 🎃:
           course users can always enroll non-TPM ways to unlock the volume.)
 
         * systemd-pcrphase is a new tool that is invoked at six places during
-          system runtime, and measures additional words into TPM2 PCR 11, to
+          system runtime, and measures additional words into TPM2 PCR 11, to
           mark milestones of the boot process. This allows binding access to
           specific TPM2-encrypted secrets to specific phases of the boot
           process. (Example: LUKS2 disk encryption key only accessible in the
@@ -2187,7 +2187,7 @@ CHANGES WITH 252 🎃:
           associated service unit, if any.
 
         * Boot phase transitions (start initrd → exit initrd → boot complete →
-          shutdown) will be measured into TPM2 PCR 11, so that secrets can be
+          shutdown) will be measured into TPM2 PCR 11, so that secrets can be
           bound to a specific runtime phase. E.g.: a LUKS encryption key can be
           unsealed only in the initrd.
 
@@ -2252,13 +2252,13 @@ CHANGES WITH 252 🎃:
           (e.g. comparisons for empty strings). Boot counting is now part of
           the main specification.
 
-        * New PCRs measurements are performed during boot: PCR 11 for the
-          kernel+initrd combo, PCR 13 for any sysext images. If a measurement
+        * New PCRs measurements are performed during boot: PCR 11 for the
+          kernel+initrd combo, PCR 13 for any sysext images. If a measurement
           took place this is now reported to userspace via the new
           StubPcrKernelImage and StubPcrInitRDSysExts EFI variables.
 
         * As before, systemd-stub will measure kernel parameters and system
-          credentials into PCR 12. It will now report this fact via the
+          credentials into PCR 12. It will now report this fact via the
           StubPcrKernelParameters EFI variable to userspace.
 
         * The UEFI monotonic boot counter is now included in the updated random
@@ -2703,17 +2703,17 @@ CHANGES WITH 251:
           seen with 250. For newer kernels, non-x86 systems, or older x86
           systems, there should be no visible changes.
 
-        * sd-boot will now measure the kernel command line into TPM PCR 12
-          rather than PCR 8. This improves usefulness of the measurements on
+        * sd-boot will now measure the kernel command line into TPM PCR 12
+          rather than PCR 8. This improves usefulness of the measurements on
           systems where sd-boot is chainloaded from Grub. Grub measures all
-          commands its executes into PCR 8, which makes it very hard to use
-          reasonably, hence separate ourselves from that and use PCR 12
+          commands its executes into PCR 8, which makes it very hard to use
+          reasonably, hence separate ourselves from that and use PCR 12
           instead, which is what certain Ubuntu editions already do. To retain
           compatibility with systems running older systemd systems a new meson
           option 'efi-tpm-pcr-compat' has been added (which defaults to false).
-          If enabled, the measurement is done twice: into the new-style PCR 12
-          *and* the old-style PCR 8. It's strongly advised to migrate all users
-          to PCR 12 for this purpose in the long run, as we intend to remove
+          If enabled, the measurement is done twice: into the new-style PCR 12
+          *and* the old-style PCR 8. It's strongly advised to migrate all users
+          to PCR 12 for this purpose in the long run, as we intend to remove
           this compatibility feature in two years' time.
 
         * busctl capture now writes output in the newer pcapng format instead
