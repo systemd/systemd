@@ -54,6 +54,9 @@ int sd_dhcp_client_id_set_iaid_duid(
                 uint32_t iaid,
                 sd_dhcp_duid *duid);
 
+int sd_dhcp_client_id_to_string(const sd_dhcp_client_id *client_id, char **ret);
+int sd_dhcp_client_id_to_string_from_raw(const void *data, size_t data_size, char **ret);
+
 _SD_END_DECLARATIONS;
 
 #endif
