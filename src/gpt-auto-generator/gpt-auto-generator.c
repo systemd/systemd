@@ -634,11 +634,9 @@ static int add_partition_root_rw(DissectedPartition *p) {
         int r;
 
         assert(p);
+        assert(!in_initrd());
 
-        if (in_initrd()) {
-                log_debug("In initrd, not generating drop-in for systemd-remount-fs.service.");
-                return 0;
-        }
+        /* Invoked on the main system (not initrd), to honour GPT flag 60 on the root fs (ro) */
 
         if (arg_root_rw >= 0) {
                 log_debug("Parameter ro/rw specified on kernel command line, not generating drop-in for systemd-remount-fs.service.");
