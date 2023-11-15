@@ -39,6 +39,13 @@ else
         sanitize_auto_features = 'auto'
 endif
 
+fuzz_c_args = get_option('c_args')
+if cxx_cmd != ''
+        fuzz_cpp_args = get_option('cpp_args')
+else
+        fuzz_cpp_args = []
+endif
+
 sanitize_address_undefined = custom_target(
         'sanitize-address-undefined-fuzzers',
         output : 'sanitize-address-undefined-fuzzers',
@@ -46,8 +53,8 @@ sanitize_address_undefined = custom_target(
                    project_source_root,
                    '@OUTPUT@',
                    'fuzzers',
-                   ' '.join(get_option('c_args') + '-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION'),
-                   ' '.join(get_option('cpp_args') + '-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION'),
+                   ' '.join(fuzz_c_args + '-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION'),
+                   ' '.join(fuzz_cpp_args + '-DFUZZING_BUILD_MODE_UNSAFE_FOR_PRODUCTION'),
                    '-Dfuzz-tests=true -Db_lundef=false -Db_sanitize=address,undefined --optimization=@0@ @1@ --auto-features=@2@'.format(
                            get_option('optimization'),
                            get_option('werror') ? '--werror' : '',
