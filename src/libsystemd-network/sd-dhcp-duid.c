@@ -5,6 +5,7 @@
 #include <net/if_arp.h>
 
 #include "dhcp-duid-internal.h"
+#include "hexdecoct.h"
 #include "netif-util.h"
 #include "network-common.h"
 #include "siphash24.h"
@@ -222,6 +223,29 @@ int sd_dhcp_duid_set_uuid(sd_dhcp_duid *duid) {
         memcpy(&duid->duid.uuid.uuid, &machine_id, sizeof(machine_id));
 
         duid->size = offsetof(struct duid, uuid.uuid) + sizeof(machine_id);
+        return 0;
+}
+
+int sd_dhcp_duid_to_string(sd_dhcp_duid *duid, char **ret) {
+        _cleanup_free_ char *p = NULL, *x = NULL;
+        const char *t;
+
+        assert_return(sd_dhcp_duid_is_set(duid), -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        x = hexmem(&duid->duid.raw.data, duid->size);
+        if (!x)
+                return -ENOMEM;
+
+        t = duid_type_to_string(be16toh(duid->duid.type));
+        if (!t)
+                return asprintf(ret, "%0x:%s", duid->duid.type, x);
+
+        p = strjoin(t, ":", x);
+        if (!p)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(p);
         return 0;
 }
 
