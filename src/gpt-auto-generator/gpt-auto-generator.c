@@ -793,6 +793,11 @@ static int enumerate_partitions(dev_t devnum) {
         _cleanup_free_ char *devname = NULL;
         int r;
 
+        assert(!in_initrd());
+
+        /* Run on the final root fs (not in the initrd), to mount auxiliary partitions, and hook in rw
+         * remount and growfs of the root partition */
+
         r = block_get_whole_disk(devnum, &devnum);
         if (r < 0)
                 return log_debug_errno(r, "Failed to get whole block device for " DEVNUM_FORMAT_STR ": %m",
