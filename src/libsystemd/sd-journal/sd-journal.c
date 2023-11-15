@@ -3121,8 +3121,9 @@ _public_ int sd_journal_query_unique(sd_journal *j, const char *field) {
 
         assert_return(j, -EINVAL);
         assert_return(!journal_origin_changed(j), -ECHILD);
-        assert_return(!isempty(field), -EINVAL);
-        assert_return(field_is_valid(field), -EINVAL);
+
+        if (!field_is_valid(field))
+                return -EINVAL;
 
         r = free_and_strdup(&j->unique_field, field);
         if (r < 0)
