@@ -1698,8 +1698,8 @@ _public_ int sd_bus_open_system_machine(sd_bus **ret, const char *user_and_machi
         r = user_and_machine_valid(user_and_machine);
         if (r < 0)
                 return r;
-
-        assert_return(r > 0, -EINVAL);
+        if (r == 0)
+                return -EINVAL;
 
         r = sd_bus_new(&b);
         if (r < 0)
@@ -1734,8 +1734,8 @@ _public_ int sd_bus_open_user_machine(sd_bus **ret, const char *user_and_machine
         r = user_and_machine_valid(user_and_machine);
         if (r < 0)
                 return r;
-
-        assert_return(r > 0, -EINVAL);
+        if (r == 0)
+                return -EINVAL;
 
         r = sd_bus_new(&b);
         if (r < 0)
