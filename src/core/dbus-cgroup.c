@@ -1402,22 +1402,15 @@ int bus_cgroup_set_property(
                                         }
 
                                 if (!a) {
-                                        CGroupIOLimitType type;
+                                        CGroupIODeviceLimit l;
 
-                                        a = new0(CGroupIODeviceLimit, 1);
-                                        if (!a)
-                                                return -ENOMEM;
+                                        l.path = (char *) path;
+                                        for (CGroupIOLimitType type = 0; type < _CGROUP_IO_LIMIT_TYPE_MAX; type++)
+                                                l.limits[type] = cgroup_io_limit_defaults[type];
 
-                                        a->path = strdup(path);
-                                        if (!a->path) {
-                                                free(a);
-                                                return -ENOMEM;
-                                        }
-
-                                        for (type = 0; type < _CGROUP_IO_LIMIT_TYPE_MAX; type++)
-                                                a->limits[type] = cgroup_io_limit_defaults[type];
-
-                                        LIST_PREPEND(device_limits, c->io_device_limits, a);
+                                        r = cgroup_context_add_io_device_limit_dup(c, &l);
+                                        if (r < 0)
+                                                return r;
                                 }
 
                                 a->limits[iol_type] = u64;
