@@ -1351,8 +1351,8 @@ bool image_in_search_path(
 static const char* const image_type_table[_IMAGE_TYPE_MAX] = {
         [IMAGE_DIRECTORY] = "directory",
         [IMAGE_SUBVOLUME] = "subvolume",
-        [IMAGE_RAW] = "raw",
-        [IMAGE_BLOCK] = "block",
+        [IMAGE_RAW]       = "raw",
+        [IMAGE_BLOCK]     = "block",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(image_type, ImageType);
