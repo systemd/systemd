@@ -306,9 +306,6 @@ acpi:RKCP*:
 acpi:RPIL*:
  ID_VENDOR_FROM_DATABASE=Raspberry Pi
 
-acpi:RSCV*:
- ID_VENDOR_FROM_DATABASE=RISC-V International (RVI)
-
 acpi:RVOS*:
  ID_VENDOR_FROM_DATABASE=Rivos Inc.
 
@@ -829,7 +826,7 @@ acpi:APS*:
  ID_VENDOR_FROM_DATABASE=Autologic Inc
 
 acpi:APT*:
- ID_VENDOR_FROM_DATABASE=Audio Processing Technology Ltd
+ ID_VENDOR_FROM_DATABASE=Audio Processing Technology  Ltd
 
 acpi:APV*:
  ID_VENDOR_FROM_DATABASE=A+V Link
@@ -2239,7 +2236,7 @@ acpi:DTL*:
  ID_VENDOR_FROM_DATABASE=e-Net Inc
 
 acpi:DTN*:
- ID_VENDOR_FROM_DATABASE=Datang Telephone Co
+ ID_VENDOR_FROM_DATABASE=Datang  Telephone Co
 
 acpi:DTO*:
  ID_VENDOR_FROM_DATABASE=Deutsche Thomson OHG
@@ -6155,9 +6152,6 @@ acpi:RZS*:
 
 acpi:SAA*:
  ID_VENDOR_FROM_DATABASE=Sanritz Automation Co.,Ltd.
-
-acpi:SAB*:
- ID_VENDOR_FROM_DATABASE=Structab AB
 
 acpi:SAE*:
  ID_VENDOR_FROM_DATABASE=Saab Aerotech

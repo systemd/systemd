@@ -6059,6 +6059,12 @@ B00000-BFFFFF     (base 16)		MedRx, Inc
 				New Taipei City 235  Taipei  235
 				TW
 
+8C-55-70   (hex)		Nayax LTD
+800000-8FFFFF     (base 16)		Nayax LTD
+				3 Arik Einstein 
+				Herzliya     4659071
+				IL
+
 B8-4C-87   (hex)		Shenzhen Link-all Technology Co., Ltd
 300000-3FFFFF     (base 16)		Shenzhen Link-all Technology Co., Ltd
 				Floor 5th, Block 9th, Sunny Industrial Zone, Xili Town, Nanshan District, Shenzhen, China 
@@ -11740,6 +11746,42 @@ C00000-CFFFFF     (base 16)		Jiangsu Yibang New Energy Technology Co., LTD
 				Room 1101, 11th Floor, Building 11, China Israel Changzhou Innovation Park, No. 18-67 Changwu Middle Road, Wujin District
 				Changzhou City  Jiangsu Province  213100
 				CN
+
+8C-55-70   (hex)		Eideal Company Limited
+700000-7FFFFF     (base 16)		Eideal Company Limited
+				No. 45, Lane 205, Sec. 2, Nanshan Rd., Luzhu Dist.,
+				Taoyuan City    33852
+				TW
+
+8C-55-70   (hex)		Neptronic Ltd
+900000-9FFFFF     (base 16)		Neptronic Ltd
+				400 Lebeau Blvd
+				Montreal  Quebec  H4N 1R6
+				CA
+
+8C-55-70   (hex)		Johnson Health Tech. (Shanghai) Co.,Ltd.
+E00000-EFFFFF     (base 16)		Johnson Health Tech. (Shanghai) Co.,Ltd.
+				No.1355, Xinhe Rd., JiaDing District, Shanghai city, China
+				Shanghai    201815
+				CN
+
+8C-55-70   (hex)		Fortune Brands Innovations, Inc.
+A00000-AFFFFF     (base 16)		Fortune Brands Innovations, Inc.
+				520 Lake Cook Rd
+				Deerfield  IL  60015
+				US
+
+8C-55-70   (hex)		ScandiNova Systems
+300000-3FFFFF     (base 16)		ScandiNova Systems
+				Typsnittsgatan 15
+				Uppsala    75454
+				SE
+
+8C-55-70   (hex)		LLC Katusha Print
+100000-1FFFFF     (base 16)		LLC Katusha Print
+				Timiryazeva 28V
+				Almaty    050000
+				KZ
 
 B8-4C-87   (hex)		Altronix , Corp
 A00000-AFFFFF     (base 16)		Altronix , Corp
@@ -17972,6 +18014,18 @@ A00000-AFFFFF     (base 16)		Edgenectar Inc.
 8C-55-70   (hex)		Private
 500000-5FFFFF     (base 16)		Private
 
+8C-55-70   (hex)		AST International GmbH
+000000-0FFFFF     (base 16)		AST International GmbH
+				Baerental 26
+				Calw    75365
+				DE
+
+8C-55-70   (hex)		Microvision Inc
+200000-2FFFFF     (base 16)		Microvision Inc
+				18390 NE 68th Street
+				Redmond  WA  98052
+				US
+
 D0-14-11   (hex)		P.B. Elettronica srl
 100000-1FFFFF     (base 16)		P.B. Elettronica srl
 				Via Santorelli, 8
@@ -23924,6 +23978,18 @@ B00000-BFFFFF     (base 16)		SERNET (SUZHOU) TECHNOLOGIES CORPORATION
 				Suzhou    215021
 				CN
 
+8C-55-70   (hex)		Next Vision Tech(Ningbo)Co.,LTD
+400000-4FFFFF     (base 16)		Next Vision Tech(Ningbo)Co.,LTD
+				Room 1502, Building 1, Tsinghua Science and TechnologyPark, No. 119 Zicheng Road, Panhuo Street, Yinzhou District, Ningbo
+				Ningbo    513100
+				CN
+
+28-F8-C6   (hex)		ShenZhen Goodtimes Technoogy CO.,LTD
+D00000-DFFFFF     (base 16)		ShenZhen Goodtimes Technoogy CO.,LTD
+				10A, ShuiSong Building, TaiRan Science Park, No. 25, TaiRan 8th Rd, Tian'An Community, ShaTou Street, Futian District, Shenzhen.
+				Shenzhen  Guangdong  518000
+				CN
+
 C8-5C-E2   (hex)		Fela Management AG 
 000000-0FFFFF     (base 16)		Fela Management AG 
 				Basadingerstrasse 18
@@ -25810,12 +25876,6 @@ C00000-CFFFFF     (base 16)		Encroute AB
 				Box 2062
 				Sundbyberg    17402
 				SE
-
-A0-02-4A   (hex)		Vitec Imaging Solutions Spa
-100000-1FFFFF     (base 16)		Vitec Imaging Solutions Spa
-				Via Valsugana 100
-				Cassola  Vicenza  36022
-				IT
 
 A0-02-4A   (hex)		Beijing Lyratone Technology Co., Ltd
 800000-8FFFFF     (base 16)		Beijing Lyratone Technology Co., Ltd
@@ -30046,3 +30106,21 @@ D4-61-37   (hex)		Mavenir Systems, Inc.
 				
 				    
 				
+
+8C-55-70   (hex)		EPSa Elektronik & Präzisionsbau Saalfeld GmbH
+D00000-DFFFFF     (base 16)		EPSa Elektronik & Präzisionsbau Saalfeld GmbH
+				Remschuetzer Str. 1
+				Saalfeld/Saale    07318
+				DE
+
+A0-02-4A   (hex)		Videndum Media Solutions Spa
+100000-1FFFFF     (base 16)		Videndum Media Solutions Spa
+				Via Valsugana 100
+				Cassola  Vicenza  36022
+				IT
+
+8C-55-70   (hex)		Antronix Inc.,
+C00000-CFFFFF     (base 16)		Antronix Inc.,
+				440 Forsgate Drive 
+				Cranbury  NJ  08512
+				US
