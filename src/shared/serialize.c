@@ -201,6 +201,15 @@ int serialize_pidref(FILE *f, FDSet *fds, const char *key, PidRef *pidref) {
         return serialize_item_format(f, key, "@%i", copy);
 }
 
+int serialize_ratelimit(FILE *f, const char *key, const RateLimit *rl) {
+        return serialize_item_format(f, key,
+                                     USEC_FMT " " USEC_FMT " %u %u",
+                                     rl->begin,
+                                     rl->interval,
+                                     rl->num,
+                                     rl->burst);
+}
+
 int serialize_item_hexmem(FILE *f, const char *key, const void *p, size_t l) {
         _cleanup_free_ char *encoded = NULL;
         int r;
@@ -484,6 +493,18 @@ int deserialize_pidref(FDSet *fds, const char *value, PidRef *ret) {
                 return log_debug_errno(r, "Failed to initialize pidref: %m");
 
         return 0;
+}
+
+void deserialize_ratelimit(RateLimit *rl, const char *name, const char *value) {
+        usec_t begin, interval;
+        unsigned num, burst;
+
+        if (sscanf(value, USEC_FMT " " USEC_FMT " %u %u", &begin, &interval, &num, &burst) != 4)
+                return log_notice("Failed to parse %s, ignoring: %s", name, value);
+
+        /* Preserve the counter only if the configuration didn't change. */
+        rl->num = (interval == rl->interval && burst == rl->burst) ? num : 0;
+        rl->begin = begin;
 }
 
 int open_serialization_fd(const char *ident) {
