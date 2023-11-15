@@ -916,7 +916,10 @@ int dhcp_lease_parse_search_domains(const uint8_t *option, size_t len, char ***d
         int r;
 
         assert(domains);
-        assert_return(option && len > 0, -ENODATA);
+        assert(option || len == 0);
+
+        if (len == 0)
+                return -EBADMSG;
 
         while (pos < len) {
                 _cleanup_free_ char *name = NULL;
