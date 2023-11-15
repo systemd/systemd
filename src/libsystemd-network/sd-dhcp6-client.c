@@ -268,6 +268,26 @@ int sd_dhcp6_client_set_duid_raw(sd_dhcp6_client *client, uint16_t duid_type, co
         return 0;
 }
 
+int sd_dhcp6_client_set_duid(sd_dhcp6_client *client, const sd_dhcp_duid *duid) {
+        assert_return(client, -EINVAL);
+        assert_return(!sd_dhcp6_client_is_running(client), -EBUSY);
+        assert_return(sd_dhcp_duid_is_set(duid), -EINVAL);
+
+        client->duid = *duid;
+        return 0;
+}
+
+int sd_dhcp6_client_get_duid(sd_dhcp6_client *client, const sd_dhcp_duid **ret) {
+        assert_return(client, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        if (!sd_dhcp_duid_is_set(&client->duid))
+                return -ENODATA;
+
+        *ret = &client->duid;
+        return 0;
+}
+
 int sd_dhcp6_client_duid_as_string(
                 sd_dhcp6_client *client,
                 char **duid) {
