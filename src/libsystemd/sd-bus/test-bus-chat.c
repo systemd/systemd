@@ -106,6 +106,7 @@ static int server(sd_bus *_bus) {
 
         while (!client1_gone || !client2_gone) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
                 pid_t pid = 0;
                 const char *label = NULL;
 
@@ -122,8 +123,16 @@ static int server(sd_bus *_bus) {
                 if (!m)
                         continue;
 
-                (void) sd_bus_creds_get_pid(sd_bus_message_get_creds(m), &pid);
-                (void) sd_bus_creds_get_selinux_context(sd_bus_message_get_creds(m), &label);
+                r = sd_bus_query_sender_creds(m, SD_BUS_CREDS_AUGMENT | SD_BUS_CREDS_PID | SD_BUS_CREDS_SELINUX_CONTEXT, &creds);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to query sender credentials, ignoring: %m");
+                else {
+                        r = sd_bus_creds_get_pid(creds, &pid);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get sender pid: %m");
+
+                        (void) sd_bus_creds_get_selinux_context(creds, &label);
+                }
 
                 log_info("Got message! member=%s pid="PID_FMT" label=%s",
                          strna(sd_bus_message_get_member(m)),
@@ -421,9 +430,12 @@ static void* client2(void *p) {
 
         r = sd_bus_call(bus, m, 200 * USEC_PER_MSEC, &error, &reply);
         if (r < 0)
-                log_info("Failed to issue method call: %s", bus_error_message(&error, r));
-        else
-                log_info("Slow call succeed.");
+                log_debug("Failed to issue method call: %s", bus_error_message(&error, r));
+        else {
+                log_error("Slow call unexpectedly succeed.");
+                r = -ENOANO;
+                goto finish;
+        }
 
         m = sd_bus_message_unref(m);
 
