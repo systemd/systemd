@@ -74,6 +74,7 @@ static inline bool duid_data_size_is_valid(size_t size) {
 }
 
 const char *duid_type_to_string(DUIDType t) _const_;
+int dhcp_duid_to_string_internal(uint16_t type, const void *data, size_t data_size, char **ret);
 
 int dhcp_identifier_set_iaid(
                 sd_device *dev,
