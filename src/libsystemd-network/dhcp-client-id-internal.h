@@ -5,6 +5,7 @@
 
 #include "dhcp-duid-internal.h"
 #include "macro.h"
+#include "siphash24.h"
 #include "sparse-endian.h"
 
 /* RFC 2132 section 9.14: its minimum length is 2.
@@ -43,3 +44,6 @@ typedef struct sd_dhcp_client_id {
                 uint8_t raw[MAX_CLIENT_ID_LEN];
         };
 } sd_dhcp_client_id;
+
+void client_id_hash_func(const sd_dhcp_client_id *client_id, struct siphash *state);
+int client_id_compare_func(const sd_dhcp_client_id *a, const sd_dhcp_client_id *b);
