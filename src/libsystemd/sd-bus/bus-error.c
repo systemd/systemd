@@ -599,7 +599,7 @@ const char* _bus_error_message(const sd_bus_error *e, int error, char buf[static
 
 static bool map_ok(const sd_bus_error_map *map) {
         for (; map->code != BUS_ERROR_MAP_END_MARKER; map++)
-                if (!map->name || map->code <=0)
+                if (!map->name || map->code <= 0)
                         return false;
         return true;
 }
