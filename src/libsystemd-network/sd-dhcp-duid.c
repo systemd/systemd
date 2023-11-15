@@ -5,6 +5,7 @@
 #include <net/if_arp.h>
 
 #include "dhcp-duid-internal.h"
+#include "hexdecoct.h"
 #include "netif-util.h"
 #include "network-common.h"
 #include "siphash24.h"
@@ -201,6 +202,46 @@ int sd_dhcp_duid_set_uuid(sd_dhcp_duid *duid) {
 
         duid->size = offsetof(struct duid, uuid.uuid) + sizeof(machine_id);
         return 0;
+}
+
+int dhcp_duid_to_string_internal(uint16_t type, const void *data, size_t data_size, char **ret) {
+        _cleanup_free_ char *p = NULL, *x = NULL;
+        const char *t;
+
+        assert(data);
+        assert(duid_data_size_is_valid(data_size));
+        assert(ret);
+
+        x = hexmem(data, data_size);
+        if (!x)
+                return -ENOMEM;
+
+        t = duid_type_to_string(type);
+        if (!t)
+                return asprintf(ret, "%04x:%s", htobe16(type), x);
+
+        p = strjoin(t, ":", x);
+        if (!p)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(p);
+        return 0;
+}
+
+int sd_dhcp_duid_to_string(const sd_dhcp_duid *duid, char **ret) {
+        uint16_t type;
+        const void *data;
+        size_t data_size;
+        int r;
+
+        assert_return(sd_dhcp_duid_is_set(duid), -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        r = sd_dhcp_duid_get(duid, &type, &data, &data_size);
+        if (r < 0)
+                return r;
+
+        return dhcp_duid_to_string_internal(type, data, data_size, ret);
 }
 
 int dhcp_identifier_set_iaid(
