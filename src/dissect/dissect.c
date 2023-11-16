@@ -1654,6 +1654,9 @@ static int action_discover(void) {
         if (!t)
                 return log_oom();
 
+        table_set_align_percent(t, table_get_cell(t, 0, 6), 100);
+        table_set_ersatz_string(t, TABLE_ERSATZ_DASH);
+
         HASHMAP_FOREACH(img, images) {
 
                 if (!IN_SET(img->type, IMAGE_RAW, IMAGE_BLOCK))
