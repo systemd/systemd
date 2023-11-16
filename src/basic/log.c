@@ -68,6 +68,7 @@ static bool upgrade_syslog_to_journal = false;
 static bool always_reopen_console = false;
 static bool open_when_needed = false;
 static bool prohibit_ipc = false;
+static bool assert_return_is_critical = false;
 
 /* Akin to glibc's __abort_msg; which is private and we hence cannot
  * use here. */
@@ -956,14 +957,19 @@ _noreturn_ void log_assert_failed_unreachable(
         abort();
 }
 
-void log_assert_failed_return(
+_noreturn_ void log_assert_failed_return(
                 const char *text,
                 const char *file,
                 int line,
                 const char *func) {
+
+        if (assert_return_is_critical)
+                log_assert_failed(text, file, line, func);
+
         PROTECT_ERRNO;
-        log_assert(LOG_DEBUG, text, file, line, func,
+        log_assert(LOG_CRIT, text, file, line, func,
                    "Assertion '%s' failed at %s:%u, function %s(). Ignoring.");
+        abort();
 }
 
 int log_oom_internal(int level, const char *file, int line, const char *func) {
@@ -1212,6 +1218,25 @@ static int log_set_ratelimit_kmsg_from_string(const char *e) {
         return 0;
 }
 
+void log_set_assert_return_is_critical(bool b) {
+        assert_return_is_critical = b;
+}
+
+bool log_get_assert_return_is_critical(void) {
+        return assert_return_is_critical;
+}
+
+static int log_set_assert_return_is_critical_from_string(const char *e) {
+        int r;
+
+        r = parse_boolean(e);
+        if (r < 0)
+                return r;
+
+        log_set_assert_return_is_critical(r);
+        return 0;
+}
+
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
 
         /*
@@ -1266,6 +1291,11 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 
                 if (log_set_ratelimit_kmsg_from_string(value ?: "1") < 0)
                         log_warning("Failed to parse log ratelimit kmsg boolean '%s'. Ignoring.", value);
+
+        } else if (proc_cmdline_key_streq(key, "systemd.log_assert_return_is_critical")) {
+
+                if (log_set_assert_return_is_critical_from_string(value ?: "1") < 0)
+                        log_warning("Failed to parse log assert_return() is critical boolean '%s'. Ignoring.", value);
         }
 
         return 0;
@@ -1310,6 +1340,10 @@ void log_parse_environment_variables(void) {
         e = getenv("SYSTEMD_LOG_RATELIMIT_KMSG");
         if (e && log_set_ratelimit_kmsg_from_string(e) < 0)
                 log_warning("Failed to parse log ratelimit kmsg boolean '%s'. Ignoring.", e);
+
+        e = getenv("SYSTEMD_LOG_ASSERT_RETURN_IS_CRITICAL");
+        if (e && log_set_assert_return_is_critical_from_string(e) < 0)
+                log_warning("Failed to parse log assert_return() is critical boolean '%s'. Ignoring.", e);
 }
 
 void log_parse_environment(void) {
