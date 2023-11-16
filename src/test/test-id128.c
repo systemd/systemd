@@ -194,8 +194,11 @@ TEST(id128) {
         }
 
         /* Check return values */
-        assert_se(sd_id128_get_app_specific(SD_ID128_ALLF, SD_ID128_NULL, &id) == -ENXIO);
-        assert_se(sd_id128_get_app_specific(SD_ID128_NULL, SD_ID128_ALLF, &id) == 0);
+        {
+                ASSERT_RETURN_EXPECTED;
+                assert_se(sd_id128_get_app_specific(SD_ID128_ALLF, SD_ID128_NULL, &id) == -ENXIO);
+                assert_se(sd_id128_get_app_specific(SD_ID128_NULL, SD_ID128_ALLF, &id) == 0);
+        }
 }
 
 TEST(sd_id128_get_invocation) {
