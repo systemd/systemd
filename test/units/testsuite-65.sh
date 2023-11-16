@@ -866,6 +866,8 @@ systemd-analyze pcrs
 systemd-analyze pcrs --json=pretty
 systemd-analyze pcrs 14 7 0 ima
 
+systemd-analyze archs
+
 systemd-analyze log-level info
 
 touch /testok

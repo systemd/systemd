@@ -14,6 +14,7 @@
 #include "alloc-util.h"
 #include "analyze.h"
 #include "analyze-blame.h"
+#include "analyze-archs.h"
 #include "analyze-calendar.h"
 #include "analyze-capability.h"
 #include "analyze-cat-config.h"
@@ -224,6 +225,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  capability [CAP...]        List capability definitions\n"
                "  syscall-filter [NAME...]   List syscalls in seccomp filters\n"
                "  filesystems [NAME...]      List known filesystems\n"
+               "  archs [NAME...]            List known architectures\n"
                "  condition CONDITION...     Evaluate conditions and asserts\n"
                "  compare-versions VERSION1 [OP] VERSION2\n"
                "                             Compare two version strings\n"
@@ -649,6 +651,7 @@ static int run(int argc, char *argv[]) {
                 { "image-policy",      2,        2,        0,            verb_image_policy      },
                 { "pcrs",              VERB_ANY, VERB_ANY, 0,            verb_pcrs              },
                 { "srk",               VERB_ANY, 1,        0,            verb_srk               },
+                { "archs",             VERB_ANY, VERB_ANY, 0,            verb_archs               },
                 {}
         };
 
