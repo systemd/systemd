@@ -331,6 +331,17 @@ void log_set_open_when_needed(bool b);
  * stderr, the console or kmsg */
 void log_set_prohibit_ipc(bool b);
 
+void log_set_assert_return_is_critical(bool b);
+bool log_get_assert_return_is_critical(void) _pure_;
+static inline void log_set_assert_return_is_criticalp(bool *p) {
+        log_set_assert_return_is_critical(*p);
+}
+
+#define ASSERT_RETURN_EXPECTED                                         \
+        _cleanup_(log_set_assert_return_is_criticalp) bool _saved_b_ = \
+                log_get_assert_return_is_critical();                   \
+        log_set_assert_return_is_critical(false)
+
 int log_dup_console(void);
 
 int log_syntax_internal(
