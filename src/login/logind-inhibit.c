@@ -411,7 +411,8 @@ bool manager_is_inhibited(
         bool inhibited = false;
 
         assert(m);
-        assert(w > 0 && w < _INHIBIT_WHAT_MAX);
+        assert(w > 0);
+        assert(w < _INHIBIT_WHAT_MAX);
 
         HASHMAP_FOREACH(i, m->inhibitors) {
                 if (!i->started)
@@ -457,7 +458,7 @@ const char *inhibit_what_to_string(InhibitWhat w) {
             "handle-reboot-key")+1];
         char *p;
 
-        if (w < 0 || w >= _INHIBIT_WHAT_MAX)
+        if (!inhibit_what_is_valid(w))
                 return NULL;
 
         p = buffer;
