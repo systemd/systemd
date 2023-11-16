@@ -68,6 +68,7 @@ static bool upgrade_syslog_to_journal = false;
 static bool always_reopen_console = false;
 static bool open_when_needed = false;
 static bool prohibit_ipc = false;
+static bool assert_return_is_critical = false;
 
 /* Akin to glibc's __abort_msg; which is private and we hence cannot
  * use here. */
@@ -961,6 +962,10 @@ void log_assert_failed_return(
                 const char *file,
                 int line,
                 const char *func) {
+
+        if (assert_return_is_critical)
+                log_assert_failed(text, file, line, func);
+
         PROTECT_ERRNO;
         log_assert(LOG_DEBUG, text, file, line, func,
                    "Assertion '%s' failed at %s:%u, function %s(). Ignoring.");
@@ -1212,6 +1217,14 @@ static int log_set_ratelimit_kmsg_from_string(const char *e) {
         return 0;
 }
 
+void log_set_assert_return_is_critical(bool b) {
+        assert_return_is_critical = b;
+}
+
+bool log_get_assert_return_is_critical(void) {
+        return assert_return_is_critical;
+}
+
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
 
         /*
@@ -1282,6 +1295,7 @@ static bool should_parse_proc_cmdline(void) {
 
 void log_parse_environment_variables(void) {
         const char *e;
+        int r;
 
         e = getenv("SYSTEMD_LOG_TARGET");
         if (e && log_set_target_from_string(e) < 0)
@@ -1310,6 +1324,12 @@ void log_parse_environment_variables(void) {
         e = getenv("SYSTEMD_LOG_RATELIMIT_KMSG");
         if (e && log_set_ratelimit_kmsg_from_string(e) < 0)
                 log_warning("Failed to parse log ratelimit kmsg boolean '%s'. Ignoring.", e);
+
+        r = getenv_bool("SYSTEMD_LOG_ASSERT_RETURN_IS_CRITICAL");
+        if (r >= 0)
+                log_set_assert_return_is_critical(r);
+        else if (r != -ENXIO)
+                log_warning_errno(r, "Failed to parse $SYSTEMD_LOG_ASSERT_RETURN_IS_CRITICAL, ignoring: %m");
 }
 
 void log_parse_environment(void) {
