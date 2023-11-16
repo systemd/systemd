@@ -1,0 +1,198 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-vpick"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-vpick</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-vpick</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-vpick</refname>
+    <refpurpose>Resolve paths to <literal>.v/</literal> versioned directories</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-vpick <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="opt" rep="repeat">PATH</arg></command>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-vpick</command> resolves a file system path referencing a <literal>.v/</literal>
+    versioned directory to a path to the newest (by version) file contained therein. This tool provides a
+    command line interface for the
+    <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    logic.</para>
+
+    <para>The tool expects a path to a <literal>.v/</literal> directory as argument (either directly, or with
+    a triple underscore pattern as final component). It then determines the newest file contained in that
+    directory, and writes its path to standard output.</para>
+
+    <para>Unless the triple underscore pattern is passed as last component of the path, it is typically
+    necessary to at least specify the <option>--suffix=</option> switch to configure the file suffix to look
+    for.</para>
+
+    <para>If the specified path does not reference a <literal>.v/</literal> path (i.e. neither the final
+    component ends in <literal>.v</literal>, nor the penultimate does or the final one does contain a triple
+    underscore) it specified path is written unmodified to standard output.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--basename=</option></term>
+        <term><option>-B</option></term>
+
+        <listitem><para>Overrides the "basename" of the files to look for, i.e. the part to the left of the
+        variable part of the filenames. Normally this is derived automatically from the filename of the
+        <literal>.v</literal> component of the specified path, or from the triple underscore pattern in the
+        last component of the specified path.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-V</option></term>
+
+        <listitem><para>Explicitly configures the version to select. If specified, a filename with the
+        specified version string will be looked for, instead of the newest version
+        available.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-A</option></term>
+
+        <listitem><para>Explicitly configures the architecture to select. If specified, a filename with the
+        specified architecture identifier will be looked for. If not specified only filenames with a locally
+        supported architecture are considered, or those without any architecture identifier.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--suffix=</option></term>
+        <term><option>-S</option></term>
+
+        <listitem><para>Configures the suffix of the filenames to consider. For the <literal>.v/</literal>
+        logic it is necessary to specify the suffix to look for, and the <literal>.v/</literal> component
+        must also carry the suffix immediately before <literal>.v</literal> in its name.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--type=</option></term>
+        <term><option>-t</option></term>
+
+        <listitem><para>Configures the inode type to look for in the <literal>.v/</literal> directory. Takes
+        one of <literal>reg</literal>, <literal>dir</literal>, <literal>sock</literal>,
+        <literal>fifo</literal>, <literal>blk</literal>, <literal>chr</literal>, <literal>lnk</literal> as
+        argument, each identifying an inode type. See <citerefentry
+        project='man-pages'><refentrytitle>inode</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details about inode types. If this option is used inodes not matching the specified type are filtered
+        and not taken into consideration.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--print=</option></term>
+        <term><option>-p</option></term>
+
+        <listitem><para>Configures what precisely to write to standard output. If not specified prints the
+        full, resolved path of the newest matching file in the <literal>.v/</literal> directory. This switch can be set to one of the following:</para>
+
+        <itemizedlist>
+          <listitem><para>If set to <literal>filename</literal>, will print only the filename instead of the full path of the resolved file.</para></listitem>
+          <listitem><para>If set to <literal>version</literal>, will print only the version of the resolved file.</para></listitem>
+          <listitem><para>If set to <literal>type</literal>, will print only the inode type of the resolved
+          file (i.e. a string such as <literal>reg</literal> for regular files, or <literal>dir</literal> for
+          directories).</para></listitem>
+          <listitem><para>If set to <literal>arch</literal>, will print only the architecture of the resolved
+          file.</para></listitem>
+          <listitem><para>If set to <literal>tries</literal>, will print only the tries left/tries done of the
+          resolved file.</para></listitem>
+          <listitem><para>If set to <literal>all</literal>, will print all of the above in a simple tabular
+          output.</para></listitem>
+        </itemizedlist>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--resolve=</option></term>
+
+        <listitem><para>Takes a boolean argument. If true the path to the versioned file is fully
+        canonicalized (i.e. symlinks resolved, and redundant path components removed) before it is shown. If
+        false (the default) this is not done, and the path is shown without canonicalization.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <para>Use a command like the following to automatically pick the newest raw disk image from a
+    <literal>.v/</literal> directory:</para>
+
+    <programlisting>$ systemd-vpick --suffix=.raw --type=reg /var/lib/machines/quux.raw.v/</programlisting>
+
+    <para>This will enumerate all regular files matching
+    <filename>/var/lib/machines/quux.raw.v/quux*.raw</filename>, filter and sort them according to the rules
+    described in
+    <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry>, and then
+    write the path to the newest (by version) file to standard output.</para>
+
+    <para>Use a command like the following to automatically pick the newest OS directory tree from a
+    <literal>.v/</literal> directory:</para>
+
+    <programlisting>$ systemd-vpick --type=dir /var/lib/machines/waldo.v/</programlisting>
+
+    <para>This will enumerate all directory inodes matching
+    <filename>/var/lib/machines/waldo.v/waldo*</filename>, filter and sort them according to the rules
+    described in
+    <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry>, and then
+    write the path to the newest (by version) directory to standard output.</para>
+
+    <para>For further examples see
+    <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned, a non-zero failure code
+    otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+</refentry>

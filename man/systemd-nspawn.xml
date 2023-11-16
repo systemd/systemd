@@ -209,21 +209,21 @@
         <term><option>-D</option></term>
         <term><option>--directory=</option></term>
 
-        <listitem><para>Directory to use as file system root for the
-        container.</para>
+        <listitem><para>Directory to use as file system root for the container.</para>
 
-        <para>If neither <option>--directory=</option>, nor
-        <option>--image=</option> is specified the directory is
-        determined by searching for a directory named the same as the
-        machine name specified with <option>--machine=</option>. See
+        <para>If neither <option>--directory=</option>, nor <option>--image=</option> is specified the
+        directory is determined by searching for a directory named the same as the machine name specified
+        with <option>--machine=</option>. See
         <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         section "Files and Directories" for the precise search path.</para>
 
-        <para>If neither <option>--directory=</option>,
-        <option>--image=</option>, nor <option>--machine=</option>
-        are specified, the current directory will
-        be used. May not be specified together with
-        <option>--image=</option>.</para></listitem>
+        <para>In place of the directory path a <literal>.v/</literal> versioned directory may be specified, see
+        <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details.</para>
+
+        <para>If neither <option>--directory=</option>, <option>--image=</option>, nor
+        <option>--machine=</option> are specified, the current directory will be used. May not be specified
+        together with <option>--image=</option>.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -316,6 +316,10 @@
 
         <para>Any other partitions, such as foreign partitions or swap partitions are not mounted. May not be specified
         together with <option>--directory=</option>, <option>--template=</option>.</para>
+
+        <para>In place of the image path a <literal>.v/</literal> versioned directory may be specified, see
+        <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details.</para>
 
         <xi:include href="version-info.xml" xpointer="v211"/></listitem>
       </varlistentry>
