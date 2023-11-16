@@ -725,7 +725,7 @@ static bool menu_run(
 
                         /* offsets to center the entries on the screen */
                         x_start = (x_max - (line_width)) / 2;
-                        if (config->n_entries < visible_max)
+                                                if (config->n_entries < visible_max)
                                 y_start = ((visible_max - config->n_entries) / 2) + 1;
                         else
                                 y_start = 0;
@@ -745,6 +745,9 @@ static bool menu_run(
 
                                 lines[i] = xnew(char16_t, line_width + 1);
                                 padding = (line_width - MIN(strlen16(config->entries[i]->title_show), line_width)) / 2;
+
+                                /* Make sure there is space for => */
+                                padding = MAX((size_t)2,padding);
 
                                 for (j = 0; j < padding; j++)
                                         lines[i][j] = ' ';
