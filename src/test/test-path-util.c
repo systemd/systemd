@@ -620,8 +620,8 @@ TEST(fsck_exists) {
         /* Ensure we use a sane default for PATH. */
         assert_se(unsetenv("PATH") == 0);
 
-        /* fsck.minix is provided by util-linux and will probably exist. */
-        assert_se(fsck_exists_for_fstype("minix") == 1);
+        /* We might or might not find one of these, so keep the test lax. */
+        assert_se(fsck_exists_for_fstype("minix") >= 0);
 
         assert_se(fsck_exists_for_fstype("AbCdE") == 0);
         assert_se(fsck_exists_for_fstype("/../bin/") == 0);
