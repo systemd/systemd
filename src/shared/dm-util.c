@@ -5,6 +5,7 @@
 #include <sys/ioctl.h>
 
 #include "dm-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "string-util.h"
 
@@ -42,4 +43,59 @@ int dm_deferred_remove_cancel(const char *name) {
                 return -errno;
 
         return 0;
+}
+
+static int dm_do_ioctl(const char *name, int cmd, struct dm_ioctl *dmi) {
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        assert(name);
+        assert(dmi);
+
+        dmi->version[0] = DM_VERSION_MAJOR;
+        dmi->version[1] = DM_VERSION_MINOR;
+        dmi->version[2] = DM_VERSION_PATCHLEVEL;
+
+        if (strlen(name) >= DM_NAME_LEN)
+                return -ENODEV;
+
+        strcpy(dmi->name, name);
+
+        fd = open("/dev/mapper/control", O_RDWR|O_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+
+        r = RET_NERRNO(ioctl(fd, cmd, dmi));
+        if (r < 0)
+                return r;
+
+        assert(streq(dmi->name, name));
+        return 0;
+}
+
+int dm_open_name(const char *name, char **ret_devnode) {
+        _cleanup_free_ char *buf = NULL;
+        struct dm_ioctl dmi = {
+                .data_size = sizeof(struct dm_ioctl),
+        };
+        int fd, r;
+
+        assert(name);
+        assert(ret_devnode);
+
+        r = dm_do_ioctl(name, DM_DEV_STATUS, &dmi);
+        if (r < 0)
+                return r;
+
+        r = asprintf(&buf, "/dev/dm-%u", minor(dmi.dev));
+        if (r < 0)
+                return -ENOMEM;
+
+        /* dm_blk_open() can fail with EXIO if the device is being freed. */
+        fd = RET_NERRNO(open(buf, O_RDONLY|O_NONBLOCK|O_CLOEXEC|O_NOCTTY));
+        if (fd < 0)
+                return fd;
+
+        *ret_devnode = TAKE_PTR(buf);
+        return fd;
 }
