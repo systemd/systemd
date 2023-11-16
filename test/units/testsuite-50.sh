@@ -493,6 +493,20 @@ systemd-sysext unmerge
 rm -rf /run/extensions/app-reject
 rm /var/lib/extensions/app-nodistro.raw
 
+# Some super basic test that RootImage= works with .v/ dirs
+VBASE="vtest$RANDOM"
+VDIR="/tmp/${VBASE}.v"
+mkdir "$VDIR"
+
+ln -s "${image}.raw" "$VDIR/${VBASE}_33.raw"
+ln -s "${image}.raw" "$VDIR/${VBASE}_34.raw"
+ln -s "${image}.raw" "$VDIR/${VBASE}_35.raw"
+
+systemd-run -P -p RootImage="$VDIR" cat /usr/lib/os-release | grep -q -F "MARKER=1"
+
+rm "$VDIR/${VBASE}_33.raw" "$VDIR/${VBASE}_34.raw" "$VDIR/${VBASE}_35.raw"
+rmdir "$VDIR"
+
 mkdir -p /run/machines /run/portables /run/extensions
 touch /run/machines/a.raw /run/portables/b.raw /run/extensions/c.raw
 
