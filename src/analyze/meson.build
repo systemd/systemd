@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 systemd_analyze_sources = files(
+        'analyze-architectures.c',
         'analyze-blame.c',
         'analyze-calendar.c',
         'analyze-capability.c',

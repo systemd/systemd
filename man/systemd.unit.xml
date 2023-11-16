@@ -1249,6 +1249,10 @@
           <literal>arc-be</literal>, or
           <literal>native</literal>.</para>
 
+          <para>Use
+          <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          for the complete list of known architectures.</para>
+
           <para>The architecture is determined from the information returned by
           <citerefentry project='man-pages'><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
           and is thus subject to
