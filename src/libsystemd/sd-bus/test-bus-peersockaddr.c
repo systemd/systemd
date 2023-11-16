@@ -65,7 +65,7 @@ static void *server(void *p) {
                         continue;
                 }
 
-                if (sd_bus_message_is_method_call(m, "foo.foo", "Foo") > 0) {
+                if (m && sd_bus_message_is_method_call(m, "foo.foo", "Foo") > 0) {
                         assert_se(sd_bus_reply_method_return(m, "s", "bar") >= 0);
                         break;
                 }
