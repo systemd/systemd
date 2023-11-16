@@ -103,7 +103,7 @@ TEST(login) {
                 assert_se(IN_SET(r, 0, -ENOMEDIUM));
         }
 
-        r = sd_uid_get_display(u2, &display_session);
+        r = ASSERT_RETURN_IS_CRITICAL(uid_is_valid(u2), sd_uid_get_display(u2, &display_session));
         log_info("sd_uid_get_display("UID_FMT", …) → %s / \"%s\"", u2, e(r), strnull(display_session));
         if (u2 == UID_INVALID)
                 assert_se(r == -EINVAL);
@@ -115,7 +115,7 @@ TEST(login) {
         sd_peer_get_session(pair[1], &qq);
         assert_se(streq_ptr(pp, qq));
 
-        r = sd_uid_get_sessions(u2, false, &sessions);
+        r = ASSERT_RETURN_IS_CRITICAL(uid_is_valid(u2), sd_uid_get_sessions(u2, false, &sessions));
         assert_se(t = strv_join(sessions, " "));
         log_info("sd_uid_get_sessions("UID_FMT", …) → %s \"%s\"", u2, e(r), t);
         if (u2 == UID_INVALID)
@@ -127,9 +127,9 @@ TEST(login) {
         sessions = strv_free(sessions);
         free(t);
 
-        assert_se(r == sd_uid_get_sessions(u2, false, NULL));
+        assert_se(r == ASSERT_RETURN_IS_CRITICAL(uid_is_valid(u2), sd_uid_get_sessions(u2, false, NULL)));
 
-        r = sd_uid_get_seats(u2, false, &seats);
+        r = ASSERT_RETURN_IS_CRITICAL(uid_is_valid(u2), sd_uid_get_seats(u2, false, &seats));
         assert_se(t = strv_join(seats, " "));
         log_info("sd_uid_get_seats("UID_FMT", …) → %s \"%s\"", u2, e(r), t);
         if (u2 == UID_INVALID)
@@ -141,7 +141,7 @@ TEST(login) {
         seats = strv_free(seats);
         free(t);
 
-        assert_se(r == sd_uid_get_seats(u2, false, NULL));
+        assert_se(r == ASSERT_RETURN_IS_CRITICAL(uid_is_valid(u2), sd_uid_get_seats(u2, false, NULL)));
 
         if (session) {
                 r = sd_session_is_active(session);

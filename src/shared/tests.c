@@ -113,6 +113,7 @@ bool slow_tests_enabled(void) {
 }
 
 void test_setup_logging(int level) {
+        log_set_assert_return_is_critical(true);
         log_set_max_level(level);
         log_parse_environment();
         log_open();
