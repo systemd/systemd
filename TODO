@@ -133,6 +133,14 @@ Deprecations and removals:
 
 Features:
 
+* we probably should have some infrastructure to acquire sysexts with
+  drivers/firmware for local hardware automatically. Idea: reuse the modalias
+  logic of the kernel for this: make the main OS image install a hwdb file
+  that matches against local modalias strings, and adds properties to relevant
+  devices listing names of sysexts needed to support the hw. Then provide some
+  tool that goes through all devices and tries to acquire/download the
+  specified images.
+
 * repart + cryptsetup: support file systems that are encrypted and use verity
   on top. Usecase: confexts that shall be signed by the admin but also be
   confidential. Then, add a new --make-ddi=confext-encrypted for this.
