@@ -198,6 +198,11 @@ if pamconfdir == ''
         pamconfdir = prefixdir / 'lib/pam.d'
 endif
 
+sshconfdir = get_option('sshconfdir')
+if sshconfdir == ''
+        sshconfdir = sysconfdir / 'ssh/ssh_config.d'
+endif
+
 libcryptsetup_plugins_dir = get_option('libcryptsetup-plugins-dir')
 if libcryptsetup_plugins_dir == ''
         libcryptsetup_plugins_dir = libdir / 'cryptsetup'
@@ -2676,6 +2681,7 @@ summary({
         'SysV rc?.d directories' :          sysvrcnd_path,
         'PAM modules directory' :           pamlibdir,
         'PAM configuration directory' :     pamconfdir,
+        'ssh configuration directory' :     sshconfdir,
         'libcryptsetup plugins directory' : libcryptsetup_plugins_dir,
         'RPM macros directory' :            rpmmacrosdir,
         'modprobe.d directory' :            modprobedir,
