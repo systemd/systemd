@@ -25,7 +25,7 @@ netdev=dummy17.10
 ip link add $netdev type dummy
 
 blk="$(mktemp)"
-dd if=/dev/null of="$blk" bs=1M count=1
+dd if=/dev/zero of="$blk" bs=1M count=1
 loopdev="$(losetup --show -f "$blk")"
 
 udevadm -h
