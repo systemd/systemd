@@ -42,8 +42,8 @@ static void test_bus_path_encode(void) {
         assert_se(sd_bus_path_decode(a, "/waldo", &b) == 0 && b == NULL);
         assert_se(sd_bus_path_decode(a, "/foo/bar", &b) > 0 && streq(b, "waldo"));
 
-        assert_se(sd_bus_path_encode("xxxx", "waldo", &c) < 0);
-        assert_se(sd_bus_path_encode("/foo/", "waldo", &c) < 0);
+        ASSERT_RETURN_EXPECTED_SE(sd_bus_path_encode("xxxx", "waldo", &c) < 0);
+        ASSERT_RETURN_EXPECTED_SE(sd_bus_path_encode("/foo/", "waldo", &c) < 0);
 
         assert_se(sd_bus_path_encode("/foo/bar", "", &c) >= 0 && streq(c, "/foo/bar/_"));
         assert_se(sd_bus_path_decode(c, "/foo/bar", &d) > 0 && streq(d, ""));

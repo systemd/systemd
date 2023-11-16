@@ -17,7 +17,7 @@ static void test_pool(struct in_addr *address, unsigned size, int ret) {
 
         assert_se(sd_dhcp_server_new(&server, 1) >= 0);
 
-        assert_se(sd_dhcp_server_configure_pool(server, address, 8, 0, size) == ret);
+        ASSERT_RETURN_IS_CRITICAL(ret >= 0, assert_se(sd_dhcp_server_configure_pool(server, address, 8, 0, size) == ret));
 }
 
 static int test_basic(bool bind_to_interface) {
@@ -41,20 +41,20 @@ static int test_basic(bool bind_to_interface) {
         server->bind_to_interface = bind_to_interface;
 
         assert_se(sd_dhcp_server_attach_event(server, event, 0) >= 0);
-        assert_se(sd_dhcp_server_attach_event(server, event, 0) == -EBUSY);
+        ASSERT_RETURN_EXPECTED_SE(sd_dhcp_server_attach_event(server, event, 0) == -EBUSY);
         assert_se(sd_dhcp_server_get_event(server) == event);
         assert_se(sd_dhcp_server_detach_event(server) >= 0);
         assert_se(!sd_dhcp_server_get_event(server));
         assert_se(sd_dhcp_server_attach_event(server, NULL, 0) >= 0);
-        assert_se(sd_dhcp_server_attach_event(server, NULL, 0) == -EBUSY);
+        ASSERT_RETURN_EXPECTED_SE(sd_dhcp_server_attach_event(server, NULL, 0) == -EBUSY);
 
         assert_se(sd_dhcp_server_ref(server) == server);
         assert_se(!sd_dhcp_server_unref(server));
 
-        assert_se(sd_dhcp_server_start(server) == -EUNATCH);
+        ASSERT_RETURN_EXPECTED_SE(sd_dhcp_server_start(server) == -EUNATCH);
 
-        assert_se(sd_dhcp_server_configure_pool(server, &address_any, 28, 0, 0) == -EINVAL);
-        assert_se(sd_dhcp_server_configure_pool(server, &address_lo, 38, 0, 0) == -ERANGE);
+        ASSERT_RETURN_EXPECTED_SE(sd_dhcp_server_configure_pool(server, &address_any, 28, 0, 0) == -EINVAL);
+        ASSERT_RETURN_EXPECTED_SE(sd_dhcp_server_configure_pool(server, &address_lo, 38, 0, 0) == -ERANGE);
         assert_se(sd_dhcp_server_configure_pool(server, &address_lo, 8, 0, 0) >= 0);
         assert_se(sd_dhcp_server_configure_pool(server, &address_lo, 8, 0, 0) >= 0);
 
