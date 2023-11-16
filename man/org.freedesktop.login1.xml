@@ -1155,7 +1155,6 @@ node /org/freedesktop/login1/session/1 {
       readonly u VTNr = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly (so) Seat = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s TTY = '...';
       readonly s Display = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
