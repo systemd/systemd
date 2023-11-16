@@ -1004,9 +1004,6 @@ Features:
   file to move there, since it is managed by privileged code (i.e. homed) and
   not unprivileged code.
 
-* given that /etc/ssh/ssh_config.d/ is a thing now, ship a drop-in for that
-  that hooks up userdbctl ssh-key stuff.
-
 * maybe add support for binding and connecting AF_UNIX sockets in the file
   system outside of the 108ch limit. When connecting, open O_PATH fd to socket
   inode first, then connect to /proc/self/fd/XYZ. When binding, create symlink
