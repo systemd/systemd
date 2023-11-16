@@ -746,6 +746,9 @@ static bool menu_run(
                                 lines[i] = xnew(char16_t, line_width + 1);
                                 padding = (line_width - MIN(strlen16(config->entries[i]->title_show), line_width)) / 2;
 
+                                /* Make sure there is space for => */
+                                padding = MAX((size_t) 2, padding);
+
                                 for (j = 0; j < padding; j++)
                                         lines[i][j] = ' ';
 
