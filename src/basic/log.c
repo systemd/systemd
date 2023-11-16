@@ -1191,13 +1191,13 @@ int log_set_target_from_string(const char *e) {
 }
 
 int log_set_max_level_from_string(const char *e) {
-        int t;
+        int r;
 
-        t = log_level_from_string(e);
-        if (t < 0)
-                return t;
+        r = log_level_from_string(e);
+        if (r < 0)
+                return r;
 
-        log_set_max_level(t);
+        log_set_max_level(r);
         return 0;
 }
 
@@ -1380,46 +1380,46 @@ bool log_get_show_tid(void) {
 }
 
 int log_show_color_from_string(const char *e) {
-        int t;
+        int r;
 
-        t = parse_boolean(e);
-        if (t < 0)
-                return t;
+        r = parse_boolean(e);
+        if (r < 0)
+                return r;
 
-        log_show_color(t);
+        log_show_color(r);
         return 0;
 }
 
 int log_show_location_from_string(const char *e) {
-        int t;
+        int r;
 
-        t = parse_boolean(e);
-        if (t < 0)
-                return t;
+        r = parse_boolean(e);
+        if (r < 0)
+                return r;
 
-        log_show_location(t);
+        log_show_location(r);
         return 0;
 }
 
 int log_show_time_from_string(const char *e) {
-        int t;
+        int r;
 
-        t = parse_boolean(e);
-        if (t < 0)
-                return t;
+        r = parse_boolean(e);
+        if (r < 0)
+                return r;
 
-        log_show_time(t);
+        log_show_time(r);
         return 0;
 }
 
 int log_show_tid_from_string(const char *e) {
-        int t;
+        int r;
 
-        t = parse_boolean(e);
-        if (t < 0)
-                return t;
+        r = parse_boolean(e);
+        if (r < 0)
+                return r;
 
-        log_show_tid(t);
+        log_show_tid(r);
         return 0;
 }
 
