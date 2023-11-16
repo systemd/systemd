@@ -489,10 +489,10 @@ static int loop_device_make_internal(
                 reopened_fd = fd_reopen(fd, (FLAGS_SET(loop_flags, LO_FLAGS_DIRECT_IO) ? O_DIRECT : 0)|O_CLOEXEC|O_NONBLOCK|open_flags);
                 if (reopened_fd < 0) {
                         if (!FLAGS_SET(loop_flags, LO_FLAGS_DIRECT_IO))
-                                return log_debug_errno(errno, "Failed to reopen file descriptor without O_DIRECT: %m");
+                                return log_debug_errno(reopened_fd, "Failed to reopen file descriptor without O_DIRECT: %m");
 
                         /* Some file systems might not support O_DIRECT, let's gracefully continue without it then. */
-                        log_debug_errno(errno, "Failed to enable O_DIRECT for backing file descriptor for loopback device. Continuing without.");
+                        log_debug_errno(reopened_fd, "Failed to enable O_DIRECT for backing file descriptor for loopback device. Continuing without.");
                         loop_flags &= ~LO_FLAGS_DIRECT_IO;
                 } else
                         fd = reopened_fd; /* From now on, operate on our new O_DIRECT fd */
