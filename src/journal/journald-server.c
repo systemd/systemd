@@ -1881,6 +1881,14 @@ int server_schedule_sync(Server *s, int priority) {
                 return 0;
 
         if (s->sync_interval_usec > 0) {
+                r = sd_event_get_state(s->event);
+                if (r < 0)
+                        return r;
+                /* If the event loop is finished (e.g. when a journald namespace instance
+                 * gets idle and terminates) we can't use it to schedule anything anymore,
+                 * so return early to not trip over assert_return() */
+                if (r == SD_EVENT_FINISHED)
+                        return 0;
 
                 if (!s->sync_event_source) {
                         r = sd_event_add_time_relative(
