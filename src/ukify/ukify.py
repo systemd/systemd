@@ -40,6 +40,7 @@ import subprocess
 import sys
 import tempfile
 import textwrap
+import struct
 from hashlib import sha256
 from typing import (Any,
                     Callable,
@@ -128,6 +129,43 @@ def try_import(modname, name=None):
     except ImportError as e:
         raise ValueError(f'Kernel is compressed with {name or modname}, but module unavailable') from e
 
+def get_zboot_kernel(f):
+    """Decompress zboot efistub kernel if compressed. Return contents."""
+    # See linux/drivers/firmware/efi/libstub/Makefile.zboot
+    # and linux/drivers/firmware/efi/libstub/zboot-header.S
+
+    # Reading 4 bytes from address 0x08 is the starting offset of compressed data
+    f.seek(8)
+    _start = f.read(4)
+    start = struct.unpack('<i', _start)[0]
+
+    # Reading 4 bytes from address 0x0c is the size of compressed data,
+    # but it needs to be corrected according to the compressed type.
+    f.seek(0xc)
+    _sizes = f.read(4)
+    size = struct.unpack('<i', _sizes)[0]
+
+    # Read 6 bytes from address 0x18, which is a nul-terminated
+    # string representing the compressed type.
+    f.seek(0x18)
+    comp_type = f.read(6)
+    f.seek(start)
+    if comp_type.startswith(b'gzip'):
+        gzip = try_import('gzip')
+        return gzip.open(f).read(size)
+    if comp_type.startswith(b'lz4'):
+        lz4 = try_import('lz4.frame', 'lz4')
+        return lz4.frame.decompress(f.read(size))
+    if comp_type.startswith(b'lzma'):
+        lzma = try_import('lzma')
+        return lzma.open(f).read(size)
+    if comp_type.startswith(b'lzo'):
+        raise NotImplementedError('lzo decompression not implemented')
+    if comp_type.startswith(b'xzkern'):
+        raise NotImplementedError('xzkern decompression not implemented')
+    if comp_type.startswith(b'zstd22'):
+        zstd = try_import('zstd')
+        return zstd.uncompress(f.read(size))
 
 def maybe_decompress(filename):
     """Decompress file if compressed. Return contents."""
@@ -140,8 +178,14 @@ def maybe_decompress(filename):
         return f.read()
 
     if start.startswith(b'MZ'):
-        # not compressed aarch64 and riscv64
-        return f.read()
+        f.seek(4)
+        img_type = f.read(4)
+        if img_type.startswith(b'zimg'):
+            # zboot efistub kernel
+            return get_zboot_kernel(f)
+        else:
+            # not compressed aarch64 and riscv64
+            return f.read()
 
     if start.startswith(b'\x1f\x8b'):
         gzip = try_import('gzip')
