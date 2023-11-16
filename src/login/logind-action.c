@@ -133,9 +133,8 @@ const HandleActionData* handle_action_lookup(HandleAction action) {
         return &handle_action_data_table[action];
 }
 
-int manager_handle_action(
+static int handle_action_execute(
                 Manager *m,
-                InhibitWhat inhibit_key,
                 HandleAction handle,
                 bool ignore_inhibited,
                 bool is_edge) {
@@ -156,73 +155,11 @@ int manager_handle_action(
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         InhibitWhat inhibit_operation;
         Inhibitor *offending = NULL;
-        bool supported;
         int r;
 
         assert(m);
 
-        /* If the key handling is turned off, don't do anything */
-        if (handle == HANDLE_IGNORE) {
-                log_debug("Handling of %s (%s) is disabled, taking no action.",
-                          inhibit_key == 0 ? "idle timeout" : inhibit_what_to_string(inhibit_key),
-                          is_edge ? "edge" : "level");
-                return 0;
-        }
-
-        if (inhibit_key == INHIBIT_HANDLE_LID_SWITCH) {
-                /* If the last system suspend or startup is too close,
-                 * let's not suspend for now, to give USB docking
-                 * stations some time to settle so that we can
-                 * properly watch its displays. */
-                if (m->lid_switch_ignore_event_source) {
-                        log_debug("Ignoring lid switch request, system startup or resume too close.");
-                        return 0;
-                }
-        }
-
-        /* If the key handling is inhibited, don't do anything */
-        if (inhibit_key > 0) {
-                if (manager_is_inhibited(m, inhibit_key, INHIBIT_BLOCK, NULL, true, false, 0, NULL)) {
-                        log_debug("Refusing %s operation, %s is inhibited.",
-                                  handle_action_to_string(handle),
-                                  inhibit_what_to_string(inhibit_key));
-                        return 0;
-                }
-        }
-
-        /* Locking is handled differently from the rest. */
-        if (handle == HANDLE_LOCK) {
-                if (!is_edge)
-                        return 0;
-
-                log_info("Locking sessions...");
-                session_send_lock_all(m, true);
-                return 1;
-        }
-
-        if (handle == HANDLE_SUSPEND)
-                supported = sleep_supported(SLEEP_SUSPEND) > 0;
-        else if (handle == HANDLE_HIBERNATE)
-                supported = sleep_supported(SLEEP_HIBERNATE) > 0;
-        else if (handle == HANDLE_HYBRID_SLEEP)
-                supported = sleep_supported(SLEEP_HYBRID_SLEEP) > 0;
-        else if (handle == HANDLE_SUSPEND_THEN_HIBERNATE)
-                supported = sleep_supported(SLEEP_SUSPEND_THEN_HIBERNATE) > 0;
-        else if (handle == HANDLE_KEXEC)
-                supported = access(KEXEC, X_OK) >= 0;
-        else
-                supported = true;
-
-        if (!supported && HANDLE_ACTION_IS_SLEEP(handle) && handle != HANDLE_SUSPEND) {
-                supported = sleep_supported(SLEEP_SUSPEND) > 0;
-                if (supported) {
-                        log_notice("Requested %s operation is not supported, using regular suspend instead.",
-                                   handle_action_to_string(handle));
-                        handle = HANDLE_SUSPEND;
-                }
-        }
-
-        if (!supported)
+        if (handle == HANDLE_KEXEC && access(KEXEC, X_OK) < 0)
                 return log_warning_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                          "Requested %s operation not supported, ignoring.", handle_action_to_string(handle));
 
@@ -235,7 +172,8 @@ int manager_handle_action(
         inhibit_operation = handle_action_lookup(handle)->inhibit_what;
 
         /* If the actual operation is inhibited, warn and fail */
-        if (!ignore_inhibited &&
+        if (inhibit_what_is_valid(inhibit_operation) &&
+            !ignore_inhibited &&
             manager_is_inhibited(m, inhibit_operation, INHIBIT_BLOCK, NULL, false, false, 0, &offending)) {
                 _cleanup_free_ char *comm = NULL, *u = NULL;
 
@@ -262,6 +200,97 @@ int manager_handle_action(
                                        bus_error_message(&error, r));
 
         return 1;
+}
+
+static int handle_action_sleep_execute(
+                Manager *m,
+                HandleAction handle,
+                bool ignore_inhibited,
+                bool is_edge) {
+
+        bool supported;
+
+        assert(m);
+        assert(HANDLE_ACTION_IS_SLEEP(handle));
+
+        if (handle == HANDLE_SUSPEND)
+                supported = sleep_supported(SLEEP_SUSPEND) > 0;
+        else if (handle == HANDLE_HIBERNATE)
+                supported = sleep_supported(SLEEP_HIBERNATE) > 0;
+        else if (handle == HANDLE_HYBRID_SLEEP)
+                supported = sleep_supported(SLEEP_HYBRID_SLEEP) > 0;
+        else if (handle == HANDLE_SUSPEND_THEN_HIBERNATE)
+                supported = sleep_supported(SLEEP_SUSPEND_THEN_HIBERNATE) > 0;
+        else
+                assert_not_reached();
+
+        if (!supported && handle != HANDLE_SUSPEND) {
+                supported = sleep_supported(SLEEP_SUSPEND) > 0;
+                if (supported) {
+                        log_notice("Requested %s operation is not supported, using regular suspend instead.",
+                                   handle_action_to_string(handle));
+                        handle = HANDLE_SUSPEND;
+                }
+        }
+
+        if (!supported)
+                return log_warning_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
+                                         "Requested %s operation not supported, ignoring.", handle_action_to_string(handle));
+
+        return handle_action_execute(m, handle, ignore_inhibited, is_edge);
+}
+
+int manager_handle_action(
+                Manager *m,
+                InhibitWhat inhibit_key,
+                HandleAction handle,
+                bool ignore_inhibited,
+                bool is_edge) {
+
+        assert(m);
+        assert(handle_action_valid(handle));
+
+        /* If the key handling is turned off, don't do anything */
+        if (handle == HANDLE_IGNORE) {
+                log_debug("Handling of %s (%s) is disabled, taking no action.",
+                          inhibit_key == 0 ? "idle timeout" : inhibit_what_to_string(inhibit_key),
+                          is_edge ? "edge" : "level");
+                return 0;
+        }
+
+        if (inhibit_key == INHIBIT_HANDLE_LID_SWITCH) {
+                /* If the last system suspend or startup is too close, let's not suspend for now, to give
+                 * USB docking stations some time to settle so that we can properly watch its displays. */
+                if (m->lid_switch_ignore_event_source) {
+                        log_debug("Ignoring lid switch request, system startup or resume too close.");
+                        return 0;
+                }
+        }
+
+        /* If the key handling is inhibited, don't do anything */
+        if (inhibit_key > 0) {
+                if (manager_is_inhibited(m, inhibit_key, INHIBIT_BLOCK, NULL, true, false, 0, NULL)) {
+                        log_debug("Refusing %s operation, %s is inhibited.",
+                                  handle_action_to_string(handle),
+                                  inhibit_what_to_string(inhibit_key));
+                        return 0;
+                }
+        }
+
+        /* Locking is handled differently from the rest. */
+        if (handle == HANDLE_LOCK) {
+                if (!is_edge)
+                        return 0;
+
+                log_info("Locking sessions...");
+                session_send_lock_all(m, true);
+                return 1;
+        }
+
+        if (HANDLE_ACTION_IS_SLEEP(handle))
+                return handle_action_sleep_execute(m, handle, ignore_inhibited, is_edge);
+
+        return handle_action_execute(m, handle, ignore_inhibited, is_edge);
 }
 
 static const char* const handle_action_verb_table[_HANDLE_ACTION_MAX] = {
