@@ -133,6 +133,10 @@ Deprecations and removals:
 
 Features:
 
+* cryptsetup: new crypttab option to auto-grow a luks device to its backing
+  partition size. new crypttab option to reencrypt a luks device with a new
+  volume key.
+
 * we probably should have some infrastructure to acquire sysexts with
   drivers/firmware for local hardware automatically. Idea: reuse the modalias
   logic of the kernel for this: make the main OS image install a hwdb file
