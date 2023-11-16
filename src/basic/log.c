@@ -69,6 +69,7 @@ static bool upgrade_syslog_to_journal = false;
 static bool always_reopen_console = false;
 static bool open_when_needed = false;
 static bool prohibit_ipc = false;
+static bool assert_return_is_critical = false;
 
 /* Akin to glibc's __abort_msg; which is private and we hence cannot
  * use here. */
@@ -981,6 +982,10 @@ void log_assert_failed_return(
                 const char *file,
                 int line,
                 const char *func) {
+
+        if (assert_return_is_critical)
+                log_assert_failed(text, file, line, func);
+
         PROTECT_ERRNO;
         log_assert(LOG_DEBUG, text, file, line, func,
                    "Assertion '%s' failed at %s:%u, function %s(). Ignoring.");
@@ -1230,6 +1235,14 @@ static int log_set_ratelimit_kmsg_from_string(const char *e) {
 
         ratelimit_kmsg = r;
         return 0;
+}
+
+void log_set_assert_return_is_critical(bool b) {
+        assert_return_is_critical = b;
+}
+
+bool log_get_assert_return_is_critical(void) {
+        return assert_return_is_critical;
 }
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
