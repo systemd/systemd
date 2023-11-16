@@ -779,9 +779,32 @@ static bool menu_run(
 
                 if (refresh) {
                         for (size_t i = idx_first; i <= idx_last && i < config->n_entries; i++) {
-                                print_at(x_start, y_start + i - idx_first,
-                                         i == idx_highlight ? COLOR_HIGHLIGHT : COLOR_ENTRY,
-                                         lines[i]);
+                                size_t padding;
+                                size_t spaceNeeded;
+                                spaceNeeded = strlen16(unicode_supported() ? u" ►" : u"=>");
+                                line_width = strlen16(lines[i]);
+                                padding = (line_width - MIN(strlen16(config->entries[i]->title_show), line_width)) / 2;
+                                /* if the line doesnt have enough padding to make room for the arrow, it gets some extra */
+                                if (i == config->idx_default_efivar && padding <= spaceNeeded){
+                                        char16_t swapchar;
+                                        size_t newend, extrapadding = 0;
+                                        extrapadding = spaceNeeded - padding;
+                                        /* limit printed length of line in case its too long */
+                                        newend = strlen16(lines[i]) - extrapadding;
+                                        swapchar = lines[i][newend];
+                                        lines[i][newend] = '\x00';
+                                        print_at(x_start + extrapadding,
+                                                 y_start + i - idx_first,
+                                                 i == idx_highlight ? COLOR_HIGHLIGHT : COLOR_ENTRY,
+                                                 lines[i]);
+                                        /* restore lines[idx] to old state before printing */
+                                        lines[i][newend] = swapchar;
+                                } else
+                                        print_at(x_start,
+                                                 y_start + i - idx_first,
+                                                 i == idx_highlight ? COLOR_HIGHLIGHT : COLOR_ENTRY,
+                                                 lines[i]);
+
                                 if (i == config->idx_default_efivar)
                                         print_at(x_start,
                                                  y_start + i - idx_first,
@@ -789,9 +812,59 @@ static bool menu_run(
                                                  unicode_supported() ? u" ►" : u"=>");
                         }
                         refresh = false;
+
                 } else if (highlight) {
-                        print_at(x_start, y_start + idx_highlight_prev - idx_first, COLOR_ENTRY, lines[idx_highlight_prev]);
-                        print_at(x_start, y_start + idx_highlight - idx_first, COLOR_HIGHLIGHT, lines[idx_highlight]);
+                        size_t padding;
+                        size_t spaceNeeded;
+                        spaceNeeded = strlen16(unicode_supported() ? u" ►" : u"=>");
+                        line_width = strlen16(lines[idx_highlight_prev]);
+                        padding = (line_width - MIN(strlen16(config->entries[idx_highlight_prev]->title_show), line_width)) / 2;
+
+                         /* if the line doesnt have enough padding to make room for the arrow, it gets some extra */
+                        if (idx_highlight_prev == config->idx_default_efivar && padding <= spaceNeeded){
+                                char16_t swapchar;
+                                size_t newend = 0;
+                                size_t extrapadding = spaceNeeded - padding;
+                                /* limit printed length of line in case its too long */
+                                newend = strlen16(lines[idx_highlight_prev]) - extrapadding;
+                                swapchar = lines[idx_highlight_prev][newend];
+                                lines[idx_highlight_prev][newend] = '\x00';
+
+                                print_at(x_start+extrapadding,
+                                         y_start + idx_highlight_prev - idx_first,
+                                         COLOR_ENTRY,
+                                         lines[idx_highlight_prev]);
+                                /* restore lines[idx] to old state before printing */
+                                lines[idx_highlight_prev][newend] = swapchar;
+                        } else
+                                print_at(x_start,
+                                         y_start + idx_highlight_prev - idx_first,
+                                         COLOR_ENTRY,
+                                         lines[idx_highlight_prev]);
+                        line_width = strlen16(lines[idx_highlight]);
+                        padding = (line_width - MIN(strlen16(config->entries[idx_highlight]->title_show), line_width)) / 2;
+                         /* if the line doesnt have enough padding to make room for the arrow, it gets some extra */
+                        if (idx_highlight == config->idx_default_efivar && padding <=spaceNeeded){
+                                char16_t swapchar;
+                                size_t newend = 0;
+                                size_t extrapadding = spaceNeeded - padding;
+                                /* limit printed length of line in case its too long */
+                                newend = strlen16(lines[idx_highlight]) - extrapadding;
+                                swapchar = lines[idx_highlight][newend];
+                                lines[idx_highlight][newend]='\x00';
+
+                                print_at(x_start + extrapadding,
+                                         y_start + idx_highlight - idx_first,
+                                         COLOR_HIGHLIGHT, lines[idx_highlight]);
+                                /* restore lines[idx] to old state before printing */
+                                lines[idx_highlight][newend] = swapchar;
+                        } else
+                                print_at(x_start,
+                                         y_start + idx_highlight - idx_first,
+                                         COLOR_HIGHLIGHT,
+                                         lines[idx_highlight]);
+
+
                         if (idx_highlight_prev == config->idx_default_efivar)
                                 print_at(x_start,
                                          y_start + idx_highlight_prev - idx_first,
