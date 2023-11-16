@@ -235,7 +235,8 @@ int manager_handle_action(
         inhibit_operation = handle_action_lookup(handle)->inhibit_what;
 
         /* If the actual operation is inhibited, warn and fail */
-        if (!ignore_inhibited &&
+        if (inhibit_what_is_valid(inhibit_operation) &&
+            !ignore_inhibited &&
             manager_is_inhibited(m, inhibit_operation, INHIBIT_BLOCK, NULL, false, false, 0, &offending)) {
                 _cleanup_free_ char *comm = NULL, *u = NULL;
 
