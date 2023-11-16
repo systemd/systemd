@@ -654,7 +654,7 @@ int image_discover(
                         if (r < 0)
                                 return r;
 
-                        image = NULL;
+                        TAKE_PTR(image);
                 }
         }
 
@@ -1374,8 +1374,8 @@ int image_to_json(const struct Image *img, JsonVariant **ret) {
 static const char* const image_type_table[_IMAGE_TYPE_MAX] = {
         [IMAGE_DIRECTORY] = "directory",
         [IMAGE_SUBVOLUME] = "subvolume",
-        [IMAGE_RAW] = "raw",
-        [IMAGE_BLOCK] = "block",
+        [IMAGE_RAW]       = "raw",
+        [IMAGE_BLOCK]     = "block",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(image_type, ImageType);
