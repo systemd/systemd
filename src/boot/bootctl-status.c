@@ -373,6 +373,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         { EFI_LOADER_FEATURE_SECUREBOOT_ENROLL,       "Enroll SecureBoot keys"                },
                         { EFI_LOADER_FEATURE_RETAIN_SHIM,             "Retain SHIM protocols"                 },
                         { EFI_LOADER_FEATURE_MENU_DISABLE,            "Menu can be disabled"                  },
+                        { EFI_LOADER_FEATURE_MENU_GROUP,              "Menu entries can be grouped"           },
                 };
                 static const struct {
                         uint64_t flag;
