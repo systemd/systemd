@@ -100,8 +100,7 @@ static void socket_init(Unit *u) {
         s->control_pid = PIDREF_NULL;
         s->control_command_id = _SOCKET_EXEC_COMMAND_INVALID;
 
-        s->trigger_limit.interval = USEC_INFINITY;
-        s->trigger_limit.burst = UINT_MAX;
+        s->trigger_limit = (RateLimit) { USEC_INFINITY, UINT_MAX };
 
         s->poll_limit_interval = USEC_INFINITY;
         s->poll_limit_burst = UINT_MAX;
