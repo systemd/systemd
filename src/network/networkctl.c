@@ -2740,23 +2740,25 @@ static int link_renew_one(sd_bus *bus, int index, const char *name) {
 static int link_renew(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        int index, k = 0, r;
+        int r;
 
         r = acquire_bus(&bus);
         if (r < 0)
                 return r;
 
+        r = 0;
+
         for (int i = 1; i < argc; i++) {
+                int index;
+
                 index = rtnl_resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
                         return index;
 
-                r = link_renew_one(bus, index, argv[i]);
-                if (r < 0 && k >= 0)
-                        k = r;
+                RET_GATHER(r, link_renew_one(bus, index, argv[i]));
         }
 
-        return k;
+        return r;
 }
 
 static int link_force_renew_one(sd_bus *bus, int index, const char *name) {
@@ -3280,23 +3282,22 @@ static int verb_cat(int argc, char *argv[], void *userdata) {
                 if (link_config) {
                         r = get_config_files_by_link_config(link_config, &rtnl, &path, &dropins, /* ret_reload = */ NULL);
                         if (r < 0)
-                                return ret < 0 ? ret : r;
+                                return RET_GATHER(ret, r);
                 } else {
                         r = get_config_files_by_name(*name, &path, &dropins);
                         if (r == -ENOENT) {
-                                log_error_errno(r, "Cannot find network config file '%s'.", *name);
-                                ret = ret < 0 ? ret : r;
+                                RET_GATHER(ret, log_error_errno(r, "Cannot find network config file '%s'.", *name));
                                 continue;
                         }
                         if (r < 0) {
                                 log_error_errno(r, "Failed to get the path of network config '%s': %m", *name);
-                                return ret < 0 ? ret : r;
+                                return RET_GATHER(ret, r);
                         }
                 }
 
                 r = cat_files(path, dropins, /* flags = */ CAT_FORMAT_HAS_SECTIONS);
                 if (r < 0)
-                        return ret < 0 ? ret : r;
+                        return RET_GATHER(ret, r);
         }
 
         return ret;
