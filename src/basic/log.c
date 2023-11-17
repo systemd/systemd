@@ -69,7 +69,7 @@ static bool upgrade_syslog_to_journal = false;
 static bool always_reopen_console = false;
 static bool open_when_needed = false;
 static bool prohibit_ipc = false;
-static bool assert_return_is_critical = false;
+static bool assert_return_is_critical = BUILD_MODE_DEVELOPER;
 
 /* Akin to glibc's __abort_msg; which is private and we hence cannot
  * use here. */
