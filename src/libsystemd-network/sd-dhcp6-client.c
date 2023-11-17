@@ -1310,7 +1310,7 @@ static int client_receive_message(
                 .msg_control = &control,
                 .msg_controllen = sizeof(control),
         };
-        triple_timestamp t = {};
+        triple_timestamp t;
         _cleanup_free_ DHCP6Message *message = NULL;
         struct in6_addr *server_address = NULL;
         ssize_t buflen, len;
@@ -1351,9 +1351,7 @@ static int client_receive_message(
                 server_address = &sa.in6.sin6_addr;
         }
 
-        struct timeval *tv = CMSG_FIND_AND_COPY_DATA(&msg, SOL_SOCKET, SCM_TIMESTAMP, struct timeval);
-        if (tv)
-                triple_timestamp_from_realtime(&t, timeval_load(tv));
+        triple_timestamp_from_cmsg(&t, &msg);
 
         if (client->transaction_id != (message->transaction_id & htobe32(0x00ffffff)))
                 return 0;

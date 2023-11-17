@@ -18,6 +18,7 @@
 #include "icmp6-util.h"
 #include "in-addr-util.h"
 #include "iovec-util.h"
+#include "network-common.h"
 #include "socket-util.h"
 
 #define IN6ADDR_ALL_ROUTERS_MULTICAST_INIT \
@@ -164,9 +165,7 @@ int icmp6_receive(
                 .msg_control = &control,
                 .msg_controllen = sizeof(control),
         };
-        struct cmsghdr *cmsg;
         struct in6_addr addr = {};
-        triple_timestamp t = {};
         ssize_t len;
 
         iov = IOVEC_MAKE(buffer, size);
@@ -192,31 +191,12 @@ int icmp6_receive(
 
         assert(!(msg.msg_flags & MSG_TRUNC));
 
-        CMSG_FOREACH(cmsg, &msg) {
-                if (cmsg->cmsg_level == SOL_IPV6 &&
-                    cmsg->cmsg_type == IPV6_HOPLIMIT &&
-                    cmsg->cmsg_len == CMSG_LEN(sizeof(int))) {
-                        int hops = *CMSG_TYPED_DATA(cmsg, int);
+        int *hops = CMSG_FIND_DATA(&msg, SOL_IPV6, IPV6_HOPLIMIT, int);
+        if (hops && *hops != 255)
+                return -EMULTIHOP;
 
-                        if (hops != 255)
-                                return -EMULTIHOP;
-                }
-
-                if (cmsg->cmsg_level == SOL_SOCKET &&
-                    cmsg->cmsg_type == SCM_TIMESTAMP &&
-                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct timeval))) {
-                        struct timeval *tv = memcpy(&(struct timeval) {}, CMSG_DATA(cmsg), sizeof(struct timeval));
-                        triple_timestamp_from_realtime(&t, timeval_load(tv));
-                }
-        }
-
-        if (ret_timestamp) {
-                if (triple_timestamp_is_set(&t))
-                        *ret_timestamp = t;
-                else
-                        triple_timestamp_now(ret_timestamp);
-        }
-
+        if (ret_timestamp)
+                triple_timestamp_from_cmsg(ret_timestamp, &msg);
         if (ret_sender)
                 *ret_sender = addr;
         return 0;
