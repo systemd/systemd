@@ -244,7 +244,7 @@ CHANGES WITH 255 in spe:
         * ukify gained a new verb inspect to describe the sections of a UKI and
           print the contents of the well-known sections.
 
-        * ukify gained a new verb genkey to generate a set of of key pairs for
+        * ukify gained a new verb genkey to generate a set of key pairs for
           signing UKIs and their PCR data.
 
         * The 90-loaderentry kernel-install hook now supports installing device
