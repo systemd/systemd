@@ -3931,7 +3931,7 @@ static int outer_child(
 
                 dirs[i] = NULL;
 
-                r = remount_idmap(dirs, arg_uid_shift, arg_uid_range, UID_INVALID, REMOUNT_IDMAPPING_HOST_ROOT);
+                r = remount_idmap(dirs, arg_uid_shift, arg_uid_range, UID_INVALID, UID_INVALID, REMOUNT_IDMAPPING_HOST_ROOT);
                 if (r == -EINVAL || ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
                         /* This might fail because the kernel or file system doesn't support idmapping. We
                          * can't really distinguish this nicely, nor do we have any guarantees about the

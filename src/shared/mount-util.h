@@ -116,16 +116,19 @@ typedef enum RemountIdmapping {
          * certain security implications defaults to off, and requires explicit opt-in. */
         REMOUNT_IDMAPPING_HOST_ROOT,
         /* Define a mapping from root user within the container to the owner of the bind mounted directory.
-         * This ensure no root-owned files will be written in a bind-mounted directory owned by a different
+         * This ensures no root-owned files will be written in a bind-mounted directory owned by a different
          * user. No other users are mapped. */
         REMOUNT_IDMAPPING_HOST_OWNER,
+        /* Define a mapping from bind-target owner within the container to the host owner of the bind mounted
+         * directory. No other users are mapped. */
+        REMOUNT_IDMAPPING_HOST_OWNER_TO_TARGET_OWNER,
         _REMOUNT_IDMAPPING_MAX,
         _REMOUNT_IDMAPPING_INVALID = -EINVAL,
 } RemountIdmapping;
 
-int make_userns(uid_t uid_shift, uid_t uid_range, uid_t owner, RemountIdmapping idmapping);
+int make_userns(uid_t uid_shift, uid_t uid_range, uid_t host_owner, uid_t dest_owner, RemountIdmapping idmapping);
 int remount_idmap_fd(char **p, int userns_fd);
-int remount_idmap(char **p, uid_t uid_shift, uid_t uid_range, uid_t owner, RemountIdmapping idmapping);
+int remount_idmap(char **p, uid_t uid_shift, uid_t uid_range, uid_t host_owner, uid_t dest_owner, RemountIdmapping idmapping);
 
 int bind_mount_submounts(
                 const char *source,

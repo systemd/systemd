@@ -1314,7 +1314,7 @@ int fd_make_mount_point(int fd) {
         return 1;
 }
 
-int make_userns(uid_t uid_shift, uid_t uid_range, uid_t owner, RemountIdmapping idmapping) {
+int make_userns(uid_t uid_shift, uid_t uid_range, uid_t source_owner, uid_t dest_owner, RemountIdmapping idmapping) {
         _cleanup_close_ int userns_fd = -EBADF;
         _cleanup_free_ char *line = NULL;
 
@@ -1349,8 +1349,20 @@ int make_userns(uid_t uid_shift, uid_t uid_range, uid_t owner, RemountIdmapping 
         if (idmapping == REMOUNT_IDMAPPING_HOST_OWNER) {
                 /* Remap the owner of the bind mounted directory to the root user within the container. This
                  * way every file written by root within the container to the bind-mounted directory will
-                 * be owned by the original user. All other user will remain unmapped. */
-                if (asprintf(&line, UID_FMT " " UID_FMT " " UID_FMT "\n", owner, uid_shift, 1u) < 0)
+                 * be owned by the original user from the host. All other users will remain unmapped. */
+                if (asprintf(&line, UID_FMT " " UID_FMT " " UID_FMT "\n", source_owner, uid_shift, 1u) < 0)
+                        return log_oom_debug();
+        }
+
+        if (idmapping == REMOUNT_IDMAPPING_HOST_OWNER_TO_TARGET_OWNER) {
+                /* Remap the owner of the bind mounted directory to the owner of the target directory
+                 * within the container. This way every file written by target directory owner within the
+                 * container to the bind-mounted directory will be owned by the original host user.
+                 * All other users will remain unmapped. */
+                if (asprintf(
+                             &line,
+                             UID_FMT " " UID_FMT " " UID_FMT "\n",
+                             source_owner, dest_owner, 1u) < 0)
                         return log_oom_debug();
         }
 
@@ -1424,10 +1436,10 @@ int remount_idmap_fd(
         return 0;
 }
 
-int remount_idmap(char **p, uid_t uid_shift, uid_t uid_range, uid_t owner, RemountIdmapping idmapping) {
+int remount_idmap(char **p, uid_t uid_shift, uid_t uid_range, uid_t source_owner, uid_t dest_owner,RemountIdmapping idmapping) {
         _cleanup_close_ int userns_fd = -EBADF;
 
-        userns_fd = make_userns(uid_shift, uid_range, owner, idmapping);
+        userns_fd = make_userns(uid_shift, uid_range, source_owner, dest_owner, idmapping);
         if (userns_fd < 0)
                 return userns_fd;
 

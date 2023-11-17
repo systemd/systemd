@@ -2144,7 +2144,7 @@ int dissected_image_mount(
 
         if (userns_fd < 0 && need_user_mapping(uid_shift, uid_range) && FLAGS_SET(flags, DISSECT_IMAGE_MOUNT_IDMAPPED)) {
 
-                my_userns_fd = make_userns(uid_shift, uid_range, UID_INVALID, REMOUNT_IDMAPPING_HOST_ROOT);
+                my_userns_fd = make_userns(uid_shift, uid_range, UID_INVALID, UID_INVALID, REMOUNT_IDMAPPING_HOST_ROOT);
                 if (my_userns_fd < 0)
                         return my_userns_fd;
 
