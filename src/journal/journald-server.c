@@ -1877,6 +1877,12 @@ int server_schedule_sync(Server *s, int priority) {
                 return 0;
         }
 
+        if (!s->event || sd_event_get_state(s->event) == SD_EVENT_FINISHED) {
+                /* Shutting down the server? Let's sync immediately. */
+                server_sync(s);
+                return 0;
+        }
+
         if (s->sync_scheduled)
                 return 0;
 
