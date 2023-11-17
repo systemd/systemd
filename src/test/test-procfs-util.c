@@ -14,8 +14,7 @@ int main(int argc, char *argv[]) {
         uint64_t v, pid_max, threads_max, limit;
         int r;
 
-        log_parse_environment();
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         assert_se(procfs_cpu_get_usage(&nsec) >= 0);
         log_info("Current system CPU time: %s", FORMAT_TIMESPAN(nsec/NSEC_PER_USEC, 1));

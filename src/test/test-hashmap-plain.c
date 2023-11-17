@@ -7,8 +7,8 @@
 #include "stdio-util.h"
 #include "string-util.h"
 #include "strv.h"
-#include "time-util.h"
 #include "tests.h"
+#include "time-util.h"
 
 TEST(hashmap_replace) {
         _cleanup_hashmap_free_ Hashmap *m = NULL;

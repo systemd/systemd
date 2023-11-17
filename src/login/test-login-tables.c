@@ -3,8 +3,11 @@
 #include "logind-action.h"
 #include "logind-session.h"
 #include "test-tables.h"
+#include "tests.h"
 
 int main(int argc, char **argv) {
+        test_setup_logging(LOG_DEBUG);
+
         test_table(handle_action, HANDLE_ACTION);
         test_table(inhibit_mode, INHIBIT_MODE);
         test_table(kill_who, KILL_WHO);
