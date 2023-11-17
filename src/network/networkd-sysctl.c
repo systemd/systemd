@@ -52,7 +52,7 @@ static bool link_ip_forward_enabled(Link *link, int family) {
         if (!link->network)
                 return false;
 
-        return link->network->ip_forward & (family == AF_INET ? ADDRESS_FAMILY_IPV4 : ADDRESS_FAMILY_IPV6);
+        return link->network->ip_forward && (family == AF_INET ? ADDRESS_FAMILY_IPV4 : ADDRESS_FAMILY_IPV6);
 }
 
 static int link_set_ipv4_forward(Link *link) {
