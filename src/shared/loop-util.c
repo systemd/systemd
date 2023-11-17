@@ -108,9 +108,16 @@ static int loop_configure_verify_direct_io(int fd, const struct loop_config *c) 
                  * check here if enabling direct IO worked, to make this easily debuggable however.
                  *
                  * (Should anyone really care and actually wants direct IO on old kernels: it might be worth
-                 * enabling direct IO with iteratively larger block sizes until it eventually works.) */
+                 * enabling direct IO with iteratively larger block sizes until it eventually works.)
+                 *
+                 * On older kernels (e.g.: 5.10) when this is attempted on a file stored on a dm-crypt
+                 * backed partition the kernel will start returning I/O errors when accessing the mounted
+                 * loop device, so return a recognizable error that causes the operation to be started
+                 * from scratch without the LO_FLAGS_DIRECT_IO flag. */
                 if (!FLAGS_SET(info.lo_flags, LO_FLAGS_DIRECT_IO))
-                        log_debug("Could not enable direct IO mode, proceeding in buffered IO mode.");
+                        return log_debug_errno(
+                                        SYNTHETIC_ERRNO(ENOANO),
+                                        "Could not enable direct IO mode, retrying in buffered IO mode.");
         }
 
         return 0;
@@ -431,7 +438,7 @@ static int loop_device_make_internal(
                 LoopDevice **ret) {
 
         _cleanup_(loop_device_unrefp) LoopDevice *d = NULL;
-        _cleanup_close_ int direct_io_fd = -EBADF, control = -EBADF;
+        _cleanup_close_ int reopened_fd = -EBADF, control = -EBADF;
         _cleanup_free_ char *backing_file = NULL;
         struct loop_config config;
         int r, f_flags;
@@ -479,16 +486,16 @@ static int loop_device_make_internal(
                  * Our intention here is that LO_FLAGS_DIRECT_IO is the primary knob, and O_DIRECT derived
                  * from that automatically. */
 
-                direct_io_fd = fd_reopen(fd, (FLAGS_SET(loop_flags, LO_FLAGS_DIRECT_IO) ? O_DIRECT : 0)|O_CLOEXEC|O_NONBLOCK|open_flags);
-                if (direct_io_fd < 0) {
+                reopened_fd = fd_reopen(fd, (FLAGS_SET(loop_flags, LO_FLAGS_DIRECT_IO) ? O_DIRECT : 0)|O_CLOEXEC|O_NONBLOCK|open_flags);
+                if (reopened_fd < 0) {
                         if (!FLAGS_SET(loop_flags, LO_FLAGS_DIRECT_IO))
-                                return log_debug_errno(errno, "Failed to reopen file descriptor without O_DIRECT: %m");
+                                return log_debug_errno(reopened_fd, "Failed to reopen file descriptor without O_DIRECT: %m");
 
                         /* Some file systems might not support O_DIRECT, let's gracefully continue without it then. */
-                        log_debug_errno(errno, "Failed to enable O_DIRECT for backing file descriptor for loopback device. Continuing without.");
+                        log_debug_errno(reopened_fd, "Failed to enable O_DIRECT for backing file descriptor for loopback device. Continuing without.");
                         loop_flags &= ~LO_FLAGS_DIRECT_IO;
                 } else
-                        fd = direct_io_fd; /* From now on, operate on our new O_DIRECT fd */
+                        fd = reopened_fd; /* From now on, operate on our new O_DIRECT fd */
         }
 
         control = open("/dev/loop-control", O_RDWR|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
@@ -578,8 +585,9 @@ static int loop_device_make_internal(
                 /* -ENODEV or friends: Somebody might've gotten the same number from the kernel, used the
                  * device, and called LOOP_CTL_REMOVE on it. Let's retry with a new number.
                  * -EBUSY: a file descriptor is already bound to the loopback block device.
-                 * -EUCLEAN: some left-over partition devices that were cleaned up. */
-                if (!ERRNO_IS_DEVICE_ABSENT(r) && !IN_SET(r, -EBUSY, -EUCLEAN))
+                 * -EUCLEAN: some left-over partition devices that were cleaned up.
+                 * -ENOANO: we tried to use LO_FLAGS_DIRECT_IO but the kernel rejected it. */
+                if (!ERRNO_IS_DEVICE_ABSENT(r) && !IN_SET(r, -EBUSY, -EUCLEAN, -ENOANO))
                         return r;
 
                 /* OK, this didn't work, let's try again a bit later, but first release the lock on the
@@ -589,6 +597,23 @@ static int loop_device_make_internal(
 
                 if (++n_attempts >= 64) /* Give up eventually */
                         return -EBUSY;
+
+                /* If we failed to enable direct IO mode, let's retry without it. We restart the process as
+                 * on some combination of kernel version and storage filesystem, the kernel is very unhappy
+                 * about a failed DIRECT_IO enablement and throws I/O errors. */
+                if (r == -ENOANO && FLAGS_SET(config.info.lo_flags, LO_FLAGS_DIRECT_IO)) {
+                        config.info.lo_flags &= ~LO_FLAGS_DIRECT_IO;
+                        open_flags &= ~O_DIRECT;
+
+                        int non_direct_io_fd = fd_reopen(config.fd, O_CLOEXEC|O_NONBLOCK|open_flags);
+                        if (non_direct_io_fd < 0)
+                                return log_debug_errno(
+                                                non_direct_io_fd,
+                                                "Failed to reopen file descriptor without O_DIRECT: %m");
+
+                        safe_close(reopened_fd);
+                        fd = config.fd = /* For cleanups */ reopened_fd = non_direct_io_fd;
+                }
 
                 /* Wait some random time, to make collision less likely. Let's pick a random time in the
                  * range 0ms…250ms, linearly scaled by the number of failed attempts. */
