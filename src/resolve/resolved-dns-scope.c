@@ -41,6 +41,7 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
                 .protocol = protocol,
                 .family = family,
                 .resend_timeout = MULTICAST_RESEND_TIMEOUT_MIN_USEC,
+                .mdns_goodbye_event_source = NULL,
         };
 
         if (protocol == DNS_PROTOCOL_DNS) {
@@ -114,6 +115,8 @@ DnsScope* dns_scope_free(DnsScope *s) {
         sd_event_source_disable_unref(s->conflict_event_source);
 
         sd_event_source_disable_unref(s->announce_event_source);
+
+        sd_event_source_disable_unref(s->mdns_goodbye_event_source);
 
         dns_cache_flush(&s->cache);
         dns_zone_flush(&s->zone);
