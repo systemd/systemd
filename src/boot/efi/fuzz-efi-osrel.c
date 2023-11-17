@@ -12,6 +12,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (data[SEP_LEN] != '\0')
                 return 0;
 
+        fuzz_setup_logging();
+
         _cleanup_free_ char *p = memdup_suffix0(data + SEP_LEN + 1, size - SEP_LEN - 1);
         assert_se(p);
 
