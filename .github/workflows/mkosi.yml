@@ -75,6 +75,11 @@ jobs:
       SYSTEMD_LOG_LEVEL: debug
 
     steps:
+    - name: Enable proposed-updates
+      run: |
+        sudo mkdir -p /etc/apt/sources.list.d/
+        echo 'deb http://azure.archive.ubuntu.com/ubuntu jammy-proposed restricted main universe' | sudo tee /etc/apt/sources.list.d/proposed.list
+
     - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
     - uses: systemd/mkosi@16e63baaeadf7a5b100c5b5bf780c61c29878cfc
 
