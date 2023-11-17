@@ -682,6 +682,8 @@ static int path_serialize(Unit *u, FILE *f, FDSet *fds) {
                                              escaped);
         }
 
+        (void) serialize_ratelimit(f, "trigger-ratelimit", &p->trigger_limit);
+
         return 0;
 }
 
@@ -743,7 +745,10 @@ static int path_deserialize_item(Unit *u, const char *key, const char *value, FD
                                 }
                 }
 
-        } else
+        } else if (streq(key, "trigger-ratelimit"))
+                deserialize_ratelimit(&p->trigger_limit, "trigger-ratelimit", value);
+
+        else
                 log_unit_debug(u, "Unknown serialization key: %s", key);
 
         return 0;
