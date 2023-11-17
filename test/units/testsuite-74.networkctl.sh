@@ -11,7 +11,7 @@ at_exit() {
     systemctl stop systemd-networkd
 
     if [[ -v NETWORK_NAME && -v NETDEV_NAME && -v LINK_NAME ]]; then
-        rm -fvr {/usr/lib,/etc}/systemd/network/"$NETWORK_NAME" "/usr/lib/systemd/network/$NETDEV_NAME" \
+        rm -fvr {/usr/lib,/etc,/run}/systemd/network/"$NETWORK_NAME" "/usr/lib/systemd/network/$NETDEV_NAME" \
             {/usr/lib,/etc}/systemd/network/"$LINK_NAME" "/etc/systemd/network/${NETWORK_NAME}.d" \
             "new" "+4"
     fi
@@ -35,8 +35,13 @@ cat >new <<EOF
 Name=test2
 EOF
 
-EDITOR='mv new' script -ec 'networkctl edit "$NETWORK_NAME"' /dev/null
+EDITOR='mv new' script -ec 'networkctl edit --runtime "$NETWORK_NAME"' /dev/null
+printf '%s\n' '[Match]' 'Name=test2' | cmp - "/run/systemd/network/$NETWORK_NAME"
+
+EDITOR='true' script -ec 'networkctl edit "$NETWORK_NAME"' /dev/null
 printf '%s\n' '[Match]' 'Name=test2' | cmp - "/etc/systemd/network/$NETWORK_NAME"
+
+(! EDITOR='true' script -ec 'networkctl edit --runtime "$NETWORK_NAME"' /dev/null)
 
 cat >"+4" <<EOF
 [Network]
@@ -79,6 +84,9 @@ networkctl cat @test2:network | cmp - <(networkctl cat "$NETWORK_NAME")
 
 EDITOR='cp' script -ec 'networkctl edit @test2 --drop-in test2.conf' /dev/null
 cmp "+4" "/etc/systemd/network/${NETWORK_NAME}.d/test2.conf"
+
+sleep 1
+(! EDITOR='true' script -ec 'networkctl edit @test2 --runtime --drop-in test2.conf' /dev/null)
 
 ip_link="$(ip link show test2)"
 if systemctl --quiet is-active systemd-udevd; then
