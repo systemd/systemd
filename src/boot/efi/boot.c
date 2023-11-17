@@ -73,11 +73,23 @@ typedef struct {
 } BootEntry;
 
 typedef struct {
+        char16_t *id;             /* The common sort_key for every boot entry of this group */
         BootEntry **entries;
         size_t n_entries;
-        size_t idx_default;
+        size_t idx_visible_entry; /* The index of the current visible entry */
+} BootGroup;
+
+typedef struct {
+        BootEntry **entries;
+        size_t n_entries;
+        BootGroup **groups;
+        size_t n_groups;
+        int8_t group_entries;
+        size_t idx_default;                 /* With groups, this is the index of the group with the default entry */
+        size_t idx_in_group_default;        /* Not used without groups, this is the index of the default entry inside of the group */
         size_t idx_default_efivar;
-        uint64_t timeout_sec; /* Actual timeout used (efi_main() override > efivar > config). */
+        size_t idx_in_group_default_efivar;
+        uint64_t timeout_sec;               /* Actual timeout used (efi_main() override > efivar > config). */
         uint64_t timeout_sec_config;
         uint64_t timeout_sec_efivar;
         char16_t *entry_default_config;
@@ -125,6 +137,12 @@ enum {
 enum {
         IDX_MAX = INT16_MAX,
         IDX_INVALID,
+};
+
+enum {
+        GROUP_ENTRIES_AUTO = -1,
+        GROUP_ENTRIES_NO = 0,
+        GROUP_ENTRIES_YES = 1,
 };
 
 static void cursor_left(size_t *cursor, size_t *first) {
@@ -382,22 +400,35 @@ static size_t entry_lookup_key(Config *config, size_t start, char16_t key) {
         if (key == 0)
                 return IDX_INVALID;
 
-        /* select entry by number key */
+        /* select entry or group by number key */
         if (key >= '1' && key <= '9') {
                 size_t i = key - '0';
-                if (i > config->n_entries)
-                        i = config->n_entries;
+                size_t n_visible_entries = config->group_entries == GROUP_ENTRIES_YES ?
+                        config->n_groups :
+                        config->n_entries;
+                if (i > n_visible_entries)
+                        i = n_visible_entries;
                 return i-1;
         }
 
         /* find matching key in boot entries */
-        for (size_t i = start; i < config->n_entries; i++)
-                if (config->entries[i]->key == key)
-                        return i;
+        if (config->group_entries == GROUP_ENTRIES_YES) {
+                for (size_t i = start; i < config->n_groups; i++)
+                        if (config->groups[i]->entries[config->groups[i]->idx_visible_entry]->key == key)
+                                return i;
 
-        for (size_t i = 0; i < start; i++)
-                if (config->entries[i]->key == key)
-                        return i;
+                for (size_t i = 0; i < start; i++)
+                        if (config->groups[i]->entries[config->groups[i]->idx_visible_entry]->key == key)
+                                return i;
+        } else {
+                for (size_t i = start; i < config->n_entries; i++)
+                        if (config->entries[i]->key == key)
+                                return i;
+
+                for (size_t i = 0; i < start; i++)
+                        if (config->entries[i]->key == key)
+                                return i;
+        }
 
         return IDX_INVALID;
 }
@@ -671,6 +702,9 @@ static bool menu_run(
         uint32_t timeout_remain = config->timeout_sec == TIMEOUT_MENU_FORCE ? 0 : config->timeout_sec;
         int64_t console_mode_initial = ST->ConOut->Mode->Mode, console_mode_efivar_saved = config->console_mode_efivar;
         size_t default_efivar_saved = config->idx_default_efivar;
+        size_t in_group_default_efivar_saved = config->idx_in_group_default_efivar;
+        size_t n_visible_entries = config->group_entries == GROUP_ENTRIES_YES ? config->n_groups : config->n_entries;
+        BootEntry *edited_entry = NULL;
 
         enum {
                 ACTION_CONTINUE,        /* Continue with loop over user input */
@@ -709,54 +743,94 @@ static bool menu_run(
                         * sure that idx_highlight is centered, but not if we are close to the
                         * beginning/end of the entry list. Otherwise we would have a half-empty
                         * screen. */
-                        if (config->n_entries <= visible_max || idx_highlight <= visible_max / 2)
+                        if (n_visible_entries <= visible_max || idx_highlight <= visible_max / 2)
                                 idx_first = 0;
-                        else if (idx_highlight >= config->n_entries - (visible_max / 2))
-                                idx_first = config->n_entries - visible_max;
+                        else if (idx_highlight >= n_visible_entries - (visible_max / 2))
+                                idx_first = n_visible_entries - visible_max;
                         else
                                 idx_first = idx_highlight - (visible_max / 2);
                         idx_last = idx_first + visible_max - 1;
 
                         /* length of the longest entry */
                         line_width = 0;
-                        for (size_t i = 0; i < config->n_entries; i++)
-                                line_width = MAX(line_width, strlen16(config->entries[i]->title_show));
+                        if (config->group_entries == GROUP_ENTRIES_YES) {
+                                for (size_t i = 0; i < config->n_groups; i++) {
+                                        const BootGroup *group = config->groups[i];
+                                        line_width = MAX(line_width,
+                                                strlen16(group->entries[group->idx_visible_entry]->title_show));
+                                }
+
+                                /* with groups, reserve space to prepend "[i/N] > " */
+                                line_width += 6;
+                                size_t n = config->n_entries, c = 0;
+                                while (n != 0) {
+                                        n = n/10;
+                                        c++;
+                                }
+                                line_width += c * 2;
+
+                        } else {
+                                for (size_t i = 0; i < config->n_entries; i++)
+                                        line_width = MAX(line_width, strlen16(config->entries[i]->title_show));
+                        }
                         line_width = MIN(line_width + 2 * entry_padding, x_max);
 
                         /* offsets to center the entries on the screen */
                         x_start = (x_max - (line_width)) / 2;
-                        if (config->n_entries < visible_max)
-                                y_start = ((visible_max - config->n_entries) / 2) + 1;
+                        if (n_visible_entries < visible_max)
+                                y_start = ((visible_max - n_visible_entries) / 2) + 1;
                         else
                                 y_start = 0;
 
                         /* Put status line after the entry list, but give it some breathing room. */
-                        y_status = MIN(y_start + MIN(visible_max, config->n_entries) + 1, y_max - 1);
+                        y_status = MIN(y_start + MIN(visible_max, n_visible_entries) + 1, y_max - 1);
 
                         lines = strv_free(lines);
                         clearline = mfree(clearline);
                         separator = mfree(separator);
 
                         /* menu entries title lines */
-                        lines = xnew(char16_t *, config->n_entries + 1);
+                        lines = xnew(char16_t *, n_visible_entries + 1);
 
-                        for (size_t i = 0; i < config->n_entries; i++) {
+                        for (size_t i = 0; i < n_visible_entries; i++) {
                                 size_t j, padding;
+                                const BootEntry *entry = config->group_entries == GROUP_ENTRIES_YES ?
+                                        config->groups[i]->entries[config->groups[i]->idx_visible_entry] :
+                                        config->entries[i];
 
                                 lines[i] = xnew(char16_t, line_width + 1);
-                                padding = (line_width - MIN(strlen16(config->entries[i]->title_show), line_width)) / 2;
+                                padding = (line_width - MIN(strlen16(entry->title_show), line_width)) / 2;
 
                                 for (j = 0; j < padding; j++)
                                         lines[i][j] = ' ';
 
-                                for (size_t k = 0; config->entries[i]->title_show[k] != '\0' && j < line_width; j++, k++)
-                                        lines[i][j] = config->entries[i]->title_show[k];
+                                if (config->group_entries == GROUP_ENTRIES_YES) {
+                                        char16_t *n = NULL;
+
+                                        lines[i][j++] = '[';
+                                        n = xasprintf("%zu", config->groups[i]->idx_visible_entry + 1);
+                                        for (size_t k = 0; n[k] != '\0'; k++)
+                                                lines[i][j++] = n[k];
+                                        free(n);
+                                        lines[i][j++] = '/';
+                                        n = xasprintf("%zu", config->groups[i]->n_entries);
+                                        for (size_t k = 0; n[k] != '\0'; k++)
+                                                lines[i][j++] = n[k];
+                                        free(n);
+                                        lines[i][j++] = ']';
+                                        lines[i][j++] = ' ';
+                                        lines[i][j++] = '>';
+                                        lines[i][j++] = ' ';
+                                }
+
+                                for (size_t k = 0; entry->title_show[k] != '\0' && j < line_width; j++, k++)
+                                        lines[i][j] = entry->title_show[k];
 
                                 for (; j < line_width; j++)
                                         lines[i][j] = ' ';
                                 lines[i][line_width] = '\0';
                         }
-                        lines[config->n_entries] = NULL;
+                        lines[n_visible_entries] = NULL;
 
                         clearline = xnew(char16_t, x_max + 1);
                         separator = xnew(char16_t, x_max + 1);
@@ -778,7 +852,7 @@ static bool menu_run(
                 }
 
                 if (refresh) {
-                        for (size_t i = idx_first; i <= idx_last && i < config->n_entries; i++) {
+                        for (size_t i = idx_first; i <= idx_last && i < n_visible_entries; i++) {
                                 print_at(x_start, y_start + i - idx_first,
                                          i == idx_highlight ? COLOR_HIGHLIGHT : COLOR_ENTRY,
                                          lines[i]);
@@ -883,8 +957,29 @@ static bool menu_run(
                 case KEYPRESS(0, SCAN_DOWN, 0):
                 case KEYPRESS(0, 0, 'j'):
                 case KEYPRESS(0, 0, 'J'):
-                        if (idx_highlight < config->n_entries-1)
+                        if (idx_highlight < n_visible_entries-1)
                                 idx_highlight++;
+                        break;
+
+                case KEYPRESS(0, SCAN_LEFT, 0):
+                        if (config->group_entries == GROUP_ENTRIES_YES) {
+                                BootGroup* group = config->groups[idx_highlight];
+                                if (group->idx_visible_entry > 0) {
+                                        group->idx_visible_entry--;
+                                        new_mode = true;
+                                }
+                        }
+                        break;
+
+                case KEYPRESS(0, SCAN_RIGHT, 0):
+                        if (config->group_entries == GROUP_ENTRIES_YES) {
+                                BootGroup* group = config->groups[idx_highlight];
+                                if (group->idx_visible_entry < group->n_entries-1) {
+                                        group->idx_visible_entry++;
+                                        new_mode = true;
+                                }
+                        } else
+                                action = ACTION_RUN;
                         break;
 
                 case KEYPRESS(0, SCAN_HOME, 0):
@@ -897,9 +992,9 @@ static bool menu_run(
 
                 case KEYPRESS(0, SCAN_END, 0):
                 case KEYPRESS(EFI_ALT_PRESSED, 0, '>'):
-                        if (idx_highlight < config->n_entries-1) {
+                        if (idx_highlight < n_visible_entries-1) {
                                 refresh = true;
-                                idx_highlight = config->n_entries-1;
+                                idx_highlight = n_visible_entries-1;
                         }
                         break;
 
@@ -912,15 +1007,14 @@ static bool menu_run(
 
                 case KEYPRESS(0, SCAN_PAGE_DOWN, 0):
                         idx_highlight += visible_max;
-                        if (idx_highlight > config->n_entries-1)
-                                idx_highlight = config->n_entries-1;
+                        if (idx_highlight > n_visible_entries-1)
+                                idx_highlight = n_visible_entries-1;
                         break;
 
                 case KEYPRESS(0, 0, '\n'):
                 case KEYPRESS(0, 0, '\r'):
                 case KEYPRESS(0, SCAN_F3, 0): /* EZpad Mini 4s firmware sends malformed events */
                 case KEYPRESS(0, SCAN_F3, '\r'): /* Teclast X98+ II firmware sends malformed events */
-                case KEYPRESS(0, SCAN_RIGHT, 0):
                         action = ACTION_RUN;
                         break;
 
@@ -940,9 +1034,17 @@ static bool menu_run(
 
                 case KEYPRESS(0, 0, 'd'):
                 case KEYPRESS(0, 0, 'D'):
-                        if (config->idx_default_efivar != idx_highlight) {
+                        if (config->idx_default_efivar != idx_highlight ||
+                            (config->group_entries == GROUP_ENTRIES_YES &&
+                            config->idx_in_group_default_efivar != config->groups[idx_highlight]->idx_visible_entry)) {
                                 free(config->entry_default_efivar);
-                                config->entry_default_efivar = xstrdup16(config->entries[idx_highlight]->id);
+                                if (config->group_entries == GROUP_ENTRIES_YES) {
+                                        size_t idx_in_group = config->groups[idx_highlight]->idx_visible_entry;
+                                        config->entry_default_efivar = xstrdup16(
+                                                        config->groups[idx_highlight]->entries[idx_in_group]->id);
+                                        config->idx_in_group_default_efivar = idx_in_group;
+                                } else
+                                        config->entry_default_efivar = xstrdup16(config->entries[idx_highlight]->id);
                                 config->idx_default_efivar = idx_highlight;
                                 status = xstrdup16(u"Default boot entry selected.");
                         } else {
@@ -966,9 +1068,13 @@ static bool menu_run(
 
                 case KEYPRESS(0, 0, 'e'):
                 case KEYPRESS(0, 0, 'E'):
+                        edited_entry = config->group_entries == GROUP_ENTRIES_YES ?
+                                config->groups[idx_highlight]->entries[config->groups[idx_highlight]->idx_visible_entry] :
+                                config->entries[idx_highlight];
+
                         /* only the options of configured entries can be edited */
                         if (!config->editor ||
-                            !IN_SET(config->entries[idx_highlight]->type, LOADER_EFI, LOADER_LINUX, LOADER_UNIFIED_LINUX)) {
+                            !IN_SET(edited_entry->type, LOADER_EFI, LOADER_LINUX, LOADER_UNIFIED_LINUX)) {
                                 status = xstrdup16(u"Entry does not support editing the command line.");
                                 break;
                         }
@@ -976,9 +1082,9 @@ static bool menu_run(
                         /* Unified kernels that are signed as a whole will not accept command line options
                          * when secure boot is enabled unless there is none embedded in the image. Do not try
                          * to pretend we can edit it to only have it be ignored. */
-                        if (config->entries[idx_highlight]->type == LOADER_UNIFIED_LINUX &&
+                        if (edited_entry->type == LOADER_UNIFIED_LINUX &&
                             secure_boot_enabled() &&
-                            config->entries[idx_highlight]->options) {
+                            edited_entry->options) {
                                 status = xstrdup16(u"Entry not editable in SecureBoot mode.");
                                 break;
                         }
@@ -989,13 +1095,13 @@ static bool menu_run(
                          * Since we cannot paint the last character of the edit line, we simply start
                          * at x-offset 1 for symmetry. */
                         print_at(1, y_status, COLOR_EDIT, clearline + 2);
-                        if (line_edit(&config->entries[idx_highlight]->options, x_max - 2, y_status))
+                        if (line_edit(&edited_entry->options, x_max - 2, y_status))
                                 action = ACTION_RUN;
                         print_at(1, y_status, COLOR_NORMAL, clearline + 2);
 
                         /* The options string was now edited, hence we have to pass it to the invoked
                          * binary. */
-                        config->entries[idx_highlight]->options_implied = false;
+                        edited_entry->options_implied = false;
                         break;
 
                 case KEYPRESS(0, 0, 'v'):
@@ -1097,7 +1203,8 @@ static bool menu_run(
 
         /* Update EFI vars after we left the menu to reduce NVRAM writes. */
 
-        if (default_efivar_saved != config->idx_default_efivar)
+        if (default_efivar_saved != config->idx_default_efivar ||
+            (config->group_entries == GROUP_ENTRIES_YES && in_group_default_efivar_saved != config->idx_in_group_default_efivar))
                 efivar_set(MAKE_GUID_PTR(LOADER), u"LoaderEntryDefault", config->entry_default_efivar, EFI_VARIABLE_NON_VOLATILE);
 
         if (console_mode_efivar_saved != config->console_mode_efivar) {
@@ -1141,7 +1248,9 @@ static bool menu_run(
                 break;
         }
 
-        *chosen_entry = config->entries[idx_highlight];
+        *chosen_entry = config->group_entries == GROUP_ENTRIES_YES ?
+                config->groups[idx_highlight]->entries[config->groups[idx_highlight]->idx_visible_entry] :
+                config->entries[idx_highlight];
         clear_screen(COLOR_NORMAL);
         return action == ACTION_RUN;
 }
@@ -1160,6 +1269,35 @@ static void config_add_entry(Config *config, BootEntry *entry) {
                                 sizeof(void *) * (config->n_entries + 16));
         }
         config->entries[config->n_entries++] = entry;
+}
+
+static void config_add_group(Config *config, BootGroup *group) {
+        assert(config);
+        assert(group);
+
+        assert(config->n_groups < IDX_MAX);
+
+        config->groups = xrealloc(
+                        config->groups,
+                        sizeof(void *) * config->n_groups,
+                        sizeof(void *) * (config->n_groups + 1));
+
+        config->groups[config->n_groups++] = group;
+}
+
+static void group_add_entry(BootGroup *group, BootEntry *entry) {
+        assert(group);
+        assert(entry);
+
+        assert(group->n_entries < IDX_MAX);
+
+        if ((group->n_entries & 15) == 0) {
+                group->entries = xrealloc(
+                                group->entries,
+                                sizeof(void *) * group->n_entries,
+                                sizeof(void *) * (group->n_entries + 16));
+        }
+        group->entries[group->n_entries++] = entry;
 }
 
 static BootEntry* boot_entry_free(BootEntry *entry) {
@@ -1278,6 +1416,12 @@ static void config_defaults_load_from_file(Config *config, char *content) {
                                 }
                                 config->console_mode = u;
                         }
+
+                } else if (streq8(key, "group-entries")) {
+                        if (streq8(value, "auto"))
+                                config->group_entries = GROUP_ENTRIES_AUTO;
+                        else if (!parse_boolean(value, (bool *) &config->group_entries))
+                                log_error("Error parsing 'group-entries' config option, ignoring: %s", value);
                 }
 }
 
@@ -1558,10 +1702,13 @@ static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
                 .auto_firmware = true,
                 .secure_boot_enroll = ENROLL_IF_SAFE,
                 .idx_default_efivar = IDX_INVALID,
+                .idx_in_group_default_efivar = IDX_INVALID,
                 .console_mode = CONSOLE_MODE_KEEP,
                 .console_mode_efivar = CONSOLE_MODE_KEEP,
                 .timeout_sec_config = TIMEOUT_UNSET,
                 .timeout_sec_efivar = TIMEOUT_UNSET,
+                .n_groups = 0,
+                .group_entries = GROUP_ENTRIES_AUTO,
         };
 
         err = file_read(root_dir, u"\\loader\\loader.conf", 0, 0, &content, &content_size);
@@ -1716,58 +1863,90 @@ static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
         return CMP(a->tries_done, b->tries_done);
 }
 
-static size_t config_find_entry(Config *config, const char16_t *pattern) {
+static bool config_find_entry(Config *config, const char16_t *pattern, size_t *ret_idx, size_t *ret_idx_in_group) {
         assert(config);
+        assert(ret_idx);
+        assert(ret_idx_in_group);
 
         /* We expect pattern and entry IDs to be already case folded. */
 
         if (!pattern)
-                return IDX_INVALID;
+                return false;
 
-        for (size_t i = 0; i < config->n_entries; i++)
-                if (efi_fnmatch(pattern, config->entries[i]->id))
-                        return i;
+        if (config->group_entries == GROUP_ENTRIES_YES) {
+                for (size_t i = 0; i < config->n_groups; i++)
+                        for (size_t j = 0; j < config->groups[i]->n_entries; j++)
+                                if (efi_fnmatch(pattern, config->groups[i]->entries[j]->id)) {
+                                        config->groups[i]->idx_visible_entry = j;
+                                        *ret_idx = i;
+                                        *ret_idx_in_group = j;
+                                        return true;
+                                }
+        } else
+                for (size_t i = 0; i < config->n_entries; i++)
+                        if (efi_fnmatch(pattern, config->entries[i]->id)) {
+                                *ret_idx = i;
+                                *ret_idx_in_group = IDX_INVALID;
+                                return true;
+                        }
 
-        return IDX_INVALID;
+        return false;
 }
 
 static void config_select_default_entry(Config *config) {
-        size_t i;
+        size_t idx, idx_in_group;
 
         assert(config);
 
-        i = config_find_entry(config, config->entry_oneshot);
-        if (i != IDX_INVALID) {
-                config->idx_default = i;
+        if (config_find_entry(config, config->entry_oneshot, &idx, &idx_in_group)) {
+                config->idx_default = idx;
+                config->idx_in_group_default = idx_in_group;
                 return;
         }
 
-        i = config_find_entry(config, config->use_saved_entry_efivar ? config->entry_saved : config->entry_default_efivar);
-        if (i != IDX_INVALID) {
-                config->idx_default = i;
-                config->idx_default_efivar = i;
+        if (config_find_entry(config,
+                        config->use_saved_entry_efivar ? config->entry_saved : config->entry_default_efivar,
+                        &idx, &idx_in_group)) {
+                config->idx_default = idx;
+                config->idx_in_group_default = idx_in_group;
+                config->idx_default_efivar = idx;
+                config->idx_in_group_default_efivar = idx_in_group;
                 return;
         }
 
-        if (config->use_saved_entry)
-                /* No need to do the same thing twice. */
-                i = config->use_saved_entry_efivar ? IDX_INVALID : config_find_entry(config, config->entry_saved);
-        else
-                i = config_find_entry(config, config->entry_default_config);
-        if (i != IDX_INVALID) {
-                config->idx_default = i;
+        if (config->use_saved_entry && !config->use_saved_entry_efivar) {
+                if (config_find_entry(config, config->entry_saved, &idx, &idx_in_group)) {
+                        config->idx_default = idx;
+                        config->idx_in_group_default = idx_in_group;
+                        return;
+                }
+        } else if (config_find_entry(config, config->entry_default_config, &idx, &idx_in_group)) {
+                config->idx_default = idx;
+                config->idx_in_group_default = idx_in_group;
                 return;
         }
 
         /* select the first suitable entry */
-        for (i = 0; i < config->n_entries; i++)
-                if (config->entries[i]->type != LOADER_AUTO && !config->entries[i]->call) {
-                        config->idx_default = i;
-                        return;
-                }
+        if (config->group_entries == GROUP_ENTRIES_YES) {
+                for (idx = 0; idx < config->n_groups; idx++)
+                        for (idx_in_group = 0; idx_in_group < config->groups[idx]->n_entries; idx_in_group++)
+                                if (config->groups[idx]->entries[idx_in_group]->type != LOADER_AUTO &&
+                                    !config->groups[idx]->entries[idx_in_group]->call) {
+                                        config->idx_default = idx;
+                                        config->idx_in_group_default = idx_in_group;
+                                        return;
+                                }
+        } else
+                for (idx = 0; idx < config->n_entries; idx++)
+                        if (config->entries[idx]->type != LOADER_AUTO && !config->entries[idx]->call) {
+                                config->idx_default = idx;
+                                config->idx_in_group_default = IDX_INVALID;
+                                return;
+                        }
 
         /* If no configured entry to select from was found, enable the menu. */
         config->idx_default = 0;
+        config->idx_in_group_default = config->group_entries == GROUP_ENTRIES_YES ? 0 : IDX_INVALID;
         if (config->timeout_sec == 0)
                 config->timeout_sec = 10;
 }
@@ -1846,6 +2025,39 @@ static void generate_boot_entry_titles(Config *config) {
 
                 _cleanup_free_ char16_t *t = config->entries[i]->title_show;
                 config->entries[i]->title_show = xasprintf("%ls (%ls)", t, config->entries[i]->id);
+        }
+}
+
+static void config_group_entries(Config *config) {
+        assert(config);
+
+        if (config->n_entries == 0)
+                return;
+
+        for (size_t i = 0; i < config->n_entries; i++) {
+                bool found = false;
+
+                /* search if it already exists a group for entries with the same sort_key */
+                for (size_t j = 0; j < config->n_groups; j++) {
+                        if (streq16(config->entries[i]->sort_key, config->groups[j]->id)) {
+                                /* if group exists, add entry */
+                                group_add_entry(config->groups[j], config->entries[i]);
+                                found = true;
+                                break;
+                        }
+                }
+
+                /* if group does not exist, create a new one */
+                if (!found) {
+                        BootGroup *group = xnew(BootGroup, 1);
+                        *group = (BootGroup) {
+                                .id = config->entries[i]->sort_key,
+                                .idx_visible_entry = 0,
+                        };
+
+                        group_add_entry(group, config->entries[i]);
+                        config_add_group(config, group);
+                }
         }
 }
 
@@ -2412,6 +2624,9 @@ static void config_free(Config *config) {
         for (size_t i = 0; i < config->n_entries; i++)
                 boot_entry_free(config->entries[i]);
         free(config->entries);
+        for (size_t i = 0; i < config->n_groups; i++)
+                mfree(config->groups[i]);
+        free(config->groups);
         free(config->entry_default_config);
         free(config->entry_default_efivar);
         free(config->entry_oneshot);
@@ -2532,6 +2747,7 @@ static void export_variables(
                 EFI_LOADER_FEATURE_SECUREBOOT_ENROLL |
                 EFI_LOADER_FEATURE_RETAIN_SHIM |
                 EFI_LOADER_FEATURE_MENU_DISABLE |
+                EFI_LOADER_FEATURE_MENU_GROUP |
                 0;
 
         _cleanup_free_ char16_t *infostr = NULL, *typestr = NULL;
@@ -2640,6 +2856,25 @@ static void config_load_all_entries(
 
         generate_boot_entry_titles(config);
 
+        /* by default, group menu entries if multiple OSs are installed */
+        if (config->group_entries == GROUP_ENTRIES_AUTO) {
+                char16_t *sort_key = NULL;
+
+                config->group_entries = GROUP_ENTRIES_NO;
+
+                for (size_t i = 0; i < config->n_entries; i++) {
+                        if (config->entries[i]->sort_key) {
+                                if (sort_key && strcmp16(sort_key, config->entries[i]->sort_key) != 0) {
+                                        config->group_entries = GROUP_ENTRIES_YES;
+                                        break;
+                                } else if (!sort_key)
+                                        sort_key = config->entries[i]->sort_key;
+                        }
+                }
+        }
+        if (config->group_entries == GROUP_ENTRIES_YES)
+                config_group_entries(config);
+
         /* Select entry by configured pattern or EFI LoaderDefaultEntry= variable */
         config_select_default_entry(config);
 }
@@ -2708,7 +2943,9 @@ static EFI_STATUS run(EFI_HANDLE image) {
         for (;;) {
                 BootEntry *entry;
 
-                entry = config.entries[config.idx_default];
+                entry = config.group_entries == GROUP_ENTRIES_YES ?
+                        config.groups[config.idx_default]->entries[config.idx_in_group_default] :
+                        config.entries[config.idx_default];
                 if (menu) {
                         efivar_set_time_usec(MAKE_GUID_PTR(LOADER), u"LoaderTimeMenuUSec", 0);
                         if (!menu_run(&config, &entry, loaded_image_path))
