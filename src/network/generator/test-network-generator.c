@@ -3,6 +3,7 @@
 #include "macro.h"
 #include "network-generator.h"
 #include "string-util.h"
+#include "tests.h"
 
 static void test_network_one(const char *ifname, const char *key, const char *value, const char *expected) {
         _cleanup_(context_clear) Context context = {};
@@ -63,6 +64,8 @@ static void test_link_one(const char *filename, const char *key, const char *val
 }
 
 int main(int argc, char *argv[]) {
+        test_setup_logging(LOG_DEBUG);
+
         test_network_one("", "ip", "dhcp6",
                          "[Match]\n"
                          "Kind=!*\n"
