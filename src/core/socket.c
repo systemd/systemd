@@ -2625,6 +2625,8 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
                 }
         }
 
+        (void) serialize_ratelimit(f, "trigger-ratelimit", &s->trigger_limit);
+
         return 0;
 }
 
@@ -2860,7 +2862,10 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 if (!found)
                         log_unit_debug(u, "No matching ffs socket found: %s", value);
 
-        } else
+        } else if (streq(key, "trigger-ratelimit"))
+                deserialize_ratelimit(&s->trigger_limit, key, value);
+
+        else
                 log_unit_debug(UNIT(s), "Unknown serialization key: %s", key);
 
         return 0;
