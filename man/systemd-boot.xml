@@ -138,9 +138,20 @@
       </varlistentry>
 
       <varlistentry>
+        <term><keycap>←</keycap> (Left)</term>
+        <term><keycap>→</keycap> (Right)</term>
+        <listitem><para>If entries are grouped, navigate between entries of the same group.</para>
+
+        <!--xi:include href="version-info.xml" xpointer="v256"/--></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><keycap>↵</keycap> (Enter)</term>
         <term><keycap>→</keycap> (Right)</term>
         <listitem><para>Boot selected entry</para>
+
+        <para><keycap>→</keycap> (Right) only boots selected entry if entries
+        are not grouped.</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
