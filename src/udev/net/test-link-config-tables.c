@@ -2,8 +2,11 @@
 
 #include "link-config.h"
 #include "test-tables.h"
+#include "tests.h"
 
 int main(int argc, char **argv) {
+        test_setup_logging(LOG_DEBUG);
+
         test_table(mac_address_policy, MAC_ADDRESS_POLICY);
 
         return EXIT_SUCCESS;

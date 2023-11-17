@@ -12,6 +12,7 @@
 #include "ether-addr-util.h"
 #include "macro.h"
 #include "memory-util.h"
+#include "tests.h"
 
 struct option_desc {
         uint8_t sname[64];
@@ -362,6 +363,8 @@ static void test_option_set(void) {
 }
 
 int main(int argc, char *argv[]) {
+        test_setup_logging(LOG_DEBUG);
+
         test_invalid_buffer_length();
         test_message_init();
 
