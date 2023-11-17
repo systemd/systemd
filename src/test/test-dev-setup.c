@@ -14,6 +14,8 @@ int main(int argc, char *argv[]) {
         const char *f;
         struct stat st;
 
+        test_setup_logging(LOG_DEBUG);
+
         if (have_effective_cap(CAP_DAC_OVERRIDE) <= 0)
                 return log_tests_skipped("missing capability (CAP_DAC_OVERRIDE)");
 

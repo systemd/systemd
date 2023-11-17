@@ -11,6 +11,7 @@
 #include "json.h"
 #include "rm-rf.h"
 #include "strv.h"
+#include "tests.h"
 #include "tmpfile-util.h"
 #include "user-util.h"
 #include "varlink.h"
@@ -330,8 +331,7 @@ int main(int argc, char *argv[]) {
         pthread_t t;
         const char *sp;
 
-        log_set_max_level(LOG_DEBUG);
-        log_open();
+        test_setup_logging(LOG_DEBUG);
 
         assert_se(mkdtemp_malloc("/tmp/varlink-test-XXXXXX", &tmpdir) >= 0);
         sp = strjoina(tmpdir, "/socket");

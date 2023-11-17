@@ -10,6 +10,7 @@
 #include "macro.h"
 #include "memory-util.h"
 #include "string-util.h"
+#include "tests.h"
 
 struct context {
         int fds[2];
@@ -156,6 +157,8 @@ static int test_one(bool client_negotiate_unix_fds, bool server_negotiate_unix_f
 
 int main(int argc, char *argv[]) {
         int r;
+
+        test_setup_logging(LOG_DEBUG);
 
         r = test_one(true, true, false, false);
         assert_se(r >= 0);

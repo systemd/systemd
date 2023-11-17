@@ -12,6 +12,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (outside_size_range(size, 0, 100*1024))
                 return 0;
 
+        fuzz_setup_logging();
+
         p = memdup(data, size);
         assert_se(p);
 
