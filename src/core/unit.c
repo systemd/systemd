@@ -134,13 +134,10 @@ Unit* unit_new(Manager *m, size_t size) {
 
         u->start_ratelimit = (RateLimit) {
                 m->defaults.start_limit_interval,
-                m->defaults.start_limit_burst
+                m->defaults.start_limit_burst,
         };
 
-        u->auto_start_stop_ratelimit = (const RateLimit) {
-                10 * USEC_PER_SEC,
-                16
-        };
+        u->auto_start_stop_ratelimit = (const RateLimit) { 10 * USEC_PER_SEC, 16 };
 
         return u;
 }
