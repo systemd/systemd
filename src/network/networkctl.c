@@ -87,6 +87,7 @@ static bool arg_no_reload = false;
 static bool arg_all = false;
 static bool arg_stats = false;
 static bool arg_full = false;
+static bool arg_runtime = false;
 static unsigned arg_lines = 10;
 static char *arg_drop_in = NULL;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
@@ -3076,14 +3077,20 @@ static int add_config_to_edit(
         assert(path);
         assert(!arg_drop_in || dropins);
 
-        if (path_startswith(path, "/usr")) {
+        /* If we're supposed to edit main config file in /run/, but a config with the same name is present
+         * under /etc/, we bail out since the one in /etc/ always overrides that in /run/. */
+        if (arg_runtime && !arg_drop_in && path_startswith(path, "/etc"))
+                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                       "Cannot edit runtime config file: overriden by %s.", path);
+
+        if (path_startswith(path, "/usr") || arg_runtime != path_startswith(path, "/run")) {
                 _cleanup_free_ char *name = NULL;
 
                 r = path_extract_filename(path, &name);
                 if (r < 0)
                         return log_error_errno(r, "Failed to extract filename from '%s': %m", path);
 
-                new_path = path_join(NETWORK_DIRS[0], name);
+                new_path = path_join(NETWORK_DIRS[arg_runtime ? 1 : 0], name);
                 if (!new_path)
                         return log_oom();
         }
@@ -3095,12 +3102,24 @@ static int add_config_to_edit(
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire drop-in '%s': %m", arg_drop_in);
 
-        if (r > 0 && !path_startswith(old_dropin, "/usr"))
-                /* An existing drop-in is found and not in /usr/. Let's edit it directly. */
+        bool need_new_dropin;
+
+        if (r > 0) {
+                /* See the explanation above */
+                if (arg_runtime && path_startswith(old_dropin, "/etc"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                               "Cannot edit runtime config file: overriden by %s.", old_dropin);
+
+                need_new_dropin = path_startswith(old_dropin, "/usr") || arg_runtime != path_startswith(old_dropin, "/run");
+        } else
+                need_new_dropin = true;
+
+        if (!need_new_dropin)
+                /* An existing drop-in is found in the correct scope. Let's edit it directly. */
                 dropin_path = TAKE_PTR(old_dropin);
         else {
-                /* No drop-in was found or an existing drop-in resides in /usr/. Let's create
-                 * a new drop-in file. */
+                /* No drop-in was found or an existing drop-in is in a different scope. Let's create a new
+                 * drop-in file. */
                 dropin_path = strjoin(new_path ?: path, ".d/", arg_drop_in);
                 if (!dropin_path)
                         return log_oom();
@@ -3209,7 +3228,7 @@ static int verb_edit(int argc, char *argv[], void *userdata) {
 
                         log_debug("No existing network config '%s' found, creating a new file.", *name);
 
-                        path = path_join(NETWORK_DIRS[0], *name);
+                        path = path_join(NETWORK_DIRS[arg_runtime ? 1 : 0], *name);
                         if (!path)
                                 return log_oom();
 
@@ -3340,6 +3359,7 @@ static int help(void) {
                "     --no-reload         Do not reload systemd-networkd or systemd-udevd\n"
                "                         after editing network config\n"
                "     --drop-in=NAME      Edit specified drop-in instead of main config file\n"
+               "     --runtime           Edit runtime config files\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -3357,6 +3377,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_JSON,
                 ARG_NO_RELOAD,
                 ARG_DROP_IN,
+                ARG_RUNTIME,
         };
 
         static const struct option options[] = {
@@ -3371,6 +3392,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "json",      required_argument, NULL, ARG_JSON      },
                 { "no-reload", no_argument,       NULL, ARG_NO_RELOAD },
                 { "drop-in",   required_argument, NULL, ARG_DROP_IN   },
+                { "runtime",   no_argument,       NULL, ARG_RUNTIME   },
                 {}
         };
 
@@ -3399,6 +3421,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_RELOAD:
                         arg_no_reload = true;
+                        break;
+
+                case ARG_RUNTIME:
+                        arg_runtime = true;
                         break;
 
                 case ARG_DROP_IN:
