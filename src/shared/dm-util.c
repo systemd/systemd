@@ -5,6 +5,7 @@
 #include <sys/ioctl.h>
 
 #include "dm-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
 #include "string-util.h"
 
@@ -41,5 +42,58 @@ int dm_deferred_remove_cancel(const char *name) {
         if (ioctl(fd, DM_TARGET_MSG, &message))
                 return -errno;
 
+        return 0;
+}
+
+static int dm_do_ioctl(const char *name, int cmd, struct dm_ioctl *dmi) {
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        assert(name);
+        assert(dmi);
+
+        dmi->version[0] = DM_VERSION_MAJOR;
+        dmi->version[1] = DM_VERSION_MINOR;
+        dmi->version[2] = DM_VERSION_PATCHLEVEL;
+
+        if (strlen(name) >= DM_NAME_LEN)
+                return -ENODEV;
+
+        strcpy(dmi->name, name);
+
+        fd = open("/dev/mapper/control", O_RDWR|O_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+
+        r = RET_NERRNO(ioctl(fd, cmd, dmi));
+        if (r < 0)
+                return r;
+
+        assert(streq(dmi->name, name));
+        return 0;
+}
+
+int dm_get_devnode(const char *name, char **ret_devnode) {
+        char buf[STRLEN("/dev/dm-") + DECIMAL_STR_MAX(dev_t)]; /* DECIMAL_STR_MAX includes space for a trailing NUL */
+        struct dm_ioctl dmi = {
+                .data_size = sizeof(struct dm_ioctl),
+        };
+        char *p;
+        int r;
+
+        assert(name);
+        assert(ret_devnode);
+
+        r = dm_do_ioctl(name, DM_DEV_STATUS, &dmi);
+        if (r < 0)
+                return r;
+
+        xsprintf(buf, "/dev/dm-%u", minor(dmi.dev));
+
+        p = strdup(buf);
+        if (!p)
+                return -ENOMEM;
+
+        *ret_devnode = TAKE_PTR(p);
         return 0;
 }
