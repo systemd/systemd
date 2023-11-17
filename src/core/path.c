@@ -279,8 +279,7 @@ static void path_init(Unit *u) {
 
         p->directory_mode = 0755;
 
-        p->trigger_limit.interval = USEC_INFINITY;
-        p->trigger_limit.burst = UINT_MAX;
+        p->trigger_limit = RATELIMIT_OFF;
 }
 
 void path_free_specs(Path *p) {
