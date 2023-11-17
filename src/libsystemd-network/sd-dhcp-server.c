@@ -1391,8 +1391,6 @@ static int server_receive_message(sd_event_source *s, int fd,
                 .msg_controllen = sizeof(control),
         };
         ssize_t datagram_size, len;
-        struct cmsghdr *cmsg;
-        triple_timestamp t = {};
         int r;
 
         datagram_size = next_datagram_size_fd(fd);
@@ -1426,22 +1424,16 @@ static int server_receive_message(sd_event_source *s, int fd,
                 return 0;
 
         /* TODO figure out if this can be done as a filter on the socket, like for IPv6 */
-        CMSG_FOREACH(cmsg, &msg)
-                if (cmsg->cmsg_level == IPPROTO_IP && cmsg->cmsg_type == IP_PKTINFO) {
-                        struct in_pktinfo *info = CMSG_TYPED_DATA(cmsg, struct in_pktinfo);
-                        if (info->ipi_ifindex != server->ifindex)
-                                return 0;
-                } else if (cmsg->cmsg_level == SOL_SOCKET && cmsg->cmsg_type == SCM_TIMESTAMP) {
-                        struct timeval *tv = CMSG_TYPED_DATA(cmsg, struct timeval);
-                        triple_timestamp_from_realtime(&t, timeval_load(tv));
-                }
+        struct in_pktinfo *info = CMSG_FIND_DATA(&msg, IPPROTO_IP, IP_PKTINFO, struct in_pktinfo);
+        if (info && info->ipi_ifindex != server->ifindex)
+                return 0;
 
         if (sd_dhcp_server_is_in_relay_mode(server)) {
                 r = dhcp_server_relay_message(server, message, len - sizeof(DHCPMessage), buflen);
                 if (r < 0)
                         log_dhcp_server_errno(server, r, "Couldn't relay message, ignoring: %m");
         } else {
-                r = dhcp_server_handle_message(server, message, (size_t) len, &t);
+                r = dhcp_server_handle_message(server, message, (size_t) len, TRIPLE_TIMESTAMP_FROM_CMSG(&msg));
                 if (r < 0)
                         log_dhcp_server_errno(server, r, "Couldn't process incoming message, ignoring: %m");
         }

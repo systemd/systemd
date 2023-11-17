@@ -2067,6 +2067,7 @@ static int client_handle_message(sd_dhcp_client *client, DHCPMessage *message, s
 
         assert(client);
         assert(message);
+        assert(timestamp);
 
         if (client_verify_message_header(client, message, len) < 0)
                 return 0;
@@ -2144,7 +2145,6 @@ static int client_receive_message_udp(
                 .msg_control = &control,
                 .msg_controllen = sizeof(control),
         };
-        triple_timestamp t = {};
         int r;
 
         assert(s);
@@ -2171,12 +2171,8 @@ static int client_receive_message_udp(
                 return 0;
         }
 
-        struct timeval *tv = CMSG_FIND_AND_COPY_DATA(&msg, SOL_SOCKET, SCM_TIMESTAMP, struct timeval);
-        if (tv)
-                triple_timestamp_from_realtime(&t, timeval_load(tv));
-
         log_dhcp_client(client, "Received message from UDP socket, processing.");
-        r = client_handle_message(client, message, len, &t);
+        r = client_handle_message(client, message, len, TRIPLE_TIMESTAMP_FROM_CMSG(&msg));
         if (r < 0)
                 client_stop(client, r);
 
@@ -2202,7 +2198,6 @@ static int client_receive_message_raw(
                 .msg_controllen = sizeof(control),
         };
         bool checksum = true;
-        triple_timestamp t = {};
         ssize_t buflen, len;
         int r;
 
@@ -2230,13 +2225,9 @@ static int client_receive_message_raw(
                 return 0;
         }
 
-        struct tpacket_auxdata *aux = CMSG_FIND_AND_COPY_DATA(&msg, SOL_PACKET, PACKET_AUXDATA, struct tpacket_auxdata);
+        struct tpacket_auxdata *aux = CMSG_FIND_DATA(&msg, SOL_PACKET, PACKET_AUXDATA, struct tpacket_auxdata);
         if (aux)
                 checksum = !(aux->tp_status & TP_STATUS_CSUMNOTREADY);
-
-        struct timeval *tv = CMSG_FIND_AND_COPY_DATA(&msg, SOL_SOCKET, SCM_TIMESTAMP, struct timeval);
-        if (tv)
-                triple_timestamp_from_realtime(&t, timeval_load(tv));
 
         if (dhcp_packet_verify_headers(packet, len, checksum, client->port) < 0)
                 return 0;
@@ -2244,7 +2235,7 @@ static int client_receive_message_raw(
         len -= DHCP_IP_UDP_SIZE;
 
         log_dhcp_client(client, "Received message from RAW socket, processing.");
-        r = client_handle_message(client, &packet->dhcp, len, &t);
+        r = client_handle_message(client, &packet->dhcp, len, TRIPLE_TIMESTAMP_FROM_CMSG(&msg));
         if (r < 0)
                 client_stop(client, r);
 
