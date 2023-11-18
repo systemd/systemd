@@ -10,14 +10,12 @@ msgstr ""
 "POT-Creation-Date: 2023-11-14 21:25+0000\n"
 "PO-Revision-Date: 2022-10-31 11:19+0000\n"
 "Last-Translator: Gogo Gogsi <linux.hr@protonmail.com>\n"
-"Language-Team: Croatian <https://translate.fedoraproject.org/projects/"
-"systemd/master/hr/>\n"
+"Language-Team: Croatian <https://translate.fedoraproject.org/projects/systemd/master/hr/>\n"
 "Language: hr\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
-"n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
+"Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
 "X-Generator: Weblate 4.14.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
@@ -25,8 +23,7 @@ msgid "Send passphrase back to system"
 msgstr "Pošalji lozinku natrag u sustav"
 
 #: src/core/org.freedesktop.systemd1.policy.in:23
-msgid ""
-"Authentication is required to send the entered passphrase back to the system."
+msgid "Authentication is required to send the entered passphrase back to the system."
 msgstr "Potrebna je ovjera za slanje upisane lozinke natrag u sustav."
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
@@ -43,20 +40,15 @@ msgstr "Upravljajte uslugama sustava ili datotekama jedinica"
 
 #: src/core/org.freedesktop.systemd1.policy.in:44
 msgid "Authentication is required to manage system service or unit files."
-msgstr ""
-"Potrebna je ovjera za upravljanje uslugama sustava ili datotekama jedinica."
+msgstr "Potrebna je ovjera za upravljanje uslugama sustava ili datotekama jedinica."
 
 #: src/core/org.freedesktop.systemd1.policy.in:54
 msgid "Set or unset system and service manager environment variables"
 msgstr "Postavite ili uklonite varijable okruženja sustava i usluga"
 
 #: src/core/org.freedesktop.systemd1.policy.in:55
-msgid ""
-"Authentication is required to set or unset system and service manager "
-"environment variables."
-msgstr ""
-"Potrebna je ovjera za postavljanje ili uklanjanje varijabla okruženja "
-"sustava i usluga."
+msgid "Authentication is required to set or unset system and service manager environment variables."
+msgstr "Potrebna je ovjera za postavljanje ili uklanjanje varijabla okruženja sustava i usluga."
 
 #: src/core/org.freedesktop.systemd1.policy.in:64
 msgid "Reload the systemd state"
@@ -72,8 +64,7 @@ msgstr ""
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
 #, fuzzy
-msgid ""
-"Authentication is required to dump the systemd state without rate limits."
+msgid "Authentication is required to dump the systemd state without rate limits."
 msgstr "Potrebna je ovjera za ponovno učitavanja systemd stanja."
 
 #: src/home/org.freedesktop.home1.policy:13
@@ -97,10 +88,8 @@ msgid "Check credentials of a home area"
 msgstr "Provjeri vjerodajnice osobnog prostora"
 
 #: src/home/org.freedesktop.home1.policy:34
-msgid ""
-"Authentication is required to check credentials against a user's home area."
-msgstr ""
-"Potrebna je ovjera za provjeru vjerodajnica osobnog prostora korisnika."
+msgid "Authentication is required to check credentials against a user's home area."
+msgstr "Potrebna je ovjera za provjeru vjerodajnica osobnog prostora korisnika."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
@@ -123,15 +112,12 @@ msgid "Change password of a home area"
 msgstr "Promijeni lozinku osobnog prostora"
 
 #: src/home/org.freedesktop.home1.policy:64
-msgid ""
-"Authentication is required to change the password of a user's home area."
+msgid "Authentication is required to change the password of a user's home area."
 msgstr "Potrebna je ovjera za promjenu lozinke osobnog prostora korisnika."
 
 #: src/home/pam_systemd_home.c:287
 #, c-format
-msgid ""
-"Home of user %s is currently absent, please plug in the necessary storage "
-"device or backing file system."
+msgid "Home of user %s is currently absent, please plug in the necessary storage device or backing file system."
 msgstr ""
 
 #: src/home/pam_systemd_home.c:292
@@ -158,9 +144,7 @@ msgstr ""
 
 #: src/home/pam_systemd_home.c:331
 #, c-format
-msgid ""
-"Password/recovery key incorrect or not sufficient for authentication of user "
-"%s."
+msgid "Password/recovery key incorrect or not sufficient for authentication of user %s."
 msgstr ""
 
 #: src/home/pam_systemd_home.c:332
@@ -178,9 +162,7 @@ msgstr ""
 
 #: src/home/pam_systemd_home.c:355
 #, c-format
-msgid ""
-"Password incorrect or not sufficient, and configured security token of user "
-"%s not inserted."
+msgid "Password incorrect or not sufficient, and configured security token of user %s not inserted."
 msgstr ""
 
 #: src/home/pam_systemd_home.c:376
@@ -203,9 +185,7 @@ msgid "Please verify user on security token of user %s."
 msgstr ""
 
 #: src/home/pam_systemd_home.c:424
-msgid ""
-"Security token PIN is locked, please unlock it first. (Hint: Removal and re-"
-"insertion might suffice.)"
+msgid "Security token PIN is locked, please unlock it first. (Hint: Removal and re-insertion might suffice.)"
 msgstr ""
 
 #: src/home/pam_systemd_home.c:432
@@ -293,12 +273,8 @@ msgid "Set static hostname"
 msgstr "Postavi nepromjenjivi naziv račumala"
 
 #: src/hostname/org.freedesktop.hostname1.policy:31
-msgid ""
-"Authentication is required to set the statically configured local hostname, "
-"as well as the pretty hostname."
-msgstr ""
-"Potrebna je ovjera za postavljenje nepromjenjivog naziva lokalnog računala, "
-"kao i prijatnog naziva računala."
+msgid "Authentication is required to set the statically configured local hostname, as well as the pretty hostname."
+msgstr "Potrebna je ovjera za postavljenje nepromjenjivog naziva lokalnog računala, kao i prijatnog naziva računala."
 
 #: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"
@@ -377,11 +353,8 @@ msgid "Allow applications to inhibit system shutdown"
 msgstr "Dopusti aplikacijama sprječavanje isključivanja sustava"
 
 #: src/login/org.freedesktop.login1.policy:23
-msgid ""
-"Authentication is required for an application to inhibit system shutdown."
-msgstr ""
-"Potrebna je ovjera za dopuštanje aplikacijama u sprječavanju isključivanja "
-"sustava."
+msgid "Authentication is required for an application to inhibit system shutdown."
+msgstr "Potrebna je ovjera za dopuštanje aplikacijama u sprječavanju isključivanja sustava."
 
 #: src/login/org.freedesktop.login1.policy:33
 msgid "Allow applications to delay system shutdown"
@@ -389,8 +362,7 @@ msgstr "Dopusti aplikacijama odgodu isključivanja sustava"
 
 #: src/login/org.freedesktop.login1.policy:34
 msgid "Authentication is required for an application to delay system shutdown."
-msgstr ""
-"Potrebna je ovjera za dopuštanje aplikacijama u odgodi isključivanja sustava."
+msgstr "Potrebna je ovjera za dopuštanje aplikacijama u odgodi isključivanja sustava."
 
 #: src/login/org.freedesktop.login1.policy:44
 msgid "Allow applications to inhibit system sleep"
@@ -398,9 +370,7 @@ msgstr "Dopusti aplikacijama sprječavanje spavanja sustava"
 
 #: src/login/org.freedesktop.login1.policy:45
 msgid "Authentication is required for an application to inhibit system sleep."
-msgstr ""
-"Potrebna je ovjera za dopuštanje aplikacijama u sprječavanju spavanja "
-"sustava."
+msgstr "Potrebna je ovjera za dopuštanje aplikacijama u sprječavanju spavanja sustava."
 
 #: src/login/org.freedesktop.login1.policy:55
 msgid "Allow applications to delay system sleep"
@@ -415,74 +385,48 @@ msgid "Allow applications to inhibit automatic system suspend"
 msgstr "Dopusti aplikacijama sprječavanje automatskog suspendiranja sustava"
 
 #: src/login/org.freedesktop.login1.policy:66
-msgid ""
-"Authentication is required for an application to inhibit automatic system "
-"suspend."
-msgstr ""
-"Potrebna je ovjera za dopuštanje aplikacijama u sprječavanju automatskog "
-"suspendiranja sustava."
+msgid "Authentication is required for an application to inhibit automatic system suspend."
+msgstr "Potrebna je ovjera za dopuštanje aplikacijama u sprječavanju automatskog suspendiranja sustava."
 
 #: src/login/org.freedesktop.login1.policy:75
 msgid "Allow applications to inhibit system handling of the power key"
-msgstr ""
-"Dopusti aplikacijama sprječavanje rukovanja sustava tipkom isključivanja"
+msgstr "Dopusti aplikacijama sprječavanje rukovanja sustava tipkom isključivanja"
 
 #: src/login/org.freedesktop.login1.policy:76
-msgid ""
-"Authentication is required for an application to inhibit system handling of "
-"the power key."
-msgstr ""
-"Potrebna je ovjera za dopuštanje aplikacijama u sprječavanju rukovanja "
-"sustava tipkom isključivanja."
+msgid "Authentication is required for an application to inhibit system handling of the power key."
+msgstr "Potrebna je ovjera za dopuštanje aplikacijama u sprječavanju rukovanja sustava tipkom isključivanja."
 
 #: src/login/org.freedesktop.login1.policy:86
 msgid "Allow applications to inhibit system handling of the suspend key"
 msgstr "Dopusti aplikacijama sprječavanje rukovanja sustava tipkom suspenzije"
 
 #: src/login/org.freedesktop.login1.policy:87
-msgid ""
-"Authentication is required for an application to inhibit system handling of "
-"the suspend key."
-msgstr ""
-"Potrebna je ovjera za dopuštanje aplikacijama u sprječavanju rukovanja "
-"sustava tipkom suspenzije."
+msgid "Authentication is required for an application to inhibit system handling of the suspend key."
+msgstr "Potrebna je ovjera za dopuštanje aplikacijama u sprječavanju rukovanja sustava tipkom suspenzije."
 
 #: src/login/org.freedesktop.login1.policy:97
 msgid "Allow applications to inhibit system handling of the hibernate key"
 msgstr "Dopusti aplikacijama sprječavanje rukovanja sustava tipkom hibernacije"
 
 #: src/login/org.freedesktop.login1.policy:98
-msgid ""
-"Authentication is required for an application to inhibit system handling of "
-"the hibernate key."
-msgstr ""
-"Potrebna je ovjera za dopuštanje aplikacijama u sprječavanju rukovanja "
-"sustava tipkom hibernacije."
+msgid "Authentication is required for an application to inhibit system handling of the hibernate key."
+msgstr "Potrebna je ovjera za dopuštanje aplikacijama u sprječavanju rukovanja sustava tipkom hibernacije."
 
 #: src/login/org.freedesktop.login1.policy:107
 msgid "Allow applications to inhibit system handling of the lid switch"
 msgstr "Dopusti aplikacijama sprječavanje rukovanja sustava preklopnicama"
 
 #: src/login/org.freedesktop.login1.policy:108
-msgid ""
-"Authentication is required for an application to inhibit system handling of "
-"the lid switch."
-msgstr ""
-"Potrebna je ovjera za dopuštanje sprječavanja rukovanja sustava "
-"preklopnicama."
+msgid "Authentication is required for an application to inhibit system handling of the lid switch."
+msgstr "Potrebna je ovjera za dopuštanje sprječavanja rukovanja sustava preklopnicama."
 
 #: src/login/org.freedesktop.login1.policy:117
 msgid "Allow applications to inhibit system handling of the reboot key"
-msgstr ""
-"Dopusti aplikacijama sprječavanje rukovanja sustava tipkom isključivanja"
+msgstr "Dopusti aplikacijama sprječavanje rukovanja sustava tipkom isključivanja"
 
 #: src/login/org.freedesktop.login1.policy:118
-msgid ""
-"Authentication is required for an application to inhibit system handling of "
-"the reboot key."
-msgstr ""
-"Potrebna je ovjera za dopuštanje aplikacijama u sprječavanju rukovanja "
-"sustava tipkom isključivanja."
+msgid "Authentication is required for an application to inhibit system handling of the reboot key."
+msgstr "Potrebna je ovjera za dopuštanje aplikacijama u sprječavanju rukovanja sustava tipkom isključivanja."
 
 #: src/login/org.freedesktop.login1.policy:128
 msgid "Allow non-logged-in user to run programs"
@@ -490,9 +434,7 @@ msgstr "Dopusti neprijavljenim korisnicima pokretanje programa"
 
 #: src/login/org.freedesktop.login1.policy:129
 msgid "Explicit request is required to run programs as a non-logged-in user."
-msgstr ""
-"Potrebna je ovjera za dopuštanje neprijavljenim korisnicima pokretanje "
-"programa."
+msgstr "Potrebna je ovjera za dopuštanje neprijavljenim korisnicima pokretanje programa."
 
 #: src/login/org.freedesktop.login1.policy:138
 msgid "Allow non-logged-in users to run programs"
@@ -500,9 +442,7 @@ msgstr "Dopusti neprijavljenim korisnicima pokretanje programa"
 
 #: src/login/org.freedesktop.login1.policy:139
 msgid "Authentication is required to run programs as a non-logged-in user."
-msgstr ""
-"Potrebna je ovjera za dopuštanje neprijavljenim korisnicima pokretanje "
-"programa."
+msgstr "Potrebna je ovjera za dopuštanje neprijavljenim korisnicima pokretanje programa."
 
 #: src/login/org.freedesktop.login1.policy:148
 msgid "Allow attaching devices to seats"
@@ -518,8 +458,7 @@ msgstr "Ukloni povezani uređaj sa skupa sesija i hardvera"
 
 #: src/login/org.freedesktop.login1.policy:160
 msgid "Authentication is required to reset how devices are attached to seats."
-msgstr ""
-"Potrebna je ovjera za obnovu povezivanja uređaja sa skupom sesija i hardvera."
+msgstr "Potrebna je ovjera za obnovu povezivanja uređaja sa skupom sesija i hardvera."
 
 #: src/login/org.freedesktop.login1.policy:169
 msgid "Power off the system"
@@ -534,25 +473,16 @@ msgid "Power off the system while other users are logged in"
 msgstr "Isključi sustav kada su ostali korisnici prijavljeni"
 
 #: src/login/org.freedesktop.login1.policy:181
-msgid ""
-"Authentication is required to power off the system while other users are "
-"logged in."
-msgstr ""
-"Potrebna je ovjera za isključivanje sustava kada su ostali korisnici "
-"prijavljeni."
+msgid "Authentication is required to power off the system while other users are logged in."
+msgstr "Potrebna je ovjera za isključivanje sustava kada su ostali korisnici prijavljeni."
 
 #: src/login/org.freedesktop.login1.policy:191
 msgid "Power off the system while an application is inhibiting this"
-msgstr ""
-"Isključi sustav kada je aplikacija zatražila sprječavanje isključivanja"
+msgstr "Isključi sustav kada je aplikacija zatražila sprječavanje isključivanja"
 
 #: src/login/org.freedesktop.login1.policy:192
-msgid ""
-"Authentication is required to power off the system while an application is "
-"inhibiting this."
-msgstr ""
-"Potrebna je ovjera za isključivanje sustava kada je aplikacija zatražila "
-"sprječavanje isključivanja."
+msgid "Authentication is required to power off the system while an application is inhibiting this."
+msgstr "Potrebna je ovjera za isključivanje sustava kada je aplikacija zatražila sprječavanje isključivanja."
 
 #: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system"
@@ -567,26 +497,16 @@ msgid "Reboot the system while other users are logged in"
 msgstr "Ponovno pokreni sustav kada su ostali korisnici prijavljeni"
 
 #: src/login/org.freedesktop.login1.policy:214
-msgid ""
-"Authentication is required to reboot the system while other users are logged "
-"in."
-msgstr ""
-"Potrebna je ovjera za ponovno pokretanje sustava kada su ostali korisnici "
-"prijavljeni."
+msgid "Authentication is required to reboot the system while other users are logged in."
+msgstr "Potrebna je ovjera za ponovno pokretanje sustava kada su ostali korisnici prijavljeni."
 
 #: src/login/org.freedesktop.login1.policy:224
 msgid "Reboot the system while an application is inhibiting this"
-msgstr ""
-"Ponovno pokreni sustav kada je aplikacija zatražila sprječavanje ponovnog "
-"pokretanja"
+msgstr "Ponovno pokreni sustav kada je aplikacija zatražila sprječavanje ponovnog pokretanja"
 
 #: src/login/org.freedesktop.login1.policy:225
-msgid ""
-"Authentication is required to reboot the system while an application is "
-"inhibiting this."
-msgstr ""
-"Potrebna je ovjera za ponovno pokretanje sustava kada je aplikacija "
-"zatražila sprječavanje ponovnog pokretanja."
+msgid "Authentication is required to reboot the system while an application is inhibiting this."
+msgstr "Potrebna je ovjera za ponovno pokretanje sustava kada je aplikacija zatražila sprječavanje ponovnog pokretanja."
 
 #: src/login/org.freedesktop.login1.policy:235
 msgid "Halt the system"
@@ -601,25 +521,16 @@ msgid "Halt the system while other users are logged in"
 msgstr "Zaustavi sustav kada su ostali korisnici prijavljeni"
 
 #: src/login/org.freedesktop.login1.policy:247
-msgid ""
-"Authentication is required to halt the system while other users are logged "
-"in."
-msgstr ""
-"Potrebna je ovjera za zaustavljanje sustava kada su drugi korisnici "
-"prijavljeni."
+msgid "Authentication is required to halt the system while other users are logged in."
+msgstr "Potrebna je ovjera za zaustavljanje sustava kada su drugi korisnici prijavljeni."
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Halt the system while an application is inhibiting this"
-msgstr ""
-"Zaustavi sustav kada je aplikacija zatražila sprječavanje zaustavljanja"
+msgstr "Zaustavi sustav kada je aplikacija zatražila sprječavanje zaustavljanja"
 
 #: src/login/org.freedesktop.login1.policy:258
-msgid ""
-"Authentication is required to halt the system while an application is "
-"inhibiting this."
-msgstr ""
-"Potrebna je ovjera za zaustavljanje sustava kada je aplikacija zatražila "
-"sprječavanje hibernacije."
+msgid "Authentication is required to halt the system while an application is inhibiting this."
+msgstr "Potrebna je ovjera za zaustavljanje sustava kada je aplikacija zatražila sprječavanje hibernacije."
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid "Suspend the system"
@@ -634,25 +545,16 @@ msgid "Suspend the system while other users are logged in"
 msgstr "Suspendiraj sustav kada su drugi korisnici prijavljeni"
 
 #: src/login/org.freedesktop.login1.policy:279
-msgid ""
-"Authentication is required to suspend the system while other users are "
-"logged in."
-msgstr ""
-"Potrebna je ovjera za suspendiranje sustava kada su drugi korisnici "
-"prijavljeni."
+msgid "Authentication is required to suspend the system while other users are logged in."
+msgstr "Potrebna je ovjera za suspendiranje sustava kada su drugi korisnici prijavljeni."
 
 #: src/login/org.freedesktop.login1.policy:289
 msgid "Suspend the system while an application is inhibiting this"
-msgstr ""
-"Suspendiraj sustav kada je aplikacija zatražila sprječavanje suspendiranja"
+msgstr "Suspendiraj sustav kada je aplikacija zatražila sprječavanje suspendiranja"
 
 #: src/login/org.freedesktop.login1.policy:290
-msgid ""
-"Authentication is required to suspend the system while an application is "
-"inhibiting this."
-msgstr ""
-"Potrebna je ovjera za suspendiranje sustava kada je aplikacija zatražila "
-"sprječavanje suspendiranja."
+msgid "Authentication is required to suspend the system while an application is inhibiting this."
+msgstr "Potrebna je ovjera za suspendiranje sustava kada je aplikacija zatražila sprječavanje suspendiranja."
 
 #: src/login/org.freedesktop.login1.policy:300
 msgid "Hibernate the system"
@@ -667,36 +569,24 @@ msgid "Hibernate the system while other users are logged in"
 msgstr "Hiberniraj sustav kada su ostali korisnici prijavljeni"
 
 #: src/login/org.freedesktop.login1.policy:311
-msgid ""
-"Authentication is required to hibernate the system while other users are "
-"logged in."
-msgstr ""
-"Potrebna je ovjera za hibernaciju sustava kada su drugi korisnici "
-"prijavljeni."
+msgid "Authentication is required to hibernate the system while other users are logged in."
+msgstr "Potrebna je ovjera za hibernaciju sustava kada su drugi korisnici prijavljeni."
 
 #: src/login/org.freedesktop.login1.policy:321
 msgid "Hibernate the system while an application is inhibiting this"
-msgstr ""
-"Hiberniraj sustav kada je aplikacija zatražila sprječavanje hibernacije"
+msgstr "Hiberniraj sustav kada je aplikacija zatražila sprječavanje hibernacije"
 
 #: src/login/org.freedesktop.login1.policy:322
-msgid ""
-"Authentication is required to hibernate the system while an application is "
-"inhibiting this."
-msgstr ""
-"Potrebna je ovjera za hibernaciju sustava kada je aplikacija zatražila "
-"sprječavanje hibernacije."
+msgid "Authentication is required to hibernate the system while an application is inhibiting this."
+msgstr "Potrebna je ovjera za hibernaciju sustava kada je aplikacija zatražila sprječavanje hibernacije."
 
 #: src/login/org.freedesktop.login1.policy:332
 msgid "Manage active sessions, users and seats"
-msgstr ""
-"Upravljanje aktivnim sesijama, korisnicima i skupovima sesija i hardvera"
+msgstr "Upravljanje aktivnim sesijama, korisnicima i skupovima sesija i hardvera"
 
 #: src/login/org.freedesktop.login1.policy:333
 msgid "Authentication is required to manage active sessions, users and seats."
-msgstr ""
-"Potrebna je ovjera za upravljanje aktivnim sesijama, korisnicima i skupovima "
-"sesija i hardvera."
+msgstr "Potrebna je ovjera za upravljanje aktivnim sesijama, korisnicima i skupovima sesija i hardvera."
 
 #: src/login/org.freedesktop.login1.policy:342
 msgid "Lock or unlock active sessions"
@@ -712,17 +602,14 @@ msgstr "Postavi \"reason\" ponovnog pokretanja u kernel"
 
 #: src/login/org.freedesktop.login1.policy:353
 msgid "Authentication is required to set the reboot \"reason\" in the kernel."
-msgstr ""
-"Potrebna je ovjera za postaviti \"reason\" ponovnog pokretanja u kernelu."
+msgstr "Potrebna je ovjera za postaviti \"reason\" ponovnog pokretanja u kernelu."
 
 #: src/login/org.freedesktop.login1.policy:363
 msgid "Indicate to the firmware to boot to setup interface"
 msgstr "Najavi firmveru da pokrene sučelje postavljanja"
 
 #: src/login/org.freedesktop.login1.policy:364
-msgid ""
-"Authentication is required to indicate to the firmware to boot to setup "
-"interface."
+msgid "Authentication is required to indicate to the firmware to boot to setup interface."
 msgstr "Potrebna je ovjera za najavu firmveru da pokrene sučelje postavljanja."
 
 #: src/login/org.freedesktop.login1.policy:374
@@ -730,23 +617,16 @@ msgid "Indicate to the boot loader to boot to the boot loader menu"
 msgstr "Najavi učitaču pokretanja da pokrene izbornik učitača pokretanja"
 
 #: src/login/org.freedesktop.login1.policy:375
-msgid ""
-"Authentication is required to indicate to the boot loader to boot to the "
-"boot loader menu."
-msgstr ""
-"Potrebna je ovjera za najavu učitaču pokretanja da pokrene izbornik učitača "
-"pokretanja."
+msgid "Authentication is required to indicate to the boot loader to boot to the boot loader menu."
+msgstr "Potrebna je ovjera za najavu učitaču pokretanja da pokrene izbornik učitača pokretanja."
 
 #: src/login/org.freedesktop.login1.policy:385
 msgid "Indicate to the boot loader to boot a specific entry"
 msgstr "Najavi učitaču pokretanja da pokrene određeni unos"
 
 #: src/login/org.freedesktop.login1.policy:386
-msgid ""
-"Authentication is required to indicate to the boot loader to boot into a "
-"specific boot loader entry."
-msgstr ""
-"Potrebna je ovjera za najavu učitaču pokretanja da pokrene određeni unos."
+msgid "Authentication is required to indicate to the boot loader to boot into a specific boot loader entry."
+msgstr "Potrebna je ovjera za najavu učitaču pokretanja da pokrene određeni unos."
 
 #: src/login/org.freedesktop.login1.policy:396
 msgid "Set a wall message"
@@ -801,8 +681,7 @@ msgid "Acquire a pseudo TTY in a local container"
 msgstr "Pokretanje pseudo TTY na lokalnom spremniku"
 
 #: src/machine/org.freedesktop.machine1.policy:65
-msgid ""
-"Authentication is required to acquire a pseudo TTY in a local container."
+msgid "Authentication is required to acquire a pseudo TTY in a local container."
 msgstr "Potrebna je ovjera za pokretanje pseudo TTY na lokalnom spremniku."
 
 #: src/machine/org.freedesktop.machine1.policy:74
@@ -818,23 +697,16 @@ msgid "Manage local virtual machines and containers"
 msgstr "Upravljanje lokalnim vurtualnim strojevima i spremnicima"
 
 #: src/machine/org.freedesktop.machine1.policy:85
-msgid ""
-"Authentication is required to manage local virtual machines and containers."
-msgstr ""
-"Potrebna je ovjera za upravljanje lokalnim vurtualnim strojevima i "
-"spremnicima."
+msgid "Authentication is required to manage local virtual machines and containers."
+msgstr "Potrebna je ovjera za upravljanje lokalnim vurtualnim strojevima i spremnicima."
 
 #: src/machine/org.freedesktop.machine1.policy:95
 msgid "Manage local virtual machine and container images"
 msgstr "Upravljanje lokalnim vurtualnim strojevima i spremnicima slika"
 
 #: src/machine/org.freedesktop.machine1.policy:96
-msgid ""
-"Authentication is required to manage local virtual machine and container "
-"images."
-msgstr ""
-"Potrebna je ovjera za upravljanje lokalnim vurtualnim strojevima i "
-"spremnicima slika."
+msgid "Authentication is required to manage local virtual machine and container images."
+msgstr "Potrebna je ovjera za upravljanje lokalnim vurtualnim strojevima i spremnicima slika."
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
@@ -892,8 +764,7 @@ msgstr "Omogući/Onemogući glatko osvježavanje"
 #: src/network/org.freedesktop.network1.policy:78
 #: src/resolve/org.freedesktop.resolve1.policy:89
 msgid "Authentication is required to enable or disable multicast DNS."
-msgstr ""
-"Potrebna je ovjera za omogućavanje ili onemogućavanje DNS grupnog emitiranja."
+msgstr "Potrebna je ovjera za omogućavanje ili onemogućavanje DNS grupnog emitiranja."
 
 #: src/network/org.freedesktop.network1.policy:88
 #: src/resolve/org.freedesktop.resolve1.policy:99
@@ -923,8 +794,7 @@ msgstr "Postavi DNSSEC negativna pouzdana sidrišta"
 #: src/network/org.freedesktop.network1.policy:111
 #: src/resolve/org.freedesktop.resolve1.policy:122
 msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
-msgstr ""
-"Potrebna je ovjera za postavljanje DNSSEC negativnih pouzdanih sidrišta."
+msgstr "Potrebna je ovjera za postavljanje DNSSEC negativnih pouzdanih sidrišta."
 
 #: src/network/org.freedesktop.network1.policy:121
 msgid "Revert NTP settings"
@@ -987,18 +857,15 @@ msgid "Attach or detach a portable service image"
 msgstr "Dodaj ili ukloni prijenosnu sliku usluge"
 
 #: src/portable/org.freedesktop.portable1.policy:24
-msgid ""
-"Authentication is required to attach or detach a portable service image."
-msgstr ""
-"Potrebna je ovjera za dodavanje ili uklanjanje prijenosne slike usluge."
+msgid "Authentication is required to attach or detach a portable service image."
+msgstr "Potrebna je ovjera za dodavanje ili uklanjanje prijenosne slike usluge."
 
 #: src/portable/org.freedesktop.portable1.policy:34
 msgid "Delete or modify portable service image"
 msgstr "Obriši ili promijeni prijenosnu sliku usluge"
 
 #: src/portable/org.freedesktop.portable1.policy:35
-msgid ""
-"Authentication is required to delete or modify a portable service image."
+msgid "Authentication is required to delete or modify a portable service image."
 msgstr "Potrebna je ovjera za brisnje ili promijenu prijenosne slike usluge."
 
 #: src/resolve/org.freedesktop.resolve1.policy:22
@@ -1046,23 +913,16 @@ msgid "Set RTC to local timezone or UTC"
 msgstr "Postavi RTC u lokalnu vremensku zonu ili UTC"
 
 #: src/timedate/org.freedesktop.timedate1.policy:44
-msgid ""
-"Authentication is required to control whether the RTC stores the local or "
-"UTC time."
-msgstr ""
-"Potrebna je ovjera za postavljanje RTC-a u lokalnu vremensku zonu ili UTC."
+msgid "Authentication is required to control whether the RTC stores the local or UTC time."
+msgstr "Potrebna je ovjera za postavljanje RTC-a u lokalnu vremensku zonu ili UTC."
 
 #: src/timedate/org.freedesktop.timedate1.policy:53
 msgid "Turn network time synchronization on or off"
 msgstr "Uključi ili isključi mrežno uklađivanje vremena"
 
 #: src/timedate/org.freedesktop.timedate1.policy:54
-msgid ""
-"Authentication is required to control whether network time synchronization "
-"shall be enabled."
-msgstr ""
-"Potrebna je ovjera za uključivanje ili isključivanje mrežnog usklađivanja "
-"vremena."
+msgid "Authentication is required to control whether network time synchronization shall be enabled."
+msgstr "Potrebna je ovjera za uključivanje ili isključivanje mrežnog usklađivanja vremena."
 
 #: src/core/dbus-unit.c:352
 msgid "Authentication is required to start '$(unit)'."
@@ -1081,9 +941,7 @@ msgid "Authentication is required to restart '$(unit)'."
 msgstr "Potrebna je ovjera za ponovno pokretanje'$(unit)'."
 
 #: src/core/dbus-unit.c:553
-msgid ""
-"Authentication is required to send a UNIX signal to the processes of "
-"'$(unit)'."
+msgid "Authentication is required to send a UNIX signal to the processes of '$(unit)'."
 msgstr "Potrebna je ovjera za slanje UNIX signala u procese '$(unit)'."
 
 #: src/core/dbus-unit.c:583
@@ -1095,15 +953,9 @@ msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Potrebna je ovjera za postavljanje svojstava na '$(unit)'."
 
 #: src/core/dbus-unit.c:716
-msgid ""
-"Authentication is required to delete files and directories associated with "
-"'$(unit)'."
-msgstr ""
-"Potrebna je ovjera za brisanje datoteka i direktorija pridruženih sa "
-"'$(unit)'."
+msgid "Authentication is required to delete files and directories associated with '$(unit)'."
+msgstr "Potrebna je ovjera za brisanje datoteka i direktorija pridruženih sa '$(unit)'."
 
 #: src/core/dbus-unit.c:764
-msgid ""
-"Authentication is required to freeze or thaw the processes of '$(unit)' unit."
-msgstr ""
-"Potrebna je ovjera za zamrzavanje ili odmrzavanje procesa '$(unit)' jedinice."
+msgid "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
+msgstr "Potrebna je ovjera za zamrzavanje ili odmrzavanje procesa '$(unit)' jedinice."
