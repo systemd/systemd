@@ -128,7 +128,7 @@ int main(int argc, char **argv) {
         _cleanup_globfree_ glob_t g = {};
         char **fnames;
 
-        log_parse_environment();
+        test_setup_logging(LOG_DEBUG);
 
         if (argc >= 2) {
                 N = argc - 1;
