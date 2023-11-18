@@ -4,21 +4,22 @@
 # Frank Hill <hxf.prc@gmail.com>, 2014.
 # Boyuan Yang <073plan@gmail.com>, 2015.
 # Jeff Bai <jeffbai@aosc.xyz>, 2016.
-# Charles Lee <lchopn@gmail.com>, 2020, 2021, 2022.
+# Charles Lee <lchopn@gmail.com>, 2020, 2021, 2022, 2023.
 # Whired Planck <fungdaat31@outlook.com>, 2020.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2023-11-14 21:25+0000\n"
-"PO-Revision-Date: 2022-10-31 11:19+0000\n"
+"PO-Revision-Date: 2023-11-18 11:17+0000\n"
 "Last-Translator: Charles Lee <lchopn@gmail.com>\n"
-"Language-Team: Chinese (Simplified) <https://translate.fedoraproject.org/projects/systemd/master/zh_CN/>\n"
+"Language-Team: Chinese (Simplified) <https://translate.fedoraproject.org/"
+"projects/systemd/master/zh_CN/>\n"
 "Language: zh_CN\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
-"X-Generator: Weblate 4.14.1\n"
+"X-Generator: Weblate 5.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -162,7 +163,7 @@ msgstr "用户 %s 的安全令牌未插入。"
 
 #: src/home/pam_systemd_home.c:353 src/home/pam_systemd_home.c:356
 msgid "Try again with password: "
-msgstr "请尝试重新输入密码： "
+msgstr "请使用密码重试： "
 
 #: src/home/pam_systemd_home.c:355
 #, c-format
@@ -181,7 +182,7 @@ msgstr "请在用户 %s 的安全令牌上进行物理认证。"
 #: src/home/pam_systemd_home.c:404
 #, c-format
 msgid "Please confirm presence on security token of user %s."
-msgstr "请确认用户 %s 的安全令牌存在。"
+msgstr "请确认安全令牌上存在用户 %s。"
 
 #: src/home/pam_systemd_home.c:415
 #, c-format
