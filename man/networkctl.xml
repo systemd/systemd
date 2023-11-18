@@ -430,7 +430,8 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         </term>
         <listitem><para>Edit network configuration files, which include <filename>.network</filename>,
         <filename>.netdev</filename>, and <filename>.link</filename> files. If no network config file
-        matching the given name is found, a new one will be created under <filename>/etc/</filename>.
+        matching the given name is found, a new one will be created under <filename>/etc/</filename> or
+        <filename>/run/</filename>, depending on whether <option>--runtime</option> is specified.
         Specially, if the name is prefixed by <literal>@</literal>, it will be treated as
         a network interface, and editing will be performed on the network config files associated
         with it. Additionally, the interface name can be suffixed with <literal>:network</literal> (default)
@@ -541,6 +542,17 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
 
         <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
+
+      <varlistentry>
+        <term><option>--runtime</option></term>
+
+        <listitem>
+          <para>When used with <command>edit</command>, edit the file under <filename>/run/</filename>
+          instead of <filename>/etc/</filename>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="json" />
