@@ -425,10 +425,18 @@ static int get_proc_meminfo_active(unsigned long long *ret) {
 int hibernation_is_safe(void) {
         unsigned long long active;
         uint64_t size, used;
-        bool resume_set;
+        bool resume_set, bypass_space_check;
         int r;
 
+        bypass_space_check = getenv_bool("SYSTEMD_BYPASS_HIBERNATION_MEMORY_CHECK") > 0;
+
         r = find_suitable_hibernation_device_full(NULL, &size, &used);
+        if (r == -ENOSPC && bypass_space_check)
+                /* If we don't have any available swap space at all, and SYSTEMD_BYPASS_HIBERNATION_MEMORY_CHECK
+                 * is set, skip all remaining checks since we can't do that properly anyway. It is quite
+                 * possible that the user is using a setup similar to #30083. When we actually perform
+                 * hibernation in sleep.c we'll check everything again. */
+                return 0;
         if (r < 0)
                 return r;
         resume_set = r > 0;
@@ -437,7 +445,7 @@ int hibernation_is_safe(void) {
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Not running on EFI and resume= is not set. Hibernation is not safe.");
 
-        if (getenv_bool("SYSTEMD_BYPASS_HIBERNATION_MEMORY_CHECK") > 0)
+        if (bypass_space_check)
                 return true;
 
         r = get_proc_meminfo_active(&active);
