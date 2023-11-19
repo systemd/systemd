@@ -1120,6 +1120,11 @@ static int event_log_load_userspace(EventLog *el) {
                         continue;
                 }
 
+                if (!b)
+                        return log_error_errno(
+                                        SYNTHETIC_ERRNO(EBADMSG),
+                                        "Empty or malformed local TPM measurement log file.");
+
                 b[bn] = 0;
                 r = json_parse(b, 0, &j, NULL, NULL);
                 if (r < 0)
