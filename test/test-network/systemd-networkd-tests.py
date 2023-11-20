@@ -356,6 +356,9 @@ def setup_systemd_udev_rules():
                 continue
             cp(os.path.join(path, rule), udev_rules_dir)
 
+def clear_networkd_state_files():
+    rm_rf('/var/lib/systemd/network/')
+
 def copy_udev_rule(*rules):
     """Copy udev rules"""
     mkdir_p(udev_rules_dir)
@@ -772,6 +775,7 @@ def tear_down_common():
     # 6. remove configs
     clear_network_units()
     clear_networkd_conf_dropins()
+    clear_networkd_state_files()
 
     # 7. flush settings
     flush_fou_ports()
@@ -785,6 +789,7 @@ def setUpModule():
 
     clear_network_units()
     clear_networkd_conf_dropins()
+    clear_networkd_state_files()
     clear_udev_rules()
 
     setup_systemd_udev_rules()
@@ -839,6 +844,7 @@ def tearDownModule():
     clear_udev_rules()
     clear_network_units()
     clear_networkd_conf_dropins()
+    clear_networkd_state_files()
 
     restore_timezone()
 
@@ -5184,6 +5190,17 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'NTP: 192.168.5.1\n *192.168.5.11')
 
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth-peer', env=env)
+        print(output)
+        self.assertRegex(output, "Offered DHCP leases: 192.168.5.[0-9]*")
+
+        networkctl_reconfigure('veth-peer')
+        self.wait_online(['veth-peer:routable'])
+
+        for _ in range(10):
+            output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth-peer', env=env)
+            if 'Offered DHCP leases: 192.168.5.' in output:
+                break
+            time.sleep(.2)
         self.assertRegex(output, "Offered DHCP leases: 192.168.5.[0-9]*")
 
     def test_dhcp_server_null_server_address(self):
