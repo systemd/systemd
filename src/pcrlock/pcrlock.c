@@ -1120,7 +1120,11 @@ static int event_log_load_userspace(EventLog *el) {
                         continue;
                 }
 
-                b[bn] = 0;
+                if (!GREEDY_REALLOC(b, bn + 1))
+                        return log_oom();
+
+                b[bn] = 0; /* Turn it into a string */
+
                 r = json_parse(b, 0, &j, NULL, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse local TPM measurement log file: %m");
