@@ -277,7 +277,7 @@ int tpm2_calculate_policy_or(const TPM2B_DIGEST *branches, size_t n_branches, TP
 int tpm2_calculate_policy_super_pcr(Tpm2PCRPrediction *prediction, uint16_t algorithm, TPM2B_DIGEST *pcr_policy);
 int tpm2_calculate_serialize(TPM2_HANDLE handle, const TPM2B_NAME *name, const TPM2B_PUBLIC *public, void **ret_serialized, size_t *ret_serialized_size);
 int tpm2_calculate_sealing_policy(const Tpm2PCRValue *pcr_values, size_t n_pcr_values, const TPM2B_PUBLIC *public, bool use_pin, const Tpm2PCRLockPolicy *policy, TPM2B_DIGEST *digest);
-int tpm2_calculate_seal(TPM2_HANDLE parent_handle, const TPM2B_PUBLIC *parent_public, const TPMA_OBJECT *attributes, const void *secret, size_t secret_size, const TPM2B_DIGEST *policy, const char *pin, void **ret_secret, size_t *ret_secret_size, void **ret_blob, size_t *ret_blob_size, void **ret_serialized_parent, size_t *ret_serialized_parent_size);
+int tpm2_calculate_seal(TPM2_HANDLE parent_handle, const TPM2B_PUBLIC *parent_public, const TPMA_OBJECT *attributes, const struct iovec *secret, const TPM2B_DIGEST *policy, const char *pin, struct iovec *ret_secret, struct iovec *ret_blob, struct iovec *ret_serialized_parent);
 
 int tpm2_get_srk_template(TPMI_ALG_PUBLIC alg, TPMT_PUBLIC *ret_template);
 int tpm2_get_best_srk_template(Tpm2Context *c, TPMT_PUBLIC *ret_template);
@@ -285,8 +285,8 @@ int tpm2_get_best_srk_template(Tpm2Context *c, TPMT_PUBLIC *ret_template);
 int tpm2_get_srk(Tpm2Context *c, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname, Tpm2Handle **ret_handle);
 int tpm2_get_or_create_srk(Tpm2Context *c, const Tpm2Handle *session, TPM2B_PUBLIC **ret_public, TPM2B_NAME **ret_name, TPM2B_NAME **ret_qname, Tpm2Handle **ret_handle);
 
-int tpm2_seal(Tpm2Context *c, uint32_t seal_key_handle, const TPM2B_DIGEST *policy, const char *pin, void **ret_secret, size_t *ret_secret_size, void **ret_blob, size_t *ret_blob_size, uint16_t *ret_primary_alg, void **ret_srk_buf, size_t *ret_srk_buf_size);
-int tpm2_unseal(Tpm2Context *c, uint32_t hash_pcr_mask, uint16_t pcr_bank, const void *pubkey, size_t pubkey_size, uint32_t pubkey_pcr_mask, JsonVariant *signature, const char *pin, const Tpm2PCRLockPolicy *pcrlock_policy, uint16_t primary_alg, const void *blob, size_t blob_size, const void *policy_hash, size_t policy_hash_size, const void *srk_buf, size_t srk_buf_size, void **ret_secret, size_t *ret_secret_size);
+int tpm2_seal(Tpm2Context *c, uint32_t seal_key_handle, const TPM2B_DIGEST *policy, const char *pin, struct iovec *ret_secret, struct iovec *ret_blob, uint16_t *ret_primary_alg, struct iovec *ret_srk);
+int tpm2_unseal(Tpm2Context *c, uint32_t hash_pcr_mask, uint16_t pcr_bank, const struct iovec *pubkey, uint32_t pubkey_pcr_mask, JsonVariant *signature, const char *pin, const Tpm2PCRLockPolicy *pcrlock_policy, uint16_t primary_alg, const struct iovec *blob, const struct iovec *policy_hash, const struct iovec *srk, struct iovec *ret_secret);
 
 #if HAVE_OPENSSL
 int tpm2_tpm2b_public_to_openssl_pkey(const TPM2B_PUBLIC *public, EVP_PKEY **ret);
@@ -383,8 +383,8 @@ int tpm2_find_device_auto(char **ret);
 int tpm2_make_pcr_json_array(uint32_t pcr_mask, JsonVariant **ret);
 int tpm2_parse_pcr_json_array(JsonVariant *v, uint32_t *ret);
 
-int tpm2_make_luks2_json(int keyslot, uint32_t hash_pcr_mask, uint16_t pcr_bank, const void *pubkey, size_t pubkey_size, uint32_t pubkey_pcr_mask, uint16_t primary_alg, const void *blob, size_t blob_size, const void *policy_hash, size_t policy_hash_size, const void *salt, size_t salt_size, const void *srk_buf, size_t srk_buf_size, TPM2Flags flags, JsonVariant **ret);
-int tpm2_parse_luks2_json(JsonVariant *v, int *ret_keyslot, uint32_t *ret_hash_pcr_mask, uint16_t *ret_pcr_bank, void **ret_pubkey, size_t *ret_pubkey_size, uint32_t *ret_pubkey_pcr_mask, uint16_t *ret_primary_alg, void **ret_blob, size_t *ret_blob_size, void **ret_policy_hash, size_t *ret_policy_hash_size, void **ret_salt, size_t *ret_salt_size, void **ret_srk_buf, size_t *ret_srk_buf_size, TPM2Flags *ret_flags);
+int tpm2_make_luks2_json(int keyslot, uint32_t hash_pcr_mask, uint16_t pcr_bank, const struct iovec *pubkey, uint32_t pubkey_pcr_mask, uint16_t primary_alg, const struct iovec *blob, const struct iovec *policy_hash, const struct iovec *salt, const struct iovec *srk, TPM2Flags flags, JsonVariant **ret);
+int tpm2_parse_luks2_json(JsonVariant *v, int *ret_keyslot, uint32_t *ret_hash_pcr_mask, uint16_t *ret_pcr_bank, struct iovec *ret_pubkey, uint32_t *ret_pubkey_pcr_mask, uint16_t *ret_primary_alg, struct iovec *ret_blob, struct iovec *ret_policy_hash, struct iovec *ret_salt, struct iovec *ret_srk, TPM2Flags *ret_flags);
 
 /* Default to PCR 7 only */
 #define TPM2_PCR_INDEX_DEFAULT UINT32_C(7)
