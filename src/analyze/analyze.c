@@ -558,9 +558,9 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --offline= is only supported for security right now.");
 
-        if (arg_json_format_flags != JSON_FORMAT_OFF && !STRPTR_IN_SET(argv[optind], "security", "inspect-elf", "plot", "fdstore", "pcrs", "architectures"))
+        if (arg_json_format_flags != JSON_FORMAT_OFF && !STRPTR_IN_SET(argv[optind], "security", "inspect-elf", "plot", "fdstore", "pcrs", "architectures", "capability"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Option --json= is only supported for security, inspect-elf, plot, fdstore, pcrs, architectures right now.");
+                                       "Option --json= is only supported for security, inspect-elf, plot, fdstore, pcrs, architectures, capability right now.");
 
         if (arg_threshold != 100 && !streq_ptr(argv[optind], "security"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
