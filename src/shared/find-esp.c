@@ -556,13 +556,16 @@ int find_esp_and_warn(
         if (rfd < 0)
                 return -errno;
 
-        r = find_esp_and_warn_at(rfd, path, unprivileged_mode,
-                                 ret_path ? &p : NULL,
-                                 ret_part ? &part : NULL,
-                                 ret_pstart ? &pstart : NULL,
-                                 ret_psize ? &psize : NULL,
-                                 ret_uuid ? &uuid : NULL,
-                                 ret_devid ? &devid : NULL);
+        r = find_esp_and_warn_at(
+                        rfd,
+                        path,
+                        unprivileged_mode,
+                        ret_path ? &p : NULL,
+                        ret_part ? &part : NULL,
+                        ret_pstart ? &pstart : NULL,
+                        ret_psize ? &psize : NULL,
+                        ret_uuid ? &uuid : NULL,
+                        ret_devid ? &devid : NULL);
         if (r < 0)
                 return r;
 
@@ -871,12 +874,12 @@ int find_xbootldr_and_warn_at(
 }
 
 int find_xbootldr_and_warn(
-        const char *root,
-        const char *path,
-        int unprivileged_mode,
-        char **ret_path,
-        sd_id128_t *ret_uuid,
-        dev_t *ret_devid) {
+                const char *root,
+                const char *path,
+                int unprivileged_mode,
+                char **ret_path,
+                sd_id128_t *ret_uuid,
+                dev_t *ret_devid) {
 
         _cleanup_close_ int rfd = -EBADF;
         _cleanup_free_ char *p = NULL;
@@ -888,10 +891,13 @@ int find_xbootldr_and_warn(
         if (rfd < 0)
                 return -errno;
 
-        r = find_xbootldr_and_warn_at(rfd, path, unprivileged_mode,
-                                      ret_path ? &p : NULL,
-                                      ret_uuid ? &uuid : NULL,
-                                      ret_devid ? &devid : NULL);
+        r = find_xbootldr_and_warn_at(
+                        rfd,
+                        path,
+                        unprivileged_mode,
+                        ret_path ? &p : NULL,
+                        ret_uuid ? &uuid : NULL,
+                        ret_devid ? &devid : NULL);
         if (r < 0)
                 return r;
 
