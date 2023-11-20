@@ -30,3 +30,6 @@ int dhcp_server_add_lease(sd_dhcp_server *server, sd_dhcp_server_lease *lease, b
 
 int dhcp_server_bound_leases_append_json(sd_dhcp_server *server, JsonVariant **v);
 int dhcp_server_static_leases_append_json(sd_dhcp_server *server, JsonVariant **v);
+
+int dhcp_server_save_leases(sd_dhcp_server *server, const char *path);
+int dhcp_server_load_leases(sd_dhcp_server *server, const char *path);
