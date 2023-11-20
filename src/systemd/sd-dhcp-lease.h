@@ -24,6 +24,8 @@
 #include <netinet/in.h>
 #include <sys/types.h>
 
+#include "sd-dhcp-client-id.h"
+
 #include "_sd-common.h"
 
 _SD_BEGIN_DECLARATIONS;
@@ -76,7 +78,7 @@ int sd_dhcp_lease_get_captive_portal(sd_dhcp_lease *lease, const char **captive_
 int sd_dhcp_lease_get_static_routes(sd_dhcp_lease *lease, sd_dhcp_route ***ret);
 int sd_dhcp_lease_get_classless_routes(sd_dhcp_lease *lease, sd_dhcp_route ***ret);
 int sd_dhcp_lease_get_vendor_specific(sd_dhcp_lease *lease, const void **data, size_t *data_len);
-int sd_dhcp_lease_get_client_id(sd_dhcp_lease *lease, const void **client_id, size_t *client_id_len);
+int sd_dhcp_lease_get_client_id(sd_dhcp_lease *lease, const sd_dhcp_client_id **ret);
 int sd_dhcp_lease_get_timezone(sd_dhcp_lease *lease, const char **timezone);
 int sd_dhcp_lease_get_6rd(
                 sd_dhcp_lease *lease,

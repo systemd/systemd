@@ -18,6 +18,7 @@
 #include "networkd-manager.h"
 #include "service-util.h"
 #include "signal-util.h"
+#include "strv.h"
 #include "user-util.h"
 
 static int run(int argc, char *argv[]) {
@@ -69,17 +70,15 @@ static int run(int argc, char *argv[]) {
         /* Always create the directories people can create inotify watches in.
          * It is necessary to create the following subdirectories after drop_privileges()
          * to support old kernels not supporting AmbientCapabilities=. */
-        r = mkdir_safe_label("/run/systemd/netif/links", 0755, UID_INVALID, GID_INVALID, MKDIR_WARN_MODE);
-        if (r < 0)
-                log_warning_errno(r, "Could not create runtime directory 'links': %m");
-
-        r = mkdir_safe_label("/run/systemd/netif/leases", 0755, UID_INVALID, GID_INVALID, MKDIR_WARN_MODE);
-        if (r < 0)
-                log_warning_errno(r, "Could not create runtime directory 'leases': %m");
-
-        r = mkdir_safe_label("/run/systemd/netif/lldp", 0755, UID_INVALID, GID_INVALID, MKDIR_WARN_MODE);
-        if (r < 0)
-                log_warning_errno(r, "Could not create runtime directory 'lldp': %m");
+        FOREACH_STRING(p,
+                       "/run/systemd/netif/links/",
+                       "/run/systemd/netif/leases/",
+                       "/run/systemd/netif/lldp/",
+                       "/var/lib/systemd/network/dhcp-server-lease/") {
+                r = mkdir_safe_label(p, 0755, UID_INVALID, GID_INVALID, MKDIR_WARN_MODE);
+                if (r < 0)
+                        log_warning_errno(r, "Could not create directory '%s': %m", p);
+        }
 
         r = manager_new(&m, /* test_mode = */ false);
         if (r < 0)
