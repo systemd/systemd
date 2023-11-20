@@ -838,8 +838,8 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_with_key = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC;
                         else if (STR_IN_SET(optarg, "host+tpm2-with-public-key", "tpm2-with-public-key+host"))
                                 arg_with_key = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK;
-                        else if (streq(optarg, "tpm2-absent"))
-                                arg_with_key = CRED_AES256_GCM_BY_TPM2_ABSENT;
+                        else if (STR_IN_SET(optarg, "null", "tpm2-absent"))
+                                arg_with_key = CRED_AES256_GCM_BY_NULL;
                         else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown key type: %s", optarg);
 

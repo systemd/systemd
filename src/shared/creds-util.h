@@ -65,7 +65,7 @@ int get_credential_user_password(const char *username, char **ret_password, bool
 #define CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC SD_ID128_MAKE(93,a8,94,09,48,74,44,90,90,ca,f2,fc,93,ca,b5,53)
 #define CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK           \
                                               SD_ID128_MAKE(af,49,50,a8,49,13,4e,b1,a7,38,46,30,4f,f3,0c,05)
-#define CRED_AES256_GCM_BY_TPM2_ABSENT        SD_ID128_MAKE(05,84,69,da,f6,f5,43,24,80,05,49,da,0f,8e,a2,fb)
+#define CRED_AES256_GCM_BY_NULL               SD_ID128_MAKE(05,84,69,da,f6,f5,43,24,80,05,49,da,0f,8e,a2,fb)
 
 /* Two special IDs to pick a general automatic mode (i.e. tpm2+host if TPM2 exists, only host otherwise) or
  * an initrd-specific automatic mode (i.e. tpm2 if firmware can do it, otherwise fixed zero-length key, and
