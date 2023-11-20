@@ -133,6 +133,12 @@ Deprecations and removals:
 
 Features:
 
+* extend mime database with mime types for:
+  - journal files
+  - credential files
+  - hwdb files
+  - catalog files
+
 * cryptsetup: new crypttab option to auto-grow a luks device to its backing
   partition size. new crypttab option to reencrypt a luks device with a new
   volume key.
