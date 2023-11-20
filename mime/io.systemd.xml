@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x.systemd-sysext">
+    <sub-class-of type="application/vnd.efi.img"/>
+    <comment>System Extension DDI</comment>
+    <glob pattern="*.sysext.raw"/>
+  </mime-type>
+  <mime-type type="application/x.systemd-confext">
+    <sub-class-of type="application/vnd.efi.img"/>
+    <comment>Configuration Extension DDI</comment>
+    <glob pattern="*.confext.raw"/>
+  </mime-type>
+</mime-info>
