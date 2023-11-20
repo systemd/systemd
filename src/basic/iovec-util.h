@@ -12,12 +12,22 @@ size_t iovec_total_size(const struct iovec *iovec, size_t n);
 
 bool iovec_increment(struct iovec *iovec, size_t n, size_t k);
 
-#define IOVEC_MAKE(base, len) (struct iovec) { .iov_base = (base), .iov_len = (len) }
-#define IOVEC_MAKE_STRING(string)                       \
-        ({                                              \
-                const char *_s = (string);              \
-                IOVEC_MAKE((char*) _s, strlen(_s));     \
-        })
+/* This accepts both const and non-const pointers */
+#define IOVEC_MAKE(base, len)                                           \
+        (struct iovec) {                                                \
+                .iov_base = (void*) (base),                             \
+                .iov_len = (len),                                       \
+        }
+
+static inline struct iovec* iovec_make_string(struct iovec *iovec, const char *s) {
+        assert(iovec);
+        /* We don't use strlen_ptr() here, because we don't want to include string-util.h for now */
+        *iovec = IOVEC_MAKE(s, s ? strlen(s) : 0);
+        return iovec;
+}
+
+#define IOVEC_MAKE_STRING(s) \
+        *iovec_make_string(&(struct iovec) {}, s)
 
 static inline void iovec_done(struct iovec *iovec) {
         /* A _cleanup_() helper that frees the iov_base in the iovec */
