@@ -19,6 +19,7 @@ sources = files(
         'sd-dhcp-client.c',
         'sd-dhcp-duid.c',
         'sd-dhcp-lease.c',
+        'sd-dhcp-server-lease.c',
         'sd-dhcp-server.c',
         'sd-dhcp6-client.c',
         'sd-dhcp6-lease.c',
