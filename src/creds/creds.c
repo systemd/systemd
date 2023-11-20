@@ -429,6 +429,7 @@ static int verb_cat(int argc, char **argv, void *userdata) {
                                         arg_tpm2_device,
                                         arg_tpm2_signature,
                                         &IOVEC_MAKE(data, size),
+                                        /* flags= */ 0,
                                         &plaintext);
                         if (r < 0)
                                 return r;
@@ -501,6 +502,7 @@ static int verb_encrypt(int argc, char **argv, void *userdata) {
                         arg_tpm2_public_key,
                         arg_tpm2_public_key_pcr_mask,
                         &plaintext,
+                        /* flags= */ 0,
                         &output);
         if (r < 0)
                 return r;
@@ -589,6 +591,7 @@ static int verb_decrypt(int argc, char **argv, void *userdata) {
                         arg_tpm2_device,
                         arg_tpm2_signature,
                         &input,
+                        /* flags= */ 0,
                         &plaintext);
         if (r < 0)
                 return r;
@@ -1029,6 +1032,7 @@ static int vl_method_encrypt(Varlink *link, JsonVariant *parameters, VarlinkMeth
                         arg_tpm2_public_key,
                         arg_tpm2_public_key_pcr_mask,
                         p.text ? &IOVEC_MAKE_STRING(p.text) : &p.data,
+                        /* flags= */ 0,
                         &output);
         if (r < 0)
                 return r;
@@ -1103,6 +1107,7 @@ static int vl_method_decrypt(Varlink *link, JsonVariant *parameters, VarlinkMeth
                         arg_tpm2_device,
                         arg_tpm2_signature,
                         &p.blob,
+                        /* flags= */ 0,
                         &output);
         if (r == -EBADMSG)
                 return varlink_error(link, "io.systemd.Credentials.BadFormat", NULL);
