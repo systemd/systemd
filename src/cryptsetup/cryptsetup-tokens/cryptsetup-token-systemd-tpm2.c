@@ -42,9 +42,8 @@ _public_ int cryptsetup_token_open_pin(
                 void *usrptr /* plugin defined parameter passed to crypt_activate_by_token*() API */) {
 
         _cleanup_(erase_and_freep) char *base64_encoded = NULL, *pin_string = NULL;
-        _cleanup_free_ void *blob = NULL, *pubkey = NULL, *policy_hash = NULL, *salt = NULL, *srk_buf = NULL;
-        size_t blob_size, policy_hash_size, decrypted_key_size, pubkey_size, salt_size = 0, srk_buf_size = 0;
-        _cleanup_(erase_and_freep) void *decrypted_key = NULL;
+        _cleanup_(iovec_done) struct iovec blob = {}, pubkey = {}, policy_hash = {}, salt = {}, srk = {};
+        _cleanup_(iovec_done_erase) struct iovec decrypted_key = {};
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         uint32_t hash_pcr_mask, pubkey_pcr_mask;
         systemd_tpm2_plugin_params params = {
@@ -79,21 +78,16 @@ _public_ int cryptsetup_token_open_pin(
 
         r = tpm2_parse_luks2_json(
                         v,
-                        NULL,
+                        /* ret_keyslot= */ NULL,
                         &hash_pcr_mask,
                         &pcr_bank,
                         &pubkey,
-                        &pubkey_size,
                         &pubkey_pcr_mask,
                         &primary_alg,
                         &blob,
-                        &blob_size,
                         &policy_hash,
-                        &policy_hash_size,
                         &salt,
-                        &salt_size,
-                        &srk_buf,
-                        &srk_buf_size,
+                        &srk,
                         &flags);
         if (r < 0)
                 return log_debug_open_error(cd, r);
@@ -105,28 +99,23 @@ _public_ int cryptsetup_token_open_pin(
                         params.device,
                         hash_pcr_mask,
                         pcr_bank,
-                        pubkey, pubkey_size,
+                        &pubkey,
                         pubkey_pcr_mask,
                         params.signature_path,
                         pin_string,
                         params.pcrlock_path,
                         primary_alg,
-                        blob,
-                        blob_size,
-                        policy_hash,
-                        policy_hash_size,
-                        salt,
-                        salt_size,
-                        srk_buf,
-                        srk_buf_size,
+                        &blob,
+                        &policy_hash,
+                        &salt,
+                        &srk,
                         flags,
-                        &decrypted_key,
-                        &decrypted_key_size);
+                        &decrypted_key);
         if (r < 0)
                 return log_debug_open_error(cd, r);
 
         /* Before using this key as passphrase we base64 encode it, for compat with homed */
-        base64_encoded_size = base64mem(decrypted_key, decrypted_key_size, &base64_encoded);
+        base64_encoded_size = base64mem(decrypted_key.iov_base, decrypted_key.iov_len, &base64_encoded);
         if (base64_encoded_size < 0)
                 return log_debug_open_error(cd, base64_encoded_size);
 
@@ -177,9 +166,8 @@ _public_ void cryptsetup_token_dump(
                 const char *json /* validated 'systemd-tpm2' token if cryptsetup_token_validate is defined */) {
 
         _cleanup_free_ char *hash_pcrs_str = NULL, *pubkey_pcrs_str = NULL, *blob_str = NULL, *policy_hash_str = NULL, *pubkey_str = NULL;
-        _cleanup_free_ void *blob = NULL, *pubkey = NULL, *policy_hash = NULL, *salt = NULL, *srk_buf = NULL;
+        _cleanup_(iovec_done) struct iovec blob = {}, pubkey = {}, policy_hash = {}, salt = {}, srk = {};
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-        size_t blob_size, policy_hash_size, pubkey_size, salt_size = 0, srk_buf_size = 0;
         uint32_t hash_pcr_mask, pubkey_pcr_mask;
         uint16_t pcr_bank, primary_alg;
         TPM2Flags flags = 0;
@@ -197,17 +185,12 @@ _public_ void cryptsetup_token_dump(
                         &hash_pcr_mask,
                         &pcr_bank,
                         &pubkey,
-                        &pubkey_size,
                         &pubkey_pcr_mask,
                         &primary_alg,
                         &blob,
-                        &blob_size,
                         &policy_hash,
-                        &policy_hash_size,
                         &salt,
-                        &salt_size,
-                        &srk_buf,
-                        &srk_buf_size,
+                        &srk,
                         &flags);
         if (r < 0)
                 return (void) crypt_log_debug_errno(cd, r, "Failed to parse " TOKEN_NAME " JSON fields: %m");
@@ -220,15 +203,15 @@ _public_ void cryptsetup_token_dump(
         if (!pubkey_pcrs_str)
                 return (void) crypt_log_debug_errno(cd, ENOMEM, "Cannot format PCR hash mask: %m");
 
-        r = crypt_dump_buffer_to_hex_string(blob, blob_size, &blob_str);
+        r = crypt_dump_buffer_to_hex_string(blob.iov_base, blob.iov_len, &blob_str);
         if (r < 0)
                 return (void) crypt_log_debug_errno(cd, r, "Cannot dump " TOKEN_NAME " content: %m");
 
-        r = crypt_dump_buffer_to_hex_string(pubkey, pubkey_size, &pubkey_str);
+        r = crypt_dump_buffer_to_hex_string(pubkey.iov_base, pubkey.iov_len, &pubkey_str);
         if (r < 0)
                 return (void) crypt_log_debug_errno(cd, r, "Cannot dump " TOKEN_NAME " content: %m");
 
-        r = crypt_dump_buffer_to_hex_string(policy_hash, policy_hash_size, &policy_hash_str);
+        r = crypt_dump_buffer_to_hex_string(policy_hash.iov_base, policy_hash.iov_len, &policy_hash_str);
         if (r < 0)
                 return (void) crypt_log_debug_errno(cd, r, "Cannot dump " TOKEN_NAME " content: %m");
 
@@ -241,8 +224,8 @@ _public_ void cryptsetup_token_dump(
         crypt_log(cd, "\ttpm2-policy-hash:" CRYPT_DUMP_LINE_SEP "%s\n", policy_hash_str);
         crypt_log(cd, "\ttpm2-pin:         %s\n", true_false(flags & TPM2_FLAGS_USE_PIN));
         crypt_log(cd, "\ttpm2-pcrlock:     %s\n", true_false(flags & TPM2_FLAGS_USE_PCRLOCK));
-        crypt_log(cd, "\ttpm2-salt:        %s\n", true_false(salt));
-        crypt_log(cd, "\ttpm2-srk:         %s\n", true_false(srk_buf));
+        crypt_log(cd, "\ttpm2-salt:        %s\n", true_false(iovec_is_set(&salt)));
+        crypt_log(cd, "\ttpm2-srk:         %s\n", true_false(iovec_is_set(&srk)));
 }
 
 /*
