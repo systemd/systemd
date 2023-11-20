@@ -622,7 +622,7 @@ There is a screen on:
       by the shell (single quotes).
       <citerefentry project='man-pages'><refentrytitle>echo</refentrytitle><manvolnum>1</manvolnum></citerefentry>
       is called with [<literal>/usr/bin/echo</literal>,
-      <literal>[]</literal>, <literal>[${INVOCATION_ID}]</literal>] as the argument array, and then
+      <literal>&lt;></literal>, <literal>&lt;${INVOCATION_ID}></literal>] as the argument array, and then
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
       generates <varname>${INVOCATION_ID}</varname> and substitutes it in the command-line. This substitution
       could not be done on the client side, because the target ID that will be set for the service isn't
