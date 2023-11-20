@@ -310,7 +310,7 @@
 
         <listitem><para>When specified with the <command>encrypt</command> command controls the
         encryption/signature key to use. Takes one of <literal>host</literal>, <literal>tpm2</literal>,
-        <literal>host+tpm2</literal>, <literal>tpm2-absent</literal>, <literal>auto</literal>,
+        <literal>host+tpm2</literal>, <literal>null</literal>, <literal>auto</literal>,
         <literal>auto-initrd</literal>. See above for details on the three key types. If set to
         <literal>auto</literal> (which is the default) the TPM2 key is used if a TPM2 device is found and not
         running in a container. The host key is used if <filename>/var/lib/systemd/</filename> is on
@@ -318,13 +318,13 @@
         chip and the OS installation, and both need to be available to decrypt the credential again. If
         <literal>auto</literal> is selected but neither TPM2 is available (or running in container) nor
         <filename>/var/lib/systemd/</filename> is on persistent media, encryption will fail. If set to
-        <literal>tpm2-absent</literal> a fixed zero length key is used (thus, in this mode no confidentiality
+        <literal>null</literal> a fixed zero length key is used (thus, in this mode no confidentiality
         nor authenticity are provided!). This logic is useful to cover for systems that lack a TPM2 chip but
         where credentials shall be generated. Note that decryption of such credentials is refused on systems
         that have a TPM2 chip and where UEFI SecureBoot is enabled (this is done so that such a locked down
         system cannot be tricked into loading a credential generated this way that lacks authentication
         information). If set to <literal>auto-initrd</literal> a TPM2 key is used if a TPM2 is found. If not
-        a fixed zero length key is used, equivalent to <literal>tpm2-absent</literal> mode. This option is
+        a fixed zero length key is used, equivalent to <literal>null</literal> mode. This option is
         particularly useful to generate credentials files that are encrypted/authenticated against TPM2 where
         available but still work on systems lacking support for this.</para>
 
