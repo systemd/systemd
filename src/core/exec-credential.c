@@ -9,6 +9,7 @@
 #include "fileio.h"
 #include "glob-util.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "label-util.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
@@ -271,20 +272,23 @@ static int maybe_decrypt_and_write_credential(
                 size_t size,
                 uint64_t *left) {
 
-        _cleanup_free_ void *plaintext = NULL;
+        _cleanup_(iovec_done_erase) struct iovec plaintext = {};
         size_t add;
         int r;
 
         if (encrypted) {
-                size_t plaintext_size = 0;
-
-                r = decrypt_credential_and_warn(id, now(CLOCK_REALTIME), NULL, NULL, data, size,
-                                                &plaintext, &plaintext_size);
+                r = decrypt_credential_and_warn(
+                                id,
+                                now(CLOCK_REALTIME),
+                                /* tpm2_device= */ NULL,
+                                /* tpm2_signature_path= */ NULL,
+                                &IOVEC_MAKE(data, size),
+                                &plaintext);
                 if (r < 0)
                         return r;
 
-                data = plaintext;
-                size = plaintext_size;
+                data = plaintext.iov_base;
+                size = plaintext.iov_len;
         }
 
         add = strlen(id) + size;
@@ -684,7 +688,7 @@ static int acquire_credentials(
         /* Finally, we add in literally specified credentials. If the credentials already exist, we'll not
          * add them, so that they can act as a "default" if the same credential is specified multiple times. */
         HASHMAP_FOREACH(sc, context->set_credentials) {
-                _cleanup_(erase_and_freep) void *plaintext = NULL;
+                _cleanup_(iovec_done_erase) struct iovec plaintext = {};
                 const char *data;
                 size_t size, add;
 
@@ -698,11 +702,18 @@ static int acquire_credentials(
                         return log_debug_errno(errno, "Failed to test if credential %s exists: %m", sc->id);
 
                 if (sc->encrypted) {
-                        r = decrypt_credential_and_warn(sc->id, now(CLOCK_REALTIME), NULL, NULL, sc->data, sc->size, &plaintext, &size);
+                        r = decrypt_credential_and_warn(
+                                        sc->id,
+                                        now(CLOCK_REALTIME),
+                                        /* tpm2_device= */ NULL,
+                                        /* tpm2_signature_path= */ NULL,
+                                        &IOVEC_MAKE(sc->data, sc->size),
+                                        &plaintext);
                         if (r < 0)
                                 return r;
 
-                        data = plaintext;
+                        data = plaintext.iov_base;
+                        size = plaintext.iov_len;
                 } else {
                         data = sc->data;
                         size = sc->size;
