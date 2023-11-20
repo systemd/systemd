@@ -416,22 +416,21 @@ static int verb_cat(int argc, char **argv, void *userdata) {
                 }
 
                 if (encrypted) {
-                        _cleanup_(erase_and_freep) void *plaintext = NULL;
-                        size_t plaintext_size;
+                        _cleanup_(iovec_done_erase) struct iovec plaintext = {};
 
                         r = decrypt_credential_and_warn(
                                         *cn,
                                         timestamp,
                                         arg_tpm2_device,
                                         arg_tpm2_signature,
-                                        data, size,
-                                        &plaintext, &plaintext_size);
+                                        &IOVEC_MAKE(data, size),
+                                        &plaintext);
                         if (r < 0)
                                 return r;
 
                         erase_and_free(data);
-                        data = TAKE_PTR(plaintext);
-                        size = plaintext_size;
+                        data = TAKE_PTR(plaintext.iov_base);
+                        size = plaintext.iov_len;
                 }
 
                 r = write_blob(stdout, data, size);
@@ -443,11 +442,9 @@ static int verb_cat(int argc, char **argv, void *userdata) {
 }
 
 static int verb_encrypt(int argc, char **argv, void *userdata) {
+        _cleanup_(iovec_done_erase) struct iovec plaintext = {}, output = {};
         _cleanup_free_ char *base64_buf = NULL, *fname = NULL;
-        _cleanup_(erase_and_freep) char *plaintext = NULL;
         const char *input_path, *output_path, *name;
-        _cleanup_free_ void *output = NULL;
-        size_t plaintext_size, output_size;
         ssize_t base64_size;
         usec_t timestamp;
         int r;
@@ -457,9 +454,9 @@ static int verb_encrypt(int argc, char **argv, void *userdata) {
         input_path = empty_or_dash(argv[1]) ? NULL : argv[1];
 
         if (input_path)
-                r = read_full_file_full(AT_FDCWD, input_path, UINT64_MAX, CREDENTIAL_SIZE_MAX, READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER, NULL, &plaintext, &plaintext_size);
+                r = read_full_file_full(AT_FDCWD, input_path, UINT64_MAX, CREDENTIAL_SIZE_MAX, READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER, NULL, (char**) &plaintext.iov_base, &plaintext.iov_len);
         else
-                r = read_full_stream_full(stdin, NULL, UINT64_MAX, CREDENTIAL_SIZE_MAX, READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER, &plaintext, &plaintext_size);
+                r = read_full_stream_full(stdin, NULL, UINT64_MAX, CREDENTIAL_SIZE_MAX, READ_FULL_FILE_SECURE|READ_FULL_FILE_FAIL_WHEN_LARGER, (char**) &plaintext.iov_base, &plaintext.iov_len);
         if (r == -E2BIG)
                 return log_error_errno(r, "Plaintext too long for credential (allowed size: %zu).", (size_t) CREDENTIAL_SIZE_MAX);
         if (r < 0)
@@ -498,12 +495,12 @@ static int verb_encrypt(int argc, char **argv, void *userdata) {
                         arg_tpm2_pcr_mask,
                         arg_tpm2_public_key,
                         arg_tpm2_public_key_pcr_mask,
-                        plaintext, plaintext_size,
-                        &output, &output_size);
+                        &plaintext,
+                        &output);
         if (r < 0)
                 return r;
 
-        base64_size = base64mem_full(output, output_size, arg_pretty ? 69 : 79, &base64_buf);
+        base64_size = base64mem_full(output.iov_base, output.iov_len, arg_pretty ? 69 : 79, &base64_buf);
         if (base64_size < 0)
                 return base64_size;
 
@@ -539,11 +536,10 @@ static int verb_encrypt(int argc, char **argv, void *userdata) {
 }
 
 static int verb_decrypt(int argc, char **argv, void *userdata) {
-        _cleanup_(erase_and_freep) void *plaintext = NULL;
-        _cleanup_free_ char *input = NULL, *fname = NULL;
+        _cleanup_(iovec_done_erase) struct iovec input = {}, plaintext = {};
+        _cleanup_free_ char *fname = NULL;
         _cleanup_fclose_ FILE *output_file = NULL;
         const char *input_path, *output_path, *name;
-        size_t input_size, plaintext_size;
         usec_t timestamp;
         FILE *f;
         int r;
@@ -553,9 +549,9 @@ static int verb_decrypt(int argc, char **argv, void *userdata) {
         input_path = empty_or_dash(argv[1]) ? NULL : argv[1];
 
         if (input_path)
-                r = read_full_file_full(AT_FDCWD, argv[1], UINT64_MAX, CREDENTIAL_ENCRYPTED_SIZE_MAX, READ_FULL_FILE_UNBASE64|READ_FULL_FILE_FAIL_WHEN_LARGER, NULL, &input, &input_size);
+                r = read_full_file_full(AT_FDCWD, argv[1], UINT64_MAX, CREDENTIAL_ENCRYPTED_SIZE_MAX, READ_FULL_FILE_UNBASE64|READ_FULL_FILE_FAIL_WHEN_LARGER, NULL, (char**) &input, &input.iov_len);
         else
-                r = read_full_stream_full(stdin, NULL, UINT64_MAX, CREDENTIAL_ENCRYPTED_SIZE_MAX, READ_FULL_FILE_UNBASE64|READ_FULL_FILE_FAIL_WHEN_LARGER, &input, &input_size);
+                r = read_full_stream_full(stdin, NULL, UINT64_MAX, CREDENTIAL_ENCRYPTED_SIZE_MAX, READ_FULL_FILE_UNBASE64|READ_FULL_FILE_FAIL_WHEN_LARGER, (char**) &input, &input.iov_len);
         if (r == -E2BIG)
                 return log_error_errno(r, "Data too long for encrypted credential (allowed size: %zu).", (size_t) CREDENTIAL_ENCRYPTED_SIZE_MAX);
         if (r < 0)
@@ -587,8 +583,8 @@ static int verb_decrypt(int argc, char **argv, void *userdata) {
                         timestamp,
                         arg_tpm2_device,
                         arg_tpm2_signature,
-                        input, input_size,
-                        &plaintext, &plaintext_size);
+                        &input,
+                        &plaintext);
         if (r < 0)
                 return r;
 
@@ -601,7 +597,7 @@ static int verb_decrypt(int argc, char **argv, void *userdata) {
         } else
                 f = stdout;
 
-        r = write_blob(f, plaintext, plaintext_size);
+        r = write_blob(f, plaintext.iov_base, plaintext.iov_len);
         if (r < 0)
                 return r;
 
@@ -609,14 +605,14 @@ static int verb_decrypt(int argc, char **argv, void *userdata) {
 }
 
 static int verb_setup(int argc, char **argv, void *userdata) {
-        size_t size;
+        _cleanup_(iovec_done_erase) struct iovec host_key = {};
         int r;
 
-        r = get_credential_host_secret(CREDENTIAL_SECRET_GENERATE|CREDENTIAL_SECRET_WARN_NOT_ENCRYPTED, NULL, &size);
+        r = get_credential_host_secret(CREDENTIAL_SECRET_GENERATE|CREDENTIAL_SECRET_WARN_NOT_ENCRYPTED, &host_key);
         if (r < 0)
                 return log_error_errno(r, "Failed to setup credentials host key: %m");
 
-        log_info("%zu byte credentials host key set up.", size);
+        log_info("%zu byte credentials host key set up.", host_key.iov_len);
 
         return EXIT_SUCCESS;
 }
