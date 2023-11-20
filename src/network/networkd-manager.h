@@ -17,6 +17,7 @@
 #include "ordered-set.h"
 #include "set.h"
 #include "time-util.h"
+#include "varlink.h"
 
 struct Manager {
         sd_netlink *rtnl;
@@ -25,6 +26,7 @@ struct Manager {
         sd_event *event;
         sd_resolve *resolve;
         sd_bus *bus;
+        VarlinkServer *varlink_server;
         sd_device_monitor *device_monitor;
         Hashmap *polkit_registry;
         int ethtool_fd;
