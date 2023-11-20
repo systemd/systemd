@@ -14,33 +14,6 @@
 #           * koalaman/shellcheck#280
 set -o pipefail
 
-PATH=/sbin:/bin:/usr/sbin:/usr/bin
-export PATH
-
-os_release=$(test -e /etc/os-release && echo /etc/os-release || echo /usr/lib/os-release)
-# shellcheck source=/dev/null
-source "$os_release"
-[[ "$ID" = "debian" || " $ID_LIKE " = *" debian "* ]] && LOOKS_LIKE_DEBIAN=yes || LOOKS_LIKE_DEBIAN=""
-[[ "$ID" = "arch" || " $ID_LIKE " = *" arch "* ]] && LOOKS_LIKE_ARCH=yes || LOOKS_LIKE_ARCH=""
-[[ " $ID_LIKE " = *" suse "* ]] && LOOKS_LIKE_SUSE=yes || LOOKS_LIKE_SUSE=""
-KERNEL_VER="${KERNEL_VER-$(uname -r)}"
-QEMU_TIMEOUT="${QEMU_TIMEOUT:-1800}"
-NSPAWN_TIMEOUT="${NSPAWN_TIMEOUT:-1800}"
-TIMED_OUT=  # will be 1 after run_* if *_TIMEOUT is set and test timed out
-[[ "$LOOKS_LIKE_SUSE" ]] && FSTYPE="${FSTYPE:-btrfs}" || FSTYPE="${FSTYPE:-ext4}"
-UNIFIED_CGROUP_HIERARCHY="${UNIFIED_CGROUP_HIERARCHY:-default}"
-EFI_MOUNT="${EFI_MOUNT:-$(bootctl -x 2>/dev/null || echo /boot)}"
-# Note that defining a different IMAGE_NAME in a test setup script will only result
-# in default.img being copied and renamed. It can then be extended by defining
-# a test_append_files() function. The $1 parameter will be the root directory.
-# To force creating a new image from scratch (eg: to encrypt it), also define
-# TEST_FORCE_NEWIMAGE=1 in the test setup script.
-IMAGE_NAME=${IMAGE_NAME:-default}
-TEST_REQUIRE_INSTALL_TESTS="${TEST_REQUIRE_INSTALL_TESTS:-1}"
-TEST_PARALLELIZE="${TEST_PARALLELIZE:-0}"
-TEST_SUPPORTING_SERVICES_SHOULD_BE_MASKED="${TEST_SUPPORTING_SERVICES_SHOULD_BE_MASKED:-1}"
-LOOPDEV=
-
 # Simple wrapper to unify boolean checks.
 # Note: this function needs to stay near the top of the file, so we can use it
 #       in code in the outermost scope.
@@ -58,6 +31,34 @@ get_bool() {
         exit 1
     fi
 }
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+export PATH
+
+os_release=$(test -e /etc/os-release && echo /etc/os-release || echo /usr/lib/os-release)
+# shellcheck source=/dev/null
+source "$os_release"
+[[ "$ID" == "debian" || " $ID_LIKE " == *" debian "* ]] && LOOKS_LIKE_DEBIAN=yes || LOOKS_LIKE_DEBIAN=no
+[[ "$ID" == "arch" || " $ID_LIKE " == *" arch "* ]] && LOOKS_LIKE_ARCH=yes || LOOKS_LIKE_ARCH=no
+[[ " $ID_LIKE " == *" suse "* ]] && LOOKS_LIKE_SUSE=yes || LOOKS_LIKE_SUSE=no
+
+KERNEL_VER="${KERNEL_VER-$(uname -r)}"
+QEMU_TIMEOUT="${QEMU_TIMEOUT:-1800}"
+NSPAWN_TIMEOUT="${NSPAWN_TIMEOUT:-1800}"
+TIMED_OUT=  # will be 1 after run_* if *_TIMEOUT is set and test timed out
+get_bool "$LOOKS_LIKE_SUSE" && FSTYPE="${FSTYPE:-btrfs}" || FSTYPE="${FSTYPE:-ext4}"
+UNIFIED_CGROUP_HIERARCHY="${UNIFIED_CGROUP_HIERARCHY:-default}"
+EFI_MOUNT="${EFI_MOUNT:-$(bootctl -x 2>/dev/null || echo /boot)}"
+# Note that defining a different IMAGE_NAME in a test setup script will only result
+# in default.img being copied and renamed. It can then be extended by defining
+# a test_append_files() function. The $1 parameter will be the root directory.
+# To force creating a new image from scratch (eg: to encrypt it), also define
+# TEST_FORCE_NEWIMAGE=1 in the test setup script.
+IMAGE_NAME=${IMAGE_NAME:-default}
+TEST_REQUIRE_INSTALL_TESTS="${TEST_REQUIRE_INSTALL_TESTS:-1}"
+TEST_PARALLELIZE="${TEST_PARALLELIZE:-0}"
+TEST_SUPPORTING_SERVICES_SHOULD_BE_MASKED="${TEST_SUPPORTING_SERVICES_SHOULD_BE_MASKED:-1}"
+LOOPDEV=
 
 # Since in Bash we can have only one handler per signal, let's overcome this
 # limitation by having one global handler for the EXIT signal which executes
@@ -501,11 +502,11 @@ run_qemu() {
     if [[ ! "$INITRD" ]]; then
         if [[ -e "$default_fedora_initrd" ]]; then
             INITRD="$default_fedora_initrd"
-        elif [[ "$LOOKS_LIKE_DEBIAN" && -e "$default_debian_initrd" ]]; then
+        elif get_bool "$LOOKS_LIKE_DEBIAN" && [[ -e "$default_debian_initrd" ]]; then
             INITRD="$default_debian_initrd"
-        elif [[ "$LOOKS_LIKE_ARCH" && -e "$default_arch_initrd" ]]; then
+        elif get_bool "$LOOKS_LIKE_ARCH" && [[ -e "$default_arch_initrd" ]]; then
             INITRD="$default_arch_initrd"
-        elif [[ "$LOOKS_LIKE_SUSE" && -e "$default_suse_initrd" ]]; then
+        elif get_bool "$LOOKS_LIKE_SUSE" && [[ -e "$default_suse_initrd" ]]; then
             INITRD="$default_suse_initrd"
         fi
     fi
