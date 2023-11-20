@@ -1303,6 +1303,10 @@ int dns_cache_export_shared_to_packet(DnsCache *cache, DnsPacket *p, usec_t ts, 
                         if (!j->shared_owner)
                                 continue;
 
+                        /* Ignore cached goodby packet. See on_mdns_packet() and RFC 6762 section 10.1. */
+                        if (j->rr->ttl <= 1)
+                                continue;
+
                         /* RFC6762 7.1: Don't append records with less than half the TTL remaining
                          * as known answers. */
                         if (usec_sub_unsigned(j->until, ts) < j->rr->ttl * USEC_PER_SEC / 2)
