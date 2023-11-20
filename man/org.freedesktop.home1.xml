@@ -287,8 +287,10 @@ node /org/freedesktop/home1 {
       user record only, it does not propagate passwords/authentication tokens from the user record to the
       storage back-end, or resizes the storage back-end. Typically a home directory is first updated, and then
       the password of the underlying storage updated using <function>ChangePasswordHome()</function> as well
-      as the storage resized using <function>ResizeHome()</function>. This method is equivalent to
-      <function>Update()</function> on the <classname>org.freedesktop.home1.Home</classname> interface.</para>
+      as the storage resized using <function>ResizeHome()</function>. The <literal>secret</literal> section
+      is optional: if missing, changes will be stored and applied on a best-effort basis the next time the
+      user authenticates on this system. This method is equivalent to <function>Update()</function> on the
+      <classname>org.freedesktop.home1.Home</classname> interface.</para>
 
       <para><function>ResizeHome()</function> resizes the storage associated with a user record. Takes a user
       name, a disk size in bytes and a user record consisting only of the <literal>secret</literal> section
