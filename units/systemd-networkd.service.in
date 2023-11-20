@@ -45,6 +45,7 @@ RestrictRealtime=yes
 RestrictSUIDSGID=yes
 RuntimeDirectory=systemd/netif
 RuntimeDirectoryPreserve=yes
+StateDirectory=systemd/network
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
