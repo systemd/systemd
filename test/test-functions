@@ -40,6 +40,7 @@ os_release=$(test -e /etc/os-release && echo /etc/os-release || echo /usr/lib/os
 source "$os_release"
 [[ "$ID" == "debian" || " $ID_LIKE " == *" debian "* ]] && LOOKS_LIKE_DEBIAN=yes || LOOKS_LIKE_DEBIAN=no
 [[ "$ID" == "arch" || " $ID_LIKE " == *" arch "* ]] && LOOKS_LIKE_ARCH=yes || LOOKS_LIKE_ARCH=no
+[[ "$ID" == "fedora" ]] && LOOKS_LIKE_FEDORA=yes || LOOKS_LIKE_FEDORA=no
 [[ " $ID_LIKE " == *" suse "* ]] && LOOKS_LIKE_SUSE=yes || LOOKS_LIKE_SUSE=no
 
 KERNEL_VER="${KERNEL_VER-$(uname -r)}"
@@ -1313,6 +1314,31 @@ install_debian_systemd() {
     done < <(grep -E '^Package:' "${SOURCE_DIR}/debian/control" | cut -d ':' -f 2)
 }
 
+install_rpm() {
+    local rpm="${1:?}"
+    local file
+
+    if ! rpm -q "$rpm" >/dev/null; then
+        derror "RPM $rpm is not installed"
+        return 1
+    fi
+
+    dinfo "Installing contents of RPM $rpm"
+    while read -r file; do
+        # Skip missing files (like /etc/machine-info)
+        [[ ! -e "$file" ]] && continue
+        # Skip directories unless they are a symlink (both -L and -d pass in this case)
+        [[ -d "$file" && ! -L "$file" ]] && continue
+        # Skip python unit tests, since the image_install machinery will try to pull
+        # in the whole python stack in a very questionable state, making the tests fail.
+        # And given we're trying to transition to mkosi-based images anyway I'm not even
+        # going to bother
+        [[ "$file" =~ /tests/unit-tests/.*.py$ ]] && continue
+
+        image_install "$file"
+    done < <(rpm -ql "$rpm")
+}
+
 install_suse_systemd() {
     local pkgs
 
@@ -1335,12 +1361,7 @@ install_suse_systemd() {
     for p in "${pkgs[@]}"; do
         rpm -q "$p" &>/dev/null || continue
 
-        ddebug "Install files from package $p"
-        while read -r f; do
-            [ -e "$f" ] || continue
-            [ ! -L "$f" ] && [ -d "$f" ] && continue
-            inst "$f"
-        done < <(rpm -ql "$p")
+        install_rpm "$p"
     done
 
     dinfo "Install the data needed by the tests at runtime"
@@ -1352,6 +1373,35 @@ install_suse_systemd() {
     mkdir -p "$initdir/var/log/journal/remote"
 }
 
+install_fedora_systemd() {
+    local required_packages=(
+        systemd
+        systemd-container
+        systemd-libs
+        systemd-pam
+        systemd-tests
+        systemd-udev
+    )
+    local optional_packages=(
+        systemd-boot-unsigned
+        systemd-bootchart
+        systemd-journal-remote
+        systemd-networkd
+        systemd-oomd-defaults
+        systemd-resolved
+    )
+    local package
+
+    for package in "${required_packages[@]}"; do
+        install_rpm "$package"
+    done
+
+    for package in "${optional_packages[@]}"; do
+        rpm -q "$package" >/dev/null || continue
+        install_rpm "$package"
+    done
+}
+
 install_distro_systemd() {
     dinfo "Install distro systemd"
 
@@ -1359,6 +1409,8 @@ install_distro_systemd() {
         install_debian_systemd
     elif get_bool "$LOOKS_LIKE_SUSE"; then
         install_suse_systemd
+    elif get_bool "$LOOKS_LIKE_FEDORA"; then
+        install_fedora_systemd
     else
         dfatal "NO_BUILD not supported for this distro"
         exit 1
