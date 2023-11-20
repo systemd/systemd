@@ -1100,42 +1100,38 @@ static void calculate_seal_and_unseal(
         assert_se(asprintf(&secret_string, "The classified documents are in room %x", parent_index) > 0);
         size_t secret_size = strlen(secret_string) + 1;
 
-        _cleanup_free_ void *blob = NULL;
-        size_t blob_size = 0;
-        _cleanup_free_ void *serialized_parent = NULL;
-        size_t serialized_parent_size;
+        _cleanup_(iovec_done) struct iovec blob = {}, serialized_parent = {};
         assert_se(tpm2_calculate_seal(
                         parent_index,
                         parent_public,
                         /* attributes= */ NULL,
-                        secret_string, secret_size,
+                        &IOVEC_MAKE(secret_string, secret_size),
                         /* policy= */ NULL,
                         /* pin= */ NULL,
-                        /* ret_secret= */ NULL, /* ret_secret_size= */ 0,
-                        &blob, &blob_size,
-                        &serialized_parent, &serialized_parent_size) >= 0);
+                        /* ret_secret= */ NULL,
+                        &blob,
+                        &serialized_parent) >= 0);
 
-        _cleanup_free_ void *unsealed_secret = NULL;
-        size_t unsealed_secret_size;
+        _cleanup_(iovec_done) struct iovec unsealed_secret = {};
         assert_se(tpm2_unseal(
                         c,
                         /* hash_pcr_mask= */ 0,
                         /* pcr_bank= */ 0,
-                        /* pubkey= */ NULL, /* pubkey_size= */ 0,
+                        /* pubkey= */ NULL,
                         /* pubkey_pcr_mask= */ 0,
                         /* signature= */ NULL,
                         /* pin= */ NULL,
                         /* pcrlock_policy= */ NULL,
                         /* primary_alg= */ 0,
-                        blob, blob_size,
-                        /* known_policy_hash= */ NULL, /* known_policy_hash_size= */ 0,
-                        serialized_parent, serialized_parent_size,
-                        &unsealed_secret, &unsealed_secret_size) >= 0);
+                        &blob,
+                        /* known_policy_hash= */ NULL,
+                        &serialized_parent,
+                        &unsealed_secret) >= 0);
 
-        assert_se(memcmp_nn(secret_string, secret_size, unsealed_secret, unsealed_secret_size) == 0);
+        assert_se(memcmp_nn(secret_string, secret_size, unsealed_secret.iov_base, unsealed_secret.iov_len) == 0);
 
-        char unsealed_string[unsealed_secret_size];
-        assert_se(snprintf(unsealed_string, unsealed_secret_size, "%s", (char*) unsealed_secret) == (int) unsealed_secret_size - 1);
+        char unsealed_string[unsealed_secret.iov_len];
+        assert_se(snprintf(unsealed_string, unsealed_secret.iov_len, "%s", (char*) unsealed_secret.iov_base) == (int) unsealed_secret.iov_len - 1);
         log_debug("Unsealed secret is: %s", unsealed_string);
 }
 
@@ -1187,34 +1183,33 @@ static void check_seal_unseal_for_handle(Tpm2Context *c, TPM2_HANDLE handle) {
 
         log_debug("Check seal/unseal for handle 0x%" PRIx32, handle);
 
-        _cleanup_free_ void *secret = NULL, *blob = NULL, *srk = NULL, *unsealed_secret = NULL;
-        size_t secret_size, blob_size, srk_size, unsealed_secret_size;
+        _cleanup_(iovec_done) struct iovec secret = {}, blob = {}, srk = {}, unsealed_secret = {};
         assert_se(tpm2_seal(
                         c,
                         handle,
                         &policy,
                         /* pin= */ NULL,
-                        &secret, &secret_size,
-                        &blob, &blob_size,
+                        &secret,
+                        &blob,
                         /* ret_primary_alg= */ NULL,
-                        &srk, &srk_size) >= 0);
+                        &srk) >= 0);
 
         assert_se(tpm2_unseal(
                         c,
                         /* hash_pcr_mask= */ 0,
                         /* pcr_bank= */ 0,
-                        /* pubkey= */ NULL, /* pubkey_size= */ 0,
+                        /* pubkey= */ NULL,
                         /* pubkey_pcr_mask= */ 0,
                         /* signature= */ NULL,
                         /* pin= */ NULL,
                         /* pcrlock_policy= */ NULL,
                         /* primary_alg= */ 0,
-                        blob, blob_size,
-                        /* policy_hash= */ NULL, /* policy_hash_size= */ 0,
-                        srk, srk_size,
-                        &unsealed_secret, &unsealed_secret_size) >= 0);
+                        &blob,
+                        /* policy_hash= */ NULL,
+                        &srk,
+                        &unsealed_secret) >= 0);
 
-        assert_se(memcmp_nn(secret, secret_size, unsealed_secret, unsealed_secret_size) == 0);
+        assert_se(iovec_memcmp(&secret, &unsealed_secret) == 0);
 }
 
 static void check_seal_unseal(Tpm2Context *c) {
