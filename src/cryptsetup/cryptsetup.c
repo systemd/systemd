@@ -1650,18 +1650,16 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                 struct crypt_device *cd,
                 const char *name,
                 const char *key_file,
-                const void *key_data,
-                size_t key_data_size,
+                const struct iovec *key_data,
                 usec_t until,
                 uint32_t flags,
                 bool pass_volume_key) {
 
         _cleanup_(sd_device_monitor_unrefp) sd_device_monitor *monitor = NULL;
-        _cleanup_(erase_and_freep) void *decrypted_key = NULL;
+        _cleanup_(iovec_done_erase) struct iovec decrypted_key = {};
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_free_ char *friendly = NULL;
         int keyslot = arg_key_slot, r;
-        size_t decrypted_key_size;
 
         assert(cd);
         assert(name);
@@ -1672,7 +1670,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                 return log_oom();
 
         for (;;) {
-                if (key_file || key_data) {
+                if (key_file || iovec_is_set(key_data)) {
                         /* If key data is specified, use that */
 
                         r = acquire_tpm2_key(
@@ -1680,21 +1678,21 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                         arg_tpm2_device,
                                         arg_tpm2_pcr_mask == UINT32_MAX ? TPM2_PCR_MASK_DEFAULT : arg_tpm2_pcr_mask,
                                         UINT16_MAX,
-                                        /* pubkey= */ NULL, /* pubkey_size= */ 0,
+                                        /* pubkey= */ NULL,
                                         /* pubkey_pcr_mask= */ 0,
                                         /* signature_path= */ NULL,
                                         /* pcrlock_path= */ NULL,
                                         /* primary_alg= */ 0,
                                         key_file, arg_keyfile_size, arg_keyfile_offset,
-                                        key_data, key_data_size,
-                                        /* policy_hash= */ NULL, /* policy_hash_size= */ 0, /* we don't know the policy hash */
-                                        /* salt= */ NULL, /* salt_size= */ 0,
-                                        /* srk_buf= */ NULL, /* srk_buf_size= */ 0,
+                                        key_data,
+                                        /* policy_hash= */ NULL, /* we don't know the policy hash */
+                                        /* salt= */ NULL,
+                                        /* srk= */ NULL,
                                         arg_tpm2_pin ? TPM2_FLAGS_USE_PIN : 0,
                                         until,
                                         arg_headless,
                                         arg_ask_password_flags,
-                                        &decrypted_key, &decrypted_key_size);
+                                        &decrypted_key);
                         if (r >= 0)
                                 break;
                         if (IN_SET(r, -EACCES, -ENOLCK))
@@ -1725,8 +1723,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                 }
 
                 if (r == -EOPNOTSUPP) { /* Plugin not available, let's process TPM2 stuff right here instead */
-                        _cleanup_free_ void *blob = NULL, *policy_hash = NULL;
-                        size_t blob_size, policy_hash_size;
+                        _cleanup_(iovec_done) struct iovec blob = {}, policy_hash = {};
                         bool found_some = false;
                         int token = 0; /* first token to look at */
 
@@ -1735,8 +1732,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                          * works. */
 
                         for (;;) {
-                                _cleanup_free_ void *pubkey = NULL, *salt = NULL, *srk_buf = NULL;
-                                size_t pubkey_size = 0, salt_size = 0, srk_buf_size = 0;
+                                _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {};
                                 uint32_t hash_pcr_mask, pubkey_pcr_mask;
                                 uint16_t pcr_bank, primary_alg;
                                 TPM2Flags tpm2_flags;
@@ -1747,13 +1743,13 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 token, /* search for the token with this index, or any later index than this */
                                                 &hash_pcr_mask,
                                                 &pcr_bank,
-                                                &pubkey, &pubkey_size,
+                                                &pubkey,
                                                 &pubkey_pcr_mask,
                                                 &primary_alg,
-                                                &blob, &blob_size,
-                                                &policy_hash, &policy_hash_size,
-                                                &salt, &salt_size,
-                                                &srk_buf, &srk_buf_size,
+                                                &blob,
+                                                &policy_hash,
+                                                &salt,
+                                                &srk,
                                                 &tpm2_flags,
                                                 &keyslot,
                                                 &token);
@@ -1778,21 +1774,21 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 arg_tpm2_device,
                                                 hash_pcr_mask,
                                                 pcr_bank,
-                                                pubkey, pubkey_size,
+                                                &pubkey,
                                                 pubkey_pcr_mask,
                                                 arg_tpm2_signature,
                                                 arg_tpm2_pcrlock,
                                                 primary_alg,
                                                 /* key_file= */ NULL, /* key_file_size= */ 0, /* key_file_offset= */ 0, /* no key file */
-                                                blob, blob_size,
-                                                policy_hash, policy_hash_size,
-                                                salt, salt_size,
-                                                srk_buf, srk_buf_size,
+                                                &blob,
+                                                &policy_hash,
+                                                &salt,
+                                                &srk,
                                                 tpm2_flags,
                                                 until,
                                                 arg_headless,
                                                 arg_ask_password_flags,
-                                                &decrypted_key, &decrypted_key_size);
+                                                &decrypted_key);
                                 if (IN_SET(r, -EACCES, -ENOLCK))
                                         return log_notice_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 PIN unlock failed, falling back to traditional unlocking.");
                                 if (r != -EPERM)
@@ -1837,17 +1833,16 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
 
                 log_debug("Got one or more potentially relevant udev events, rescanning for TPM2...");
         }
-        assert(decrypted_key);
 
         if (pass_volume_key)
-                r = measured_crypt_activate_by_volume_key(cd, name, decrypted_key, decrypted_key_size, flags);
+                r = measured_crypt_activate_by_volume_key(cd, name, decrypted_key.iov_base, decrypted_key.iov_len, flags);
         else {
                 _cleanup_(erase_and_freep) char *base64_encoded = NULL;
                 ssize_t base64_encoded_size;
 
                 /* Before using this key as passphrase we base64 encode it, for compat with homed */
 
-                base64_encoded_size = base64mem(decrypted_key, decrypted_key_size, &base64_encoded);
+                base64_encoded_size = base64mem(decrypted_key.iov_base, decrypted_key.iov_len, &base64_encoded);
                 if (base64_encoded_size < 0)
                         return log_oom();
 
@@ -2045,7 +2040,7 @@ static int attach_luks_or_plain_or_bitlk(
                  crypt_get_device_name(cd));
 
         if (arg_tpm2_device || arg_tpm2_device_auto)
-                return attach_luks_or_plain_or_bitlk_by_tpm2(cd, name, key_file, key_data, key_data_size, until, flags, pass_volume_key);
+                return attach_luks_or_plain_or_bitlk_by_tpm2(cd, name, key_file, &IOVEC_MAKE(key_data, key_data_size), until, flags, pass_volume_key);
         if (arg_fido2_device || arg_fido2_device_auto)
                 return attach_luks_or_plain_or_bitlk_by_fido2(cd, name, key_file, key_data, key_data_size, until, flags, pass_volume_key);
         if (arg_pkcs11_uri || arg_pkcs11_uri_auto)
