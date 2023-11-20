@@ -273,7 +273,7 @@ is_built_with_asan() {
     local _bin="${1:?}"
 
     if ! type -P objdump >/dev/null; then
-        ddebug "Failed to find objdump. Assuming systemd hasn't been built with ASAN."
+        echo "Failed to find objdump, assuming systemd hasn't been built with ASAN."
         return 1
     fi
 
