@@ -182,6 +182,7 @@ int read_credential_with_decryption(const char *name, void **ret, size_t *ret_si
                         /* tpm2_device = */ NULL,
                         /* tpm2_signature_path = */ NULL,
                         &IOVEC_MAKE(data, sz),
+                        /* flags= */ 0,
                         &ret_iovec);
         if (r < 0)
                 return r;
@@ -712,6 +713,7 @@ int encrypt_credential_and_warn(
                 const char *tpm2_pubkey_path,
                 uint32_t tpm2_pubkey_pcr_mask,
                 const struct iovec *input,
+                CredentialFlags flags,
                 struct iovec *ret) {
 
         _cleanup_(iovec_done) struct iovec tpm2_blob = {}, tpm2_policy_hash = {}, iv = {}, pubkey = {};
@@ -890,7 +892,7 @@ int encrypt_credential_and_warn(
         } else
                 id = with_key;
 
-        if (sd_id128_equal(id, CRED_AES256_GCM_BY_NULL))
+        if (sd_id128_equal(id, CRED_AES256_GCM_BY_NULL) && !FLAGS_SET(flags, CREDENTIAL_ALLOW_NULL))
                 log_warning("Using a null key for encryption and signing. Confidentiality or authenticity will not be provided.");
 
         /* Let's now take the host key and the TPM2 key and hash it together, to use as encryption key for the data */
@@ -1054,6 +1056,7 @@ int decrypt_credential_and_warn(
                 const char *tpm2_device,
                 const char *tpm2_signature_path,
                 const struct iovec *input,
+                CredentialFlags flags,
                 struct iovec *ret) {
 
         _cleanup_(iovec_done_erase) struct iovec host_key = {}, plaintext = {}, tpm2_key = {};
@@ -1090,7 +1093,7 @@ int decrypt_credential_and_warn(
                         return log_error_errno(r, "Failed to load pcr signature: %m");
         }
 
-        if (with_null) {
+        if (with_null && !FLAGS_SET(flags, CREDENTIAL_ALLOW_NULL)) {
                 /* So this is a credential encrypted with a zero length key. We support this to cover for the
                  * case where neither a host key not a TPM2 are available (specifically: initrd environments
                  * where the host key is not yet accessible and no TPM2 chip exists at all), to minimize
@@ -1219,7 +1222,7 @@ int decrypt_credential_and_warn(
                         return log_error_errno(r, "Failed to determine local credential key: %m");
         }
 
-        if (with_null)
+        if (with_null && !FLAGS_SET(flags, CREDENTIAL_ALLOW_NULL))
                 log_warning("Warning: using a null key for decryption and authentication. Confidentiality or authenticity are not provided.");
 
         sha256_hash_host_and_tpm2_key(&host_key, &tpm2_key, md);
@@ -1355,11 +1358,11 @@ int get_credential_host_secret(CredentialSecretFlags flags, struct iovec *ret) {
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Support for encrypted credentials not available.");
 }
 
-int encrypt_credential_and_warn(sd_id128_t with_key, const char *name, usec_t timestamp, usec_t not_after, const char *tpm2_device, uint32_t tpm2_hash_pcr_mask, const char *tpm2_pubkey_path, uint32_t tpm2_pubkey_pcr_mask, const struct iovec *input, struct iovec *ret) {
+int encrypt_credential_and_warn(sd_id128_t with_key, const char *name, usec_t timestamp, usec_t not_after, const char *tpm2_device, uint32_t tpm2_hash_pcr_mask, const char *tpm2_pubkey_path, uint32_t tpm2_pubkey_pcr_mask, const struct iovec *input, CredentialFlags flags, struct iovec *ret) {
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Support for encrypted credentials not available.");
 }
 
-int decrypt_credential_and_warn(const char *validate_name, usec_t validate_timestamp, const char *tpm2_device, const char *tpm2_signature_path, const struct iovec *input, struct iovec *ret) {
+int decrypt_credential_and_warn(const char *validate_name, usec_t validate_timestamp, const char *tpm2_device, const char *tpm2_signature_path, const struct iovec *input, CredentialFlags flags, struct iovec *ret) {
         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Support for encrypted credentials not available.");
 }
 
