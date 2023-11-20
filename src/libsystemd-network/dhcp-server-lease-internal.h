@@ -5,6 +5,7 @@
 
 #include "dhcp-client-id-internal.h"
 #include "dhcp-server-internal.h"
+#include "json.h"
 #include "time-util.h"
 
 typedef struct sd_dhcp_server_lease {
@@ -26,3 +27,6 @@ typedef struct sd_dhcp_server_lease {
 extern const struct hash_ops dhcp_server_lease_hash_ops;
 
 int dhcp_server_add_lease(sd_dhcp_server *server, sd_dhcp_server_lease *lease, bool is_static);
+
+int dhcp_server_bound_leases_append_json(sd_dhcp_server *server, JsonVariant **v);
+int dhcp_server_static_leases_append_json(sd_dhcp_server *server, JsonVariant **v);
