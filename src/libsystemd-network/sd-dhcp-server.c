@@ -87,13 +87,6 @@ int sd_dhcp_server_configure_pool(
                 server->address = address->s_addr;
                 server->netmask = netmask;
                 server->subnet = address->s_addr & netmask;
-
-                /* Drop any leases associated with the old address range */
-                hashmap_clear(server->bound_leases_by_address);
-                hashmap_clear(server->bound_leases_by_client_id);
-
-                if (server->callback)
-                        server->callback(server, SD_DHCP_SERVER_EVENT_LEASE_CHANGED, server->callback_userdata);
         }
 
         return 0;
