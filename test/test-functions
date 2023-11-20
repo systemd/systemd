@@ -14,33 +14,6 @@
 #           * koalaman/shellcheck#280
 set -o pipefail
 
-PATH=/sbin:/bin:/usr/sbin:/usr/bin
-export PATH
-
-os_release=$(test -e /etc/os-release && echo /etc/os-release || echo /usr/lib/os-release)
-# shellcheck source=/dev/null
-source "$os_release"
-[[ "$ID" = "debian" || " $ID_LIKE " = *" debian "* ]] && LOOKS_LIKE_DEBIAN=yes || LOOKS_LIKE_DEBIAN=""
-[[ "$ID" = "arch" || " $ID_LIKE " = *" arch "* ]] && LOOKS_LIKE_ARCH=yes || LOOKS_LIKE_ARCH=""
-[[ " $ID_LIKE " = *" suse "* ]] && LOOKS_LIKE_SUSE=yes || LOOKS_LIKE_SUSE=""
-KERNEL_VER="${KERNEL_VER-$(uname -r)}"
-QEMU_TIMEOUT="${QEMU_TIMEOUT:-1800}"
-NSPAWN_TIMEOUT="${NSPAWN_TIMEOUT:-1800}"
-TIMED_OUT=  # will be 1 after run_* if *_TIMEOUT is set and test timed out
-[[ "$LOOKS_LIKE_SUSE" ]] && FSTYPE="${FSTYPE:-btrfs}" || FSTYPE="${FSTYPE:-ext4}"
-UNIFIED_CGROUP_HIERARCHY="${UNIFIED_CGROUP_HIERARCHY:-default}"
-EFI_MOUNT="${EFI_MOUNT:-$(bootctl -x 2>/dev/null || echo /boot)}"
-# Note that defining a different IMAGE_NAME in a test setup script will only result
-# in default.img being copied and renamed. It can then be extended by defining
-# a test_append_files() function. The $1 parameter will be the root directory.
-# To force creating a new image from scratch (eg: to encrypt it), also define
-# TEST_FORCE_NEWIMAGE=1 in the test setup script.
-IMAGE_NAME=${IMAGE_NAME:-default}
-TEST_REQUIRE_INSTALL_TESTS="${TEST_REQUIRE_INSTALL_TESTS:-1}"
-TEST_PARALLELIZE="${TEST_PARALLELIZE:-0}"
-TEST_SUPPORTING_SERVICES_SHOULD_BE_MASKED="${TEST_SUPPORTING_SERVICES_SHOULD_BE_MASKED:-1}"
-LOOPDEV=
-
 # Simple wrapper to unify boolean checks.
 # Note: this function needs to stay near the top of the file, so we can use it
 #       in code in the outermost scope.
@@ -58,6 +31,35 @@ get_bool() {
         exit 1
     fi
 }
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+export PATH
+
+os_release=$(test -e /etc/os-release && echo /etc/os-release || echo /usr/lib/os-release)
+# shellcheck source=/dev/null
+source "$os_release"
+[[ "$ID" == "debian" || " $ID_LIKE " == *" debian "* ]] && LOOKS_LIKE_DEBIAN=yes || LOOKS_LIKE_DEBIAN=no
+[[ "$ID" == "arch" || " $ID_LIKE " == *" arch "* ]] && LOOKS_LIKE_ARCH=yes || LOOKS_LIKE_ARCH=no
+[[ "$ID" == "fedora" ]] && LOOKS_LIKE_FEDORA=yes || LOOKS_LIKE_FEDORA=no
+[[ " $ID_LIKE " == *" suse "* ]] && LOOKS_LIKE_SUSE=yes || LOOKS_LIKE_SUSE=no
+
+KERNEL_VER="${KERNEL_VER-$(uname -r)}"
+QEMU_TIMEOUT="${QEMU_TIMEOUT:-1800}"
+NSPAWN_TIMEOUT="${NSPAWN_TIMEOUT:-1800}"
+TIMED_OUT=  # will be 1 after run_* if *_TIMEOUT is set and test timed out
+get_bool "$LOOKS_LIKE_SUSE" && FSTYPE="${FSTYPE:-btrfs}" || FSTYPE="${FSTYPE:-ext4}"
+UNIFIED_CGROUP_HIERARCHY="${UNIFIED_CGROUP_HIERARCHY:-default}"
+EFI_MOUNT="${EFI_MOUNT:-$(bootctl -x 2>/dev/null || echo /boot)}"
+# Note that defining a different IMAGE_NAME in a test setup script will only result
+# in default.img being copied and renamed. It can then be extended by defining
+# a test_append_files() function. The $1 parameter will be the root directory.
+# To force creating a new image from scratch (eg: to encrypt it), also define
+# TEST_FORCE_NEWIMAGE=1 in the test setup script.
+IMAGE_NAME=${IMAGE_NAME:-default}
+TEST_REQUIRE_INSTALL_TESTS="${TEST_REQUIRE_INSTALL_TESTS:-1}"
+TEST_PARALLELIZE="${TEST_PARALLELIZE:-0}"
+TEST_SUPPORTING_SERVICES_SHOULD_BE_MASKED="${TEST_SUPPORTING_SERVICES_SHOULD_BE_MASKED:-1}"
+LOOPDEV=
 
 # Since in Bash we can have only one handler per signal, let's overcome this
 # limitation by having one global handler for the EXIT signal which executes
@@ -159,16 +161,19 @@ BASICTOOLS=(
     chown
     chroot
     cmp
+    cp
     cryptsetup
     cut
     date
     dd
+    dhclient
     diff
     dirname
     dmsetup
     echo
     env
     false
+    find
     findmnt
     flock
     getconf
@@ -176,21 +181,27 @@ BASICTOOLS=(
     getfacl
     getfattr
     grep
+    grep
     gunzip
     gzip
     head
+    hostname
+    id
     ionice
     ip
     jq
     killall
     ldd
     ln
+    ln
     loadkeys
     login
     losetup
+    ls
     lsattr
     lsblk
     lz4cat
+    mkdir
     mkfifo
     mknod
     mktemp
@@ -200,13 +211,16 @@ BASICTOOLS=(
     mv
     nc
     nproc
+    ping
     pkill
+    ps
     readlink
     realpath
     rev
     rm
     rmdir
     rmmod
+    route
     script
     sed
     seq
@@ -218,6 +232,7 @@ BASICTOOLS=(
     sfdisk
     sh
     sleep
+    sort
     stat
     stty
     su
@@ -232,6 +247,7 @@ BASICTOOLS=(
     tr
     true
     truncate
+    tty
     umount
     uname
     unshare
@@ -243,26 +259,12 @@ BASICTOOLS=(
 )
 
 DEBUGTOOLS=(
-    cp
     df
-    dhclient
     dmesg
     du
-    find
     free
-    grep
-    hostname
-    id
     less
-    ln
-    ls
-    mkdir
-    ping
-    ps
-    route
-    sort
     strace
-    tty
     vi
     /usr/libexec/vi
 )
@@ -271,7 +273,7 @@ is_built_with_asan() {
     local _bin="${1:?}"
 
     if ! type -P objdump >/dev/null; then
-        ddebug "Failed to find objdump. Assuming systemd hasn't been built with ASAN."
+        echo "Failed to find objdump, assuming systemd hasn't been built with ASAN."
         return 1
     fi
 
@@ -501,11 +503,11 @@ run_qemu() {
     if [[ ! "$INITRD" ]]; then
         if [[ -e "$default_fedora_initrd" ]]; then
             INITRD="$default_fedora_initrd"
-        elif [[ "$LOOKS_LIKE_DEBIAN" && -e "$default_debian_initrd" ]]; then
+        elif get_bool "$LOOKS_LIKE_DEBIAN" && [[ -e "$default_debian_initrd" ]]; then
             INITRD="$default_debian_initrd"
-        elif [[ "$LOOKS_LIKE_ARCH" && -e "$default_arch_initrd" ]]; then
+        elif get_bool "$LOOKS_LIKE_ARCH" && [[ -e "$default_arch_initrd" ]]; then
             INITRD="$default_arch_initrd"
-        elif [[ "$LOOKS_LIKE_SUSE" && -e "$default_suse_initrd" ]]; then
+        elif get_bool "$LOOKS_LIKE_SUSE" && [[ -e "$default_suse_initrd" ]]; then
             INITRD="$default_suse_initrd"
         fi
     fi
@@ -1312,6 +1314,31 @@ install_debian_systemd() {
     done < <(grep -E '^Package:' "${SOURCE_DIR}/debian/control" | cut -d ':' -f 2)
 }
 
+install_rpm() {
+    local rpm="${1:?}"
+    local file
+
+    if ! rpm -q "$rpm" >/dev/null; then
+        derror "RPM $rpm is not installed"
+        return 1
+    fi
+
+    dinfo "Installing contents of RPM $rpm"
+    while read -r file; do
+        # Skip missing files (like /etc/machine-info)
+        [[ ! -e "$file" ]] && continue
+        # Skip directories unless they are a symlink (both -L and -d pass in this case)
+        [[ -d "$file" && ! -L "$file" ]] && continue
+        # Skip python unit tests, since the image_install machinery will try to pull
+        # in the whole python stack in a very questionable state, making the tests fail.
+        # And given we're trying to transition to mkosi-based images anyway I'm not even
+        # going to bother
+        [[ "$file" =~ /tests/unit-tests/.*.py$ ]] && continue
+
+        image_install "$file"
+    done < <(rpm -ql "$rpm")
+}
+
 install_suse_systemd() {
     local pkgs
 
@@ -1334,12 +1361,7 @@ install_suse_systemd() {
     for p in "${pkgs[@]}"; do
         rpm -q "$p" &>/dev/null || continue
 
-        ddebug "Install files from package $p"
-        while read -r f; do
-            [ -e "$f" ] || continue
-            [ ! -L "$f" ] && [ -d "$f" ] && continue
-            inst "$f"
-        done < <(rpm -ql "$p")
+        install_rpm "$p"
     done
 
     dinfo "Install the data needed by the tests at runtime"
@@ -1351,6 +1373,35 @@ install_suse_systemd() {
     mkdir -p "$initdir/var/log/journal/remote"
 }
 
+install_fedora_systemd() {
+    local required_packages=(
+        systemd
+        systemd-container
+        systemd-libs
+        systemd-pam
+        systemd-tests
+        systemd-udev
+    )
+    local optional_packages=(
+        systemd-boot-unsigned
+        systemd-bootchart
+        systemd-journal-remote
+        systemd-networkd
+        systemd-oomd-defaults
+        systemd-resolved
+    )
+    local package
+
+    for package in "${required_packages[@]}"; do
+        install_rpm "$package"
+    done
+
+    for package in "${optional_packages[@]}"; do
+        rpm -q "$package" >/dev/null || continue
+        install_rpm "$package"
+    done
+}
+
 install_distro_systemd() {
     dinfo "Install distro systemd"
 
@@ -1358,6 +1409,8 @@ install_distro_systemd() {
         install_debian_systemd
     elif get_bool "$LOOKS_LIKE_SUSE"; then
         install_suse_systemd
+    elif get_bool "$LOOKS_LIKE_FEDORA"; then
+        install_fedora_systemd
     else
         dfatal "NO_BUILD not supported for this distro"
         exit 1
