@@ -45,6 +45,8 @@ struct DnsScope {
 
         sd_event_source *announce_event_source;
 
+        sd_event_source *mdns_goodbye_event_source;
+
         RateLimit ratelimit;
 
         usec_t resend_timeout;
