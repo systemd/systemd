@@ -5031,6 +5031,17 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'NTP: 192.168.5.1\n *192.168.5.11')
 
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth-peer', env=env)
+        print(output)
+        self.assertRegex(output, "Offered DHCP leases: 192.168.5.[0-9]*")
+
+        networkctl_reconfigure('veth-peer')
+        self.wait_online(['veth-peer:routable'])
+
+        for _ in range(10):
+            output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth-peer', env=env)
+            if 'Offered DHCP leases: 192.168.5.' in output:
+                break
+            time.sleep(.2)
         self.assertRegex(output, "Offered DHCP leases: 192.168.5.[0-9]*")
 
     def test_dhcp_server_null_server_address(self):
