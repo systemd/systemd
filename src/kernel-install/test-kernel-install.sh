@@ -306,3 +306,28 @@ diff -u <(echo "$output") - <<EOF
 	]
 }
 EOF
+
+###########################################
+# tests for propagation of plugin failure (issue #30087)
+###########################################
+cat >"$D/00-plugin-skip" <<EOF
+#!/usr/bin/env bash
+exit 77
+EOF
+chmod +x "$D/00-plugin-skip"
+
+cat >"$D/10-plugin-fail" <<EOF
+#!/usr/bin/env bash
+exit 42
+EOF
+chmod +x "$D/10-plugin-fail"
+
+# Exit code 77 means remaining plugins will be skipped.
+KERNEL_INSTALL_PLUGINS="$D/00-plugin-skip $D/10-plugin-fail" "$kernel_install" -v add 1.1.1 "$D/sources/linux" "$D/sources/initrd"
+
+# Other non-zero exit code will be propagated.
+set +e
+KERNEL_INSTALL_PLUGINS="$D/10-plugin-fail" "$kernel_install" -v add 1.1.1 "$D/sources/linux" "$D/sources/initrd"
+ret=$?
+set -e
+test "$ret" -eq "42"
