@@ -161,16 +161,19 @@ BASICTOOLS=(
     chown
     chroot
     cmp
+    cp
     cryptsetup
     cut
     date
     dd
+    dhclient
     diff
     dirname
     dmsetup
     echo
     env
     false
+    find
     findmnt
     flock
     getconf
@@ -178,21 +181,27 @@ BASICTOOLS=(
     getfacl
     getfattr
     grep
+    grep
     gunzip
     gzip
     head
+    hostname
+    id
     ionice
     ip
     jq
     killall
     ldd
     ln
+    ln
     loadkeys
     login
     losetup
+    ls
     lsattr
     lsblk
     lz4cat
+    mkdir
     mkfifo
     mknod
     mktemp
@@ -202,13 +211,16 @@ BASICTOOLS=(
     mv
     nc
     nproc
+    ping
     pkill
+    ps
     readlink
     realpath
     rev
     rm
     rmdir
     rmmod
+    route
     script
     sed
     seq
@@ -220,6 +232,7 @@ BASICTOOLS=(
     sfdisk
     sh
     sleep
+    sort
     stat
     stty
     su
@@ -234,6 +247,7 @@ BASICTOOLS=(
     tr
     true
     truncate
+    tty
     umount
     uname
     unshare
@@ -245,26 +259,12 @@ BASICTOOLS=(
 )
 
 DEBUGTOOLS=(
-    cp
     df
-    dhclient
     dmesg
     du
-    find
     free
-    grep
-    hostname
-    id
     less
-    ln
-    ls
-    mkdir
-    ping
-    ps
-    route
-    sort
     strace
-    tty
     vi
     /usr/libexec/vi
 )
