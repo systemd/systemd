@@ -749,7 +749,7 @@ int encrypt_credential_and_warn(
                              CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK,
                              CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC,
                              CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,
-                             CRED_AES256_GCM_BY_TPM2_ABSENT))
+                             CRED_AES256_GCM_BY_NULL))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid key type: " SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(with_key));
 
         if (name && !credential_name_valid(name))
@@ -900,14 +900,14 @@ int encrypt_credential_and_warn(
                 else if (host_key)
                         id = CRED_AES256_GCM_BY_HOST;
                 else if (sd_id128_equal(with_key, _CRED_AUTO_INITRD))
-                        id = CRED_AES256_GCM_BY_TPM2_ABSENT;
+                        id = CRED_AES256_GCM_BY_NULL;
                 else
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                                "TPM2 not available and host key located on temporary file system, no encryption key available.");
         } else
                 id = with_key;
 
-        if (sd_id128_equal(id, CRED_AES256_GCM_BY_TPM2_ABSENT))
+        if (sd_id128_equal(id, CRED_AES256_GCM_BY_NULL))
                 log_warning("Using a null key for encryption and signing. Confidentiality or authenticity will not be provided.");
 
         /* Let's now take the host key and the TPM2 key and hash it together, to use as encryption key for the data */
@@ -1081,7 +1081,7 @@ int decrypt_credential_and_warn(
         struct encrypted_credential_header *h;
         struct metadata_credential_header *m;
         uint8_t md[SHA256_DIGEST_LENGTH];
-        bool with_tpm2, with_host_key, is_tpm2_absent, with_tpm2_pk;
+        bool with_tpm2, with_tpm2_pk, with_host_key, with_null;
         const EVP_CIPHER *cc;
         int r, added;
 
@@ -1098,9 +1098,9 @@ int decrypt_credential_and_warn(
         with_host_key = sd_id128_in_set(h->id, CRED_AES256_GCM_BY_HOST, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK);
         with_tpm2_pk = sd_id128_in_set(h->id, CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK);
         with_tpm2 = sd_id128_in_set(h->id, CRED_AES256_GCM_BY_TPM2_HMAC, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC) || with_tpm2_pk;
-        is_tpm2_absent = sd_id128_equal(h->id, CRED_AES256_GCM_BY_TPM2_ABSENT);
+        with_null = sd_id128_equal(h->id, CRED_AES256_GCM_BY_NULL);
 
-        if (!with_host_key && !with_tpm2 && !is_tpm2_absent)
+        if (!with_host_key && !with_tpm2 && !with_null)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Unknown encryption format, or corrupted data: %m");
 
         if (with_tpm2_pk) {
@@ -1109,7 +1109,7 @@ int decrypt_credential_and_warn(
                         return log_error_errno(r, "Failed to load pcr signature: %m");
         }
 
-        if (is_tpm2_absent) {
+        if (with_null) {
                 /* So this is a credential encrypted with a zero length key. We support this to cover for the
                  * case where neither a host key not a TPM2 are available (specifically: initrd environments
                  * where the host key is not yet accessible and no TPM2 chip exists at all), to minimize
@@ -1246,7 +1246,7 @@ int decrypt_credential_and_warn(
                         return log_error_errno(r, "Failed to determine local credential key: %m");
         }
 
-        if (is_tpm2_absent)
+        if (with_null)
                 log_warning("Warning: using a null key for decryption and authentication. Confidentiality or authenticity are not provided.");
 
         sha256_hash_host_and_tpm2_key(host_key, host_key_size, tpm2_key, tpm2_key_size, md);
