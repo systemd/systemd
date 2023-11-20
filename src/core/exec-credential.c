@@ -283,6 +283,7 @@ static int maybe_decrypt_and_write_credential(
                                 /* tpm2_device= */ NULL,
                                 /* tpm2_signature_path= */ NULL,
                                 &IOVEC_MAKE(data, size),
+                                /* flags= */ 0,
                                 &plaintext);
                 if (r < 0)
                         return r;
@@ -708,6 +709,7 @@ static int acquire_credentials(
                                         /* tpm2_device= */ NULL,
                                         /* tpm2_signature_path= */ NULL,
                                         &IOVEC_MAKE(sc->data, sc->size),
+                                        /* flags= */ 0,
                                         &plaintext);
                         if (r < 0)
                                 return r;
