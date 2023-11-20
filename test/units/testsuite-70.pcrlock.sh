@@ -41,6 +41,15 @@ PCRS="1+2+3+4+5+16"
 # (as the PCR values simply won't match the log).
 rm -f /run/log/systemd/tpm2-measure.log
 
+# Ensure a truncated log doesn't crash pcrlock
+echo -n -e \\x1e >/tmp/borked
+set +e
+SYSTEMD_MEASURE_LOG_USERSPACE=/tmp/borked "$SD_PCRLOCK" cel --no-pager --json=pretty
+ret=$?
+set -e
+# If it crashes the exit code will be 149
+test $ret -eq 1
+
 SYSTEMD_COLORS=256 "$SD_PCRLOCK"
 "$SD_PCRLOCK" cel --no-pager --json=pretty
 "$SD_PCRLOCK" log --pcr="$PCRS"
