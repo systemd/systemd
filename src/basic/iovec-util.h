@@ -45,7 +45,13 @@ static inline void iovec_done_erase(struct iovec *iovec) {
 }
 
 static inline bool iovec_is_set(const struct iovec *iovec) {
+        /* Checks if the iovec points to a non-empty chunk of memory */
         return iovec && iovec->iov_len > 0 && iovec->iov_base;
+}
+
+static inline bool iovec_is_valid(const struct iovec *iovec) {
+        /* Checks if the iovec is either NULL, empty or points to a valid bit of memory */
+        return !iovec || (iovec->iov_base || iovec->iov_len == 0);
 }
 
 char* set_iovec_string_field(struct iovec *iovec, size_t *n_iovec, const char *field, const char *value);
