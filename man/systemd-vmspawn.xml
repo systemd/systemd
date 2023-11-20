@@ -101,7 +101,7 @@
           <para>Configure whether to use VSock networking.</para>
           <para>If the option is not specified VSock support will be detected automatically.
           If yes is specified VSocks are always used, and vice versa if no is set VSocks are never used.</para>
-          <xi:include href="version-info.xml" xpointer="v256"/>
+          <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
       </varlistentry>
 
@@ -113,7 +113,7 @@
           <para>If the option is not specified or an empty argument is supplied the guest will be assigned a random CID.</para>
           <para>Valid CIDs are in the range <constant>3</constant> to <constant>4294967294</constant> (<constant>0xFFFF_FFFE</constant>).
           CIDs outside of this range are reserved.</para>
-          <xi:include href="version-info.xml" xpointer="v256"/>
+          <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
       </varlistentry>
 
@@ -150,7 +150,7 @@
           (for example in tools like
           <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
           and similar).</para>
-          <xi:include href="version-info.xml" xpointer="v256"/>
+          <xi:include href="version-info.xml" xpointer="v255"/>
           </listitem>
         </varlistentry>
       </variablelist>
