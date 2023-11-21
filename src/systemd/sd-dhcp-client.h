@@ -107,6 +107,9 @@ __extension__ int sd_dhcp_client_set_iaid_duid_raw(
 __extension__ int sd_dhcp_client_set_rapid_commit(
                 sd_dhcp_client *client,
                 bool rapid_commit);
+__extension__ int sd_dhcp_client_set_keep_alive(
+                sd_dhcp_client *client,
+                bool keep_alive);
 int sd_dhcp_client_get_client_id(
                 sd_dhcp_client *client,
                 uint8_t *ret_type,
