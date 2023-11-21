@@ -263,6 +263,7 @@ DHCPv4.IPv6OnlyMode,                         config_parse_tristate,             
 DHCPv4.NetLabel,                             config_parse_string,                                      CONFIG_PARSE_STRING_SAFE,      offsetof(Network, dhcp_netlabel)
 DHCPv4.NFTSet,                               config_parse_nft_set,                                     NFT_SET_PARSE_NETWORK,         offsetof(Network, dhcp_nft_set_context)
 DHCPv4.RapidCommit,                          config_parse_tristate,                                    0,                             offsetof(Network, dhcp_use_rapid_commit)
+DHCPv4.KeepClientAlive,                      config_parse_bool,                                        0,                             offsetof(Network, dhcp_keep_client_alive)
 DHCPv6.UseAddress,                           config_parse_bool,                                        0,                             offsetof(Network, dhcp6_use_address)
 DHCPv6.UseDelegatedPrefix,                   config_parse_bool,                                        0,                             offsetof(Network, dhcp6_use_pd_prefix)
 DHCPv6.UseDNS,                               config_parse_dhcp_use_dns,                                AF_INET6,                      0
