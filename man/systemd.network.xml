@@ -1893,6 +1893,7 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
 
           <para>When true,
           <varname>ClientIdentifier=mac</varname>,
+          <varname>RapidCommit=no</varname>,
           <varname>SendHostname=no</varname>,
           <varname>Use6RD=no</varname>,
           <varname>UseCaptivePortal=no</varname>,
