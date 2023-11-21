@@ -51,6 +51,13 @@ void network_adjust_dhcp4(Network *network) {
 
         if (network->dhcp_client_identifier < 0)
                 network->dhcp_client_identifier = network->dhcp_anonymize ? DHCP_CLIENT_ID_MAC : DHCP_CLIENT_ID_DUID;
+
+        /* By default, RapidCommit= is enabled when Anonymize=no and neither AllowList= nor DenyList= is specified. */
+        if (network->dhcp_use_rapid_commit < 0)
+                network->dhcp_use_rapid_commit =
+                        !network->dhcp_anonymize &&
+                        set_isempty(network->dhcp_allow_listed_ip) &&
+                        set_isempty(network->dhcp_deny_listed_ip);
 }
 
 static int dhcp4_prefix_covers(
