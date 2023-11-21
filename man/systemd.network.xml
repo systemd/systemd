@@ -2236,7 +2236,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           four-message exchange (discover, offer, request, and ack) is used. The two-message exchange
           provides faster client configuration. See
           <ulink url="https://tools.ietf.org/html/rfc4039">RFC 4039</ulink> for details.
-          Defaults to true.</para>
+          Defaults to true when <varname>Anonymize=no</varname> and neither <varname>AllowList=</varname>
+          nor <varname>DenyList=</varname> is specified, and false otherwise.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
@@ -2256,6 +2257,7 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
 
           <para>When true,
           <varname>ClientIdentifier=mac</varname>,
+          <varname>RapidCommit=no</varname>,
           <varname>SendHostname=no</varname>,
           <varname>Use6RD=no</varname>,
           <varname>UseCaptivePortal=no</varname>,
@@ -2669,6 +2671,9 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           prefix length after <literal>/</literal>. DHCP offers from servers in the list are rejected.
           Note that if <varname>AllowList=</varname> is configured then <varname>DenyList=</varname> is
           ignored.</para>
+          <para>Note that this filters only DHCP offers, so the filtering may not work when
+          <varname>RapidCommit=</varname> is enabled. See also <varname>RapidCommit=</varname> in the above.
+          </para>
 
           <xi:include href="version-info.xml" xpointer="v246"/>
         </listitem>
@@ -2679,6 +2684,9 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
         <listitem>
           <para>A whitespace-separated list of IPv4 addresses. Each address can optionally take a
           prefix length after <literal>/</literal>. DHCP offers from servers in the list are accepted.
+          </para>
+          <para>Note that this filters only DHCP offers, so the filtering may not work when
+          <varname>RapidCommit=</varname> is enabled. See also <varname>RapidCommit=</varname> in the above.
           </para>
 
           <xi:include href="version-info.xml" xpointer="v246"/>
