@@ -70,6 +70,7 @@ int acquire_tpm2_key(
                 const struct iovec *policy_hash,
                 const struct iovec *salt,
                 const struct iovec *srk,
+                const struct iovec *pcrlock_nv,
                 TPM2Flags flags,
                 usec_t until,
                 bool headless,
@@ -128,6 +129,14 @@ int acquire_tpm2_key(
                 r = tpm2_pcrlock_policy_load(pcrlock_path, &pcrlock_policy);
                 if (r < 0)
                         return r;
+                if (r == 0) {
+                        /* Not found? Then search among passed credentials */
+                        r = tpm2_pcrlock_policy_from_credentials(srk, pcrlock_nv, &pcrlock_policy);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EREMOTE), "Couldn't find pcrlock policy for volume.");
+                }
         }
 
         _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;
@@ -219,6 +228,7 @@ int find_tpm2_auto_data(
                 struct iovec *ret_policy_hash,
                 struct iovec *ret_salt,
                 struct iovec *ret_srk,
+                struct iovec *ret_pcrlock_nv,
                 TPM2Flags *ret_flags,
                 int *ret_keyslot,
                 int *ret_token) {
@@ -228,7 +238,7 @@ int find_tpm2_auto_data(
         assert(cd);
 
         for (token = start_token; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
-                _cleanup_(iovec_done) struct iovec blob = {}, policy_hash = {}, pubkey = {}, salt = {}, srk = {};
+                _cleanup_(iovec_done) struct iovec blob = {}, policy_hash = {}, pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
                 uint32_t hash_pcr_mask, pubkey_pcr_mask;
                 uint16_t pcr_bank, primary_alg;
@@ -253,6 +263,7 @@ int find_tpm2_auto_data(
                                 &policy_hash,
                                 &salt,
                                 &srk,
+                                &pcrlock_nv,
                                 &flags);
                 if (r == -EUCLEAN) /* Gracefully handle issues in JSON fields not owned by us */
                         continue;
@@ -276,6 +287,7 @@ int find_tpm2_auto_data(
                         *ret_keyslot = keyslot;
                         *ret_token = token;
                         *ret_srk = TAKE_STRUCT(srk);
+                        *ret_pcrlock_nv = TAKE_STRUCT(pcrlock_nv);
                         *ret_flags = flags;
                         return 0;
                 }
