@@ -89,6 +89,7 @@ struct Session {
         int vtfd;
 
         PidRef leader;
+        bool leader_fd_saved;
         uint32_t audit_id;
 
         int fifo_fd;
