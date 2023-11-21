@@ -3910,6 +3910,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                 &IOVEC_MAKE(policy.buffer, policy.size),
                                 /* salt= */ NULL, /* no salt because tpm2_seal has no pin */
                                 &srk,
+                                &pcrlock_policy.nv_handle,
                                 flags,
                                 &v);
                 if (r < 0)
