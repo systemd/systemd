@@ -365,6 +365,7 @@ int enroll_tpm2(struct crypt_device *cd,
                         &IOVEC_MAKE(policy.buffer, policy.size),
                         use_pin ? &IOVEC_MAKE(binary_salt, sizeof(binary_salt)) : NULL,
                         &srk,
+                        pcrlock_path ? &pcrlock_policy.nv_handle : NULL,
                         flags,
                         &v);
         if (r < 0)
