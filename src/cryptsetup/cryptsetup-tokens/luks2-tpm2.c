@@ -27,6 +27,7 @@ int acquire_luks2_key(
                 const struct iovec *policy_hash,
                 const struct iovec *salt,
                 const struct iovec *srk,
+                const struct iovec *pcrlock_nv,
                 TPM2Flags flags,
                 struct iovec *ret_decrypted_key) {
 
@@ -75,6 +76,14 @@ int acquire_luks2_key(
                 r = tpm2_pcrlock_policy_load(pcrlock_path, &pcrlock_policy);
                 if (r < 0)
                         return r;
+                if (r == 0) {
+                        /* Not found? Then search among passed credentials */
+                        r = tpm2_pcrlock_policy_from_credentials(srk, pcrlock_nv, &pcrlock_policy);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EREMOTE), "Couldn't find pcrlock policy for volume.");
+                }
         }
 
         _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;

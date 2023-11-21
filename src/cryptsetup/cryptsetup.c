@@ -1688,6 +1688,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                         /* policy_hash= */ NULL, /* we don't know the policy hash */
                                         /* salt= */ NULL,
                                         /* srk= */ NULL,
+                                        /* pcrlock_nv= */ NULL,
                                         arg_tpm2_pin ? TPM2_FLAGS_USE_PIN : 0,
                                         until,
                                         arg_headless,
@@ -1732,7 +1733,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                          * works. */
 
                         for (;;) {
-                                _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {};
+                                _cleanup_(iovec_done) struct iovec pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
                                 uint32_t hash_pcr_mask, pubkey_pcr_mask;
                                 uint16_t pcr_bank, primary_alg;
                                 TPM2Flags tpm2_flags;
@@ -1750,6 +1751,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 &policy_hash,
                                                 &salt,
                                                 &srk,
+                                                &pcrlock_nv,
                                                 &tpm2_flags,
                                                 &keyslot,
                                                 &token);
@@ -1784,6 +1786,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 &policy_hash,
                                                 &salt,
                                                 &srk,
+                                                &pcrlock_nv,
                                                 tpm2_flags,
                                                 until,
                                                 arg_headless,
