@@ -84,8 +84,10 @@ struct sd_dhcp_client {
         usec_t t1_time;
         usec_t t2_time;
         usec_t expire_time;
-        uint64_t attempt;
-        uint64_t max_attempts;
+        uint64_t discover_attempt;
+        uint64_t request_attempt;
+        uint64_t max_discover_attempts;
+        uint64_t max_request_attempts;
         OrderedHashmap *extra_options;
         OrderedHashmap *vendor_options;
         sd_event_source *timeout_t1;
@@ -149,6 +151,7 @@ static int client_receive_message_udp(
                 uint32_t revents,
                 void *userdata);
 static void client_stop(sd_dhcp_client *client, int error);
+static int client_restart(sd_dhcp_client *client);
 
 int dhcp_client_set_state_callback(
                 sd_dhcp_client *client,
@@ -529,7 +532,7 @@ int sd_dhcp_client_set_max_attempts(sd_dhcp_client *client, uint64_t max_attempt
         assert_return(client, -EINVAL);
         assert_return(!sd_dhcp_client_is_running(client), -EBUSY);
 
-        client->max_attempts = max_attempts;
+        client->max_discover_attempts = max_attempts;
 
         return 0;
 }
@@ -654,7 +657,8 @@ static int client_initialize(sd_dhcp_client *client) {
         (void) event_source_disable(client->timeout_expire);
         (void) event_source_disable(client->timeout_ipv6_only_mode);
 
-        client->attempt = 0;
+        client->discover_attempt = 0;
+        client->request_attempt = 0;
 
         client_set_state(client, DHCP_STATE_STOPPED);
         client->xid = 0;
@@ -1188,13 +1192,19 @@ static int client_timeout_resend(
         case DHCP_STATE_INIT:
         case DHCP_STATE_INIT_REBOOT:
         case DHCP_STATE_SELECTING:
-        case DHCP_STATE_REQUESTING:
-        case DHCP_STATE_BOUND:
-                if (client->attempt >= client->max_attempts)
+                if (client->discover_attempt >= client->max_discover_attempts)
                         goto error;
 
-                client->attempt++;
-                next_timeout = client_compute_request_timeout(time_now, client->attempt);
+                client->discover_attempt++;
+                next_timeout = client_compute_request_timeout(time_now, client->discover_attempt);
+                break;
+        case DHCP_STATE_REQUESTING:
+        case DHCP_STATE_BOUND:
+                if (client->request_attempt >= client->max_request_attempts)
+                        goto error;
+
+                client->request_attempt++;
+                next_timeout = client_compute_request_timeout(time_now, client->request_attempt);
                 break;
 
         case DHCP_STATE_STOPPED:
@@ -1218,14 +1228,14 @@ static int client_timeout_resend(
                 r = client_send_discover(client);
                 if (r >= 0) {
                         client_set_state(client, DHCP_STATE_SELECTING);
-                        client->attempt = 0;
-                } else if (client->attempt >= client->max_attempts)
+                        client->discover_attempt = 0;
+                } else if (client->discover_attempt >= client->max_discover_attempts)
                         goto error;
                 break;
 
         case DHCP_STATE_SELECTING:
                 r = client_send_discover(client);
-                if (r < 0 && client->attempt >= client->max_attempts)
+                if (r < 0 && client->discover_attempt >= client->max_discover_attempts)
                         goto error;
                 break;
 
@@ -1234,7 +1244,7 @@ static int client_timeout_resend(
         case DHCP_STATE_RENEWING:
         case DHCP_STATE_REBINDING:
                 r = client_send_request(client);
-                if (r < 0 && client->attempt >= client->max_attempts)
+                if (r < 0 && client->request_attempt >= client->max_request_attempts)
                          goto error;
 
                 if (client->state == DHCP_STATE_INIT_REBOOT)
@@ -1251,12 +1261,20 @@ static int client_timeout_resend(
                 goto error;
         }
 
-        if (client->attempt >= TRANSIENT_FAILURE_ATTEMPTS)
+        if (client->discover_attempt >= TRANSIENT_FAILURE_ATTEMPTS)
                 client_notify(client, SD_DHCP_CLIENT_EVENT_TRANSIENT_FAILURE);
 
         return 0;
 
 error:
+        /* Avoid REQUEST infinite loop. Per RFC 2131 section 3.1.5: if the client receives
+           neither a DHCPACK or a DHCPNAK message after employing the retransmission algorithm,
+           the client reverts to INIT state and restarts the initialization process */
+        if (client->request_attempt >= client->max_request_attempts) {
+                log_dhcp_client(client, "Max REQUEST attempts reached. Restarting...");
+                client_restart(client);
+                return 0;
+        }
         client_stop(client, r);
 
         /* Errors were dealt with when stopping the client, don't spill
@@ -1389,7 +1407,8 @@ static int client_timeout_t2(sd_event_source *s, uint64_t usec, void *userdata) 
         client->fd = safe_close(client->fd);
 
         client_set_state(client, DHCP_STATE_REBINDING);
-        client->attempt = 0;
+        client->discover_attempt = 0;
+        client->request_attempt = 0;
 
         r = dhcp_network_bind_raw_socket(client->ifindex, &client->link, client->xid,
                                          &client->hw_addr, &client->bcast_addr,
@@ -1412,7 +1431,8 @@ static int client_timeout_t1(sd_event_source *s, uint64_t usec, void *userdata) 
                 client_set_state(client, DHCP_STATE_RENEWING);
         else if (client->state != DHCP_STATE_INIT)
                 client_set_state(client, DHCP_STATE_INIT_REBOOT);
-        client->attempt = 0;
+        client->discover_attempt = 0;
+        client->request_attempt = 0;
 
         return client_initialize_time_events(client);
 }
@@ -1550,7 +1570,8 @@ static int client_enter_requesting_now(sd_dhcp_client *client) {
         assert(client);
 
         client_set_state(client, DHCP_STATE_REQUESTING);
-        client->attempt = 0;
+        client->discover_attempt = 0;
+        client->request_attempt = 0;
 
         return event_reset_time(client->event, &client->timeout_resend,
                                 CLOCK_BOOTTIME, 0, 0,
@@ -1777,7 +1798,8 @@ static int client_enter_bound_now(sd_dhcp_client *client, int notify_event) {
                 notify_event = SD_DHCP_CLIENT_EVENT_IP_ACQUIRE;
 
         client_set_state(client, DHCP_STATE_BOUND);
-        client->attempt = 0;
+        client->discover_attempt = 0;
+        client->request_attempt = 0;
 
         client->last_addr = client->lease->address;
 
@@ -2107,7 +2129,8 @@ int sd_dhcp_client_send_renew(sd_dhcp_client *client) {
         assert(client->lease);
 
         client->start_delay = 0;
-        client->attempt = 1;
+        client->discover_attempt = 1;
+        client->request_attempt = 1;
         client_set_state(client, DHCP_STATE_RENEWING);
 
         return client_initialize_time_events(client);
@@ -2360,7 +2383,8 @@ int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize) {
                 .mtu = DHCP_MIN_PACKET_SIZE,
                 .port = DHCP_PORT_CLIENT,
                 .anonymize = !!anonymize,
-                .max_attempts = UINT64_MAX,
+                .max_discover_attempts = UINT64_MAX,
+                .max_request_attempts = 5,
                 .ip_service_type = -1,
         };
         /* NOTE: this could be moved to a function. */
