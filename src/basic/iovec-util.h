@@ -58,3 +58,14 @@ char* set_iovec_string_field(struct iovec *iovec, size_t *n_iovec, const char *f
 char* set_iovec_string_field_free(struct iovec *iovec, size_t *n_iovec, const char *field, char *value);
 
 void iovec_array_free(struct iovec *iovec, size_t n);
+
+static inline int iovec_memcmp(const struct iovec *a, const struct iovec *b) {
+
+        if (a == b)
+                return 0;
+
+        return memcmp_nn(a ? a->iov_base : NULL,
+                         a ? a->iov_len : 0,
+                         b ? b->iov_base : NULL,
+                         b ? b->iov_len : 0);
+}
