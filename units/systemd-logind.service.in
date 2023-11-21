@@ -32,6 +32,8 @@ DeviceAllow=char-tty rw
 DeviceAllow=char-vcs rw
 ExecStart={{LIBEXECDIR}}/systemd-logind
 FileDescriptorStoreMax=512
+# We want to be able to pick up session leader fds even after a stop.
+FileDescriptorStorePreserve=yes
 IPAddressDeny=any
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
