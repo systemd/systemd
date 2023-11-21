@@ -88,3 +88,16 @@ systemctl daemon-reload
 systemctl start systemd-bsod
 systemd-cat -p emerg echo "Service emergency message"
 vcs_dump_and_check "Service emergency message"
+systemctl stop systemd-bsod
+
+# Wipe the journal
+journalctl --vacuum-size=1 --rotate
+(! journalctl -q -b -p emerg --grep .)
+
+# Same as above, but make sure the service responds to signals even when there are
+# no "emerg" messages, see systemd/systemd#30084
+(! systemctl is-active systemd-bsod)
+systemctl start systemd-bsod
+timeout 5s bash -xec 'until systemctl is-active systemd-bsod; do sleep .5; done'
+timeout 5s systemctl stop systemd-bsod
+timeout 5s bash -xec 'while systemctl is-active systemd-bsod; do sleep .5; done'
