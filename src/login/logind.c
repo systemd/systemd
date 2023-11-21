@@ -18,6 +18,7 @@
 #include "constants.h"
 #include "daemon-util.h"
 #include "device-util.h"
+#include "devnum-util.h"
 #include "dirent-util.h"
 #include "escape.h"
 #include "fd-util.h"
@@ -349,116 +350,90 @@ static int manager_enumerate_users(Manager *m) {
         return r;
 }
 
-static int parse_fdname(const char *fdname, char **session_id, dev_t *dev) {
+static int parse_fdname(const char *fdname, char **ret_session_id, dev_t *ret_devno) {
         _cleanup_strv_free_ char **parts = NULL;
         _cleanup_free_ char *id = NULL;
-        unsigned major, minor;
         int r;
+
+        assert(ret_session_id);
+        assert(ret_devno);
 
         parts = strv_split(fdname, "-");
         if (!parts)
                 return -ENOMEM;
-        if (strv_length(parts) != 5)
-                return -EINVAL;
 
-        if (!streq(parts[0], "session"))
+        if (_unlikely_(!streq(parts[0], "session")))
                 return -EINVAL;
 
         id = strdup(parts[1]);
         if (!id)
                 return -ENOMEM;
 
-        if (!streq(parts[2], "device"))
+        if (streq(parts[2], "leader")) {
+                *ret_session_id = TAKE_PTR(id);
+                *ret_devno = 0;
+
+                return 0;
+        }
+
+        if (_unlikely_(!streq(parts[2], "device")))
                 return -EINVAL;
+
+        unsigned major, minor;
 
         r = safe_atou(parts[3], &major);
         if (r < 0)
                 return r;
+
         r = safe_atou(parts[4], &minor);
         if (r < 0)
                 return r;
 
-        *dev = makedev(major, minor);
-        *session_id = TAKE_PTR(id);
+        *ret_session_id = TAKE_PTR(id);
+        *ret_devno = makedev(major, minor);
 
         return 0;
 }
 
-static int deliver_fd(Manager *m, const char *fdname, int fd) {
-        _cleanup_free_ char *id = NULL;
+static int deliver_session_device_fd(Session *s, const char *fdname, int fd, dev_t devno) {
         SessionDevice *sd;
         struct stat st;
-        Session *s;
-        dev_t dev;
-        int r;
 
-        assert(m);
+        assert(s);
+        assert(fdname);
         assert(fd >= 0);
-
-        r = parse_fdname(fdname, &id, &dev);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to parse fd name %s: %m", fdname);
-
-        s = hashmap_get(m->sessions, id);
-        if (!s)
-                /* If the session doesn't exist anymore, the associated session device attached to this fd
-                 * doesn't either. Let's simply close this fd. */
-                return log_debug_errno(SYNTHETIC_ERRNO(ENXIO), "Failed to attach fd for unknown session: %s", id);
+        assert(devno > 0);
 
         if (fstat(fd, &st) < 0)
                 /* The device is allowed to go away at a random point, in which case fstat() failing is
                  * expected. */
-                return log_debug_errno(errno, "Failed to stat device fd for session %s: %m", id);
+                return log_debug_errno(errno, "Failed to stat device fd '%s' for session '%s': %m",
+                                       fdname, s->id);
 
-        if (!S_ISCHR(st.st_mode) || st.st_rdev != dev)
-                return log_debug_errno(SYNTHETIC_ERRNO(ENODEV), "Device fd doesn't point to the expected character device node");
+        if (!S_ISCHR(st.st_mode) || st.st_rdev != devno)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENODEV),
+                                       "Device fd '%s' doesn't point to the expected character device node.",
+                                       fdname);
 
-        sd = hashmap_get(s->devices, &dev);
+        sd = hashmap_get(s->devices, &devno);
         if (!sd)
                 /* Weird, we got an fd for a session device which wasn't recorded in the session state
                  * file... */
-                return log_warning_errno(SYNTHETIC_ERRNO(ENODEV), "Got fd for missing session device [%u:%u] in session %s",
-                                         major(dev), minor(dev), s->id);
+                return log_warning_errno(SYNTHETIC_ERRNO(ENODEV),
+                                         "Got session device fd '%s' [" DEVNUM_FORMAT_STR "], but not present in session state.",
+                                         fdname, DEVNUM_FORMAT_VAL(devno));
 
-        log_debug("Attaching fd to session device [%u:%u] for session %s",
-                  major(dev), minor(dev), s->id);
+        log_debug("Attaching session device fd '%s' [" DEVNUM_FORMAT_STR "] to session '%s'.",
+                  fdname, DEVNUM_FORMAT_VAL(devno), s->id);
 
         session_device_attach_fd(sd, fd, s->was_active);
         return 0;
 }
 
-static int manager_attach_fds(Manager *m) {
-        _cleanup_strv_free_ char **fdnames = NULL;
-        int n;
-
-        /* Upon restart, PID1 will send us back all fds of session devices that we previously opened. Each
-         * file descriptor is associated with a given session. The session ids are passed through FDNAMES. */
-
-        assert(m);
-
-        n = sd_listen_fds_with_names(true, &fdnames);
-        if (n < 0)
-                return log_warning_errno(n, "Failed to acquire passed fd list: %m");
-        if (n == 0)
-                return 0;
-
-        for (int i = 0; i < n; i++) {
-                int fd = SD_LISTEN_FDS_START + i;
-
-                if (deliver_fd(m, fdnames[i], fd) >= 0)
-                        continue;
-
-                /* Hmm, we couldn't deliver the fd to any session device object? If so, let's close the fd
-                 * and remove it from fdstore. */
-                close_and_notify_warn(fd, fdnames[i]);
-        }
-
-        return 0;
-}
-
 static int manager_enumerate_sessions(Manager *m) {
+        _cleanup_strv_free_ char **fdnames = NULL;
         _cleanup_closedir_ DIR *d = NULL;
-        int r = 0;
+        int ret = 0, r, n;
 
         assert(m);
 
@@ -473,27 +448,89 @@ static int manager_enumerate_sessions(Manager *m) {
 
         FOREACH_DIRENT(de, d, return -errno) {
                 Session *s;
-                int k;
 
                 if (!dirent_is_file(de))
                         continue;
 
-                k = manager_add_session(m, de->d_name, &s);
-                if (k < 0) {
-                        RET_GATHER(r, log_warning_errno(k, "Failed to add session by filename %s, ignoring: %m", de->d_name));
+                r = manager_add_session(m, de->d_name, &s);
+                if (r < 0) {
+                        RET_GATHER(ret, log_warning_errno(r, "Failed to add session by filename %s, ignoring: %m", de->d_name));
                         continue;
                 }
 
-                session_add_to_gc_queue(s);
+                r = session_load(s);
+                if (r < 0)
+                        RET_GATHER(ret, log_warning_errno(r, "Failed to deserialize session '%s', ignoring: %m", s->id));
 
-                RET_GATHER(r, session_load(s));
+                session_add_to_gc_queue(s);
         }
 
-        /* We might be restarted and PID1 could have sent us back the session device fds we previously
-         * saved. */
-        (void) manager_attach_fds(m);
+        n = sd_listen_fds_with_names(true, &fdnames);
+        if (n < 0)
+                return log_error_errno(n, "Failed to acquire passed fd list: %m");
 
-        return r;
+        for (int i = 0; i < n; i++) {
+                int fd = SD_LISTEN_FDS_START + i;
+                _cleanup_free_ char *id = NULL;
+                dev_t devno;
+                Session *s;
+
+                r = parse_fdname(fdnames[i], &id, &devno);
+                if (r < 0) {
+                        RET_GATHER(ret,
+                                   log_warning_errno(r, "Failed to parse stored fd name '%s', ignoring: %m",
+                                                     fdnames[i]));
+                        goto fail_skip;
+                }
+
+                s = hashmap_get(m->sessions, id);
+                if (!s) {
+                        /* If the session doesn't exist anymore, let's simply close this fd. */
+                        RET_GATHER(ret,
+                                   log_debug_errno(SYNTHETIC_ERRNO(ENXIO),
+                                                   "Cannot attach fd '%s' to unknown session, ignoring: %s",
+                                                   fdnames[i], id));
+                        goto fail_skip;
+                }
+
+                if (devno > 0) {
+                        r = deliver_session_device_fd(s, fdnames[i], fd, devno);
+                        if (r < 0) {
+                                RET_GATHER(ret, r);
+                                goto fail_skip;
+                        }
+                } else {
+                        _cleanup_(pidref_done) PidRef leader_fdstore = PIDREF_NULL;
+
+                        assert(!pidref_is_set(&s->leader));
+
+                        r = pidref_set_pidfd_take(&leader_fdstore, fd);
+                        if (r < 0) {
+                                if (r == -ESRCH)
+                                        log_debug_errno(r, "Leader of session '%s' is gone while deserializing, ignoring.", id);
+                                else
+                                        log_warning_errno(r, "Failed to create reference to leader of session '%s', ignoring: %m", id);
+
+                                RET_GATHER(ret, r);
+                                goto fail_skip;
+                        }
+
+                        r = session_set_leader_consume(s, TAKE_PIDREF(leader_fdstore));
+                        if (r < 0)
+                                RET_GATHER(ret, log_warning_errno(r,
+                                                                  "Failed to attach leader pidfd for session '%s', ignoring: %m",
+                                                                  id));
+
+                        // FIXME: Maybe call session_watch_pidfd() here?
+                }
+
+                continue;
+
+        fail_skip:
+                close_and_notify_warn(fd, fdnames[i]);
+        }
+
+        return ret;
 }
 
 static int manager_enumerate_inhibitors(Manager *m) {
