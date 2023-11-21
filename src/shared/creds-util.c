@@ -1365,7 +1365,7 @@ int decrypt_credential_and_warn(
         if (ret) {
                 char *without_metadata;
 
-                without_metadata = memdup((uint8_t*) plaintext + hs, plaintext_size - hs);
+                without_metadata = memdup_suffix0((uint8_t*) plaintext + hs, plaintext_size - hs);
                 if (!without_metadata)
                         return log_oom();
 
