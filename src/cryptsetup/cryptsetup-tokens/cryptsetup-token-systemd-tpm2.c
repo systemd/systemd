@@ -42,7 +42,7 @@ _public_ int cryptsetup_token_open_pin(
                 void *usrptr /* plugin defined parameter passed to crypt_activate_by_token*() API */) {
 
         _cleanup_(erase_and_freep) char *base64_encoded = NULL, *pin_string = NULL;
-        _cleanup_(iovec_done) struct iovec blob = {}, pubkey = {}, policy_hash = {}, salt = {}, srk = {};
+        _cleanup_(iovec_done) struct iovec blob = {}, pubkey = {}, policy_hash = {}, salt = {}, srk = {}, pcrlock_nv = {};
         _cleanup_(iovec_done_erase) struct iovec decrypted_key = {};
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         uint32_t hash_pcr_mask, pubkey_pcr_mask;
@@ -88,6 +88,7 @@ _public_ int cryptsetup_token_open_pin(
                         &policy_hash,
                         &salt,
                         &srk,
+                        &pcrlock_nv,
                         &flags);
         if (r < 0)
                 return log_debug_open_error(cd, r);
@@ -109,6 +110,7 @@ _public_ int cryptsetup_token_open_pin(
                         &policy_hash,
                         &salt,
                         &srk,
+                        &pcrlock_nv,
                         flags,
                         &decrypted_key);
         if (r < 0)
@@ -166,7 +168,7 @@ _public_ void cryptsetup_token_dump(
                 const char *json /* validated 'systemd-tpm2' token if cryptsetup_token_validate is defined */) {
 
         _cleanup_free_ char *hash_pcrs_str = NULL, *pubkey_pcrs_str = NULL, *blob_str = NULL, *policy_hash_str = NULL, *pubkey_str = NULL;
-        _cleanup_(iovec_done) struct iovec blob = {}, pubkey = {}, policy_hash = {}, salt = {}, srk = {};
+        _cleanup_(iovec_done) struct iovec blob = {}, pubkey = {}, policy_hash = {}, salt = {}, srk = {}, pcrlock_nv = {};
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         uint32_t hash_pcr_mask, pubkey_pcr_mask;
         uint16_t pcr_bank, primary_alg;
@@ -191,6 +193,7 @@ _public_ void cryptsetup_token_dump(
                         &policy_hash,
                         &salt,
                         &srk,
+                        &pcrlock_nv,
                         &flags);
         if (r < 0)
                 return (void) crypt_log_debug_errno(cd, r, "Failed to parse " TOKEN_NAME " JSON fields: %m");
@@ -226,6 +229,7 @@ _public_ void cryptsetup_token_dump(
         crypt_log(cd, "\ttpm2-pcrlock:     %s\n", true_false(flags & TPM2_FLAGS_USE_PCRLOCK));
         crypt_log(cd, "\ttpm2-salt:        %s\n", true_false(iovec_is_set(&salt)));
         crypt_log(cd, "\ttpm2-srk:         %s\n", true_false(iovec_is_set(&srk)));
+        crypt_log(cd, "\ttpm2-pcrlock-nv:  %s\n", true_false(iovec_is_set(&pcrlock_nv)));
 }
 
 /*
