@@ -1716,7 +1716,7 @@ save_journal() {
     local state="${2:?}"
     # Default to always saving journal
     local save="yes"
-    local dest_dir dest_name dest
+    local dest_dir dest_name dest lines
 
     if [[ "${TEST_SAVE_JOURNAL:-}" == "no" ]]; then
         save="no"
@@ -1732,10 +1732,12 @@ save_journal() {
         dest_name="system.journal"
     fi
 
-    if [[ -n "$TEST_SHOW_JOURNAL" ]]; then
-        echo "---- $source_dir ----"
-        "$JOURNALCTL" --no-pager -o short-monotonic --no-hostname --priority="$TEST_SHOW_JOURNAL" -D "$source_dir"
-    fi
+    # Show the last 25/50 messages from the testsuite-XX.service or messages with
+    # priority "warning" and higher
+    [[ "$state" -eq 0 ]] && lines=25 || lines=50
+    echo " --- Last $lines messages from $source_dir ---"
+    "$JOURNALCTL" --no-pager --no-hostname -o short-monotonic -D "$source_dir" -n "$lines" \
+        _SYSTEMD_UNIT="testsuite-${TESTID:?}.service" + PRIORITY=4 + PRIORITY=3 + PRIORITY=2 + PRIORITY=1 + PRIORITY=0
 
     if get_bool "$save"; then
         # If we don't have systemd-journal-remote copy all journals from /var/log/journal/
@@ -3284,18 +3286,6 @@ test_setup() {
         if get_bool "${TEST_SUPPORTING_SERVICES_SHOULD_BE_MASKED}"; then
             dinfo "Masking supporting services"
             mask_supporting_services
-        fi
-
-        # Send stdout/stderr of testsuite-*.service units to both journal and
-        # console to make debugging in CIs easier
-        # Note: we can't use a dropin for `testsuite-.service`, since that also
-        #       overrides 'sub-units' of some tests that already use a specific
-        #       value for Standard(Output|Error)=
-        #       (e.g. test/units/testsuite-66-deviceisolation.service)
-        if ! get_bool "$INTERACTIVE_DEBUG"; then
-            local dropin_dir="${initdir:?}/etc/systemd/system/testsuite-${TESTID:?}.service.d"
-            mkdir -p "$dropin_dir"
-            printf '[Service]\nStandardOutput=journal+console\nStandardError=journal+console' >"$dropin_dir/99-stdout.conf"
         fi
 
         if get_bool "$IS_BUILT_WITH_COVERAGE"; then
