@@ -708,7 +708,7 @@ static void print_status_info(
 
                 /* Only show current swap if it ever was non-zero or is currently non-zero. In both cases
                    memory_swap_peak will be non-zero (and not CGROUP_LIMIT_MAX).
-                   Only show the available memory if it was artifically limited. */
+                   Only show the available memory if it was artificially limited. */
                 bool show_memory_swap = !IN_SET(i->memory_swap_peak, 0, CGROUP_LIMIT_MAX),
                      show_memory_zswap_current = !IN_SET(i->memory_zswap_current, 0, CGROUP_LIMIT_MAX),
                      show_memory_available = i->memory_high != CGROUP_LIMIT_MAX || i->memory_max != CGROUP_LIMIT_MAX;
