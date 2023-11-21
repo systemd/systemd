@@ -213,8 +213,10 @@ static void draw_cylon(char buffer[], size_t buflen, unsigned width, unsigned po
                 if (pos < width-1)
                         p = mempset(p, ' ', width-1-pos);
                 if (log_get_show_color())
-                        strcpy(p, ANSI_NORMAL);
+                        p = stpcpy(p, ANSI_NORMAL);
         }
+
+        *p = '\0';
 }
 
 static void manager_flip_auto_status(Manager *m, bool enable, const char *reason) {
