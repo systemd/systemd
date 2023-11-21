@@ -89,6 +89,8 @@ struct Session {
         int vtfd;
 
         PidRef leader;
+        bool leader_fd_saved; /* pidfd of leader uploaded to fdstore */
+        pid_t deserialized_pid; /* PID deserialized from state file (for verification when pidfd is used) */
         uint32_t audit_id;
 
         int fifo_fd;

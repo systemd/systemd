@@ -15,6 +15,7 @@
 #include "audit-util.h"
 #include "bus-error.h"
 #include "bus-util.h"
+#include "daemon-util.h"
 #include "devnum-util.h"
 #include "env-file.h"
 #include "escape.h"
@@ -87,8 +88,15 @@ int session_new(Session **ret, Manager *m, const char *id) {
         return 0;
 }
 
-static void session_reset_leader(Session *s) {
+static void session_reset_leader(Session *s, bool keep_fdstore) {
         assert(s);
+
+        if (!keep_fdstore) {
+                /* Clear fdstore if we're asked to, no matter if s->leader is set or not, so that when
+                 * initially deserializing leader fd we clear the old fd too. */
+                (void) notify_remove_fd_warnf("session-%s-leader-fd", s->id);
+                s->leader_fd_saved = false;
+        }
 
         if (!pidref_is_set(&s->leader))
                 return;
@@ -142,7 +150,7 @@ Session* session_free(Session *s) {
 
         free(s->scope_job);
 
-        session_reset_leader(s);
+        session_reset_leader(s, /* keep_fdstore = */ true);
 
         sd_bus_message_unref(s->create_message);
 
@@ -188,7 +196,7 @@ int session_set_leader_consume(Session *s, PidRef _leader) {
         if (pidref_equal(&s->leader, &pidref))
                 return 0;
 
-        session_reset_leader(s);
+        session_reset_leader(s, /* keep_fdstore = */ false);
 
         s->leader = TAKE_PIDREF(pidref);
 
@@ -196,6 +204,14 @@ int session_set_leader_consume(Session *s, PidRef _leader) {
         if (r < 0)
                 return r;
         assert(r > 0);
+
+        if (s->leader.fd >= 0) {
+                r = notify_push_fdf(s->leader.fd, "session-%s-leader-fd", s->id);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to push leader pidfd for session '%s', ignoring: %m", s->id);
+                else
+                        s->leader_fd_saved = true;
+        }
 
         (void) audit_session_from_pid(s->leader.pid, &s->audit_id);
 
@@ -243,13 +259,15 @@ int session_save(Session *s) {
                 "ACTIVE=%s\n"
                 "IS_DISPLAY=%s\n"
                 "STATE=%s\n"
-                "REMOTE=%s\n",
+                "REMOTE=%s\n"
+                "LEADER_FD_SAVED=%s\n",
                 s->user->user_record->uid,
                 s->user->user_record->user_name,
                 one_zero(session_is_active(s)),
                 one_zero(s->user->display == s),
                 session_state_to_string(session_get_state(s)),
-                one_zero(s->remote));
+                one_zero(s->remote),
+                one_zero(s->leader_fd_saved));
 
         if (s->type >= 0)
                 fprintf(f, "TYPE=%s\n", session_type_to_string(s->type));
@@ -414,7 +432,8 @@ int session_load(Session *s) {
                 *vtnr = NULL,
                 *state = NULL,
                 *position = NULL,
-                *leader = NULL,
+                *leader_pid = NULL,
+                *leader_fd_saved = NULL,
                 *type = NULL,
                 *original_type = NULL,
                 *class = NULL,
@@ -431,32 +450,33 @@ int session_load(Session *s) {
         assert(s);
 
         r = parse_env_file(NULL, s->state_file,
-                           "REMOTE",         &remote,
-                           "SCOPE",          &s->scope,
-                           "SCOPE_JOB",      &s->scope_job,
-                           "FIFO",           &s->fifo_path,
-                           "SEAT",           &seat,
-                           "TTY",            &s->tty,
-                           "TTY_VALIDITY",   &tty_validity,
-                           "DISPLAY",        &s->display,
-                           "REMOTE_HOST",    &s->remote_host,
-                           "REMOTE_USER",    &s->remote_user,
-                           "SERVICE",        &s->service,
-                           "DESKTOP",        &s->desktop,
-                           "VTNR",           &vtnr,
-                           "STATE",          &state,
-                           "POSITION",       &position,
-                           "LEADER",         &leader,
-                           "TYPE",           &type,
-                           "ORIGINAL_TYPE",  &original_type,
-                           "CLASS",          &class,
-                           "UID",            &uid,
-                           "REALTIME",       &realtime,
-                           "MONOTONIC",      &monotonic,
-                           "CONTROLLER",     &controller,
-                           "ACTIVE",         &active,
-                           "DEVICES",        &devices,
-                           "IS_DISPLAY",     &is_display);
+                           "REMOTE",          &remote,
+                           "SCOPE",           &s->scope,
+                           "SCOPE_JOB",       &s->scope_job,
+                           "FIFO",            &s->fifo_path,
+                           "SEAT",            &seat,
+                           "TTY",             &s->tty,
+                           "TTY_VALIDITY",    &tty_validity,
+                           "DISPLAY",         &s->display,
+                           "REMOTE_HOST",     &s->remote_host,
+                           "REMOTE_USER",     &s->remote_user,
+                           "SERVICE",         &s->service,
+                           "DESKTOP",         &s->desktop,
+                           "VTNR",            &vtnr,
+                           "STATE",           &state,
+                           "POSITION",        &position,
+                           "LEADER",          &leader_pid,
+                           "LEADER_FD_SAVED", &leader_fd_saved,
+                           "TYPE",            &type,
+                           "ORIGINAL_TYPE",   &original_type,
+                           "CLASS",           &class,
+                           "UID",             &uid,
+                           "REALTIME",        &realtime,
+                           "MONOTONIC",       &monotonic,
+                           "CONTROLLER",      &controller,
+                           "ACTIVE",          &active,
+                           "DEVICES",         &devices,
+                           "IS_DISPLAY",      &is_display);
         if (r < 0)
                 return log_error_errno(r, "Failed to read %s: %m", s->state_file);
 
@@ -521,19 +541,6 @@ int session_load(Session *s) {
                         log_debug("Failed to parse TTY validity: %s", tty_validity);
                 else
                         s->tty_validity = v;
-        }
-
-        if (leader) {
-                _cleanup_(pidref_done) PidRef p = PIDREF_NULL;
-
-                r = pidref_set_pidstr(&p, leader);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to parse leader PID of session: %s", leader);
-                else {
-                        r = session_set_leader_consume(s, TAKE_PIDREF(p));
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to set session leader PID, ignoring: %m");
-                }
         }
 
         if (type) {
@@ -608,6 +615,33 @@ int session_load(Session *s) {
                         session_load_devices(s, devices);
                 } else
                         session_restore_vt(s);
+        }
+
+        if (leader_pid) {
+                assert(!pidref_is_set(&s->leader));
+
+                r = parse_pid(leader_pid, &s->deserialized_pid);
+                if (r < 0)
+                        return r;
+
+                if (leader_fd_saved) {
+                        r = parse_boolean(leader_fd_saved);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse LEADER_FD_SAVED=%s.", leader_fd_saved);
+                        s->leader_fd_saved = r > 0;
+
+                        if (s->leader_fd_saved)
+                                /* The leader fd will be acquired from fdstore later */
+                                return 0;
+                }
+
+                _cleanup_(pidref_done) PidRef p = PIDREF_NULL;
+
+                r = pidref_set_pid(&p, s->deserialized_pid);
+                if (r >= 0)
+                        r = session_set_leader_consume(s, TAKE_PIDREF(p));
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set leader PID for session '%s': %m", s->id);
         }
 
         return r;
@@ -948,7 +982,7 @@ int session_finalize(Session *s) {
                 seat_save(s->seat);
         }
 
-        session_reset_leader(s);
+        session_reset_leader(s, /* keep_fdstore = */ false);
 
         user_save(s->user);
         user_send_changed(s->user, "Display", NULL);
@@ -1273,15 +1307,17 @@ bool session_may_gc(Session *s, bool drop_not_started) {
                 return true;
 
         r = pidref_is_alive(&s->leader);
+        if (r == -ESRCH)
+                /* Session has no leader. This is probably because the leader vanished before deserializing
+                 * pidfd from FD store. */
+                return true;
         if (r < 0)
-                log_debug_errno(r, "Unable to determine if leader PID " PID_FMT " is still alive, assuming not.", s->leader.pid);
+                log_debug_errno(r, "Unable to determine if leader PID " PID_FMT " is still alive, assuming not: %m", s->leader.pid);
         if (r > 0)
                 return false;
 
-        if (s->fifo_fd >= 0) {
-                if (pipe_eof(s->fifo_fd) <= 0)
-                        return false;
-        }
+        if (s->fifo_fd >= 0 && pipe_eof(s->fifo_fd) <= 0)
+                return false;
 
         if (s->scope_job) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
