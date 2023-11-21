@@ -7006,7 +7006,7 @@ int tpm2_make_luks2_json(
                                        JSON_BUILD_PAIR_CONDITION(!!tpm2_asym_alg_to_string(primary_alg), "tpm2-primary-alg", JSON_BUILD_STRING(tpm2_asym_alg_to_string(primary_alg))),
                                        JSON_BUILD_PAIR("tpm2-policy-hash", JSON_BUILD_HEX(policy_hash, policy_hash_size)),
                                        JSON_BUILD_PAIR("tpm2-pin", JSON_BUILD_BOOLEAN(flags & TPM2_FLAGS_USE_PIN)),
-                                       JSON_BUILD_PAIR("tpm2-pcrlock", JSON_BUILD_BOOLEAN(flags & TPM2_FLAGS_USE_PCRLOCK)),
+                                       JSON_BUILD_PAIR("tpm2_pcrlock", JSON_BUILD_BOOLEAN(flags & TPM2_FLAGS_USE_PCRLOCK)),
                                        JSON_BUILD_PAIR_CONDITION(pubkey_pcr_mask != 0, "tpm2_pubkey_pcrs", JSON_BUILD_VARIANT(pkmj)),
                                        JSON_BUILD_PAIR_CONDITION(pubkey_pcr_mask != 0, "tpm2_pubkey", JSON_BUILD_BASE64(pubkey, pubkey_size)),
                                        JSON_BUILD_PAIR_CONDITION(salt, "tpm2_salt", JSON_BUILD_BASE64(salt, salt_size)),
@@ -7125,7 +7125,7 @@ int tpm2_parse_luks2_json(
                 SET_FLAG(flags, TPM2_FLAGS_USE_PIN, json_variant_boolean(w));
         }
 
-        w = json_variant_by_key(v, "tpm2-pcrlock");
+        w = json_variant_by_key(v, "tpm2_pcrlock");
         if (w) {
                 if (!json_variant_is_boolean(w))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "TPM2 pclock policy is not a boolean.");
