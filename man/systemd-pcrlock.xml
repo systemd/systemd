@@ -155,6 +155,19 @@
         <para>If the new prediction matches the old this command terminates quickly and executes no further
         operation. (Unless <option>--force</option> is specified, see below.)</para>
 
+        <para>A copy of the <filename>/var/lib/systemd/pcrlock.json</filename> policy file is encoded in a
+        credential (see
+        <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+        details) and written to the EFI System Partition or XBOOTLDR partition, in the
+        <filename>/loader/credentials/</filename> subdirectory. There it is picked up at boot by
+        <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry> and
+        passed to the invoked initrd, where it can be used to unlock the root file system (which typically
+        contains <filename>/var/</filename>, which is where the primary copy of the policy is located, which
+        hence cannot be used to unlock the root file system). The credential file is named after the boot
+        entry token of the installation (see
+        <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>), which
+        is configurable via the <option>--entry-token=</option> switch, see below.</para>
+
         <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
       </varlistentry>
@@ -531,6 +544,18 @@
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--entry-token=</option></term>
+
+        <listitem><para>Sets the boot entry token to use for the file name for the pcrlock policy credential
+        in the EFI System Partition or XBOOTLDR partition. See the
+        <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> option of
+        the same regarding expected values. This switch has an effect on the
+        <command>make-policy</command> command only.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="json" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="help" />
@@ -553,6 +578,9 @@
       <member><citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-pcrmachine.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
      </simplelist></para>
   </refsect1>
 
