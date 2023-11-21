@@ -2256,6 +2256,7 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
 
           <para>When true,
           <varname>ClientIdentifier=mac</varname>,
+          <varname>RapidCommit=no</varname>,
           <varname>SendHostname=no</varname>,
           <varname>Use6RD=no</varname>,
           <varname>UseCaptivePortal=no</varname>,
