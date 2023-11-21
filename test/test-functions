@@ -1032,7 +1032,6 @@ EOF
 DefaultEnvironment=${default_environment[*]}
 ManagerEnvironment=${manager_environment[*]}
 DefaultTimeoutStartSec=180s
-DefaultStandardOutput=journal+console
 EOF
 
     # ASAN and syscall filters aren't compatible with each other.
@@ -1765,48 +1764,55 @@ check_coverage_reports() {
 }
 
 save_journal() {
+    local source_dir="${1:?}"
+    local state="${2:?}"
     # Default to always saving journal
     local save="yes"
+    local dest_dir dest_name dest lines
 
-    if [ "${TEST_SAVE_JOURNAL}" = "no" ]; then
+    if [[ "${TEST_SAVE_JOURNAL:-}" == "no" ]]; then
         save="no"
-    elif [ "${TEST_SAVE_JOURNAL}" = "fail" ] && [ "$2" = "0" ]; then
+    elif [[ "${TEST_SAVE_JOURNAL:-}" == "fail" && "$state" -eq 0 ]]; then
         save="no"
     fi
 
-    if [ -n "${ARTIFACT_DIRECTORY}" ]; then
-        dest="${ARTIFACT_DIRECTORY}/${testname:?}.journal"
+    if [[ -n "${ARTIFACT_DIRECTORY:-}" ]]; then
+        dest_dir="$ARTIFACT_DIRECTORY"
+        dest_name="${testname:?}.journal"
     else
-        dest="${TESTDIR:?}/system.journal"
+        dest_dir="${TESTDIR:?}"
+        dest_name="system.journal"
     fi
 
-    for j in "${1:?}"/*; do
-        if get_bool "$save"; then
-            if [ "$SYSTEMD_JOURNAL_REMOTE" = "" ]; then
-                cp -a "$j" "$dest"
-            else
-                "$SYSTEMD_JOURNAL_REMOTE" -o "$dest" --getter="$JOURNALCTL -o export -D $j"
-            fi
+    # Show the last 25/50 messages from the testsuite-XX.service or messages with
+    # priority "warning" and higher
+    [[ "$state" -eq 0 ]] && lines=25 || lines=50
+    echo " --- Last $lines messages from $source_dir ---"
+    "$JOURNALCTL" --no-pager --no-hostname -o short-monotonic -D "$source_dir" -n "$lines" \
+        _SYSTEMD_UNIT="testsuite-${TESTID:?}.service" + PRIORITY=4 + PRIORITY=3 + PRIORITY=2 + PRIORITY=1 + PRIORITY=0
+
+    if get_bool "$save"; then
+        # If we don't have systemd-journal-remote copy all journals from /var/log/journal/
+        # to $dest_dir/journals/ as is, otherwise merge all journals into a single .journal
+        # file
+        if [[ -z "${SYSTEMD_JOURNAL_REMOTE:-}" ]]; then
+            dest="$dest_dir/journals"
+            mkdir -p "$dest"
+            cp -a "$source_dir/*" "$dest/"
+        else
+            dest="$dest_dir/$dest_name"
+            "$SYSTEMD_JOURNAL_REMOTE" -o "$dest" --getter="$JOURNALCTL -o export -D $source_dir"
         fi
 
-        if [ -n "${TEST_SHOW_JOURNAL}" ]; then
-            echo "---- $j ----"
-            "$JOURNALCTL" --no-pager -o short-monotonic --no-hostname --priority="${TEST_SHOW_JOURNAL}" -D "$j"
+        if [[ -n "${SUDO_USER:-}" ]]; then
+            setfacl -R -m "user:$SUDO_USER:r-X" "$dest"
         fi
 
-        rm -r "$j"
-    done
-
-    if ! get_bool "$save"; then
-        return 0
+        # we want to print this sometime later, so save this in a variable
+        JOURNAL_LIST="$(ls -lR "$dest")"
     fi
 
-    if [ -n "${SUDO_USER}" ]; then
-        setfacl -m "user:${SUDO_USER:?}:r-X" "$dest"*
-    fi
-
-    # we want to print this sometime later, so save this in a variable
-    JOURNAL_LIST="$(ls -l "$dest"*)"
+    rm -rf "${source_dir:?}"/*
 }
 
 check_result_common() {
@@ -3332,18 +3338,6 @@ test_setup() {
         if get_bool "${TEST_SUPPORTING_SERVICES_SHOULD_BE_MASKED}"; then
             dinfo "Masking supporting services"
             mask_supporting_services
-        fi
-
-        # Send stdout/stderr of testsuite-*.service units to both journal and
-        # console to make debugging in CIs easier
-        # Note: we can't use a dropin for `testsuite-.service`, since that also
-        #       overrides 'sub-units' of some tests that already use a specific
-        #       value for Standard(Output|Error)=
-        #       (e.g. test/units/testsuite-66-deviceisolation.service)
-        if ! get_bool "$INTERACTIVE_DEBUG"; then
-            local dropin_dir="${initdir:?}/etc/systemd/system/testsuite-${TESTID:?}.service.d"
-            mkdir -p "$dropin_dir"
-            printf '[Service]\nStandardOutput=journal+console\nStandardError=journal+console' >"$dropin_dir/99-stdout.conf"
         fi
 
         if get_bool "$IS_BUILT_WITH_COVERAGE"; then
