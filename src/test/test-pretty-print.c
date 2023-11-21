@@ -11,6 +11,34 @@
 #include "strv.h"
 #include "tests.h"
 
+#define CYLON_WIDTH 6
+
+static void test_draw_cylon_one(unsigned pos) {
+        char buf[CYLON_WIDTH + CYLON_BUFFER_EXTRA + 1];
+
+        log_debug("/* %s(%u) */", __func__, pos);
+
+        assert(pos <= CYLON_WIDTH + 1);
+
+        memset(buf, 0xff, sizeof(buf));
+        draw_cylon(buf, sizeof(buf), CYLON_WIDTH, pos);
+        assert_se(strlen(buf) < sizeof(buf));
+}
+
+TEST(draw_cylon) {
+        bool saved = log_get_show_color();
+
+        log_show_color(false);
+        for (unsigned i = 0; i <= CYLON_WIDTH + 1; i++)
+                test_draw_cylon_one(i);
+
+        log_show_color(true);
+        for (unsigned i = 0; i <= CYLON_WIDTH + 1; i++)
+                test_draw_cylon_one(i);
+
+        log_show_color(saved);
+}
+
 TEST(terminal_urlify) {
         _cleanup_free_ char *formatted = NULL;
 
