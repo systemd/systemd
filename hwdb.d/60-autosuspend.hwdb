@@ -51,9 +51,9 @@ usb:v058Fp9540*
 #########################################
 
 # HDMI Expansion Card
-usb:v32acp0002*
+usb:v32ACp0002*
 # DisplayPort Expansion Card
-usb:v32acp0003*
+usb:v32ACp0003*
  ID_AUTOSUSPEND=1
 
 #########################################
