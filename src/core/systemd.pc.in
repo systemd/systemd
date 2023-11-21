@@ -11,9 +11,9 @@
 # considered deprecated (though there is no plan to remove them). New names
 # shall have underscores.
 
-prefix={{PREFIX_NOSLASH}}
-root_prefix=${prefix}
-rootprefix=${prefix}
+root_prefix={{PREFIX_NOSLASH}}
+rootprefix=${root_prefix}
+prefix=${rootprefix}
 sysconf_dir={{SYSCONF_DIR}}
 sysconfdir=${sysconf_dir}
 
