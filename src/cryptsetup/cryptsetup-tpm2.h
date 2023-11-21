@@ -28,6 +28,7 @@ int acquire_tpm2_key(
                 const struct iovec *policy_hash,
                 const struct iovec *salt,
                 const struct iovec *srk,
+                const struct iovec *pcrlock_nv,
                 TPM2Flags flags,
                 usec_t until,
                 bool headless,
@@ -47,6 +48,7 @@ int find_tpm2_auto_data(
                 struct iovec *ret_policy_hash,
                 struct iovec *ret_salt,
                 struct iovec *ret_srk,
+                struct iovec *ret_pcrlock_nv,
                 TPM2Flags *ret_flags,
                 int *ret_keyslot,
                 int *ret_token);
@@ -70,6 +72,7 @@ static inline int acquire_tpm2_key(
                 const struct iovec *policy_hash,
                 const struct iovec *salt,
                 const struct iovec *srk,
+                const struct iovec *pcrlock_nv,
                 TPM2Flags flags,
                 usec_t until,
                 bool headless,
@@ -93,6 +96,7 @@ static inline int find_tpm2_auto_data(
                 struct iovec *ret_policy_hash,
                 struct iovec *ret_salt,
                 struct iovec *ret_srk,
+                struct iovec *ret_pcrlock_nv,
                 TPM2Flags *ret_flags,
                 int *ret_keyslot,
                 int *ret_token) {
