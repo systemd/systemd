@@ -285,7 +285,6 @@ static int run(int argc, char *argv[]) {
         log_parse_environment();
 
         sigbus_install();
-        assert_se(sigaction_many(&nop_sigaction, SIGTERM, SIGINT) >= 0);
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -299,6 +298,8 @@ static int run(int argc, char *argv[]) {
                 log_debug("No emergency-level entries");
                 return 0;
         }
+
+        assert_se(sigaction_many(&nop_sigaction, SIGTERM, SIGINT) >= 0);
 
         r = display_emergency_message_fullscreen((const char*) message);
         if (r < 0)
