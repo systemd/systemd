@@ -191,13 +191,10 @@ static int manager_enumerate_devices(Manager *m) {
         if (r < 0)
                 return r;
 
-        FOREACH_DEVICE(e, d) {
-                int k;
+        r = 0;
 
-                k = manager_process_seat_device(m, d);
-                if (k < 0)
-                        r = k;
-        }
+        FOREACH_DEVICE(e, d)
+                RET_GATHER(r, manager_process_seat_device(m, d));
 
         return r;
 }
@@ -225,13 +222,10 @@ static int manager_enumerate_buttons(Manager *m) {
         if (r < 0)
                 return r;
 
-        FOREACH_DEVICE(e, d) {
-                int k;
+        r = 0;
 
-                k = manager_process_button_device(m, d);
-                if (k < 0)
-                        r = k;
-        }
+        FOREACH_DEVICE(e, d)
+                RET_GATHER(r, manager_process_button_device(m, d));
 
         return r;
 }
@@ -251,12 +245,11 @@ static int manager_enumerate_seats(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_error_errno(errno, "Failed to open /run/systemd/seats: %m");
+                return log_error_errno(errno, "Failed to open /run/systemd/seats/: %m");
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
                 Seat *s;
-                int k;
 
                 if (!dirent_is_file(de))
                         continue;
@@ -269,9 +262,7 @@ static int manager_enumerate_seats(Manager *m) {
                         continue;
                 }
 
-                k = seat_load(s);
-                if (k < 0)
-                        r = k;
+                RET_GATHER(r, seat_load(s));
         }
 
         return r;
@@ -292,19 +283,21 @@ static int manager_enumerate_linger_users(Manager *m) {
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
-                int k;
                 _cleanup_free_ char *n = NULL;
+                int k;
 
                 if (!dirent_is_file(de))
                         continue;
+
                 k = cunescape(de->d_name, 0, &n);
                 if (k < 0) {
-                        r = log_warning_errno(k, "Failed to unescape username '%s', ignoring: %m", de->d_name);
+                        RET_GATHER(r, log_warning_errno(k, "Failed to unescape username '%s', ignoring: %m", de->d_name));
                         continue;
                 }
+
                 k = manager_add_user_by_name(m, n, NULL);
                 if (k < 0)
-                        r = log_warning_errno(k, "Couldn't add lingering user %s, ignoring: %m", de->d_name);
+                        RET_GATHER(r, log_warning_errno(k, "Couldn't add lingering user %s, ignoring: %m", de->d_name));
         }
 
         return r;
@@ -312,7 +305,7 @@ static int manager_enumerate_linger_users(Manager *m) {
 
 static int manager_enumerate_users(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
-        int r, k;
+        int r;
 
         assert(m);
 
@@ -325,33 +318,32 @@ static int manager_enumerate_users(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_error_errno(errno, "Failed to open /run/systemd/users: %m");
+                return log_error_errno(errno, "Failed to open /run/systemd/users/: %m");
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
                 User *u;
                 uid_t uid;
+                int k;
 
                 if (!dirent_is_file(de))
                         continue;
 
                 k = parse_uid(de->d_name, &uid);
                 if (k < 0) {
-                        r = log_warning_errno(k, "Failed to parse filename /run/systemd/users/%s as UID.", de->d_name);
+                        RET_GATHER(r, log_warning_errno(k, "Failed to parse filename /run/systemd/users/%s as UID, ignoring: %m", de->d_name));
                         continue;
                 }
 
                 k = manager_add_user_by_uid(m, uid, &u);
                 if (k < 0) {
-                        r = log_warning_errno(k, "Failed to add user by file name %s, ignoring: %m", de->d_name);
+                        RET_GATHER(r, log_warning_errno(k, "Failed to add user by filename %s, ignoring: %m", de->d_name));
                         continue;
                 }
 
                 user_add_to_gc_queue(u);
 
-                k = user_load(u);
-                if (k < 0)
-                        r = k;
+                RET_GATHER(r, user_load(u));
         }
 
         return r;
@@ -466,7 +458,7 @@ static int manager_attach_fds(Manager *m) {
 
 static int manager_enumerate_sessions(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
-        int r = 0, k;
+        int r = 0;
 
         assert(m);
 
@@ -476,26 +468,25 @@ static int manager_enumerate_sessions(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_error_errno(errno, "Failed to open /run/systemd/sessions: %m");
+                return log_error_errno(errno, "Failed to open /run/systemd/sessions/: %m");
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
-                struct Session *s;
+                Session *s;
+                int k;
 
                 if (!dirent_is_file(de))
                         continue;
 
                 k = manager_add_session(m, de->d_name, &s);
                 if (k < 0) {
-                        r = log_warning_errno(k, "Failed to add session by file name %s, ignoring: %m", de->d_name);
+                        RET_GATHER(r, log_warning_errno(k, "Failed to add session by filename %s, ignoring: %m", de->d_name));
                         continue;
                 }
 
                 session_add_to_gc_queue(s);
 
-                k = session_load(s);
-                if (k < 0)
-                        r = k;
+                RET_GATHER(r, session_load(s));
         }
 
         /* We might be restarted and PID1 could have sent us back the session device fds we previously
@@ -516,25 +507,23 @@ static int manager_enumerate_inhibitors(Manager *m) {
                 if (errno == ENOENT)
                         return 0;
 
-                return log_error_errno(errno, "Failed to open /run/systemd/inhibit: %m");
+                return log_error_errno(errno, "Failed to open /run/systemd/inhibit/: %m");
         }
 
         FOREACH_DIRENT(de, d, return -errno) {
-                int k;
                 Inhibitor *i;
+                int k;
 
                 if (!dirent_is_file(de))
                         continue;
 
                 k = manager_add_inhibitor(m, de->d_name, &i);
                 if (k < 0) {
-                        r = log_warning_errno(k, "Couldn't add inhibitor %s, ignoring: %m", de->d_name);
+                        RET_GATHER(r, log_warning_errno(k, "Couldn't add inhibitor %s, ignoring: %m", de->d_name));
                         continue;
                 }
 
-                k = inhibitor_load(i);
-                if (k < 0)
-                        r = k;
+                RET_GATHER(r, inhibitor_load(i));
         }
 
         return r;
