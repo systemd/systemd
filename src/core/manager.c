@@ -71,6 +71,7 @@
 #include "path-lookup.h"
 #include "path-util.h"
 #include "plymouth-util.h"
+#include "pretty-print.h"
 #include "process-util.h"
 #include "psi-util.h"
 #include "ratelimit.h"
@@ -180,44 +181,6 @@ static void manager_watch_jobs_in_progress(Manager *m) {
                 return;
 
         (void) sd_event_source_set_description(m->jobs_in_progress_event_source, "manager-jobs-in-progress");
-}
-
-#define CYLON_BUFFER_EXTRA (2*STRLEN(ANSI_RED) + STRLEN(ANSI_HIGHLIGHT_RED) + 2*STRLEN(ANSI_NORMAL))
-
-static void draw_cylon(char buffer[], size_t buflen, unsigned width, unsigned pos) {
-        char *p = buffer;
-
-        assert(buflen >= CYLON_BUFFER_EXTRA + width + 1);
-        assert(pos <= width+1); /* 0 or width+1 mean that the center light is behind the corner */
-
-        if (pos > 1) {
-                if (pos > 2)
-                        p = mempset(p, ' ', pos-2);
-                if (log_get_show_color())
-                        p = stpcpy(p, ANSI_RED);
-                *p++ = '*';
-        }
-
-        if (pos > 0 && pos <= width) {
-                if (log_get_show_color())
-                        p = stpcpy(p, ANSI_HIGHLIGHT_RED);
-                *p++ = '*';
-        }
-
-        if (log_get_show_color())
-                p = stpcpy(p, ANSI_NORMAL);
-
-        if (pos < width) {
-                if (log_get_show_color())
-                        p = stpcpy(p, ANSI_RED);
-                *p++ = '*';
-                if (pos < width-1)
-                        p = mempset(p, ' ', width-1-pos);
-                if (log_get_show_color())
-                        stpcpy(p, ANSI_NORMAL);
-        }
-
-        *p = '\0';
 }
 
 static void manager_flip_auto_status(Manager *m, bool enable, const char *reason) {
