@@ -839,7 +839,7 @@ Path=auto
 MatchPattern=foobarOS_@v_verity
 MatchPartitionType=root-verity
 PartitionFlags=0
-PartitionReadOnly=1</programlisting></para>
+ReadOnly=1</programlisting></para>
 
       <para>The above defines the update mechanism for the Verity partition of the root file system. Verity
       partition images are downloaded from
@@ -869,7 +869,7 @@ Path=auto
 MatchPattern=foobarOS_@v
 MatchPartitionType=root
 PartitionFlags=0
-PartitionReadOnly=1</programlisting></para>
+ReadOnly=1</programlisting></para>
 
       <para>The above defines a matching transfer definition for the root file system.</para>
 
