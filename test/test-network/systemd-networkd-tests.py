@@ -6,6 +6,7 @@
 # simply run this file which can be found in the VM at /usr/lib/systemd/tests/testdata/test-network/systemd-networkd-tests.py.
 
 import argparse
+import datetime
 import errno
 import itertools
 import json
@@ -699,10 +700,16 @@ def radvd_check_config(config_file):
 def networkd_invocation_id():
     return check_output('systemctl show --value -p InvocationID systemd-networkd.service')
 
-def read_networkd_log(invocation_id=None):
+def read_networkd_log(invocation_id=None, since=None):
     if not invocation_id:
         invocation_id = networkd_invocation_id()
-    return check_output('journalctl _SYSTEMD_INVOCATION_ID=' + invocation_id)
+    command = [
+        'journalctl',
+        f'_SYSTEMD_INVOCATION_ID={invocation_id}',
+    ]
+    if since:
+        command.append(f'--since={since}')
+    return check_output(*command)
 
 def stop_networkd(show_logs=True):
     if show_logs:
@@ -5589,6 +5596,46 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         state = get_dhcp4_client_state('veth99')
         print(f"State = {state}")
         self.assertEqual(state, 'bound')
+
+    def test_dhcp_client_allow_list(self):
+        copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-allow-list.network', copy_dropins=False)
+
+        start_networkd()
+        self.wait_online(['veth-peer:carrier'])
+        since = datetime.datetime.now()
+        start_dnsmasq()
+
+        expect = 'veth99: DHCPv4 server IP address 192.168.5.1 not found in allow-list, ignoring offer.'
+        for _ in range(20):
+            if expect in read_networkd_log(since=since):
+                break
+            time.sleep(0.5)
+        else:
+            self.fail()
+
+        copy_network_unit('25-dhcp-client-allow-list.network.d/00-allow-list.conf')
+        since = datetime.datetime.now()
+        networkctl_reload()
+
+        expect = 'veth99: DHCPv4 server IP address 192.168.5.1 not found in allow-list, ignoring offer.'
+        for _ in range(20):
+            if expect in read_networkd_log(since=since):
+                break
+            time.sleep(0.5)
+        else:
+            self.fail()
+
+        copy_network_unit('25-dhcp-client-allow-list.network.d/10-deny-list.conf')
+        since = datetime.datetime.now()
+        networkctl_reload()
+
+        expect = 'veth99: DHCPv4 server IP address 192.168.5.1 found in deny-list, ignoring offer.'
+        for _ in range(20):
+            if expect in read_networkd_log(since=since):
+                break
+            time.sleep(0.5)
+        else:
+            self.fail()
 
     @unittest.skipUnless("--dhcp-rapid-commit" in run("dnsmasq --help").stdout, reason="dnsmasq is missing dhcp-rapid-commit support")
     def test_dhcp_client_rapid_commit(self):
