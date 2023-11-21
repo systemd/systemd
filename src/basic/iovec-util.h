@@ -69,3 +69,19 @@ static inline int iovec_memcmp(const struct iovec *a, const struct iovec *b) {
                          b ? b->iov_base : NULL,
                          b ? b->iov_len : 0);
 }
+
+static inline struct iovec *iovec_memdup(const struct iovec *source, struct iovec *ret) {
+        assert(ret);
+
+        if (!iovec_is_set(source))
+                *ret = (struct iovec) {};
+        else {
+                void *p = memdup(source->iov_base, source->iov_len);
+                if (!p)
+                        return NULL;
+
+                *ret = IOVEC_MAKE(p, source->iov_len);
+        }
+
+        return ret;
+}
