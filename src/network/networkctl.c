@@ -2909,7 +2909,6 @@ static int get_dropin_by_name(
                 char **ret) {
 
         assert(name);
-        assert(dropins);
         assert(ret);
 
         STRV_FOREACH(i, dropins)
@@ -3076,7 +3075,6 @@ static int add_config_to_edit(
 
         assert(context);
         assert(path);
-        assert(!arg_drop_in || dropins);
 
         if (path_startswith(path, "/usr")) {
                 _cleanup_free_ char *name = NULL;
