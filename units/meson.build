@@ -295,6 +295,10 @@ units = [
           'conditions' : ['ENABLE_HOMED'],
         },
         {
+          'file' : 'systemd-homed-firstboot.service',
+          'conditions' : ['ENABLE_HOMED'],
+        },
+        {
           'file' : 'systemd-homed.service.in',
           'conditions' : ['ENABLE_HOMED'],
         },

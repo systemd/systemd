@@ -1,0 +1,28 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=First Boot Home Area Wizard
+Documentation=man:homectl(1)
+ConditionFirstBoot=yes
+After=home.mount systemd-homed.service
+Before=systemd-user-sessions.service first-boot-complete.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=homectl firstboot --prompt-new-user
+StandardOutput=tty
+StandardInput=tty
+StandardError=tty
+ImportCredential=home.*
+
+[Install]
+WantedBy=systemd-homed.service
+Also=systemd-homed.service
