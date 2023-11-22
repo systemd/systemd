@@ -768,55 +768,83 @@ static bool device_has_info(sd_device *device) {
         return false;
 }
 
+bool device_should_have_db(sd_device *device) {
+        assert(device);
+
+        if (device_has_info(device))
+                return true;
+
+        if (major(device->devnum) != 0)
+                return true;
+
+        if (device->ifindex != 0)
+                return true;
+
+        return false;
+}
+
 void device_set_db_persist(sd_device *device) {
         assert(device);
 
         device->db_persist = true;
 }
 
-int device_update_db(sd_device *device) {
+static int device_get_db_path(sd_device *device, char **ret) {
         const char *id;
         char *path;
-        _cleanup_fclose_ FILE *f = NULL;
-        _cleanup_(unlink_and_freep) char *path_tmp = NULL;
-        bool has_info;
         int r;
 
         assert(device);
-
-        has_info = device_has_info(device);
+        assert(ret);
 
         r = device_get_device_id(device, &id);
         if (r < 0)
                 return r;
 
-        path = strjoina("/run/udev/data/", id);
+        path = path_join("/run/udev/data/", id);
+        if (!path)
+                return -ENOMEM;
+
+        *ret = path;
+        return 0;
+}
+
+int device_update_db(sd_device *device) {
+        _cleanup_(unlink_and_freep) char *path = NULL, *path_tmp = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        assert(device);
 
         /* do not store anything for otherwise empty devices */
-        if (!has_info && major(device->devnum) == 0 && device->ifindex == 0) {
-                if (unlink(path) < 0 && errno != ENOENT)
-                        return -errno;
+        if (!device_should_have_db(device))
+                return device_delete_db(device);
 
-                return 0;
-        }
+        r = device_get_db_path(device, &path);
+        if (r < 0)
+                return r;
 
         /* write a database file */
         r = mkdir_parents(path, 0755);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(device, r,
+                                              "sd-device: Failed to create parent directories of '%s': %m",
+                                              path);
 
         r = fopen_temporary(path, &f, &path_tmp);
         if (r < 0)
-                return r;
+                return log_device_debug_errno(device, r,
+                                              "sd-device: Failed to create temporary file for database file '%s': %m",
+                                              path);
 
         /* set 'sticky' bit to indicate that we should not clean the database when we transition from initrd
          * to the real root */
-        if (fchmod(fileno(f), device->db_persist ? 01644 : 0644) < 0) {
-                r = -errno;
-                goto fail;
-        }
+        if (fchmod(fileno(f), device->db_persist ? 01644 : 0644) < 0)
+                return log_device_debug_errno(device, errno,
+                                              "sd-device: Failed to chmod temporary database file '%s': %m",
+                                              path_tmp);
 
-        if (has_info) {
+        if (device_has_info(device)) {
                 const char *property, *value, *ct;
 
                 if (major(device->devnum) > 0) {
@@ -846,43 +874,53 @@ int device_update_db(sd_device *device) {
 
         r = fflush_and_check(f);
         if (r < 0)
-                goto fail;
+                return log_device_debug_errno(device, r,
+                                              "sd-device: Failed to flush temporary database file '%s': %m",
+                                              path_tmp);
 
-        if (rename(path_tmp, path) < 0) {
-                r = -errno;
-                goto fail;
-        }
+        if (rename(path_tmp, path) < 0)
+                return log_device_debug_errno(device, errno,
+                                              "sd-device: Failed to rename temporary database file '%s' to '%s': %m",
+                                              path_tmp, path);
+
+        log_device_debug(device, "sd-device: Created database file '%s' for '%s'.", path, device->devpath);
 
         path_tmp = mfree(path_tmp);
-
-        log_device_debug(device, "sd-device: Created %s file '%s' for '%s'", has_info ? "db" : "empty",
-                         path, device->devpath);
+        path = mfree(path);
 
         return 0;
-
-fail:
-        (void) unlink(path);
-
-        return log_device_debug_errno(device, r, "sd-device: Failed to create %s file '%s' for '%s'", has_info ? "db" : "empty", path, device->devpath);
 }
 
 int device_delete_db(sd_device *device) {
-        const char *id;
-        char *path;
+        _cleanup_free_ char *path = NULL;
         int r;
 
         assert(device);
 
-        r = device_get_device_id(device, &id);
+        r = device_get_db_path(device, &path);
         if (r < 0)
                 return r;
-
-        path = strjoina("/run/udev/data/", id);
 
         if (unlink(path) < 0 && errno != ENOENT)
                 return -errno;
 
         return 0;
+}
+
+int device_read_db_internal(sd_device *device, bool force) {
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        assert(device);
+
+        if (device->db_loaded || (!force && device->sealed))
+                return 0;
+
+        r = device_get_db_path(device, &path);
+        if (r < 0)
+                return r;
+
+        return device_read_db_internal_filename(device, path);
 }
 
 static const char* const device_action_table[_SD_DEVICE_ACTION_MAX] = {
