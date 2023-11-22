@@ -100,8 +100,7 @@ static void socket_init(Unit *u) {
         s->control_pid = PIDREF_NULL;
         s->control_command_id = _SOCKET_EXEC_COMMAND_INVALID;
 
-        s->trigger_limit.interval = USEC_INFINITY;
-        s->trigger_limit.burst = UINT_MAX;
+        s->trigger_limit = RATELIMIT_OFF;
 
         s->poll_limit_interval = USEC_INFINITY;
         s->poll_limit_burst = UINT_MAX;
@@ -2590,6 +2589,8 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
                 }
         }
 
+        (void) serialize_ratelimit(f, "trigger-ratelimit", &s->trigger_limit);
+
         return 0;
 }
 
@@ -2824,7 +2825,10 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 if (!found)
                         log_unit_debug(u, "No matching ffs socket found: %s", value);
 
-        } else
+        } else if (streq(key, "trigger-ratelimit"))
+                deserialize_ratelimit(&s->trigger_limit, key, value);
+
+        else
                 log_unit_debug(UNIT(s), "Unknown serialization key: %s", key);
 
         return 0;
