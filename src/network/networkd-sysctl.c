@@ -22,6 +22,9 @@ static bool common_check(Link *link, int family) {
         if (link->flags & IFF_LOOPBACK)
                 return false;
 
+        if (family != AF_UNSPEC && link->iftype == ARPHRD_CAN)
+                return false;
+
         if (family == AF_INET6 && !socket_ipv6_is_supported())
                 return false;
 
