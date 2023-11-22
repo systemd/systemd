@@ -273,7 +273,7 @@ int reset_terminal_fd(int fd, bool switch_to_text) {
         termios.c_iflag |= ICRNL | IMAXBEL | IUTF8;
         termios.c_oflag |= ONLCR | OPOST;
         termios.c_cflag |= CREAD;
-        termios.c_lflag = ISIG | ICANON | IEXTEN | ECHO | ECHOE | ECHOK | ECHOCTL | ECHOPRT | ECHOKE;
+        termios.c_lflag = ISIG | ICANON | IEXTEN | ECHO | ECHOE | ECHOK | ECHOCTL | ECHOKE;
 
         termios.c_cc[VINTR]    =   03;  /* ^C */
         termios.c_cc[VQUIT]    =  034;  /* ^\ */
