@@ -30,13 +30,11 @@ void machine_credential_free_all(MachineCredential *creds, size_t n) {
 
 int machine_credential_set(MachineCredential **credentials, size_t *n_credentials, const char *cred_string) {
         _cleanup_free_ char *word = NULL, *data = NULL;
-        MachineCredential *creds = *ASSERT_PTR(credentials);
         ssize_t l;
-        size_t n_creds = *ASSERT_PTR(n_credentials);
         int r;
         const char *p = ASSERT_PTR(cred_string);
 
-        assert(creds || n_creds == 0);
+        assert(credentials || n_credentials == 0);
 
         r = extract_first_word(&p, &word, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
         if (r == -ENOMEM)
@@ -49,7 +47,7 @@ int machine_credential_set(MachineCredential **credentials, size_t *n_credential
         if (!credential_name_valid(word))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "MachineCredential name is not valid: %s", word);
 
-        FOREACH_ARRAY(cred, creds, n_creds)
+        FOREACH_ARRAY(cred, *credentials, *n_credentials)
                 if (streq(cred->id, word))
                         return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Duplicate credential '%s', refusing.", word);
 
@@ -57,18 +55,14 @@ int machine_credential_set(MachineCredential **credentials, size_t *n_credential
         if (l < 0)
                 return log_error_errno(l, "Failed to unescape credential data: %s", p);
 
-        GREEDY_REALLOC(creds, n_creds + 1);
-        if (!creds)
+        if (!GREEDY_REALLOC(*credentials, *n_credentials + 1))
                 return log_oom();
 
-        creds[n_creds++] = (MachineCredential) {
+        (*credentials)[(*n_credentials)++] = (MachineCredential) {
                 .id = TAKE_PTR(word),
                 .data = TAKE_PTR(data),
                 .size = l,
         };
-
-        *credentials = creds;
-        *n_credentials = n_creds;
 
         return 0;
 }
@@ -120,18 +114,14 @@ int machine_credential_load(MachineCredential **credentials, size_t *n_credentia
         if (r < 0)
                 return log_error_errno(r, "Failed to read credential '%s': %m", j ?: p);
 
-        GREEDY_REALLOC(creds, n_creds + 1);
-        if (!creds)
+        if (!GREEDY_REALLOC(*credentials, *n_credentials + 1))
                 return log_oom();
 
-        creds[n_creds++] = (MachineCredential) {
+        (*credentials)[(*n_credentials)++] = (MachineCredential) {
                 .id = TAKE_PTR(word),
                 .data = TAKE_PTR(data),
                 .size = size,
         };
-
-        *credentials = creds;
-        *n_credentials = n_creds;
 
         return 0;
 }
