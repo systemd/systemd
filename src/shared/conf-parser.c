@@ -557,7 +557,7 @@ static int config_parse_many_files(
 
                         if (set_contains(inodes, &st)) {
                                 log_debug("%s: symlink to/symlinked as drop-in, will be read later.", *fn);
-                                continue;
+                                break;
                         }
                 }
 
@@ -571,6 +571,8 @@ static int config_parse_many_files(
                         if (r < 0)
                                 return r;
                 }
+
+                break;
         }
 
         /* Then read all the drop-ins. */
