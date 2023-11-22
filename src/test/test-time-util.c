@@ -12,6 +12,31 @@
 
 #define TRIAL 100u
 
+static bool looks_like_rhel(void) {
+        static int saved = -1;
+
+        if (saved >= 0)
+                return saved;
+
+        _cleanup_free_ char *id_like = NULL;
+        (void) parse_os_release(NULL, "ID_LIKE", &id_like);
+
+        if (!id_like) {
+                saved = false;
+                return saved;
+        }
+
+        const char *p = strstr(id_like, "rhel");
+        if (!p) {
+                saved = false;
+                return saved;
+        }
+
+        assert_se(p = startswith(p, "rhel"));
+        saved = isempty(p) || p[0] == ' ';
+        return saved;
+}
+
 TEST(parse_sec) {
         usec_t u;
 
@@ -414,6 +439,10 @@ static void test_format_timestamp_loop(void) {
         test_format_timestamp_impl(USEC_TIMESTAMP_FORMATTABLE_MAX-1);
         test_format_timestamp_impl(USEC_TIMESTAMP_FORMATTABLE_MAX);
 
+        /* issue #28472 */
+        test_format_timestamp_impl(1504938962980066);
+        test_format_timestamp_impl(1509482094632752);
+
         for (unsigned i = 0; i < TRIAL; i++) {
                 usec_t x;
 
@@ -454,6 +483,9 @@ TEST(FORMAT_TIMESTAMP_with_tz) {
 
         if (!slow_tests_enabled())
                 return (void) log_tests_skipped("slow tests are disabled");
+
+        if (looks_like_rhel())
+                return (void) log_tests_skipped("tzdata in RHEL/CentOS is broken, see issue #28472");
 
         assert_se(get_timezones(&timezones) >= 0);
         STRV_FOREACH(tz, timezones)
