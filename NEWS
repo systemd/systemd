@@ -68,7 +68,11 @@ CHANGES WITH 255 in spe:
           semantics via posix_spawn(3), and it immediately execs a new internal
           binary, systemd-executor, that receives the configuration to apply
           via memfd, and sets up the process before exec'ing the target
-          executable.
+          executable. The systemd-executor binary is pinned by file descriptor
+          by each manager instance (system and users), and the reference is
+          updated on daemon-reexec - it is thus important to reexec all running
+          manager instances when the systemd-executor and/or libsystemd*
+          libraries are updated on the filesystem.
 
         * Most of the internal process tracking is being changed to use PIDFDs
           instead of PIDs when the kernel supports it, to improve robustness
