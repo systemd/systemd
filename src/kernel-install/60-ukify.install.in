@@ -23,6 +23,7 @@ import argparse
 import os
 import runpy
 import shlex
+from shutil import which
 from pathlib import Path
 from typing import Optional
 
@@ -34,7 +35,7 @@ except (KeyError, ValueError):
     VERBOSE = False
 
 # Override location of ukify and the boot stub for testing and debugging.
-UKIFY = os.getenv('KERNEL_INSTALL_UKIFY', 'ukify')
+UKIFY = os.getenv('KERNEL_INSTALL_UKIFY', which('ukify'))
 BOOT_STUB = os.getenv('KERNEL_INSTALL_BOOT_STUB')
 
 
