@@ -233,7 +233,7 @@ int ask_string(char **ret, const char *text, ...) {
 
 int reset_terminal_fd(int fd, bool switch_to_text) {
         struct termios termios;
-        int r = 0;
+        int r;
 
         /* Set terminal to some sane defaults */
 
@@ -256,7 +256,9 @@ int reset_terminal_fd(int fd, bool switch_to_text) {
 
 
         /* Set default keyboard mode */
-        (void) vt_reset_keyboard(fd);
+        r = vt_reset_keyboard(fd);
+        if (r < 0)
+                log_debug_errno(r, "Failed to reset VT keyboard, ignoring: %m");
 
         if (tcgetattr(fd, &termios) < 0) {
                 r = log_debug_errno(errno, "Failed to get terminal parameters: %m");
@@ -271,7 +273,7 @@ int reset_terminal_fd(int fd, bool switch_to_text) {
         termios.c_iflag |= ICRNL | IMAXBEL | IUTF8;
         termios.c_oflag |= ONLCR | OPOST;
         termios.c_cflag |= CREAD;
-        termios.c_lflag = ISIG | ICANON | IEXTEN | ECHO | ECHOE | ECHOK | ECHOCTL | ECHOPRT | ECHOKE;
+        termios.c_lflag = ISIG | ICANON | IEXTEN | ECHO | ECHOE | ECHOK | ECHOCTL | ECHOKE;
 
         termios.c_cc[VINTR]    =   03;  /* ^C */
         termios.c_cc[VQUIT]    =  034;  /* ^\ */
@@ -290,8 +292,7 @@ int reset_terminal_fd(int fd, bool switch_to_text) {
         termios.c_cc[VTIME]  = 0;
         termios.c_cc[VMIN]   = 1;
 
-        if (tcsetattr(fd, TCSANOW, &termios) < 0)
-                r = -errno;
+        r = RET_NERRNO(tcsetattr(fd, TCSANOW, &termios));
 
 finish:
         /* Just in case, flush all crap out */
