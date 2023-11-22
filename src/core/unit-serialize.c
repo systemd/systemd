@@ -140,6 +140,9 @@ int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         (void) serialize_dual_timestamp(f, "condition-timestamp", &u->condition_timestamp);
         (void) serialize_dual_timestamp(f, "assert-timestamp", &u->assert_timestamp);
 
+        (void) serialize_ratelimit(f, "start-ratelimit", &u->start_ratelimit);
+        (void) serialize_ratelimit(f, "auto-start-stop-ratelimit", &u->auto_start_stop_ratelimit);
+
         if (dual_timestamp_is_set(&u->condition_timestamp))
                 (void) serialize_bool(f, "condition-result", u->condition_result);
 
@@ -341,6 +344,13 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
                         continue;
                 } else if (streq(l, "assert-timestamp")) {
                         (void) deserialize_dual_timestamp(v, &u->assert_timestamp);
+                        continue;
+
+                } else if (streq(l, "start-ratelimit")) {
+                        deserialize_ratelimit(&u->start_ratelimit, l, v);
+                        continue;
+                } else if (streq(l, "auto-start-stop-ratelimit")) {
+                        deserialize_ratelimit(&u->auto_start_stop_ratelimit, l, v);
                         continue;
 
                 } else if (MATCH_DESERIALIZE("condition-result", l, v, parse_boolean, u->condition_result))
