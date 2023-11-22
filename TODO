@@ -89,6 +89,9 @@ Janitorial Clean-ups:
   this up, and should probably always apply both, i.e. introduce
   unit_file_escape() or so, which applies both.
 
+* xopenat() should pin the parent dir of the inode it creates before doing its
+  thing, so that it can create, open, label somewhat atomically.
+
 Deprecations and removals:
 
 * Remove any support for booting without /usr pre-mounted in the initrd entirely.
