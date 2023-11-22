@@ -1778,24 +1778,6 @@ int device_read_db_internal_filename(sd_device *device, const char *filename) {
         return 0;
 }
 
-int device_read_db_internal(sd_device *device, bool force) {
-        const char *id, *path;
-        int r;
-
-        assert(device);
-
-        if (device->db_loaded || (!force && device->sealed))
-                return 0;
-
-        r = device_get_device_id(device, &id);
-        if (r < 0)
-                return r;
-
-        path = strjoina("/run/udev/data/", id);
-
-        return device_read_db_internal_filename(device, path);
-}
-
 _public_ int sd_device_get_is_initialized(sd_device *device) {
         int r;
 
