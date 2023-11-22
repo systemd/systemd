@@ -451,11 +451,8 @@ static int bus_image_method_detach(
 
         r = bus_verify_polkit_async(
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.portable1.attach-images",
-                        NULL,
-                        false,
-                        UID_INVALID,
+                        /* details= */ NULL,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -1010,11 +1007,8 @@ int bus_image_acquire(
         if (mode == BUS_IMAGE_AUTHENTICATE_ALL) {
                 r = bus_verify_polkit_async(
                                 message,
-                                CAP_SYS_ADMIN,
                                 polkit_action,
-                                NULL,
-                                false,
-                                UID_INVALID,
+                                /* details= */ NULL,
                                 &m->polkit_registry,
                                 error);
                 if (r < 0)
@@ -1064,11 +1058,8 @@ int bus_image_acquire(
                 if (mode == BUS_IMAGE_AUTHENTICATE_BY_PATH) {
                         r = bus_verify_polkit_async(
                                         message,
-                                        CAP_SYS_ADMIN,
                                         polkit_action,
-                                        NULL,
-                                        false,
-                                        UID_INVALID,
+                                        /* details= */ NULL,
                                         &m->polkit_registry,
                                         error);
                         if (r < 0)

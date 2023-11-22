@@ -9,11 +9,8 @@ int check_polkit_chvt(sd_bus_message *message, Manager *manager, sd_bus_error *e
 #if ENABLE_POLKIT
         return bus_verify_polkit_async(
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.login1.chvt",
-                        NULL,
-                        false,
-                        UID_INVALID,
+                        /* details= */ NULL,
                         &manager->polkit_registry,
                         error);
 #else

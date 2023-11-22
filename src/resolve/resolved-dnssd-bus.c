@@ -20,10 +20,14 @@ int bus_dnssd_method_unregister(sd_bus_message *message, void *userdata, sd_bus_
 
         m = s->manager;
 
-        r = bus_verify_polkit_async(message, CAP_SYS_ADMIN,
-                                    "org.freedesktop.resolve1.unregister-service",
-                                    NULL, false, s->originator,
-                                    &m->polkit_registry, error);
+        r = bus_verify_polkit_async_full(
+                        message,
+                        "org.freedesktop.resolve1.unregister-service",
+                        /* details= */ NULL,
+                        /* interactive= */ false,
+                        /* good_user= */ s->originator,
+                        &m->polkit_registry,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)

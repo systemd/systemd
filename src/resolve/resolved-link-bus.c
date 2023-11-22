@@ -236,10 +236,11 @@ static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, voi
         if (r < 0)
                 return r;
 
-        r = bus_verify_polkit_async(message, CAP_NET_ADMIN,
-                                    "org.freedesktop.resolve1.set-dns-servers",
-                                    NULL, true, UID_INVALID,
-                                    &l->manager->polkit_registry, error);
+        r = bus_verify_polkit_async(
+                        message,
+                        "org.freedesktop.resolve1.set-dns-servers",
+                        /* details= */ NULL,
+                        &l->manager->polkit_registry, error);
         if (r < 0)
                 goto finalize;
         if (r == 0) {
@@ -368,10 +369,12 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        r = bus_verify_polkit_async(message, CAP_NET_ADMIN,
-                                    "org.freedesktop.resolve1.set-domains",
-                                    NULL, true, UID_INVALID,
-                                    &l->manager->polkit_registry, error);
+        r = bus_verify_polkit_async(
+                        message,
+                        "org.freedesktop.resolve1.set-domains",
+                        /* details= */ NULL,
+                        &l->manager->polkit_registry,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -446,10 +449,12 @@ int bus_link_method_set_default_route(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
-        r = bus_verify_polkit_async(message, CAP_NET_ADMIN,
-                                    "org.freedesktop.resolve1.set-default-route",
-                                    NULL, true, UID_INVALID,
-                                    &l->manager->polkit_registry, error);
+        r = bus_verify_polkit_async(
+                        message,
+                        "org.freedesktop.resolve1.set-default-route",
+                        /* details= */ NULL,
+                        &l->manager->polkit_registry,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -493,10 +498,12 @@ int bus_link_method_set_llmnr(sd_bus_message *message, void *userdata, sd_bus_er
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid LLMNR setting: %s", llmnr);
         }
 
-        r = bus_verify_polkit_async(message, CAP_NET_ADMIN,
-                                    "org.freedesktop.resolve1.set-llmnr",
-                                    NULL, true, UID_INVALID,
-                                    &l->manager->polkit_registry, error);
+        r = bus_verify_polkit_async(
+                        message,
+                        "org.freedesktop.resolve1.set-llmnr",
+                        /* details= */ NULL,
+                        &l->manager->polkit_registry,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -541,10 +548,12 @@ int bus_link_method_set_mdns(sd_bus_message *message, void *userdata, sd_bus_err
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid MulticastDNS setting: %s", mdns);
         }
 
-        r = bus_verify_polkit_async(message, CAP_NET_ADMIN,
-                                    "org.freedesktop.resolve1.set-mdns",
-                                    NULL, true, UID_INVALID,
-                                    &l->manager->polkit_registry, error);
+        r = bus_verify_polkit_async(
+                        message,
+                        "org.freedesktop.resolve1.set-mdns",
+                        /* details= */ NULL,
+                        &l->manager->polkit_registry,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -589,10 +598,12 @@ int bus_link_method_set_dns_over_tls(sd_bus_message *message, void *userdata, sd
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid DNSOverTLS setting: %s", dns_over_tls);
         }
 
-        r = bus_verify_polkit_async(message, CAP_NET_ADMIN,
-                                    "org.freedesktop.resolve1.set-dns-over-tls",
-                                    NULL, true, UID_INVALID,
-                                    &l->manager->polkit_registry, error);
+        r = bus_verify_polkit_async(
+                        message,
+                        "org.freedesktop.resolve1.set-dns-over-tls",
+                        /* details= */ NULL,
+                        &l->manager->polkit_registry,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -637,10 +648,12 @@ int bus_link_method_set_dnssec(sd_bus_message *message, void *userdata, sd_bus_e
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid DNSSEC setting: %s", dnssec);
         }
 
-        r = bus_verify_polkit_async(message, CAP_NET_ADMIN,
-                                    "org.freedesktop.resolve1.set-dnssec",
-                                    NULL, true, UID_INVALID,
-                                    &l->manager->polkit_registry, error);
+        r = bus_verify_polkit_async(
+                        message,
+                        "org.freedesktop.resolve1.set-dnssec",
+                        /* details= */ NULL,
+                        &l->manager->polkit_registry,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -698,10 +711,12 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
                         return -ENOMEM;
         }
 
-        r = bus_verify_polkit_async(message, CAP_NET_ADMIN,
-                                    "org.freedesktop.resolve1.set-dnssec-negative-trust-anchors",
-                                    NULL, true, UID_INVALID,
-                                    &l->manager->polkit_registry, error);
+        r = bus_verify_polkit_async(
+                        message,
+                        "org.freedesktop.resolve1.set-dnssec-negative-trust-anchors",
+                        /* details= */ NULL,
+                        &l->manager->polkit_registry,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -734,10 +749,12 @@ int bus_link_method_revert(sd_bus_message *message, void *userdata, sd_bus_error
         if (r < 0)
                 return r;
 
-        r = bus_verify_polkit_async(message, CAP_NET_ADMIN,
-                                    "org.freedesktop.resolve1.revert",
-                                    NULL, true, UID_INVALID,
-                                    &l->manager->polkit_registry, error);
+        r = bus_verify_polkit_async(
+                        message,
+                        "org.freedesktop.resolve1.revert",
+                        /* details= */ NULL,
+                        &l->manager->polkit_registry,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)

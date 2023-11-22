@@ -50,11 +50,8 @@ int bus_image_method_remove(
 
         r = bus_verify_polkit_async(
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.machine1.manage-images",
                         details,
-                        false,
-                        UID_INVALID,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -121,11 +118,8 @@ int bus_image_method_rename(
 
         r = bus_verify_polkit_async(
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.machine1.manage-images",
                         details,
-                        false,
-                        UID_INVALID,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -173,11 +167,8 @@ int bus_image_method_clone(
 
         r = bus_verify_polkit_async(
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.machine1.manage-images",
                         details,
-                        false,
-                        UID_INVALID,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -240,11 +231,8 @@ int bus_image_method_mark_read_only(
 
         r = bus_verify_polkit_async(
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.machine1.manage-images",
                         details,
-                        false,
-                        UID_INVALID,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -285,11 +273,8 @@ int bus_image_method_set_limit(
 
         r = bus_verify_polkit_async(
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.machine1.manage-images",
                         details,
-                        false,
-                        UID_INVALID,
                         &m->polkit_registry,
                         error);
         if (r < 0)
