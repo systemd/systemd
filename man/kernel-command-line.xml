@@ -594,6 +594,8 @@
 
         <listitem><para>Takes a boolean argument, defaults to on. If off,
         <citerefentry><refentrytitle>systemd-firstboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        and
+        <citerefentry><refentrytitle>systemd-homed-firstboot.service</refentrytitle><manvolnum>1</manvolnum></citerefentry>
         will not query the user for basic system settings, even if the system boots up for the first time and
         the relevant settings are not initialized yet. Not to be confused with
         <varname>systemd.condition-first-boot=</varname> (see below), which overrides the result of the
