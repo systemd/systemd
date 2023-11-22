@@ -7,6 +7,7 @@
 #include "image-policy.h"
 #include "macro.h"
 #include "pidref.h"
+#include "ratelimit.h"
 #include "set.h"
 #include "string-util.h"
 #include "time-util.h"
@@ -22,6 +23,7 @@ int serialize_usec(FILE *f, const char *key, usec_t usec);
 int serialize_dual_timestamp(FILE *f, const char *key, const dual_timestamp *t);
 int serialize_strv(FILE *f, const char *key, char **l);
 int serialize_pidref(FILE *f, FDSet *fds, const char *key, PidRef *pidref);
+int serialize_ratelimit(FILE *f, const char *key, const RateLimit *rl);
 int serialize_string_set(FILE *f, const char *key, Set *s);
 int serialize_image_policy(FILE *f, const char *key, const ImagePolicy *p);
 
@@ -45,6 +47,7 @@ int deserialize_dual_timestamp(const char *value, dual_timestamp *ret);
 int deserialize_environment(const char *value, char ***environment);
 int deserialize_strv(const char *value, char ***l);
 int deserialize_pidref(FDSet *fds, const char *value, PidRef *ret);
+void deserialize_ratelimit(RateLimit *rl, const char *name, const char *value);
 
 int open_serialization_fd(const char *ident);
 int open_serialization_file(const char *ident, FILE **ret);
