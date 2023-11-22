@@ -563,12 +563,20 @@ static int link_is_ready_to_set_link(Link *link, Request *req) {
                 break;
         }
         case REQUEST_TYPE_SET_LINK_MTU: {
-                Request req_ipoib = {
-                        .link = link,
-                        .type = REQUEST_TYPE_SET_LINK_IPOIB,
-                };
+                if (ordered_set_contains(link->manager->request_queue,
+                                         &(const Request) {
+                                                 .link = link,
+                                                 .type = REQUEST_TYPE_SET_LINK_IPOIB,
+                                         }))
+                        return false;
 
-                return !ordered_set_contains(link->manager->request_queue, &req_ipoib);
+                /* Changing FD mode may affect MTU. */
+                if (ordered_set_contains(link->manager->request_queue,
+                                         &(const Request) {
+                                                 .link = link,
+                                                 .type = REQUEST_TYPE_SET_LINK_CAN,
+                                         }))
+                        return false;
         }
         default:
                 break;
