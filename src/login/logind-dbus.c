@@ -236,7 +236,6 @@ int manager_get_seat_from_creds(
 
 static int return_test_polkit(
                 sd_bus_message *message,
-                int capability,
                 const char *action,
                 const char **details,
                 uid_t good_user,
@@ -246,7 +245,7 @@ static int return_test_polkit(
         bool challenge;
         int r;
 
-        r = bus_test_polkit(message, capability, action, details, good_user, &challenge, e);
+        r = bus_test_polkit(message, action, details, good_user, &challenge, e);
         if (r < 0)
                 return r;
 
@@ -1221,11 +1220,8 @@ static int method_lock_sessions(sd_bus_message *message, void *userdata, sd_bus_
 
         r = bus_verify_polkit_async(
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.login1.lock-sessions",
-                        NULL,
-                        false,
-                        UID_INVALID,
+                        /* details= */ NULL,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -1373,14 +1369,13 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
         if (!pw)
                 return errno_or_else(ENOENT);
 
-        r = bus_verify_polkit_async(
+        r = bus_verify_polkit_async_full(
                         message,
-                        CAP_SYS_ADMIN,
                         uid == auth_uid ? "org.freedesktop.login1.set-self-linger" :
                                           "org.freedesktop.login1.set-user-linger",
-                        NULL,
+                        /* details= */ NULL,
                         interactive,
-                        UID_INVALID,
+                        /* good_user= */ UID_INVALID,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -1541,13 +1536,12 @@ static int method_attach_device(sd_bus_message *message, void *userdata, sd_bus_
         } else if (!seat_name_is_valid(seat)) /* Note that a seat does not have to exist yet for this operation to succeed */
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Seat name %s is not valid", seat);
 
-        r = bus_verify_polkit_async(
+        r = bus_verify_polkit_async_full(
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.login1.attach-device",
-                        NULL,
+                        /* details= */ NULL,
                         interactive,
-                        UID_INVALID,
+                        /* good_user= */ UID_INVALID,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -1572,13 +1566,12 @@ static int method_flush_devices(sd_bus_message *message, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
-        r = bus_verify_polkit_async(
+        r = bus_verify_polkit_async_full(
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.login1.flush-devices",
-                        NULL,
+                        /* details= */ NULL,
                         interactive,
-                        UID_INVALID,
+                        /* good_user= */ UID_INVALID,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -1914,13 +1907,12 @@ static int verify_shutdown_creds(
         interactive = flags & SD_LOGIND_INTERACTIVE;
 
         if (multiple_sessions) {
-                r = bus_verify_polkit_async(
+                r = bus_verify_polkit_async_full(
                                 message,
-                                CAP_SYS_BOOT,
                                 a->polkit_action_multiple_sessions,
-                                NULL,
+                                /* details= */ NULL,
                                 interactive,
-                                UID_INVALID,
+                                /* good_user= */ UID_INVALID,
                                 &m->polkit_registry,
                                 error);
                 if (r < 0)
@@ -1935,12 +1927,12 @@ static int verify_shutdown_creds(
                         return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED,
                                                  "Access denied to root due to active block inhibitor");
 
-                r = bus_verify_polkit_async(message,
-                                CAP_SYS_BOOT,
+                r = bus_verify_polkit_async_full(
+                                message,
                                 a->polkit_action_ignore_inhibit,
-                                NULL,
+                                /* details= */ NULL,
                                 interactive,
-                                UID_INVALID,
+                                /* good_user= */ UID_INVALID,
                                 &m->polkit_registry,
                                 error);
                 if (r < 0)
@@ -1950,12 +1942,12 @@ static int verify_shutdown_creds(
         }
 
         if (!multiple_sessions && !blocked) {
-                r = bus_verify_polkit_async(message,
-                                CAP_SYS_BOOT,
+                r = bus_verify_polkit_async_full(
+                                message,
                                 a->polkit_action,
-                                NULL,
+                                /* details= */ NULL,
                                 interactive,
-                                UID_INVALID,
+                                /* good_user= */ UID_INVALID,
                                 &m->polkit_registry,
                                 error);
                 if (r < 0)
@@ -2485,11 +2477,8 @@ static int method_cancel_scheduled_shutdown(sd_bus_message *message, void *userd
 
         r = bus_verify_polkit_async(
                         message,
-                        CAP_SYS_BOOT,
                         a->polkit_action,
-                        NULL,
-                        false,
-                        UID_INVALID,
+                        /* details= */ NULL,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -2586,7 +2575,13 @@ static int method_can_shutdown_or_sleep(
         }
 
         if (multiple_sessions) {
-                r = bus_test_polkit(message, CAP_SYS_BOOT, a->polkit_action_multiple_sessions, NULL, UID_INVALID, &challenge, error);
+                r = bus_test_polkit(
+                                message,
+                                a->polkit_action_multiple_sessions,
+                                /* details= */ NULL,
+                                /* good_user= */ UID_INVALID,
+                                &challenge,
+                                error);
                 if (r < 0)
                         return r;
 
@@ -2599,7 +2594,13 @@ static int method_can_shutdown_or_sleep(
         }
 
         if (blocked) {
-                r = bus_test_polkit(message, CAP_SYS_BOOT, a->polkit_action_ignore_inhibit, NULL, UID_INVALID, &challenge, error);
+                r = bus_test_polkit(
+                                message,
+                                a->polkit_action_ignore_inhibit,
+                                /* details= */ NULL,
+                                /* good_user= */ UID_INVALID,
+                                &challenge,
+                                error);
                 if (r < 0)
                         return r;
 
@@ -2617,7 +2618,13 @@ static int method_can_shutdown_or_sleep(
                 /* If neither inhibit nor multiple sessions
                  * apply then just check the normal policy */
 
-                r = bus_test_polkit(message, CAP_SYS_BOOT, a->polkit_action, NULL, UID_INVALID, &challenge, error);
+                r = bus_test_polkit(
+                                message,
+                                a->polkit_action,
+                                /* details= */ NULL,
+                                /* good_user= */ UID_INVALID,
+                                &challenge,
+                                error);
                 if (r < 0)
                         return r;
 
@@ -2733,14 +2740,12 @@ static int method_set_reboot_parameter(
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED,
                                          "Reboot parameter not supported in containers, refusing.");
 
-        r = bus_verify_polkit_async(message,
-                                    CAP_SYS_ADMIN,
-                                    "org.freedesktop.login1.set-reboot-parameter",
-                                    NULL,
-                                    false,
-                                    UID_INVALID,
-                                    &m->polkit_registry,
-                                    error);
+        r = bus_verify_polkit_async(
+                        message,
+                        "org.freedesktop.login1.set-reboot-parameter",
+                        /* details= */ NULL,
+                        &m->polkit_registry,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -2771,10 +2776,9 @@ static int method_can_reboot_parameter(
 
         return return_test_polkit(
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.login1.set-reboot-parameter",
-                        NULL,
-                        UID_INVALID,
+                        /* details= */ NULL,
+                        /* good_user= */ UID_INVALID,
                         error);
 }
 
@@ -2852,14 +2856,12 @@ static int method_set_reboot_to_firmware_setup(
                 /* non-EFI case: $SYSTEMD_REBOOT_TO_FIRMWARE_SETUP is set to on */
                 use_efi = false;
 
-        r = bus_verify_polkit_async(message,
-                                    CAP_SYS_ADMIN,
-                                    "org.freedesktop.login1.set-reboot-to-firmware-setup",
-                                    NULL,
-                                    false,
-                                    UID_INVALID,
-                                    &m->polkit_registry,
-                                    error);
+        r = bus_verify_polkit_async(
+                        message,
+                        "org.freedesktop.login1.set-reboot-to-firmware-setup",
+                        /* details= */ NULL,
+                        &m->polkit_registry,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -2916,10 +2918,9 @@ static int method_can_reboot_to_firmware_setup(
 
         return return_test_polkit(
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.login1.set-reboot-to-firmware-setup",
-                        NULL,
-                        UID_INVALID,
+                        /* details= */ NULL,
+                        /* good_user= */ UID_INVALID,
                         error);
 }
 
@@ -3016,14 +3017,12 @@ static int method_set_reboot_to_boot_loader_menu(
                 /* non-EFI case: $SYSTEMD_REBOOT_TO_BOOT_LOADER_MENU is set to on */
                 use_efi = false;
 
-        r = bus_verify_polkit_async(message,
-                                    CAP_SYS_ADMIN,
-                                    "org.freedesktop.login1.set-reboot-to-boot-loader-menu",
-                                    NULL,
-                                    false,
-                                    UID_INVALID,
-                                    &m->polkit_registry,
-                                    error);
+        r = bus_verify_polkit_async(
+                        message,
+                        "org.freedesktop.login1.set-reboot-to-boot-loader-menu",
+                        /* details= */ NULL,
+                        &m->polkit_registry,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -3091,10 +3090,9 @@ static int method_can_reboot_to_boot_loader_menu(
 
         return return_test_polkit(
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.login1.set-reboot-to-boot-loader-menu",
-                        NULL,
-                        UID_INVALID,
+                        /* details= */ NULL,
+                        /* good_user= */ UID_INVALID,
                         error);
 }
 
@@ -3215,14 +3213,12 @@ static int method_set_reboot_to_boot_loader_entry(
                 /* non-EFI case: $SYSTEMD_REBOOT_TO_BOOT_LOADER_ENTRY is set to on */
                 use_efi = false;
 
-        r = bus_verify_polkit_async(message,
-                                    CAP_SYS_ADMIN,
-                                    "org.freedesktop.login1.set-reboot-to-boot-loader-entry",
-                                    NULL,
-                                    false,
-                                    UID_INVALID,
-                                    &m->polkit_registry,
-                                    error);
+        r = bus_verify_polkit_async(
+                        message,
+                        "org.freedesktop.login1.set-reboot-to-boot-loader-entry",
+                        /* details= */ NULL,
+                        &m->polkit_registry,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -3283,10 +3279,9 @@ static int method_can_reboot_to_boot_loader_entry(
 
         return return_test_polkit(
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.login1.set-reboot-to-boot-loader-entry",
-                        NULL,
-                        UID_INVALID,
+                        /* details= */ NULL,
+                        /* good_user= */ UID_INVALID,
                         error);
 }
 
@@ -3357,14 +3352,12 @@ static int method_set_wall_message(
             m->enable_wall_messages == enable_wall_messages)
                 goto done;
 
-        r = bus_verify_polkit_async(message,
-                                    CAP_SYS_ADMIN,
-                                    "org.freedesktop.login1.set-wall-message",
-                                    NULL,
-                                    false,
-                                    UID_INVALID,
-                                    &m->polkit_registry,
-                                    error);
+        r = bus_verify_polkit_async(
+                        message,
+                        "org.freedesktop.login1.set-wall-message",
+                        /* details= */ NULL,
+                        &m->polkit_registry,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)
@@ -3424,7 +3417,6 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
 
         r = bus_verify_polkit_async(
                         message,
-                        CAP_SYS_BOOT,
                         w == INHIBIT_SHUTDOWN             ? (mm == INHIBIT_BLOCK ? "org.freedesktop.login1.inhibit-block-shutdown" : "org.freedesktop.login1.inhibit-delay-shutdown") :
                         w == INHIBIT_SLEEP                ? (mm == INHIBIT_BLOCK ? "org.freedesktop.login1.inhibit-block-sleep"    : "org.freedesktop.login1.inhibit-delay-sleep") :
                         w == INHIBIT_IDLE                 ? "org.freedesktop.login1.inhibit-block-idle" :
@@ -3433,9 +3425,7 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
                         w == INHIBIT_HANDLE_REBOOT_KEY    ? "org.freedesktop.login1.inhibit-handle-reboot-key" :
                         w == INHIBIT_HANDLE_HIBERNATE_KEY ? "org.freedesktop.login1.inhibit-handle-hibernate-key" :
                                                             "org.freedesktop.login1.inhibit-handle-lid-switch",
-                        NULL,
-                        false,
-                        UID_INVALID,
+                        /* details= */ NULL,
                         &m->polkit_registry,
                         error);
         if (r < 0)

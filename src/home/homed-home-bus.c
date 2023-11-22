@@ -203,11 +203,8 @@ int bus_home_method_unregister(
 
         r = bus_verify_polkit_async(
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.home1.remove-home",
-                        NULL,
-                        true,
-                        UID_INVALID,
+                        /* details= */ NULL,
                         &h->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -243,11 +240,8 @@ int bus_home_method_realize(
 
         r = bus_verify_polkit_async(
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.home1.create-home",
-                        NULL,
-                        true,
-                        UID_INVALID,
+                        /* details= */ NULL,
                         &h->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -283,11 +277,8 @@ int bus_home_method_remove(
 
         r = bus_verify_polkit_async(
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.home1.remove-home",
-                        NULL,
-                        true,
-                        UID_INVALID,
+                        /* details= */ NULL,
                         &h->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -354,12 +345,11 @@ int bus_home_method_authenticate(
         if (r < 0)
                 return r;
 
-        r = bus_verify_polkit_async(
+        r = bus_verify_polkit_async_full(
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.home1.authenticate-home",
-                        NULL,
-                        true,
+                        /* details= */ NULL,
+                        /* interactive= */ false,
                         h->uid,
                         &h->manager->polkit_registry,
                         error);
@@ -395,11 +385,8 @@ int bus_home_method_update_record(Home *h, sd_bus_message *message, UserRecord *
 
         r = bus_verify_polkit_async(
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.home1.update-home",
-                        NULL,
-                        true,
-                        UID_INVALID,
+                        /* details= */ NULL,
                         &h->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -461,11 +448,8 @@ int bus_home_method_resize(
 
         r = bus_verify_polkit_async(
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.home1.resize-home",
-                        NULL,
-                        true,
-                        UID_INVALID,
+                        /* details= */ NULL,
                         &h->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -506,12 +490,11 @@ int bus_home_method_change_password(
         if (r < 0)
                 return r;
 
-        r = bus_verify_polkit_async(
+        r = bus_verify_polkit_async_full(
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.home1.passwd-home",
-                        NULL,
-                        true,
+                        /* details= */ NULL,
+                        /* interactive= */ false,
                         h->uid,
                         &h->manager->polkit_registry,
                         error);

@@ -151,9 +151,7 @@ int bus_set_transient_usec_internal(
 int bus_verify_manage_units_async_full(
                 Unit *u,
                 const char *verb,
-                int capability,
                 const char *polkit_message,
-                bool interactive,
                 sd_bus_message *call,
                 sd_bus_error *error) {
 
@@ -171,11 +169,8 @@ int bus_verify_manage_units_async_full(
 
         return bus_verify_polkit_async(
                         call,
-                        capability,
                         "org.freedesktop.systemd1.manage-units",
                         details,
-                        interactive,
-                        UID_INVALID,
                         &u->manager->polkit_registry,
                         error);
 }

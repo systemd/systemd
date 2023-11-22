@@ -408,9 +408,7 @@ int bus_unit_method_start_generic(
         r = bus_verify_manage_units_async_full(
                         u,
                         verb,
-                        CAP_SYS_ADMIN,
                         polkit_message_for_job[job_type],
-                        true,
                         message,
                         error);
         if (r < 0)
@@ -491,9 +489,7 @@ int bus_unit_method_enqueue_job(sd_bus_message *message, void *userdata, sd_bus_
         r = bus_verify_manage_units_async_full(
                         u,
                         jtype,
-                        CAP_SYS_ADMIN,
                         polkit_message_for_job[type],
-                        true,
                         message,
                         error);
         if (r < 0)
@@ -549,9 +545,7 @@ int bus_unit_method_kill(sd_bus_message *message, void *userdata, sd_bus_error *
         r = bus_verify_manage_units_async_full(
                         u,
                         "kill",
-                        CAP_KILL,
                         N_("Authentication is required to send a UNIX signal to the processes of '$(unit)'."),
-                        true,
                         message,
                         error);
         if (r < 0)
@@ -579,9 +573,7 @@ int bus_unit_method_reset_failed(sd_bus_message *message, void *userdata, sd_bus
         r = bus_verify_manage_units_async_full(
                         u,
                         "reset-failed",
-                        CAP_SYS_ADMIN,
                         N_("Authentication is required to reset the \"failed\" state of '$(unit)'."),
-                        true,
                         message,
                         error);
         if (r < 0)
@@ -611,9 +603,7 @@ int bus_unit_method_set_properties(sd_bus_message *message, void *userdata, sd_b
         r = bus_verify_manage_units_async_full(
                         u,
                         "set-property",
-                        CAP_SYS_ADMIN,
                         N_("Authentication is required to set properties on '$(unit)'."),
-                        true,
                         message,
                         error);
         if (r < 0)
@@ -641,9 +631,7 @@ int bus_unit_method_ref(sd_bus_message *message, void *userdata, sd_bus_error *e
         r = bus_verify_manage_units_async_full(
                         u,
                         "ref",
-                        CAP_SYS_ADMIN,
-                        NULL,
-                        false,
+                        /* polkit_message= */ NULL,
                         message,
                         error);
         if (r < 0)
@@ -712,9 +700,7 @@ int bus_unit_method_clean(sd_bus_message *message, void *userdata, sd_bus_error 
         r = bus_verify_manage_units_async_full(
                         u,
                         "clean",
-                        CAP_DAC_OVERRIDE,
                         N_("Authentication is required to delete files and directories associated with '$(unit)'."),
-                        true,
                         message,
                         error);
         if (r < 0)
@@ -760,9 +746,7 @@ static int bus_unit_method_freezer_generic(sd_bus_message *message, void *userda
         r = bus_verify_manage_units_async_full(
                         u,
                         perm,
-                        CAP_SYS_ADMIN,
                         N_("Authentication is required to freeze or thaw the processes of '$(unit)' unit."),
-                        true,
                         message,
                         error);
         if (r < 0)
