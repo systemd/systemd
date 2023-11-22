@@ -2,3 +2,4 @@
 #pragma once
 
 int dm_deferred_remove_cancel(const char *name);
+int dm_open_name(const char *name, char **ret_dm_node);
