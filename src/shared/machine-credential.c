@@ -44,7 +44,7 @@ int machine_credential_set(MachineCredential **credentials, size_t *n_credential
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing value for --set-credential=: %s", cred_string);
 
         if (!credential_name_valid(word))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "MachineCredential name is not valid: %s", word);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential name is not valid: %s", word);
 
         FOREACH_ARRAY(cred, *credentials, *n_credentials)
                 if (streq(cred->id, word))
@@ -84,7 +84,7 @@ int machine_credential_load(MachineCredential **credentials, size_t *n_credentia
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing value for --load-credential=: %s", cred_path);
 
         if (!credential_name_valid(word))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "MachineCredential name is not valid: %s", word);
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential name is not valid: %s", word);
 
         FOREACH_ARRAY(cred, *credentials, *n_credentials)
                 if (streq(cred->id, word))
@@ -97,7 +97,7 @@ int machine_credential_load(MachineCredential **credentials, size_t *n_credentia
 
                 r = get_credentials_dir(&e);
                 if (r < 0)
-                        return log_error_errno(r, "MachineCredential not available (no credentials passed at all): %s", word);
+                        return log_error_errno(r, "Credential not available (no credentials passed at all): %s", word);
 
                 j = path_join(e, p);
                 if (!j)
