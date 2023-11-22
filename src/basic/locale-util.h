@@ -35,7 +35,6 @@ int locale_is_installed(const char *name);
 
 #define _(String) dgettext(GETTEXT_PACKAGE, String)
 #define N_(String) String
-void init_gettext(void);
 
 bool is_locale_utf8(void);
 
