@@ -1569,19 +1569,16 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_SET_CREDENTIAL:
                         r = machine_credential_set(&arg_credentials, &arg_n_credentials, optarg);
-                        if (r == -ENOMEM)
-                                return log_oom();
                         if (r < 0)
-                                return log_error_errno(r, "Failed to set credential from %s: %m", optarg);
+                                return r;
+
                         arg_settings_mask |= SETTING_CREDENTIALS;
                         break;
 
                 case ARG_LOAD_CREDENTIAL:
                         r = machine_credential_load(&arg_credentials, &arg_n_credentials, optarg);
-                        if (r == -ENOMEM)
-                                return log_oom();
                         if (r < 0)
-                                return log_error_errno(r, "Failed to load credential from %s: %m", optarg);
+                                return r;
 
                         arg_settings_mask |= SETTING_CREDENTIALS;
                         break;
