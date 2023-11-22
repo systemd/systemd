@@ -16,10 +16,6 @@ External:
    - natively watch for dbus-*.service symlinks (PENDING)
    - teach dbus to activate all services it finds in /etc/systemd/services/org-*.service
 
-* kernel: add device_type = "fb", "fbcon" to class "graphics"
-
-* /usr/bin/service should actually show the new command line
-
 * fedora: suggest auto-restart on failure, but not on success and not on coredump. also, ask people to think about changing the start limit logic. Also point people to RestartPreventExitStatus=, SuccessExitStatus=
 
 * neither pkexec nor sudo initialize environ[] from the PAM environment?
@@ -132,6 +128,11 @@ Deprecations and removals:
 * remove remaining tpm1.2 support from sd-stub
 
 Features:
+
+* add a kernel cmdline switch (and cred?) for marking a system to be
+  "headless", in which case we never open /dev/console for reading, only for
+  writing. This would then mean: systemd-firstboot would process creds but not
+  ask interactively, getty would not be started and so on.
 
 * extend mime database with mime types for:
   - journal files
