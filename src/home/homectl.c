@@ -1146,7 +1146,18 @@ static int acquire_new_home_record(UserRecord **ret) {
         if (!hr)
                 return log_oom();
 
-        r = user_record_load(hr, v, USER_RECORD_REQUIRE_REGULAR|USER_RECORD_ALLOW_SECRET|USER_RECORD_ALLOW_PRIVILEGED|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_SIGNATURE|USER_RECORD_LOG|USER_RECORD_PERMISSIVE);
+        r = user_record_load(
+                        hr,
+                        v,
+                        USER_RECORD_REQUIRE_REGULAR|
+                        USER_RECORD_ALLOW_SECRET|
+                        USER_RECORD_ALLOW_PRIVILEGED|
+                        USER_RECORD_ALLOW_PER_MACHINE|
+                        USER_RECORD_STRIP_BINDING|
+                        USER_RECORD_STRIP_STATUS|
+                        USER_RECORD_STRIP_SIGNATURE|
+                        USER_RECORD_LOG|
+                        USER_RECORD_PERMISSIVE);
         if (r < 0)
                 return r;
 
