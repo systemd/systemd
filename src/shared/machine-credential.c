@@ -39,8 +39,6 @@ int machine_credential_set(MachineCredential **credentials, size_t *n_credential
         assert(creds || n_creds == 0);
 
         r = extract_first_word(&p, &word, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
-        if (r == -ENOMEM)
-                return r;
         if (r < 0)
                 return log_error_errno(r, "Failed to parse --set-credential= parameter: %m");
         if (r == 0 || !p)
@@ -59,7 +57,7 @@ int machine_credential_set(MachineCredential **credentials, size_t *n_credential
 
         GREEDY_REALLOC(creds, n_creds + 1);
         if (!creds)
-                return -ENOMEM;
+                return log_oom();
 
         creds[n_creds++] = (MachineCredential) {
                 .id = TAKE_PTR(word),
@@ -85,8 +83,6 @@ int machine_credential_load(MachineCredential **credentials, size_t *n_credentia
         assert(creds || n_creds == 0);
 
         r = extract_first_word(&p, &word, ":", EXTRACT_DONT_COALESCE_SEPARATORS);
-        if (r == -ENOMEM)
-                return -ENOMEM;
         if (r < 0)
                 return log_error_errno(r, "Failed to parse --load-credential= parameter: %m");
         if (r == 0 || !p)
@@ -110,7 +106,7 @@ int machine_credential_load(MachineCredential **credentials, size_t *n_credentia
 
                 j = path_join(e, p);
                 if (!j)
-                        return -ENOMEM;
+                        return log_oom();
         }
 
         r = read_full_file_full(AT_FDCWD, j ?: p, UINT64_MAX, SIZE_MAX,
@@ -122,7 +118,7 @@ int machine_credential_load(MachineCredential **credentials, size_t *n_credentia
 
         GREEDY_REALLOC(creds, n_creds + 1);
         if (!creds)
-                return -ENOMEM;
+                return log_oom();
 
         creds[n_creds++] = (MachineCredential) {
                 .id = TAKE_PTR(word),
