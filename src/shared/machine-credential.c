@@ -90,9 +90,9 @@ int machine_credential_load(MachineCredential **credentials, size_t *n_credentia
                 if (streq(cred->id, word))
                         return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Duplicate credential '%s', refusing.", word);
 
-        if (path_is_absolute(p))
+        if (is_path(p) && path_is_valid(p))
                 flags |= READ_FULL_FILE_CONNECT_SOCKET;
-        else {
+        else if (credential_name_valid(p)) {
                 const char *e;
 
                 r = get_credentials_dir(&e);
@@ -104,7 +104,8 @@ int machine_credential_load(MachineCredential **credentials, size_t *n_credentia
                         return log_oom();
 
                 p = j;
-        }
+        } else
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential source appears to be neither a valid path nor a credential name: %s", p);
 
         r = read_full_file_full(AT_FDCWD, p, UINT64_MAX, SIZE_MAX,
                                 flags,
