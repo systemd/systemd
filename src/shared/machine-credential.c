@@ -102,14 +102,16 @@ int machine_credential_load(MachineCredential **credentials, size_t *n_credentia
                 j = path_join(e, p);
                 if (!j)
                         return log_oom();
+
+                p = j;
         }
 
-        r = read_full_file_full(AT_FDCWD, j ?: p, UINT64_MAX, SIZE_MAX,
+        r = read_full_file_full(AT_FDCWD, p, UINT64_MAX, SIZE_MAX,
                                 flags,
                                 NULL,
                                 &data, &size);
         if (r < 0)
-                return log_error_errno(r, "Failed to read credential '%s': %m", j ?: p);
+                return log_error_errno(r, "Failed to read credential '%s': %m", p);
 
         if (!GREEDY_REALLOC(*credentials, *n_credentials + 1))
                 return log_oom();
