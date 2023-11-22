@@ -58,6 +58,7 @@ int device_get_properties_strv(sd_device *device, char ***ret);
 int device_clone_with_db(sd_device *device, sd_device **ret);
 
 int device_tag_index(sd_device *dev, sd_device *dev_old, bool add);
+bool device_should_have_db(sd_device *device);
 int device_update_db(sd_device *device);
 int device_delete_db(sd_device *device);
 int device_read_db_internal_filename(sd_device *device, const char *filename); /* For fuzzer */
