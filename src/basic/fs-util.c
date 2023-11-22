@@ -1113,6 +1113,16 @@ int xopenat(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
+        /* This is like openat(), but has a few tricks up its sleeves, extending behaviour:
+         *
+         *   • O_DIRECTORY|O_CREAT is supported, which causes a directory to be created, and immediately
+         *     opened. When used with the XO_SUBVOLUME flag this will even create a btrfs subvolume.
+         *
+         *   • If O_CREAT is used with XO_LABEL, any created file will be immediately relabelled.
+         *
+         *   • If the path is specified NULL or empty, behaves like fd_reopen().
+         */
+
         if (isempty(path)) {
                 assert(!FLAGS_SET(open_flags, O_CREAT|O_EXCL));
                 return fd_reopen(dir_fd, open_flags & ~O_NOFOLLOW);
