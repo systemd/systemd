@@ -815,7 +815,6 @@ static int setenv_notify_socket(void) {
 
 static int report_credentials_per_func(const char *title, int (*get_directory_func)(const char **ret)) {
         _cleanup_free_ DirectoryEntries *de = NULL;
-        _cleanup_close_ int dir_fd = -EBADF;
         _cleanup_free_ char *ll = NULL;
         const char *d = NULL;
         int r, c = 0;
@@ -831,11 +830,7 @@ static int report_credentials_per_func(const char *title, int (*get_directory_fu
                 return log_warning_errno(r, "Failed to determine %s directory: %m", title);
         }
 
-        dir_fd = open(d, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
-        if (dir_fd < 0)
-                return log_warning_errno(errno, "Failed to open credentials directory %s: %m", d);
-
-        r = readdir_all(dir_fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT, &de);
+        r = readdir_all_at(AT_FDCWD, d, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT, &de);
         if (r < 0)
                 return log_warning_errno(r, "Failed to enumerate credentials directory %s: %m", d);
 
