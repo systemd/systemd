@@ -2470,6 +2470,8 @@ static int decrypt_partition(
         return 0;
 }
 
+static int validate_signature_userspace(const VeritySettings *verity);
+
 static int verity_can_reuse(
                 const VeritySettings *verity,
                 const char *name,
@@ -2478,7 +2480,6 @@ static int verity_can_reuse(
         /* If the same volume was already open, check that the root hashes match, and reuse it if they do */
         _cleanup_free_ char *root_hash_existing = NULL;
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
-        struct crypt_params_verity crypt_params = {};
         size_t root_hash_existing_size;
         int r;
 
@@ -2492,10 +2493,6 @@ static int verity_can_reuse(
 
         cryptsetup_enable_logging(cd);
 
-        r = sym_crypt_get_verity_info(cd, &crypt_params);
-        if (r < 0)
-                return log_debug_errno(r, "Error opening verity device, crypt_get_verity_info failed: %m");
-
         root_hash_existing_size = verity->root_hash_size;
         root_hash_existing = malloc0(root_hash_existing_size);
         if (!root_hash_existing)
@@ -2504,18 +2501,32 @@ static int verity_can_reuse(
         r = sym_crypt_volume_key_get(cd, CRYPT_ANY_SLOT, root_hash_existing, &root_hash_existing_size, NULL, 0);
         if (r < 0)
                 return log_debug_errno(r, "Error opening verity device, crypt_volume_key_get failed: %m");
+
         if (verity->root_hash_size != root_hash_existing_size ||
             memcmp(root_hash_existing, verity->root_hash, verity->root_hash_size) != 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Error opening verity device, it already exists but root hashes are different.");
 
 #if HAVE_CRYPT_ACTIVATE_BY_SIGNED_KEY
-        /* Ensure that, if signatures are supported, we only reuse the device if the previous mount used the
-         * same settings, so that a previous unsigned mount will not be reused if the user asks to use
-         * signing for the new one, and vice versa. */
-        if (!!verity->root_hash_sig != !!(crypt_params.flags & CRYPT_VERITY_ROOT_HASH_SIGNATURE))
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Error opening verity device, it already exists but signature settings are not the same.");
-#endif
+        /* If a signature is provided but the root hash of the existing device hasn't been marked as
+         * validated then it doesn't necessarily means that it wasn't verified. Indeed the signature could
+         * have been verified in userspace. Since there's no way to figure it out, we revalidate the root
+         * hash when we don't know. That's what we would do if we decided to activate a new device anyway. */
+        if (verity->root_hash_sig) {
+                struct crypt_params_verity crypt_params = {};
 
+                r = sym_crypt_get_verity_info(cd, &crypt_params);
+                if (r < 0)
+                        return log_debug_errno(r, "Error opening verity device, crypt_get_verity_info failed: %m");
+
+                if (!FLAGS_SET(crypt_params.flags, CRYPT_VERITY_ROOT_HASH_SIGNATURE)) {
+                        r = validate_signature_userspace(verity);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                return -ENOKEY;
+                }
+        }
+#endif
         *ret_cd = TAKE_PTR(cd);
         return 0;
 }
