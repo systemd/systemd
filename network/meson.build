@@ -18,6 +18,10 @@ if conf.get('ENABLE_NETWORKD') == 1
                 '80-wifi-station.network.example',
         )
 
+        install_data(
+                example_network_files,
+                install_dir : networkdir)
+
         if get_option('default-network')
                 foreach f : example_network_files
                         install_data(
@@ -25,12 +29,7 @@ if conf.get('ENABLE_NETWORKD') == 1
                                 rename : fs.replace_suffix(fs.name(f), ''),
                                 install_dir : networkdir)
                 endforeach
-        else
-                install_data(
-                        example_network_files,
-                        install_dir : networkdir)
         endif
-
 endif
 
 install_data('99-default.link',
