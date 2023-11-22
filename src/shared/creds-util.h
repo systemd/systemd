@@ -31,6 +31,8 @@ bool credential_glob_valid(const char *s);
 int get_credentials_dir(const char **ret);
 int get_encrypted_credentials_dir(const char **ret);
 
+int open_credentials_dir(void);
+
 /* Where creds have been passed to the system */
 #define SYSTEM_CREDENTIALS_DIRECTORY "/run/credentials/@system"
 #define ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY "/run/credentials/@encrypted"
