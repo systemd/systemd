@@ -22,6 +22,12 @@ static bool link_is_configured_for_family(Link *link, int family) {
         if (link->flags & IFF_LOOPBACK)
                 return false;
 
+        /* CAN devices do not support IP layer. Most of the functions below are never called for CAN devices,
+         * but link_set_ipv6_mtu() may be called after setting interface MTU, and warn about the failure. For
+         * safety, let's unconditionally check if the interface is not a CAN device. */
+        if (IN_SET(family, AF_INET, AF_INET6) && link->iftype == ARPHRD_CAN)
+                return false;
+
         if (family == AF_INET6 && !socket_ipv6_is_supported())
                 return false;
 
