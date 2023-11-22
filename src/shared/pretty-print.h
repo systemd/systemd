@@ -4,6 +4,10 @@
 #include "glyph-util.h"
 #include "terminal-util.h"
 
+#define CYLON_BUFFER_EXTRA (2*STRLEN(ANSI_RED) + STRLEN(ANSI_HIGHLIGHT_RED) + 2*STRLEN(ANSI_NORMAL))
+
+void draw_cylon(char buffer[], size_t buflen, unsigned width, unsigned pos);
+
 void print_separator(void);
 
 int file_url_from_path(const char *path, char **ret);
