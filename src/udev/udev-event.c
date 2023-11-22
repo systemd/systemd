@@ -171,6 +171,12 @@ static int rename_netif(UdevEvent *event) {
                 goto revert;
         }
 
+        r = device_add_property(event->dev_db_clone, "ID_PROCESSING", "1");
+        if (r < 0) {
+                log_device_warning_errno(event->dev_db_clone, r, "Failed to add 'ID_PROCESSING' property: %m");
+                goto revert;
+        }
+
         r = device_update_db(event->dev_db_clone);
         if (r < 0) {
                 log_device_debug_errno(event->dev_db_clone, r, "Failed to update database under /run/udev/data/: %m");
@@ -197,6 +203,7 @@ static int rename_netif(UdevEvent *event) {
 revert:
         /* Restore 'dev_db_clone' */
         (void) device_add_property(event->dev_db_clone, "ID_RENAMING", NULL);
+        (void) device_add_property(event->dev_db_clone, "ID_PROCESSING", NULL);
         (void) device_update_db(event->dev_db_clone);
 
         /* Restore 'dev' */
@@ -371,6 +378,18 @@ int udev_event_execute_rules(
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to remove 'ID_RENAMING' property: %m");
 
+        /* If the database file already exists, append ID_PROCESSING property to the existing databse,
+         * to indicate that the device is being processed by udevd. */
+        if (device_has_db(event->dev_db_clone) > 0) {
+                r = device_add_property(event->dev_db_clone, "ID_PROCESSING", "1");
+                if (r < 0)
+                        return log_device_warning_errno(event->dev_db_clone, r, "Failed to add 'ID_PROCESSING' property: %m");
+
+                r = device_update_db(event->dev_db_clone);
+                if (r < 0)
+                        return log_device_warning_errno(event->dev_db_clone, r, "Failed to update database under /run/udev/data/: %m");
+        }
+
         DEVICE_TRACE_POINT(rules_start, dev);
 
         r = udev_rules_apply_to_event(rules, event, timeout_usec, timeout_signal, properties_list);
@@ -400,6 +419,15 @@ int udev_event_execute_rules(
         r = device_tag_index(dev, event->dev_db_clone, true);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to update tags under /run/udev/tag/: %m");
+
+        /* If the database file for the device will be created below, add ID_PROCESSING=1 to indicate that
+         * the device is still being processed by udevd, as commands specified in RUN are invoked after that
+         * the database is created. See issue #30056. */
+        if (device_should_have_db(dev) && !ordered_hashmap_isempty(event->run_list)) {
+                r = device_add_property(dev, "ID_PROCESSING", "1");
+                if (r < 0)
+                        return log_device_warning_errno(dev, r, "Failed to add 'ID_PROCESSING' property: %m");
+        }
 
         r = device_update_db(dev);
         if (r < 0)
