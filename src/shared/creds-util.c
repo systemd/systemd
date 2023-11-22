@@ -100,6 +100,17 @@ int get_encrypted_credentials_dir(const char **ret) {
         return get_credentials_dir_internal("ENCRYPTED_CREDENTIALS_DIRECTORY", ret);
 }
 
+int open_credentials_dir(void) {
+        const char *d;
+        int r;
+
+        r = get_credentials_dir(&d);
+        if (r < 0)
+                return r;
+
+        return RET_NERRNO(open(d, O_CLOEXEC|O_DIRECTORY));
+}
+
 int read_credential(const char *name, void **ret, size_t *ret_size) {
         _cleanup_free_ char *fn = NULL;
         const char *d;
