@@ -18,6 +18,7 @@
 
   <refnamediv>
     <refname>homectl</refname>
+    <refname>systemd-homed-firstboot.service</refname>
     <refpurpose>Create, remove, change or inspect home directories</refpurpose>
   </refnamediv>
 
@@ -1137,6 +1138,59 @@
         large amounts of disk space.</para>
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>firstboot</command></term>
+
+        <listitem><para>This command is supposed to be invoked during the initial boot of the system. It
+        checks whether any regular home area exists so far, and if not queries the user interactively on the
+        console for user name and password and creates one. Alternatively, if one or more service credentials
+        whose name starts with <literal>home.create.</literal> are passed to the command (containing a user
+        record in JSON format) these users are automatically created at boot.</para>
+
+        <para>This command is invoked by the <filename>systemd-homed-firstboot.service</filename> service
+        unit.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Credentials</title>
+
+    <para>When invoked with the <command>firstboot</command> command, <command>homectl</command> supports the
+    service credentials logic as implemented by
+    <varname>ImportCredential=</varname>/<varname>LoadCredential=</varname>/<varname>SetCredential=</varname>
+    (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+    details). The following credentials are used when passed in:</para>
+
+    <variablelist class='system-credentials'>
+      <varlistentry>
+        <term><varname>home.create.*</varname></term>
+
+        <listitem><para>If one or more credentials whose names begin with <literal>home.create.</literal>,
+        followed by a valid UNIX username are passed, a new home area is created, one for each specified user
+        record.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Kernel Command Line</title>
+
+    <variablelist class='kernel-commandline-options'>
+      <varlistentry>
+        <term><varname>systemd.firstboot=</varname></term>
+
+        <listitem><para>This boolean will disable the effect of <command>homectl firstboot</command>
+        command. It's primarily interpreted by
+        <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
     </variablelist>
   </refsect1>
