@@ -866,7 +866,7 @@ int link_request_to_set_master(Link *link) {
 
 int link_request_to_set_mtu(Link *link, uint32_t mtu) {
         const char *origin;
-        uint32_t min_mtu;
+        uint32_t min_mtu, max_mtu;
         Request *req;
         int r;
 
@@ -894,10 +894,19 @@ int link_request_to_set_mtu(Link *link, uint32_t mtu) {
                 mtu = min_mtu;
         }
 
-        if (mtu > link->max_mtu) {
+        max_mtu = link->max_mtu;
+        if (link->iftype == ARPHRD_CAN)
+                /* The maximum MTU may be changed when FD mode is changed.
+                 * See https://docs.kernel.org/networking/can.html#can-fd-flexible-data-rate-driver-support
+                 *   MTU = 16 (CAN_MTU)   => Classical CAN device
+                 *   MTU = 72 (CANFD_MTU) => CAN FD capable device
+                 * So, even if the current maximum is 16, we should not reduce the requested value now. */
+                max_mtu = MAX(max_mtu, 72u);
+
+        if (mtu > max_mtu) {
                 log_link_warning(link, "Reducing the requested MTU %"PRIu32" to the interface's maximum MTU %"PRIu32".",
-                                 mtu, link->max_mtu);
-                mtu = link->max_mtu;
+                                 mtu, max_mtu);
+                mtu = max_mtu;
         }
 
         if (link->mtu == mtu)
