@@ -104,7 +104,6 @@ static int mangle_fat_label(const char *s, char **ret) {
 static int do_mcopy(const char *node, const char *root) {
         _cleanup_free_ char *mcopy = NULL;
         _cleanup_strv_free_ char **argv = NULL;
-        _cleanup_close_ int rfd = -EBADF;
         _cleanup_free_ DirectoryEntries *de = NULL;
         int r;
 
@@ -128,11 +127,7 @@ static int do_mcopy(const char *node, const char *root) {
         /* mcopy copies the top level directory instead of everything in it so we have to pass all
          * the subdirectories to mcopy instead to end up with the correct directory structure. */
 
-        rfd = open(root, O_RDONLY|O_DIRECTORY|O_CLOEXEC);
-        if (rfd < 0)
-                return log_error_errno(errno, "Failed to open directory '%s': %m", root);
-
-        r = readdir_all(rfd, RECURSE_DIR_SORT|RECURSE_DIR_ENSURE_TYPE, &de);
+        r = readdir_all_at(AT_FDCWD, root, RECURSE_DIR_SORT|RECURSE_DIR_ENSURE_TYPE, &de);
         if (r < 0)
                 return log_error_errno(r, "Failed to read '%s' contents: %m", root);
 

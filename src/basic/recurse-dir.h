@@ -76,6 +76,7 @@ typedef struct DirectoryEntries {
 } DirectoryEntries;
 
 int readdir_all(int dir_fd, RecurseDirFlags flags, DirectoryEntries **ret);
+int readdir_all_at(int fd, const char *path, RecurseDirFlags flags, DirectoryEntries **ret);
 
 int recurse_dir(int dir_fd, const char *path, unsigned statx_mask, unsigned n_depth_max, RecurseDirFlags flags, recurse_dir_func_t func, void *userdata);
 int recurse_dir_at(int atfd, const char *path, unsigned statx_mask, unsigned n_depth_max, RecurseDirFlags flags, recurse_dir_func_t func, void *userdata);
