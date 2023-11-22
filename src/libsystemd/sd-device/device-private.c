@@ -809,6 +809,19 @@ static int device_get_db_path(sd_device *device, char **ret) {
         return 0;
 }
 
+int device_has_db(sd_device *device) {
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        assert(device);
+
+        r = device_get_db_path(device, &path);
+        if (r < 0)
+                return r;
+
+        return access(path, F_OK) >= 0;
+}
+
 int device_update_db(sd_device *device) {
         _cleanup_(unlink_and_freep) char *path = NULL, *path_tmp = NULL;
         _cleanup_fclose_ FILE *f = NULL;
