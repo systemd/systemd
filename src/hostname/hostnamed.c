@@ -1054,13 +1054,12 @@ static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *
 
         context_read_etc_hostname(c);
 
-        r = bus_verify_polkit_async(
+        r = bus_verify_polkit_async_full(
                         m,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.hostname1.set-hostname",
-                        NULL,
+                        /* details= */ NULL,
                         interactive,
-                        UID_INVALID,
+                        /* good_user= */ UID_INVALID,
                         &c->polkit_registry,
                         error);
         if (r < 0)
@@ -1101,13 +1100,12 @@ static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_
         if (name && !hostname_is_valid(name, 0))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid static hostname '%s'", name);
 
-        r = bus_verify_polkit_async(
+        r = bus_verify_polkit_async_full(
                         m,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.hostname1.set-static-hostname",
-                        NULL,
+                        /* details= */ NULL,
                         interactive,
-                        UID_INVALID,
+                        /* good_user= */ UID_INVALID,
                         &c->polkit_registry,
                         error);
         if (r < 0)
@@ -1177,17 +1175,15 @@ static int set_machine_info(Context *c, sd_bus_message *m, int prop, sd_bus_mess
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid location '%s'", name);
         }
 
-        /* Since the pretty hostname should always be changed at the
-         * same time as the static one, use the same policy action for
-         * both... */
+        /* Since the pretty hostname should always be changed at the same time as the static one, use the
+         * same policy action for both... */
 
-        r = bus_verify_polkit_async(
+        r = bus_verify_polkit_async_full(
                         m,
-                        CAP_SYS_ADMIN,
                         prop == PROP_PRETTY_HOSTNAME ? "org.freedesktop.hostname1.set-static-hostname" : "org.freedesktop.hostname1.set-machine-info",
-                        NULL,
+                        /* details= */ NULL,
                         interactive,
-                        UID_INVALID,
+                        /* good_user= */ UID_INVALID,
                         &c->polkit_registry,
                         error);
         if (r < 0)
@@ -1259,13 +1255,12 @@ static int method_get_product_uuid(sd_bus_message *m, void *userdata, sd_bus_err
         if (r < 0)
                 return r;
 
-        r = bus_verify_polkit_async(
+        r = bus_verify_polkit_async_full(
                         m,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.hostname1.get-product-uuid",
-                        NULL,
+                        /* details= */ NULL,
                         interactive,
-                        UID_INVALID,
+                        /* good_user= */ UID_INVALID,
                         &c->polkit_registry,
                         error);
         if (r < 0)
@@ -1306,11 +1301,8 @@ static int method_get_hardware_serial(sd_bus_message *m, void *userdata, sd_bus_
 
         r = bus_verify_polkit_async(
                         m,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.hostname1.get-hardware-serial",
-                        NULL,
-                        false,
-                        UID_INVALID,
+                        /* details= */ NULL,
                         &c->polkit_registry,
                         error);
         if (r < 0)
@@ -1350,11 +1342,8 @@ static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *erro
 
         r = bus_verify_polkit_async(
                         m,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.hostname1.get-description",
-                        NULL,
-                        false,
-                        UID_INVALID,
+                        /* details= */ NULL,
                         &c->polkit_registry,
                         error);
         if (r == 0)
