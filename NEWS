@@ -68,7 +68,11 @@ CHANGES WITH 255 in spe:
           semantics via posix_spawn(3), and it immediately execs a new internal
           binary, systemd-executor, that receives the configuration to apply
           via memfd, and sets up the process before exec'ing the target
-          executable.
+          executable. The systemd-executor binary is pinned by file descriptor
+          by each manager instance (system and users), and the reference is
+          updated on daemon-reexec - it is thus important to reexec all running
+          manager instances when the systemd-executor and/or libsystemd*
+          libraries are updated on the filesystem.
 
         * Most of the internal process tracking is being changed to use PIDFDs
           instead of PIDs when the kernel supports it, to improve robustness
@@ -579,9 +583,9 @@ CHANGES WITH 255 in spe:
         Contributions from: 김인수, Abderrahim Kitouni, Adam Williamson,
         Alexandre Peixoto Ferreira, Alex Hudspith, Alvin Alvarado,
         André Paiusco, Antonio Alvarez Feijoo, Anton Lundin,
-        Arseny Maslennikov, Arthur Shau, Balázs Úr, beh_10257,
-        Benjamin Peterson, Bertrand Jacquin, Brian Norris,
-        Cheng-Chia Tseng, Chris Patterson, Christian Hergert,
+        Arian van Putten, Arseny Maslennikov, Arthur Shau, Balázs Úr,
+        beh_10257, Benjamin Peterson, Bertrand Jacquin, Brian Norris,
+        Charles Lee, Cheng-Chia Tseng, Chris Patterson, Christian Hergert,
         Christian Hesse, Christian Kirbach, Clayton Craft, commondservice,
         Curtis Klein, cvlc12, Daan De Meyer, Daniele Medri,
         Daniel P. Berrangé, Daniel Rusek, Dan Nicholson, Dan Streetman,
@@ -595,24 +599,25 @@ CHANGES WITH 255 in spe:
         Jan Macku, Jeremy Fleischman, Jin Liu, jjimbo137, Joerg Behrmann,
         Johannes Segitz, Jordan Rome, Jordan Williams, Julien Malka,
         Juno Computers, Khem Raj, khm, Kingbom Dou, Kiran Vemula,
-        Laszlo Gombos, Lennart Poettering, Luca Boccassi,
-        Lucas Adriano Salles, Lukas, Lukáš Nykrýn, Maanya Goenka,
-        Maarten, Malte Poll, Marc Pervaz Boocha, Martin Beneš,
-        Martin Wilck, Mathieu Tortuyaux, Matthias Schiffer,
-        Maxim Mikityanskiy, Max Kellermann, Michael A Cassaniti,
-        Michael Biebl, Michael Kuhn, Michael Vasseur, Michal Koutný,
-        Michal Sekletár, Mike Yuan, Milton D. Miller II, mordner,
-        msizanoen, NAHO, Nandakumar Raghavan, Nick Rosbrook, NRK,
-        Oğuz Ersen, Omojola Joshua, pelaufer, Peter Hutterer, PhylLu,
-        Pierre GRASSER, Piotr Drąg, Priit Laes, Rahil Bhimjiani,
-        Raito Bezarius, Raul Cheleguini, Reto Schneider, Richard Maw,
-        Robby Red, RoepLuke, Roland Hieber, Ronan Pigott, Sam James,
-        Sam Leonard, Sergey A, Susant Sahani, Sven Joachim, Tad Fisher,
-        Takashi Sakamoto, Thorsten Kukuk, Tj, Tomasz Świątek,
-        Topi Miettinen, Valentin David, Valentin Lefebvre,
-        Victor Westerhuis, Vincent Haupert, Vishal Chillara Srinivas,
-        Vito Caputo, Warren, Xiaotian Wu, xinpeng wang, Yu Watanabe,
-        Zbigniew Jędrzejewski-Szmek, zeroskyx, наб
+        Krzesimir Nowak, Laszlo Gombos, Lennart Poettering, linuxlion,
+        Luca Boccassi, Lucas Adriano Salles, Lukas, Lukáš Nykrýn,
+        Maanya Goenka, Maarten, Malte Poll, Marc Pervaz Boocha,
+        Martin Beneš, Martin Joerg, Martin Wilck, Mathieu Tortuyaux,
+        Matthias Schiffer, Maxim Mikityanskiy, Max Kellermann,
+        Michael A Cassaniti, Michael Biebl, Michael Kuhn, Michael Vasseur,
+        Michal Koutný, Michal Sekletár, Mike Yuan,
+        Milton D. Miller II, mordner, msizanoen, NAHO, Nandakumar Raghavan,
+        Nick Rosbrook, Nils K, NRK, Oğuz Ersen, Omojola Joshua, onenowy,
+        pelaufer, Peter Hutterer, PhylLu, Pierre GRASSER, Piotr Drąg,
+        Priit Laes, Rahil Bhimjiani, Raito Bezarius, Raul Cheleguini,
+        Reto Schneider, Richard Maw, Robby Red, RoepLuke, Roland Hieber,
+        Ronan Pigott, Sam James, Sam Leonard, Sergey A, Susant Sahani,
+        Sven Joachim, Tad Fisher, Takashi Sakamoto, Thorsten Kukuk, Tj,
+        Tomasz Świątek, Topi Miettinen, Valentin David,
+        Valentin Lefebvre, Victor Westerhuis, Vincent Haupert,
+        Vishal Chillara Srinivas, Vito Caputo, Warren, Weblate,
+        Xiaotian Wu, xinpeng wang, Yaron Shahrabani, Yo-Jung Lin,
+        Yu Watanabe, Zbigniew Jędrzejewski-Szmek, zeroskyx, наб
 
         — Edinburgh, 2023-11-15
 
