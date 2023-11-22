@@ -18,7 +18,7 @@ manpages = [
   'ENABLE_RESOLVE'],
  ['environment.d', '5', [], 'ENABLE_ENVIRONMENT_D'],
  ['file-hierarchy', '7', [], ''],
- ['homectl', '1', [], 'ENABLE_HOMED'],
+ ['homectl', '1', ['systemd-homed-firstboot.service'], 'ENABLE_HOMED'],
  ['homed.conf', '5', ['homed.conf.d'], 'ENABLE_HOMED'],
  ['hostname', '5', [], ''],
  ['hostnamectl', '1', [], 'ENABLE_HOSTNAMED'],
