@@ -102,7 +102,6 @@ static int bus_message_new_polkit_auth_call(
 
 int bus_test_polkit(
                 sd_bus_message *call,
-                int capability,
                 const char *action,
                 const char **details,
                 uid_t good_user,
@@ -120,7 +119,7 @@ int bus_test_polkit(
         if (r != 0)
                 return r;
 
-        r = sd_bus_query_sender_privilege(call, capability);
+        r = sd_bus_query_sender_privilege(call, -1);
         if (r < 0)
                 return r;
         if (r > 0)
@@ -465,12 +464,11 @@ static int async_polkit_query_check_action(
  * <- async_polkit_defer(q)
  */
 
-int bus_verify_polkit_async(
+int bus_verify_polkit_async_full(
                 sd_bus_message *call,
-                int capability,
                 const char *action,
                 const char **details,
-                bool interactive,
+                bool interactive, /* Use only for legacy method calls that have a separate "allow_interactive_authentication" field */
                 uid_t good_user,
                 Hashmap **registry,
                 sd_bus_error *ret_error) {
@@ -499,7 +497,7 @@ int bus_verify_polkit_async(
         }
 #endif
 
-        r = sd_bus_query_sender_privilege(call, capability);
+        r = sd_bus_query_sender_privilege(call, -1);
         if (r < 0)
                 return r;
         if (r > 0)

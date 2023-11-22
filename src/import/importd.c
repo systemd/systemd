@@ -704,11 +704,8 @@ static int method_import_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
 
         r = bus_verify_polkit_async(
                         msg,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.import1.import",
-                        NULL,
-                        false,
-                        UID_INVALID,
+                        /* details= */ NULL,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -775,11 +772,8 @@ static int method_import_fs(sd_bus_message *msg, void *userdata, sd_bus_error *e
 
         r = bus_verify_polkit_async(
                         msg,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.import1.import",
-                        NULL,
-                        false,
-                        UID_INVALID,
+                        /* details= */ NULL,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -843,11 +837,8 @@ static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
 
         r = bus_verify_polkit_async(
                         msg,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.import1.export",
-                        NULL,
-                        false,
-                        UID_INVALID,
+                        /* details= */ NULL,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -916,11 +907,8 @@ static int method_pull_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_er
 
         r = bus_verify_polkit_async(
                         msg,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.import1.pull",
-                        NULL,
-                        false,
-                        UID_INVALID,
+                        /* details= */ NULL,
                         &m->polkit_registry,
                         error);
         if (r < 0)
@@ -1036,11 +1024,8 @@ static int method_cancel(sd_bus_message *msg, void *userdata, sd_bus_error *erro
 
         r = bus_verify_polkit_async(
                         msg,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.import1.pull",
-                        NULL,
-                        false,
-                        UID_INVALID,
+                        /* details= */ NULL,
                         &t->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -1065,11 +1050,8 @@ static int method_cancel_transfer(sd_bus_message *msg, void *userdata, sd_bus_er
 
         r = bus_verify_polkit_async(
                         msg,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.import1.pull",
-                        NULL,
-                        false,
-                        UID_INVALID,
+                        /* details= */ NULL,
                         &m->polkit_registry,
                         error);
         if (r < 0)
