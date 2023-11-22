@@ -73,11 +73,8 @@ int bus_machine_method_unregister(sd_bus_message *message, void *userdata, sd_bu
 
         r = bus_verify_polkit_async(
                         message,
-                        CAP_KILL,
                         "org.freedesktop.machine1.manage-machines",
                         details,
-                        false,
-                        UID_INVALID,
                         &m->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -106,11 +103,8 @@ int bus_machine_method_terminate(sd_bus_message *message, void *userdata, sd_bus
 
         r = bus_verify_polkit_async(
                         message,
-                        CAP_KILL,
                         "org.freedesktop.machine1.manage-machines",
                         details,
-                        false,
-                        UID_INVALID,
                         &m->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -157,11 +151,8 @@ int bus_machine_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
 
         r = bus_verify_polkit_async(
                         message,
-                        CAP_KILL,
                         "org.freedesktop.machine1.manage-machines",
                         details,
-                        false,
-                        UID_INVALID,
                         &m->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -449,11 +440,8 @@ int bus_machine_method_open_pty(sd_bus_message *message, void *userdata, sd_bus_
 
         r = bus_verify_polkit_async(
                         message,
-                        CAP_SYS_ADMIN,
                         m->class == MACHINE_HOST ? "org.freedesktop.machine1.host-open-pty" : "org.freedesktop.machine1.open-pty",
                         details,
-                        false,
-                        UID_INVALID,
                         &m->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -541,11 +529,8 @@ int bus_machine_method_open_login(sd_bus_message *message, void *userdata, sd_bu
 
         r = bus_verify_polkit_async(
                         message,
-                        CAP_SYS_ADMIN,
                         m->class == MACHINE_HOST ? "org.freedesktop.machine1.host-login" : "org.freedesktop.machine1.login",
                         details,
-                        false,
-                        UID_INVALID,
                         &m->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -656,11 +641,8 @@ int bus_machine_method_open_shell(sd_bus_message *message, void *userdata, sd_bu
 
         r = bus_verify_polkit_async(
                         message,
-                        CAP_SYS_ADMIN,
                         m->class == MACHINE_HOST ? "org.freedesktop.machine1.host-shell" : "org.freedesktop.machine1.shell",
                         details,
-                        false,
-                        UID_INVALID,
                         &m->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -861,11 +843,8 @@ int bus_machine_method_bind_mount(sd_bus_message *message, void *userdata, sd_bu
 
         r = bus_verify_polkit_async(
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.machine1.manage-machines",
                         details,
-                        false,
-                        UID_INVALID,
                         &m->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -949,11 +928,8 @@ int bus_machine_method_copy(sd_bus_message *message, void *userdata, sd_bus_erro
 
         r = bus_verify_polkit_async(
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.machine1.manage-machines",
                         details,
-                        false,
-                        UID_INVALID,
                         &m->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -1070,11 +1046,8 @@ int bus_machine_method_open_root_directory(sd_bus_message *message, void *userda
 
         r = bus_verify_polkit_async(
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.machine1.manage-machines",
                         details,
-                        false,
-                        UID_INVALID,
                         &m->manager->polkit_registry,
                         error);
         if (r < 0)

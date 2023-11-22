@@ -134,11 +134,8 @@ int bus_seat_method_terminate(sd_bus_message *message, void *userdata, sd_bus_er
 
         r = bus_verify_polkit_async(
                         message,
-                        CAP_KILL,
                         "org.freedesktop.login1.manage",
-                        NULL,
-                        false,
-                        UID_INVALID,
+                        /* details= */ NULL,
                         &s->manager->polkit_registry,
                         error);
         if (r < 0)
