@@ -191,6 +191,18 @@ static inline int safe_fork(const char *name, ForkFlags flags, pid_t *ret_pid) {
         return safe_fork_full(name, NULL, NULL, 0, flags, ret_pid);
 }
 
+int pidref_safe_fork_full(
+                const char *name,
+                const int stdio_fds[3],
+                const int except_fds[],
+                size_t n_except_fds,
+                ForkFlags flags,
+                PidRef *ret_pid);
+
+static inline int pidref_safe_fork(const char *name, ForkFlags flags, PidRef *ret_pid) {
+        return pidref_safe_fork_full(name, NULL, NULL, 0, flags, ret_pid);
+}
+
 int namespace_fork(const char *outer_name, const char *inner_name, const int except_fds[], size_t n_except_fds, ForkFlags flags, int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd, pid_t *ret_pid);
 
 int set_oom_score_adjust(int value);
