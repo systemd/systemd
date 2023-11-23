@@ -4,6 +4,7 @@
 #include "sd-event.h"
 
 #include "json.h"
+#include "pidref.h"
 #include "time-util.h"
 #include "varlink-idl.h"
 
@@ -138,6 +139,7 @@ void* varlink_get_userdata(Varlink *v);
 
 int varlink_get_peer_uid(Varlink *v, uid_t *ret);
 int varlink_get_peer_pid(Varlink *v, pid_t *ret);
+int varlink_get_peer_pidref(Varlink *v, PidRef *ret);
 
 int varlink_set_relative_timeout(Varlink *v, usec_t usec);
 
