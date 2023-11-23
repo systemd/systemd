@@ -255,9 +255,11 @@ int acquire_hibernate_info(HibernateInfo *ret) {
 
         if (i.cmdline) {
                 i.device = i.cmdline->device;
+                i.offset = i.cmdline->offset;
                 i.from_efi = false;
         } else if (i.efi) {
                 i.device = i.efi->device;
+                i.offset = i.efi->offset;
                 i.from_efi = true;
         } else
                 return -ENODEV;
