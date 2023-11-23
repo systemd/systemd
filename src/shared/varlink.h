@@ -116,6 +116,12 @@ int varlink_error_errno(Varlink *v, int error);
 int varlink_notify(Varlink *v, JsonVariant *parameters);
 int varlink_notifyb(Varlink *v, ...);
 
+/* Ask for the current message to be dispatched again */
+int varlink_dispatch_again(Varlink *v);
+
+/* Get the currently processed incoming message */
+int varlink_get_current_parameters(Varlink *v, JsonVariant **ret);
+
 /* Parsing incoming data via json_dispatch() and generate a nice error on parse errors */
 int varlink_dispatch(Varlink *v, JsonVariant *parameters, const JsonDispatch table[], void *userdata);
 
