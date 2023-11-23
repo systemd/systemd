@@ -2690,6 +2690,7 @@ static int offline_security_checks(
                 MANAGER_TEST_RUN_MINIMAL |
                 MANAGER_TEST_RUN_ENV_GENERATORS |
                 MANAGER_TEST_RUN_IGNORE_DEPENDENCIES |
+                MANAGER_TEST_DONT_OPEN_EXECUTOR |
                 run_generators * MANAGER_TEST_RUN_GENERATORS;
 
         _cleanup_(manager_freep) Manager *m = NULL;

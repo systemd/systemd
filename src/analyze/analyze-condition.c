@@ -92,7 +92,7 @@ static int verify_conditions(char **lines, RuntimeScope scope, const char *unit,
                 assert_se(set_unit_path(var) >= 0);
         }
 
-        r = manager_new(scope, MANAGER_TEST_RUN_MINIMAL, &m);
+        r = manager_new(scope, MANAGER_TEST_RUN_MINIMAL|MANAGER_TEST_DONT_OPEN_EXECUTOR, &m);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize manager: %m");
 
