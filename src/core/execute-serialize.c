@@ -1244,7 +1244,7 @@ static bool exec_parameters_is_idle_pipe_set(const ExecParameters *p) {
                 p->idle_pipe[3] >= 0;
 }
 
-static int exec_parameters_serialize(const ExecParameters *p, FILE *f, FDSet *fds) {
+static int exec_parameters_serialize(const ExecParameters *p, const ExecContext *c, FILE *f, FDSet *fds) {
         int r;
 
         assert(f);
@@ -1375,7 +1375,7 @@ static int exec_parameters_serialize(const ExecParameters *p, FILE *f, FDSet *fd
                         return r;
         }
 
-        if (p->bpf_outer_map_fd >= 0) {
+        if (c && exec_context_restrict_filesystems_set(c) && p->bpf_outer_map_fd >= 0) {
                 r = serialize_fd(f, fds, "exec-parameters-bpf-outer-map-fd", p->bpf_outer_map_fd);
                 if (r < 0)
                         return r;
@@ -3860,7 +3860,7 @@ int exec_serialize_invocation(
         if (r < 0)
                 return log_debug_errno(r, "Failed to serialize command: %m");
 
-        r = exec_parameters_serialize(p, f, fds);
+        r = exec_parameters_serialize(p, ctx, f, fds);
         if (r < 0)
                 return log_debug_errno(r, "Failed to serialize parameters: %m");
 
