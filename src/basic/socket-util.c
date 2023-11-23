@@ -956,6 +956,21 @@ int getpeergroups(int fd, gid_t **ret) {
         return (int) n;
 }
 
+int getpeerpidfd(int fd) {
+        socklen_t n = sizeof(int);
+        int pidfd = -EBADF;
+
+        assert(fd >= 0);
+
+        if (getsockopt(fd, SOL_SOCKET, SO_PEERPIDFD, &pidfd, &n) < 0)
+                return -errno;
+
+        if (n != sizeof(int))
+                return -EIO;
+
+        return pidfd;
+}
+
 ssize_t send_many_fds_iov_sa(
                 int transport_fd,
                 int *fds_array, size_t n_fds_array,
