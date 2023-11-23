@@ -32,6 +32,10 @@ struct sockaddr_vm {
 #define SO_PEERGROUPS 59
 #endif
 
+#ifndef SO_PEERPIDFD
+#define SO_PEERPIDFD 77
+#endif
+
 #ifndef SO_BINDTOIFINDEX
 #define SO_BINDTOIFINDEX 62
 #endif
