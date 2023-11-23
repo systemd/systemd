@@ -104,7 +104,7 @@ int verify_generate_path(char **ret, char **filenames) {
         old = getenv("SYSTEMD_UNIT_PATH");
         if (!streq_ptr(old, "")) {
                 if (!old)
-                        old = ":";
+                        old = "";
 
                 r = strv_extend(&ans, old);
                 if (r < 0)
