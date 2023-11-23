@@ -639,6 +639,11 @@ static int bus_message_new_polkit_auth_call_for_varlink(
         if (r == 0) /* if we couldn't get a pidfd this returns == 0 */
                 return log_debug_errno(SYNTHETIC_ERRNO(EPERM), "Failed to get peer pidfd, cannot securely authenticate.");
 
+        uint64_t start_time;
+        r = pidref_get_start_time(&pidref, &start_time);
+        if (r < 0)
+                return r;
+
         uid_t uid;
         r = varlink_get_peer_uid(link, &uid);
         if (r < 0)
@@ -657,9 +662,10 @@ static int bus_message_new_polkit_auth_call_for_varlink(
         r = sd_bus_message_append(
                         c,
                         "(sa{sv})s",
-                        "unix-process", 2,
-                        "pidfd", "h", (uint32_t) pidref.fd,
-                        "uid", "i", (int32_t) uid,
+                        "unix-process", 3,
+                        "pid", "u", (uint32_t) pidref.pid,
+                        "start-time", "t", (uint32_t) start_time,
+                        "uid", "i", (uint32_t) uid,
                         action);
         if (r < 0)
                 return r;
