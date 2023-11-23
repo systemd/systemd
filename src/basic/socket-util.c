@@ -907,8 +907,10 @@ int getpeersec(int fd, char **ret) {
                 if (!s)
                         return -ENOMEM;
 
-                if (getsockopt(fd, SOL_SOCKET, SO_PEERSEC, s, &n) >= 0)
+                if (getsockopt(fd, SOL_SOCKET, SO_PEERSEC, s, &n) >= 0) {
+                        s[n] = 0;
                         break;
+                }
 
                 if (errno != ERANGE)
                         return -errno;
