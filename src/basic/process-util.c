@@ -730,6 +730,82 @@ int get_process_ppid(pid_t pid, pid_t *ret) {
         return 0;
 }
 
+int pid_get_start_time(pid_t pid, uint64_t *ret) {
+        _cleanup_free_ char *line = NULL;
+        const char *p;
+        int r;
+
+        assert(pid >= 0);
+
+        p = procfs_file_alloca(pid, "stat");
+        r = read_one_line_file(p, &line);
+        if (r == -ENOENT)
+                return -ESRCH;
+        if (r < 0)
+                return r;
+
+        /* Let's skip the pid and comm fields. The latter is enclosed in () but does not escape any () in its
+         * value, so let's skip over it manually */
+
+        p = strrchr(line, ')');
+        if (!p)
+                return -EIO;
+
+        p++;
+
+        unsigned long llu;
+
+        if (sscanf(p, " "
+                   "%*c "  /* state */
+                   "%*u " /* ppid */
+                   "%*u " /* pgrp */
+                   "%*u " /* session */
+                   "%*u " /* tty_nr */
+                   "%*u " /* tpgid */
+                   "%*u " /* flags */
+                   "%*u " /* minflt */
+                   "%*u " /* cminflt */
+                   "%*u " /* majflt */
+                   "%*u " /* cmajflt */
+                   "%*u " /* utime */
+                   "%*u " /* stime */
+                   "%*u " /* cutime */
+                   "%*u " /* cstime */
+                   "%*i " /* priority */
+                   "%*i " /* nice */
+                   "%*u " /* num_threads */
+                   "%*u " /* itrealvalue */
+                   "%lu ", /* starttime */
+                   &llu) != 1)
+                return -EIO;
+
+        if (ret)
+                *ret = llu;
+
+        return 0;
+}
+
+int pidref_get_start_time(const PidRef *pid, uint64_t *ret) {
+        uint64_t t;
+        int r;
+
+        if (!pidref_is_set(pid))
+                return -ESRCH;
+
+        r = pid_get_start_time(pid->pid, ret ? &t : NULL);
+        if (r < 0)
+                return r;
+
+        r = pidref_verify(pid);
+        if (r < 0)
+                return r;
+
+        if (ret)
+                *ret = t;
+
+        return 0;
+}
+
 int get_process_umask(pid_t pid, mode_t *ret) {
         _cleanup_free_ char *m = NULL;
         const char *p;
