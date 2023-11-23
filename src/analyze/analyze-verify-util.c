@@ -86,6 +86,9 @@ int verify_set_unit_path(char **filenames) {
                 if (r < 0)
                         return r;
 
+                if (access(a, F_OK) < 0)
+                        continue;
+
                 r = path_extract_directory(a, &t);
                 if (r < 0)
                         return r;
@@ -98,6 +101,9 @@ int verify_set_unit_path(char **filenames) {
         joined = strv_join(strv_uniq(ans), ":");
         if (!joined)
                 return -ENOMEM;
+
+        if (isempty(joined))
+                return 0;
 
         /* First, prepend our directories. Second, if some path was specified, use that, and
          * otherwise use the defaults. Any duplicates will be filtered out in path-lookup.c.
