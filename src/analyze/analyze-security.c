@@ -2695,19 +2695,15 @@ static int offline_security_checks(
 
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *units[strv_length(filenames)];
-        _cleanup_free_ char *var = NULL;
         int r, k;
         size_t count = 0;
 
         if (strv_isempty(filenames))
                 return 0;
 
-        /* set the path */
-        r = verify_generate_path(&var, filenames);
+        r = verify_set_unit_path(filenames);
         if (r < 0)
-                return log_error_errno(r, "Failed to generate unit load path: %m");
-
-        assert_se(set_unit_path(var) >= 0);
+                return log_error_errno(r, "Failed to set unit load path: %m");
 
         r = manager_new(scope, flags, &m);
         if (r < 0)
