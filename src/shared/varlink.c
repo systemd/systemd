@@ -1336,7 +1336,7 @@ static int varlink_dispatch_method(Varlink *v) {
                                 log_debug_errno(r, "Parameters for method %s() didn't pass validation on field '%s': %m", method, strna(bad_field));
 
                                 if (!FLAGS_SET(flags, VARLINK_METHOD_ONEWAY)) {
-                                        r = varlink_errorb(v, VARLINK_ERROR_INVALID_PARAMETER, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("parameter", bad_field)));
+                                        r = varlink_error_invalid_parameter_name(v, bad_field);
                                         if (r < 0)
                                                 return r;
                                 }
@@ -2425,6 +2425,13 @@ int varlink_error_invalid_parameter(Varlink *v, JsonVariant *parameters) {
         return -EINVAL;
 }
 
+int varlink_error_invalid_parameter_name(Varlink *v, const char *name) {
+        return varlink_errorb(
+                        v,
+                        VARLINK_ERROR_INVALID_PARAMETER,
+                        JSON_BUILD_OBJECT(JSON_BUILD_PAIR("parameter", JSON_BUILD_STRING(name))));
+}
+
 int varlink_error_errno(Varlink *v, int error) {
         return varlink_errorb(
                         v,
@@ -2504,8 +2511,7 @@ int varlink_dispatch(Varlink *v, JsonVariant *parameters, const JsonDispatch tab
         r = json_dispatch_full(parameters, table, /* bad= */ NULL, /* flags= */ 0, userdata, &bad_field);
         if (r < 0) {
                 if (bad_field)
-                        return varlink_errorb(v, VARLINK_ERROR_INVALID_PARAMETER,
-                                              JSON_BUILD_OBJECT(JSON_BUILD_PAIR("parameter", JSON_BUILD_STRING(bad_field))));
+                        return varlink_error_invalid_parameter_name(v, bad_field);
                 return r;
         }
 
