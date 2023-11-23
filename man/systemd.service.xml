@@ -1421,9 +1421,9 @@
     systems using split <filename>/usr/bin/</filename> and <filename>/bin/</filename> directories, and their
     <filename>sbin/</filename> counterparts on systems using split <filename>bin/</filename> and
     <filename>sbin/</filename>. It is thus safe to use just the executable name in case of executables
-    located in any of the "standard" directories, and an absolute path must be used in other cases. Using an
-    absolute path is recommended to avoid ambiguity. Hint: this search path may be queried using
-    <command>systemd-path search-binaries-default</command>.</para>
+    located in any of the "standard" directories, and an absolute path must be used in other cases.
+    Hint: this search path may be queried using <command>systemd-path search-binaries-default</command>.
+    </para>
 
     <para>The command line accepts <literal>%</literal> specifiers as described in
     <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
