@@ -72,7 +72,7 @@ int verify_prepare_filename(const char *filename, char **ret) {
         return 0;
 }
 
-int verify_generate_path(char **ret, char **filenames) {
+int verify_set_unit_path(char **filenames) {
         _cleanup_strv_free_ char **ans = NULL;
         _cleanup_free_ char *joined = NULL;
         const char *old;
@@ -86,6 +86,9 @@ int verify_generate_path(char **ret, char **filenames) {
                 if (r < 0)
                         return r;
 
+                if (access(a, F_OK) < 0)
+                        continue;
+
                 r = path_extract_directory(a, &t);
                 if (r < 0)
                         return r;
@@ -95,27 +98,22 @@ int verify_generate_path(char **ret, char **filenames) {
                         return r;
         }
 
-        strv_uniq(ans);
-
-        /* First, prepend our directories. Second, if some path was specified, use that, and
-         * otherwise use the defaults. Any duplicates will be filtered out in path-lookup.c.
-         * Treat explicit empty path to mean that nothing should be appended.
-         */
-        old = getenv("SYSTEMD_UNIT_PATH");
-        if (!streq_ptr(old, "")) {
-                if (!old)
-                        old = ":";
-
-                r = strv_extend(&ans, old);
-                if (r < 0)
-                        return r;
-        }
-
-        joined = strv_join(ans, ":");
+        joined = strv_join(strv_uniq(ans), ":");
         if (!joined)
                 return -ENOMEM;
 
-        *ret = TAKE_PTR(joined);
+        if (isempty(joined))
+                return 0;
+
+        /* First, prepend our directories. Second, if some path was specified, use that, and
+         * otherwise use the defaults. Any duplicates will be filtered out in path-lookup.c.
+         * Treat explicit empty path to mean that nothing should be appended. */
+        old = getenv("SYSTEMD_UNIT_PATH");
+        if (!streq_ptr(old, "") &&
+            !strextend_with_separator(&joined, ":", old ?: ""))
+                return -ENOMEM;
+
+        assert_se(set_unit_path(joined) >= 0);
         return 0;
 }
 
@@ -250,7 +248,6 @@ int verify_units(
         _cleanup_(set_destroy_ignore_pointer_max) Set *s = NULL;
         _unused_ _cleanup_(clear_log_syntax_callback) dummy_t dummy;
         Unit *units[strv_length(filenames)];
-        _cleanup_free_ char *var = NULL;
         int r, k, count = 0;
 
         if (strv_isempty(filenames))
@@ -262,11 +259,9 @@ int verify_units(
         set_log_syntax_callback(log_syntax_callback, &s);
 
         /* set the path */
-        r = verify_generate_path(&var, filenames);
+        r = verify_set_unit_path(filenames);
         if (r < 0)
-                return log_error_errno(r, "Failed to generate unit load path: %m");
-
-        assert_se(set_unit_path(var) >= 0);
+                return log_error_errno(r, "Failed to set unit load path: %m");
 
         r = manager_new(scope, flags, &m);
         if (r < 0)
