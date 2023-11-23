@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "build.h"
+#include "bus-polkit.h"
 #include "creds-util.h"
 #include "dirent-util.h"
 #include "escape.h"
@@ -24,6 +25,9 @@
 #include "terminal-util.h"
 #include "tpm2-pcr.h"
 #include "tpm2-util.h"
+#include "user-util.h"
+#include "varlink.h"
+#include "varlink-io.systemd.Credentials.h"
 #include "verbs.h"
 
 typedef enum TranscodeMode {
@@ -54,6 +58,7 @@ static usec_t arg_timestamp = USEC_INFINITY;
 static usec_t arg_not_after = USEC_INFINITY;
 static bool arg_pretty = false;
 static bool arg_quiet = false;
+static bool arg_varlink = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_signature, freep);
@@ -933,6 +938,12 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_tpm2_public_key_pcr_mask == UINT32_MAX)
                 arg_tpm2_public_key_pcr_mask = UINT32_C(1) << TPM2_PCR_KERNEL_BOOT;
 
+        r = varlink_invocation(VARLINK_ALLOW_ACCEPT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
+        if (r > 0)
+                arg_varlink = true;
+
         return 1;
 }
 
@@ -952,6 +963,174 @@ static int creds_main(int argc, char *argv[]) {
         return dispatch_verb(argc, argv, verbs, NULL);
 }
 
+typedef struct MethodEncryptParameters {
+        const char *name;
+        const char *text;
+        struct iovec data;
+        uint64_t timestamp;
+        uint64_t not_after;
+} MethodEncryptParameters;
+
+static void method_encrypt_parameters_done(MethodEncryptParameters *p) {
+        assert(p);
+
+        iovec_done_erase(&p->data);
+}
+
+static int vl_method_encrypt(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+
+        static const JsonDispatch dispatch_table[] = {
+                { "name",      JSON_VARIANT_STRING,        json_dispatch_const_string,   offsetof(MethodEncryptParameters, name),      0 },
+                { "text",      JSON_VARIANT_STRING,        json_dispatch_const_string,   offsetof(MethodEncryptParameters, text),      0 },
+                { "data",      JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(MethodEncryptParameters, data),      0 },
+                { "timestamp", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,         offsetof(MethodEncryptParameters, timestamp), 0 },
+                { "notAfter",  _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,         offsetof(MethodEncryptParameters, not_after), 0 },
+                { "allowInteractiveAuthentication", JSON_VARIANT_BOOLEAN, NULL,          0,                                            0 },
+                {}
+        };
+        _cleanup_(method_encrypt_parameters_done) MethodEncryptParameters p = {
+                .timestamp = UINT64_MAX,
+                .not_after = UINT64_MAX,
+        };
+        _cleanup_(iovec_done) struct iovec output = {};
+        Hashmap **polkit_registry = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link);
+
+        json_variant_sensitive(parameters);
+
+        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (p.name && !credential_name_valid(p.name))
+                return varlink_error_invalid_parameter_name(link, "name");
+        /* Specifying both or neither the text string and the binary data is not allowed */
+        if (!p.text == !p.data.iov_base)
+                return varlink_error_invalid_parameter_name(link, "data");
+        if (p.timestamp == UINT64_MAX)
+                p.timestamp = now(CLOCK_REALTIME);
+        if (p.not_after != UINT64_MAX && p.not_after < p.timestamp)
+                return varlink_error_invalid_parameter_name(link, "notAfter");
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        /* bus= */ NULL,
+                        "org.freedesktop.home1.create-home",
+                        /* details= */ NULL,
+                        /* good_user= */ UID_INVALID,
+                        polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = encrypt_credential_and_warn(
+                        arg_with_key,
+                        p.name,
+                        p.timestamp,
+                        p.not_after,
+                        arg_tpm2_device,
+                        arg_tpm2_pcr_mask,
+                        arg_tpm2_public_key,
+                        arg_tpm2_public_key_pcr_mask,
+                        p.text ?: p.data.iov_base, p.text ? strlen(p.text) : p.data.iov_len,
+                        &output.iov_base, &output.iov_len);
+        if (r < 0)
+                return r;
+
+        _cleanup_(json_variant_unrefp) JsonVariant *reply = NULL;
+
+        r = json_build(&reply, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_IOVEC_BASE64("blob", &output)));
+        if (r < 0)
+                return r;
+
+        /* Let's also mark the (theoretically encrypted) reply as sensitive, in case the NULL encryption scheme was used. */
+        json_variant_sensitive(reply);
+
+        return varlink_reply(link, reply);
+}
+
+typedef struct MethodDecryptParameters {
+        const char *name;
+        struct iovec blob;
+        uint64_t timestamp;
+} MethodDecryptParameters;
+
+static void method_decrypt_parameters_done(MethodDecryptParameters *p) {
+        assert(p);
+
+        iovec_done_erase(&p->blob);
+}
+
+static int vl_method_decrypt(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+
+        static const JsonDispatch dispatch_table[] = {
+                { "name",      JSON_VARIANT_STRING,        json_dispatch_const_string,   offsetof(MethodDecryptParameters, name),      0 },
+                { "blob",      JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(MethodDecryptParameters, blob),      0 },
+                { "timestamp", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,         offsetof(MethodDecryptParameters, timestamp), 0 },
+                { "allowInteractiveAuthentication", JSON_VARIANT_BOOLEAN, NULL,          0,                                            0 },
+                {}
+        };
+        _cleanup_(method_decrypt_parameters_done) MethodDecryptParameters p = {
+                .timestamp = UINT64_MAX,
+        };
+        _cleanup_(iovec_done_erase) struct iovec output = {};
+        Hashmap **polkit_registry = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link);
+
+        /* Let's also mark the (theoretically encrypted) input as sensitive, in case the NULL encryption scheme was used. */
+        json_variant_sensitive(parameters);
+
+        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        if (p.name && !credential_name_valid(p.name))
+                return varlink_error_invalid_parameter_name(link, "name");
+        if (!p.blob.iov_base)
+                return varlink_error_invalid_parameter_name(link, "blob");
+        if (p.timestamp == UINT64_MAX)
+                p.timestamp = now(CLOCK_REALTIME);
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        /* bus= */ NULL,
+                        "org.freedesktop.home1.create-home",
+                        /* details= */ NULL,
+                        /* good_user= */ UID_INVALID,
+                        polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = decrypt_credential_and_warn(
+                        p.name,
+                        p.timestamp,
+                        arg_tpm2_device,
+                        arg_tpm2_signature,
+                        p.blob.iov_base, p.blob.iov_len,
+                        &output.iov_base, &output.iov_len);
+        if (r == -EBADMSG)
+                return varlink_error(link, "io.systemd.Credentials.BadFormat", NULL);
+        if (r == -EREMOTE)
+                return varlink_error(link, "io.systemd.Credentials.NameMismatch", NULL);
+        if (r == -ESTALE)
+                return varlink_error(link, "io.systemd.Credentials.TimeMismatch", NULL);
+        if (r < 0)
+                return r;
+
+        _cleanup_(json_variant_unrefp) JsonVariant *reply = NULL;
+
+        r = json_build(&reply, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_IOVEC_BASE64("data", &output)));
+        if (r < 0)
+                return r;
+
+        json_variant_sensitive(reply);
+
+        return varlink_reply(link, reply);
+}
+
 static int run(int argc, char *argv[]) {
         int r;
 
@@ -960,6 +1139,36 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        if (arg_varlink) {
+                _cleanup_(varlink_server_unrefp) VarlinkServer *varlink_server = NULL;
+                _cleanup_(hashmap_freep) Hashmap *polkit_registry = NULL;
+
+                /* Invocation as Varlink service */
+
+                r = varlink_server_new(&varlink_server, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+                r = varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_Credentials);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add Varlink interface: %m");
+
+                r = varlink_server_bind_method_many(
+                                varlink_server,
+                                "io.systemd.Credentials.Encrypt", vl_method_encrypt,
+                                "io.systemd.Credentials.Decrypt", vl_method_decrypt);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to bind Varlink methods: %m");
+
+                varlink_server_set_userdata(varlink_server, &polkit_registry);
+
+                r = varlink_server_loop_auto(varlink_server);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to run Varlink event loop: %m");
+
+                return EXIT_SUCCESS;
+        }
 
         return creds_main(argc, argv);
 }
