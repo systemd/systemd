@@ -1350,9 +1350,7 @@ static int varlink_dispatch_method(Varlink *v) {
                                 varlink_log_errno(v, r, "Callback for %s returned error: %m", method);
 
                                 /* We got an error back from the callback. Propagate it to the client if the method call remains unanswered. */
-                                if (v->state == VARLINK_PROCESSED_METHOD)
-                                        r = 0; /* already processed */
-                                else if (!FLAGS_SET(flags, VARLINK_METHOD_ONEWAY)) {
+                                if (v->state != VARLINK_PROCESSED_METHOD && !FLAGS_SET(flags, VARLINK_METHOD_ONEWAY)) {
                                         r = varlink_error_errno(v, r);
                                         if (r < 0)
                                                 return r;
@@ -1363,8 +1361,7 @@ static int varlink_dispatch_method(Varlink *v) {
                 r = varlink_errorb(v, VARLINK_ERROR_METHOD_NOT_FOUND, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("method", JSON_BUILD_STRING(method))));
                 if (r < 0)
                         return r;
-        } else
-                r = 0;
+        }
 
         switch (v->state) {
 
@@ -1386,7 +1383,7 @@ static int varlink_dispatch_method(Varlink *v) {
                 assert_not_reached();
         }
 
-        return r;
+        return 1;
 
 invalid:
         r = -EINVAL;
