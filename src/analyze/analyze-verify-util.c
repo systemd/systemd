@@ -72,7 +72,7 @@ int verify_prepare_filename(const char *filename, char **ret) {
         return 0;
 }
 
-int verify_generate_path(char **ret, char **filenames) {
+int verify_set_unit_path(char **filenames) {
         _cleanup_strv_free_ char **ans = NULL;
         _cleanup_free_ char *joined = NULL;
         const char *old;
@@ -107,7 +107,7 @@ int verify_generate_path(char **ret, char **filenames) {
             !strextend_with_separator(&joined, ":", old ?: ""))
                 return -ENOMEM;
 
-        *ret = TAKE_PTR(joined);
+        assert_se(set_unit_path(joined) >= 0);
         return 0;
 }
 
@@ -242,7 +242,6 @@ int verify_units(
         _cleanup_(set_destroy_ignore_pointer_max) Set *s = NULL;
         _unused_ _cleanup_(clear_log_syntax_callback) dummy_t dummy;
         Unit *units[strv_length(filenames)];
-        _cleanup_free_ char *var = NULL;
         int r, k, count = 0;
 
         if (strv_isempty(filenames))
@@ -254,11 +253,9 @@ int verify_units(
         set_log_syntax_callback(log_syntax_callback, &s);
 
         /* set the path */
-        r = verify_generate_path(&var, filenames);
+        r = verify_set_unit_path(filenames);
         if (r < 0)
-                return log_error_errno(r, "Failed to generate unit load path: %m");
-
-        assert_se(set_unit_path(var) >= 0);
+                return log_error_errno(r, "Failed to set unit load path: %m");
 
         r = manager_new(scope, flags, &m);
         if (r < 0)
