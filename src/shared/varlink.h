@@ -110,6 +110,7 @@ int varlink_replyb(Varlink *v, ...);
 int varlink_error(Varlink *v, const char *error_id, JsonVariant *parameters);
 int varlink_errorb(Varlink *v, const char *error_id, ...);
 int varlink_error_invalid_parameter(Varlink *v, JsonVariant *parameters);
+int varlink_error_invalid_parameter_name(Varlink *v, const char *name);
 int varlink_error_errno(Varlink *v, int error);
 
 /* Enqueue a "more" reply */
