@@ -95,24 +95,16 @@ int verify_generate_path(char **ret, char **filenames) {
                         return r;
         }
 
-        strv_uniq(ans);
+        joined = strv_join(strv_uniq(ans), ":");
+        if (!joined)
+                return -ENOMEM;
 
         /* First, prepend our directories. Second, if some path was specified, use that, and
          * otherwise use the defaults. Any duplicates will be filtered out in path-lookup.c.
-         * Treat explicit empty path to mean that nothing should be appended.
-         */
+         * Treat explicit empty path to mean that nothing should be appended. */
         old = getenv("SYSTEMD_UNIT_PATH");
-        if (!streq_ptr(old, "")) {
-                if (!old)
-                        old = "";
-
-                r = strv_extend(&ans, old);
-                if (r < 0)
-                        return r;
-        }
-
-        joined = strv_join(ans, ":");
-        if (!joined)
+        if (!streq_ptr(old, "") &&
+            !strextend_with_separator(&joined, ":", old ?: ""))
                 return -ENOMEM;
 
         *ret = TAKE_PTR(joined);
