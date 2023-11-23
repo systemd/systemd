@@ -1650,6 +1650,30 @@ int safe_fork_full(
         return 0;
 }
 
+int pidref_safe_fork_full(
+                const char *name,
+                const int stdio_fds[3],
+                const int except_fds[],
+                size_t n_except_fds,
+                ForkFlags flags,
+                PidRef *ret_pid) {
+
+        pid_t pid;
+        int r, q;
+
+        assert(!FLAGS_SET(flags, FORK_WAIT));
+
+        r = safe_fork_full(name, stdio_fds, except_fds, n_except_fds, flags, &pid);
+        if (r < 0)
+                return r;
+
+        q = pidref_set_pid(ret_pid, pid);
+        if (q < 0) /* Let's not fail for this, no matter what, the process exists after all, and that's key */
+                *ret_pid = PIDREF_MAKE_FROM_PID(pid);
+
+        return r;
+}
+
 int namespace_fork(
                 const char *outer_name,
                 const char *inner_name,
