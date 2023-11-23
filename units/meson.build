@@ -56,6 +56,11 @@ units = [
           'conditions' : ['ENABLE_HIBERNATE'],
         },
         {
+          'file' : 'systemd-creds.socket',
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        { 'file' : 'systemd-creds@.service' },
+        {
           'file' : 'systemd-battery-check.service.in',
           'conditions' : ['ENABLE_INITRD'],
           'symlinks' : ['initrd.target.wants/'],
