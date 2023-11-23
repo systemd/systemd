@@ -847,12 +847,12 @@ static int compare_job_priority(const void *a, const void *b) {
         return unit_compare_priority(x->unit, y->unit);
 }
 
-int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, Manager **_m) {
+int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, Manager **ret) {
         _cleanup_(manager_freep) Manager *m = NULL;
         int r;
 
-        assert(_m);
         assert(IN_SET(runtime_scope, RUNTIME_SCOPE_SYSTEM, RUNTIME_SCOPE_USER));
+        assert(ret);
 
         m = new(Manager, 1);
         if (!m)
@@ -1054,7 +1054,7 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
         /* Note that we do not set up the notify fd here. We do that after deserialization,
          * since they might have gotten serialized across the reexec. */
 
-        *_m = TAKE_PTR(m);
+        *ret = TAKE_PTR(m);
 
         return 0;
 }
