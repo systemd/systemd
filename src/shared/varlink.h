@@ -222,6 +222,9 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(VarlinkServer *, varlink_server_unref);
 /* This one we invented, and use for generically propagating system errors (errno) to clients */
 #define VARLINK_ERROR_SYSTEM "io.systemd.System"
 
+/* This one we invented and is a weaker version of "org.varlink.service.PermissionDenied", and indicates that if user would allow interactive auth, we might allow access */
+#define VARLINK_ERROR_INTERACTIVE_AUTHENTICATION_REQUIRED "io.systemd.InteractiveAuthenticationRequired"
+
 /* These are errors defined in the Varlink spec */
 #define VARLINK_ERROR_INTERFACE_NOT_FOUND "org.varlink.service.InterfaceNotFound"
 #define VARLINK_ERROR_METHOD_NOT_FOUND "org.varlink.service.MethodNotFound"
