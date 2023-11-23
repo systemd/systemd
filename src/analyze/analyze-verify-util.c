@@ -168,12 +168,12 @@ static int verify_executables(Unit *u, const char *root) {
         RET_GATHER(r, verify_executable(u, exec, root));
 
         if (u->type == UNIT_SERVICE)
-                for (unsigned i = 0; i < ELEMENTSOF(SERVICE(u)->exec_command); i++)
-                        RET_GATHER(r, verify_executable(u, SERVICE(u)->exec_command[i], root));
+                FOREACH_ARRAY(i, SERVICE(u)->exec_command, ELEMENTSOF(SERVICE(u)->exec_command))
+                        RET_GATHER(r, verify_executable(u, *i, root));
 
         if (u->type == UNIT_SOCKET)
-                for (unsigned i = 0; i < ELEMENTSOF(SOCKET(u)->exec_command); i++)
-                        RET_GATHER(r, verify_executable(u, SOCKET(u)->exec_command[i], root));
+                FOREACH_ARRAY(i, SOCKET(u)->exec_command, ELEMENTSOF(SOCKET(u)->exec_command))
+                        RET_GATHER(r, verify_executable(u, *i, root));
 
         return r;
 }
@@ -225,7 +225,7 @@ static int verify_unit(Unit *u, bool check_man, const char *root) {
         return r;
 }
 
-static void set_destroy_ignore_pointer_max(Set** s) {
+static void set_destroy_ignore_pointer_max(Set **s) {
         if (*s == POINTER_MAX)
                 return;
         set_free_free(*s);
@@ -302,8 +302,8 @@ int verify_units(
                 count++;
         }
 
-        for (int i = 0; i < count; i++)
-                RET_GATHER(r, verify_unit(units[i], check_man, root));
+        FOREACH_ARRAY(i, units, count)
+                RET_GATHER(r, verify_unit(*i, check_man, root));
 
         if (s == POINTER_MAX)
                 return log_oom();
