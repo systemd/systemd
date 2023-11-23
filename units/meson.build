@@ -10,6 +10,11 @@ units = [
         { 'file' : 'console-getty.service.in' },
         { 'file' : 'container-getty@.service.in' },
         {
+          'file' : 'systemd-creds.socket',
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        { 'file' : 'systemd-creds@.service' },
+        {
           'file' : 'cryptsetup-pre.target',
           'conditions' : ['HAVE_LIBCRYPTSETUP'],
         },
