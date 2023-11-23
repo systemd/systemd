@@ -247,35 +247,24 @@ static int extend_now(unsigned pcr, const void *data, size_t size, Tpm2Userspace
 typedef struct MethodExtendParameters {
         unsigned pcr;
         const char *text;
-        void *data;
-        size_t data_size;
+        struct iovec data;
 } MethodExtendParameters;
 
-static int json_dispatch_binary_data(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        MethodExtendParameters *p = ASSERT_PTR(userdata);
-        _cleanup_free_ void *d = NULL;
-        size_t l;
-        int r;
+static void method_extend_parameters_done(MethodExtendParameters *p) {
+        assert(p);
 
-        r = json_variant_unbase64(variant, &d, &l);
-        if (r < 0)
-                return json_log(variant, flags, r, "JSON variant is not a base64 string.");
-
-        free_and_replace(p->data, d);
-        p->data_size = l;
-
-        return 0;
+        iovec_done(&p->data);
 }
 
 static int vl_method_extend(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
 
         static const JsonDispatch dispatch_table[] = {
-                { "pcr",  _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint,         offsetof(MethodExtendParameters, pcr),  JSON_MANDATORY },
-                { "text", JSON_VARIANT_STRING,        json_dispatch_const_string, offsetof(MethodExtendParameters, text), 0              },
-                { "data", JSON_VARIANT_STRING,        json_dispatch_binary_data,  0,                                      0              },
+                { "pcr",  _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint,           offsetof(MethodExtendParameters, pcr),  JSON_MANDATORY },
+                { "text", JSON_VARIANT_STRING,        json_dispatch_const_string,   offsetof(MethodExtendParameters, text), 0              },
+                { "data", JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(MethodExtendParameters, data), 0              },
                 {}
         };
-        MethodExtendParameters p = {
+        _cleanup_(method_extend_parameters_done) MethodExtendParameters p = {
                 .pcr = UINT_MAX,
         };
         int r;
@@ -291,12 +280,12 @@ static int vl_method_extend(Varlink *link, JsonVariant *parameters, VarlinkMetho
 
         if (p.text) {
                 /* Specifying both the text string and the binary data is not allowed */
-                if (p.data)
+                if (p.data.iov_base)
                         return varlink_errorb(link, VARLINK_ERROR_INVALID_PARAMETER, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("parameter", "data")));
 
                 r = extend_now(p.pcr, p.text, strlen(p.text), _TPM2_USERSPACE_EVENT_TYPE_INVALID);
-        } else if (p.data)
-                r = extend_now(p.pcr, p.data, p.data_size, _TPM2_USERSPACE_EVENT_TYPE_INVALID);
+        } else if (p.data.iov_base)
+                r = extend_now(p.pcr, p.data.iov_base, p.data.iov_len, _TPM2_USERSPACE_EVENT_TYPE_INVALID);
         else
                 return varlink_errorb(link, VARLINK_ERROR_INVALID_PARAMETER, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("parameter", "text")));
         if (r < 0)
