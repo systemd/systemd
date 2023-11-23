@@ -3018,6 +3018,8 @@ static int count_connection(VarlinkServer *server, const struct ucred *ucred) {
         server->n_connections++;
 
         if (FLAGS_SET(server->flags, VARLINK_SERVER_ACCOUNT_UID)) {
+                assert(uid_is_valid(ucred->uid));
+
                 r = hashmap_ensure_allocated(&server->by_uid, NULL);
                 if (r < 0)
                         return varlink_server_log_errno(server, r, "Failed to allocate UID hash table: %m");
