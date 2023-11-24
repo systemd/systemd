@@ -236,6 +236,14 @@ static AsyncPolkitQuery *async_polkit_query_free(AsyncPolkitQuery *q) {
 DEFINE_PRIVATE_TRIVIAL_REF_UNREF_FUNC(AsyncPolkitQuery, async_polkit_query, async_polkit_query_free);
 DEFINE_TRIVIAL_CLEANUP_FUNC(AsyncPolkitQuery*, async_polkit_query_unref);
 
+DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                async_polkit_query_hash_ops,
+                void,
+                trivial_hash_func,
+                trivial_compare_func,
+                AsyncPolkitQuery,
+                async_polkit_query_unref);
+
 static int async_polkit_defer(sd_event_source *s, void *userdata) {
         AsyncPolkitQuery *q = ASSERT_PTR(userdata);
 
@@ -557,7 +565,7 @@ int bus_verify_polkit_async_full(
                 return -ENOMEM;
 
         if (!q->registry) {
-                r = hashmap_ensure_put(registry, /* hash_ops= */ NULL, call, q);
+                r = hashmap_ensure_put(registry, &async_polkit_query_hash_ops, call, q);
                 if (r < 0)
                         return r;
 
@@ -574,15 +582,6 @@ int bus_verify_polkit_async_full(
 #endif
 
         return -EACCES;
-}
-
-Hashmap *bus_verify_polkit_async_registry_free(Hashmap *registry) {
-#if ENABLE_POLKIT
-        return hashmap_free_with_destructor(registry, async_polkit_query_unref);
-#else
-        assert(hashmap_isempty(registry));
-        return hashmap_free(registry);
-#endif
 }
 
 static int varlink_check_good_user(Varlink *link, uid_t good_user) {
@@ -801,7 +800,7 @@ int varlink_verify_polkit_async(
                 return -ENOMEM;
 
         if (!q->registry) {
-                r = hashmap_ensure_put(registry, /* hash_ops= */ NULL, link, q);
+                r = hashmap_ensure_put(registry, &async_polkit_query_hash_ops, link, q);
                 if (r < 0)
                         return r;
 

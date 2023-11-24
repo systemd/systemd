@@ -14,8 +14,6 @@ static inline int bus_verify_polkit_async(sd_bus_message *call, const char *acti
         return bus_verify_polkit_async_full(call, action, details, false, UID_INVALID, registry, ret_error);
 }
 
-Hashmap *bus_verify_polkit_async_registry_free(Hashmap *registry);
-
 int varlink_verify_polkit_async(Varlink *link, sd_bus *bus, const char *action, const char **details, uid_t good_user, Hashmap **registry);
 
 /* A JsonDispatch initializer that makes sure the allowInteractiveAuthentication boolean field we want for
