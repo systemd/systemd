@@ -1073,7 +1073,7 @@ void bus_done(Manager *m) {
         assert(!m->subscribed);
 
         m->deserialized_subscribed = strv_free(m->deserialized_subscribed);
-        bus_verify_polkit_async_registry_free(m->polkit_registry);
+        m->polkit_registry = hashmap_free(m->polkit_registry);
 }
 
 int bus_fdset_add_all(Manager *m, FDSet *fds) {
@@ -1189,22 +1189,46 @@ int bus_track_coldplug(Manager *m, sd_bus_track **t, bool recursive, char **l) {
 }
 
 int bus_verify_manage_units_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
-        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.manage-units", NULL, false, UID_INVALID, &m->polkit_registry, error);
+        return bus_verify_polkit_async(
+                        call,
+                        "org.freedesktop.systemd1.manage-units",
+                        /* details= */ NULL,
+                        &m->polkit_registry,
+                        error);
 }
 
 int bus_verify_manage_unit_files_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
-        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.manage-unit-files", NULL, false, UID_INVALID, &m->polkit_registry, error);
+        return bus_verify_polkit_async(
+                        call,
+                        "org.freedesktop.systemd1.manage-unit-files",
+                        /* details= */ NULL,
+                        &m->polkit_registry,
+                        error);
 }
 
 int bus_verify_reload_daemon_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
-        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.reload-daemon", NULL, false, UID_INVALID, &m->polkit_registry, error);
+        return bus_verify_polkit_async(
+                        call,
+                        "org.freedesktop.systemd1.reload-daemon",
+                        /* details= */ NULL,
+                        &m->polkit_registry, error);
 }
 
 int bus_verify_set_environment_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
-        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.set-environment", NULL, false, UID_INVALID, &m->polkit_registry, error);
+        return bus_verify_polkit_async(
+                        call,
+                        "org.freedesktop.systemd1.set-environment",
+                        /* details= */ NULL,
+                        &m->polkit_registry,
+                        error);
 }
 int bus_verify_bypass_dump_ratelimit_async(Manager *m, sd_bus_message *call, sd_bus_error *error) {
-        return bus_verify_polkit_async(call, CAP_SYS_ADMIN, "org.freedesktop.systemd1.bypass-dump-ratelimit", NULL, false, UID_INVALID, &m->polkit_registry, error);
+        return bus_verify_polkit_async(
+                        call,
+                        "org.freedesktop.systemd1.bypass-dump-ratelimit",
+                        /* details= */ NULL,
+                        &m->polkit_registry,
+                        error);
 }
 
 uint64_t manager_bus_n_queued_write(Manager *m) {

@@ -270,6 +270,44 @@ bool pidref_is_self(const PidRef *pidref) {
         return pidref->pid == getpid_cached();
 }
 
+int pidref_wait(const PidRef *pidref, siginfo_t *ret, int options) {
+        int r;
+
+        if (!pidref_is_set(pidref))
+                return -ESRCH;
+
+        if (pidref->pid == 1 || pidref->pid == getpid_cached())
+                return -ECHILD;
+
+        siginfo_t si = {};
+
+        if (pidref->fd >= 0) {
+                r = RET_NERRNO(waitid(P_PIDFD, pidref->fd, &si, options));
+                if (r >= 0) {
+                        if (ret)
+                                *ret = si;
+                        return r;
+                }
+                if (r != -EINVAL) /* P_PIDFD was added in kernel 5.4 only */
+                        return r;
+        }
+
+        r = RET_NERRNO(waitid(P_PID, pidref->pid, &si, options));
+        if (r >= 0 && ret)
+                *ret = si;
+        return r;
+}
+
+int pidref_wait_for_terminate(const PidRef *pidref, siginfo_t *ret) {
+        int r;
+
+        for (;;) {
+                r = pidref_wait(pidref, ret, WEXITED);
+                if (r != -EINTR)
+                        return r;
+        }
+}
+
 static void pidref_hash_func(const PidRef *pidref, struct siphash *state) {
         siphash24_compress(&pidref->pid, sizeof(pidref->pid), state);
 }
