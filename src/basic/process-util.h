@@ -54,6 +54,8 @@ int get_process_cwd(pid_t pid, char **ret);
 int get_process_root(pid_t pid, char **ret);
 int get_process_environ(pid_t pid, char **ret);
 int get_process_ppid(pid_t pid, pid_t *ret);
+int pid_get_start_time(pid_t pid, uint64_t *ret);
+int pidref_get_start_time(const PidRef* pid, uint64_t *ret);
 int get_process_umask(pid_t pid, mode_t *ret);
 
 int container_get_leader(const char *machine, pid_t *pid);
@@ -189,6 +191,18 @@ int safe_fork_full(
 
 static inline int safe_fork(const char *name, ForkFlags flags, pid_t *ret_pid) {
         return safe_fork_full(name, NULL, NULL, 0, flags, ret_pid);
+}
+
+int pidref_safe_fork_full(
+                const char *name,
+                const int stdio_fds[3],
+                const int except_fds[],
+                size_t n_except_fds,
+                ForkFlags flags,
+                PidRef *ret_pid);
+
+static inline int pidref_safe_fork(const char *name, ForkFlags flags, PidRef *ret_pid) {
+        return pidref_safe_fork_full(name, NULL, NULL, 0, flags, ret_pid);
 }
 
 int namespace_fork(const char *outer_name, const char *inner_name, const int except_fds[], size_t n_except_fds, ForkFlags flags, int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd, pid_t *ret_pid);

@@ -67,10 +67,12 @@ static int method_set_runtime_servers(sd_bus_message *message, void *userdata, s
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid NTP server name or address, refusing: %s", *name);
         }
 
-        r = bus_verify_polkit_async(message, CAP_NET_ADMIN,
-                                    "org.freedesktop.timesync1.set-runtime-servers",
-                                    NULL, true, UID_INVALID,
-                                    &m->polkit_registry, error);
+        r = bus_verify_polkit_async(
+                        message,
+                        "org.freedesktop.timesync1.set-runtime-servers",
+                        /* details= */ NULL,
+                        &m->polkit_registry,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)

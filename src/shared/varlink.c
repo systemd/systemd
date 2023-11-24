@@ -171,6 +171,7 @@ struct Varlink {
         JsonVariant *current;
         VarlinkSymbol *current_method;
 
+        int peer_pidfd;
         struct ucred ucred;
         bool ucred_acquired:1;
 
@@ -361,6 +362,8 @@ static int varlink_new(Varlink **ret) {
                 .timeout = VARLINK_DEFAULT_TIMEOUT_USEC,
 
                 .af = -1,
+
+                .peer_pidfd = -EBADF,
         };
 
         *ret = v;
@@ -638,6 +641,8 @@ static void varlink_clear(Varlink *v) {
                 sigterm_wait(v->exec_pid);
                 v->exec_pid = 0;
         }
+
+        v->peer_pidfd = safe_close(v->peer_pidfd);
 }
 
 static Varlink* varlink_destroy(Varlink *v) {
@@ -1006,7 +1011,7 @@ static int varlink_dispatch_local_error(Varlink *v, const char *error) {
 
         r = v->reply_callback(v, NULL, error, VARLINK_REPLY_ERROR|VARLINK_REPLY_LOCAL, v->userdata);
         if (r < 0)
-                log_debug_errno(r, "Reply callback returned error, ignoring: %m");
+                varlink_log_errno(v, r, "Reply callback returned error, ignoring: %m");
 
         return 1;
 }
@@ -1119,7 +1124,7 @@ static int varlink_dispatch_reply(Varlink *v) {
                 if (v->reply_callback) {
                         r = v->reply_callback(v, parameters, error, flags, v->userdata);
                         if (r < 0)
-                                log_debug_errno(r, "Reply callback returned error, ignoring: %m");
+                                varlink_log_errno(v, r, "Reply callback returned error, ignoring: %m");
                 }
 
                 varlink_clear_current(v);
@@ -1314,15 +1319,15 @@ static int varlink_dispatch_method(Varlink *v) {
 
                 v->current_method = hashmap_get(v->server->symbols, method);
                 if (!v->current_method)
-                        log_debug("No interface description defined for method '%s', not validating.", method);
+                        varlink_log(v, "No interface description defined for method '%s', not validating.", method);
                 else {
                         const char *bad_field;
 
                         r = varlink_idl_validate_method_call(v->current_method, parameters, &bad_field);
                         if (r < 0) {
-                                log_debug_errno(r, "Parameters for method %s() didn't pass validation on field '%s': %m", method, strna(bad_field));
+                                varlink_log_errno(v, r, "Parameters for method %s() didn't pass validation on field '%s': %m", method, strna(bad_field));
 
-                                if (!FLAGS_SET(flags, VARLINK_METHOD_ONEWAY)) {
+                                if (IN_SET(v->state, VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE)) {
                                         r = varlink_errorb(v, VARLINK_ERROR_INVALID_PARAMETER, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("parameter", bad_field)));
                                         if (r < 0)
                                                 return r;
@@ -1334,24 +1339,21 @@ static int varlink_dispatch_method(Varlink *v) {
                 if (!invalid) {
                         r = callback(v, parameters, flags, v->userdata);
                         if (r < 0) {
-                                log_debug_errno(r, "Callback for %s returned error: %m", method);
+                                varlink_log_errno(v, r, "Callback for %s returned error: %m", method);
 
                                 /* We got an error back from the callback. Propagate it to the client if the method call remains unanswered. */
-                                if (v->state == VARLINK_PROCESSED_METHOD)
-                                        r = 0; /* already processed */
-                                else if (!FLAGS_SET(flags, VARLINK_METHOD_ONEWAY)) {
+                                if (IN_SET(v->state, VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE)) {
                                         r = varlink_error_errno(v, r);
                                         if (r < 0)
                                                 return r;
                                 }
                         }
                 }
-        } else if (!FLAGS_SET(flags, VARLINK_METHOD_ONEWAY)) {
+        } else if (IN_SET(v->state, VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE)) {
                 r = varlink_errorb(v, VARLINK_ERROR_METHOD_NOT_FOUND, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("method", JSON_BUILD_STRING(method))));
                 if (r < 0)
                         return r;
-        } else
-                r = 0;
+        }
 
         switch (v->state) {
 
@@ -1373,7 +1375,7 @@ static int varlink_dispatch_method(Varlink *v) {
                 assert_not_reached();
         }
 
-        return r;
+        return 1;
 
 invalid:
         r = -EINVAL;
@@ -1467,6 +1469,48 @@ finish:
 
         varlink_unref(v);
         return r;
+}
+
+int varlink_dispatch_again(Varlink *v) {
+        int r;
+
+        assert_return(v, -EINVAL);
+
+        /* If a method call handler could not process the method call just yet (for example because it needed
+         * some Polkit authentication first), then it can leave the call unanswered, do its thing, and then
+         * ask to be dispatched a second time, via this call. It will then be called again, for the same
+         * message */
+
+        if (v->state == VARLINK_DISCONNECTED)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
+        if (v->state != VARLINK_PENDING_METHOD)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection has no pending method.");
+
+        varlink_set_state(v, VARLINK_IDLE_SERVER);
+
+        r = sd_event_source_set_enabled(v->defer_event_source, SD_EVENT_ON);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to enable deferred event source: %m");
+
+        return 0;
+}
+
+int varlink_get_current_parameters(Varlink *v, JsonVariant **ret) {
+        JsonVariant *p;
+
+        assert_return(v, -EINVAL);
+
+        if (!v->current)
+                return -ENODATA;
+
+        p = json_variant_by_key(v->current, "parameters");
+        if (!p)
+                return -ENODATA;
+
+        if (ret)
+                *ret = json_variant_ref(p);
+
+        return 0;
 }
 
 static void handle_revents(Varlink *v, int revents) {
@@ -2259,7 +2303,7 @@ int varlink_reply(Varlink *v, JsonVariant *parameters) {
 
                 r = varlink_idl_validate_method_reply(v->current_method, parameters, &bad_field);
                 if (r < 0)
-                        log_debug_errno(r, "Return parameters for method reply %s() didn't pass validation on field '%s', ignoring: %m", v->current_method->name, strna(bad_field));
+                        varlink_log_errno(v, r, "Return parameters for method reply %s() didn't pass validation on field '%s', ignoring: %m", v->current_method->name, strna(bad_field));
         }
 
         r = varlink_enqueue_json(v, m);
@@ -2330,13 +2374,13 @@ int varlink_error(Varlink *v, const char *error_id, JsonVariant *parameters) {
 
         VarlinkSymbol *symbol = hashmap_get(v->server->symbols, error_id);
         if (!symbol)
-                log_debug("No interface description defined for error '%s', not validating.", error_id);
+                varlink_log(v, "No interface description defined for error '%s', not validating.", error_id);
         else {
                 const char *bad_field = NULL;
 
                 r = varlink_idl_validate_error(symbol, parameters, &bad_field);
                 if (r < 0)
-                        log_debug_errno(r, "Parameters for error %s didn't pass validation on field '%s', ignoring: %m", error_id, strna(bad_field));
+                        varlink_log_errno(v, r, "Parameters for error %s didn't pass validation on field '%s', ignoring: %m", error_id, strna(bad_field));
         }
 
         r = varlink_enqueue_json(v, m);
@@ -2412,6 +2456,13 @@ int varlink_error_invalid_parameter(Varlink *v, JsonVariant *parameters) {
         return -EINVAL;
 }
 
+int varlink_error_invalid_parameter_name(Varlink *v, const char *name) {
+        return varlink_errorb(
+                        v,
+                        VARLINK_ERROR_INVALID_PARAMETER,
+                        JSON_BUILD_OBJECT(JSON_BUILD_PAIR("parameter", JSON_BUILD_STRING(name))));
+}
+
 int varlink_error_errno(Varlink *v, int error) {
         return varlink_errorb(
                         v,
@@ -2451,7 +2502,7 @@ int varlink_notify(Varlink *v, JsonVariant *parameters) {
 
                 r = varlink_idl_validate_method_reply(v->current_method, parameters, &bad_field);
                 if (r < 0)
-                        log_debug_errno(r, "Return parameters for method reply %s() didn't pass validation on field '%s', ignoring: %m", v->current_method->name, strna(bad_field));
+                        varlink_log_errno(v, r, "Return parameters for method reply %s() didn't pass validation on field '%s', ignoring: %m", v->current_method->name, strna(bad_field));
         }
 
         r = varlink_enqueue_json(v, m);
@@ -2575,6 +2626,54 @@ int varlink_get_peer_pid(Varlink *v, pid_t *ret) {
 
         *ret = v->ucred.pid;
         return 0;
+}
+
+static int varlink_acquire_pidfd(Varlink *v) {
+        assert(v);
+
+        if (v->peer_pidfd >= 0)
+                return 0;
+
+        v->peer_pidfd = getpeerpidfd(v->fd);
+        if (v->peer_pidfd < 0)
+                return v->peer_pidfd;
+
+        return 0;
+}
+
+int varlink_get_peer_pidref(Varlink *v, PidRef *ret) {
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        /* Returns r > 0 if we acquired the pidref via SO_PEERPIDFD (i.e. if we can use it for
+         * authentication). Returns == 0 if we didn't, and the pidref should not be used for
+         * authentication. */
+
+        r = varlink_acquire_pidfd(v);
+        if (r < 0)
+                return r;
+
+        if (v->peer_pidfd < 0) {
+                pid_t pid;
+
+                r = varlink_get_peer_pid(v, &pid);
+                if (r < 0)
+                        return r;
+
+                r = pidref_set_pid(ret, pid);
+                if (r < 0)
+                        return r;
+
+                return 0; /* didn't get pidfd securely */
+        }
+
+        r = pidref_set_pidfd(ret, v->peer_pidfd);
+        if (r < 0)
+                return r;
+
+        return 1; /* got pidfd securely */
 }
 
 int varlink_set_relative_timeout(Varlink *v, usec_t timeout) {
@@ -3008,9 +3107,11 @@ static int count_connection(VarlinkServer *server, const struct ucred *ucred) {
         server->n_connections++;
 
         if (FLAGS_SET(server->flags, VARLINK_SERVER_ACCOUNT_UID)) {
+                assert(uid_is_valid(ucred->uid));
+
                 r = hashmap_ensure_allocated(&server->by_uid, NULL);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to allocate UID hash table: %m");
+                        return varlink_server_log_errno(server, r, "Failed to allocate UID hash table: %m");
 
                 c = PTR_TO_UINT(hashmap_get(server->by_uid, UID_TO_PTR(ucred->uid)));
 
@@ -3019,7 +3120,7 @@ static int count_connection(VarlinkServer *server, const struct ucred *ucred) {
 
                 r = hashmap_replace(server->by_uid, UID_TO_PTR(ucred->uid), UINT_TO_PTR(c + 1));
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to increment counter in UID hash table: %m");
+                        return varlink_server_log_errno(server, r, "Failed to increment counter in UID hash table: %m");
         }
 
         return 0;
@@ -3459,7 +3560,7 @@ int varlink_server_bind_method(VarlinkServer *s, const char *method, VarlinkMeth
 
         if (varlink_symbol_in_interface(method, "org.varlink.service") ||
             varlink_symbol_in_interface(method, "io.systemd"))
-                return log_debug_errno(SYNTHETIC_ERRNO(EEXIST), "Cannot bind server to '%s'.", method);
+                return varlink_server_log_errno(s, SYNTHETIC_ERRNO(EEXIST), "Cannot bind server to '%s'.", method);
 
         m = strdup(method);
         if (!m)
@@ -3469,7 +3570,7 @@ int varlink_server_bind_method(VarlinkServer *s, const char *method, VarlinkMeth
         if (r == -ENOMEM)
                 return log_oom_debug();
         if (r < 0)
-                return log_debug_errno(r, "Failed to register callback: %m");
+                return varlink_server_log_errno(s, r, "Failed to register callback: %m");
         if (r > 0)
                 TAKE_PTR(m);
 
@@ -3506,7 +3607,7 @@ int varlink_server_bind_connect(VarlinkServer *s, VarlinkConnect callback) {
         assert_return(s, -EINVAL);
 
         if (callback && s->connect_callback && callback != s->connect_callback)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBUSY), "A different callback was already set.");
+                return varlink_server_log_errno(s, SYNTHETIC_ERRNO(EBUSY), "A different callback was already set.");
 
         s->connect_callback = callback;
         return 0;
@@ -3516,7 +3617,7 @@ int varlink_server_bind_disconnect(VarlinkServer *s, VarlinkDisconnect callback)
         assert_return(s, -EINVAL);
 
         if (callback && s->disconnect_callback && callback != s->disconnect_callback)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBUSY), "A different callback was already set.");
+                return varlink_server_log_errno(s, SYNTHETIC_ERRNO(EBUSY), "A different callback was already set.");
 
         s->disconnect_callback = callback;
         return 0;
@@ -3530,7 +3631,7 @@ int varlink_server_add_interface(VarlinkServer *s, const VarlinkInterface *inter
         assert_return(interface->name, -EINVAL);
 
         if (hashmap_contains(s->interfaces, interface->name))
-                return log_debug_errno(SYNTHETIC_ERRNO(EEXIST), "Duplicate registration of interface '%s'.", interface->name);
+                return varlink_server_log_errno(s, SYNTHETIC_ERRNO(EEXIST), "Duplicate registration of interface '%s'.", interface->name);
 
         r = hashmap_ensure_put(&s->interfaces, &string_hash_ops, interface->name, (void*) interface);
         if (r < 0)
@@ -3683,11 +3784,11 @@ int varlink_server_deserialize_one(VarlinkServer *s, const char *value, FDSet *f
                 return log_oom_debug();
 
         if (v[n] != ' ')
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                return varlink_server_log_errno(s, SYNTHETIC_ERRNO(EINVAL),
                                        "Failed to deserialize VarlinkServerSocket: %s: %m", value);
         v = startswith(v + n + 1, "varlink-server-socket-fd=");
         if (!v)
-                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                return varlink_server_log_errno(s, SYNTHETIC_ERRNO(EINVAL),
                                        "Failed to deserialize VarlinkServerSocket fd %s: %m", value);
 
         n = strcspn(v, " ");
@@ -3695,9 +3796,9 @@ int varlink_server_deserialize_one(VarlinkServer *s, const char *value, FDSet *f
 
         fd = parse_fd(buf);
         if (fd < 0)
-                return log_debug_errno(fd, "Unable to parse VarlinkServerSocket varlink-server-socket-fd=%s: %m", buf);
+                return varlink_server_log_errno(s, fd, "Unable to parse VarlinkServerSocket varlink-server-socket-fd=%s: %m", buf);
         if (!fdset_contains(fds, fd))
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADF),
+                return varlink_server_log_errno(s, SYNTHETIC_ERRNO(EBADF),
                                        "VarlinkServerSocket varlink-server-socket-fd= has unknown fd %d: %m", fd);
 
         ss = new(VarlinkServerSocket, 1);
@@ -3712,7 +3813,7 @@ int varlink_server_deserialize_one(VarlinkServer *s, const char *value, FDSet *f
 
         r = varlink_server_add_socket_event_source(s, ss, SD_EVENT_PRIORITY_NORMAL);
         if (r < 0)
-                return log_debug_errno(r, "Failed to add VarlinkServerSocket event source to the event loop: %m");
+                return varlink_server_log_errno(s, r, "Failed to add VarlinkServerSocket event source to the event loop: %m");
 
         LIST_PREPEND(sockets, s->sockets, TAKE_PTR(ss));
         return 0;
