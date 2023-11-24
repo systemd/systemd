@@ -142,7 +142,7 @@ static bool look_for_escape(PTYForward *f, const char *buffer, size_t n) {
                 if (*p == 0x1D) {
                         usec_t nw = now(CLOCK_MONOTONIC);
 
-                        if (f->escape_counter == 0 || nw > f->escape_timestamp + ESCAPE_USEC)  {
+                        if (f->escape_counter == 0 || nw > f->escape_timestamp + ESCAPE_USEC) {
                                 f->escape_timestamp = nw;
                                 f->escape_counter = 1;
                         } else {
@@ -228,7 +228,7 @@ static int shovel(PTYForward *f) {
                                 f->stdin_hangup = true;
 
                                 f->stdin_event_source = sd_event_source_unref(f->stdin_event_source);
-                        } else  {
+                        } else {
                                 /* Check if ^] has been pressed three times within one second. If we get this we quite
                                  * immediately. */
                                 if (look_for_escape(f, f->in_buffer + f->in_buffer_full, k))
@@ -266,12 +266,9 @@ static int shovel(PTYForward *f) {
                         k = read(f->master, f->out_buffer + f->out_buffer_full, LINE_MAX - f->out_buffer_full);
                         if (k < 0) {
 
-                                /* Note that EIO on the master device
-                                 * might be caused by vhangup() or
-                                 * temporary closing of everything on
-                                 * the other side, we treat it like
-                                 * EAGAIN here and try again, unless
-                                 * ignore_vhangup is off. */
+                                /* Note that EIO on the master device might be caused by vhangup() or
+                                 * temporary closing of everything on the other side, we treat it like EAGAIN
+                                 * here and try again, unless ignore_vhangup is off. */
 
                                 if (errno == EAGAIN || (errno == EIO && ignore_vhangup(f)))
                                         f->master_readable = false;
@@ -284,7 +281,7 @@ static int shovel(PTYForward *f) {
                                         log_error_errno(errno, "read(): %m");
                                         return pty_forward_done(f, -errno);
                                 }
-                        }  else {
+                        } else {
                                 f->read_from_master = true;
                                 f->out_buffer_full += (size_t) k;
                         }
