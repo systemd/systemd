@@ -62,7 +62,7 @@ static int add_cryptsetup(
 #if HAVE_LIBCRYPTSETUP
         _cleanup_free_ char *e = NULL, *n = NULL, *d = NULL, *options = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        int r;
+        int uki, r;
 
         assert(id);
         assert(what);
@@ -100,19 +100,25 @@ static int add_cryptsetup(
                         return log_oom();
         }
 
+        uki = efi_measured_uki(LOG_WARNING);
+
         if (measure) {
                 /* We only measure the root volume key into PCR 15 if we are booted with sd-stub (i.e. in a
                  * UKI), and sd-stub measured the UKI. We do this in order not to step into people's own PCR
                  * assignment, under the assumption that people who are fine to use sd-stub with its PCR
                  * assignments are also OK with our PCR 15 use here. */
-
-                r = efi_measured_uki(LOG_WARNING);
-                if (r == 0)
+                if (uki == 0)
                         log_debug("Will not measure volume key of volume '%s', not booted via systemd-stub with measurements enabled.", id);
-                else if (r > 0) {
+                else if (uki > 0) {
                         if (!strextend_with_separator(&options, ",", "tpm2-measure-pcr=yes"))
                                 return log_oom();
                 }
+        }
+
+        if (uki > 0) {
+                /* Enable TPM2 based unlocking automatically, if we have a TPM. */
+                if (!strextend_with_separator(&options, ",", "tpm2-device=auto"))
+                        return log_oom();
         }
 
         r = generator_write_cryptsetup_service_section(f, id, what, NULL, options);
