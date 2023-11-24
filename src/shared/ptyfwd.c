@@ -41,13 +41,11 @@ struct PTYForward {
         sd_event_source *sigwinch_event_source;
 
         struct termios saved_stdin_attr;
-        struct termios saved_stdout_attr;
 
         bool close_input_fd:1;
         bool close_output_fd:1;
 
         bool saved_stdin:1;
-        bool saved_stdout:1;
 
         bool stdin_readable:1;
         bool stdin_hangup:1;
@@ -90,9 +88,6 @@ static void pty_forward_disconnect(PTYForward *f) {
         f->event = sd_event_unref(f->event);
 
         if (f->output_fd >= 0) {
-                if (f->saved_stdout)
-                        (void) tcsetattr(f->output_fd, TCSANOW, &f->saved_stdout_attr);
-
                 /* STDIN/STDOUT should not be non-blocking normally, so let's reset it */
                 (void) fd_nonblock(f->output_fd, false);
                 if (f->close_output_fd)
@@ -108,7 +103,7 @@ static void pty_forward_disconnect(PTYForward *f) {
                         f->input_fd = safe_close(f->input_fd);
         }
 
-        f->saved_stdout = f->saved_stdin = false;
+        f->saved_stdin = false;
 }
 
 static int pty_forward_done(PTYForward *f, int rcode) {
@@ -488,18 +483,6 @@ int pty_forward_new(
                         cfmakeraw(&raw_stdin_attr);
                         raw_stdin_attr.c_oflag = f->saved_stdin_attr.c_oflag;
                         tcsetattr(f->input_fd, TCSANOW, &raw_stdin_attr);
-                }
-
-                if (tcgetattr(f->output_fd, &f->saved_stdout_attr) >= 0) {
-                        struct termios raw_stdout_attr;
-
-                        f->saved_stdout = true;
-
-                        raw_stdout_attr = f->saved_stdout_attr;
-                        cfmakeraw(&raw_stdout_attr);
-                        raw_stdout_attr.c_iflag = f->saved_stdout_attr.c_iflag;
-                        raw_stdout_attr.c_lflag = f->saved_stdout_attr.c_lflag;
-                        tcsetattr(f->output_fd, TCSANOW, &raw_stdout_attr);
                 }
 
                 r = sd_event_add_io(f->event, &f->stdin_event_source, f->input_fd, EPOLLIN|EPOLLET, on_stdin_event, f);
