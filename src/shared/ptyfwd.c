@@ -490,6 +490,7 @@ int pty_forward_new(
                         tcsetattr(f->input_fd, TCSANOW, &raw_stdin_attr);
                 }
 
+                /*
                 if (tcgetattr(f->output_fd, &f->saved_stdout_attr) >= 0) {
                         struct termios raw_stdout_attr;
 
@@ -501,6 +502,7 @@ int pty_forward_new(
                         raw_stdout_attr.c_lflag = f->saved_stdout_attr.c_lflag;
                         tcsetattr(f->output_fd, TCSANOW, &raw_stdout_attr);
                 }
+                */
 
                 r = sd_event_add_io(f->event, &f->stdin_event_source, f->input_fd, EPOLLIN|EPOLLET, on_stdin_event, f);
                 if (r < 0 && r != -EPERM)
