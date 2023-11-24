@@ -4052,6 +4052,7 @@ int unit_get_memory_accounting(Unit *u, CGroupMemoryAccountingMetric metric, uin
         };
 
         uint64_t bytes;
+        bool updated = false;
         int r;
 
         assert(u);
@@ -4062,7 +4063,8 @@ int unit_get_memory_accounting(Unit *u, CGroupMemoryAccountingMetric metric, uin
                 return -ENODATA;
 
         if (!u->cgroup_path)
-                return -ENODATA;
+                /* If the cgroup is already gone, we try to find the last cached value. */
+                goto cache;
 
         /* The root cgroup doesn't expose this information. */
         if (unit_has_host_root_cgroup(u))
@@ -4078,19 +4080,22 @@ int unit_get_memory_accounting(Unit *u, CGroupMemoryAccountingMetric metric, uin
                 return -ENODATA;
 
         r = cg_get_attribute_as_uint64("memory", u->cgroup_path, attributes_table[metric], &bytes);
-        if (r < 0 && (r != -ENODATA || metric > _CGROUP_MEMORY_ACCOUNTING_METRIC_CACHED_LAST))
+        if (r < 0 && r != -ENODATA)
                 return r;
+        updated = r >= 0;
 
-        if (metric <= _CGROUP_MEMORY_ACCOUNTING_METRIC_CACHED_LAST) {
-                uint64_t *last = &u->memory_accounting_last[metric];
+cache:
+        if (metric > _CGROUP_MEMORY_ACCOUNTING_METRIC_CACHED_LAST)
+                return -ENODATA;
 
-                if (r >= 0)
-                        *last = bytes;
-                else if (*last != UINT64_MAX)
-                        bytes = *last;
-                else
-                        return r;
-        }
+        uint64_t *last = &u->memory_accounting_last[metric];
+
+        if (updated)
+                *last = bytes;
+        else if (*last != UINT64_MAX)
+                bytes = *last;
+        else
+                return -ENODATA;
 
         if (ret)
                 *ret = bytes;
