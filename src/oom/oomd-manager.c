@@ -642,7 +642,7 @@ Manager* manager_free(Manager *m) {
         sd_event_source_unref(m->mem_pressure_context_event_source);
         sd_event_unref(m->event);
 
-        bus_verify_polkit_async_registry_free(m->polkit_registry);
+        hashmap_free(m->polkit_registry);
         sd_bus_flush_close_unref(m->bus);
 
         hashmap_free(m->monitored_swap_cgroup_contexts);
