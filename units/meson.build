@@ -695,6 +695,7 @@ units = [
           'file' : 'tmp.mount',
           'symlinks' : ['local-fs.target.wants/'],
         },
+        { 'file' : 'tpm2.target' },
         { 'file' : 'umount.target' },
         { 'file' : 'usb-gadget.target' },
         { 'file' : 'user-runtime-dir@.service.in' },
