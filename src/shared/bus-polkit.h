@@ -10,6 +10,5 @@ int bus_test_polkit(sd_bus_message *call, const char *action, const char **detai
 
 int bus_verify_polkit_async(sd_bus_message *call, const char *action, const char **details, Hashmap **registry, sd_bus_error *error);
 int bus_verify_polkit_async_full(sd_bus_message *call, const char *action, const char **details, bool interactive, uid_t good_user, Hashmap **registry, sd_bus_error *error);
-Hashmap *bus_verify_polkit_async_registry_free(Hashmap *registry);
 
 int varlink_verify_polkit_async(Varlink *link, sd_bus *bus, const char *action, const char **details, uid_t good_user, Hashmap **registry);

@@ -731,7 +731,7 @@ Manager *manager_free(Manager *m) {
 
         ordered_set_free(m->dns_extra_stub_listeners);
 
-        bus_verify_polkit_async_registry_free(m->polkit_registry);
+        hashmap_free(m->polkit_registry);
 
         sd_bus_flush_close_unref(m->bus);
 
