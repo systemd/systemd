@@ -132,6 +132,12 @@ Deprecations and removals:
 
 Features:
 
+* support encrypted credentials in user context too. This is complicated by the
+  fact that the user does not have access to the TPM nor the system
+  credential. Implementation idea: extend the systemd-creds Varlink interface
+  to allow this: user must supply some per-user secret, that we'll include in
+  the encryption key.
+
 * add a kernel cmdline switch (and cred?) for marking a system to be
   "headless", in which case we never open /dev/console for reading, only for
   writing. This would then mean: systemd-firstboot would process creds but not
@@ -291,16 +297,12 @@ Features:
   - coredumpcl
   - systemd-bless-boot
   - systemd-measure
-  - systemd-creds (allowing clients to encrypt credentials locally)
   - systemd-cryptenroll (to allow UIs to enroll FIDO2 keys and such)
   - systemd-dissect
   - systemd-sysupdate
   - systemd-analyze
   - systemd-pcrlock (to allow fwupd to relax policy)
   - kernel-install
-
-* Varlink: add glue code to allow varlink clients to be authenticated via
-  Polkit by passing client pidfd over.
 
 * in the service manager, pick up ERRNO= + BUSERROR= + VARLINKERROR= error
   identifiers, and store them along with the exit status of a server and report
@@ -352,7 +354,6 @@ Features:
   - sd_bus_creds
   - unit_attach_pid_to_cgroup_via_bus()
   - cg_attach() – requires new kernel feature
-  - varlink_get_peer_pid()
 
 * ddi must be listed as block device fstype
 
