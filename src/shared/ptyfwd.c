@@ -22,6 +22,7 @@
 #include "log.h"
 #include "macro.h"
 #include "ptyfwd.h"
+#include "stat-util.h"
 #include "terminal-util.h"
 #include "time-util.h"
 
@@ -477,7 +478,13 @@ int pty_forward_new(
         (void) ioctl(master, TIOCSWINSZ, &ws);
 
         if (!(flags & PTY_FORWARD_READ_ONLY)) {
+                int same;
+
                 assert(f->input_fd >= 0);
+
+                same = inode_same_at(f->input_fd, NULL, f->output_fd, NULL, AT_EMPTY_PATH);
+                if (same < 0)
+                        return same;
 
                 if (tcgetattr(f->input_fd, &f->saved_stdin_attr) >= 0) {
                         struct termios raw_stdin_attr;
@@ -486,11 +493,14 @@ int pty_forward_new(
 
                         raw_stdin_attr = f->saved_stdin_attr;
                         cfmakeraw(&raw_stdin_attr);
-                        raw_stdin_attr.c_oflag = f->saved_stdin_attr.c_oflag;
-                        tcsetattr(f->input_fd, TCSANOW, &raw_stdin_attr);
+
+                        if (!same)
+                                raw_stdin_attr.c_oflag = f->saved_stdin_attr.c_oflag;
+
+                        (void) tcsetattr(f->input_fd, TCSANOW, &raw_stdin_attr);
                 }
 
-                if (tcgetattr(f->output_fd, &f->saved_stdout_attr) >= 0) {
+                if (!same && tcgetattr(f->output_fd, &f->saved_stdout_attr) >= 0) {
                         struct termios raw_stdout_attr;
 
                         f->saved_stdout = true;
@@ -499,7 +509,7 @@ int pty_forward_new(
                         cfmakeraw(&raw_stdout_attr);
                         raw_stdout_attr.c_iflag = f->saved_stdout_attr.c_iflag;
                         raw_stdout_attr.c_lflag = f->saved_stdout_attr.c_lflag;
-                        tcsetattr(f->output_fd, TCSANOW, &raw_stdout_attr);
+                        (void) tcsetattr(f->output_fd, TCSANOW, &raw_stdout_attr);
                 }
 
                 r = sd_event_add_io(f->event, &f->stdin_event_source, f->input_fd, EPOLLIN|EPOLLET, on_stdin_event, f);
