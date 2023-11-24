@@ -39,4 +39,4 @@ TimeoutStopSec=3min
 [Install]
 WantedBy=multi-user.target
 Alias=dbus-org.freedesktop.home1.service
-Also=systemd-homed-activate.service systemd-userdbd.service
+Also=systemd-homed-activate.service systemd-userdbd.service systemd-homed-firstboot.service
