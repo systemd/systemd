@@ -1335,7 +1335,7 @@ static int varlink_dispatch_method(Varlink *v) {
                         if (r < 0) {
                                 varlink_log_errno(v, r, "Parameters for method %s() didn't pass validation on field '%s': %m", method, strna(bad_field));
 
-                                if (!FLAGS_SET(flags, VARLINK_METHOD_ONEWAY)) {
+                                if (IN_SET(v->state, VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE)) {
                                         r = varlink_errorb(v, VARLINK_ERROR_INVALID_PARAMETER, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("parameter", bad_field)));
                                         if (r < 0)
                                                 return r;
@@ -1350,14 +1350,14 @@ static int varlink_dispatch_method(Varlink *v) {
                                 varlink_log_errno(v, r, "Callback for %s returned error: %m", method);
 
                                 /* We got an error back from the callback. Propagate it to the client if the method call remains unanswered. */
-                                if (v->state != VARLINK_PROCESSED_METHOD && !FLAGS_SET(flags, VARLINK_METHOD_ONEWAY)) {
+                                if (IN_SET(v->state, VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE)) {
                                         r = varlink_error_errno(v, r);
                                         if (r < 0)
                                                 return r;
                                 }
                         }
                 }
-        } else if (!FLAGS_SET(flags, VARLINK_METHOD_ONEWAY)) {
+        } else if (IN_SET(v->state, VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE)) {
                 r = varlink_errorb(v, VARLINK_ERROR_METHOD_NOT_FOUND, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("method", JSON_BUILD_STRING(method))));
                 if (r < 0)
                         return r;
