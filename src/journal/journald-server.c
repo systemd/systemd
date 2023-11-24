@@ -42,6 +42,7 @@
 #include "journald-stream.h"
 #include "journald-syslog.h"
 #include "log.h"
+#include "memory-util.h"
 #include "missing_audit.h"
 #include "mkdir.h"
 #include "parse-util.h"
@@ -1273,6 +1274,10 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
 
         if (!s->system_journal)
                 return 0;
+
+        /* Reset current seqnum data to avoid unnecessary rotation when switching to system journal.
+         * See issue #30092. */
+        zero(*s->seqnum);
 
         log_debug("Flushing to %s...", s->system_storage.path);
 
