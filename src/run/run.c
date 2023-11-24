@@ -18,6 +18,7 @@
 #include "bus-wait-for-jobs.h"
 #include "calendarspec.h"
 #include "env-util.h"
+#include "escape.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -1932,17 +1933,19 @@ static int run(int argc, char* argv[]) {
         }
 
         if (!arg_description) {
-                description = strv_join(arg_cmdline, " ");
-                if (!description)
-                        return log_oom();
-
-                if (arg_unit && isempty(description)) {
-                        r = free_and_strdup(&description, arg_unit);
-                        if (r < 0)
+                if (strv_isempty(arg_cmdline))
+                        arg_description = arg_unit;
+                else {
+                        _cleanup_free_ char *joined = strv_join(arg_cmdline, " ");
+                        if (!joined)
                                 return log_oom();
-                }
 
-                arg_description = description;
+                        description = shell_escape(joined, "\"");
+                        if (!description)
+                                return log_oom();
+
+                        arg_description = description;
+                }
         }
 
         /* For backward compatibility reasons env var expansion is disabled by default for scopes, and
