@@ -270,6 +270,21 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--profile=&lt;idle|batch&gt;</option></term>
+
+        <listitem><para>Runs the service process with the profile.
+        The 'idle' profile configures the idle CPU and I/O scheduling classes. This
+        results in the service being only processed if no other processes are requiring
+        CPU and I/O resources. Therfore, the service is given no progress guarantees.
+        The 'batch' profile configures the batch CPU scheduling class and lowers the
+        I/O priority. As the name suggests, this profile is ideal for batch services
+        that do not have low latency requirements.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--nice=</option></term>
 
         <listitem><para>Runs the service process with the specified
