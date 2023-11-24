@@ -92,6 +92,7 @@
     <filename>time-set.target</filename>,
     <filename>time-sync.target</filename>,
     <filename>timers.target</filename>,
+    <filename>tpm2.target</filename>,
     <filename>umount.target</filename>,
     <filename>usb-gadget.target</filename>,
     <!-- slices --><filename>-.slice</filename>,
@@ -946,6 +947,24 @@
             dynamically when UDC hardware is found.</para>
 
             <xi:include href="version-info.xml" xpointer="v242"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>tpm2.target</filename></term>
+          <listitem>
+            <para>This target is started automatically if a TPM2 device is discovered, either bei the OS or
+            by the firmware. It acts as synchronization point for services that require TPM2 device
+            access. The target unit is enqueued by
+            <citerefentry><refentrytitle>systemd-tpm2-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            if it detects that the firmware has discovered a TPM2 device but the OS kernel has not activated
+            a driver for it yet. It is also pulled in whenever
+            <citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            discovers a TPM2 device. The target unit is ordered after the <filename>/dev/tpmrm0</filename>
+            device node, so that it only becomes active once the TPM2 device is actually accessible. Programs
+            that intend to access the TPM2 device should hence order themselves after this target unit, but
+            not pull it in.</para>
+
+            <xi:include href="version-info.xml" xpointer="v256"/>
           </listitem>
         </varlistentry>
       </variablelist>
