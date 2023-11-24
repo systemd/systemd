@@ -154,7 +154,7 @@ static Manager* manager_free(Manager *m) {
         if (m->unlink_nologin)
                 (void) unlink_or_warn("/run/nologin");
 
-        bus_verify_polkit_async_registry_free(m->polkit_registry);
+        hashmap_free(m->polkit_registry);
 
         sd_bus_flush_close_unref(m->bus);
         sd_event_unref(m->event);
