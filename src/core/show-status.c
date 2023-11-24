@@ -94,7 +94,7 @@ int status_vprintf(const char *status, ShowStatusFlags flags, const char *format
         }
 
         iovec[n++] = IOVEC_MAKE_STRING(s);
-        iovec[n++] = IOVEC_MAKE_STRING("\n");
+        iovec[n++] = IOVEC_MAKE_STRING("\r\n"); /* use CRNL instead of just NL, to be robust towards TTYs in raw mode */
 
         if (prev_ephemeral && !FLAGS_SET(flags, SHOW_STATUS_EPHEMERAL))
                 iovec[n++] = IOVEC_MAKE_STRING(ANSI_ERASE_TO_END_OF_LINE);
