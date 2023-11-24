@@ -65,7 +65,7 @@ static Manager* manager_unref(Manager *m) {
 
         sd_event_source_unref(m->image_cache_defer_event);
 
-        bus_verify_polkit_async_registry_free(m->polkit_registry);
+        hashmap_free(m->polkit_registry);
 
         sd_bus_flush_close_unref(m->bus);
         sd_event_unref(m->event);
