@@ -119,7 +119,7 @@ static void context_clear(Context *c) {
         assert(c);
 
         free(c->zone);
-        bus_verify_polkit_async_registry_free(c->polkit_registry);
+        hashmap_free(c->polkit_registry);
         sd_bus_message_unref(c->cache);
 
         sd_bus_slot_unref(c->slot_job_removed);
