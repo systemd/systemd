@@ -1346,9 +1346,6 @@ Features:
   - make user manager instances create and use a user-specific key (the one in
     /var/lib is root-only) and add --user switch to systemd-creds to use it
 
-* add tpm.target or so which is delayed until TPM2 device showed up in case
-  firmware indicates there is one.
-
 * TPM2: auto-reenroll in cryptsetup, as fallback for hosed firmware upgrades
   and such
 
