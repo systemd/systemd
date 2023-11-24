@@ -241,3 +241,19 @@ diff -u /tmp/lb1 - <<'EOF'
 [{"index":-3,"boot_id":"5ea5fc4f82a14186b5332a788ef9435e","first_entry":1666569600994371,"last_entry":1666584266223608},{"index":-2,"boot_id":"bea6864f21ad4c9594c04a99d89948b0","first_entry":1666569601005945,"last_entry":1666584347230411},{"index":-1,"boot_id":"4c708e1fd0744336be16f3931aa861fb","first_entry":1666584293354007,"last_entry":1666584354649355},{"index":0,"boot_id":"35e8501129134edd9df5267c49f744a4","first_entry":1666569601009823,"last_entry":1666584438086856}]
 EOF
 rm -rf "$JOURNAL_DIR" /tmp/lb1
+
+# https://github.com/systemd/systemd/issues/30092
+systemd-cat echo "ya"
+SEQNUMID1=$(journalctl -o export -n 1 | grep -Ea "^__SEQNUM_ID=" | cut -d= -f2)
+journalctl --relinquish-var
+# Force a new seqnum ID to be generated
+rm -rf /run/systemd/journal/seqnum /run/log/journal
+systemctl restart systemd-journald
+systemd-cat echo "yo"
+SEQNUMID2=$(journalctl -o export -n 1 | grep -Ea "^__SEQNUM_ID=" | cut -d= -f2)
+journalctl --flush
+systemd-cat echo "ye"
+SEQNUMID3=$(journalctl -o export -n 1 | grep -Ea "^__SEQNUM_ID=" | cut -d= -f2)
+# Check if journald adopted the system journal's seqnum ID on flush.
+test "$SEQNUMID3" != "$SEQNUMID2"
+test "$SEQNUMID3" = "$SEQNUMID1"
