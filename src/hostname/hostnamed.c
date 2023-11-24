@@ -91,7 +91,7 @@ static void context_destroy(Context *c) {
         assert(c);
 
         context_reset(c, UINT64_MAX);
-        bus_verify_polkit_async_registry_free(c->polkit_registry);
+        hashmap_free(c->polkit_registry);
 }
 
 static void context_read_etc_hostname(Context *c) {
