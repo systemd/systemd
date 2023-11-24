@@ -4,6 +4,9 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
 # Make sure the unit's exec context matches its configuration
 # See: https://github.com/systemd/systemd/pull/29552
 
@@ -283,6 +286,33 @@ systemd-run --wait --pipe "${ARGUMENTS[@]}" \
                : RTPRIO;     [[ $(ulimit -Sr) -eq 8 ]];            [[ $(ulimit -Hr) -eq 8 ]];
                ulimit -R || exit 0;
                : RTTIME;     [[ $(ulimit -SR) -eq 666666 ]];       [[ $(ulimit -HR) -eq 666666 ]];'
+
+# RestrictFileSystems=
+if kernel_supports_lsm bpf; then
+    ROOTFS="$(df --output=fstype /usr/bin | sed --quiet 2p)"
+    systemd-run --wait --pipe -p RestrictFileSystems="" ls /
+    systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS foo bar" ls /
+    (! systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS" ls /proc)
+    (! systemd-run --wait --pipe -p RestrictFileSystems="foo" ls /)
+    systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS foo bar baz proc" ls /proc
+    systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS @foo @basic-api" ls /proc
+    systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS @foo @basic-api" ls /sys/fs/cgroup
+
+    systemd-run --wait --pipe -p RestrictFileSystems="~" ls /
+    systemd-run --wait --pipe -p RestrictFileSystems="~proc" ls /
+    systemd-run --wait --pipe -p RestrictFileSystems="~@basic-api" ls /
+    (! systemd-run --wait --pipe -p RestrictFileSystems="~$ROOTFS" ls /)
+    (! systemd-run --wait --pipe -p RestrictFileSystems="~proc" ls /proc)
+    (! systemd-run --wait --pipe -p RestrictFileSystems="~@basic-api" ls /proc)
+    (! systemd-run --wait --pipe -p RestrictFileSystems="~proc foo @bar @basic-api" ls /proc)
+    (! systemd-run --wait --pipe -p RestrictFileSystems="~proc foo @bar @basic-api" ls /sys)
+    systemd-run --wait --pipe -p RestrictFileSystems="~proc devtmpfs sysfs" ls /
+    (! systemd-run --wait --pipe -p RestrictFileSystems="~proc devtmpfs sysfs" ls /proc)
+    (! systemd-run --wait --pipe -p RestrictFileSystems="~proc devtmpfs sysfs" ls /dev)
+    (! systemd-run --wait --pipe -p RestrictFileSystems="~proc devtmpfs sysfs" ls /sys)
+else
+    echo "Running kernel doesn't seem to support bpf LSM, skipping the test"
+fi
 
 # Ensure that clean-up codepaths work correctly if activation ultimately fails
 touch /run/not-a-directory
