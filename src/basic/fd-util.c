@@ -902,26 +902,18 @@ int fd_get_diskseq(int fd, uint64_t *ret) {
 int path_is_root_at(int dir_fd, const char *path) {
         STRUCT_NEW_STATX_DEFINE(st);
         STRUCT_NEW_STATX_DEFINE(pst);
-        _cleanup_close_ int fd = -EBADF;
         int r;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
-        if (!isempty(path)) {
-                fd = openat(dir_fd, path, O_PATH|O_DIRECTORY|O_CLOEXEC);
-                if (fd < 0)
-                        return errno == ENOTDIR ? false : -errno;
-
-                dir_fd = fd;
-        }
-
-        r = statx_fallback(dir_fd, ".", 0, STATX_TYPE|STATX_INO|STATX_MNT_ID, &st.sx);
-        if (r == -ENOTDIR)
-                return false;
+        r = statx_fallback(dir_fd, strempty(path), AT_EMPTY_PATH | AT_SYMLINK_NOFOLLOW, STATX_TYPE|STATX_INO|STATX_MNT_ID, &st.sx);
         if (r < 0)
                 return r;
 
-        r = statx_fallback(dir_fd, "..", 0, STATX_TYPE|STATX_INO|STATX_MNT_ID, &pst.sx);
+        if (!S_ISDIR(st.sx.stx_mode))
+                return false;
+
+        r = statx_fallback(AT_FDCWD, "/", 0, STATX_TYPE|STATX_INO|STATX_MNT_ID, &pst.sx);
         if (r < 0)
                 return r;
 
@@ -929,12 +921,12 @@ int path_is_root_at(int dir_fd, const char *path) {
         if (!statx_inode_same(&st.sx, &pst.sx))
                 return false;
 
-        /* Even if the parent directory has the same inode, the fd may not point to the root directory "/",
+        /* Even if the root directory has the same inode, the fd may not point to the root directory "/",
          * and we also need to check that the mount ids are the same. Otherwise, a construct like the
          * following could be used to trick us:
          *
-         * $ mkdir /tmp/x /tmp/x/y
-         * $ mount --bind /tmp/x /tmp/x/y
+         * $ mkdir /tmp/x
+         * $ mount --rbind / /tmp/x
          *
          * Note, statx() does not provide the mount ID and path_get_mnt_id_at() does not work when an old
          * kernel is used. In that case, let's assume that we do not have such spurious mount points in an
@@ -943,7 +935,7 @@ int path_is_root_at(int dir_fd, const char *path) {
         if (!FLAGS_SET(st.nsx.stx_mask, STATX_MNT_ID)) {
                 int mntid;
 
-                r = path_get_mnt_id_at_fallback(dir_fd, "", &mntid);
+                r = path_get_mnt_id_at_fallback(dir_fd, strempty(path), &mntid);
                 if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                         return true; /* skip the mount ID check */
                 if (r < 0)

@@ -90,23 +90,22 @@ int statx_fallback(int dfd, const char *path, int flags, unsigned mask, struct s
 
 int xstatfsat(int dir_fd, const char *path, struct statfs *ret);
 
+typedef union {
+        struct statx sx;
+        struct new_statx nsx;
+} statx_union;
+
 #if HAS_FEATURE_MEMORY_SANITIZER
 #  warning "Explicitly initializing struct statx, to work around msan limitation. Please remove as soon as msan has been updated to not require this."
 #  define STRUCT_STATX_DEFINE(var)              \
         struct statx var = {}
 #  define STRUCT_NEW_STATX_DEFINE(var)          \
-        union {                                 \
-                struct statx sx;                \
-                struct new_statx nsx;           \
-        } var = {}
+        statx_union var = {}
 #else
 #  define STRUCT_STATX_DEFINE(var)              \
         struct statx var
 #  define STRUCT_NEW_STATX_DEFINE(var)          \
-        union {                                 \
-                struct statx sx;                \
-                struct new_statx nsx;           \
-        } var
+        statx_union var
 #endif
 
 void inode_hash_func(const struct stat *q, struct siphash *state);
