@@ -17,6 +17,12 @@ DefaultDependencies=no
 Before=sysinit.target
 Before=initrd-switch-root.target shutdown.target
 
+# This unit will be restarted by udev whenever a new vtcon device appears or is
+# triggered. Usually that happens just a handful of times during boot, but some
+# systems may have hundreds or thousands of serial consoles connected, so let's
+# just disable the limit altogether.
+StartLimitIntervalSec=0
+
 [Service]
 Type=oneshot
 # This service will be restarted by udev whenever a new vtcon device appears.
