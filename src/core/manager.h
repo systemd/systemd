@@ -438,10 +438,10 @@ struct Manager {
         /* This is true before and after switching root. */
         bool switching_root;
 
-        /* This maps all possible path prefixes to the units needing
-         * them. It's a hashmap with a path string as key and a Set as
-         * value where Unit objects are contained. */
+        /* These map all possible path prefixes to the units needing them. They are hashmaps with a path
+         * string as key, and a Set as value where Unit objects are contained. */
         Hashmap *units_requiring_mounts_for;
+        Hashmap *units_wanting_mounts_for;
 
         /* Used for processing polkit authorization responses */
         Hashmap *polkit_registry;
@@ -597,6 +597,7 @@ double manager_get_progress(Manager *m);
 void manager_status_printf(Manager *m, StatusType type, const char *status, const char *format, ...) _printf_(4,5);
 
 Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path);
+Set *manager_get_units_wanting_mounts_for(Manager *m, const char *path);
 
 ManagerState manager_state(Manager *m);
 
