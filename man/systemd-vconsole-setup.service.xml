@@ -33,7 +33,7 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-vconsole-setup</filename> sets up and configures either all virtual consoles, or
+    <para><command>systemd-vconsole-setup</command> sets up and configures either all virtual consoles, or
     — if the optional <replaceable>TTY</replaceable> parameter is provided — a specific one. When the system
     is booting up, <filename>systemd-vconsole-setup.service</filename> is called by
     <citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum></citerefentry> during
