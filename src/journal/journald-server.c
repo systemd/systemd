@@ -2201,6 +2201,59 @@ static int vl_method_relinquish_var(Varlink *link, JsonVariant *parameters, Varl
         return varlink_reply(link, NULL);
 }
 
+static int prepare_for_soft_reboot(Server *s, Varlink *link) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        int r;
+
+        assert(s);
+        assert(!s->event_for_soft_reboot);
+        assert(link);
+
+        (void) reset_signal_mask();
+
+        r = sd_event_new(&e);
+        if (r < 0)
+                return r;
+
+        r = sd_event_add_signal(e, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        r = sd_event_add_signal(e, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, NULL, NULL);
+        if (r < 0)
+                return r;
+
+        varlink_detach_event(link);
+        r = varlink_attach_event(link, e, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return r;
+
+        assert_se(sd_event_exit(s->event, 0) >= 0);
+
+        s->event_for_soft_reboot = TAKE_PTR(e);
+        return 0;
+}
+
+static int vl_method_prepare_for_soft_reboot(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        Server *s = ASSERT_PTR(userdata);
+        int r;
+
+        assert(link);
+
+        if (json_variant_elements(parameters) > 0)
+                return varlink_error_invalid_parameter(link, parameters);
+        if (s->namespace)
+                return varlink_error(link, "io.systemd.Journal.NotSupportedByNamespaces", NULL);
+
+        log_info("Received request to prepare for soft-reboot.");
+
+        r = prepare_for_soft_reboot(s, link);
+        if (r < 0)
+                log_warning_errno(r, "Failed to prepare for soft-reboot: %m");
+
+        return varlink_reply(link, NULL);
+}
+
 static int vl_connect(VarlinkServer *server, Varlink *link, void *userdata) {
         Server *s = ASSERT_PTR(userdata);
 
@@ -2238,10 +2291,11 @@ static int server_open_varlink(Server *s, const char *socket, int fd) {
 
         r = varlink_server_bind_method_many(
                         s->varlink_server,
-                        "io.systemd.Journal.Synchronize",   vl_method_synchronize,
-                        "io.systemd.Journal.Rotate",        vl_method_rotate,
-                        "io.systemd.Journal.FlushToVar",    vl_method_flush_to_var,
-                        "io.systemd.Journal.RelinquishVar", vl_method_relinquish_var);
+                        "io.systemd.Journal.Synchronize",          vl_method_synchronize,
+                        "io.systemd.Journal.Rotate",               vl_method_rotate,
+                        "io.systemd.Journal.FlushToVar",           vl_method_flush_to_var,
+                        "io.systemd.Journal.RelinquishVar",        vl_method_relinquish_var,
+                        "io.systemd.Journal.PrepareForSoftReboot", vl_method_prepare_for_soft_reboot);
         if (r < 0)
                 return r;
 
@@ -2775,6 +2829,7 @@ void server_done(Server *s) {
         sd_event_source_unref(s->watchdog_event_source);
         sd_event_source_unref(s->idle_event_source);
         sd_event_unref(s->event);
+        sd_event_unref(s->event_for_soft_reboot);
 
         safe_close(s->syslog_fd);
         safe_close(s->native_fd);
