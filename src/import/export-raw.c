@@ -120,7 +120,7 @@ static void raw_export_report_progress(RawExport *e) {
         if (!ratelimit_below(&e->progress_ratelimit))
                 return;
 
-        sd_notifyf(false, "X_IMPORT_PROGRESS=%u", percent);
+        sd_notifyf(false, "X_IMPORT_PROGRESS=%u%%", percent);
         log_info("Exported %u%%.", percent);
 
         e->last_percent = percent;

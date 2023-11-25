@@ -598,7 +598,7 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
 
         r = parse_percent(p);
         if (r < 0) {
-                log_warning("Got invalid percent value, ignoring.");
+                log_warning("Got invalid percent value '%s', ignoring.", p);
                 return 0;
         }
 

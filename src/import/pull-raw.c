@@ -232,7 +232,7 @@ static void raw_pull_report_progress(RawPull *i, RawProgress p) {
                 assert_not_reached();
         }
 
-        sd_notifyf(false, "X_IMPORT_PROGRESS=%u", percent);
+        sd_notifyf(false, "X_IMPORT_PROGRESS=%u%%", percent);
         log_debug("Combined progress %u%%", percent);
 }
 

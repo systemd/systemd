@@ -148,7 +148,7 @@ static void tar_import_report_progress(TarImport *i) {
         if (!ratelimit_below(&i->progress_ratelimit))
                 return;
 
-        sd_notifyf(false, "X_IMPORT_PROGRESS=%u", percent);
+        sd_notifyf(false, "X_IMPORT_PROGRESS=%u%%", percent);
         log_info("Imported %u%%.", percent);
 
         i->last_percent = percent;
