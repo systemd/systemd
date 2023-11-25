@@ -756,7 +756,7 @@ EOF
         udevadm wait --settle --timeout=30 "/dev/disk/by-uuid/deadbeef-dead-dead-beef-11111111111$i" "/dev/disk/by-label/encdisk$i"
         # Add the device into /etc/crypttab, reload systemd, and then activate
         # the device so we can create a filesystem on it later
-        echo "encbtrfs$i UUID=deadbeef-dead-dead-beef-11111111111$i /etc/btrfs_keyfile luks,noearly" >>/etc/crypttab
+        echo "encbtrfs$i UUID=deadbeef-dead-dead-beef-11111111111$i /etc/btrfs_keyfile luks" >>/etc/crypttab
         systemctl daemon-reload
         systemctl start "systemd-cryptsetup@encbtrfs$i"
     done
