@@ -1691,8 +1691,10 @@ Manager* manager_free(Manager *m) {
 
         unit_defaults_done(&m->defaults);
 
-        assert(hashmap_isempty(m->units_requiring_mounts_for));
-        hashmap_free(m->units_requiring_mounts_for);
+        FOREACH_ARRAY(map, m->units_needing_mounts_for, _UNIT_MOUNT_DEPENDENCY_TYPE_MAX) {
+                assert(hashmap_isempty(*map));
+                hashmap_free(*map);
+        }
 
         hashmap_free(m->uid_refs);
         hashmap_free(m->gid_refs);
@@ -4478,14 +4480,15 @@ void manager_status_printf(Manager *m, StatusType type, const char *status, cons
         va_end(ap);
 }
 
-Set* manager_get_units_requiring_mounts_for(Manager *m, const char *path) {
+Set* manager_get_units_needing_mounts_for(Manager *m, const char *path, UnitMountDependencyType t) {
         assert(m);
         assert(path);
+        assert(t >= 0 && t < _UNIT_MOUNT_DEPENDENCY_TYPE_MAX);
 
         if (path_equal(path, "/"))
                 path = "";
 
-        return hashmap_get(m->units_requiring_mounts_for, path);
+        return hashmap_get(m->units_needing_mounts_for[t], path);
 }
 
 int manager_update_failed_units(Manager *m, Unit *u, bool failed) {

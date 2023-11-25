@@ -321,7 +321,7 @@ static int swap_add_extras(Swap *s) {
                         return r;
         }
 
-        r = unit_require_mounts_for(UNIT(s), s->what, UNIT_DEPENDENCY_IMPLICIT);
+        r = unit_add_mounts_for(UNIT(s), s->what, UNIT_DEPENDENCY_IMPLICIT, UNIT_MOUNT_REQUIRES);
         if (r < 0)
                 return r;
 
