@@ -241,7 +241,7 @@ static int patch_fd(int fd, const char *name, const struct stat *st, uid_t shift
                 if (name) {
                         if (!S_ISLNK(st->st_mode))
                                 r = fchmodat(fd, name, st->st_mode, 0);
-                        else /* AT_SYMLINK_NOFOLLOW is not available for fchmodat() */
+                        else /* Changing the mode of a symlink is not supported by Linux kernel. Don't bother. */
                                 r = 0;
                 } else
                         r = fchmod(fd, st->st_mode);
