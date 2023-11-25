@@ -376,6 +376,7 @@ static int verb_call(int argc, char *argv[], void *userdata) {
         arg_json_format_flags &= ~JSON_FORMAT_OFF;
 
         if (parameter) {
+                /* <argv[4]> is correct, as dispatch_verb() shifts arguments by one for the verb. */
                 r = json_parse_with_source(parameter, "<argv[4]>", 0, &jp, &line, &column);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse parameters at <argv[4]>:%u:%u: %m", line, column);
