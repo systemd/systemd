@@ -279,10 +279,47 @@ static int update_parameters_proc_self_mountinfo(
         return r > 0 || q > 0 || w > 0;
 }
 
+static int add_mounts_for_one_set(Unit *u, UnitDependency d, Set *s) {
+        Unit *other;
+        int r;
+
+        assert(u);
+        assert(IN_SET(d, UNIT_REQUIRES, UNIT_WANTS));
+
+        SET_FOREACH(other, s) {
+                if (other->load_state != UNIT_LOADED)
+                        continue;
+
+                if (other == u)
+                        continue;
+
+                r = unit_add_dependency(
+                                other,
+                                UNIT_AFTER,
+                                u,
+                                /* add_reference= */ true,
+                                UNIT_DEPENDENCY_PATH);
+                if (r < 0)
+                        return r;
+
+                if (u->fragment_path) {
+                        /* If we have fragment configuration, then make this dependency required/wanted */
+                        r = unit_add_dependency(
+                                        other,
+                                        d,
+                                        u,
+                                        /* add_reference= */ true,
+                                        UNIT_DEPENDENCY_PATH);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
+}
+
 static int mount_add_mount_dependencies(Mount *m) {
         MountParameters *pm;
-        Unit *other;
-        Set *s;
         int r;
 
         assert(m);
@@ -314,26 +351,19 @@ static int mount_add_mount_dependencies(Mount *m) {
         }
 
         /* Adds in dependencies to other units that use this path or paths further down in the hierarchy */
-        s = manager_get_units_requiring_mounts_for(UNIT(m)->manager, m->where);
-        SET_FOREACH(other, s) {
+        r = add_mounts_for_one_set(
+                        UNIT(m),
+                        UNIT_REQUIRES,
+                        manager_get_units_requiring_mounts_for(UNIT(m)->manager, m->where));
+        if (r < 0)
+                return r;
 
-                if (other->load_state != UNIT_LOADED)
-                        continue;
-
-                if (other == UNIT(m))
-                        continue;
-
-                r = unit_add_dependency(other, UNIT_AFTER, UNIT(m), true, UNIT_DEPENDENCY_PATH);
-                if (r < 0)
-                        return r;
-
-                if (UNIT(m)->fragment_path) {
-                        /* If we have fragment configuration, then make this dependency required */
-                        r = unit_add_dependency(other, UNIT_REQUIRES, UNIT(m), true, UNIT_DEPENDENCY_PATH);
-                        if (r < 0)
-                                return r;
-                }
-        }
+        r = add_mounts_for_one_set(
+                        UNIT(m),
+                        UNIT_WANTS,
+                        manager_get_units_wanting_mounts_for(UNIT(m)->manager, m->where));
+        if (r < 0)
+                return r;
 
         return 0;
 }

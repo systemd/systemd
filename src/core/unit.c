@@ -689,13 +689,13 @@ static void unit_remove_transient(Unit *u) {
         }
 }
 
-static void unit_free_requires_mounts_for(Unit *u) {
+static void free_mounts_for_one(Unit *u, Hashmap *unit_map, Hashmap *manager_map) {
         assert(u);
 
         for (;;) {
                 _cleanup_free_ char *path = NULL;
 
-                path = hashmap_steal_first_key(u->requires_mounts_for);
+                path = hashmap_steal_first_key(unit_map);
                 if (!path)
                         break;
                 else {
@@ -705,22 +705,30 @@ static void unit_free_requires_mounts_for(Unit *u) {
                                 char *y;
                                 Set *x;
 
-                                x = hashmap_get2(u->manager->units_requiring_mounts_for, s, (void**) &y);
+                                x = hashmap_get2(manager_map, s, (void**) &y);
                                 if (!x)
                                         continue;
 
                                 (void) set_remove(x, u);
 
                                 if (set_isempty(x)) {
-                                        (void) hashmap_remove(u->manager->units_requiring_mounts_for, y);
+                                        (void) hashmap_remove(manager_map, y);
                                         free(y);
                                         set_free(x);
                                 }
                         }
                 }
         }
+}
 
+static void unit_free_mounts_for(Unit *u) {
+        assert(u);
+
+        free_mounts_for_one(u, u->requires_mounts_for, u->manager->units_requiring_mounts_for);
         u->requires_mounts_for = hashmap_free(u->requires_mounts_for);
+
+        free_mounts_for_one(u, u->wants_mounts_for, u->manager->units_wanting_mounts_for);
+        u->wants_mounts_for = hashmap_free(u->wants_mounts_for);
 }
 
 static void unit_done(Unit *u) {
@@ -769,7 +777,7 @@ Unit* unit_free(Unit *u) {
         u->deserialized_refs = strv_free(u->deserialized_refs);
         u->pending_freezer_invocation = sd_bus_message_unref(u->pending_freezer_invocation);
 
-        unit_free_requires_mounts_for(u);
+        unit_free_mounts_for(u);
 
         SET_FOREACH(t, u->aliases)
                 hashmap_remove_value(u->manager->units, t, u);
@@ -1535,6 +1543,64 @@ static int unit_add_slice_dependencies(Unit *u) {
         return unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_REQUIRES, SPECIAL_ROOT_SLICE, true, mask);
 }
 
+static int add_mount_one(
+                Unit *u,
+                UnitDependencyInfo di,
+                const char *path,
+                UnitDependency d,
+                bool *ret_changed /* Accumulates results */) {
+
+        char prefix[strlen(ASSERT_PTR(path)) + 1];
+        bool changed = false;
+        int r;
+
+        assert(u);
+        assert(IN_SET(d, UNIT_REQUIRES, UNIT_WANTS));
+        assert(ret_changed);
+
+        PATH_FOREACH_PREFIX_MORE(prefix, path) {
+                _cleanup_free_ char *p = NULL;
+                Unit *m;
+
+                r = unit_name_from_path(prefix, ".mount", &p);
+                if (r == -EINVAL)
+                        continue; /* If the path cannot be converted to a mount unit name, then it's
+                                   * not manageable as a unit by systemd, and hence we don't need a
+                                   * dependency on it. Let's thus silently ignore the issue. */
+                if (r < 0)
+                        return r;
+
+                m = manager_get_unit(u->manager, p);
+                if (!m) {
+                        /* Make sure to load the mount unit if it exists. If so the dependencies on
+                         * this unit will be added later during the loading of the mount unit. */
+                        (void) manager_load_unit_prepare(u->manager, p, /* path= */NULL, /* e= */NULL, &m);
+                        continue;
+                }
+                if (m == u)
+                        continue;
+
+                if (m->load_state != UNIT_LOADED)
+                        continue;
+
+                r = unit_add_dependency(u, UNIT_AFTER, m, /* add_reference= */ true, di.origin_mask);
+                if (r < 0)
+                        return r;
+                changed = changed || r > 0;
+
+                if (m->fragment_path) {
+                        r = unit_add_dependency(u, d, m, /* add_reference= */ true, di.origin_mask);
+                        if (r < 0)
+                                return r;
+                        changed = changed || r > 0;
+                }
+        }
+
+        *ret_changed = changed || *ret_changed;
+
+        return 0;
+}
+
 static int unit_add_mount_dependencies(Unit *u) {
         UnitDependencyInfo di;
         const char *path;
@@ -1544,45 +1610,15 @@ static int unit_add_mount_dependencies(Unit *u) {
         assert(u);
 
         HASHMAP_FOREACH_KEY(di.data, path, u->requires_mounts_for) {
-                char prefix[strlen(path) + 1];
+                r = add_mount_one(u, di, path, UNIT_REQUIRES, &changed);
+                if (r < 0)
+                        return r;
+        }
 
-                PATH_FOREACH_PREFIX_MORE(prefix, path) {
-                        _cleanup_free_ char *p = NULL;
-                        Unit *m;
-
-                        r = unit_name_from_path(prefix, ".mount", &p);
-                        if (r == -EINVAL)
-                                continue; /* If the path cannot be converted to a mount unit name, then it's
-                                           * not manageable as a unit by systemd, and hence we don't need a
-                                           * dependency on it. Let's thus silently ignore the issue. */
-                        if (r < 0)
-                                return r;
-
-                        m = manager_get_unit(u->manager, p);
-                        if (!m) {
-                                /* Make sure to load the mount unit if it exists. If so the dependencies on
-                                 * this unit will be added later during the loading of the mount unit. */
-                                (void) manager_load_unit_prepare(u->manager, p, NULL, NULL, &m);
-                                continue;
-                        }
-                        if (m == u)
-                                continue;
-
-                        if (m->load_state != UNIT_LOADED)
-                                continue;
-
-                        r = unit_add_dependency(u, UNIT_AFTER, m, true, di.origin_mask);
-                        if (r < 0)
-                                return r;
-                        changed = changed || r > 0;
-
-                        if (m->fragment_path) {
-                                r = unit_add_dependency(u, UNIT_REQUIRES, m, true, di.origin_mask);
-                                if (r < 0)
-                                        return r;
-                                changed = changed || r > 0;
-                        }
-                }
+        HASHMAP_FOREACH_KEY(di.data, path, u->wants_mounts_for) {
+                r = add_mount_one(u, di, path, UNIT_WANTS, &changed);
+                if (r < 0)
+                        return r;
         }
 
         return changed;
@@ -4942,11 +4978,18 @@ int unit_kill_context(
         return wait_for_exit;
 }
 
-int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask) {
+static int unit_add_mounts_for(
+                Unit *u,
+                const char *path,
+                UnitDependencyMask mask,
+                Hashmap **unit_map,
+                Hashmap **manager_map) {
         int r;
 
         assert(u);
         assert(path);
+        assert(unit_map);
+        assert(manager_map);
 
         /* Registers a unit for requiring a certain path and all its prefixes. We keep a hashtable of these
          * paths in the unit (from the path to the UnitDependencyInfo structure indicating how to the
@@ -4956,7 +4999,7 @@ int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask) 
         if (!path_is_absolute(path))
                 return -EINVAL;
 
-        if (hashmap_contains(u->requires_mounts_for, path)) /* Exit quickly if the path is already covered. */
+        if (hashmap_contains(*unit_map, path)) /* Exit quickly if the path is already covered. */
                 return 0;
 
         /* Use the canonical form of the path as the stored key. We call path_is_normalized()
@@ -4975,7 +5018,7 @@ int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask) 
                 .origin_mask = mask
         };
 
-        r = hashmap_ensure_put(&u->requires_mounts_for, &path_hash_ops, p, di.data);
+        r = hashmap_ensure_put(unit_map, &path_hash_ops, p, di.data);
         if (r < 0)
                 return r;
         assert(r > 0);
@@ -4985,11 +5028,11 @@ int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask) 
         PATH_FOREACH_PREFIX_MORE(prefix, path) {
                 Set *x;
 
-                x = hashmap_get(u->manager->units_requiring_mounts_for, prefix);
+                x = hashmap_get(*manager_map, prefix);
                 if (!x) {
                         _cleanup_free_ char *q = NULL;
 
-                        r = hashmap_ensure_allocated(&u->manager->units_requiring_mounts_for, &path_hash_ops);
+                        r = hashmap_ensure_allocated(manager_map, &path_hash_ops);
                         if (r < 0)
                                 return r;
 
@@ -5001,7 +5044,7 @@ int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask) 
                         if (!x)
                                 return -ENOMEM;
 
-                        r = hashmap_put(u->manager->units_requiring_mounts_for, q, x);
+                        r = hashmap_put(*manager_map, q, x);
                         if (r < 0) {
                                 set_free(x);
                                 return r;
@@ -5015,6 +5058,14 @@ int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask) 
         }
 
         return 0;
+}
+
+int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask) {
+        return unit_add_mounts_for(u, path, mask, &u->requires_mounts_for, &u->manager->units_requiring_mounts_for);
+}
+
+int unit_want_mounts_for(Unit *u, const char *path, UnitDependencyMask mask) {
+        return unit_add_mounts_for(u, path, mask, &u->wants_mounts_for, &u->manager->units_wanting_mounts_for);
 }
 
 int unit_setup_exec_runtime(Unit *u) {
