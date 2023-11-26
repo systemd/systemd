@@ -352,6 +352,10 @@ units = [
           'conditions' : ['ENABLE_REMOTE', 'HAVE_MICROHTTPD'],
         },
         {
+          'file' : 'systemd-journal-prepare-for-soft-reboot.service',
+          'symlinks' : ['soft-reboot.target.wants/'],
+        },
+        {
           'file' : 'systemd-journal-remote.service.in',
           'conditions' : ['ENABLE_REMOTE', 'HAVE_MICROHTTPD'],
         },

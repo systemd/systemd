@@ -46,6 +46,19 @@ static bool argv_has_at(pid_t pid) {
         return c == '@';
 }
 
+int pid_set_survivor_cgroup(pid_t pid) {
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        assert(pid >= 0);
+
+        r = cg_pid_get_path(/* root= */ NULL, pid, &path);
+        if (r < 0)
+                return r;
+
+        return cg_set_xattr(path, "user.survive_final_kill_signal", "1", 1, /* flags = */ 0);
+}
+
 static bool is_survivor_cgroup(const PidRef *pid) {
         _cleanup_free_ char *cgroup_path = NULL;
         int r;

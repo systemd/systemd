@@ -80,6 +80,7 @@ struct Server {
         int notify_fd;
 
         sd_event *event;
+        sd_event *event_for_soft_reboot;
 
         sd_event_source *syslog_event_source;
         sd_event_source *native_event_source;

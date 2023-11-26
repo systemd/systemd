@@ -9,6 +9,7 @@
 #include "async.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "killall.h"
 #include "log.h"
 #include "macro.h"
 #include "process-util.h"
@@ -93,9 +94,15 @@ int asynchronous_close(int fd) {
                 v |= NEED_DOUBLE_FORK;
 
         pid = clone_with_nested_stack(close_func, CLONE_FILES | ((v & NEED_DOUBLE_FORK) ? 0 : SIGCHLD), UINT_TO_PTR(v));
-        if (pid < 0)
+        if (pid < 0) {
                 assert_se(close_nointr(fd) != -EBADF); /* local fallback */
-        else if (v & NEED_DOUBLE_FORK) {
+                return -EBADF;
+        }
+
+        /* To make the process not killed on soft-reboot. */
+        (void) pid_set_survivor_cgroup(pid);
+
+        if (v & NEED_DOUBLE_FORK) {
 
                 /* Reap the intermediate child. Key here is that we specify __WCLONE, since we didn't ask for
                  * any signal to be sent to us on process exit, and otherwise waitid() would refuse waiting
