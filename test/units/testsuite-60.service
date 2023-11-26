@@ -6,3 +6,4 @@ Description=TEST-60-MOUNT-RATELIMIT
 Type=oneshot
 ExecStartPre=rm -f /failed /testok
 ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+ExecStartPost=/usr/lib/systemd/tests/testdata/units/testsuite-post.sh %N
