@@ -5,4 +5,5 @@ Description=TEST-05-RLIMITS
 [Service]
 ExecStartPre=rm -f /failed /testok
 ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+ExecStartPost=/usr/lib/systemd/tests/testdata/units/testsuite-post.sh
 Type=oneshot

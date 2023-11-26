@@ -5,3 +5,4 @@ Description=TEST-70-TPM2
 [Service]
 Type=oneshot
 ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+ExecStartPost=/usr/lib/systemd/tests/testdata/units/testsuite-post.sh
