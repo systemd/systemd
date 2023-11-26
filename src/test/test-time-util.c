@@ -391,7 +391,7 @@ TEST(format_timestamp) {
 }
 
 static void test_format_timestamp_impl(usec_t x) {
-        bool success;
+        bool success, override;
         const char *xx, *yy;
         usec_t y;
 
@@ -402,9 +402,19 @@ static void test_format_timestamp_impl(usec_t x) {
         assert_se(yy);
 
         success = (x / USEC_PER_SEC == y / USEC_PER_SEC) && streq(xx, yy);
-        log_full(success ? LOG_DEBUG : LOG_ERR, "@" USEC_FMT " → %s → @" USEC_FMT " → %s", x, xx, y, yy);
-        assert_se(x / USEC_PER_SEC == y / USEC_PER_SEC);
-        assert_se(streq(xx, yy));
+        /* Workaround for https://github.com/systemd/systemd/issues/28472 */
+        override = !success &&
+                   (STRPTR_IN_SET(tzname[0], "CAT", "EAT") ||
+                    STRPTR_IN_SET(tzname[1], "CAT", "EAT")) &&
+                   DIV_ROUND_UP(y - x, USEC_PER_SEC) == 3600; /* 1 hour, ignore fractional second */
+        log_full(success ? LOG_DEBUG : override ? LOG_WARNING : LOG_ERR,
+                 "@" USEC_FMT " → %s → @" USEC_FMT " → %s%s",
+                 x, xx, y, yy,
+                 override ? ", ignoring." : "");
+        if (!override) {
+                assert_se(x / USEC_PER_SEC == y / USEC_PER_SEC);
+                assert_se(streq(xx, yy));
+        }
 }
 
 static void test_format_timestamp_loop(void) {
@@ -413,6 +423,10 @@ static void test_format_timestamp_loop(void) {
         test_format_timestamp_impl(USEC_TIMESTAMP_FORMATTABLE_MAX_32BIT);
         test_format_timestamp_impl(USEC_TIMESTAMP_FORMATTABLE_MAX-1);
         test_format_timestamp_impl(USEC_TIMESTAMP_FORMATTABLE_MAX);
+
+        /* Two cases which trigger https://github.com/systemd/systemd/issues/28472 */
+        test_format_timestamp_impl(1504938962980066);
+        test_format_timestamp_impl(1509482094632752);
 
         for (unsigned i = 0; i < TRIAL; i++) {
                 usec_t x;
