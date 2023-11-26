@@ -3800,6 +3800,14 @@ int manager_setup_cgroup(Manager *m) {
         } else if (!MANAGER_IS_TEST_RUN(m))
                 return log_error_errno(r, "Failed to create %s control group: %m", scope_path);
 
+        if (MANAGER_IS_SYSTEM(m) && !MANAGER_IS_TEST_RUN(m)) {
+                /* Protect processes in this scope, especially '(sd-close)' invoked by asynchronous_close(),
+                 * from SIGTERM and SIGKILL on soft-reboot. */
+                r = cg_set_xattr_survive_final_kill_signal(scope_path);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to set 'survive_final_kill_signal' xattr on control group %s, ignoring: %m", scope_path);
+        }
+
         /* 7. Always enable hierarchical support if it exists... */
         if (!all_unified && !MANAGER_IS_TEST_RUN(m))
                 (void) cg_set_attribute("memory", "/", "memory.use_hierarchy", "1");
