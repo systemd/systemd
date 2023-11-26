@@ -530,6 +530,11 @@ grep -qF "fd00:dead:beef:cafe::123" "$RUN_OUT"
 #run dig +dnssec this.does.not.exist.untrusted.test
 #grep -qF "status: NXDOMAIN" "$RUN_OUT"
 
+### Test resolvectl show-cache
+run resolvectl show-cache
+run resolvectl show-cache --json=short
+run resolvectl show-cache --json=pretty
+
 # Issue: https://github.com/systemd/systemd/issues/29580 (part #1)
 dig @127.0.0.54 signed.test
 
@@ -705,5 +710,8 @@ run resolvectl reset-statistics
 run resolvectl reset-statistics --json=pretty
 
 run resolvectl reset-statistics --json=short
+
+run journalctl -q -o short-monotonic -u systemd-resolved.service --grep "didn't pass validation"
+assert_eq "$RUN_OUT" ""
 
 touch /testok
