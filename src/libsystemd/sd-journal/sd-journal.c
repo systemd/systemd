@@ -2405,11 +2405,10 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
 
         /* Tries to read the timestamp of the most recently written entry. */
 
-        r = journal_file_fstat(f);
-        if (r < 0)
-                return r;
-        if (f->newest_mtime == timespec_load(&f->last_stat.st_mtim))
-                return 0; /* mtime didn't change since last time, don't bother */
+        if (f->header->state == f->newest_state &&
+            f->header->state == STATE_ARCHIVED &&
+            f->newest_entry_offset != 0)
+                return 0; /* We have already read archived file. */
 
         if (JOURNAL_HEADER_CONTAINS(f->header, tail_entry_offset)) {
                 offset = le64toh(READ_NOW(f->header->tail_entry_offset));
@@ -2420,6 +2419,8 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
         }
         if (offset == 0)
                 return -ENODATA; /* not a single object/entry, hence no tail timestamp */
+        if (offset == f->newest_entry_offset)
+                return 0; /* No new entry is added after we read last time. */
 
         /* Move to the last object in the journal file, in the hope it is an entry (which it usually will
          * be). If we lack the "tail_entry_offset" field in the header, we specify the type as OBJECT_UNUSED
@@ -2429,6 +2430,7 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
         if (r < 0) {
                 log_debug_errno(r, "Failed to move to last object in journal file, ignoring: %m");
                 o = NULL;
+                offset = 0;
         }
         if (o && o->object.type == OBJECT_ENTRY) {
                 /* Yay, last object is an entry, let's use the data. */
@@ -2446,10 +2448,11 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
                         mo = le64toh(f->header->tail_entry_monotonic);
                         rt = le64toh(f->header->tail_entry_realtime);
                         id = f->header->tail_entry_boot_id;
+                        offset = UINT64_MAX;
                 } else {
                         /* Otherwise let's find the last entry manually (this possibly means traversing the
                          * chain of entry arrays, till the end */
-                        r = journal_file_next_entry(f, 0, DIRECTION_UP, &o, NULL);
+                        r = journal_file_next_entry(f, 0, DIRECTION_UP, &o, offset == 0 ? &offset : NULL);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -2471,7 +2474,8 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
         f->newest_monotonic_usec = mo;
         f->newest_realtime_usec = rt;
         f->newest_machine_id = f->header->machine_id;
-        f->newest_mtime = timespec_load(&f->last_stat.st_mtim);
+        f->newest_entry_offset = offset;
+        f->newest_state = f->header->state;
 
         r = journal_file_reshuffle_newest_by_boot_id(j, f);
         if (r < 0)
