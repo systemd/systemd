@@ -12,7 +12,7 @@ static VARLINK_DEFINE_METHOD(
 
 static VARLINK_DEFINE_METHOD(
                 GetInterfaceDescription,
-                VARLINK_DEFINE_OUTPUT(interface, VARLINK_STRING, 0));
+                VARLINK_DEFINE_OUTPUT(description, VARLINK_STRING, 0));
 
 static VARLINK_DEFINE_ERROR(
                 InterfaceNotFound,

@@ -5,3 +5,4 @@ Description=TEST-69-SHUTDOWN
 [Service]
 Type=oneshot
 ExecStart=/bin/true
+ExecStartPost=/usr/lib/systemd/tests/testdata/units/testsuite-post.sh

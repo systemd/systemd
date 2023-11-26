@@ -18,3 +18,4 @@ Type=exec
 TimeoutStartSec=infinity
 ExecStartPre=/usr/lib/systemd/tests/testdata/units/%N.sh
 ExecStart=true
+ExecStartPost=/usr/lib/systemd/tests/testdata/units/testsuite-post.sh
