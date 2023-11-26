@@ -63,9 +63,6 @@ report_result() {
         echo "$name OK"
         echo "$name" >>/testok
     fi
-
-    systemd-cat echo "--- $name ---"
-    systemd-cat cat "/$name.log"
 }
 
 set +x
