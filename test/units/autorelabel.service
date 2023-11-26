@@ -14,7 +14,6 @@ ExecStart=sh -xec 'echo 0 >/sys/fs/selinux/enforce; fixfiles -f -F relabel; rm /
 Type=oneshot
 TimeoutSec=infinity
 RemainAfterExit=yes
-StandardOutput=journal+console
 
 [Install]
 WantedBy=basic.target
