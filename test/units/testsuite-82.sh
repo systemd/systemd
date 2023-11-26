@@ -3,6 +3,9 @@
 set -ex
 set -o pipefail
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
 at_exit() {
     # Since the soft-reboot drops the enqueued end.service, we won't shutdown
     # the test VM if the test fails and have to wait for the watchdog to kill
@@ -38,6 +41,10 @@ if [ -f /run/testsuite82.touch3 ]; then
     test "$(systemctl show -P ActiveState testsuite-82-survive-argv.service)" = "active"
     test "$(systemctl show -P ActiveState testsuite-82-nosurvive-sigterm.service)" != "active"
     test "$(systemctl show -P ActiveState testsuite-82-nosurvive.service)" != "active"
+
+    # Check journals
+    journalctl -o short-monotonic --no-hostname --grep '(will soft-reboot|KILL|corrupt)'
+    assert_eq "$(journalctl -q -o short-monotonic -u systemd-journald.service --grep 'corrupt')" ""
 
     # All succeeded, exit cleanly now
 
