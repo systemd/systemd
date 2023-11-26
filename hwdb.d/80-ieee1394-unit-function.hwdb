@@ -1349,6 +1349,16 @@ ieee1394:ven00080046mo00000000sp0000A02Dver00010001
  IEEE1394_UNIT_FUNCTION_VIDEO=1
 
 #
+# Media converter without AV/C command set.
+#
+
+ieee1394:node:ven0x080046mo0xfa0000units0x00a02d:0x010000
+ieee1394:ven00080046mo00FA0000sp0000A02Dver00010000
+ ID_VENDOR_FROM_DATABASE=Sony Corporation
+ ID_MODEL_FROM_DATABASE=DVMC-DA1
+ IEEE1394_UNIT_FUNCTION_VIDEO=1
+
+#
 # Node with multiple units for several functions.
 #
 # When deciding the type of unit, please cooperate with kernel developers working for driver.
