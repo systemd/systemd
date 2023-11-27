@@ -2917,6 +2917,15 @@ static int generic_array_bisect_step(
                 if (i == 0)
                         return TEST_GOTO_PREVIOUS;
 
+                if (*left == i) {
+                        /* This should happen only when we are going to downwards. And, the (i-1)-th object
+                         * has been already tested in the previous call, which returned TEST_LEFT. See below.
+                         * So, if this function is called again after cutting the array short like below, it
+                         * will return TEST_GOTO_NEXT. Let's short cut the logic. */
+                        assert(direction == DIRECTION_DOWN);
+                        return TEST_GOTO_NEXT;
+                }
+
                 /* Otherwise, cutting the array short. So, here we limit the number of elements we will see
                  * in this array, and set the right boundary to the last possibly non-corrupted object. */
                 *m = i;
@@ -2940,6 +2949,7 @@ static int generic_array_bisect_step(
                 else {
                         if (i == 0)
                                 return TEST_GOTO_PREVIOUS;
+
                         *right = i - 1;
                 }
         } else {
@@ -3035,7 +3045,7 @@ static int generic_array_bisect(
                 left = 0;
                 right = m - 1;
 
-                if (direction == DIRECTION_UP) {
+                if (direction == DIRECTION_UP && left < right) {
                         /* If we're going upwards, the last entry of the previous array may pass the test,
                          * and the first entry of the current array may not pass. In that case, the last
                          * entry of the previous array must be returned. Hence, we need to test the first
@@ -3091,6 +3101,8 @@ static int generic_array_bisect(
                                         return r;
                                 if (r == TEST_GOTO_PREVIOUS)
                                         goto previous;
+                                if (r == TEST_GOTO_NEXT)
+                                        return 0; /* Corrupted, no matching entry found. */
                         }
                 }
 
