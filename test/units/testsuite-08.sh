@@ -22,9 +22,15 @@ test -d /run/initrd-mount-target
 mountpoint /run/initrd-mount-target
 [[ -e /run/initrd-mount-target/hello-world ]]
 
+
 # Copy the prepared shutdown initrd to its intended location. Check the respective
 # test.sh file for details
 mkdir -p /run/initramfs
+
+# If /run/initramfs is the same mount as /run then mount a tempdir over it
+if ! mountpoint -q /run/initramfs; then
+    mount -t tmpfs none /run/initramfs
+fi
 cp -r /shutdown-initrd/* /run/initramfs/
 
 touch /testok

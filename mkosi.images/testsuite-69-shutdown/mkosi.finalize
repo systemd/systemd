@@ -1,0 +1,11 @@
+#!/bin/bash
+
+mkdir -p "$BUILDROOT/usr/share/factory/root"
+if [[ -e "$BUILDROOT/root/.bashrc" ]]; then
+    cp -a "$BUILDROOT/root/.bashrc" "$BUILDROOT/usr/share/factory/root/.bashrc"
+fi
+if [[ -e "$BUILDROOT/root/.profile" ]]; then
+    cp -a "$BUILDROOT/root/.profile" "$BUILDROOT/usr/share/factory/root/.profile"
+fi
+echo "PS1='screen\$WINDOW # '" >>"$BUILDROOT/usr/share/factory/root/.bashrc"
+echo "PS1='\s-\v\\\$ '" >>"$BUILDROOT/usr/share/factory/root/.profile"

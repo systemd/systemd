@@ -330,3 +330,123 @@ if want_tests != 'false' and conf.get('ENABLE_KERNEL_INSTALL') == 1
              depends : deps,
              suite : 'kernel-install')
 endif
+
+############################################################
+
+if get_option('integration-tests') != false
+        integration_test_wrapper = find_program('integration_test_wrapper.py')
+        integration_tests = {
+                '01': 'TEST-01-BASIC',
+                '02': 'TEST-02-UNITTESTS',
+                '03': 'TEST-03-JOBS',
+                '04': 'TEST-04-JOURNAL', # can be flaky on starting the journal-remote
+                '05': 'TEST-05-RLIMITS',
+                '06': 'TEST-06-SELINUX',
+                '07': 'TEST-07-PID1',
+                '08': 'TEST-08-INITRD',
+                '09': 'TEST-09-REBOOT',
+                '13': 'TEST-13-NSPAWN',
+                '15': 'TEST-15-DROPIN',
+                '16': 'TEST-16-EXTEND-TIMEOUT',
+                '17': 'TEST-17-UDEV', # Can be flaky when overloaded if timeout abort test is slow
+                '18': 'TEST-18-FAILUREACTION',
+                '19': 'TEST-19-CGROUP',
+                '21': 'TEST-21-DFUZZER',
+                '22': 'TEST-22-TMPFILES',
+                '23': 'TEST-23-UNIT-FILE',
+                '24': 'TEST-24-CRYPTSETUP',
+                '25': 'TEST-25-IMPORT',
+                '26': 'TEST-26-SYSTEMCTL',
+                '29': 'TEST-29-PORTABLE',
+                '30': 'TEST-30-ONCLOCKCHANGE',
+                '31': 'TEST-31-DEVICE-ENUMERATION',
+                '32': 'TEST-32-OOMPOLICY',
+                '34': 'TEST-34-DYNAMICUSERMIGRATE',
+                '35': 'TEST-35-LOGIN',
+                '36': 'TEST-36-NUMAPOLICY',
+                '38': 'TEST-38-FREEZER',
+                '43': 'TEST-43-PRIVATEUSER-UNPRIV',
+                '44': 'TEST-44-LOG-NAMESPACE',
+                '45': 'TEST-45-TIMEDATE',
+                '46': 'TEST-46-HOMED',
+                '50': 'TEST-50-DISSECT',
+                '52': 'TEST-52-HONORFIRSTSHUTDOWN',
+                '53': 'TEST-53-ISSUE-16347',
+                '54': 'TEST-54-CREDS',
+                '55': 'TEST-55-OOMD',
+                '58': 'TEST-58-REPART',
+                # Can be flaky when overloaded if daemon-reload is too slow to be rate-limited
+                '59': 'TEST-59-RELOADING-RESTART',
+                '60': 'TEST-60-MOUNT-RATELIMIT',
+                '62': 'TEST-62-RESTRICT-IFACES',
+                '63': 'TEST-63-PATH',
+                '64': 'TEST-64-UDEV-STORAGE',
+                '65': 'TEST-65-ANALYZE',
+                '66': 'TEST-66-DEVICE-ISOLATION',
+                '67': 'TEST-67-INTEGRITY',
+                '68': 'TEST-68-PROPAGATE-EXIT-STATUS',
+                '69': 'TEST-69-SHUTDOWN',
+                '70': 'TEST-70-TPM2',
+                '71': 'TEST-71-HOSTNAME',
+                '72': 'TEST-72-SYSUPDATE',
+                '73': 'TEST-73-LOCALE',
+                '74': 'TEST-74-AUX-UTILS',
+                '75': 'TEST-75-RESOLVED',
+                '76': 'TEST-76-SYSCTL',
+                '77': 'TEST-77-OPENFILE',
+                '78': 'TEST-78-SIGQUEUE',
+                '79': 'TEST-79-MEMPRESS',
+                '80': 'TEST-80-NOTIFYACCESS',
+                '81': 'TEST-81-GENERATORS',
+                '82': 'TEST-82-SOFTREBOOT',
+                '83': 'TEST-83-BTRFS',
+                '84': 'TEST-84-STORAGETM',
+        }
+        foreach test_number, dirname : integration_tests
+                test_unit_name = f'testsuite-@test_number@.service'
+                test_params = {
+                        'mkosi_image_name' : 'system',
+                        'mkosi_output_path' : system_mkosi,
+                        'test_unit_name' : test_unit_name,
+                        'mkosi_args' : [
+                                '--kernel-command-line-extra',
+                                ' '.join([
+                                        'apparmor=0',
+                                        'selinux=0',
+                                        'enforcing=0',
+                                        f'SYSTEMD_UNIT_PATH=/usr/lib/systemd/tests/testdata/testsuite-@test_number@.units:/usr/lib/systemd/tests/testdata/units:',
+                                        'systemd.unit=testsuite.target',
+                                        f'systemd.wants=@test_unit_name@',
+                                        'systemd.wants=end.service',
+                                ])
+                        ],
+                        'depends' : [system_mkosi, executables_by_name['systemd-dissect']],
+                        'timeout' : 600,
+                        'skip_default_test' : false,
+                }
+
+                # TODO: This fs.exists call isn't included in rebuild logic
+                # so if you add a new meson.build in a subdir
+                # you need to touch another build file to get it to reparse.
+                if fs.exists(dirname / 'meson.build')
+                        subdir(dirname)
+                endif
+                if test_params['skip_default_test'] == true
+                        continue
+                endif
+                args = ['--mkosi-image-name', test_params['mkosi_image_name'],
+                        '--mkosi-output-path', test_params['mkosi_output_path'],
+                        '--test-unit-name', test_params['test_unit_name']]
+                if test_params.has_key('hook_module')
+                        args += ['--hook-module', test_params['hook_module']]
+                endif
+                args += ['--'] + test_params['mkosi_args']
+                test(dirname,
+                     integration_test_wrapper,
+                     env: test_env,
+                     args : args,
+                     depends : test_params['depends'],
+                     timeout : test_params['timeout'],
+                     suite : 'integration-tests')
+        endforeach
+endif

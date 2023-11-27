@@ -1,0 +1,11 @@
+#!/usr/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -eu
+
+cp --archive --recursive --no-target-directory --reflink=auto "$BUILDROOT"/etc "$BUILDROOT"/usr/share/factory/mkosi/etc
+cp --archive --recursive --no-target-directory --reflink=auto "$BUILDROOT"/var "$BUILDROOT"/usr/share/factory/mkosi/var
+
+systemd-repart --dry-run=no --empty=create --size=auto --offline=true \
+    --root="$SRCDIR/mkosi.images/testsuite-24-cryptsetup/keydev.extra" \
+    --definitions="$SRCDIR/mkosi.images/testsuite-24-cryptsetup/keydev.repart" \
+    "$OUTPUTDIR/testsuite-24-cryptsetup-keydev.raw"
