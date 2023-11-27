@@ -13,7 +13,7 @@ TEST_TAG="$(systemd-id128 new)"
 
 BEFORE_TIMESTAMP="$(date +%s)"
 echo "$TEST_MESSAGE" | systemd-cat -t "$TEST_TAG"
-sleep 1
+sleep 5
 journalctl --sync
 TEST_CURSOR="$(journalctl -q -t "$TEST_TAG" -n 0 --show-cursor | awk '{ print $3; }')"
 BOOT_CURSOR="$(journalctl -q -b -n 0 --show-cursor | awk '{ print $3; }')"
@@ -65,7 +65,7 @@ journalctl --sync
 TEST2_CURSOR="$(journalctl -q -t "$TEST_TAG" -n 0 --show-cursor | awk '{ print $3; }')"
 echo "-= This is a third test message =-" | systemd-cat -t "$TEST_TAG"
 journalctl --sync
-sleep 1
+sleep 3
 END_TIMESTAMP="$(date +%s)"
 curl -Lfs --header "Accept: application/json" --header "Range: realtime=$BEFORE_TIMESTAMP::1:1" http://localhost:19531/entries?SYSLOG_IDENTIFIER="$TEST_TAG" | \
     jq -se "length == 1 and select(.[].__CURSOR == \"$TEST2_CURSOR\")"
@@ -130,7 +130,7 @@ systemd-socket-activate --listen=19531 -- \
         --key=/tmp/key.pem \
         --file="/var/log/journal/*/*.journal" &
 GATEWAYD_PID=$!
-sleep 1
+sleep 5
 
 # Do a limited set of tests, since the underlying code should be the same past the HTTPS transport
 curl -Lfsk https://localhost:19531 | grep -qF "<title>Journal</title>"
