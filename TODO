@@ -1880,8 +1880,6 @@ Features:
   - generate better errors when people try to set transient properties
     that are not supported...
     https://lists.freedesktop.org/archives/systemd-devel/2015-February/028076.html
-  - maybe introduce WantsMountsFor=? Use case:
-    https://lists.freedesktop.org/archives/systemd-devel/2015-January/027729.html
   - recreate systemd's D-Bus private socket file on SIGUSR2
   - move PAM code into its own binary
   - when we automatically restart a service, ensure we restart its rdeps, too.

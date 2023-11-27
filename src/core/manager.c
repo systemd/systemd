@@ -1694,6 +1694,9 @@ Manager* manager_free(Manager *m) {
         assert(hashmap_isempty(m->units_requiring_mounts_for));
         hashmap_free(m->units_requiring_mounts_for);
 
+        assert(hashmap_isempty(m->units_wanting_mounts_for));
+        hashmap_free(m->units_wanting_mounts_for);
+
         hashmap_free(m->uid_refs);
         hashmap_free(m->gid_refs);
 
@@ -4486,6 +4489,16 @@ Set* manager_get_units_requiring_mounts_for(Manager *m, const char *path) {
                 path = "";
 
         return hashmap_get(m->units_requiring_mounts_for, path);
+}
+
+Set* manager_get_units_wanting_mounts_for(Manager *m, const char *path) {
+        assert(m);
+        assert(path);
+
+        if (path_equal(path, "/"))
+                path = "";
+
+        return hashmap_get(m->units_wanting_mounts_for, path);
 }
 
 int manager_update_failed_units(Manager *m, Unit *u, bool failed) {

@@ -3152,7 +3152,7 @@ int config_parse_unit_condition_string(
         return 0;
 }
 
-int config_parse_unit_requires_mounts_for(
+int config_parse_unit_mounts_for(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -3171,6 +3171,7 @@ int config_parse_unit_requires_mounts_for(
         assert(lvalue);
         assert(rvalue);
         assert(data);
+        assert(STR_IN_SET(lvalue, "RequiresMountsFor", "WantsMountsFor"));
 
         for (const char *p = rvalue;;) {
                 _cleanup_free_ char *word = NULL, *resolved = NULL;
@@ -3196,9 +3197,12 @@ int config_parse_unit_requires_mounts_for(
                 if (r < 0)
                         continue;
 
-                r = unit_require_mounts_for(u, resolved, UNIT_DEPENDENCY_FILE);
+                if (streq(lvalue, "RequiresMountsFor"))
+                        r = unit_require_mounts_for(u, resolved, UNIT_DEPENDENCY_FILE);
+                else
+                        r = unit_want_mounts_for(u, resolved, UNIT_DEPENDENCY_FILE);
                 if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to add required mount '%s', ignoring: %m", resolved);
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to add requested mount '%s', ignoring: %m", resolved);
                         continue;
                 }
         }
@@ -6301,8 +6305,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_nsec,                  "NANOSECONDS" },
                 { config_parse_namespace_path_strv,   "PATH [...]" },
                 { config_parse_bind_paths,            "PATH[:PATH[:OPTIONS]] [...]" },
-                { config_parse_unit_requires_mounts_for,
-                                                      "PATH [...]" },
+                { config_parse_unit_mounts_for,       "PATH [...]" },
                 { config_parse_exec_mount_propagation_flag,
                                                       "MOUNTFLAG" },
                 { config_parse_unit_string_printf,    "STRING" },
