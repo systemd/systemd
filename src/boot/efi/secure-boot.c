@@ -74,6 +74,8 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
                         /* user aborted, returning EFI_SUCCESS here allows the user to go back to the menu */
                         return EFI_SUCCESS;
                 }
+
+                printf("\n");
         }
 
         _cleanup_(file_closep) EFI_FILE *dir = NULL;
@@ -117,10 +119,7 @@ EFI_STATUS secure_boot_enroll_at(EFI_FILE *root_dir, const char16_t *path, bool 
                 }
         }
 
-        if (!is_safe)
-                printf("\n");
-
-        printf("Custom Secure Boot keys successfully enrolled, rebooting the system now!");
+        printf("Custom Secure Boot keys successfully enrolled, rebooting the system now!\n");
         /* The system should be in secure boot mode now and we could continue a regular boot. But at least
          * TPM PCR7 measurements should change on next boot. Reboot now so that any OS we load does not end
          * up relying on the old PCR state. */
