@@ -1929,6 +1929,7 @@ check_result_nspawn_unittests() {
     check_coverage_reports "$workspace" || ret=5
 
     save_journal "$workspace/var/log/journal" $ret
+    echo "${JOURNAL_LIST:-"No journals were saved"}"
 
     _umount_dir "${initdir:?}"
 
@@ -1962,6 +1963,7 @@ check_result_qemu_unittests() {
     check_coverage_reports "$initdir" || ret=5
 
     save_journal "$initdir/var/log/journal" $ret
+    echo "${JOURNAL_LIST:-"No journals were saved"}"
 
     _umount_dir "$initdir"
 
