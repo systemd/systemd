@@ -181,6 +181,11 @@ EOF
     systemd-run --collect --service-type=notify -p DefaultDependencies=no -p IgnoreOnIsolate=yes --unit=testsuite-82-nosurvive-sigterm.service "$survive_sigterm"
     systemd-run --collect --service-type=exec -p DefaultDependencies=no -p IgnoreOnIsolate=yes --unit=testsuite-82-nosurvive.service sleep infinity
 
+    # Ensure that the unit doesn't get deactivated by dependencies on the source file. Given it's a verity
+    # image that is already open, even if the tmpfs with the image goes away, the file will be pinned by the
+    # kernel and will keep working.
+    cp /usr/share/minimal_0.* /tmp/
+
     # Configure these transient units to survive the soft reboot - they will not conflict with shutdown.target
     # and it will be ignored on the isolate that happens in the next boot. The first will use argv[0][0] =
     # '@', and the second will use SurviveFinalKillSignal=yes. Both should survive.
@@ -193,6 +198,11 @@ EOF
         --property "Before=reboot.target kexec.target poweroff.target halt.target emergency.target rescue.target" \
          "$survive_argv"
     systemd-run --service-type=exec --unit=testsuite-82-survive.service \
+        --property TemporaryFileSystem="/run /tmp /var" \
+        --property RootImage=/tmp/minimal_0.raw \
+        --property BindReadOnlyPaths=/dev/log \
+        --property BindReadOnlyPaths=/run/systemd/journal/socket \
+        --property BindReadOnlyPaths=/run/systemd/journal/stdout \
         --property SurviveFinalKillSignal=yes \
         --property IgnoreOnIsolate=yes \
         --property DefaultDependencies=no \

@@ -1289,13 +1289,13 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
         }
 
         if (c->root_directory) {
-                r = unit_add_mounts_for(u, c->root_directory, UNIT_DEPENDENCY_FILE, UNIT_MOUNT_REQUIRES);
+                r = unit_add_mounts_for(u, c->root_directory, UNIT_DEPENDENCY_FILE, UNIT_MOUNT_WANTS);
                 if (r < 0)
                         return r;
         }
 
         if (c->root_image) {
-                r = unit_add_mounts_for(u, c->root_image, UNIT_DEPENDENCY_FILE, UNIT_MOUNT_REQUIRES);
+                r = unit_add_mounts_for(u, c->root_image, UNIT_DEPENDENCY_FILE, UNIT_MOUNT_WANTS);
                 if (r < 0)
                         return r;
         }
