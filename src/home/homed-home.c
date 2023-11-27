@@ -1353,10 +1353,13 @@ static int home_activate_internal(Home *h, UserRecord *secret, HomeState for_sta
         return 0;
 }
 
-int home_activate(Home *h, UserRecord *secret, sd_bus_error *error) {
+int home_activate(Home *h, bool if_referenced, UserRecord *secret, sd_bus_error *error) {
         int r;
 
         assert(h);
+
+        if (if_referenced && !home_is_referenced(h))
+                return sd_bus_error_setf(error, BUS_ERROR_HOME_NOT_REFERENCED, "Home %s is currently not referenced.", h->user_name);
 
         switch (home_get_state(h)) {
         case HOME_UNFIXATED:
