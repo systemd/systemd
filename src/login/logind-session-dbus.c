@@ -395,6 +395,62 @@ static int method_set_type(sd_bus_message *message, void *userdata, sd_bus_error
         return sd_bus_reply_method_return(message, NULL);
 }
 
+static int method_set_class(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        Session *s = ASSERT_PTR(userdata);
+        SessionClass class;
+        const char *c;
+        uid_t uid;
+        int r;
+
+        assert(message);
+
+        r = sd_bus_message_read(message, "s", &c);
+        if (r < 0)
+                return r;
+
+        class = session_class_from_string(c);
+        if (class < 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                         "Invalid session class '%s'", c);
+
+        /* For now, we'll allow only upgrades user-incomplete → user */
+        if (class != SESSION_USER)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                         "Class may only be set to 'user', refusing.");
+        if (s->class == SESSION_USER) /* No change, shortcut */
+                return sd_bus_reply_method_return(message, NULL);
+        if (s->class != SESSION_USER_INCOMPLETE)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                         "Only sessions with class 'user-incomplete' may change class, refusing.");
+
+        if (s->upgrade_message)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
+                                         "Set session class operation already in progress, refsuing.");
+
+        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID, &creds);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_creds_get_euid(creds, &uid);
+        if (r < 0)
+                return r;
+
+        if (uid != 0 && uid != s->user->user_record->uid)
+                return sd_bus_error_set(error, SD_BUS_ERROR_ACCESS_DENIED, "Only owner of session may change its class");
+
+        session_set_class(s, class);
+
+        sd_bus_message_unref(s->upgrade_message);
+        s->upgrade_message = sd_bus_message_ref(message);
+
+        r = session_send_upgrade_reply(s, /* error= */ NULL);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 static int method_set_display(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Session *s = ASSERT_PTR(userdata);
         const char *display;
@@ -862,6 +918,25 @@ int session_send_create_reply(Session *s, sd_bus_error *error) {
                         false);
 }
 
+int session_send_upgrade_reply(Session *s, sd_bus_error *error) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *c = NULL;
+        assert(s);
+
+        if (!s->upgrade_message)
+                return 0;
+
+        if (!sd_bus_error_is_set(error) && !session_ready(s))
+                return 0;
+
+        c = TAKE_PTR(s->upgrade_message);
+        if (error)
+                return sd_bus_reply_method_error(c, error);
+
+        session_save(s);
+
+        return sd_bus_reply_method_return(c, NULL);
+}
+
 static const sd_bus_vtable session_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -939,6 +1014,11 @@ static const sd_bus_vtable session_vtable[] = {
                                 SD_BUS_ARGS("s", type),
                                 SD_BUS_NO_RESULT,
                                 method_set_type,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("SetClass",
+                                SD_BUS_ARGS("s", class),
+                                SD_BUS_NO_RESULT,
+                                method_set_class,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("SetDisplay",
                                 SD_BUS_ARGS("s", display),
