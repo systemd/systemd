@@ -2913,8 +2913,16 @@ static int generic_array_bisect_step(
         if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
                 log_debug_errno(r, "Encountered invalid entry while bisecting, cutting algorithm short.");
 
-                /* The first entry in the array is corrupted, let's go back to the previous array. */
-                if (i == 0)
+                if (*left == i)
+                        /* This happens on two situations:
+                         *
+                         * a) i == 0 (hence, *left == 0):
+                         *    The first entry in the array is corrupted, let's go back to the previous array.
+                         *
+                         * b) *right is next to *left, and we are going to downwards:
+                         *    In that case, the (i-1)-th object has been already tested in the previous call,
+                         *    which returned TEST_LEFT. See below. So, there is no matching entry in this
+                         *    array, and whole entry array chain. */
                         return TEST_GOTO_PREVIOUS;
 
                 /* Otherwise, cutting the array short. So, here we limit the number of elements we will see
