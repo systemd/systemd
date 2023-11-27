@@ -179,7 +179,7 @@ systemd-analyze security --json=short | jq
 if [[ ! -v ASAN_OPTIONS ]]; then
     # check that systemd-analyze cat-config paths work in a chroot
     mkdir -p /tmp/root
-    mount --bind / /tmp/root
+    mount --rbind / /tmp/root
     systemd-analyze cat-config systemd/system-preset >/tmp/out1
     chroot /tmp/root systemd-analyze cat-config systemd/system-preset >/tmp/out2
     diff /tmp/out{1,2}
