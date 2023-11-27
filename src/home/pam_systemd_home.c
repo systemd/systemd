@@ -23,6 +23,7 @@
 typedef enum AcquireHomeFlags {
         ACQUIRE_MUST_AUTHENTICATE = 1 << 0,
         ACQUIRE_PLEASE_SUSPEND    = 1 << 1,
+        ACQUIRE_REF_ANYWAY        = 1 << 2,
 } AcquireHomeFlags;
 
 static int parse_argv(
@@ -499,7 +500,7 @@ static int acquire_home(
                 PamBusData **bus_data) {
 
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL, *secret = NULL;
-        bool do_auth = FLAGS_SET(flags, ACQUIRE_MUST_AUTHENTICATE), home_not_active = false, home_locked = false;
+        bool do_auth = FLAGS_SET(flags, ACQUIRE_MUST_AUTHENTICATE), home_not_active = false, home_locked = false, unrestricted = false;
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         _cleanup_close_ int acquired_fd = -EBADF;
         _cleanup_free_ char *fd_field = NULL;
@@ -510,13 +511,27 @@ static int acquire_home(
 
         assert(handle);
 
-        /* This acquires a reference to a home directory in one of two ways: if please_authenticate is true,
-         * then we'll call AcquireHome() after asking the user for a password. Otherwise it tries to call
-         * RefHome() and if that fails queries the user for a password and uses AcquireHome().
+        /* This acquires a reference to a home directory in the following ways:
          *
-         * The idea is that the PAM authentication hook sets please_authenticate and thus always
-         * authenticates, while the other PAM hooks unset it so that they can a ref of their own without
-         * authentication if possible, but with authentication if necessary. */
+         * 1. If please_authenticate is false, it tries to call RefHome() first — which
+         *    will get us a reference to the home without authentication (which will work for homes that are
+         *    not encrypted, or that already are activated). If this works, we are done. Yay!
+         *
+         * 2. Otherwise, we'll call AcquireHome() — which will try to activate the home getting us a
+         *    reference. If this works, we are done. Yay!
+         *
+         * 3. if ref_anyway, we'll call RefHomeUnrestricted() — which will give us a reference in any case
+         *    (even if the activation failed!).
+         *
+         * The idea is that please_authenticate is set to false for the PAM session hooks (since for those
+         * authentication doesn't matter), and true for the PAM authentication hooks (since for those
+         * authentication is essential). And ref_anyway should be set if we are pretty sure that we can later
+         * activate the home directory via our fallback shell logic, and hence are OK if we can't activate
+         * things here. Usecase for that are SSH logins where SSH does the authentication and thus only the
+         * session hooks are called. But from the session hooks SSH doesn't allow asking questions, hence we
+         * simply allow the login attempt to continue but then invoke our fallback shell that will prompt the
+         * user for the missing unlock credentials, and then chainload the real shell.
+         */
 
         r = pam_get_user(handle, &username, NULL);
         if (r != PAM_SUCCESS)
@@ -546,16 +561,16 @@ static int acquire_home(
                 return r;
 
         /* Implement our own retry loop here instead of relying on the PAM client's one. That's because it
-         * might happen that the record we stored on the host does not match the encryption password of
-         * the LUKS image in case the image was used in a different system where the password was
-         * changed. In that case it will happen that the LUKS password and the host password are
-         * different, and we handle that by collecting and passing multiple passwords in that case. Hence we
-         * treat bad passwords as a request to collect one more password and pass the new all all previously
-         * used passwords again. */
+         * might happen that the record we stored on the host does not match the encryption password of the
+         * LUKS image in case the image was used in a different system where the password was changed. In
+         * that case it will happen that the LUKS password and the host password are different, and we handle
+         * that by collecting and passing multiple passwords in that case. Hence we treat bad passwords as a
+         * request to collect one more password and pass the new all all previously used passwords again. */
 
         for (;;) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                const char *method = NULL;
 
                 if (do_auth && !secret) {
                         const char *cached_password = NULL;
@@ -579,7 +594,14 @@ static int acquire_home(
                         }
                 }
 
-                r = bus_message_new_method_call(bus, &m, bus_home_mgr, do_auth ? "AcquireHome" : "RefHome");
+                if (do_auth)
+                        method = "AcquireHome"; /* If we shall authenticate no matter what */
+                else if (unrestricted)
+                        method = "RefHomeUnrestricted"; /* If we shall get a ref no matter what */
+                else
+                        method = "RefHome"; /* If we shall get a ref (if possible) */
+
+                r = bus_message_new_method_call(bus, &m, bus_home_mgr, method);
                 if (r < 0)
                         return pam_bus_log_create_error(handle, r);
 
@@ -599,15 +621,16 @@ static int acquire_home(
 
                 r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, &reply);
                 if (r < 0) {
-
-                        if (sd_bus_error_has_name(&error, BUS_ERROR_HOME_NOT_ACTIVE))
+                        if (sd_bus_error_has_name(&error, BUS_ERROR_HOME_NOT_ACTIVE)) {
                                 /* Only on RefHome(): We can't access the home directory currently, unless
                                  * it's unlocked with a password. Hence, let's try this again, this time with
                                  * authentication. */
                                 home_not_active = true;
-                        else if (sd_bus_error_has_name(&error, BUS_ERROR_HOME_LOCKED))
+                                do_auth = true;
+                        } else if (sd_bus_error_has_name(&error, BUS_ERROR_HOME_LOCKED)) {
                                 home_locked = true; /* Similar */
-                        else {
+                                do_auth = true;
+                        } else {
                                 r = handle_generic_user_record_error(handle, ur->user_name, secret, r, &error, debug);
                                 if (r == PAM_CONV_ERR) {
                                         /* Password/PIN prompts will fail in certain environments, for example when
@@ -615,18 +638,25 @@ static int acquire_home(
                                          * per-service PAM logic. In that case, print a friendly message and accept
                                          * failure. */
 
-                                        if (home_not_active)
-                                                (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, _("Home of user %s is currently not active, please log in locally first."), ur->user_name);
-                                        if (home_locked)
-                                                (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, _("Home of user %s is currently locked, please unlock locally first."), ur->user_name);
+                                        if (!FLAGS_SET(flags, ACQUIRE_REF_ANYWAY)) {
+                                                if (home_not_active)
+                                                        (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, _("Home of user %s is currently not active, please log in locally first."), ur->user_name);
+                                                if (home_locked)
+                                                        (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, _("Home of user %s is currently locked, please unlock locally first."), ur->user_name);
 
-                                        if (FLAGS_SET(flags, ACQUIRE_MUST_AUTHENTICATE) || debug)
-                                                pam_syslog(handle, FLAGS_SET(flags, ACQUIRE_MUST_AUTHENTICATE) ? LOG_ERR : LOG_DEBUG, "Failed to prompt for password/prompt.");
+                                                if (FLAGS_SET(flags, ACQUIRE_MUST_AUTHENTICATE) || debug)
+                                                        pam_syslog(handle, FLAGS_SET(flags, ACQUIRE_MUST_AUTHENTICATE) ? LOG_ERR : LOG_DEBUG, "Failed to prompt for password/prompt.");
 
-                                        return home_not_active || home_locked ? PAM_PERM_DENIED : PAM_CONV_ERR;
-                                }
-                                if (r != PAM_SUCCESS)
+                                                return home_not_active || home_locked ? PAM_PERM_DENIED : PAM_CONV_ERR;
+                                        }
+
+                                        /* ref_anyway is true, hence let's now get a ref no matter what. */
+                                        unrestricted = true;
+                                        do_auth = false;
+                                } else if (r != PAM_SUCCESS)
                                         return r;
+                                else
+                                        do_auth = true; /* The issue was dealt with, some more information was collected. Let's try to authenticate, again. */
                         }
                 } else {
                         int fd;
@@ -648,9 +678,6 @@ static int acquire_home(
                         return pam_syslog_pam_error(handle, LOG_ERR, PAM_MAXTRIES,
                                                     "Failed to acquire home for user %s: %s", ur->user_name, bus_error_message(&error, r));
                 }
-
-                /* Try again, this time with authentication if we didn't do that before. */
-                do_auth = true;
         }
 
         /* Later PAM modules may need the auth token, but only during pam_authenticate. */
@@ -674,7 +701,19 @@ static int acquire_home(
                         return r;
         }
 
-        pam_syslog(handle, LOG_NOTICE, "Home for user %s successfully acquired.", ur->user_name);
+        /* If we didn't actually manage to unlock the home directory, then we rely on the fallback-shell to
+         * unlock it for us. But until that happens we don't want that logind spawns the per-user service
+         * manager for us (since it would see an inaccessible home directory). Hence set an environment
+         * variable that pam_systemd looks for). */
+        if (unrestricted) {
+                r = pam_putenv(handle, "XDG_SESSION_INCOMPLETE=1");
+                if (r != PAM_SUCCESS)
+                        return pam_syslog_pam_error(handle, LOG_WARNING, r, "Failed to set XDG_SESSION_INCOMPLETE= environment variable: @PAMERR@");
+
+                pam_syslog(handle, LOG_NOTICE, "Home for user %s acquired in incomplete mode, requires later activation.", ur->user_name);
+        } else
+                pam_syslog(handle, LOG_NOTICE, "Home for user %s successfully acquired.", ur->user_name);
+
         return PAM_SUCCESS;
 }
 
@@ -729,6 +768,36 @@ _public_ PAM_EXTERN int pam_sm_setcred(pam_handle_t *pamh, int sm_flags, int arg
         return PAM_SUCCESS;
 }
 
+static int fallback_shell_can_work(
+                pam_handle_t *handle,
+                AcquireHomeFlags *flags) {
+
+        const char *tty = NULL, *display = NULL;
+        int r;
+
+        assert(handle);
+        assert(flags);
+
+        r = pam_get_item_many(
+                        handle,
+                        PAM_TTY, &tty,
+                        PAM_XDISPLAY, &display);
+        if (r != PAM_SUCCESS)
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM items: @PAMERR@");
+
+        /* The fallback shell logic only works on TTY logins, hence only allow it if there's no X11 display
+         * set, and a TTY field is set that is neither "cron" (which is what crond sets, god knows why) not
+         * contains a colon (which is what various graphical X11 logins do). Note that ssh sets the tty to
+         * "ssh" here, which we allow (I mean, ssh is after all the primary reason we do all this). */
+        if (isempty(display) &&
+            tty &&
+            !strchr(tty, ':') &&
+            !streq(tty, "cron"))
+                *flags |= ACQUIRE_REF_ANYWAY; /* Allow login even if we can only ref, not activate */
+
+        return PAM_SUCCESS;
+}
+
 _public_ PAM_EXTERN int pam_sm_open_session(
                 pam_handle_t *handle,
                 int sm_flags,
@@ -752,6 +821,10 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 return PAM_SESSION_ERR;
 
         pam_debug_syslog(handle, debug, "pam-systemd-homed session start");
+
+        r = fallback_shell_can_work(handle, &flags);
+        if (r != PAM_SUCCESS)
+                return r;
 
         r = acquire_home(handle, flags, debug, &d);
         if (r == PAM_USER_UNKNOWN) /* Not managed by us? Don't complain. */
@@ -854,7 +927,11 @@ _public_ PAM_EXTERN int pam_sm_acct_mgmt(
 
         pam_debug_syslog(handle, debug, "pam-systemd-homed account management");
 
-        r = acquire_home(handle, flags, debug, NULL);
+        r = fallback_shell_can_work(handle, &flags);
+        if (r != PAM_SUCCESS)
+                return r;
+
+        r = acquire_home(handle, flags, debug, /* bus_data= */ NULL);
         if (r != PAM_SUCCESS)
                 return r;
 
