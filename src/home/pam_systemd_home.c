@@ -20,10 +20,15 @@
 #include "user-record.h"
 #include "user-util.h"
 
+typedef enum AcquireHomeFlags {
+        ACQUIRE_MUST_AUTHENTICATE = 1 << 0,
+        ACQUIRE_PLEASE_SUSPEND    = 1 << 1,
+} AcquireHomeFlags;
+
 static int parse_argv(
                 pam_handle_t *handle,
                 int argc, const char **argv,
-                bool *please_suspend,
+                AcquireHomeFlags *flags,
                 bool *debug) {
 
         assert(argc >= 0);
@@ -38,8 +43,8 @@ static int parse_argv(
                         k = parse_boolean(v);
                         if (k < 0)
                                 pam_syslog(handle, LOG_WARNING, "Failed to parse suspend= argument, ignoring: %s", v);
-                        else if (please_suspend)
-                                *please_suspend = k;
+                        else if (flags)
+                                SET_FLAG(*flags, ACQUIRE_PLEASE_SUSPEND, k);
 
                 } else if (streq(argv[i], "debug")) {
                         if (debug)
@@ -62,7 +67,7 @@ static int parse_argv(
 
 static int parse_env(
                 pam_handle_t *handle,
-                bool *please_suspend) {
+                AcquireHomeFlags *flags) {
 
         const char *v;
         int r;
@@ -83,8 +88,8 @@ static int parse_env(
         r = parse_boolean(v);
         if (r < 0)
                 pam_syslog(handle, LOG_WARNING, "Failed to parse $SYSTEMD_HOME_SUSPEND argument, ignoring: %s", v);
-        else if (please_suspend)
-                *please_suspend = r;
+        else if (flags)
+                SET_FLAG(*flags, ACQUIRE_PLEASE_SUSPEND, r);
 
         return 0;
 }
@@ -363,7 +368,6 @@ static int handle_generic_user_record_error(
                         return PAM_AUTHTOK_ERR;
                 }
 
-
                 r = user_record_set_password(secret, STRV_MAKE(newp), true);
                 if (r < 0)
                         return pam_syslog_errno(handle, LOG_ERR, r, "Failed to store password: %m");
@@ -490,13 +494,12 @@ static int handle_generic_user_record_error(
 
 static int acquire_home(
                 pam_handle_t *handle,
-                bool please_authenticate,
-                bool please_suspend,
+                AcquireHomeFlags flags,
                 bool debug,
                 PamBusData **bus_data) {
 
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL, *secret = NULL;
-        bool do_auth = please_authenticate, home_not_active = false, home_locked = false;
+        bool do_auth = FLAGS_SET(flags, ACQUIRE_MUST_AUTHENTICATE), home_not_active = false, home_locked = false;
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
         _cleanup_close_ int acquired_fd = -EBADF;
         _cleanup_free_ char *fd_field = NULL;
@@ -590,7 +593,7 @@ static int acquire_home(
                                 return pam_bus_log_create_error(handle, r);
                 }
 
-                r = sd_bus_message_append(m, "b", please_suspend);
+                r = sd_bus_message_append(m, "b", FLAGS_SET(flags, ACQUIRE_PLEASE_SUSPEND));
                 if (r < 0)
                         return pam_bus_log_create_error(handle, r);
 
@@ -617,15 +620,14 @@ static int acquire_home(
                                         if (home_locked)
                                                 (void) pam_prompt(handle, PAM_ERROR_MSG, NULL, _("Home of user %s is currently locked, please unlock locally first."), ur->user_name);
 
-                                        if (please_authenticate || debug)
-                                                pam_syslog(handle, please_authenticate ? LOG_ERR : LOG_DEBUG, "Failed to prompt for password/prompt.");
+                                        if (FLAGS_SET(flags, ACQUIRE_MUST_AUTHENTICATE) || debug)
+                                                pam_syslog(handle, FLAGS_SET(flags, ACQUIRE_MUST_AUTHENTICATE) ? LOG_ERR : LOG_DEBUG, "Failed to prompt for password/prompt.");
 
                                         return home_not_active || home_locked ? PAM_PERM_DENIED : PAM_CONV_ERR;
                                 }
                                 if (r != PAM_SUCCESS)
                                         return r;
                         }
-
                 } else {
                         int fd;
 
@@ -652,7 +654,7 @@ static int acquire_home(
         }
 
         /* Later PAM modules may need the auth token, but only during pam_authenticate. */
-        if (please_authenticate && !strv_isempty(secret->password)) {
+        if (FLAGS_SET(flags, ACQUIRE_MUST_AUTHENTICATE) && !strv_isempty(secret->password)) {
                 r = pam_set_item(handle, PAM_AUTHTOK, *secret->password);
                 if (r != PAM_SUCCESS)
                         return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to set PAM auth token: @PAMERR@");
@@ -703,53 +705,55 @@ static int release_home_fd(pam_handle_t *handle, const char *username) {
 
 _public_ PAM_EXTERN int pam_sm_authenticate(
                 pam_handle_t *handle,
-                int flags,
+                int sm_flags,
                 int argc, const char **argv) {
 
-        bool debug = false, suspend_please = false;
+        AcquireHomeFlags flags = 0;
+        bool debug = false;
 
-        if (parse_env(handle, &suspend_please) < 0)
+        if (parse_env(handle, &flags) < 0)
                 return PAM_AUTH_ERR;
 
         if (parse_argv(handle,
                        argc, argv,
-                       &suspend_please,
+                       &flags,
                        &debug) < 0)
                 return PAM_AUTH_ERR;
 
         pam_debug_syslog(handle, debug, "pam-systemd-homed authenticating");
 
-        return acquire_home(handle, /* please_authenticate= */ true, suspend_please, debug, NULL);
+        return acquire_home(handle, ACQUIRE_MUST_AUTHENTICATE|flags, debug, /* bus_data= */ NULL);
 }
 
-_public_ PAM_EXTERN int pam_sm_setcred(pam_handle_t *pamh, int flags, int argc, const char **argv) {
+_public_ PAM_EXTERN int pam_sm_setcred(pam_handle_t *pamh, int sm_flags, int argc, const char **argv) {
         return PAM_SUCCESS;
 }
 
 _public_ PAM_EXTERN int pam_sm_open_session(
                 pam_handle_t *handle,
-                int flags,
+                int sm_flags,
                 int argc, const char **argv) {
 
         /* Let's release the D-Bus connection once this function exits, after all the session might live
          * quite a long time, and we are not going to process the bus connection in that time, so let's
          * better close before the daemon kicks us off because we are not processing anything. */
         _cleanup_(pam_bus_data_disconnectp) PamBusData *d = NULL;
-        bool debug = false, suspend_please = false;
+        AcquireHomeFlags flags = 0;
+        bool debug = false;
         int r;
 
-        if (parse_env(handle, &suspend_please) < 0)
+        if (parse_env(handle, &flags) < 0)
                 return PAM_SESSION_ERR;
 
         if (parse_argv(handle,
                        argc, argv,
-                       &suspend_please,
+                       &flags,
                        &debug) < 0)
                 return PAM_SESSION_ERR;
 
         pam_debug_syslog(handle, debug, "pam-systemd-homed session start");
 
-        r = acquire_home(handle, /* please_authenticate = */ false, suspend_please, debug, &d);
+        r = acquire_home(handle, flags, debug, &d);
         if (r == PAM_USER_UNKNOWN) /* Not managed by us? Don't complain. */
                 return PAM_SUCCESS;
         if (r != PAM_SUCCESS)
@@ -760,7 +764,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 return pam_syslog_pam_error(handle, LOG_ERR, r,
                                             "Failed to set PAM environment variable $SYSTEMD_HOME: @PAMERR@");
 
-        r = pam_putenv(handle, suspend_please ? "SYSTEMD_HOME_SUSPEND=1" : "SYSTEMD_HOME_SUSPEND=0");
+        r = pam_putenv(handle, FLAGS_SET(flags, ACQUIRE_PLEASE_SUSPEND) ? "SYSTEMD_HOME_SUSPEND=1" : "SYSTEMD_HOME_SUSPEND=0");
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(handle, LOG_ERR, r,
                                             "Failed to set PAM environment variable $SYSTEMD_HOME_SUSPEND: @PAMERR@");
@@ -770,7 +774,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
 
 _public_ PAM_EXTERN int pam_sm_close_session(
                 pam_handle_t *handle,
-                int flags,
+                int sm_flags,
                 int argc, const char **argv) {
 
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -829,27 +833,28 @@ _public_ PAM_EXTERN int pam_sm_close_session(
 
 _public_ PAM_EXTERN int pam_sm_acct_mgmt(
                 pam_handle_t *handle,
-                int flags,
+                int sm_flags,
                 int argc,
                 const char **argv) {
 
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
-        bool debug = false, please_suspend = false;
+        AcquireHomeFlags flags = 0;
+        bool debug = false;
         usec_t t;
         int r;
 
-        if (parse_env(handle, &please_suspend) < 0)
+        if (parse_env(handle, &flags) < 0)
                 return PAM_AUTH_ERR;
 
         if (parse_argv(handle,
                        argc, argv,
-                       &please_suspend,
+                       &flags,
                        &debug) < 0)
                 return PAM_AUTH_ERR;
 
         pam_debug_syslog(handle, debug, "pam-systemd-homed account management");
 
-        r = acquire_home(handle, /* please_authenticate = */ false, please_suspend, debug, NULL);
+        r = acquire_home(handle, flags, debug, NULL);
         if (r != PAM_SUCCESS)
                 return r;
 
@@ -941,7 +946,7 @@ _public_ PAM_EXTERN int pam_sm_acct_mgmt(
 
 _public_ PAM_EXTERN int pam_sm_chauthtok(
                 pam_handle_t *handle,
-                int flags,
+                int sm_flags,
                 int argc,
                 const char **argv) {
 
@@ -999,7 +1004,7 @@ _public_ PAM_EXTERN int pam_sm_chauthtok(
         }
 
         /* Now everything is cached and checked, let's exit from the preliminary check */
-        if (FLAGS_SET(flags, PAM_PRELIM_CHECK))
+        if (FLAGS_SET(sm_flags, PAM_PRELIM_CHECK))
                 return PAM_SUCCESS;
 
         old_secret = user_record_new();
