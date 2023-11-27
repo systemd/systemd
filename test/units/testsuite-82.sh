@@ -45,6 +45,7 @@ if [ -f /run/testsuite82.touch3 ]; then
     # Check journals
     journalctl -o short-monotonic --no-hostname --grep '(will soft-reboot|KILL|corrupt)'
     assert_eq "$(journalctl -q -o short-monotonic -u systemd-journald.service --grep 'corrupt')" ""
+    #assert_eq "$(journalctl -q -o short-monotonic --grep 'Sending SIGKILL to PID [0-9]* \(\(sd-close\)\).')" ""
 
     # All succeeded, exit cleanly now
 
