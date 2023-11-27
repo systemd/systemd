@@ -208,8 +208,8 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
                                    TABLE_STRING, id,
                                    TABLE_UID, (uid_t) uid,
                                    TABLE_STRING, user,
-                                   TABLE_STRING, seat,
-                                   TABLE_STRING, strna(i.tty),
+                                   TABLE_STRING, empty_to_null(seat),
+                                   TABLE_STRING, empty_to_null(i.tty),
                                    TABLE_STRING, i.state,
                                    TABLE_BOOLEAN, i.idle_hint);
                 if (r < 0)
@@ -547,22 +547,25 @@ static int print_session_status_info(sd_bus *bus, const char *path) {
                         return table_log_add_error(r);
         }
 
-        r = table_add_cell(table, NULL, TABLE_FIELD, "Seat");
-        if (r < 0)
-                return table_log_add_error(r);
 
-        if (i.vtnr > 0)
-                r = table_add_cell_stringf(table, NULL, "%s; vc%u", i.seat, i.vtnr);
-        else
-                r = table_add_cell(table, NULL, TABLE_STRING, i.seat);
-        if (r < 0)
-                return table_log_add_error(r);
+        if (!isempty(i.seat)) {
+                r = table_add_cell(table, NULL, TABLE_FIELD, "Seat");
+                if (r < 0)
+                        return table_log_add_error(r);
 
-        if (i.tty)
+                if (i.vtnr > 0)
+                        r = table_add_cell_stringf(table, NULL, "%s; vc%u", i.seat, i.vtnr);
+                else
+                        r = table_add_cell(table, NULL, TABLE_STRING, i.seat);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (!isempty(i.tty))
                 r = table_add_many(table,
                                    TABLE_FIELD, "TTY",
                                    TABLE_STRING, i.tty);
-        else if (i.display)
+        else if (!isempty(i.display))
                 r = table_add_many(table,
                                    TABLE_FIELD, "Display",
                                    TABLE_STRING, i.display);
