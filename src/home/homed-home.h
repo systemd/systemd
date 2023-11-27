@@ -185,7 +185,7 @@ int home_save_record(Home *h);
 int home_unlink_record(Home *h);
 
 int home_fixate(Home *h, UserRecord *secret, sd_bus_error *error);
-int home_activate(Home *h, UserRecord *secret, sd_bus_error *error);
+int home_activate(Home *h, bool if_referenced, UserRecord *secret, sd_bus_error *error);
 int home_authenticate(Home *h, UserRecord *secret, sd_bus_error *error);
 int home_deactivate(Home *h, bool force, sd_bus_error *error);
 int home_create(Home *h, UserRecord *secret, sd_bus_error *error);
