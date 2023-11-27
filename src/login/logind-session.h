@@ -22,6 +22,7 @@ typedef enum SessionState {
 typedef enum SessionClass {
         SESSION_USER,               /* A regular user session */
         SESSION_USER_EARLY,         /* A user session, that is not odered after systemd-user-sessions.service (i.e. for root) */
+        SESSION_USER_INCOMPLETE,    /* A user session that is only half-way set up and doesn't pull in the service manager, and can be upgraded to a full service later */
         SESSION_GREETER,            /* A login greeter pseudo-session */
         SESSION_LOCK_SCREEN,        /* A lock screen */
         SESSION_BACKGROUND,         /* Things like cron jobs, which are non-interactive */
@@ -36,7 +37,7 @@ typedef enum SessionClass {
 #define SESSION_CLASS_IS_EARLY(class) IN_SET((class), SESSION_USER_EARLY, SESSION_MANAGER_EARLY)
 
 /* Which session classes want their own scope units? (all of them, except the manager, which comes in its own service unit already */
-#define SESSION_CLASS_WANTS_SCOPE(class) IN_SET((class), SESSION_USER, SESSION_USER_EARLY, SESSION_GREETER, SESSION_LOCK_SCREEN, SESSION_BACKGROUND)
+#define SESSION_CLASS_WANTS_SCOPE(class) IN_SET((class), SESSION_USER, SESSION_USER_EARLY, SESSION_USER_INCOMPLETE, SESSION_GREETER, SESSION_LOCK_SCREEN, SESSION_BACKGROUND)
 
 /* Which session classes want their own per-user service manager? */
 #define SESSION_CLASS_WANTS_SERVICE_MANAGER(class) IN_SET((class), SESSION_USER, SESSION_USER_EARLY, SESSION_GREETER, SESSION_LOCK_SCREEN, SESSION_BACKGROUND)
