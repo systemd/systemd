@@ -1,0 +1,11 @@
+#!/bin/sh
+# -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# ex: ts=8 sw=4 sts=4 et filetype=sh tw=180
+set -eux
+
+mkdir -p "$BUILDROOT/etc/extension-release.d"
+( grep "^ID=" "$BUILDROOT/usr/lib/os-release"
+  grep "^VERSION_ID=" "$BUILDROOT/usr/lib/os-release" || true
+  echo CONFEXT_IMAGE_ID=app ) >>"$BUILDROOT/etc/extension-release.d/extension-release.conf0"
