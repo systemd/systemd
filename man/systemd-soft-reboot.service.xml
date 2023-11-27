@@ -30,8 +30,8 @@
     <para><filename>systemd-soft-reboot.service</filename> is a system service that is pulled in by
     <filename>soft-reboot.target</filename> and is responsible for performing a userspace-only reboot
     operation. When invoked, it will send the <constant>SIGTERM</constant> signal to any processes left
-    running (but does not follow up with <constant>SIGKILL</constant>, and does not wait for the processes to
-    exit). If the <filename>/run/nextroot/</filename> directory exists (which may be a regular directory, a
+    running (but does not wait for the processes to exit), and follow up with <constant>SIGKILL</constant>.
+    If the <filename>/run/nextroot/</filename> directory exists (which may be a regular directory, a
     directory mount point or a symlink to either) then it will switch the file system root to it. It then
     reexecutes the service manager off the (possibly now new) root file system, which will enqueue a new boot
     transaction as in a normal reboot.</para>
