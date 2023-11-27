@@ -125,7 +125,8 @@ struct Session {
 
         bool was_active:1;
 
-        sd_bus_message *create_message;
+        sd_bus_message *create_message;   /* The D-Bus message used to create the session, which we haven't responded to yet */
+        sd_bus_message *upgrade_message;  /* The D-Bus message used to upgrade the session class user-incomplete → user,  wich we haven't responded to yet */
 
         /* Set up when a client requested to release the session via the bus */
         sd_event_source *timer_event_source;
@@ -158,6 +159,7 @@ int session_set_idle_hint(Session *s, bool b);
 int session_get_locked_hint(Session *s);
 void session_set_locked_hint(Session *s, bool b);
 void session_set_type(Session *s, SessionType t);
+void session_set_class(Session *s, SessionClass c);
 int session_set_display(Session *s, const char *display);
 int session_set_tty(Session *s, const char *tty);
 int session_create_fifo(Session *s);
