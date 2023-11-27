@@ -376,9 +376,9 @@ static int verb_call(int argc, char *argv[], void *userdata) {
         arg_json_format_flags &= ~JSON_FORMAT_OFF;
 
         if (parameter) {
-                r = json_parse_with_source(parameter, "<argv[4]>", 0, &jp, &line, &column);
+                r = json_parse_with_source(parameter, "<argv[3]>", 0, &jp, &line, &column);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to parse parameters at <argv[4]>:%u:%u: %m", line, column);
+                        return log_error_errno(r, "Failed to parse parameters at <argv[3]>:%u:%u: %m", line, column);
         } else {
                 r = json_parse_file_at(stdin, AT_FDCWD, "<stdin>", 0, &jp, &line, &column);
                 if (r < 0)

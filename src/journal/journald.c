@@ -131,6 +131,14 @@ int main(int argc, char *argv[]) {
                               LOG_MESSAGE("Journal stopped"),
                               NULL);
 
+        if (server.event_for_soft_reboot) {
+                r = sd_event_loop(server.event_for_soft_reboot);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to run event loop for soft-reboot: %m");
+                        goto finish;
+                }
+        }
+
 finish:
         server_done(&server);
 
