@@ -1,0 +1,15 @@
+#!/bin/sh
+# -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
+# SPDX-License-Identifier: LGPL-2.1-or-later
+#
+# ex: ts=8 sw=4 sts=4 et filetype=sh tw=180
+set -eux
+
+mkdir -p "$BUILDROOT/usr/lib/extension-release.d"
+grep "^ID=" "$BUILDROOT/usr/lib/os-release" >"$BUILDROOT/usr/lib/extension-release.d/extension-release.app2"
+( grep "^VERSION_ID" /usr/lib/os-release
+  echo "SYSEXT_SCOPE=portable"
+  echo "SYSEXT_IMAGE_ID=app"
+  echo "SYSEXT_IMAGE_VERSION=1"
+  echo "PORTABLE_PREFIXES=app1" ) >>"$BUILDROOT/usr/lib/extension-release.d/extension-release.app2"
+setfattr -n user.extension-release.strict -v false "$BUILDROOT/usr/lib/extension-release.d/extension-release.app2"
