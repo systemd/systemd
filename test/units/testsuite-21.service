@@ -7,4 +7,5 @@ Wants=dbus.service multi-user.target
 [Service]
 ExecStartPre=rm -f /failed /skipped /testok
 ExecStart=/usr/lib/systemd/tests/testdata/units/%N.sh
+ExecStartPost=/usr/lib/systemd/tests/testdata/units/testsuite-post.sh %N
 Type=oneshot
