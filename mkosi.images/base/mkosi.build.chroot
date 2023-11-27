@@ -53,6 +53,7 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
         -D b_sanitize="${SANITIZERS:-none}"
         -D install-tests=true
         -D tests=unsafe
+        -D integration-tests=false
         -D slow-tests="${SLOW_TESTS:-false}"
         -D create-log-dirs=false
         -D pamconfdir=/usr/lib/pam.d/

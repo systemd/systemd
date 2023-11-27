@@ -2496,6 +2496,16 @@ endif
 
 #####################################################################
 
+if get_option('integration-tests') != false
+        build_system_mkosi_wrapper = find_program('test/build-system-mkosi-wrapper.sh')
+        system_mkosi = custom_target('system_mkosi',
+                build_always_stale : true,
+                output : 'system',
+                command: [build_system_mkosi_wrapper, 'system', '@OUTPUT@'])
+endif
+
+############################################################
+
 subdir('rules.d')
 subdir('test')
 
