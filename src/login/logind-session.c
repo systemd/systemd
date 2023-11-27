@@ -722,8 +722,11 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
         assert(s);
         assert(s->user);
 
+        if (!SESSION_CLASS_WANTS_SCOPE(s->class))
+                return 0;
+
         if (!s->scope) {
-                _cleanup_strv_free_ char **after = NULL;
+                _cleanup_strv_free_ char **wants = NULL, **after = NULL;
                 _cleanup_free_ char *scope = NULL;
                 const char *description;
 
@@ -734,6 +737,12 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
                         return log_oom();
 
                 description = strjoina("Session ", s->id, " of User ", s->user->user_record->user_name);
+
+                /* These two have StopWhenUnneeded= set, hence add a dep towards them */
+                wants = strv_new(s->user->runtime_dir_service,
+                                 SESSION_CLASS_WANTS_SERVICE_MANAGER(s->class) ? s->user->service : STRV_IGNORE);
+                if (!wants)
+                        return log_oom();
 
                 /* We usually want to order session scopes after systemd-user-sessions.service since the
                  * latter unit is used as login session barrier for unprivileged users. However the barrier
@@ -754,9 +763,7 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
                                 &s->leader,
                                 s->user->slice,
                                 description,
-                                /* These two have StopWhenUnneeded= set, hence add a dep towards them */
-                                STRV_MAKE(s->user->runtime_dir_service,
-                                          s->user->service),
+                                wants,
                                 after,
                                 user_record_home_directory(s->user->user_record),
                                 properties,
@@ -1632,11 +1639,13 @@ static const char* const session_type_table[_SESSION_TYPE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(session_type, SessionType);
 
 static const char* const session_class_table[_SESSION_CLASS_MAX] = {
-        [SESSION_USER]        = "user",
-        [SESSION_USER_EARLY]  = "user-early",
-        [SESSION_GREETER]     = "greeter",
-        [SESSION_LOCK_SCREEN] = "lock-screen",
-        [SESSION_BACKGROUND]  = "background",
+        [SESSION_USER]          = "user",
+        [SESSION_USER_EARLY]    = "user-early",
+        [SESSION_GREETER]       = "greeter",
+        [SESSION_LOCK_SCREEN]   = "lock-screen",
+        [SESSION_BACKGROUND]    = "background",
+        [SESSION_MANAGER]       = "manager",
+        [SESSION_MANAGER_EARLY] = "manager-early",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(session_class, SessionClass);
