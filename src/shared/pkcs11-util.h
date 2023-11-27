@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#if HAVE_OPENSSL
+#  include <openssl/x509.h>
+#endif
 #include <stdbool.h>
 
 #if HAVE_P11KIT
@@ -10,7 +13,6 @@
 
 #include "ask-password-api.h"
 #include "macro.h"
-#include "openssl-util.h"
 #include "time-util.h"
 
 bool pkcs11_uri_valid(const char *uri);
@@ -50,6 +52,7 @@ char *pkcs11_token_model(const CK_TOKEN_INFO *token_info);
 int pkcs11_token_login_by_pin(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, const CK_TOKEN_INFO *token_info, const char *token_label, const void *pin, size_t pin_size);
 int pkcs11_token_login(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, CK_SLOT_ID slotid, const CK_TOKEN_INFO *token_info, const char *friendly_name, const char *icon_name, const char *key_name, const char *credential_name, usec_t until, AskPasswordFlags ask_password_flags, bool headless, char **ret_used_pin);
 
+int pkcs11_token_find_related_object(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, CK_OBJECT_HANDLE prototype, CK_OBJECT_CLASS class, CK_OBJECT_HANDLE *ret_object);
 int pkcs11_token_find_x509_certificate(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, P11KitUri *search_uri, CK_OBJECT_HANDLE *ret_object);
 #if HAVE_OPENSSL
 int pkcs11_token_read_x509_certificate(CK_FUNCTION_LIST *m, CK_SESSION_HANDLE session, CK_OBJECT_HANDLE object, X509 **ret_cert);
