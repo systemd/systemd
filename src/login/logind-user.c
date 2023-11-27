@@ -336,7 +336,17 @@ int user_load(User *u) {
         return 0;
 }
 
-static void user_start_service(User *u) {
+static bool user_wants_service_manager(User *u) {
+        assert(u);
+
+        LIST_FOREACH(sessions_by_user, s, u->sessions)
+                if (SESSION_CLASS_WANTS_SERVICE_MANAGER(s->class))
+                        return true;
+
+        return false;
+}
+
+void user_start_service_manager(User *u) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
@@ -345,6 +355,12 @@ static void user_start_service(User *u) {
         /* Start the service containing the "systemd --user" instance (user@.service). Note that we don't explicitly
          * start the per-user slice or the systemd-runtime-dir@.service instance, as those are pulled in both by
          * user@.service and the session scopes as dependencies. */
+
+        if (u->stopping) /* Don't try to start this if the user is going down */
+                return;
+
+        if (!user_wants_service_manager(u)) /* Only start user service manager if there's at least one session which wants it */
+                return;
 
         u->service_job = mfree(u->service_job);
 
@@ -448,7 +464,7 @@ int user_start(User *u) {
         u->stopping = false;
 
         if (!u->started)
-                log_debug("Starting services for new user %s.", u->user_record->user_name);
+                log_debug("Tracking new user %s.", u->user_record->user_name);
 
         /* Save the user data so far, because pam_systemd will read the XDG_RUNTIME_DIR out of it while starting up
          * systemd --user.  We need to do user_save_internal() because we have not "officially" started yet. */
@@ -458,7 +474,7 @@ int user_start(User *u) {
         (void) user_update_slice(u);
 
         /* Start user@UID.service */
-        user_start_service(u);
+        user_start_service_manager(u);
 
         if (!u->started) {
                 if (!dual_timestamp_is_set(&u->timestamp))
@@ -651,6 +667,19 @@ static usec_t user_get_stop_delay(User *u) {
         return u->manager->user_stop_delay;
 }
 
+static bool user_pinned_by_sessions(User *u) {
+        assert(u);
+
+        /* Returns true if at least one session exists that shall keep the user tracking alive. That
+         * generally means one session that isn't the service manager still exists. */
+
+        LIST_FOREACH(sessions_by_user, i, u->sessions)
+                if (SESSION_CLASS_PIN_USER(i->class))
+                        return true;
+
+        return false;
+}
+
 bool user_may_gc(User *u, bool drop_not_started) {
         int r;
 
@@ -659,7 +688,7 @@ bool user_may_gc(User *u, bool drop_not_started) {
         if (drop_not_started && !u->started)
                 return true;
 
-        if (u->sessions)
+        if (user_pinned_by_sessions(u))
                 return false;
 
         if (u->last_session_timestamp != USEC_INFINITY) {
