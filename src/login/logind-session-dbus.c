@@ -800,7 +800,7 @@ static bool session_ready(Session *s) {
         /* Returns true when the session is ready, i.e. all jobs we enqueued for it are done (regardless if successful or not) */
 
         return !s->scope_job &&
-                !s->user->service_job;
+                (!SESSION_CLASS_WANTS_SERVICE_MANAGER(s->class) || !s->user->service_job);
 }
 
 int session_send_create_reply(Session *s, sd_bus_error *error) {

@@ -842,25 +842,19 @@ static int create_session(
                         c = SESSION_USER;
         }
 
-        /* Check if we are already in a logind session. Or if we are in user@.service
-         * which is a special PAM session that avoids creating a logind session. */
-        r = manager_get_user_by_pid(m, leader.pid, NULL);
+        /* Check if we are already in a logind session, and if so refuse. */
+        r = manager_get_session_by_pidref(m, &leader, /* ret_session= */ NULL);
         if (r < 0)
                 return r;
         if (r > 0)
                 return sd_bus_error_setf(error, BUS_ERROR_SESSION_BUSY,
                                          "Already running in a session or user slice");
 
-        /*
-         * Old gdm and lightdm start the user-session on the same VT as
-         * the greeter session. But they destroy the greeter session
-         * after the user-session and want the user-session to take
-         * over the VT. We need to support this for
-         * backwards-compatibility, so make sure we allow new sessions
-         * on a VT that a greeter is running on. Furthermore, to allow
-         * re-logins, we have to allow a greeter to take over a used VT for
-         * the exact same reasons.
-         */
+        /* Old gdm and lightdm start the user-session on the same VT as the greeter session. But they destroy
+         * the greeter session after the user-session and want the user-session to take over the VT. We need
+         * to support this for backwards-compatibility, so make sure we allow new sessions on a VT that a
+         * greeter is running on. Furthermore, to allow re-logins, we have to allow a greeter to take over a
+         * used VT for the exact same reasons. */
         if (c != SESSION_GREETER &&
             vtnr > 0 &&
             vtnr < MALLOC_ELEMENTSOF(m->seat0->positions) &&
@@ -994,8 +988,14 @@ static int create_session(
 
         session->create_message = sd_bus_message_ref(message);
 
-        /* Now, let's wait until the slice unit and stuff got created. We send the reply back from
-         * session_send_create_reply(). */
+        /* Now call into session_send_create_reply(), which will reply to this method call for us. Or it
+         * won't – in case we just spawned a session scope and/or user service manager, and they aren't ready
+         * yet. We'll call session_create_reply() again once the session scope or the user service manager is
+         * ready, where the function will check again if a reply is then ready to be sent, and then do so if
+         * all is complete - or wait again. */
+        r = session_send_create_reply(session, /* error= */ NULL);
+        if (r < 0)
+                return r;
 
         return 1;
 
