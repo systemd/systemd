@@ -2879,6 +2879,7 @@ enum {
                              * should exist in an earlier position. */
         TEST_GOTO_NEXT,     /* No matching object exists in this array and earlier arrays, go to the next array. */
         TEST_GOTO_PREVIOUS, /* No matching object exists in this array and later arrays, go to the previous array. */
+        TEST_CORRUPTED,     /* Found a corrupted entry. */
 };
 
 static int generic_array_bisect_step(
@@ -2917,11 +2918,13 @@ static int generic_array_bisect_step(
                 if (i == 0)
                         return TEST_GOTO_PREVIOUS;
 
-                /* Otherwise, cutting the array short. So, here we limit the number of elements we will see
-                 * in this array, and set the right boundary to the last possibly non-corrupted object. */
+                /* Otherwise, cutting the array short, and restart the bisection. So, here we limit the
+                 * number of elements we will see in this array, and set the right boundary to the last
+                 * possibly non-corrupted object. */
                 *m = i;
+                *left = 0;
                 *right = i - 1;
-                return TEST_RIGHT;
+                return TEST_CORRUPTED;
         }
         if (r < 0)
                 return r;
@@ -2940,6 +2943,8 @@ static int generic_array_bisect_step(
                 else {
                         if (i == 0)
                                 return TEST_GOTO_PREVIOUS;
+
+                        assert(*left < i);
                         *right = i - 1;
                 }
         } else {
@@ -2950,6 +2955,7 @@ static int generic_array_bisect_step(
                         if (i == *m - 1)
                                 return TEST_GOTO_NEXT;
 
+                        assert(i < *right);
                         *left = i + 1;
                 } else
                         *left = i;
@@ -3055,7 +3061,7 @@ static int generic_array_bisect(
                         goto previous;
 
                 /* The expected entry should be in this array, (or the last entry of the previous array). */
-                if (r == TEST_RIGHT) {
+                if (IN_SET(r, TEST_RIGHT, TEST_CORRUPTED)) {
 
                         /* If we cached the last index we looked at, let's try to not to jump too wildly
                          * around and see if we can limit the range to look at early to the immediate
@@ -3078,12 +3084,11 @@ static int generic_array_bisect(
                         }
 
                         for (;;) {
-                                if (left == right) {
+                                if (r != TEST_CORRUPTED && left == right) {
                                         i = left;
                                         goto found;
                                 }
 
-                                assert(left < right);
                                 i = (left + right + (direction == DIRECTION_UP)) / 2;
 
                                 r = generic_array_bisect_step(f, array, i, needle, test_object, direction, &m, &left, &right);
