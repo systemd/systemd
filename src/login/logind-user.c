@@ -780,6 +780,9 @@ static int elect_display_compare(Session *s1, Session *s2) {
         if ((s1->class != SESSION_USER) != (s2->class != SESSION_USER))
                 return (s1->class != SESSION_USER) - (s2->class != SESSION_USER);
 
+        if ((s1->class != SESSION_USER_EARLY) != (s2->class != SESSION_USER_EARLY))
+                return (s1->class != SESSION_USER_EARLY) - (s2->class != SESSION_USER_EARLY);
+
         if ((s1->type == _SESSION_TYPE_INVALID) != (s2->type == _SESSION_TYPE_INVALID))
                 return (s1->type == _SESSION_TYPE_INVALID) - (s2->type == _SESSION_TYPE_INVALID);
 
