@@ -20,10 +20,10 @@ typedef enum SessionState {
 } SessionState;
 
 typedef enum SessionClass {
-        SESSION_USER,
-        SESSION_GREETER,
-        SESSION_LOCK_SCREEN,
-        SESSION_BACKGROUND,
+        SESSION_USER,               /* A regular user session */
+        SESSION_GREETER,            /* A login greeter pseudo-session */
+        SESSION_LOCK_SCREEN,        /* A lock screen */
+        SESSION_BACKGROUND,         /* Things like cron jobs, which are non-interactive */
         _SESSION_CLASS_MAX,
         _SESSION_CLASS_INVALID = -EINVAL,
 } SessionClass;
