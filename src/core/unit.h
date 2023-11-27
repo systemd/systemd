@@ -216,9 +216,10 @@ typedef struct Unit {
          * Hashmap(UnitDependency → Hashmap(Unit* → UnitDependencyInfo)) */
         Hashmap *dependencies;
 
-        /* Similar, for RequiresMountsFor= path dependencies. The key is the path, the value the
-         * UnitDependencyInfo type */
+        /* Similar, for RequiresMountsFor= and WantsMountsFor= path dependencies. The key is the path, the
+         * value the UnitDependencyInfo type */
         Hashmap *requires_mounts_for;
+        Hashmap *wants_mounts_for;
 
         char *description;
         char **documentation;
@@ -1002,6 +1003,7 @@ int unit_kill_context(Unit *u, KillContext *c, KillOperation k, PidRef *main_pid
 int unit_make_transient(Unit *u);
 
 int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask);
+int unit_want_mounts_for(Unit *u, const char *path, UnitDependencyMask mask);
 
 bool unit_type_supported(UnitType t);
 

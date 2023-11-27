@@ -416,15 +416,17 @@ static int write_before(FILE *f, const char *opts) {
                                 "x-systemd.before\0", "Before=%1$s\n");
 }
 
-static int write_requires_mounts_for(FILE *f, const char *opts) {
+static int write_mounts_for(const char *x_opt, const char *unit_setting, FILE *f, const char *opts) {
         _cleanup_strv_free_ char **paths = NULL, **paths_escaped = NULL;
         _cleanup_free_ char *res = NULL;
         int r;
 
+        assert(x_opt);
+        assert(unit_setting);
         assert(f);
         assert(opts);
 
-        r = fstab_filter_options(opts, "x-systemd.requires-mounts-for\0", NULL, NULL, &paths, NULL);
+        r = fstab_filter_options(opts, x_opt, NULL, NULL, &paths, NULL);
         if (r < 0)
                 return log_warning_errno(r, "Failed to parse options: %m");
         if (r == 0)
@@ -438,7 +440,7 @@ static int write_requires_mounts_for(FILE *f, const char *opts) {
         if (!res)
                 return log_oom();
 
-        fprintf(f, "RequiresMountsFor=%s\n", res);
+        fprintf(f, "%s=%s\n", unit_setting, res);
 
         return 0;
 }
@@ -458,7 +460,10 @@ static int write_extra_dependencies(FILE *f, const char *opts) {
                 r = write_before(f, opts);
                 if (r < 0)
                         return r;
-                r = write_requires_mounts_for(f, opts);
+                r = write_mounts_for("x-systemd.requires-mounts-for\0", "RequiresMountsFor", f, opts);
+                if (r < 0)
+                        return r;
+                r = write_mounts_for("x-systemd.wants-mounts-for\0", "WantsMountsFor", f, opts);
                 if (r < 0)
                         return r;
         }

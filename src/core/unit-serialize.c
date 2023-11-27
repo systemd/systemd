@@ -847,6 +847,22 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 }
         }
 
+        if (!hashmap_isempty(u->wants_mounts_for)) {
+                UnitDependencyInfo di;
+                const char *path;
+
+                HASHMAP_FOREACH_KEY(di.data, path, u->wants_mounts_for) {
+                        bool space = false;
+
+                        fprintf(f, "%s\tWantsMountsFor: %s (", prefix, path);
+
+                        print_unit_dependency_mask(f, "origin", di.origin_mask, &space);
+                        print_unit_dependency_mask(f, "destination", di.destination_mask, &space);
+
+                        fputs(")\n", f);
+                }
+        }
+
         if (u->load_state == UNIT_LOADED) {
 
                 fprintf(f,
