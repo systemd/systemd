@@ -1660,6 +1660,7 @@ static const char* const session_class_table[_SESSION_CLASS_MAX] = {
         [SESSION_GREETER]           = "greeter",
         [SESSION_LOCK_SCREEN]       = "lock-screen",
         [SESSION_BACKGROUND]        = "background",
+        [SESSION_BACKGROUND_LIGHT]  = "background-light",
         [SESSION_MANAGER]           = "manager",
         [SESSION_MANAGER_EARLY]     = "manager-early",
 };
