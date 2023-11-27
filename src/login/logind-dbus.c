@@ -3899,22 +3899,26 @@ const BusObjectImplementation manager_object = {
                                         &user_object),
 };
 
-static int session_jobs_reply(Session *s, uint32_t jid, const char *unit, const char *result) {
+static void session_jobs_reply(Session *s, uint32_t jid, const char *unit, const char *result) {
         assert(s);
         assert(unit);
 
         if (!s->started)
-                return 0;
+                return;
 
         if (result && !streq(result, "done")) {
                 _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
 
                 sd_bus_error_setf(&e, BUS_ERROR_JOB_FAILED,
                                   "Job %u for unit '%s' failed with '%s'", jid, unit, result);
-                return session_send_create_reply(s, &e);
+
+                (void) session_send_create_reply(s, &e);
+                (void) session_send_upgrade_reply(s, &e);
+                return;
         }
 
-        return session_send_create_reply(s, NULL);
+        (void) session_send_create_reply(s, /* error= */ NULL);
+        (void) session_send_upgrade_reply(s, /* error= */ NULL);
 }
 
 int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -3950,7 +3954,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
         if (session) {
                 if (streq_ptr(path, session->scope_job)) {
                         session->scope_job = mfree(session->scope_job);
-                        (void) session_jobs_reply(session, id, unit, result);
+                        session_jobs_reply(session, id, unit, result);
 
                         session_save(session);
                         user_save(session->user);
@@ -3967,7 +3971,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
 
                         LIST_FOREACH(sessions_by_user, s, user->sessions)
                                 /* Don't propagate user service failures to the client */
-                                (void) session_jobs_reply(s, id, unit, /* error = */ NULL);
+                                session_jobs_reply(s, id, unit, /* error = */ NULL /* don't propagate user service failures to the client */);
 
                         user_save(user);
                 }

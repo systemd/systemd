@@ -1173,7 +1173,6 @@ node /org/freedesktop/login1/session/1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u Audit = ...;
       readonly s Type = '...';
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Class = '...';
       readonly b Active = ...;
       readonly s State = '...';
