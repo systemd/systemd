@@ -1601,13 +1601,14 @@ static const char* const session_type_table[_SESSION_TYPE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(session_type, SessionType);
 
 static const char* const session_class_table[_SESSION_CLASS_MAX] = {
-        [SESSION_USER]          = "user",
-        [SESSION_USER_EARLY]    = "user-early",
-        [SESSION_GREETER]       = "greeter",
-        [SESSION_LOCK_SCREEN]   = "lock-screen",
-        [SESSION_BACKGROUND]    = "background",
-        [SESSION_MANAGER]       = "manager",
-        [SESSION_MANAGER_EARLY] = "manager-early",
+        [SESSION_USER]              = "user",
+        [SESSION_USER_EARLY]        = "user-early",
+        [SESSION_USER_INCOMPLETE]   = "user-incomplete",
+        [SESSION_GREETER]           = "greeter",
+        [SESSION_LOCK_SCREEN]       = "lock-screen",
+        [SESSION_BACKGROUND]        = "background",
+        [SESSION_MANAGER]           = "manager",
+        [SESSION_MANAGER_EARLY]     = "manager-early",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(session_class, SessionClass);
