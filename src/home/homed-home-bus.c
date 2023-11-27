@@ -620,30 +620,38 @@ int bus_home_method_ref(
 
         _cleanup_close_ int fd = -EBADF;
         Home *h = ASSERT_PTR(userdata);
-        HomeState state;
         int please_suspend, r;
+        bool unrestricted;
 
         assert(message);
+
+        /* In unrestricted mode we'll add a reference to the home even if it's not active */
+        unrestricted = strstr(sd_bus_message_get_member(message), "Unrestricted");
 
         r = sd_bus_message_read(message, "b", &please_suspend);
         if (r < 0)
                 return r;
 
-        state = home_get_state(h);
-        switch (state) {
-        case HOME_ABSENT:
-                return sd_bus_error_setf(error, BUS_ERROR_HOME_ABSENT, "Home %s is currently missing or not plugged in.", h->user_name);
-        case HOME_UNFIXATED:
-        case HOME_INACTIVE:
-        case HOME_DIRTY:
-                return sd_bus_error_setf(error, BUS_ERROR_HOME_NOT_ACTIVE, "Home %s not active.", h->user_name);
-        case HOME_LOCKED:
-                return sd_bus_error_setf(error, BUS_ERROR_HOME_LOCKED, "Home %s is currently locked.", h->user_name);
-        default:
-                if (HOME_STATE_IS_ACTIVE(state))
-                        break;
+        if (!unrestricted) {
+                HomeState state;
 
-                return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "An operation on home %s is currently being executed.", h->user_name);
+                state = home_get_state(h);
+
+                switch (state) {
+                case HOME_ABSENT:
+                        return sd_bus_error_setf(error, BUS_ERROR_HOME_ABSENT, "Home %s is currently missing or not plugged in.", h->user_name);
+                case HOME_UNFIXATED:
+                case HOME_INACTIVE:
+                case HOME_DIRTY:
+                        return sd_bus_error_setf(error, BUS_ERROR_HOME_NOT_ACTIVE, "Home %s not active.", h->user_name);
+                case HOME_LOCKED:
+                        return sd_bus_error_setf(error, BUS_ERROR_HOME_LOCKED, "Home %s is currently locked.", h->user_name);
+                default:
+                        if (HOME_STATE_IS_ACTIVE(state))
+                                break;
+
+                        return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "An operation on home %s is currently being executed.", h->user_name);
+                }
         }
 
         fd = home_create_fifo(h, please_suspend);
@@ -814,6 +822,11 @@ const sd_bus_vtable home_vtable[] = {
                                 bus_home_method_acquire,
                                 SD_BUS_VTABLE_SENSITIVE),
         SD_BUS_METHOD_WITH_ARGS("Ref",
+                                SD_BUS_ARGS("b", please_suspend),
+                                SD_BUS_RESULT("h", send_fd),
+                                bus_home_method_ref,
+                                0),
+        SD_BUS_METHOD_WITH_ARGS("UnrestrictedRef",
                                 SD_BUS_ARGS("b", please_suspend),
                                 SD_BUS_RESULT("h", send_fd),
                                 bus_home_method_ref,
