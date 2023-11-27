@@ -116,6 +116,10 @@
                 <entry>Similar to <literal>user</literal> but sessions of this class are not ordered after <filename>systemd-user-sessions.service</filename>, i.e. may be started before regular sessions are allowed to be established. This session class is the default for sessions of the root user that would otherwise qualify for the <constant>user</constant> class, see above. (Added in v256.)</entry>
               </row>
               <row>
+                <entry><constant>user-incomplete</constant></entry>
+                <entry>Similar to <literal>user</literal> but for sessions which are not fully set up yet, i.e. have no home directory mounted ot similar. This is used by <citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> to allow users to log in via <command>ssh</command> before their home directory is mounted, delaying the mount until the user provided the unlock password. Sessions of this class are upgraded to the regular <constant>user</constant> class once the home directory is activated.</entry>
+              </row>
+              <row>
                 <entry><constant>greeter</constant></entry>
                 <entry>Similar to <literal>user</literal> but for sessions that are spawned by a display manager ephemerally and which prompt the user for login credentials.</entry>
               </row>
