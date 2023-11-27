@@ -412,12 +412,14 @@ static int user_update_slice(User *u) {
                 { "IOWeight",   u->user_record->io_weight   },
         };
 
-        for (size_t i = 0; i < ELEMENTSOF(settings); i++)
-                if (settings[i].value != UINT64_MAX) {
-                        r = sd_bus_message_append(m, "(sv)", settings[i].name, "t", settings[i].value);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-                }
+        FOREACH_ARRAY(st, settings, ELEMENTSOF(settings)) {
+                if (st->value == UINT64_MAX)
+                        continue;
+
+                r = sd_bus_message_append(m, "(sv)", st->name, "t", st->value);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
 
         r = sd_bus_message_close_container(m);
         if (r < 0)
