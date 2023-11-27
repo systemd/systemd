@@ -2454,6 +2454,17 @@ endif
 
 ############################################################
 
+if get_option('integration-tests') != false
+        system_mkosi = custom_target('system_mkosi',
+                output : 'system_mkosi.stamp',
+                command: [
+                        sh, '-c',
+                        'mkosi -C .. --image=system --without-tests -f build && touch @OUTPUT@'
+                ])
+endif
+
+############################################################
+
 subdir('rules.d')
 subdir('test')
 
