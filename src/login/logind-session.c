@@ -187,6 +187,7 @@ Session* session_free(Session *s) {
         session_reset_leader(s, /* keep_fdstore = */ true);
 
         sd_bus_message_unref(s->create_message);
+        sd_bus_message_unref(s->upgrade_message);
 
         free(s->tty);
         free(s->display);
@@ -1201,6 +1202,20 @@ void session_set_type(Session *s, SessionType t) {
         s->type = t;
         (void) session_save(s);
         (void) session_send_changed(s, "Type", NULL);
+}
+
+void session_set_class(Session *s, SessionClass c) {
+        assert(s);
+
+        if (s->class == c)
+                return;
+
+        s->class = c;
+        (void) session_save(s);
+        (void) session_send_changed(s, "Class", NULL);
+
+        /* This class change might mean we need the per-user session manager now. Try to start it */
+        user_start_service_manager(s->user);
 }
 
 int session_set_display(Session *s, const char *display) {
