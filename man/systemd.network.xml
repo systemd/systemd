@@ -963,7 +963,7 @@ Table=1234</programlisting></para>
           value. When enabled, prefixes configured in [IPv6Prefix] sections and routes configured in
           the [IPv6RoutePrefix] sections are distributed as defined in the [IPv6SendRA] section. If
           <varname>DHCPPrefixDelegation=</varname> is enabled, then the delegated prefixes are also
-          distributed. See <varname>DCHPPrefixDelegation=</varname> setting and the [IPv6SendRA],
+          distributed. See <varname>DHCPPrefixDelegation=</varname> setting and the [IPv6SendRA],
           [IPv6Prefix], [IPv6RoutePrefix], and [DHCPPrefixDelegation] sections for more configuration
           options.</para>
 
