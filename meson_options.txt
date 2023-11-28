@@ -486,6 +486,8 @@ option('install-tests', type : 'boolean', value : false,
        description : 'install test executables')
 option('log-message-verification', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'do fake printf() calls to verify format strings')
+option('integration-tests', type : 'boolean', value : false,
+       description : 'run the integration tests')
 
 option('ok-color', type : 'combo',
        choices : ['black', 'red', 'green', 'yellow', 'blue', 'magenta', 'cyan',
