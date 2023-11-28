@@ -281,10 +281,10 @@ static int handle_generic_user_record_error(
                 const sd_bus_error *error,
                 bool debug) {
 
+        int r;
+
         assert(user_name);
         assert(error);
-
-        int r;
 
         /* Logs about all errors, except for PAM_CONV_ERR, i.e. when requesting more info failed. */
 
