@@ -1558,7 +1558,7 @@ static int forward_coredump_to_container(Context *context) {
 static int process_kernel(int argc, char* argv[]) {
         _cleanup_(iovw_free_freep) struct iovec_wrapper *iovw = NULL;
         Context context = {};
-        int r;
+        int r, signo;
 
         /* When we're invoked by the kernel, stdout/stderr are closed which is dangerous because the fds
          * could get reallocated. To avoid hard to debug issues, let's instead bind stdout/stderr to
@@ -1586,6 +1586,12 @@ static int process_kernel(int argc, char* argv[]) {
         if (!context.is_journald)
                 /* OK, now we know it's not the journal, hence we can make use of it now. */
                 log_set_target_and_open(LOG_TARGET_JOURNAL_OR_KMSG);
+
+        /* Log minimal metadata now, so it is not lost if the system is about to shut down. */
+        log_info("Process %s (%s) of user %s terminated abnormally with signal %s/%s, processing...",
+                        context.meta[META_ARGV_PID], context.meta[META_COMM],
+                        context.meta[META_ARGV_UID], context.meta[META_ARGV_SIGNAL],
+                        strna(safe_atoi(context.meta[META_ARGV_SIGNAL], &signo) >= 0 ? signal_to_string(signo) : NULL));
 
         r = in_same_namespace(getpid_cached(), context.pid, NAMESPACE_PID);
         if (r < 0)
