@@ -126,19 +126,19 @@ static int acquire_journal(sd_journal **ret, char **matches) {
         assert(ret);
 
         if (arg_directory) {
-                r = sd_journal_open_directory(&j, arg_directory, 0);
+                r = sd_journal_open_directory(&j, arg_directory, SD_JOURNAL_READ_TAIL_TIMESTAMP_ONCE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open journals in directory: %s: %m", arg_directory);
         } else if (arg_root) {
-                r = sd_journal_open_directory(&j, arg_root, SD_JOURNAL_OS_ROOT);
+                r = sd_journal_open_directory(&j, arg_root, SD_JOURNAL_OS_ROOT | SD_JOURNAL_READ_TAIL_TIMESTAMP_ONCE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open journals in root directory: %s: %m", arg_root);
         } else if (arg_file) {
-                r = sd_journal_open_files(&j, (const char**)arg_file, 0);
+                r = sd_journal_open_files(&j, (const char**)arg_file, SD_JOURNAL_READ_TAIL_TIMESTAMP_ONCE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open journal files: %m");
         } else {
-                r = sd_journal_open(&j, arg_all ? 0 : SD_JOURNAL_LOCAL_ONLY);
+                r = sd_journal_open(&j, arg_all ? 0 : SD_JOURNAL_LOCAL_ONLY | SD_JOURNAL_READ_TAIL_TIMESTAMP_ONCE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to open journal: %m");
         }
