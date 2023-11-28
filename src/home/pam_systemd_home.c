@@ -621,7 +621,7 @@ static int acquire_home(
 
                 r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, &reply);
                 if (r < 0) {
-                        if (sd_bus_error_has_name(&error, BUS_ERROR_HOME_NOT_ACTIVE)) {
+                        if (sd_bus_error_has_names(&error, BUS_ERROR_HOME_NOT_ACTIVE, BUS_ERROR_HOME_BUSY)) {
                                 /* Only on RefHome(): We can't access the home directory currently, unless
                                  * it's unlocked with a password. Hence, let's try this again, this time with
                                  * authentication. */
