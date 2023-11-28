@@ -624,11 +624,12 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                         prefix, FORMAT_TIMESPAN(c->memory_pressure_threshold_usec, 1));
 
         LIST_FOREACH(device_allow, a, c->device_allow)
+                /* strna() below should be redundant, for avoiding -Werror=format-overflow= error. See #30223. */
                 fprintf(f,
                         "%sDeviceAllow: %s %s\n",
                         prefix,
                         a->path,
-                        cgroup_device_permissions_to_string(a->permissions));
+                        strna(cgroup_device_permissions_to_string(a->permissions)));
 
         LIST_FOREACH(device_weights, iw, c->io_device_weights)
                 fprintf(f,
