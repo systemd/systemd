@@ -773,7 +773,7 @@ def make_uki(opts):
         if opts.pcr_public_keys and len(opts.pcr_public_keys) == 1:
             pcrpkey = opts.pcr_public_keys[0]
         elif opts.pcr_private_keys and len(opts.pcr_private_keys) == 1:
-            import cryptography.hazmat.primitives.serialization as serialization
+            from cryptography.hazmat.primitives import serialization
             privkey = serialization.load_pem_private_key(opts.pcr_private_keys[0].read_bytes(), password=None)
             pcrpkey = privkey.public_key().public_bytes(
                 encoding=serialization.Encoding.PEM,
