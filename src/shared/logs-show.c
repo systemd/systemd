@@ -1798,7 +1798,10 @@ int show_journal_by_unit(
         if (how_many <= 0)
                 return 0;
 
-        r = sd_journal_open_namespace(&j, log_namespace, journal_open_flags | SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE);
+        r = sd_journal_open_namespace(&j, log_namespace,
+                                      journal_open_flags |
+                                      SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE |
+                                      SD_JOURNAL_READ_TAIL_TIMESTAMP_ONCE);
         if (r < 0)
                 return log_error_errno(r, "Failed to open journal: %m");
 
