@@ -314,6 +314,64 @@ for opt in json multiplexer output synthesize with-dropin with-nss with-varlink;
     (! userdbctl "--$opt=foo" "--$opt=''" "--$opt=🐱")
 done
 
+# Test that SSH logins work with delayed unlocking
+ssh-keygen -N '' -C '' -t rsa -f /tmp/homed.id_rsa
+NEWPASSWORD=hunter4711 homectl create \
+                       --disk-size=min \
+                       --luks-discard=yes \
+                       --luks-pbkdf-type=pbkdf2 \
+                       --luks-pbkdf-time-cost=1ms \
+                       --enforce-password-policy=no \
+                       --ssh-authorized-keys=@/tmp/homed.id_rsa.pub \
+                       --stop-delay=0 \
+                       homedsshtest
+
+mkdir -p /etc/ssh
+test -f /etc/ssh/ssh_host_rsa_key || ssh-keygen -t rsa -C '' -N '' -f /etc/ssh/ssh_host_rsa_key
+
+# ssh wants this dir around, but distros cannot agree on a common name for it, let's just create all that are aware of distros use
+mkdir -p /usr/share/empty.sshd /var/empty /var/empty/sshd
+
+cat >> /etc/ssh/sshd_config <<EOF
+AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u
+AuthorizedKeysCommandUser root
+UsePAM yes
+AcceptEnv PASSWORD
+EOF
+
+cat > /run/systemd/system/mysshserver.socket <<EOF
+[Socket]
+ListenStream=4711
+Accept=yes
+EOF
+
+cat > /run/systemd/system/mysshserver@.service <<EOF
+[Service]
+ExecStart=-/usr/sbin/sshd -i -d -e
+StandardInput=socket
+StandardOutput=socket
+StandardError=journal
+EOF
+
+systemctl daemon-reload
+systemctl start mysshserver.socket
+
+userdbctl user -j homedsshtest
+
+ssh -t -t -4 -p 4711 -i /tmp/homed.id_rsa -o "SetEnv PASSWORD=hunter4711" -o "StrictHostKeyChecking no" homedsshtest@localhost echo zzz | tail -n 1 | tr -d '\r' > /tmp/homedsshtest.out
+cat /tmp/homedsshtest.out
+test "$(cat /tmp/homedsshtest.out)" = "zzz"
+rm /tmp/homedsshtest.out
+
+ssh -t -t -4 -p 4711 -i /tmp/homed.id_rsa -o "SetEnv PASSWORD=hunter4711" -o "StrictHostKeyChecking no" homedsshtest@localhost env
+
+wait_for_state homedsshtest inactive
+homectl remove homedsshtest
+
+systemctl stop mysshserver.socket
+rm /run/systemd/system/mysshserver.socket
+rm /run/systemd/system/mysshserver@.service
+
 systemd-analyze log-level info
 
 touch /testok
