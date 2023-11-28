@@ -72,8 +72,7 @@ int (*sym_crypt_volume_key_keyring)(struct crypt_device *cd, int enable);
 
 /* Do this only on new enough compilers that actually support the "symver" attribute. Given this is a debug
  * feature, let's simply not bother on older compilers */
-#if defined __has_attribute
-#if __has_attribute(symver)
+#if BUILD_MODE_DEVELOPER && defined(__has_attribute) && __has_attribute(symver)
 const char *my_crypt_token_external_path(void); /* prototype for our own implementation */
 
 /* We use the "symver" attribute to mark this implementation as the default implementation, and drop the
@@ -96,7 +95,6 @@ _public_ const char *my_crypt_token_external_path(void) {
 
         return NULL;
 }
-#endif
 #endif
 
 static void cryptsetup_log_glue(int level, const char *msg, void *usrptr) {
