@@ -152,6 +152,7 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-i <replaceable>GLOB</replaceable></option></term>
         <term><option>--file=<replaceable>GLOB</replaceable></option></term>
 
         <listitem><para>Takes a file glob as an argument. If specified, journalctl will operate on the
