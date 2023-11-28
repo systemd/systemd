@@ -140,6 +140,12 @@
 
       <para>Also see the description of <option>-j</option>/<option>--json=</option> and
       <option>--section=</option>.</para>
+
+      <para>Other tools that may be useful for inspect UKIs:
+      <citerefentry project='man-pages'><refentrytitle>llvm-objdump</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <option>-p</option> and <command>pe-inspect</command>.
+      <!-- TODO: add link to pe-inspect man page when it gets one -->
+      </para>
     </refsect2>
   </refsect1>
 
