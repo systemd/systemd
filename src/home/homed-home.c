@@ -648,10 +648,16 @@ static int convert_worker_errno(Home *h, int e, sd_bus_error *error) {
         return 0;
 }
 
-static void home_count_bad_authentication(Home *h, bool save) {
+static void home_count_bad_authentication(Home *h, int error, bool save) {
         int r;
 
         assert(h);
+
+        if (!IN_SET(error,
+                    -ENOKEY,       /* Password incorrect */
+                    -EBADSLT,      /* Password incorrect and no token */
+                    -EREMOTEIO))   /* Recovery key incorrect */
+                return;
 
         r = user_record_bad_authentication(h->record);
         if (r < 0) {
@@ -678,8 +684,7 @@ static void home_fixate_finish(Home *h, int ret, UserRecord *hr) {
         secret = TAKE_PTR(h->secret); /* Take possession */
 
         if (ret < 0) {
-                if (ret == -ENOKEY)
-                        (void) home_count_bad_authentication(h, false);
+                (void) home_count_bad_authentication(h, ret, /* save= */ false);
 
                 (void) convert_worker_errno(h, ret, &error);
                 r = log_error_errno(ret, "Fixation failed: %m");
@@ -749,8 +754,7 @@ static void home_activate_finish(Home *h, int ret, UserRecord *hr) {
         assert(IN_SET(h->state, HOME_ACTIVATING, HOME_ACTIVATING_FOR_ACQUIRE));
 
         if (ret < 0) {
-                if (ret == -ENOKEY)
-                        home_count_bad_authentication(h, true);
+                (void) home_count_bad_authentication(h, ret, /* save= */ true);
 
                 (void) convert_worker_errno(h, ret, &error);
                 r = log_error_errno(ret, "Activation failed: %m");
@@ -910,8 +914,7 @@ static void home_change_finish(Home *h, int ret, UserRecord *hr) {
         assert(h);
 
         if (ret < 0) {
-                if (ret == -ENOKEY)
-                        (void) home_count_bad_authentication(h, true);
+                (void) home_count_bad_authentication(h, ret, /* save= */ true);
 
                 (void) convert_worker_errno(h, ret, &error);
                 r = log_error_errno(ret, "Change operation failed: %m");
@@ -980,8 +983,7 @@ static void home_unlocking_finish(Home *h, int ret, UserRecord *hr) {
         assert(IN_SET(h->state, HOME_UNLOCKING, HOME_UNLOCKING_FOR_ACQUIRE));
 
         if (ret < 0) {
-                if (ret == -ENOKEY)
-                        (void) home_count_bad_authentication(h, true);
+                (void) home_count_bad_authentication(h, ret, /* save= */ true);
 
                 (void) convert_worker_errno(h, ret, &error);
                 r = log_error_errno(ret, "Unlocking operation failed: %m");
@@ -1016,8 +1018,7 @@ static void home_authenticating_finish(Home *h, int ret, UserRecord *hr) {
         assert(IN_SET(h->state, HOME_AUTHENTICATING, HOME_AUTHENTICATING_WHILE_ACTIVE, HOME_AUTHENTICATING_FOR_ACQUIRE));
 
         if (ret < 0) {
-                if (ret == -ENOKEY)
-                        (void) home_count_bad_authentication(h, true);
+                (void) home_count_bad_authentication(h, ret, /* save= */ true);
 
                 (void) convert_worker_errno(h, ret, &error);
                 r = log_error_errno(ret, "Authentication failed: %m");
