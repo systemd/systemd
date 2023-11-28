@@ -556,8 +556,8 @@ static EFI_STATUS run(EFI_HANDLE image) {
                 log_error_status(err, "Error loading global addons, ignoring: %m");
 
         /* Some bootloaders always pass NULL in FilePath, so we need to check for it here. */
-        if (loaded_image->FilePath) {
-                _cleanup_free_ char16_t *dropin_dir = get_extra_dir(loaded_image->FilePath);
+        _cleanup_free_ char16_t *dropin_dir = get_extra_dir(loaded_image->FilePath);
+        if (dropin_dir) {
                 err = load_addons(
                                 image,
                                 loaded_image,
