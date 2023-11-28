@@ -39,7 +39,8 @@ int pam_syslog_pam_error(pam_handle_t *handle, int level, int error, const char 
                         pamerr = "n/a";  /* We cannot have any formatting chars */
 
                 char buf[p - format + strlen(pamerr) + 1];
-                xsprintf(buf, "%*s%s", (int)(p - format), format, pamerr);
+                xsprintf(buf, "%.*s%s", (int)(p - format), format, pamerr);
+
                 DISABLE_WARNING_FORMAT_NONLITERAL;
                 pam_vsyslog(handle, level, buf, ap);
                 REENABLE_WARNING;
