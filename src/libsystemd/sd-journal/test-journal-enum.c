@@ -15,7 +15,7 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_DEBUG);
 
-        assert_se(sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY) >= 0);
+        assert_se(sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY | SD_JOURNAL_READ_TAIL_TIMESTAMP_ONCE) >= 0);
 
         assert_se(sd_journal_add_match(j, "_TRANSPORT=syslog", 0) >= 0);
         assert_se(sd_journal_add_match(j, "_UID=0", 0) >= 0);
