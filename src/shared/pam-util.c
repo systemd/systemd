@@ -202,3 +202,27 @@ void pam_cleanup_free(pam_handle_t *handle, void *data, int error_status) {
         /* A generic destructor for pam_set_data() that just frees the specified data */
         free(data);
 }
+
+int pam_get_item_many_internal(pam_handle_t *handle, ...) {
+        va_list ap;
+        int r;
+
+        va_start(ap, handle);
+        for (;;) {
+                int item_type = va_arg(ap, int);
+
+                if (item_type <= 0) {
+                        r = PAM_SUCCESS;
+                        break;
+                }
+
+                const void **value = ASSERT_PTR(va_arg(ap, const void **));
+
+                r = pam_get_item(handle, item_type, value);
+                if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS))
+                        break;
+        }
+        va_end(ap);
+
+        return r;
+}
