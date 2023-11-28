@@ -969,13 +969,12 @@ _public_ PAM_EXTERN int pam_sm_chauthtok(
                 return r;
 
         /* Start with cached credentials */
-        r = pam_get_item(handle, PAM_OLDAUTHTOK, (const void**) &old_password);
-        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS))
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get old password: @PAMERR@");
-
-        r = pam_get_item(handle, PAM_AUTHTOK, (const void**) &new_password);
-        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS))
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get cached password: @PAMERR@");
+        r = pam_get_item_many(
+                        handle,
+                        PAM_OLDAUTHTOK, &old_password,
+                        PAM_AUTHTOK, &new_password);
+        if (r != PAM_SUCCESS)
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get cached passwords: @PAMERR@");
 
         if (isempty(new_password)) {
                 /* No, it's not cached, then let's ask for the password and its verification, and cache
