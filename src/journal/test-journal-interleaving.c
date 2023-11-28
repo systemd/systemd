@@ -58,6 +58,20 @@ static void test_close(JournalFile *f) {
         (void) journal_file_offline_close(f);
 }
 
+static void test_done(const char *t) {
+        log_info("Done...");
+
+        if (arg_keep)
+                log_info("Not removing %s", t);
+        else {
+                journal_directory_vacuum(".", 3000000, 0, 0, NULL, true);
+
+                assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
+        }
+
+        log_info("------------------------------------------------------------");
+}
+
 static void append_number(JournalFile *f, int n, const sd_id128_t *boot_id, uint64_t *seqnum) {
         _cleanup_free_ char *p = NULL, *q = NULL;
         dual_timestamp ts;
@@ -376,17 +390,7 @@ static void test_skip_one(void (*setup)(void)) {
         test_check_numbers_up(j, 9);
         sd_journal_close(j);
 
-        log_info("Done...");
-
-        if (arg_keep)
-                log_info("Not removing %s", t);
-        else {
-                journal_directory_vacuum(".", 3000000, 0, 0, NULL, true);
-
-                assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
-        }
-
-        puts("------------------------------------------------------------");
+        test_done(t);
 }
 
 TEST(skip) {
@@ -428,17 +432,7 @@ static void test_boot_id_one(void (*setup)(void), size_t n_boots_expected) {
                 sd_journal_close(j);
         }
 
-        log_info("Done...");
-
-        if (arg_keep)
-                log_info("Not removing %s", t);
-        else {
-                journal_directory_vacuum(".", 3000000, 0, 0, NULL, true);
-
-                assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
-        }
-
-        puts("------------------------------------------------------------");
+        test_done(t);
 }
 
 TEST(boot_id) {
@@ -527,15 +521,7 @@ static void test_sequence_numbers_one(void) {
                 test_close(two);
         }
 
-        log_info("Done...");
-
-        if (arg_keep)
-                log_info("Not removing %s", t);
-        else {
-                journal_directory_vacuum(".", 3000000, 0, 0, NULL, true);
-
-                assert_se(rm_rf(t, REMOVE_ROOT|REMOVE_PHYSICAL) >= 0);
-        }
+        test_done(t);
 }
 
 TEST(sequence_numbers) {
