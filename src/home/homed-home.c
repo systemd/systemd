@@ -3144,7 +3144,7 @@ int home_wait_for_worker(Home *h) {
         r = wait_for_terminate_with_timeout(h->worker_pid, 30 * USEC_PER_SEC);
         if (r == -ETIMEDOUT)
                 log_warning_errno(r, "Waiting for worker process for home %s timed out. Ignoring.", h->user_name);
-        else
+        else if (r < 0)
                 log_warning_errno(r, "Failed to wait for worker process for home %s. Ignoring.", h->user_name);
 
         (void) hashmap_remove_value(h->manager->homes_by_worker_pid, PID_TO_PTR(h->worker_pid), h);
