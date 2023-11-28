@@ -743,6 +743,27 @@ fail:
         home_set_state(h, HOME_UNFIXATED);
 }
 
+static bool error_is_bad_password(int ret) {
+        /* Tests for the various cases of bad passwords. We generally don't want to log so loudly about
+         * these, since everyone types in a bad password now and then. Moreover we usually try to start out
+         * with an empty set of passwords, so the first authentication will frequently fail, if not token is
+         * inserted. */
+
+        return IN_SET(ret,
+                      -ENOKEY,       /* Bad password, or insufficient */
+                      -EBADSLT,      /* Bad password, and no token */
+                      -EREMOTEIO,    /* Bad recovery key */
+                      -ENOANO,       /* PIN for security token needed */
+                      -ERFKILL,      /* "Protected Authentication Path" for token needed */
+                      -EMEDIUMTYPE,  /* Presence confirmation on token needed */
+                      -ENOCSI,       /* User verification on token needed */
+                      -ENOSTR,       /* Token action timeout */
+                      -EOWNERDEAD,   /* PIN locked of security token */
+                      -ENOLCK,       /* Bad PIN of security token */
+                      -ETOOMANYREFS, /* Bad PIN and few tries left */
+                      -EUCLEAN);     /* Bad PIN and one try left */
+}
+
 static void home_activate_finish(Home *h, int ret, UserRecord *hr) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
@@ -755,7 +776,8 @@ static void home_activate_finish(Home *h, int ret, UserRecord *hr) {
                         home_count_bad_authentication(h, true);
 
                 (void) convert_worker_errno(h, ret, &error);
-                r = log_error_errno(ret, "Activation failed: %m");
+                r = log_full_errno(error_is_bad_password(ret) ? LOG_NOTICE : LOG_ERR,
+                                   ret, "Activation failed: %s", bus_error_message(&error, ret));
                 goto finish;
         }
 
@@ -916,7 +938,8 @@ static void home_change_finish(Home *h, int ret, UserRecord *hr) {
                         (void) home_count_bad_authentication(h, true);
 
                 (void) convert_worker_errno(h, ret, &error);
-                r = log_error_errno(ret, "Change operation failed: %m");
+                r = log_full_errno(error_is_bad_password(ret) ? LOG_NOTICE : LOG_ERR,
+                                   ret, "Change operation failed: %s", bus_error_message(&error, ret));
                 goto finish;
         }
 
@@ -986,7 +1009,8 @@ static void home_unlocking_finish(Home *h, int ret, UserRecord *hr) {
                         (void) home_count_bad_authentication(h, true);
 
                 (void) convert_worker_errno(h, ret, &error);
-                r = log_error_errno(ret, "Unlocking operation failed: %m");
+                r = log_full_errno(error_is_bad_password(ret) ? LOG_NOTICE : LOG_ERR,
+                                   ret, "Unlocking operation failed: %s", bus_error_message(&error, ret));
 
                 /* Revert to locked state */
                 home_set_state(h, HOME_LOCKED);
@@ -1022,7 +1046,8 @@ static void home_authenticating_finish(Home *h, int ret, UserRecord *hr) {
                         (void) home_count_bad_authentication(h, true);
 
                 (void) convert_worker_errno(h, ret, &error);
-                r = log_error_errno(ret, "Authentication failed: %m");
+                r = log_full_errno(error_is_bad_password(ret) ? LOG_NOTICE : LOG_ERR,
+                                   ret, "Authentication failed: %s", bus_error_message(&error, ret));
                 goto finish;
         }
 
