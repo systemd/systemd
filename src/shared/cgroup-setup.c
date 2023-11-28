@@ -1004,3 +1004,22 @@ int cg_enable_everywhere(
 
         return 0;
 }
+
+int cg_set_xattr_survive_final_kill_signal(const char *path) {
+        static bool skip_user_xattr = false;
+        int r;
+
+        assert(path);
+
+        if (!skip_user_xattr) {
+                /* user xattr support was added in kernel v5.7 */
+                r = cg_set_xattr(path, "user.survive_final_kill_signal", "1", 1, /* flags = */ 0);
+                if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        skip_user_xattr = true;
+        }
+
+        if (skip_user_xattr)
+                r = cg_set_xattr(path, "trusted.survive_final_kill_signal", "1", 1, /* flags = */ 0);
+
+        return r;
+}
