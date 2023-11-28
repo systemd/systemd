@@ -21,6 +21,9 @@ test_append_files() {
         install_btrfs
         generate_module_dependencies
     fi
+    inst_binary ssh
+    inst_binary sshd
+    inst_binary ssh-keygen
 }
 
 do_test "$@"
