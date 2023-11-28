@@ -558,18 +558,20 @@ static EFI_STATUS run(EFI_HANDLE image) {
         /* Some bootloaders always pass NULL in FilePath, so we need to check for it here. */
         if (loaded_image->FilePath) {
                 _cleanup_free_ char16_t *dropin_dir = get_extra_dir(loaded_image->FilePath);
-                err = load_addons(
-                                image,
-                                loaded_image,
-                                dropin_dir,
-                                uname,
-                                &cmdline_addons_uki,
-                                &dt_bases_addons_uki,
-                                &dt_sizes_addons_uki,
-                                &dt_filenames_addons_uki,
-                                &n_dts_addons_uki);
-                if (err != EFI_SUCCESS)
-                        log_error_status(err, "Error loading UKI-specific addons, ignoring: %m");
+                if (dropin_dir) {
+                        err = load_addons(
+                                        image,
+                                        loaded_image,
+                                        dropin_dir,
+                                        uname,
+                                        &cmdline_addons_uki,
+                                        &dt_bases_addons_uki,
+                                        &dt_sizes_addons_uki,
+                                        &dt_filenames_addons_uki,
+                                        &n_dts_addons_uki);
+                        if (err != EFI_SUCCESS)
+                                log_error_status(err, "Error loading UKI-specific addons, ignoring: %m");
+                }
         }
 
         /* Measure all "payload" of this PE image into a separate PCR (i.e. where nothing else is written
