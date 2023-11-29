@@ -14,6 +14,7 @@
 #include "log.h"
 #include "logs-show.h"
 #include "parse-util.h"
+#include "random-util.h"
 #include "rm-rf.h"
 #include "tests.h"
 
@@ -530,6 +531,197 @@ TEST(sequence_numbers) {
 
         assert_se(setenv("SYSTEMD_JOURNAL_COMPACT", "1", 1) >= 0);
         test_sequence_numbers_one();
+}
+
+static int expected_result(uint64_t needle, const uint64_t *candidates, const uint64_t *offset, size_t n, direction_t direction, uint64_t *ret) {
+        switch (direction) {
+        case DIRECTION_DOWN:
+                for (size_t i = 0; i < n; i++) {
+                        if (candidates[i] == 0) {
+                                *ret = 0;
+                                return 0;
+                        }
+                        if (needle <= candidates[i]) {
+                                *ret = offset[i];
+                                return 1;
+                        }
+                }
+                *ret = 0;
+                return 0;
+
+        case DIRECTION_UP:
+                for (size_t i = 0; i < n; i++)
+                        if (needle < candidates[i] || candidates[i] == 0) {
+                                if (i == 0) {
+                                        *ret = 0;
+                                        return 0;
+                                }
+                                *ret = offset[i - 1];
+                                return 1;
+                        }
+                *ret = offset[n - 1];
+                return 1;
+
+        default:
+                assert_not_reached();
+        }
+}
+
+static void verify(JournalFile *f, const uint64_t *seqnum, const uint64_t *offset, size_t n) {
+        uint64_t p, q;
+        int r, e;
+
+        /* by seqnum (sequential) */
+        for (uint64_t i = 0; i < n + 2; i++) {
+                p = 0;
+                r = journal_file_move_to_entry_by_seqnum(f, i, DIRECTION_DOWN, NULL, &p);
+                e = expected_result(i, seqnum, offset, n, DIRECTION_DOWN, &q);
+                assert_se(r == e);
+                assert_se(p == q);
+
+                p = 0;
+                r = journal_file_move_to_entry_by_seqnum(f, i, DIRECTION_UP, NULL, &p);
+                e = expected_result(i, seqnum, offset, n, DIRECTION_UP, &q);
+                assert_se(r == e);
+                assert_se(p == q);
+        }
+
+        /* by seqnum (random) */
+        for (size_t trial = 0; trial < 3 * n; trial++) {
+                uint64_t i = random_u64_range(n + 2);
+
+                p = 0;
+                r = journal_file_move_to_entry_by_seqnum(f, i, DIRECTION_DOWN, NULL, &p);
+                e = expected_result(i, seqnum, offset, n, DIRECTION_DOWN, &q);
+                assert_se(r == e);
+                assert_se(p == q);
+        }
+        for (size_t trial = 0; trial < 3 * n; trial++) {
+                uint64_t i = random_u64_range(n + 2);
+
+                p = 0;
+                r = journal_file_move_to_entry_by_seqnum(f, i, DIRECTION_UP, NULL, &p);
+                e = expected_result(i, seqnum, offset, n, DIRECTION_UP, &q);
+                assert_se(r == e);
+                assert_se(p == q);
+        }
+
+        /* by offset (sequential) */
+        for (size_t i = 0; i < n; i++) {
+                p = 0;
+                r = journal_file_move_to_entry_by_offset(f, offset[i] - 1, DIRECTION_DOWN, NULL, &p);
+                e = expected_result(offset[i] - 1, offset, offset, n, DIRECTION_DOWN, &q);
+                assert_se(r == e);
+                assert_se(p == q);
+
+                p = 0;
+                r = journal_file_move_to_entry_by_offset(f, offset[i], DIRECTION_DOWN, NULL, &p);
+                e = expected_result(offset[i], offset, offset, n, DIRECTION_DOWN, &q);
+                assert_se(r == e);
+                assert_se(p == q);
+
+                p = 0;
+                r = journal_file_move_to_entry_by_offset(f, offset[i] + 1, DIRECTION_DOWN, NULL, &p);
+                e = expected_result(offset[i] + 1, offset, offset, n, DIRECTION_DOWN, &q);
+                assert_se(r == e);
+                assert_se(p == q);
+
+                p = 0;
+                r = journal_file_move_to_entry_by_offset(f, offset[i] - 1, DIRECTION_UP, NULL, &p);
+                e = expected_result(offset[i] - 1, offset, offset, n, DIRECTION_UP, &q);
+                assert_se(r == e);
+                assert_se(p == q);
+
+                p = 0;
+                r = journal_file_move_to_entry_by_offset(f, offset[i], DIRECTION_UP, NULL, &p);
+                e = expected_result(offset[i], offset, offset, n, DIRECTION_UP, &q);
+                assert_se(r == e);
+                assert_se(p == q);
+
+                p = 0;
+                r = journal_file_move_to_entry_by_offset(f, offset[i] + 1, DIRECTION_UP, NULL, &p);
+                e = expected_result(offset[i] + 1, offset, offset, n, DIRECTION_UP, &q);
+                assert_se(r == e);
+                assert_se(p == q);
+        }
+
+        /* by offset (random) */
+        for (size_t trial = 0; trial < 3 * n; trial++) {
+                uint64_t i = offset[0] - 1 + random_u64_range(offset[n-1] - offset[0] + 2);
+
+                p = 0;
+                r = journal_file_move_to_entry_by_offset(f, i, DIRECTION_DOWN, NULL, &p);
+                e = expected_result(i, offset, offset, n, DIRECTION_DOWN, &q);
+                assert_se(r == e);
+                assert_se(p == q);
+        }
+        for (size_t trial = 0; trial < 3 * n; trial++) {
+                uint64_t i = offset[0] - 1 + random_u64_range(offset[n-1] - offset[0] + 2);
+
+                p = 0;
+                r = journal_file_move_to_entry_by_offset(f, i, DIRECTION_UP, NULL, &p);
+                e = expected_result(i, offset, offset, n, DIRECTION_UP, &q);
+                assert_se(r == e);
+                assert_se(p == q);
+        }
+}
+
+static void test_generic_array_bisect_one(size_t n, size_t num_corrupted) {
+        _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
+        char t[] = "/var/tmp/journal-seq-XXXXXX";
+        _cleanup_free_ uint64_t *seqnum = NULL, *offset = NULL;
+        JournalFile *f;
+
+        log_info("/* %s(%zu, %zu) */", __func__, n, num_corrupted);
+
+        assert_se(m = mmap_cache_new());
+
+        mkdtemp_chdir_chattr(t);
+
+        assert_se(journal_file_open(-1, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0644,
+                                    UINT64_MAX, NULL, m, NULL, &f) == 0);
+
+        assert_se(seqnum = new0(uint64_t, n));
+        assert_se(offset = new0(uint64_t, n));
+
+        for (size_t i = 0; i < n; i++) {
+                append_number(f, i, NULL, seqnum + i, offset + i);
+                if (i == 0) {
+                        assert_se(seqnum[i] > 0);
+                        assert_se(offset[i] > 0);
+                } else {
+                        assert_se(seqnum[i] > seqnum[i-1]);
+                        assert_se(offset[i] > offset[i-1]);
+                }
+        }
+
+        verify(f, seqnum, offset, n);
+
+        /* Reset chain cache. */
+        assert_se(journal_file_move_to_entry_by_offset(f, offset[0], DIRECTION_DOWN, NULL, NULL) > 0);
+
+        /* make journal corrupted by clearing seqnum. */
+        for (size_t i = n - num_corrupted; i < n; i++) {
+                Object *o;
+
+                assert_se(journal_file_move_to_object(f, OBJECT_ENTRY, offset[i], &o) >= 0);
+                assert_se(o);
+                o->entry.seqnum = 0;
+                seqnum[i] = 0;
+        }
+
+        verify(f, seqnum, offset, n);
+
+        test_close(f);
+        test_done(t);
+}
+
+TEST(generic_array_bisect) {
+        for (size_t n = 1; n < 10; n++)
+                for (size_t m = 1; m <= n; m++)
+                        test_generic_array_bisect_one(n, m);
+
+        test_generic_array_bisect_one(100, 40);
 }
 
 static int intro(void) {
