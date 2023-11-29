@@ -57,6 +57,7 @@ int getgroups_alloc(gid_t** gids);
 int get_home_dir(char **ret);
 int get_shell(char **ret);
 
+int fully_set_uid_gid(uid_t uid, gid_t gid, const gid_t supplementary_gids[], size_t n_supplementary_gids);
 int reset_uid_gid(void);
 
 int take_etc_passwd_lock(const char *root);

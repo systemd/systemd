@@ -1220,13 +1220,9 @@ static int setup_pam(
                  * PR_SET_PDEATHSIG work in most cases.  If this fails, ignore the error - but expect sd-pam
                  * threads to fail to exit normally */
 
-                r = maybe_setgroups(0, NULL);
+                r = fully_set_uid_gid(uid, gid, /* supplementary_gids= */ NULL, /* n_supplementary_gids= */ 0);
                 if (r < 0)
-                        log_warning_errno(r, "Failed to setgroups() in sd-pam: %m");
-                if (setresgid(gid, gid, gid) < 0)
-                        log_warning_errno(errno, "Failed to setresgid() in sd-pam: %m");
-                if (setresuid(uid, uid, uid) < 0)
-                        log_warning_errno(errno, "Failed to setresuid() in sd-pam: %m");
+                        log_warning_errno(r, "Failed to drop privileges in sd-pam: %m");
 
                 (void) ignore_signals(SIGPIPE);
 
