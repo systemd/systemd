@@ -72,7 +72,7 @@ static void test_done(const char *t) {
         log_info("------------------------------------------------------------");
 }
 
-static void append_number(JournalFile *f, int n, const sd_id128_t *boot_id, uint64_t *seqnum) {
+static void append_number(JournalFile *f, int n, const sd_id128_t *boot_id, uint64_t *seqnum, uint64_t *ret_offset) {
         _cleanup_free_ char *p = NULL, *q = NULL;
         dual_timestamp ts;
         struct iovec iovec[2];
@@ -96,7 +96,7 @@ static void append_number(JournalFile *f, int n, const sd_id128_t *boot_id, uint
                 iovec[n_iov++] = IOVEC_MAKE_STRING(q);
         }
 
-        assert_ret(journal_file_append_entry(f, &ts, boot_id, iovec, n_iov, seqnum, NULL, NULL, NULL));
+        assert_ret(journal_file_append_entry(f, &ts, boot_id, iovec, n_iov, seqnum, NULL, NULL, ret_offset));
 }
 
 static void append_unreferenced_data(JournalFile *f, const sd_id128_t *boot_id) {
@@ -168,19 +168,19 @@ static void setup_sequential(void) {
         f3 = test_open("three.journal");
         assert_se(sd_id128_randomize(&id) >= 0);
         log_info("boot_id: %s", SD_ID128_TO_STRING(id));
-        append_number(f1, 1, &id, NULL);
-        append_number(f1, 2, &id, NULL);
-        append_number(f1, 3, &id, NULL);
-        append_number(f2, 4, &id, NULL);
+        append_number(f1, 1, &id, NULL, NULL);
+        append_number(f1, 2, &id, NULL, NULL);
+        append_number(f1, 3, &id, NULL, NULL);
+        append_number(f2, 4, &id, NULL, NULL);
         assert_se(sd_id128_randomize(&id) >= 0);
         log_info("boot_id: %s", SD_ID128_TO_STRING(id));
-        append_number(f2, 5, &id, NULL);
-        append_number(f2, 6, &id, NULL);
-        append_number(f3, 7, &id, NULL);
-        append_number(f3, 8, &id, NULL);
+        append_number(f2, 5, &id, NULL, NULL);
+        append_number(f2, 6, &id, NULL, NULL);
+        append_number(f3, 7, &id, NULL, NULL);
+        append_number(f3, 8, &id, NULL, NULL);
         assert_se(sd_id128_randomize(&id) >= 0);
         log_info("boot_id: %s", SD_ID128_TO_STRING(id));
-        append_number(f3, 9, &id, NULL);
+        append_number(f3, 9, &id, NULL, NULL);
         test_close(f1);
         test_close(f2);
         test_close(f3);
@@ -195,15 +195,15 @@ static void setup_interleaved(void) {
         f3 = test_open("three.journal");
         assert_se(sd_id128_randomize(&id) >= 0);
         log_info("boot_id: %s", SD_ID128_TO_STRING(id));
-        append_number(f1, 1, &id, NULL);
-        append_number(f2, 2, &id, NULL);
-        append_number(f3, 3, &id, NULL);
-        append_number(f1, 4, &id, NULL);
-        append_number(f2, 5, &id, NULL);
-        append_number(f3, 6, &id, NULL);
-        append_number(f1, 7, &id, NULL);
-        append_number(f2, 8, &id, NULL);
-        append_number(f3, 9, &id, NULL);
+        append_number(f1, 1, &id, NULL, NULL);
+        append_number(f2, 2, &id, NULL, NULL);
+        append_number(f3, 3, &id, NULL, NULL);
+        append_number(f1, 4, &id, NULL, NULL);
+        append_number(f2, 5, &id, NULL, NULL);
+        append_number(f3, 6, &id, NULL, NULL);
+        append_number(f1, 7, &id, NULL, NULL);
+        append_number(f2, 8, &id, NULL, NULL);
+        append_number(f3, 9, &id, NULL, NULL);
         test_close(f1);
         test_close(f2);
         test_close(f3);
@@ -220,21 +220,21 @@ static void setup_unreferenced_data(void) {
         f3 = test_open_strict("three.journal");
         assert_se(sd_id128_randomize(&id) >= 0);
         log_info("boot_id: %s", SD_ID128_TO_STRING(id));
-        append_number(f1, 1, &id, NULL);
-        append_number(f1, 2, &id, NULL);
-        append_number(f1, 3, &id, NULL);
+        append_number(f1, 1, &id, NULL, NULL);
+        append_number(f1, 2, &id, NULL, NULL);
+        append_number(f1, 3, &id, NULL, NULL);
         assert_se(sd_id128_randomize(&id) >= 0);
         log_info("boot_id: %s", SD_ID128_TO_STRING(id));
         append_unreferenced_data(f1, &id);
-        append_number(f2, 4, &id, NULL);
-        append_number(f2, 5, &id, NULL);
-        append_number(f2, 6, &id, NULL);
+        append_number(f2, 4, &id, NULL, NULL);
+        append_number(f2, 5, &id, NULL, NULL);
+        append_number(f2, 6, &id, NULL, NULL);
         assert_se(sd_id128_randomize(&id) >= 0);
         log_info("boot_id: %s", SD_ID128_TO_STRING(id));
         append_unreferenced_data(f2, &id);
-        append_number(f3, 7, &id, NULL);
-        append_number(f3, 8, &id, NULL);
-        append_number(f3, 9, &id, NULL);
+        append_number(f3, 7, &id, NULL, NULL);
+        append_number(f3, 8, &id, NULL, NULL);
+        append_number(f3, 9, &id, NULL, NULL);
         test_close(f1);
         test_close(f2);
         test_close(f3);
@@ -455,10 +455,10 @@ static void test_sequence_numbers_one(void) {
         assert_se(journal_file_open(-1, "one.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0644,
                                     UINT64_MAX, NULL, m, NULL, &one) == 0);
 
-        append_number(one, 1, NULL, &seqnum);
+        append_number(one, 1, NULL, &seqnum, NULL);
         printf("seqnum=%"PRIu64"\n", seqnum);
         assert_se(seqnum == 1);
-        append_number(one, 2, NULL, &seqnum);
+        append_number(one, 2, NULL, &seqnum, NULL);
         printf("seqnum=%"PRIu64"\n", seqnum);
         assert_se(seqnum == 2);
 
@@ -478,10 +478,10 @@ static void test_sequence_numbers_one(void) {
         assert_se(sd_id128_is_null(two->header->tail_entry_boot_id)); /* Not written yet. */
         assert_se(sd_id128_equal(two->header->seqnum_id, one->header->seqnum_id));
 
-        append_number(two, 3, NULL, &seqnum);
+        append_number(two, 3, NULL, &seqnum, NULL);
         printf("seqnum=%"PRIu64"\n", seqnum);
         assert_se(seqnum == 3);
-        append_number(two, 4, NULL, &seqnum);
+        append_number(two, 4, NULL, &seqnum, NULL);
         printf("seqnum=%"PRIu64"\n", seqnum);
         assert_se(seqnum == 4);
 
@@ -490,11 +490,11 @@ static void test_sequence_numbers_one(void) {
 
         test_close(two);
 
-        append_number(one, 5, NULL, &seqnum);
+        append_number(one, 5, NULL, &seqnum, NULL);
         printf("seqnum=%"PRIu64"\n", seqnum);
         assert_se(seqnum == 5);
 
-        append_number(one, 6, NULL, &seqnum);
+        append_number(one, 6, NULL, &seqnum, NULL);
         printf("seqnum=%"PRIu64"\n", seqnum);
         assert_se(seqnum == 6);
 
@@ -511,7 +511,7 @@ static void test_sequence_numbers_one(void) {
 
                 assert_se(sd_id128_equal(two->header->seqnum_id, seqnum_id));
 
-                append_number(two, 7, NULL, &seqnum);
+                append_number(two, 7, NULL, &seqnum, NULL);
                 printf("seqnum=%"PRIu64"\n", seqnum);
                 assert_se(seqnum == 5);
 
