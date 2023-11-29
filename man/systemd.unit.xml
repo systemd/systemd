@@ -920,6 +920,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>WantsMountsFor=</varname></term>
+
+        <listitem><para>Same as <varname>RequiresMountsFor=</varname>,
+        but adds dependencies of type <varname>Wants=</varname> instead
+        of <varname>Requires=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>OnSuccessJobMode=</varname></term>
         <term><varname>OnFailureJobMode=</varname></term>
 

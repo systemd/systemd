@@ -1,12 +1,21 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include <errno.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
 #include "sd-id128.h"
+
+/* Circular dependency with manager.h, needs to be defined before local includes */
+typedef enum UnitMountDependencyType {
+        UNIT_MOUNT_WANTS,
+        UNIT_MOUNT_REQUIRES,
+        _UNIT_MOUNT_DEPENDENCY_TYPE_MAX,
+        _UNIT_MOUNT_DEPENDENCY_TYPE_INVALID = -EINVAL,
+} UnitMountDependencyType;
 
 #include "bpf-program.h"
 #include "cgroup.h"
@@ -216,9 +225,9 @@ typedef struct Unit {
          * Hashmap(UnitDependency → Hashmap(Unit* → UnitDependencyInfo)) */
         Hashmap *dependencies;
 
-        /* Similar, for RequiresMountsFor= path dependencies. The key is the path, the value the
-         * UnitDependencyInfo type */
-        Hashmap *requires_mounts_for;
+        /* Similar, for RequiresMountsFor= and WantsMountsFor= path dependencies. The key is the path, the
+         * value the UnitDependencyInfo type */
+        Hashmap *mounts_for[_UNIT_MOUNT_DEPENDENCY_TYPE_MAX];
 
         char *description;
         char **documentation;
@@ -1001,7 +1010,7 @@ int unit_kill_context(Unit *u, KillContext *c, KillOperation k, PidRef *main_pid
 
 int unit_make_transient(Unit *u);
 
-int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask);
+int unit_add_mounts_for(Unit *u, const char *path, UnitDependencyMask mask, UnitMountDependencyType type);
 
 bool unit_type_supported(UnitType t);
 
@@ -1100,6 +1109,10 @@ Condition *unit_find_failed_condition(Unit *u);
 int unit_arm_timer(Unit *u, sd_event_source **source, bool relative, usec_t usec, sd_event_time_handler_t handler);
 
 int unit_compare_priority(Unit *a, Unit *b);
+
+UnitMountDependencyType unit_mount_dependency_type_from_string(const char *s) _const_;
+const char* unit_mount_dependency_type_to_string(UnitMountDependencyType t) _const_;
+UnitDependency unit_mount_dependency_type_to_dependency_type(UnitMountDependencyType t) _pure_;
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 
