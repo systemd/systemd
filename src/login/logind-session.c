@@ -1288,11 +1288,7 @@ static void session_remove_fifo(Session *s) {
 
         s->fifo_event_source = sd_event_source_unref(s->fifo_event_source);
         s->fifo_fd = safe_close(s->fifo_fd);
-
-        if (s->fifo_path) {
-                (void) unlink(s->fifo_path);
-                s->fifo_path = mfree(s->fifo_path);
-        }
+        s->fifo_path = unlink_and_free(s->fifo_path);
 }
 
 bool session_may_gc(Session *s, bool drop_not_started) {
