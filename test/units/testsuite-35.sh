@@ -661,6 +661,51 @@ EOF
     rm -f "$SCRIPT" "$PAMSERVICE"
 }
 
+background_at_return() {
+    rm -f /etc/pam.d/"$PAMSERVICE"
+    unset PAMSERVICE
+}
+
+testcase_background() {
+
+    local uid TRANSIENTUNIT1 TRANSIENTUNIT2
+
+    uid=$(id -u logind-test-user)
+
+    systemctl stop user@"$uid".service
+
+    PAMSERVICE="pamserv$RANDOM"
+    TRANSIENTUNIT1="bg$RANDOM.service"
+    TRANSIENTUNIT2="bgg$RANDOM.service"
+
+    trap background_at_return RETURN
+
+    cat > /etc/pam.d/"$PAMSERVICE" <<EOF
+auth sufficient    pam_unix.so
+auth required      pam_deny.so
+account sufficient pam_unix.so
+account required   pam_permit.so
+session optional   pam_systemd.so debug
+session required   pam_unix.so
+EOF
+
+    systemd-run -u "$TRANSIENTUNIT1" -p PAMName="$PAMSERVICE" -p "Environment=XDG_SESSION_CLASS=background-light" -p Type=exec -p User=logind-test-user sleep infinity
+
+    # This was a 'light' background service, hence the service manager should not be running
+    (! systemctl is-active user@"$uid".service )
+
+    systemctl stop "$TRANSIENTUNIT1"
+
+    systemd-run -u "$TRANSIENTUNIT2" -p PAMName="$PAMSERVICE" -p "Environment=XDG_SESSION_CLASS=background" -p Type=exec -p User=logind-test-user sleep infinity
+
+    # This was a regular background service, hence the service manager should be running
+    systemctl is-active user@"$uid".service
+
+    systemctl stop "$TRANSIENTUNIT2"
+
+    systemctl stop user@"$uid".service
+}
+
 setup_test_user
 test_write_dropin
 run_testcases
