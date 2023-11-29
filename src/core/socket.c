@@ -221,7 +221,7 @@ static int socket_add_mount_dependencies(Socket *s) {
                 if (!path)
                         continue;
 
-                r = unit_require_mounts_for(UNIT(s), path, UNIT_DEPENDENCY_FILE);
+                r = unit_add_mounts_for(UNIT(s), path, UNIT_DEPENDENCY_FILE, UNIT_MOUNT_REQUIRES);
                 if (r < 0)
                         return r;
         }

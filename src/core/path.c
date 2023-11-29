@@ -309,7 +309,7 @@ static int path_add_mount_dependencies(Path *p) {
         assert(p);
 
         LIST_FOREACH(spec, s, p->specs) {
-                r = unit_require_mounts_for(UNIT(p), s->path, UNIT_DEPENDENCY_FILE);
+                r = unit_add_mounts_for(UNIT(p), s->path, UNIT_DEPENDENCY_FILE, UNIT_MOUNT_REQUIRES);
                 if (r < 0)
                         return r;
         }

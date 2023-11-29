@@ -35,10 +35,16 @@ trap at_exit EXIT
 
 cryptsetup_start_and_check() {
     local expect_fail=0
+    local umount_header_and_key=0
     local ec volume unit
 
     if [[ "${1:?}" == "-f" ]]; then
         expect_fail=1
+        shift
+    fi
+
+    if [[ "${1:?}" == "-u" ]]; then
+        umount_header_and_key=1
         shift
     fi
 
@@ -62,6 +68,12 @@ cryptsetup_start_and_check() {
         if [[ "$ec" -ne 0 ]]; then
             echo >&2 "Unexpected fail when starting $unit"
             return 1
+        fi
+
+        if [[ "$umount_header_and_key" -ne 0 ]]; then
+            umount "$TMPFS_DETACHED_KEYFILE"
+            umount "$TMPFS_DETACHED_HEADER"
+            udevadm settle --timeout=30
         fi
 
         systemctl status "$unit"
@@ -148,6 +160,15 @@ mkfs.ext4 -L keyfile_store "/dev/disk/by-partlabel/keyfile_store"
 mount "/dev/disk/by-partlabel/keyfile_store" /mnt
 cp "$IMAGE_DETACHED_KEYFILE2" /mnt/keyfile
 umount /mnt
+
+# Also copy the key and header on a tmpfs that we will umount after unlocking
+TMPFS_DETACHED_KEYFILE="$(mktemp -d)"
+TMPFS_DETACHED_HEADER="$(mktemp -d)"
+mount -t tmpfs -o size=32M tmpfs "$TMPFS_DETACHED_KEYFILE"
+mount -t tmpfs -o size=32M tmpfs "$TMPFS_DETACHED_HEADER"
+cp "$IMAGE_DETACHED_KEYFILE" "$TMPFS_DETACHED_KEYFILE/keyfile"
+cp "$IMAGE_DETACHED_HEADER" "$TMPFS_DETACHED_HEADER/header"
+
 udevadm settle --timeout=30
 
 # Prepare our test crypttab
@@ -177,6 +198,7 @@ detached_fail4       $IMAGE_DETACHED $IMAGE_DETACHED_KEYFILE         headless=1,
 detached_slot0       $IMAGE_DETACHED $IMAGE_DETACHED_KEYFILE2        headless=1,header=$IMAGE_DETACHED_HEADER
 detached_slot1       $IMAGE_DETACHED $IMAGE_DETACHED_KEYFILE2        headless=1,header=$IMAGE_DETACHED_HEADER,key-slot=8
 detached_slot_fail   $IMAGE_DETACHED $IMAGE_DETACHED_KEYFILE2        headless=1,header=$IMAGE_DETACHED_HEADER,key-slot=0
+detached_nofail      $IMAGE_DETACHED $TMPFS_DETACHED_KEYFILE/keyfile headless=1,header=$TMPFS_DETACHED_HEADER/header,keyfile-offset=32,keyfile-size=16,nofail
 EOF
 
 # Temporarily drop luks.name=/luks.uuid= from the kernel command line, as it makes
@@ -212,5 +234,6 @@ cryptsetup_start_and_check detached_store{0..2}
 cryptsetup_start_and_check -f detached_fail{0..4}
 cryptsetup_start_and_check detached_slot{0..1}
 cryptsetup_start_and_check -f detached_slot_fail
+cryptsetup_start_and_check -u detached_nofail
 
 touch /testok
