@@ -1085,7 +1085,9 @@ found_atime:
 int session_set_idle_hint(Session *s, bool b) {
         assert(s);
 
-        if (!SESSION_TYPE_IS_GRAPHICAL(s->type))
+        if (!SESSION_CLASS_CAN_IDLE(s->class)) /* Only some session classes know the idle concept at all */
+                return -ENOTTY;
+        if (!SESSION_TYPE_IS_GRAPHICAL(s->type)) /* And only graphical session types can set the field explicitly */
                 return -ENOTTY;
 
         if (s->idle_hint == b)
@@ -1111,15 +1113,20 @@ int session_get_locked_hint(Session *s) {
         return s->locked_hint;
 }
 
-void session_set_locked_hint(Session *s, bool b) {
+int session_set_locked_hint(Session *s, bool b) {
         assert(s);
 
+        if (!SESSION_CLASS_CAN_LOCK(s->class))
+                return -ENOTTY;
+
         if (s->locked_hint == b)
-                return;
+                return 0;
 
         s->locked_hint = b;
+        (void) session_save(s);
+        (void) session_send_changed(s, "LockedHint", NULL);
 
-        session_send_changed(s, "LockedHint", NULL);
+        return 1;
 }
 
 void session_set_type(Session *s, SessionType t) {

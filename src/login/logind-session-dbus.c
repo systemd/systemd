@@ -216,7 +216,9 @@ int bus_session_method_lock(sd_bus_message *message, void *userdata, sd_bus_erro
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = session_send_lock(s, strstr(sd_bus_message_get_member(message), "Lock"));
+        r = session_send_lock(s, /* lock= */ strstr(sd_bus_message_get_member(message), "Lock"));
+        if (r == -ENOTTY)
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Session does not support lock screen.");
         if (r < 0)
                 return r;
 
@@ -248,7 +250,7 @@ static int method_set_idle_hint(sd_bus_message *message, void *userdata, sd_bus_
 
         r = session_set_idle_hint(s, b);
         if (r == -ENOTTY)
-                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Idle hint control is not supported on non-graphical sessions.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Idle hint control is not supported on non-graphical and non-user sessions.");
         if (r < 0)
                 return r;
 
@@ -278,7 +280,11 @@ static int method_set_locked_hint(sd_bus_message *message, void *userdata, sd_bu
         if (uid != 0 && uid != s->user->user_record->uid)
                 return sd_bus_error_set(error, SD_BUS_ERROR_ACCESS_DENIED, "Only owner of session may set locked hint");
 
-        session_set_locked_hint(s, b);
+        r = session_set_locked_hint(s, b);
+        if (r == -ENOTTY)
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Session does not support lock screen.");
+        if (r < 0)
+                return r;
 
         return sd_bus_reply_method_return(message, NULL);
 }
@@ -821,6 +827,9 @@ int session_send_lock(Session *s, bool lock) {
 
         assert(s);
 
+        if (!SESSION_CLASS_CAN_LOCK(s->class))
+                return -ENOTTY;
+
         p = session_bus_path(s);
         if (!p)
                 return -ENOMEM;
@@ -841,6 +850,9 @@ int session_send_lock_all(Manager *m, bool lock) {
 
         HASHMAP_FOREACH(session, m->sessions) {
                 int k;
+
+                if (!SESSION_CLASS_CAN_LOCK(session->class))
+                        continue;
 
                 k = session_send_lock(session, lock);
                 if (k < 0)
