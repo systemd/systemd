@@ -1113,7 +1113,8 @@ static int setup_pam(
                 gid_t gid,
                 const char *tty,
                 char ***env, /* updated on success */
-                const int fds[], size_t n_fds) {
+                const int fds[], size_t n_fds,
+                int exec_fd) {
 
 #if HAVE_PAM
 
@@ -1215,6 +1216,11 @@ static int setup_pam(
                 /* Make sure we don't keep open the passed fds in this child. We assume that otherwise only
                  * those fds are open here that have been opened by PAM. */
                 (void) close_many(fds, n_fds);
+
+                /* Also close the 'exec_fd' in the child, since the service manager waits for the EOF induced
+                 * by the execve() to wait for completion, and if we'd keep the fd open here in the child
+                 * we'd never signal completion. */
+                exec_fd = safe_close(exec_fd);
 
                 /* Drop privileges - we don't need any to pam_close_session and this will make
                  * PR_SET_PDEATHSIG work in most cases.  If this fails, ignore the error - but expect sd-pam
@@ -3929,7 +3935,7 @@ int exec_invoke(
                 int *exit_status) {
 
         _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **joined_exec_search_path = NULL, **accum_env = NULL, **replaced_argv = NULL;
-        int r, ngids = 0, exec_fd;
+        int r, ngids = 0, exec_fd = -EBADF;
         _cleanup_free_ gid_t *supplementary_gids = NULL;
         const char *username = NULL, *groupname = NULL;
         _cleanup_free_ char *home_buffer = NULL, *memory_pressure_path = NULL;
@@ -4573,7 +4579,7 @@ int exec_invoke(
                  * wins here. (See above.) */
 
                 /* All fds passed in the fds array will be closed in the pam child process. */
-                r = setup_pam(context->pam_name, username, uid, gid, context->tty_path, &accum_env, fds, n_fds);
+                r = setup_pam(context->pam_name, username, uid, gid, context->tty_path, &accum_env, fds, n_fds, exec_fd);
                 if (r < 0) {
                         *exit_status = EXIT_PAM;
                         return log_exec_error_errno(context, params, r, "Failed to set up PAM session: %m");
