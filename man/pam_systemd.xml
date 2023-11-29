@@ -90,11 +90,62 @@
       <varlistentry>
         <term><varname>class=</varname></term>
 
-        <listitem><para>Takes a string argument which sets the session class. The <varname>XDG_SESSION_CLASS</varname>
-        environment variable (see below) takes precedence. One of <literal>user</literal>, <literal>greeter</literal>,
-        <literal>lock-screen</literal> or <literal>background</literal>. See
-        <citerefentry><refentrytitle>sd_session_get_class</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
-        details about the session class.</para>
+        <listitem><para>Takes a string argument which sets the session class. The
+        <varname>XDG_SESSION_CLASS</varname> environment variable (see below) takes precedence. See
+        <citerefentry><refentrytitle>sd_session_get_class</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+        for a way to query the class of a session. The following session classes are defined:</para>
+
+        <table>
+          <title>Session Classes</title>
+          <tgroup cols='2' align='left' colsep='1' rowsep='1'>
+            <colspec colname="name" />
+            <colspec colname="explanation" />
+            <thead>
+              <row>
+                <entry>Name</entry>
+                <entry>Explanation</entry>
+              </row>
+            </thead>
+            <tbody>
+              <row>
+                <entry><constant>user</constant></entry>
+                <entry>A regular interactive user session. This is the default class for sessions for which a TTY or X display is known at session registration time.</entry>
+              </row>
+              <row>
+                <entry><constant>user-early</constant></entry>
+                <entry>Similar to <literal>user</literal> but sessions of this class are not ordered after <filename>systemd-user-sessions.service</filename>, i.e. may be started before regular sessions are allowed to be established. This session class is the default for sessions of the root user that would otherwise qualify for the <constant>user</constant> class, see above.</entry>
+              </row>
+              <row>
+                <entry><constant>user-incomplete</constant></entry>
+                <entry>Similar to <literal>user</literal> but for sessions which are not fully set up yet, i.e. have no home directory mounted ot similar. This is used by <citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry> to allow users to log in via <command>ssh</command> before their home directory is mounted, delaying the mount until the user provided the unlock password. Sessions of this class are upgraded to the regular <constant>user</constant> class once the home directory is activated.</entry>
+              </row>
+              <row>
+                <entry><constant>greeter</constant></entry>
+                <entry>Similar to <literal>user</literal> but for sessions that are spawned by a display manager ephemerally and which prompt the user for login credentials.</entry>
+              </row>
+              <row>
+                <entry><constant>lock-screen</constant></entry>
+                <entry>Similar to <literal>user</literal> but for sessions that are spawned by a display manager ephemerally and which show a lock screen that can be used to unlock locked user accounts or sessions.</entry>
+              </row>
+              <row>
+                <entry><constant>background</constant></entry>
+                <entry>Used for background sessions, such as those invoked by <command>cron</command> and similar tools. This is the default class for sessions for which no TTY or X display is known at session registration time.</entry>
+              </row>
+              <row>
+                <entry><constant>background-light</constant></entry>
+                <entry>Similar to <constant>background</constant>, but sessions of this class will not pull in the <filename>user@.service</filename> of the user, and thus possibly have no services of the user running.</entry>
+              </row>
+              <row>
+                <entry><constant>manager</constant></entry>
+                <entry>The <filename>user@.service</filename> service of the user is registered under this session class.</entry>
+              </row>
+              <row>
+                <entry><constant>manager-early</constant></entry>
+                <entry>Similar to <constant>manager</constant>, but for the root user. Compare with the <constant>user</constant> vs. <constant>user-early</constant> situation.</entry>
+              </row>
+            </tbody>
+          </tgroup>
+        </table>
 
         <xi:include href="version-info.xml" xpointer="v197"/></listitem>
       </varlistentry>
