@@ -207,11 +207,9 @@ int main(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        /* Now try again if we were told it's fine to use a different target */
-        if (log_get_target() != LOG_TARGET_KMSG) {
-                log_set_prohibit_ipc(false);
-                log_open();
-        }
+        /* Now that we know the intended log target, allow IPC and open the final log target. */
+        log_set_prohibit_ipc(false);
+        log_open();
 
         /* Initialize lazily. SMACK is just a few operations, but the SELinux is very slow as it requires
          * loading the entire database in memory, so we will do it lazily only if it is actually needed, to
