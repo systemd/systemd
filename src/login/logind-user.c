@@ -591,6 +591,9 @@ int user_get_idle_hint(User *u, dual_timestamp *t) {
                 dual_timestamp k;
                 int ih;
 
+                if (!SESSION_CLASS_CAN_IDLE(s->class))
+                        continue;
+
                 ih = session_get_idle_hint(s, &k);
                 if (ih < 0)
                         return ih;
@@ -783,7 +786,7 @@ static bool elect_display_filter(Session *s) {
         /* Return true if the session is a candidate for the user’s ‘primary session’ or ‘display’. */
         assert(s);
 
-        return IN_SET(s->class, SESSION_USER, SESSION_GREETER) && s->started && !s->stopping;
+        return SESSION_CLASS_CAN_DISPLAY(s->class) && s->started && !s->stopping;
 }
 
 static int elect_display_compare(Session *s1, Session *s2) {
