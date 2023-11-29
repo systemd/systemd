@@ -43,7 +43,7 @@ static bool arg_remain_after_exit = false;
 static bool arg_no_block = false;
 static bool arg_wait = false;
 static const char *arg_unit = NULL;
-static const char *arg_description = NULL;
+static char *arg_description = NULL;
 static const char *arg_slice = NULL;
 static bool arg_slice_inherit = false;
 static int arg_expand_environment = -1;
@@ -74,6 +74,7 @@ static char *arg_working_directory = NULL;
 static bool arg_shell = false;
 static char **arg_cmdline = NULL;
 
+STATIC_DESTRUCTOR_REGISTER(arg_description, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_environment, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_path_property, strv_freep);
@@ -281,7 +282,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_DESCRIPTION:
-                        arg_description = optarg;
+                        r = free_and_strdup(&arg_description, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_SLICE:
@@ -1899,7 +1902,6 @@ static bool shall_make_executable_absolute(void) {
 
 static int run(int argc, char* argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_free_ char *description = NULL;
         int r;
 
         log_show_color(true);
@@ -1924,19 +1926,16 @@ static int run(int argc, char* argv[]) {
         }
 
         if (!arg_description) {
+                char *t;
+
                 if (strv_isempty(arg_cmdline))
-                        arg_description = arg_unit;
-                else {
-                        _cleanup_free_ char *joined = strv_join(arg_cmdline, " ");
-                        if (!joined)
-                                return log_oom();
+                        t = strdup(arg_unit);
+                else
+                        t = quote_command_line(arg_cmdline, SHELL_ESCAPE_EMPTY);
+                if (!t)
+                        return log_oom();
 
-                        description = shell_escape(joined, "\"");
-                        if (!description)
-                                return log_oom();
-
-                        arg_description = description;
-                }
+                free_and_replace(arg_description, t);
         }
 
         /* For backward compatibility reasons env var expansion is disabled by default for scopes, and
