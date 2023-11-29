@@ -38,6 +38,15 @@ int (*sym_libbpf_probe_bpf_prog_type)(enum bpf_prog_type, const void *);
 const char* (*sym_bpf_program__name)(const struct bpf_program *);
 libbpf_print_fn_t (*sym_libbpf_set_print)(libbpf_print_fn_t);
 long (*sym_libbpf_get_error)(const void *);
+int (*sym_bpf_prog_get_next_id)(__u32, __u32 *);
+int (*sym_bpf_map_get_next_id)(__u32, __u32 *);
+int (*sym_bpf_prog_get_fd_by_id)(__u32);
+int (*sym_bpf_map_get_fd_by_id)(__u32);
+int (*sym_bpf_obj_get_info_by_fd)(int, void *, __u32 *);
+struct btf* (*sym_btf__load_from_kernel_by_id)(__u32);
+const struct btf_type* (*sym_btf__type_by_id)(const struct btf *, __u32);
+const char* (*sym_btf__name_by_offset)(const struct btf *, __u32);
+void (*sym_btf__free)(struct btf *);
 
 /* compat symbols removed in libbpf 1.0 */
 int (*sym_bpf_create_map)(enum bpf_map_type,  int key_size, int value_size, int max_entries, __u32 map_flags);
@@ -125,7 +134,16 @@ int dlopen_bpf(void) {
 #endif
                         DLSYM_ARG(bpf_program__name),
                         DLSYM_ARG(libbpf_set_print),
-                        DLSYM_ARG(libbpf_get_error));
+                        DLSYM_ARG(libbpf_get_error),
+                        DLSYM_ARG(bpf_prog_get_next_id),
+                        DLSYM_ARG(bpf_map_get_next_id),
+                        DLSYM_ARG(bpf_prog_get_fd_by_id),
+                        DLSYM_ARG(bpf_map_get_fd_by_id),
+                        DLSYM_ARG(bpf_obj_get_info_by_fd),
+                        DLSYM_ARG(btf__load_from_kernel_by_id),
+                        DLSYM_ARG(btf__type_by_id),
+                        DLSYM_ARG(btf__name_by_offset),
+                        DLSYM_ARG(btf__free));
         if (r < 0)
                 return r;
 
