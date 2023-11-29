@@ -3000,24 +3000,16 @@ static int generic_array_bisect(
         a = first;
 
         ci = ordered_hashmap_get(f->chain_cache, &first);
-        if (ci && n > ci->total && ci->begin != 0) {
-                /* Ah, we have iterated this bisection array chain previously! Let's see if we can skip ahead
-                 * in the chain, as far as the last time. But we can't jump backwards in the chain, so let's
-                 * check that first. */
+        if (ci && n > ci->total && ci->begin != 0 &&
+            test_object(f, ci->begin, needle) == TEST_LEFT) {
+                /* Ah, we have iterated this bisection array chain previously, and what we are looking for is
+                 * right of the begin of this EntryArray, so let's jump straight to previously cached array
+                 * in the chain. */
 
-                r = test_object(f, ci->begin, needle);
-                if (r < 0)
-                        return r;
-
-                if (r == TEST_LEFT) {
-                        /* OK, what we are looking for is right of the begin of this EntryArray, so let's
-                         * jump straight to previously cached array in the chain */
-
-                        a = ci->array;
-                        n -= ci->total;
-                        t = ci->total;
-                        last_index = ci->last_index;
-                }
+                a = ci->array;
+                n -= ci->total;
+                t = ci->total;
+                last_index = ci->last_index;
         }
 
         while (a > 0) {
