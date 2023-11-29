@@ -937,9 +937,17 @@ static int create_session(
                 goto fail;
 
         session->original_type = session->type = t;
-        session->class = c;
         session->remote = remote;
         session->vtnr = vtnr;
+        session->class = c;
+
+        /* One the first session that is of a pinning class shows up we'll change the GC mode for the user
+         * from USER_GC_BY_ANY to USER_GC_BY_PIN, so that the user goes away once the last pinning session
+         * goes away. Background: we want that user@.service – when started manually – remains around (which
+         * itself is a non-pinning session), but gets stopped when the last pinning session goes away. */
+
+        if (SESSION_CLASS_PIN_USER(c))
+                user->gc_mode = USER_GC_BY_PIN;
 
         if (!isempty(tty)) {
                 session->tty = strdup(tty);
