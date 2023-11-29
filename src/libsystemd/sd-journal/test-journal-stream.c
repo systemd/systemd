@@ -119,7 +119,7 @@ static void run_test(void) {
         (void) journal_file_offline_close(two);
         (void) journal_file_offline_close(three);
 
-        assert_se(sd_journal_open_directory(&j, t, 0) >= 0);
+        assert_se(sd_journal_open_directory(&j, t, SD_JOURNAL_READ_TAIL_TIMESTAMP_ONCE) >= 0);
 
         assert_se(sd_journal_add_match(j, "MAGIC=quux", 0) >= 0);
         SD_JOURNAL_FOREACH_BACKWARDS(j) {
