@@ -626,8 +626,7 @@ void exec_context_done(ExecContext *c) {
         c->log_filter_allowed_patterns = set_free_free(c->log_filter_allowed_patterns);
         c->log_filter_denied_patterns = set_free_free(c->log_filter_denied_patterns);
 
-        c->log_ratelimit_interval_usec = 0;
-        c->log_ratelimit_burst = 0;
+        c->log_ratelimit = (RateLimit) {};
 
         c->stdin_data = mfree(c->stdin_data);
         c->stdin_data_size = 0;
@@ -1216,13 +1215,13 @@ void exec_context_dump(const ExecContext *c, FILE* f, const char *prefix) {
                 fprintf(f, "%sLogLevelMax: %s\n", prefix, strna(t));
         }
 
-        if (c->log_ratelimit_interval_usec > 0)
+        if (c->log_ratelimit.interval > 0)
                 fprintf(f,
                         "%sLogRateLimitIntervalSec: %s\n",
-                        prefix, FORMAT_TIMESPAN(c->log_ratelimit_interval_usec, USEC_PER_SEC));
+                        prefix, FORMAT_TIMESPAN(c->log_ratelimit.interval, USEC_PER_SEC));
 
-        if (c->log_ratelimit_burst > 0)
-                fprintf(f, "%sLogRateLimitBurst: %u\n", prefix, c->log_ratelimit_burst);
+        if (c->log_ratelimit.burst > 0)
+                fprintf(f, "%sLogRateLimitBurst: %u\n", prefix, c->log_ratelimit.burst);
 
         if (!set_isempty(c->log_filter_allowed_patterns) || !set_isempty(c->log_filter_denied_patterns)) {
                 fprintf(f, "%sLogFilterPatterns:", prefix);

@@ -137,8 +137,7 @@ static void socket_init(Unit *u) {
 
         s->trigger_limit = RATELIMIT_OFF;
 
-        s->poll_limit_interval = USEC_INFINITY;
-        s->poll_limit_burst = UINT_MAX;
+        s->poll_limit = RATELIMIT_OFF;
 }
 
 static void socket_unwatch_control_pid(Socket *s) {
@@ -322,10 +321,10 @@ static int socket_add_extras(Socket *s) {
         if (s->trigger_limit.burst == UINT_MAX)
                 s->trigger_limit.burst = s->accept ? 200 : 20;
 
-        if (s->poll_limit_interval == USEC_INFINITY)
-                s->poll_limit_interval = 2 * USEC_PER_SEC;
-        if (s->poll_limit_burst == UINT_MAX)
-                s->poll_limit_burst = s->accept ? 150 : 15;
+        if (s->poll_limit.interval == USEC_INFINITY)
+                s->poll_limit.interval = 2 * USEC_PER_SEC;
+        if (s->poll_limit.burst == UINT_MAX)
+                s->poll_limit.burst = s->accept ? 150 : 15;
 
         if (have_non_accept_socket(s)) {
 
@@ -797,8 +796,8 @@ static void socket_dump(Unit *u, FILE *f, const char *prefix) {
                 "%sPollLimitBurst: %u\n",
                 prefix, FORMAT_TIMESPAN(s->trigger_limit.interval, USEC_PER_SEC),
                 prefix, s->trigger_limit.burst,
-                prefix, FORMAT_TIMESPAN(s->poll_limit_interval, USEC_PER_SEC),
-                prefix, s->poll_limit_burst);
+                prefix, FORMAT_TIMESPAN(s->poll_limit.interval, USEC_PER_SEC),
+                prefix, s->poll_limit.burst);
 
         str = ip_protocol_to_name(s->socket_protocol);
         if (str)
@@ -1783,7 +1782,7 @@ static int socket_watch_fds(Socket *s) {
                         (void) sd_event_source_set_description(p->event_source, "socket-port-io");
                 }
 
-                r = sd_event_source_set_ratelimit(p->event_source, s->poll_limit_interval, s->poll_limit_burst);
+                r = sd_event_source_set_ratelimit(p->event_source, s->poll_limit.interval, s->poll_limit.burst);
                 if (r < 0)
                         log_unit_debug_errno(UNIT(s), r, "Failed to set poll limit on I/O event source, ignoring: %m");
         }
