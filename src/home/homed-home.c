@@ -2085,23 +2085,11 @@ int home_killall(Home *h) {
         if (r < 0)
                 return r;
         if (r == 0) {
-                gid_t gid;
-
                 /* Child */
 
-                gid = user_record_gid(h->record);
-                if (setresgid(gid, gid, gid) < 0) {
-                        log_error_errno(errno, "Failed to change GID to " GID_FMT ": %m", gid);
-                        _exit(EXIT_FAILURE);
-                }
-
-                if (setgroups(0, NULL) < 0) {
-                        log_error_errno(errno, "Failed to reset auxiliary groups list: %m");
-                        _exit(EXIT_FAILURE);
-                }
-
-                if (setresuid(h->uid, h->uid, h->uid) < 0) {
-                        log_error_errno(errno, "Failed to change UID to " UID_FMT ": %m", h->uid);
+                r = fully_set_uid_gid(h->uid, user_record_gid(h->record), /* supplementary_gids= */ NULL, /* n_supplementary_gids= */ 0);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to change UID/GID to " UID_FMT "/" GID_FMT ": %m", h->uid, user_record_gid(h->record));
                         _exit(EXIT_FAILURE);
                 }
 
