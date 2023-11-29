@@ -1335,7 +1335,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                 if (r < 0)
                         return r;
 
-                r = unit_add_mounts_for(u, "/var/tmp", UNIT_DEPENDENCY_FILE, UNIT_MOUNT_REQUIRES);
+                r = unit_add_mounts_for(u, "/var/tmp", UNIT_DEPENDENCY_FILE, UNIT_MOUNT_WANTS);
                 if (r < 0)
                         return r;
 
