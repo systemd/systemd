@@ -132,24 +132,22 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_DESERIALIZE: {
+                        _cleanup_close_ int fd = -EBADF;
                         FILE *f;
-                        int fd;
 
                         fd = parse_fd(optarg);
                         if (fd < 0)
-                                return log_error_errno(
-                                                fd,
-                                                "Failed to parse serialization fd \"%s\": %m",
-                                                optarg);
+                                return log_error_errno(fd,
+                                                       "Failed to parse serialization fd \"%s\": %m",
+                                                       optarg);
 
                         r = fd_cloexec(fd, /* cloexec= */ true);
                         if (r < 0)
-                                return log_error_errno(
-                                                r,
-                                                "Failed to set serialization fd \"%s\" to close-on-exec: %m",
-                                                optarg);
+                                return log_error_errno(r,
+                                                       "Failed to set serialization fd %d to close-on-exec: %m",
+                                                       fd);
 
-                        f = fdopen(fd, "r");
+                        f = take_fdopen(&fd, "r");
                         if (!f)
                                 return log_error_errno(errno, "Failed to open serialization fd %d: %m", fd);
 
@@ -167,8 +165,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (!arg_serialization)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "No serialization fd specified.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No serialization fd specified.");
 
         return 1 /* work to do */;
 }
@@ -199,10 +196,6 @@ int main(int argc, char *argv[]) {
         log_set_prohibit_ipc(true);
         log_setup();
 
-        r = fdset_new_fill(/* filter_cloexec= */ 0, &fdset);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create fd set: %m");
-
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
@@ -211,16 +204,17 @@ int main(int argc, char *argv[]) {
         log_set_prohibit_ipc(false);
         log_open();
 
+        /* The serialization fd is set to CLOEXEC in parse_argv, so it's also filtered. */
+        r = fdset_new_fill(/* filter_cloexec= */ 0, &fdset);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create fd set: %m");
+
         /* Initialize lazily. SMACK is just a few operations, but the SELinux is very slow as it requires
          * loading the entire database in memory, so we will do it lazily only if it is actually needed, to
          * avoid wasting 2ms-10ms for each sd-executor that gets spawned. */
         r = mac_init_lazy();
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize MAC layer: %m");
-
-        r = fdset_remove(fdset, fileno(arg_serialization));
-        if (r < 0)
-                return log_error_errno(r, "Failed to remove serialization fd from fd set: %m");
 
         r = exec_deserialize_invocation(arg_serialization,
                                         fdset,
