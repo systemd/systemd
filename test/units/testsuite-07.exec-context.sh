@@ -291,12 +291,15 @@ systemd-run --wait --pipe "${ARGUMENTS[@]}" \
 #
 # Note: running instrumented binaries requires at least /proc to be accessible, so let's
 #       skip the test when we're running under sanitizers
+#
+# Note: $GCOV_ERROR_LOG is used during coverage runs to suppress errors when creating *.gcda files,
+#       since gcov can't access the restricted filesystem (as expected)
 if [[ ! -v ASAN_OPTIONS ]] && systemctl --version | grep "+BPF_FRAMEWORK" && kernel_supports_lsm bpf; then
     ROOTFS="$(df --output=fstype /usr/bin | sed --quiet 2p)"
     systemd-run --wait --pipe -p RestrictFileSystems="" ls /
     systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS foo bar" ls /
     (! systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS" ls /proc)
-    (! systemd-run --wait --pipe -p RestrictFileSystems="foo" ls /)
+    (! systemd-run --wait --pipe -p GCOV_ERROR_LOG=/dev/null -p RestrictFileSystems="foo" ls /)
     systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS foo bar baz proc" ls /proc
     systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS @foo @basic-api" ls /proc
     systemd-run --wait --pipe -p RestrictFileSystems="$ROOTFS @foo @basic-api" ls /sys/fs/cgroup
@@ -304,7 +307,7 @@ if [[ ! -v ASAN_OPTIONS ]] && systemctl --version | grep "+BPF_FRAMEWORK" && ker
     systemd-run --wait --pipe -p RestrictFileSystems="~" ls /
     systemd-run --wait --pipe -p RestrictFileSystems="~proc" ls /
     systemd-run --wait --pipe -p RestrictFileSystems="~@basic-api" ls /
-    (! systemd-run --wait --pipe -p RestrictFileSystems="~$ROOTFS" ls /)
+    (! systemd-run --wait --pipe -p GCOV_ERROR_LOG=/dev/null -p RestrictFileSystems="~$ROOTFS" ls /)
     (! systemd-run --wait --pipe -p RestrictFileSystems="~proc" ls /proc)
     (! systemd-run --wait --pipe -p RestrictFileSystems="~@basic-api" ls /proc)
     (! systemd-run --wait --pipe -p RestrictFileSystems="~proc foo @bar @basic-api" ls /proc)
