@@ -1150,6 +1150,9 @@ void session_set_class(Session *s, SessionClass c) {
         (void) session_save(s);
         (void) session_send_changed(s, "Class", NULL);
 
+        if (SESSION_CLASS_PIN_USER(c))
+                s->user->gc_mode = USER_GC_BY_PIN;
+
         /* This class change might mean we need the per-user session manager now. Try to start it */
         user_start_service_manager(s->user);
 }
