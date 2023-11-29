@@ -46,6 +46,15 @@ typedef enum SessionClass {
 /* Which session classes can pin our user tracking? */
 #define SESSION_CLASS_PIN_USER(class) (!IN_SET((class), SESSION_MANAGER, SESSION_MANAGER_EARLY))
 
+/* Which session classes decide whether system is idle? (should only cover sessions that have input, and are not idle screens themselves)*/
+#define SESSION_CLASS_CAN_IDLE(class) (IN_SET((class), SESSION_USER, SESSION_USER_EARLY, SESSION_GREETER))
+
+/* Which session classes have a lock screen concept? */
+#define SESSION_CLASS_CAN_LOCK(class) (IN_SET((class), SESSION_USER, SESSION_USER_EARLY))
+
+/* Which sessions are candidates to become "display" sessions */
+#define SESSION_CLASS_CAN_DISPLAY(class) (IN_SET((class), SESSION_USER, SESSION_USER_EARLY, SESSION_GREETER))
+
 typedef enum SessionType {
         SESSION_UNSPECIFIED,
         SESSION_TTY,
@@ -158,7 +167,7 @@ bool session_is_active(Session *s);
 int session_get_idle_hint(Session *s, dual_timestamp *t);
 int session_set_idle_hint(Session *s, bool b);
 int session_get_locked_hint(Session *s);
-void session_set_locked_hint(Session *s, bool b);
+int session_set_locked_hint(Session *s, bool b);
 void session_set_type(Session *s, SessionType t);
 void session_set_class(Session *s, SessionClass c);
 int session_set_display(Session *s, const char *display);
