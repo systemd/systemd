@@ -3006,10 +3006,11 @@ static int generic_array_bisect(
                  * check that first. */
 
                 r = test_object(f, ci->begin, needle);
-                if (r < 0)
+                if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL))
+                        log_debug_errno(r, "Cached entry is corrupted, ignoring: %m");
+                else if (r < 0)
                         return r;
-
-                if (r == TEST_LEFT) {
+                else if (r == TEST_LEFT) {
                         /* OK, what we are looking for is right of the begin of this EntryArray, so let's
                          * jump straight to previously cached array in the chain */
 
