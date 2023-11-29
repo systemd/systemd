@@ -137,4 +137,8 @@ if conf.get('ENABLE_HOMED') == 1
                 install_data('homed.conf',
                              install_dir : pkgconfigfiledir)
         endif
+
+        meson.add_install_script(sh, '-c',
+                                 ln_s.format(bindir / 'homectl',
+                                             bindir / 'systemd-home-fallback-shell'))
 endif
