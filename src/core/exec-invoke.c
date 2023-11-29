@@ -1107,7 +1107,8 @@ static int setup_pam(
                 gid_t gid,
                 const char *tty,
                 char ***env, /* updated on success */
-                const int fds[], size_t n_fds) {
+                const int fds[], size_t n_fds,
+                int exec_fd) {
 
 #if HAVE_PAM
 
@@ -1209,6 +1210,11 @@ static int setup_pam(
                 /* Make sure we don't keep open the passed fds in this child. We assume that otherwise only
                  * those fds are open here that have been opened by PAM. */
                 (void) close_many(fds, n_fds);
+
+                /* Also close the 'exec_fd' in the child, since the service manager waits for the EOF induced
+                 * by the execve() to wait for completion, and if we'd keep the fd open here in the child
+                 * we'd never signal completion. */
+                exec_fd = safe_close(exec_fd);
 
                 /* Drop privileges - we don't need any to pam_close_session and this will make
                  * PR_SET_PDEATHSIG work in most cases.  If this fails, ignore the error - but expect sd-pam
@@ -4631,7 +4637,7 @@ int exec_invoke(
                  * wins here. (See above.) */
 
                 /* All fds passed in the fds array will be closed in the pam child process. */
-                r = setup_pam(context->pam_name, username, uid, gid, context->tty_path, &accum_env, params->fds, n_fds);
+                r = setup_pam(context->pam_name, username, uid, gid, context->tty_path, &accum_env, params->fds, n_fds, params->exec_fd);
                 if (r < 0) {
                         *exit_status = EXIT_PAM;
                         return log_exec_error_errno(context, params, r, "Failed to set up PAM session: %m");
