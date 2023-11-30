@@ -1625,6 +1625,12 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                         if (fd < 0)
                                 continue;
 
+                        /* This is special and relies on close-on-exec semantics, make sure it's
+                         * there */
+                        r = fd_cloexec(fd, true);
+                        if (r < 0)
+                                return r;
+
                         p->bpf_outer_map_fd = fd;
                 } else if ((val = startswith(l, "exec-parameters-notify-socket="))) {
                         r = free_and_strdup(&p->notify_socket, val);
