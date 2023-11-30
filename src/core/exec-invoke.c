@@ -3601,32 +3601,29 @@ static int exec_context_cpu_affinity_from_numa(const ExecContext *c, CPUSet *ret
         return cpu_set_add_all(ret, &s);
 }
 
-static int add_shifted_fd(int *fds, size_t fds_size, size_t *n_fds, int fd, int *ret_fd) {
+static int add_shifted_fd(int *fds, size_t fds_size, size_t *n_fds, int *fd) {
         int r;
 
         assert(fds);
         assert(n_fds);
         assert(*n_fds < fds_size);
-        assert(ret_fd);
+        assert(fd);
 
-        if (fd < 0) {
-                *ret_fd = -EBADF;
-                return 0;
-        }
+        if (*fd < 0)
+               return 0;
 
-        if (fd < 3 + (int) *n_fds) {
+        if (*fd < 3 + (int) *n_fds) {
                 /* Let's move the fd up, so that it's outside of the fd range we will use to store
                  * the fds we pass to the process (or which are closed only during execve). */
 
-                r = fcntl(fd, F_DUPFD_CLOEXEC, 3 + (int) *n_fds);
+                r = fcntl(*fd, F_DUPFD_CLOEXEC, 3 + (int) *n_fds);
                 if (r < 0)
                         return -errno;
 
-                close_and_replace(fd, r);
+                close_and_replace(*fd, r);
         }
 
-        *ret_fd = fds[*n_fds] = fd;
-        (*n_fds) ++;
+        fds[(*n_fds)++] = *fd;
         return 1;
 }
 
@@ -3926,7 +3923,7 @@ int exec_invoke(
                 int *exit_status) {
 
         _cleanup_strv_free_ char **our_env = NULL, **pass_env = NULL, **joined_exec_search_path = NULL, **accum_env = NULL, **replaced_argv = NULL;
-        int r, ngids = 0, exec_fd;
+        int r, ngids = 0;
         _cleanup_free_ gid_t *supplementary_gids = NULL;
         const char *username = NULL, *groupname = NULL;
         _cleanup_free_ char *home_buffer = NULL, *memory_pressure_path = NULL;
@@ -4063,19 +4060,17 @@ int exec_invoke(
         memcpy_safe(keep_fds, fds, n_fds * sizeof(int));
         n_keep_fds = n_fds;
 
-        r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, params->exec_fd, &exec_fd);
+        r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, &params->exec_fd);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
                 return log_exec_error_errno(context, params, r, "Failed to shift fd and set FD_CLOEXEC: %m");
         }
 
 #if HAVE_LIBBPF
-        if (params->bpf_outer_map_fd >= 0) {
-                r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, params->bpf_outer_map_fd, &params->bpf_outer_map_fd);
-                if (r < 0) {
-                        *exit_status = EXIT_FDS;
-                        return log_exec_error_errno(context, params, r, "Failed to shift fd and set FD_CLOEXEC: %m");
-                }
+        r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, &params->bpf_outer_map_fd);
+        if (r < 0) {
+                *exit_status = EXIT_FDS;
+                return log_exec_error_errno(context, params, r, "Failed to shift fd and set FD_CLOEXEC: %m");
         }
 #endif
 
@@ -4756,7 +4751,7 @@ int exec_invoke(
                                              "EXECUTABLE=%s", command->path);
         }
 
-        r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, executable_fd, &executable_fd);
+        r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, &executable_fd);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
                 return log_exec_error_errno(context, params, r, "Failed to shift fd and set FD_CLOEXEC: %m");
@@ -5207,13 +5202,13 @@ int exec_invoke(
 
         log_command_line(context, params, "Executing", executable, final_argv);
 
-        if (exec_fd >= 0) {
+        if (params->exec_fd >= 0) {
                 uint8_t hot = 1;
 
                 /* We have finished with all our initializations. Let's now let the manager know that. From this point
                  * on, if the manager sees POLLHUP on the exec_fd, then execve() was successful. */
 
-                if (write(exec_fd, &hot, sizeof(hot)) < 0) {
+                if (write(params->exec_fd, &hot, sizeof(hot)) < 0) {
                         *exit_status = EXIT_EXEC;
                         return log_exec_error_errno(context, params, errno, "Failed to enable exec_fd: %m");
                 }
@@ -5221,13 +5216,13 @@ int exec_invoke(
 
         r = fexecve_or_execve(executable_fd, executable, final_argv, accum_env);
 
-        if (exec_fd >= 0) {
+        if (params->exec_fd >= 0) {
                 uint8_t hot = 0;
 
                 /* The execve() failed. This means the exec_fd is still open. Which means we need to tell the manager
                  * that POLLHUP on it no longer means execve() succeeded. */
 
-                if (write(exec_fd, &hot, sizeof(hot)) < 0) {
+                if (write(params->exec_fd, &hot, sizeof(hot)) < 0) {
                         *exit_status = EXIT_EXEC;
                         return log_exec_error_errno(context, params, errno, "Failed to disable exec_fd: %m");
                 }
