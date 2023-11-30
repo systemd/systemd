@@ -4,6 +4,7 @@
 #include "dirent-util.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "missing_syscall.h"
 #include "mountpoint-util.h"
 #include "recurse-dir.h"
@@ -130,6 +131,18 @@ int readdir_all(int dir_fd,
                 *ret = TAKE_PTR(de);
 
         return 0;
+}
+
+int readdir_all_at(int fd, const char *path, RecurseDirFlags flags, DirectoryEntries **ret) {
+        _cleanup_close_ int dir_fd = -EBADF;
+
+        assert(fd >= 0 || fd == AT_FDCWD);
+
+        dir_fd = xopenat(fd, path, O_DIRECTORY|O_CLOEXEC, /* xopen_flags= */ 0, /* mode= */ 0);
+        if (dir_fd < 0)
+                return dir_fd;
+
+        return readdir_all(dir_fd, flags, ret);
 }
 
 int recurse_dir(
