@@ -220,6 +220,13 @@ int manager_process_requests(sd_event_source *s, void *userdata) {
                         if (req->waiting_reply)
                                 continue; /* Waiting for netlink reply. */
 
+                        /* Typically, requests send netlink message asynchronously. If there are too many
+                         * requests queued, then too many reply callbacks in sd-netlink and further messages
+                         * will be refused. See sd_netlink_call_async(). */
+                        if (netlink_reply_callbacks_is_almost_full(manager->rtnl) ||
+                            netlink_reply_callbacks_is_almost_full(manager->genl))
+                                return 0;
+
                         r = req->process(req, link, req->userdata);
                         if (r == 0)
                                 continue;
