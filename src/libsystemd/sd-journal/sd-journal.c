@@ -38,6 +38,7 @@
 #include "prioq.h"
 #include "process-util.h"
 #include "replace-var.h"
+#include "sort-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -413,6 +414,99 @@ _public_ void sd_journal_flush_matches(sd_journal *j) {
         detach_location(j);
 }
 
+static int newest_by_boot_id_compare(const NewestByBootId *a, const NewestByBootId *b) {
+        return id128_compare_func(&a->boot_id, &b->boot_id);
+}
+
+static void journal_file_unlink_newest_by_boot_id(sd_journal *j, JournalFile *f) {
+        NewestByBootId *found;
+
+        assert(j);
+        assert(f);
+
+        if (f->newest_boot_id_prioq_idx == PRIOQ_IDX_NULL) /* not linked currently, hence this is a NOP */
+                return;
+
+        found = typesafe_bsearch(&(NewestByBootId) { .boot_id = f->newest_boot_id },
+                                 j->newest_by_boot_id, j->n_newest_by_boot_id, newest_by_boot_id_compare);
+        assert(found);
+
+        assert_se(prioq_remove(found->prioq, f, &f->newest_boot_id_prioq_idx) > 0);
+        f->newest_boot_id_prioq_idx = PRIOQ_IDX_NULL;
+
+        /* The prioq may be empty, but that should not cause any issue. Let's keep it. */
+}
+
+static void journal_clear_newest_by_boot_id(sd_journal *j) {
+        FOREACH_ARRAY(i, j->newest_by_boot_id, j->n_newest_by_boot_id) {
+                JournalFile *f;
+
+                while ((f = prioq_peek(i->prioq)))
+                        journal_file_unlink_newest_by_boot_id(j, f);
+
+                prioq_free(i->prioq);
+        }
+
+        j->newest_by_boot_id = mfree(j->newest_by_boot_id);
+        j->n_newest_by_boot_id = 0;
+}
+
+static int journal_file_newest_monotonic_compare(const void *a, const void *b) {
+        const JournalFile *x = a, *y = b;
+
+        return -CMP(x->newest_monotonic_usec, y->newest_monotonic_usec); /* Invert order, we want newest first! */
+}
+
+static int journal_file_reshuffle_newest_by_boot_id(sd_journal *j, JournalFile *f) {
+        NewestByBootId *found;
+        int r;
+
+        assert(j);
+        assert(f);
+
+        found = typesafe_bsearch(&(NewestByBootId) { .boot_id = f->newest_boot_id },
+                                 j->newest_by_boot_id, j->n_newest_by_boot_id, newest_by_boot_id_compare);
+        if (found) {
+                /* There's already a priority queue for this boot ID */
+
+                if (f->newest_boot_id_prioq_idx == PRIOQ_IDX_NULL) {
+                        r = prioq_put(found->prioq, f, &f->newest_boot_id_prioq_idx); /* Insert if we aren't in there yet */
+                        if (r < 0)
+                                return r;
+                } else
+                        prioq_reshuffle(found->prioq, f, &f->newest_boot_id_prioq_idx); /* Reshuffle otherwise */
+
+        } else {
+                _cleanup_(prioq_freep) Prioq *q = NULL;
+
+                /* No priority queue yet, then allocate one */
+
+                assert(f->newest_boot_id_prioq_idx == PRIOQ_IDX_NULL); /* we can't be a member either */
+
+                q = prioq_new(journal_file_newest_monotonic_compare);
+                if (!q)
+                        return -ENOMEM;
+
+                r = prioq_put(q, f, &f->newest_boot_id_prioq_idx);
+                if (r < 0)
+                        return r;
+
+                if (!GREEDY_REALLOC(j->newest_by_boot_id, j->n_newest_by_boot_id + 1)) {
+                        f->newest_boot_id_prioq_idx = PRIOQ_IDX_NULL;
+                        return -ENOMEM;
+                }
+
+                j->newest_by_boot_id[j->n_newest_by_boot_id++] = (NewestByBootId) {
+                        .boot_id = f->newest_boot_id,
+                        .prioq = TAKE_PTR(q),
+                };
+
+                typesafe_qsort(j->newest_by_boot_id, j->n_newest_by_boot_id, newest_by_boot_id_compare);
+        }
+
+        return 0;
+}
+
 static int journal_file_find_newest_for_boot_id(
                 sd_journal *j,
                 sd_id128_t id,
@@ -427,15 +521,16 @@ static int journal_file_find_newest_for_boot_id(
         /* Before we use it, let's refresh the timestamp from the header, and reshuffle our prioq
          * accordingly. We do this only a bunch of times, to not be caught in some update loop. */
         for (unsigned n_tries = 0;; n_tries++) {
+                NewestByBootId *found;
                 JournalFile *f;
-                Prioq *q;
 
-                q = hashmap_get(j->newest_by_boot_id, &id);
-                if (!q)
+                found = typesafe_bsearch(&(NewestByBootId) { .boot_id = id },
+                                         j->newest_by_boot_id, j->n_newest_by_boot_id, newest_by_boot_id_compare);
+
+                f = found ? prioq_peek(found->prioq) : NULL;
+                if (!f)
                         return log_debug_errno(SYNTHETIC_ERRNO(ENODATA),
                                                "Requested delta for boot ID %s, but we have no information about that boot ID.", SD_ID128_TO_STRING(id));
-
-                assert_se(f = prioq_peek(q)); /* we delete hashmap entries once the prioq is empty, so this must hold */
 
                 if (f == prev || n_tries >= 5 || FLAGS_SET(j->flags, SD_JOURNAL_READ_TAIL_TIMESTAMP_ONCE)) {
                         /* This was already the best answer in the previous run, or we tried too often, use it */
@@ -2289,14 +2384,11 @@ fail:
 
 _public_ void sd_journal_close(sd_journal *j) {
         Directory *d;
-        Prioq *p;
 
         if (!j || journal_origin_changed(j))
                 return;
 
-        while ((p = hashmap_first(j->newest_by_boot_id)))
-                journal_file_unlink_newest_by_boot_id(j, prioq_peek(p));
-        hashmap_free(j->newest_by_boot_id);
+        journal_clear_newest_by_boot_id(j);
 
         sd_journal_flush_matches(j);
 
@@ -2330,84 +2422,6 @@ _public_ void sd_journal_close(sd_journal *j) {
         free(j->unique_field);
         free(j->fields_buffer);
         free(j);
-}
-
-static void journal_file_unlink_newest_by_boot_id(sd_journal *j, JournalFile *f) {
-        JournalFile *nf;
-        Prioq *p;
-
-        assert(j);
-        assert(f);
-
-        if (f->newest_boot_id_prioq_idx == PRIOQ_IDX_NULL) /* not linked currently, hence this is a NOP */
-                return;
-
-        assert_se(p = hashmap_get(j->newest_by_boot_id, &f->newest_boot_id));
-        assert_se(prioq_remove(p, f, &f->newest_boot_id_prioq_idx) > 0);
-
-        nf = prioq_peek(p);
-        if (nf)
-                /* There's still a member in the prioq? Then make sure the hashmap key now points to its
-                 * .newest_boot_id field (and not ours!). Not we only replace the memory of the key here, the
-                 * value of the key (and the data associated with it) remain the same. */
-                assert_se(hashmap_replace(j->newest_by_boot_id, &nf->newest_boot_id, p) >= 0);
-        else {
-                assert_se(hashmap_remove(j->newest_by_boot_id, &f->newest_boot_id) == p);
-                prioq_free(p);
-        }
-
-        f->newest_boot_id_prioq_idx = PRIOQ_IDX_NULL;
-}
-
-static int journal_file_newest_monotonic_compare(const void *a, const void *b) {
-        const JournalFile *x = a, *y = b;
-
-        return -CMP(x->newest_monotonic_usec, y->newest_monotonic_usec); /* Invert order, we want newest first! */
-}
-
-static int journal_file_reshuffle_newest_by_boot_id(sd_journal *j, JournalFile *f) {
-        Prioq *p;
-        int r;
-
-        assert(j);
-        assert(f);
-
-        p = hashmap_get(j->newest_by_boot_id, &f->newest_boot_id);
-        if (p) {
-                /* There's already a priority queue for this boot ID */
-
-                if (f->newest_boot_id_prioq_idx == PRIOQ_IDX_NULL) {
-                        r = prioq_put(p, f, &f->newest_boot_id_prioq_idx); /* Insert if we aren't in there yet */
-                        if (r < 0)
-                                return r;
-                } else
-                        prioq_reshuffle(p, f, &f->newest_boot_id_prioq_idx); /* Reshuffle otherwise */
-
-        } else {
-                _cleanup_(prioq_freep) Prioq *q = NULL;
-
-                /* No priority queue yet, then allocate one */
-
-                assert(f->newest_boot_id_prioq_idx == PRIOQ_IDX_NULL); /* we can't be a member either */
-
-                q = prioq_new(journal_file_newest_monotonic_compare);
-                if (!q)
-                        return -ENOMEM;
-
-                r = prioq_put(q, f, &f->newest_boot_id_prioq_idx);
-                if (r < 0)
-                        return r;
-
-                r = hashmap_ensure_put(&j->newest_by_boot_id, &id128_hash_ops, &f->newest_boot_id, q);
-                if (r < 0) {
-                        f->newest_boot_id_prioq_idx = PRIOQ_IDX_NULL;
-                        return r;
-                }
-
-                TAKE_PTR(q);
-        }
-
-        return 0;
 }
 
 static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
