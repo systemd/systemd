@@ -3623,6 +3623,15 @@ static int add_shifted_fd(int *fds, size_t fds_size, size_t *n_fds, int fd, int 
                         return -errno;
 
                 close_and_replace(fd, r);
+        } else {
+                /* Here we set all fds added to CLOEXEC. This is particularly useful for e.g.
+                 * ExecParameters.exec_fd and bpf_outer_map_fd, which shouldn't be closed manually
+                 * but depend on CLOEXEC semantics. All fds that need to passed to child will have
+                 * CLOEXEC unset in flag_fds. */
+
+                r = fd_cloexec(fd, true);
+                if (r < 0)
+                        return r;
         }
 
         *ret_fd = fds[*n_fds] = fd;
@@ -4071,7 +4080,7 @@ int exec_invoke(
 
 #if HAVE_LIBBPF
         if (params->bpf_outer_map_fd >= 0) {
-                r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, params->bpf_outer_map_fd, (int *)&params->bpf_outer_map_fd);
+                r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, params->bpf_outer_map_fd, &params->bpf_outer_map_fd);
                 if (r < 0) {
                         *exit_status = EXIT_FDS;
                         return log_exec_error_errno(context, params, r, "Failed to shift fd and set FD_CLOEXEC: %m");
