@@ -204,7 +204,9 @@ int main(int argc, char *argv[]) {
         log_set_prohibit_ipc(false);
         log_open();
 
-        /* The serialization fd is set to CLOEXEC in parse_argv, so it's also filtered. */
+        /* This call would collect all passed fds and enable CLOEXEC. We'll unset it in exec_invoke (flag_fds)
+         * for fds that shall be passed to the child.
+         * The serialization fd is set to CLOEXEC in parse_argv, so it's also filtered. */
         r = fdset_new_fill(/* filter_cloexec= */ 0, &fdset);
         if (r < 0)
                 return log_error_errno(r, "Failed to create fd set: %m");
