@@ -57,7 +57,7 @@ DEFINE_PRIVATE_ORIGIN_ID_HELPERS(sd_journal, journal);
 
 static void remove_file_real(sd_journal *j, JournalFile *f);
 static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f);
-static void journal_file_unlink_newest_by_bood_id(sd_journal *j, JournalFile *f);
+static void journal_file_unlink_newest_by_boot_id(sd_journal *j, JournalFile *f);
 
 static int journal_put_error(sd_journal *j, int r, const char *path) {
         _cleanup_free_ char *copy = NULL;
@@ -1570,7 +1570,7 @@ static void remove_file_real(sd_journal *j, JournalFile *f) {
                         j->fields_file_lost = true;
         }
 
-        journal_file_unlink_newest_by_bood_id(j, f);
+        journal_file_unlink_newest_by_boot_id(j, f);
         (void) journal_file_close(f);
 
         j->current_invalidate_counter++;
@@ -2277,7 +2277,7 @@ _public_ void sd_journal_close(sd_journal *j) {
                 return;
 
         while ((p = hashmap_first(j->newest_by_boot_id)))
-                journal_file_unlink_newest_by_bood_id(j, prioq_peek(p));
+                journal_file_unlink_newest_by_boot_id(j, prioq_peek(p));
         hashmap_free(j->newest_by_boot_id);
 
         sd_journal_flush_matches(j);
@@ -2314,7 +2314,7 @@ _public_ void sd_journal_close(sd_journal *j) {
         free(j);
 }
 
-static void journal_file_unlink_newest_by_bood_id(sd_journal *j, JournalFile *f) {
+static void journal_file_unlink_newest_by_boot_id(sd_journal *j, JournalFile *f) {
         JournalFile *nf;
         Prioq *p;
 
@@ -2465,7 +2465,7 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
                 return -ENODATA;
 
         if (!sd_id128_equal(f->newest_boot_id, id))
-                journal_file_unlink_newest_by_bood_id(j, f);
+                journal_file_unlink_newest_by_boot_id(j, f);
 
         f->newest_boot_id = id;
         f->newest_monotonic_usec = mo;
