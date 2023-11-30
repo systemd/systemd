@@ -150,13 +150,15 @@ int fdset_remove(FDSet *s, int fd) {
 int fdset_new_fill(
                 int filter_cloexec, /* if < 0 takes all fds, otherwise only those with O_CLOEXEC set (1) or unset (0) */
                 FDSet **ret) {
+
         _cleanup_(fdset_shallow_freep) FDSet *s = NULL;
         _cleanup_closedir_ DIR *d = NULL;
         int r;
 
         assert(ret);
 
-        /* Creates an fdset and fills in all currently open file descriptors. */
+        /* Creates an fdset and fills in all currently open file descriptors. Also set all collected fds
+         * to CLOEXEC. */
 
         d = opendir("/proc/self/fd");
         if (!d) {
@@ -191,12 +193,20 @@ int fdset_new_fill(
                         /* If user asked for that filter by O_CLOEXEC. This is useful so that fds that have
                          * been passed in can be collected and fds which have been created locally can be
                          * ignored, under the assumption that only the latter have O_CLOEXEC set. */
+
                         fl = fcntl(fd, F_GETFD);
                         if (fl < 0)
                                 return -errno;
 
                         if (FLAGS_SET(fl, FD_CLOEXEC) != !!filter_cloexec)
                                 continue;
+                }
+
+                /* We need to set CLOEXEC manually only if we're collecting non-CLOEXEC fds. */
+                if (filter_cloexec <= 0) {
+                        r = fd_cloexec(fd, true);
+                        if (r < 0)
+                                return r;
                 }
 
                 r = fdset_put(s, fd);
