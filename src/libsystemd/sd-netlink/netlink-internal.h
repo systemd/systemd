@@ -85,6 +85,7 @@ struct sd_netlink {
 
         struct Prioq *reply_callbacks_prioq;
         Hashmap *reply_callbacks;
+        size_t reply_callbacks_max;
 
         LIST_HEAD(struct match_callback, match_callbacks);
 

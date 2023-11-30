@@ -18,7 +18,7 @@
 #include "string-util.h"
 
 /* Some really high limit, to catch programming errors */
-#define REPLY_CALLBACKS_MAX UINT16_MAX
+#define DEFAULT_REPLY_CALLBACKS_MAX UINT16_MAX
 
 static int netlink_new(sd_netlink **ret) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *nl = NULL;
@@ -35,6 +35,7 @@ static int netlink_new(sd_netlink **ret) {
                 .sockaddr.nl.nl_family = AF_NETLINK,
                 .original_pid = getpid_cached(),
                 .protocol = -1,
+                .reply_callbacks_max = DEFAULT_REPLY_CALLBACKS_MAX,
 
                 /* Kernel change notification messages have sequence number 0. We want to avoid that with our
                  * own serials, in order not to get confused when matching up kernel replies to our earlier
@@ -458,6 +459,25 @@ static int timeout_compare(const void *a, const void *b) {
         return CMP(x->timeout, y->timeout);
 }
 
+int netlink_set_reply_callbacks_max(sd_netlink *nl, size_t n) {
+        assert(nl);
+
+        /* The default value is large enough. Refuse larger values. */
+        if (n > DEFAULT_REPLY_CALLBACKS_MAX)
+                return -ERANGE;
+        if (n == 0)
+                return -ERANGE;
+
+        nl->reply_callbacks_max = n;
+        return 0;
+}
+
+bool netlink_reply_callbacks_is_almost_full(sd_netlink *nl) {
+        assert(nl);
+
+        return hashmap_size(nl->reply_callbacks) >= nl->reply_callbacks_max - nl->reply_callbacks_max / 10;
+}
+
 int sd_netlink_call_async(
                 sd_netlink *nl,
                 sd_netlink_slot **ret_slot,
@@ -476,8 +496,8 @@ int sd_netlink_call_async(
         assert_return(callback, -EINVAL);
         assert_return(!netlink_pid_changed(nl), -ECHILD);
 
-        if (hashmap_size(nl->reply_callbacks) >= REPLY_CALLBACKS_MAX)
-                return -ERANGE;
+        if (hashmap_size(nl->reply_callbacks) >= nl->reply_callbacks_max)
+                return -EXFULL;
 
         r = hashmap_ensure_allocated(&nl->reply_callbacks, &trivial_hash_ops);
         if (r < 0)
