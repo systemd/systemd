@@ -7,6 +7,8 @@
 #include "networkd-queue.h"
 #include "string-table.h"
 
+#define REPLY_CALLBACK_COUNT_THRESHOLD 128
+
 static Request *request_free(Request *req) {
         if (!req)
                 return NULL;
@@ -219,6 +221,13 @@ int manager_process_requests(sd_event_source *s, void *userdata) {
 
                         if (req->waiting_reply)
                                 continue; /* Waiting for netlink reply. */
+
+                        /* Typically, requests send netlink message asynchronously. If there are many requests
+                         * queued, then this event may make reply callback queue in sd-netlink full. */
+                        if (netlink_get_reply_callback_count(manager->rtnl) >= REPLY_CALLBACK_COUNT_THRESHOLD ||
+                            netlink_get_reply_callback_count(manager->genl) >= REPLY_CALLBACK_COUNT_THRESHOLD ||
+                            fw_ctx_get_reply_callback_count(manager->fw_ctx) >= REPLY_CALLBACK_COUNT_THRESHOLD)
+                                return 0;
 
                         r = req->process(req, link, req->userdata);
                         if (r == 0)
