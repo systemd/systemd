@@ -358,7 +358,7 @@ systemctl start mysshserver.socket
 
 userdbctl user -j homedsshtest
 
-ssh -t -t -4 -p 4711 -i /tmp/homed.id_rsa -o "SetEnv PASSWORD=hunter4711" -o "StrictHostKeyChecking no" homedsshtest@localhost echo zzz > /tmp/homedsshtest.out
+ssh -t -t -4 -p 4711 -i /tmp/homed.id_rsa -o "SetEnv PASSWORD=hunter4711" -o "StrictHostKeyChecking no" homedsshtest@localhost echo zzz | tail -n 1 > /tmp/homedsshtest.out
 cat /tmp/homedsshtest.out
 test "$(cat /tmp/homedsshtest.out)" = "zzz"
 rm /tmp/homedsshtest.out
