@@ -365,7 +365,7 @@ static int help(void) {
                "  -M --machine=CONTAINER     Operate on local container\n"
                "  -m --merge                 Show entries from all available journals\n"
                "  -D --directory=PATH        Show journal files from directory\n"
-               "     --file=PATH             Show journal file\n"
+               "  -i --file=PATH             Show journal file\n"
                "     --root=PATH             Operate on an alternate filesystem root\n"
                "     --image=PATH            Operate on disk image as filesystem root\n"
                "     --image-policy=POLICY   Specify disk image dissection policy\n"
@@ -461,7 +461,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_HEADER,
                 ARG_FACILITY,
                 ARG_SETUP_KEYS,
-                ARG_FILE,
                 ARG_INTERVAL,
                 ARG_VERIFY,
                 ARG_VERIFY_KEY,
@@ -514,7 +513,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "system",               no_argument,       NULL, ARG_SYSTEM               },
                 { "user",                 no_argument,       NULL, ARG_USER                 },
                 { "directory",            required_argument, NULL, 'D'                      },
-                { "file",                 required_argument, NULL, ARG_FILE                 },
+                { "file",                 required_argument, NULL, 'i'                      },
                 { "root",                 required_argument, NULL, ARG_ROOT                 },
                 { "image",                required_argument, NULL, ARG_IMAGE                },
                 { "image-policy",         required_argument, NULL, ARG_IMAGE_POLICY         },
@@ -565,7 +564,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:g:c:S:U:t:u:NF:xrM:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:g:c:S:U:t:u:NF:xrM:i:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -727,7 +726,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_directory = optarg;
                         break;
 
-                case ARG_FILE:
+                case 'i':
                         if (streq(optarg, "-"))
                                 /* An undocumented feature: we can read journal files from STDIN. We don't document
                                  * this though, since after all we only support this for mmap-able, seekable files, and
