@@ -105,7 +105,7 @@ static int shift_fds(int fds[], size_t n_fds) {
         return 0;
 }
 
-static int flags_fds(
+static int flag_fds(
                 const int fds[],
                 size_t n_socket_fds,
                 size_t n_fds,
@@ -113,10 +113,7 @@ static int flags_fds(
 
         int r;
 
-        if (n_fds <= 0)
-                return 0;
-
-        assert(fds);
+        assert(fds || n_fds == 0);
 
         /* Drops/Sets O_NONBLOCK and FD_CLOEXEC from the file flags.
          * O_NONBLOCK only applies to socket activation though. */
@@ -4807,7 +4804,7 @@ int exec_invoke(
         if (r >= 0)
                 r = shift_fds(fds, n_fds);
         if (r >= 0)
-                r = flags_fds(fds, n_socket_fds, n_fds, context->non_blocking);
+                r = flag_fds(fds, n_socket_fds, n_fds, context->non_blocking);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
                 return log_exec_error_errno(context, params, r, "Failed to adjust passed file descriptors: %m");
