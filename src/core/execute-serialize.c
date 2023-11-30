@@ -373,8 +373,7 @@ static int exec_cgroup_context_serialize(const CGroupContext *c, FILE *f) {
                         if (il->limits[type] == cgroup_io_limit_defaults[type])
                                 continue;
 
-                        key = strjoin("exec-cgroup-context-io-device-limit-",
-                                        cgroup_io_limit_type_to_string(type));
+                        key = strjoin("exec-cgroup-context-io-device-limit-", cgroup_io_limit_type_to_string(type));
                         if (!key)
                                 return -ENOMEM;
 
@@ -1596,8 +1595,8 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                                 return log_oom_debug();
 
                         /* Ensure we don't leave any FD uninitialized on error, it makes the fuzzer sad */
-                        for (size_t i = 0; i < p->n_socket_fds + p->n_storage_fds; ++i)
-                                p->fds[i] = -EBADF;
+                        FOREACH_ARRAY(i, p->fds, p->n_socket_fds + p->n_storage_fds)
+                                *i = -EBADF;
 
                         for (size_t i = 0; i < p->n_socket_fds + p->n_storage_fds; ++i) {
                                 _cleanup_free_ char *w = NULL;
