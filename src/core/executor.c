@@ -209,6 +209,12 @@ int main(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create fd set: %m");
 
+        /* Set all passed fds to CLOEXEC. We'll unset it in exec_invoke (flag_fds) for fds that shall
+         * be passed to the child. */
+        r = fdset_cloexec(fdset, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set all passed file descriptors to CLOEXEC: %m");
+
         /* Initialize lazily. SMACK is just a few operations, but the SELinux is very slow as it requires
          * loading the entire database in memory, so we will do it lazily only if it is actually needed, to
          * avoid wasting 2ms-10ms for each sd-executor that gets spawned. */
