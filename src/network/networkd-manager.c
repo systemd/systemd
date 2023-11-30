@@ -65,6 +65,8 @@
 
 /* use 128 MB for receive socket kernel queue. */
 #define RCVBUF_SIZE    (128*1024*1024)
+/* limit the number of waiting replies of asynchronous netlink calls. */
+#define REPLY_CALLBACKS_MAX 128
 
 static int match_prepare_for_sleep(sd_bus_message *message, void *userdata, sd_bus_error *ret_error) {
         Manager *m = ASSERT_PTR(userdata);
@@ -282,6 +284,8 @@ static int manager_connect_genl(Manager *m) {
         if (r < 0)
                 log_warning_errno(r, "Failed to increase receive buffer size for general netlink socket, ignoring: %m");
 
+        (void) netlink_set_reply_callbacks_max(m->genl, REPLY_CALLBACKS_MAX);
+
         r = sd_netlink_attach_event(m->genl, m->event, 0);
         if (r < 0)
                 return r;
@@ -357,6 +361,8 @@ static int manager_connect_rtnl(Manager *m, int fd) {
                 if (r < 0)
                         log_warning_errno(r, "Failed to increase receive buffer size for rtnl socket, ignoring: %m");
         }
+
+        (void) netlink_set_reply_callbacks_max(m->rtnl, REPLY_CALLBACKS_MAX);
 
         r = sd_netlink_attach_event(m->rtnl, m->event, 0);
         if (r < 0)
