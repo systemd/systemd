@@ -225,10 +225,6 @@ static int parse_argv(int argc, char *argv[]) {
                                 r = fdset_new_fill(/* filter_cloexec= */ 0, &passed);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to take possession of passed file descriptors: %m");
-
-                                r = fdset_cloexec(passed, true);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to enable O_CLOEXEC for passed file descriptors: %m");
                         }
 
                         if (fdnr < 3) {
