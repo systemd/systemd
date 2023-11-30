@@ -2809,8 +2809,6 @@ static int collect_fds(FDSet **ret_fds, const char **ret_error_message) {
                                         "MESSAGE_ID=" SD_MESSAGE_CORE_FD_SET_FAILED_STR);
         }
 
-        (void) fdset_cloexec(*ret_fds, true);
-
         /* The serialization fd should have O_CLOEXEC turned on already, let's verify that we didn't pick it up here */
         assert_se(!arg_serialization || !fdset_contains(*ret_fds, fileno(arg_serialization)));
 
