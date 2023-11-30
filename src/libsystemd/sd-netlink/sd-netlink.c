@@ -458,6 +458,12 @@ static int timeout_compare(const void *a, const void *b) {
         return CMP(x->timeout, y->timeout);
 }
 
+size_t netlink_get_reply_callback_count(sd_netlink *nl) {
+        assert(nl);
+
+        return hashmap_size(nl->reply_callbacks);
+}
+
 int sd_netlink_call_async(
                 sd_netlink *nl,
                 sd_netlink_slot **ret_slot,
