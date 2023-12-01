@@ -309,6 +309,10 @@ node /org/freedesktop/systemd1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Architecture = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly ay MachineID = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly ay BootID = [...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Tainted = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t FirmwareTimestamp = ...;
@@ -625,6 +629,10 @@ node /org/freedesktop/systemd1 {
     <!--signal UnitFilesChanged is not documented!-->
 
     <!--signal Reloading is not documented!-->
+
+    <!--property MachineID is not documented!-->
+
+    <!--property BootID is not documented!-->
 
     <!--property SecurityStartTimestampMonotonic is not documented!-->
 
@@ -1013,6 +1021,10 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-property" generated="True" extra-ref="ConfidentialVirtualization"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Architecture"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="MachineID"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="BootID"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Tainted"/>
 
@@ -11820,6 +11832,8 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <function>QueueSignalUnit()</function>,
       <function>SoftReboot()</function>, and
       <function>DumpUnitFileDescriptorStore()</function> were added in version 254.</para>
+      <para><varname>MachineID</varname>, and
+      <varname>BootID</varname>, were added in version 256.</para>
     </refsect2>
     <refsect2>
       <title>Unit Objects</title>

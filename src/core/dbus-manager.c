@@ -116,6 +116,44 @@ static int property_get_confidential_virtualization(
                         v <= 0 ? NULL : confidential_virtualization_to_string(v));
 }
 
+static int property_get_machine_id(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        sd_id128_t id;
+        int r;
+
+        r = sd_id128_get_machine(&id);
+        if (r < 0)
+                return r;
+
+        return bus_property_get_id128(bus, path, interface, property, reply, &id, error);
+}
+
+static int property_get_boot_id(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        sd_id128_t id;
+        int r;
+
+        r = sd_id128_get_boot(&id);
+        if (r < 0)
+                return r;
+
+        return bus_property_get_id128(bus, path, interface, property, reply, &id, error);
+}
+
 static int property_get_tainted(
                 sd_bus *bus,
                 const char *path,
@@ -2941,6 +2979,8 @@ const sd_bus_vtable bus_manager_vtable[] = {
         SD_BUS_PROPERTY("Virtualization", "s", property_get_virtualization, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("ConfidentialVirtualization", "s", property_get_confidential_virtualization, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Architecture", "s", property_get_architecture, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("MachineID", "ay", property_get_machine_id, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("BootID", "ay", property_get_boot_id, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Tainted", "s", property_get_tainted, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("FirmwareTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_FIRMWARE]), SD_BUS_VTABLE_PROPERTY_CONST),
         BUS_PROPERTY_DUAL_TIMESTAMP("LoaderTimestamp", offsetof(Manager, timestamps[MANAGER_TIMESTAMP_LOADER]), SD_BUS_VTABLE_PROPERTY_CONST),
