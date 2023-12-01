@@ -6,9 +6,9 @@ SourcePath=/etc/fstab
 DefaultDependencies=no
 Conflicts=umount.target
 Before=umount.target
-After=blockdev@dev-sdx8.target
+After=blockdev@dev-sdx17.target
 
 [Mount]
-What=/dev/sdx8
-Where=/mnt/requiredby
-Options=x-systemd.required-by=foo.service
+What=/dev/sdx17
+Where=/mnt/wantedby
+Options=x-systemd.wanted-by=foo.service,x-systemd.automount

@@ -3,7 +3,9 @@
 [Unit]
 Documentation=man:fstab(5) man:systemd-fstab-generator(8)
 SourcePath=/etc/fstab
-Before=local-fs.target
+DefaultDependencies=no
+Conflicts=umount.target
+Before=umount.target
 After=blockdev@dev-sdx8.target
 
 [Mount]
