@@ -518,6 +518,7 @@ static int add_mount(
                 *opts_root_filtered = NULL;
         _cleanup_strv_free_ char **wanted_by = NULL, **required_by = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+        const char *unit_name;
         int r;
 
         assert(what);
@@ -594,13 +595,25 @@ static int add_mount(
                 SET_FLAG(flags, MOUNT_NOFAIL, true);
         }
 
+        if (!strv_isempty(wanted_by) || !strv_isempty(required_by)) {
+                /* If x-systemd.{wanted,required}_by= is specified, target_unit is not used */
+                target_unit = NULL;
+
+                /* Don't set default ordering dependencies on local-fs.target or remote-fs.target, but we
+                 * still need to conflict with umount.target. */
+                fputs("DefaultDependencies=no\n"
+                      "Conflicts=umount.target\n"
+                      "Before=umount.target\n",
+                      f);
+        }
+
         r = write_extra_dependencies(f, opts);
         if (r < 0)
                 return r;
 
         /* Order the mount unit we generate relative to target_unit, so that DefaultDependencies= on the
          * target unit won't affect us. */
-        if (!FLAGS_SET(flags, MOUNT_NOFAIL))
+        if (target_unit && !FLAGS_SET(flags, MOUNT_NOFAIL))
                 fprintf(f, "Before=%s\n", target_unit);
 
         if (passno != 0) {
@@ -691,26 +704,7 @@ static int add_mount(
                 }
         }
 
-        if (!FLAGS_SET(flags, MOUNT_AUTOMOUNT)) {
-                if (!FLAGS_SET(flags, MOUNT_NOAUTO) && strv_isempty(wanted_by) && strv_isempty(required_by)) {
-                        r = generator_add_symlink(dest, target_unit,
-                                                  (flags & MOUNT_NOFAIL) ? "wants" : "requires", name);
-                        if (r < 0)
-                                return r;
-                } else {
-                        STRV_FOREACH(s, wanted_by) {
-                                r = generator_add_symlink(dest, *s, "wants", name);
-                                if (r < 0)
-                                        return r;
-                        }
-
-                        STRV_FOREACH(s, required_by) {
-                                r = generator_add_symlink(dest, *s, "requires", name);
-                                if (r < 0)
-                                        return r;
-                        }
-                }
-        } else {
+        if (FLAGS_SET(flags, MOUNT_AUTOMOUNT)) {
                 r = unit_name_from_path(where, ".automount", &automount_name);
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate unit name: %m");
@@ -741,10 +735,31 @@ static int add_mount(
                 if (r < 0)
                         return log_error_errno(r, "Failed to write unit file %s: %m", automount_name);
 
+                unit_name = automount_name;
+        } else
+                unit_name = name;
+
+        if (target_unit) {
+                assert(strv_isempty(wanted_by));
+                assert(strv_isempty(required_by));
+
                 r = generator_add_symlink(dest, target_unit,
-                                          (flags & MOUNT_NOFAIL) ? "wants" : "requires", automount_name);
+                                          FLAGS_SET(flags, MOUNT_NOFAIL) ? "wants" : "requires",
+                                          unit_name);
                 if (r < 0)
                         return r;
+        } else {
+                STRV_FOREACH(s, wanted_by) {
+                        r = generator_add_symlink(dest, *s, "wants", unit_name);
+                        if (r < 0)
+                                return r;
+                }
+
+                STRV_FOREACH(s, required_by) {
+                        r = generator_add_symlink(dest, *s, "requires", unit_name);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         return true;
