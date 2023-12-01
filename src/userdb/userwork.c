@@ -1029,16 +1029,16 @@ static int vl_method_add_mount_to_user_namespace(Varlink *link, JsonVariant *par
         return varlink_replyb(link, JSON_BUILD_EMPTY_OBJECT);
 }
 
-static int process_connection(VarlinkServer *server, int fd) {
+static int process_connection(VarlinkServer *server, int _fd) {
+        _cleanup_close_ int fd = TAKE_FD(_fd); /* always take possesion */
         _cleanup_(varlink_close_unrefp) Varlink *vl = NULL;
         int r;
 
         r = varlink_server_add_connection(server, fd, &vl);
-        if (r < 0) {
-                fd = safe_close(fd);
+        if (r < 0)
                 return log_error_errno(r, "Failed to add connection: %m");
-        }
 
+        TAKE_FD(fd);
         vl = varlink_ref(vl);
 
         r = varlink_set_allow_fd_passing_input(vl, true);
