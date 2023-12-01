@@ -1654,8 +1654,8 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse systemd.firstboot= kernel command line argument, ignoring: %m");
                 if (r > 0 && !enabled) {
-                        log_debug("Found systemd.firstboot=no kernel command line argument, terminating.");
-                        return 0; /* disabled */
+                        log_debug("Found systemd.firstboot=no kernel command line argument, turning off all prompts.");
+                        arg_prompt_locale = arg_prompt_keymap = arg_prompt_timezone = arg_prompt_hostname = arg_prompt_root_password = arg_prompt_root_shell = false;
                 }
         }
 
