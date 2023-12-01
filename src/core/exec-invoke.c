@@ -5117,7 +5117,7 @@ int exec_invoke(
 #endif
 
 #if HAVE_SECCOMP
-                /* This really should remain as close to the execve() as possible, to make sure our own code is unaffected
+                /* This really should remain as close to the execve() as possible, to make sure our own code is affected
                  * by the filter as little as possible. */
                 r = apply_syscall_filter(context, params, needs_ambient_hack);
                 if (r < 0) {
