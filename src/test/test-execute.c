@@ -1070,6 +1070,9 @@ static void test_exec_ambientcapabilities(Manager *m) {
         test(m, "exec-ambientcapabilities.service", 0, CLD_EXITED);
         test(m, "exec-ambientcapabilities-merge.service", 0, CLD_EXITED);
 
+        if (have_effective_cap(CAP_SETUID) > 0)
+                test(m, "exec-ambientcapabilities-dynuser.service", can_unshare ? 0 : EXIT_NAMESPACE, CLD_EXITED);
+
         if (!check_nobody_user_and_group()) {
                 log_notice("nobody user/group is not synthesized or may conflict to other entries, skipping remaining tests in %s", __func__);
                 return;
