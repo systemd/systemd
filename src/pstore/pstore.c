@@ -227,7 +227,7 @@ static int process_dmesg_files(PStoreList *list) {
                 if (!startswith(pe->dirent.d_name, "dmesg-"))
                         continue;
 
-                if ((p = startswith(pe->dirent.d_name, "dmesg-efi-"))) {
+                if ((p = startswith(pe->dirent.d_name, "dmesg-efi"))) {
                         /* For the EFI backend, the 3 least significant digits of record id encodes a
                          * "count" number, the next 2 least significant digits for the dmesg part
                          * (chunk) number, and the remaining digits as the timestamp.  See
