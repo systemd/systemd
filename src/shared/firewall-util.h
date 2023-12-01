@@ -15,6 +15,8 @@ FirewallContext *fw_ctx_free(FirewallContext *ctx);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(FirewallContext *, fw_ctx_free);
 
+size_t fw_ctx_get_reply_callback_count(FirewallContext *ctx);
+
 int fw_add_masquerade(
                 FirewallContext **ctx,
                 bool add,
