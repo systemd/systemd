@@ -1183,6 +1183,13 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* filter
                                                        name, id);
                 }
 
+#if (SCMP_VER_MAJOR == 2 && SCMP_VER_MINOR >= 5) || SCMP_VER_MAJOR > 2
+                /* We have a large filter here, so let's turn on the binary tree mode if possible. */
+                r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_OPTIMIZE, 2);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set SCMP_FLTATR_CTL_OPTIMIZE, ignoring: %m");
+#endif
+
                 r = seccomp_load(seccomp);
                 if (ERRNO_IS_NEG_SECCOMP_FATAL(r))
                         return r;
