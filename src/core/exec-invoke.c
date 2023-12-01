@@ -4918,10 +4918,12 @@ int exec_invoke(
                         }
 
                         if (keep_seccomp_privileges) {
-                                r = drop_capability(CAP_SETUID);
-                                if (r < 0) {
-                                        *exit_status = EXIT_USER;
-                                        return log_exec_error_errno(context, params, r, "Failed to drop CAP_SETUID: %m");
+                                if (!FLAGS_SET(capability_ambient_set, (UINT64_C(1) << CAP_SETUID))) {
+                                        r = drop_capability(CAP_SETUID);
+                                        if (r < 0) {
+                                                *exit_status = EXIT_USER;
+                                                return log_exec_error_errno(context, params, r, "Failed to drop CAP_SETUID: %m");
+                                        }
                                 }
 
                                 r = keep_capability(CAP_SYS_ADMIN);
