@@ -477,7 +477,7 @@ int sd_netlink_call_async(
         assert_return(!netlink_pid_changed(nl), -ECHILD);
 
         if (hashmap_size(nl->reply_callbacks) >= REPLY_CALLBACKS_MAX)
-                return -ERANGE;
+                return -EXFULL;
 
         r = hashmap_ensure_allocated(&nl->reply_callbacks, &trivial_hash_ops);
         if (r < 0)
