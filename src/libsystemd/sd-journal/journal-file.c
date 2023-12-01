@@ -2913,9 +2913,19 @@ static int generic_array_bisect_step(
         if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
                 log_debug_errno(r, "Encountered invalid entry while bisecting, cutting algorithm short.");
 
-                /* The first entry in the array is corrupted, let's go back to the previous array. */
-                if (i == 0)
+                if (i == *left) {
+                        /* This happens on two situations:
+                         *
+                         * a) i == 0 (hence, *left == 0):
+                         *    The first entry in the array is corrupted, let's go back to the previous array.
+                         *
+                         * b) *right == *left or *left + 1, and we are going to downwards:
+                         *    In that case, the (i-1)-th object has been already tested in the previous call,
+                         *    which returned TEST_LEFT. See below. So, there is no matching entry in this
+                         *    array nor in the whole entry array chain. */
+                        assert(i == 0 || (*right - *left <= 1 && direction == DIRECTION_DOWN));
                         return TEST_GOTO_PREVIOUS;
+                }
 
                 /* Otherwise, cutting the array short. So, here we limit the number of elements we will see
                  * in this array, and set the right boundary to the last possibly non-corrupted object. */
@@ -3006,10 +3016,11 @@ static int generic_array_bisect(
                  * check that first. */
 
                 r = test_object(f, ci->begin, needle);
-                if (r < 0)
+                if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL))
+                        log_debug_errno(r, "Cached entry is corrupted, ignoring: %m");
+                else if (r < 0)
                         return r;
-
-                if (r == TEST_LEFT) {
+                else if (r == TEST_LEFT) {
                         /* OK, what we are looking for is right of the begin of this EntryArray, so let's
                          * jump straight to previously cached array in the chain */
 
@@ -3021,21 +3032,21 @@ static int generic_array_bisect(
         }
 
         while (a > 0) {
-                uint64_t left, right, k, m;
+                uint64_t left, right, k, m, m_original;
 
                 r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &array);
                 if (r < 0)
                         return r;
 
                 k = journal_file_entry_array_n_items(f, array);
-                m = MIN(k, n);
+                m = m_original = MIN(k, n);
                 if (m <= 0)
                         return 0;
 
                 left = 0;
                 right = m - 1;
 
-                if (direction == DIRECTION_UP) {
+                if (direction == DIRECTION_UP && left < right) {
                         /* If we're going upwards, the last entry of the previous array may pass the test,
                          * and the first entry of the current array may not pass. In that case, the last
                          * entry of the previous array must be returned. Hence, we need to test the first
@@ -3079,6 +3090,27 @@ static int generic_array_bisect(
 
                         for (;;) {
                                 if (left == right) {
+                                        /* We found one or more corrupted entries in generic_array_bisect_step().
+                                         * In that case, the entry pointed by 'right' may not be tested.
+                                         *
+                                         * When we are going to downwards, the entry object pointed by 'left'
+                                         * has not been tested yet, Hence, even if left == right, we still
+                                         * have to check the final entry to see if it actually matches.
+                                         *
+                                         * On the other hand, when we are going to upwards, the entry pointed
+                                         * by 'left' is always tested, So, it is not necessary to test the
+                                         * final entry again. */
+                                        if (m != m_original && direction == DIRECTION_DOWN) {
+                                                r = generic_array_bisect_step(f, array, left, needle, test_object, direction, &m, &left, &right);
+                                                if (r < 0)
+                                                        return r;
+                                                if (IN_SET(r, TEST_GOTO_PREVIOUS, TEST_GOTO_NEXT))
+                                                        return 0; /* The entry does not pass the test, or is corrupted */
+
+                                                assert(TEST_RIGHT);
+                                                assert(left == right);
+                                        }
+
                                         i = left;
                                         goto found;
                                 }
@@ -3091,6 +3123,8 @@ static int generic_array_bisect(
                                         return r;
                                 if (r == TEST_GOTO_PREVIOUS)
                                         goto previous;
+                                if (r == TEST_GOTO_NEXT)
+                                        return 0; /* Found a corrupt entry, and the array was cut short. */
                         }
                 }
 
@@ -3127,10 +3161,21 @@ previous:
         if (direction == DIRECTION_DOWN)
                 return 0;
 
-        /* Indicate to go to the previous array later. Note, do not move to the previous array here,
-         * as that may invalidate the current array object in the mmap cache and
-         * journal_file_entry_array_item() below may read invalid address. */
-        i = UINT64_MAX;
+        /* Get the last entry of the previous array. */
+        r = bump_entry_array(f, NULL, a, first, DIRECTION_UP, &a);
+        if (r <= 0)
+                return r;
+
+        r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &array);
+        if (r < 0)
+                return r;
+
+        p = journal_file_entry_array_n_items(f, array);
+        if (p == 0 || t < p)
+                return -EBADMSG;
+
+        t -= p;
+        i = p - 1;
 
 found:
         p = journal_file_entry_array_item(f, array, 0);
@@ -3139,27 +3184,6 @@ found:
 
         /* Let's cache this item for the next invocation */
         chain_cache_put(f->chain_cache, ci, first, a, p, t, i);
-
-        if (i == UINT64_MAX) {
-                uint64_t m;
-
-                /* Get the last entry of the previous array. */
-
-                r = bump_entry_array(f, NULL, a, first, DIRECTION_UP, &a);
-                if (r <= 0)
-                        return r;
-
-                r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &array);
-                if (r < 0)
-                        return r;
-
-                m = journal_file_entry_array_n_items(f, array);
-                if (m == 0 || t < m)
-                        return -EBADMSG;
-
-                t -= m;
-                i = m - 1;
-        }
 
         p = journal_file_entry_array_item(f, array, i);
         if (p == 0)
@@ -3487,7 +3511,6 @@ int journal_file_next_entry(
                 uint64_t *ret_offset) {
 
         uint64_t i, n, q;
-        Object *o;
         int r;
 
         assert(f);
@@ -3514,7 +3537,8 @@ int journal_file_next_entry(
                                  p,
                                  test_object_offset,
                                  direction,
-                                 ret_object ? &o : NULL, &q, &i);
+                                 NULL, &q, &i); /* Here, do not read entry object, as the result object
+                                                 * may not be the one we want, and it may be broken. */
         if (r <= 0)
                 return r;
 
@@ -3524,15 +3548,14 @@ int journal_file_next_entry(
          * the same offset, and the index needs to be shifted. Otherwise, use the found object as is,
          * as it is the nearest entry object from the input offset 'p'. */
 
-        if (p != q)
-                goto found;
-
-        r = bump_array_index(&i, direction, n);
-        if (r <= 0)
-                return r;
+        if (p == q) {
+                r = bump_array_index(&i, direction, n);
+                if (r <= 0)
+                        return r;
+        }
 
         /* And jump to it */
-        r = generic_array_get(f, le64toh(f->header->entry_array_offset), i, direction, ret_object ? &o : NULL, &q);
+        r = generic_array_get(f, le64toh(f->header->entry_array_offset), i, direction, ret_object, &q);
         if (r <= 0)
                 return r;
 
@@ -3541,9 +3564,7 @@ int journal_file_next_entry(
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                        "%s: entry array not properly ordered at entry index %" PRIu64,
                                        f->path, i);
-found:
-        if (ret_object)
-                *ret_object = o;
+
         if (ret_offset)
                 *ret_offset = q;
 
