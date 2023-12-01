@@ -461,6 +461,7 @@ static int process_connection(VarlinkServer *server, int fd) {
 static int run(int argc, char *argv[]) {
         usec_t start_time, listen_idle_usec, last_busy_usec = USEC_INFINITY;
         _cleanup_(varlink_server_unrefp) VarlinkServer *server = NULL;
+        _cleanup_(pidref_done) PidRef parent = PIDREF_NULL;
         unsigned n_iterations = 0;
         int m, listen_fd, r;
 
@@ -504,6 +505,10 @@ static int run(int argc, char *argv[]) {
         r = userdb_block_nss_systemd(true);
         if (r < 0)
                 return log_error_errno(r, "Failed to disable userdb NSS compatibility: %m");
+
+        r = pidref_set_parent(&parent);
+        if (r < 0)
+                return log_error_errno(r, "Failed to acquire pidfd of parent process: %m");
 
         start_time = now(CLOCK_MONOTONIC);
 
@@ -554,14 +559,11 @@ static int run(int argc, char *argv[]) {
                                 return log_error_errno(r, "Failed to test for POLLIN on listening socket: %m");
 
                         if (FLAGS_SET(r, POLLIN)) {
-                                pid_t parent;
-
-                                parent = getppid();
-                                if (parent <= 1)
-                                        return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Parent already died?");
-
-                                if (kill(parent, SIGUSR2) < 0)
-                                        return log_error_errno(errno, "Failed to kill our own parent: %m");
+                                r = pidref_kill(&parent, SIGUSR2);
+                                if (r == -ESRCH)
+                                        return log_error_errno(r, "Parent already died?");
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to send SIGUSR2 signal to parent. %m");
                         }
                 }
 
