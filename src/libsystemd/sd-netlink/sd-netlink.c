@@ -458,6 +458,12 @@ static int timeout_compare(const void *a, const void *b) {
         return CMP(x->timeout, y->timeout);
 }
 
+size_t netlink_get_reply_callback_count(sd_netlink *nl) {
+        assert(nl);
+
+        return hashmap_size(nl->reply_callbacks);
+}
+
 int sd_netlink_call_async(
                 sd_netlink *nl,
                 sd_netlink_slot **ret_slot,
@@ -477,7 +483,7 @@ int sd_netlink_call_async(
         assert_return(!netlink_pid_changed(nl), -ECHILD);
 
         if (hashmap_size(nl->reply_callbacks) >= REPLY_CALLBACKS_MAX)
-                return -ERANGE;
+                return -EXFULL;
 
         r = hashmap_ensure_allocated(&nl->reply_callbacks, &trivial_hash_ops);
         if (r < 0)
