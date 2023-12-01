@@ -1242,7 +1242,7 @@ int seccomp_parse_syscall_filter(
                                 return -EINVAL;
 
                         log_syntax(unit, FLAGS_SET(flags, SECCOMP_PARSE_LOG) ? LOG_WARNING : LOG_DEBUG, filename, line, 0,
-                                   "Failed to parse system call, ignoring: %s", name);
+                                   "System call %s is not known, ignoring.", name);
                         return 0;
                 }
 
@@ -2000,7 +2000,7 @@ int seccomp_filter_set_add(Hashmap *filter, bool add, const SyscallFilterSet *se
 
                         id = seccomp_syscall_resolve_name(i);
                         if (id == __NR_SCMP_ERROR) {
-                                log_debug("Couldn't resolve system call, ignoring: %s", i);
+                                log_debug("System call %s is not known, ignoring.", i);
                                 continue;
                         }
 
