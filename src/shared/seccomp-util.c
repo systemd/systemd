@@ -1129,7 +1129,9 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* filter
 
                 log_trace("Operating on architecture: %s", seccomp_arch_to_string(arch));
 
-                r = seccomp_init_for_arch(&seccomp, arch, default_action);
+                /* We install ENOSYS as the default action, but it will only apply to syscalls which are not
+                 * in the @known set. */
+                r = seccomp_init_for_arch(&seccomp, arch, SCMP_ACT_ERRNO(ENOSYS));
                 if (r < 0)
                         return r;
 
@@ -1162,6 +1164,23 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* filter
                                 if (!ignore)
                                         return r;
                         }
+                }
+
+                NULSTR_FOREACH(name, syscall_filter_sets[SYSCALL_FILTER_SET_KNOWN].value) {
+                        int id;
+
+                        id = seccomp_syscall_resolve_name(name);
+                        if (id < 0)
+                                continue;
+
+                        /* Ignore the syscall if it was already handled above */
+                        if (hashmap_contains(filter, INT_TO_PTR(id + 1)))
+                                continue;
+
+                        r = seccomp_rule_add_exact(seccomp, default_action, id, 0);
+                        if (r < 0 && r != -EDOM)  /* EDOM means that the syscall is not available for arch */
+                                return log_debug_errno(r, "Failed to add rule for system call %s() / %d: %m",
+                                                       name, id);
                 }
 
                 r = seccomp_load(seccomp);
