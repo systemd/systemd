@@ -795,8 +795,7 @@ static bool menu_run(
 
                         /* menu entries title lines */
                         lines = xnew(char16_t *, visible_entries + 1);
-                        size_t idx_lines = 0;
-                        for (size_t i = 0; i < config->n_entries; i++) {
+                        for (size_t i = 0, idx_lines = 0; i < config->n_entries; i++) {
                                 if (!entry_is_visible(config->entries[i], visible_group))
                                         continue;
                                 size_t j, padding;
