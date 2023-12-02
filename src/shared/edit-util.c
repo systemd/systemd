@@ -294,7 +294,7 @@ static int run_editor(const EditFileContext *context) {
 }
 
 static int strip_edit_temp_file(EditFile *e) {
-        _cleanup_free_ char *old_contents = NULL, *new_contents = NULL;
+        _cleanup_free_ char *old_contents = NULL, *tmp = NULL, *new_contents = NULL;
         const char *stripped;
         int r;
 
@@ -306,15 +306,17 @@ static int strip_edit_temp_file(EditFile *e) {
         if (r < 0)
                 return log_error_errno(r, "Failed to read temporary file '%s': %m", e->temp);
 
+        tmp = strdup(old_contents);
+        if (!tmp)
+                return log_oom();
+
         if (e->context->marker_start) {
                 /* Trim out the lines between the two markers */
                 char *contents_start, *contents_end;
 
                 assert(e->context->marker_end);
 
-                contents_start = strstrafter(old_contents, e->context->marker_start);
-                if (!contents_start)
-                        contents_start = old_contents;
+                contents_start = strstrafter(tmp, e->context->marker_start) ?: tmp;
 
                 contents_end = strstr(contents_start, e->context->marker_end);
                 if (contents_end)
@@ -322,9 +324,13 @@ static int strip_edit_temp_file(EditFile *e) {
 
                 stripped = strstrip(contents_start);
         } else
-                stripped = strstrip(old_contents);
-        if (isempty(stripped))
-                return 0; /* File is empty (has no real changes) */
+                stripped = strstrip(tmp);
+
+        if (isempty(stripped)) {
+                /* File is empty (has no real changes) */
+                log_notice("%s: after editing, new contents are empty, not writing file.", e->path);
+                return 0;
+        }
 
         /* Trim prefix and suffix, but ensure suffixed by single newline */
         new_contents = strjoin(stripped, "\n");
@@ -332,13 +338,14 @@ static int strip_edit_temp_file(EditFile *e) {
                 return log_oom();
 
         if (streq(old_contents, new_contents)) /* Don't touch the file if the above didn't change a thing */
-                return 1; /* Contents unchanged after stripping but has changes */
+                return 1; /* Contents have real changes */
 
-        r = write_string_file(e->temp, new_contents, WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_TRUNCATE | WRITE_STRING_FILE_AVOID_NEWLINE);
+        r = write_string_file(e->temp, new_contents,
+                              WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_TRUNCATE | WRITE_STRING_FILE_AVOID_NEWLINE);
         if (r < 0)
                 return log_error_errno(r, "Failed to strip temporary file '%s': %m", e->temp);
 
-        return 1; /* Contents have real changes and are changed after stripping */
+        return 1; /* Contents have real changes */
 }
 
 int do_edit_files_and_install(EditFileContext *context) {
