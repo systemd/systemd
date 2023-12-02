@@ -267,7 +267,7 @@ static int download_manifest(
                 size_t *ret_size) {
 
         _cleanup_free_ char *buffer = NULL, *suffixed_url = NULL;
-        _cleanup_close_pair_ int pfd[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
         _cleanup_fclose_ FILE *manifest = NULL;
         size_t size = 0;
         pid_t pid;
@@ -292,7 +292,7 @@ static int download_manifest(
         r = safe_fork_full("(sd-pull)",
                            (int[]) { -EBADF, pfd[1], STDERR_FILENO },
                            NULL, 0,
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_REARRANGE_STDIO|FORK_LOG,
+                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG,
                            &pid);
         if (r < 0)
                 return r;
@@ -531,7 +531,12 @@ Instance* resource_find_instance(Resource *rr, const char *version) {
                 .metadata.version = (char*) version,
         }, *k = &key;
 
-        return typesafe_bsearch(&k, rr->instances, rr->n_instances, instance_cmp);
+        Instance **found;
+        found = typesafe_bsearch(&k, rr->instances, rr->n_instances, instance_cmp);
+        if (!found)
+                return NULL;
+
+        return *found;
 }
 
 int resource_resolve_path(

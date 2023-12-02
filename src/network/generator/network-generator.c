@@ -17,10 +17,10 @@
 
 /*
   # .network
-  ip={dhcp|on|any|dhcp6|auto6|either6|link6}
-  ip=<interface>:{dhcp|on|any|dhcp6|auto6|link6}[:[<mtu>][:<macaddr>]]
-  ip=<client-IP>:[<peer>]:<gateway-IP>:<netmask>:<client_hostname>:<interface>:{none|off|dhcp|on|any|dhcp6|auto6|link6|ibft}[:[<mtu>][:<macaddr>]]
-  ip=<client-IP>:[<peer>]:<gateway-IP>:<netmask>:<client_hostname>:<interface>:{none|off|dhcp|on|any|dhcp6|auto6|link6|ibft}[:[<dns1>][:<dns2>]]
+  ip={dhcp|on|any|dhcp6|auto6|either6|link6|link-local}
+  ip=<interface>:{dhcp|on|any|dhcp6|auto6|link6|link-local}[:[<mtu>][:<macaddr>]]
+  ip=<client-IP>:[<peer>]:<gateway-IP>:<netmask>:<client_hostname>:<interface>:{none|off|dhcp|on|any|dhcp6|auto6|link6|ibft|link-local}[:[<mtu>][:<macaddr>]]
+  ip=<client-IP>:[<peer>]:<gateway-IP>:<netmask>:<client_hostname>:<interface>:{none|off|dhcp|on|any|dhcp6|auto6|link6|ibft|link-local}[:[<dns1>][:<dns2>]]
   rd.route=<net>/<netmask>:<gateway>[:<interface>]
   nameserver=<IP> [nameserver=<IP> ...]
   rd.peerdns=0
@@ -44,34 +44,56 @@
 */
 
 static const char * const dracut_dhcp_type_table[_DHCP_TYPE_MAX] = {
-        [DHCP_TYPE_NONE]    = "none",
-        [DHCP_TYPE_OFF]     = "off",
-        [DHCP_TYPE_ON]      = "on",
-        [DHCP_TYPE_ANY]     = "any",
-        [DHCP_TYPE_DHCP4]   = "dhcp",
-        [DHCP_TYPE_DHCP6]   = "dhcp6",
-        [DHCP_TYPE_AUTO6]   = "auto6",
-        [DHCP_TYPE_EITHER6] = "either6",
-        [DHCP_TYPE_IBFT]    = "ibft",
-        [DHCP_TYPE_LINK6]   = "link6",
+        [DHCP_TYPE_NONE]       = "none",
+        [DHCP_TYPE_OFF]        = "off",
+        [DHCP_TYPE_ON]         = "on",
+        [DHCP_TYPE_ANY]        = "any",
+        [DHCP_TYPE_DHCP]       = "dhcp",
+        [DHCP_TYPE_DHCP6]      = "dhcp6",
+        [DHCP_TYPE_AUTO6]      = "auto6",
+        [DHCP_TYPE_EITHER6]    = "either6",
+        [DHCP_TYPE_IBFT]       = "ibft",
+        [DHCP_TYPE_LINK6]      = "link6",
+        [DHCP_TYPE_LINK_LOCAL] = "link-local",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_FROM_STRING(dracut_dhcp_type, DHCPType);
 
 static const char * const networkd_dhcp_type_table[_DHCP_TYPE_MAX] = {
-        [DHCP_TYPE_NONE]    = "no",
-        [DHCP_TYPE_OFF]     = "no",
-        [DHCP_TYPE_ON]      = "yes",
-        [DHCP_TYPE_ANY]     = "yes",
-        [DHCP_TYPE_DHCP4]   = "ipv4",
-        [DHCP_TYPE_DHCP6]   = "ipv6",
-        [DHCP_TYPE_AUTO6]   = "no",   /* TODO: enable other setting? */
-        [DHCP_TYPE_EITHER6] = "ipv6", /* TODO: enable other setting? */
-        [DHCP_TYPE_IBFT]    = "no",
-        [DHCP_TYPE_LINK6]   = "no",
+        [DHCP_TYPE_NONE]       = "no",
+        [DHCP_TYPE_OFF]        = "no",
+        [DHCP_TYPE_ON]         = "yes",
+        [DHCP_TYPE_ANY]        = "yes",
+        [DHCP_TYPE_DHCP]       = "ipv4",
+        [DHCP_TYPE_DHCP6]      = "ipv6",
+        [DHCP_TYPE_AUTO6]      = "no",   /* TODO: enable other setting? */
+        [DHCP_TYPE_EITHER6]    = "ipv6", /* TODO: enable other setting? */
+        [DHCP_TYPE_IBFT]       = "no",
+        [DHCP_TYPE_LINK6]      = "no",
+        [DHCP_TYPE_LINK_LOCAL] = "no",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(networkd_dhcp_type, DHCPType);
+
+static const char * const networkd_ipv6ra_type_table[_DHCP_TYPE_MAX] = {
+        [DHCP_TYPE_NONE]       = "no",
+        [DHCP_TYPE_OFF]        = "no",
+        [DHCP_TYPE_LINK6]      = "no",
+        [DHCP_TYPE_LINK_LOCAL] = "no",
+        /* We omit the other entries, to leave the default in effect */
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(networkd_ipv6ra_type, DHCPType);
+
+static const char * const networkd_link_local_type_table[_DHCP_TYPE_MAX] = {
+        [DHCP_TYPE_NONE]       = "no",
+        [DHCP_TYPE_OFF]        = "no",
+        [DHCP_TYPE_LINK6]      = "ipv6",
+        [DHCP_TYPE_LINK_LOCAL] = "yes",
+        /* We omit the other entries, to leave the default in effect */
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(networkd_link_local_type, DHCPType);
 
 static Address *address_free(Address *address) {
         if (!address)
@@ -88,6 +110,8 @@ static int address_new(Network *network, int family, unsigned char prefixlen,
         Address *address;
 
         assert(network);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(addr);
 
         address = new(Address, 1);
         if (!address)
@@ -97,7 +121,7 @@ static int address_new(Network *network, int family, unsigned char prefixlen,
                 .family = family,
                 .prefixlen = prefixlen,
                 .address = *addr,
-                .peer = *peer,
+                .peer = peer ? *peer : IN_ADDR_NULL,
         };
 
         LIST_PREPEND(addresses, network->addresses, address);
@@ -124,6 +148,8 @@ static int route_new(Network *network, int family, unsigned char prefixlen,
         Route *route;
 
         assert(network);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(dest || gateway);
 
         route = new(Route, 1);
         if (!route)
@@ -133,7 +159,7 @@ static int route_new(Network *network, int family, unsigned char prefixlen,
                 .family = family,
                 .prefixlen = prefixlen,
                 .dest = dest ? *dest : IN_ADDR_NULL,
-                .gateway = *gateway,
+                .gateway = gateway ? *gateway : IN_ADDR_NULL,
         };
 
         LIST_PREPEND(routes, network->routes, route);
@@ -226,6 +252,7 @@ static int netdev_new(Context *context, const char *_kind, const char *_ifname, 
         int r;
 
         assert(context);
+        assert(_kind);
 
         if (!ifname_valid(_ifname))
                 return -EINVAL;
@@ -340,6 +367,10 @@ static int network_set_dhcp_type(Context *context, const char *ifname, const cha
         DHCPType t;
         int r;
 
+        assert(context);
+        assert(ifname);
+        assert(dhcp_type);
+
         t = dracut_dhcp_type_from_string(dhcp_type);
         if (t < 0)
                 return t;
@@ -358,6 +389,9 @@ static int network_set_dhcp_type(Context *context, const char *ifname, const cha
 static int network_set_hostname(Context *context, const char *ifname, const char *hostname) {
         Network *network;
 
+        assert(context);
+        assert(ifname);
+
         network = network_get(context, ifname);
         if (!network)
                 return -ENODEV;
@@ -365,18 +399,28 @@ static int network_set_hostname(Context *context, const char *ifname, const char
         return free_and_strdup(&network->hostname, hostname);
 }
 
-static int network_set_mtu(Context *context, const char *ifname, int family, const char *mtu) {
+static int network_set_mtu(Context *context, const char *ifname, const char *mtu) {
         Network *network;
+
+        assert(context);
+        assert(ifname);
+
+        if (isempty(mtu))
+                return 0;
 
         network = network_get(context, ifname);
         if (!network)
                 return -ENODEV;
 
-        return parse_mtu(family, mtu, &network->mtu);
+        return parse_mtu(AF_UNSPEC, mtu, &network->mtu);
 }
 
 static int network_set_mac_address(Context *context, const char *ifname, const char *mac) {
         Network *network;
+
+        assert(context);
+        assert(ifname);
+        assert(mac);
 
         network = network_get(context, ifname);
         if (!network)
@@ -388,6 +432,11 @@ static int network_set_mac_address(Context *context, const char *ifname, const c
 static int network_set_address(Context *context, const char *ifname, int family, unsigned char prefixlen,
                                union in_addr_union *addr, union in_addr_union *peer) {
         Network *network;
+
+        assert(context);
+        assert(ifname);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(addr);
 
         if (!in_addr_is_set(family, addr))
                 return 0;
@@ -404,7 +453,12 @@ static int network_set_route(Context *context, const char *ifname, int family, u
         Network *network;
         int r;
 
-        if (!in_addr_is_set(family, gateway))
+        assert(context);
+        assert(ifname);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+
+        if (!(dest && in_addr_is_set(family, dest)) &&
+            !(gateway && in_addr_is_set(family, gateway)))
                 return 0;
 
         network = network_get(context, ifname);
@@ -417,12 +471,20 @@ static int network_set_route(Context *context, const char *ifname, int family, u
         return route_new(network, family, prefixlen, dest, gateway, NULL);
 }
 
-static int network_set_dns(Context *context, const char *ifname, const char *dns) {
+static int network_set_dns(Context *context, const char *ifname, int family, const char *dns) {
         union in_addr_union a;
         Network *network;
-        int family, r;
+        int r;
 
-        r = in_addr_from_string_auto(dns, &family, &a);
+        assert(context);
+        assert(ifname);
+        assert(IN_SET(family, AF_UNSPEC, AF_INET, AF_INET6));
+        assert(dns);
+
+        if (family == AF_UNSPEC)
+                r = in_addr_from_string_auto(dns, &family, &a);
+        else
+                r = in_addr_from_string(family, dns, &a);
         if (r < 0)
                 return r;
 
@@ -440,6 +502,9 @@ static int network_set_dhcp_use_dns(Context *context, const char *ifname, bool v
         Network *network;
         int r;
 
+        assert(context);
+        assert(ifname);
+
         network = network_get(context, ifname);
         if (!network) {
                 r = network_new(context, ifname, &network);
@@ -456,6 +521,9 @@ static int network_set_vlan(Context *context, const char *ifname, const char *va
         Network *network;
         int r;
 
+        assert(context);
+        assert(ifname);
+
         network = network_get(context, ifname);
         if (!network) {
                 r = network_new(context, ifname, &network);
@@ -469,6 +537,9 @@ static int network_set_vlan(Context *context, const char *ifname, const char *va
 static int network_set_bridge(Context *context, const char *ifname, const char *value) {
         Network *network;
         int r;
+
+        assert(context);
+        assert(ifname);
 
         network = network_get(context, ifname);
         if (!network) {
@@ -484,6 +555,9 @@ static int network_set_bond(Context *context, const char *ifname, const char *va
         Network *network;
         int r;
 
+        assert(context);
+        assert(ifname);
+
         network = network_get(context, ifname);
         if (!network) {
                 r = network_new(context, ifname, &network);
@@ -494,9 +568,13 @@ static int network_set_bond(Context *context, const char *ifname, const char *va
         return free_and_strdup(&network->bond, value);
 }
 
-static int parse_cmdline_ip_mtu_mac(Context *context, const char *ifname, int family, const char *value) {
+static int parse_cmdline_ip_mtu_mac(Context *context, const char *ifname, const char *value) {
         const char *mtu, *p;
         int r;
+
+        assert(context);
+        assert(ifname);
+        assert(value);
 
         /* [<mtu>][:<macaddr>] */
 
@@ -506,11 +584,11 @@ static int parse_cmdline_ip_mtu_mac(Context *context, const char *ifname, int fa
         else
                 mtu = strndupa_safe(value, p - value);
 
-        r = network_set_mtu(context, ifname, family, mtu);
+        r = network_set_mtu(context, ifname, mtu);
         if (r < 0)
                 return r;
 
-        if (!p)
+        if (!p || isempty(p + 1))
                 return 0;
 
         r = network_set_mac_address(context, ifname, p + 1);
@@ -521,8 +599,14 @@ static int parse_cmdline_ip_mtu_mac(Context *context, const char *ifname, int fa
 }
 
 static int parse_ip_address_one(int family, const char **value, union in_addr_union *ret) {
-        const char *p = *value, *q, *buf;
+        const char *p, *q, *buf;
         int r;
+
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(value);
+        assert(ret);
+
+        p = ASSERT_PTR(*value);
 
         if (p[0] == ':') {
                 *value = p + 1;
@@ -564,6 +648,11 @@ static int parse_netmask_or_prefixlen(int family, const char **value, unsigned c
         const char *p, *q;
         int r;
 
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(value);
+        assert(*value);
+        assert(ret);
+
         r = parse_ip_address_one(family, value, &netmask);
         if (r > 0) {
                 if (family == AF_INET6)
@@ -589,11 +678,57 @@ static int parse_netmask_or_prefixlen(int family, const char **value, unsigned c
         return 0;
 }
 
+static int parse_ip_dns_address_one(Context *context, const char *ifname, const char **value) {
+        const char *p, *q, *buf;
+        int r, family;
+
+        assert(context);
+        assert(ifname);
+        assert(value);
+
+        p = ASSERT_PTR(*value);
+
+        if (isempty(p))
+                return 0;
+
+        if (p[0] == '[') {
+                q = strchr(p + 1, ']');
+                if (!q)
+                        return -EINVAL;
+                if (!IN_SET(q[1], ':', '\0'))
+                        return -EINVAL;
+
+                buf = strndupa_safe(p + 1, q - p - 1);
+                p = q + 1;
+                family = AF_INET6;
+        } else {
+                q = strchr(p, ':');
+                if (!q)
+                        buf = *value;
+                else
+                        buf = strndupa_safe(*value, q - *value);
+
+                p += strlen(buf);
+                family = AF_INET;
+        }
+
+        r = network_set_dns(context, ifname, family, buf);
+        if (r < 0)
+                return r;
+
+        *value = p;
+        return 0;
+}
+
 static int parse_cmdline_ip_address(Context *context, int family, const char *value) {
         union in_addr_union addr = {}, peer = {}, gateway = {};
-        const char *hostname = NULL, *ifname, *dhcp_type, *dns, *p;
+        const char *hostname = NULL, *ifname, *dhcp_type, *p;
         unsigned char prefixlen;
         int r;
+
+        assert(context);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(value);
 
         /* ip=<client-IP>:[<peer>]:<gateway-IP>:<netmask>:<client_hostname>:<interface>:{none|off|dhcp|on|any|dhcp6|auto6|ibft|link6}[:[<mtu>][:<macaddr>]]
          * ip=<client-IP>:[<peer>]:<gateway-IP>:<netmask>:<client_hostname>:<interface>:{none|off|dhcp|on|any|dhcp6|auto6|ibft|link6}[:[<dns1>][:<dns2>]] */
@@ -661,26 +796,24 @@ static int parse_cmdline_ip_address(Context *context, int family, const char *va
                 return 0;
 
         /* First, try [<mtu>][:<macaddr>] */
-        r = parse_cmdline_ip_mtu_mac(context, ifname, AF_UNSPEC, p + 1);
+        r = parse_cmdline_ip_mtu_mac(context, ifname, p + 1);
         if (r >= 0)
                 return 0;
 
         /* Next, try [<dns1>][:<dns2>] */
         value = p + 1;
-        p = strchr(value, ':');
-        if (!p) {
-                r = network_set_dns(context, ifname, value);
-                if (r < 0)
-                        return r;
-        } else {
-                dns = strndupa_safe(value, p - value);
-                r = network_set_dns(context, ifname, dns);
-                if (r < 0)
-                        return r;
-                r = network_set_dns(context, ifname, p + 1);
-                if (r < 0)
-                        return r;
-        }
+        r = parse_ip_dns_address_one(context, ifname, &value);
+        if (r < 0)
+                return r;
+
+        value += *value == ':';
+        r = parse_ip_dns_address_one(context, ifname, &value);
+        if (r < 0)
+                return r;
+
+        /* refuse unexpected trailing strings */
+        if (!isempty(value))
+                return -EINVAL;
 
         return 0;
 }
@@ -688,6 +821,9 @@ static int parse_cmdline_ip_address(Context *context, int family, const char *va
 static int parse_cmdline_ip_interface(Context *context, const char *value) {
         const char *ifname, *dhcp_type, *p;
         int r;
+
+        assert(context);
+        assert(value);
 
         /* ip=<interface>:{dhcp|on|any|dhcp6|auto6|link6}[:[<mtu>][:<macaddr>]] */
 
@@ -711,12 +847,15 @@ static int parse_cmdline_ip_interface(Context *context, const char *value) {
         if (!p)
                 return 0;
 
-        return parse_cmdline_ip_mtu_mac(context, ifname, AF_UNSPEC, p + 1);
+        return parse_cmdline_ip_mtu_mac(context, ifname, p + 1);
 }
 
 static int parse_cmdline_ip(Context *context, const char *key, const char *value) {
         const char *p;
         int r;
+
+        assert(context);
+        assert(key);
 
         if (proc_cmdline_value_missing(key, value))
                 return -EINVAL;
@@ -741,6 +880,9 @@ static int parse_cmdline_rd_route(Context *context, const char *key, const char 
         unsigned char prefixlen;
         const char *buf, *p;
         int family, r;
+
+        assert(context);
+        assert(key);
 
         /* rd.route=<net>/<netmask>:<gateway>[:<interface>] */
 
@@ -784,14 +926,20 @@ static int parse_cmdline_rd_route(Context *context, const char *key, const char 
 }
 
 static int parse_cmdline_nameserver(Context *context, const char *key, const char *value) {
+        assert(context);
+        assert(key);
+
         if (proc_cmdline_value_missing(key, value))
                 return -EINVAL;
 
-        return network_set_dns(context, "", value);
+        return network_set_dns(context, "", AF_UNSPEC, value);
 }
 
 static int parse_cmdline_rd_peerdns(Context *context, const char *key, const char *value) {
         int r;
+
+        assert(context);
+        assert(key);
 
         if (proc_cmdline_value_missing(key, value))
                 return network_set_dhcp_use_dns(context, "", true);
@@ -807,6 +955,9 @@ static int parse_cmdline_vlan(Context *context, const char *key, const char *val
         const char *name, *p;
         NetDev *netdev;
         int r;
+
+        assert(context);
+        assert(key);
 
         if (proc_cmdline_value_missing(key, value))
                 return -EINVAL;
@@ -831,6 +982,9 @@ static int parse_cmdline_bridge(Context *context, const char *key, const char *v
         const char *name, *p;
         NetDev *netdev;
         int r;
+
+        assert(context);
+        assert(key);
 
         if (proc_cmdline_value_missing(key, value))
                 return -EINVAL;
@@ -869,6 +1023,9 @@ static int parse_cmdline_bond(Context *context, const char *key, const char *val
         const char *name, *slaves, *p;
         NetDev *netdev;
         int r;
+
+        assert(context);
+        assert(key);
 
         if (proc_cmdline_value_missing(key, value))
                 return -EINVAL;
@@ -927,6 +1084,9 @@ static int parse_cmdline_ifname(Context *context, const char *key, const char *v
         const char *name, *p;
         int r;
 
+        assert(context);
+        assert(key);
+
         /* ifname=<interface>:<MAC> */
 
         if (proc_cmdline_value_missing(key, value))
@@ -950,6 +1110,9 @@ static int parse_cmdline_ifname_policy(Context *context, const char *key, const 
         struct hw_addr_data mac = HW_ADDR_NULL;
         Link *link;
         int r;
+
+        assert(context);
+        assert(key);
 
         /* net.ifname-policy=policy1[,policy2,...][,<MAC>] */
 
@@ -1081,6 +1244,9 @@ void context_clear(Context *context) {
 }
 
 static int address_dump(Address *address, FILE *f) {
+        assert(address);
+        assert(f);
+
         fprintf(f,
                 "\n[Address]\n"
                 "Address=%s\n",
@@ -1092,12 +1258,16 @@ static int address_dump(Address *address, FILE *f) {
 }
 
 static int route_dump(Route *route, FILE *f) {
+        assert(route);
+        assert(f);
+
         fputs("\n[Route]\n", f);
         if (in_addr_is_set(route->family, &route->dest))
                 fprintf(f, "Destination=%s\n",
                         IN_ADDR_PREFIX_TO_STRING(route->family, &route->dest, route->prefixlen));
-        fprintf(f, "Gateway=%s\n",
-                IN_ADDR_TO_STRING(route->family, &route->gateway));
+        if (in_addr_is_set(route->family, &route->gateway))
+                fprintf(f, "Gateway=%s\n",
+                        IN_ADDR_TO_STRING(route->family, &route->gateway));
 
         return 0;
 }
@@ -1130,6 +1300,16 @@ void network_dump(Network *network, FILE *f) {
         dhcp = networkd_dhcp_type_to_string(network->dhcp_type);
         if (dhcp)
                 fprintf(f, "DHCP=%s\n", dhcp);
+
+        const char *ll;
+        ll = networkd_link_local_type_to_string(network->dhcp_type);
+        if (ll)
+                fprintf(f, "LinkLocalAddressing=%s\n", ll);
+
+        const char *ra;
+        ra = networkd_ipv6ra_type_to_string(network->dhcp_type);
+        if (ra)
+                fprintf(f, "IPv6AcceptRA=%s\n", ra);
 
         if (!strv_isempty(network->dns))
                 STRV_FOREACH(dns, network->dns)

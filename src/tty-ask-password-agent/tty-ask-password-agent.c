@@ -207,7 +207,7 @@ static int process_one_password_file(const char *filename) {
         if (not_after > 0 && now(CLOCK_MONOTONIC) > not_after)
                 return 0;
 
-        if (pid > 0 && !pid_is_alive(pid))
+        if (pid > 0 && pid_is_alive(pid) <= 0)
                 return 0;
 
         switch (arg_action) {

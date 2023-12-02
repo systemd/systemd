@@ -12,9 +12,12 @@
 #include "networkd-network.h"
 #include "networkd-util.h"
 #include "test-tables.h"
+#include "tests.h"
 #include "tunnel.h"
 
 int main(int argc, char **argv) {
+        test_setup_logging(LOG_DEBUG);
+
         test_table(bond_ad_select, NETDEV_BOND_AD_SELECT);
         test_table(bond_arp_all_targets, NETDEV_BOND_ARP_ALL_TARGETS);
         test_table(bond_arp_validate, NETDEV_BOND_ARP_VALIDATE);

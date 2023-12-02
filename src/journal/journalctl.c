@@ -318,7 +318,7 @@ static int parse_lines(const char *arg, bool graceful) {
         }
 
         arg_lines = n;
-        arg_lines_oldest = !!l;
+        arg_lines_oldest = l;
 
         return 1;
 

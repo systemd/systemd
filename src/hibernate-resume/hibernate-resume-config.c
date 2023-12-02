@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include <sys/utsname.h>
-
 #include "alloc-util.h"
 #include "device-nodes.h"
 #include "fstab-util.h"
@@ -110,32 +108,28 @@ static int get_kernel_hibernate_location(KernelHibernateLocation **ret) {
 
 #if ENABLE_EFI
 static bool validate_efi_hibernate_location(EFIHibernateLocation *e) {
-        _cleanup_free_ char *id = NULL, *image_id = NULL, *version_id = NULL, *image_version = NULL;
-        struct utsname uts = {};
+        _cleanup_free_ char *id = NULL, *image_id = NULL;
         int r;
 
         assert(e);
 
-        if (uname(&uts) < 0)
-                log_warning_errno(errno, "Failed to get kernel info, ignoring: %m");
-
         r = parse_os_release(NULL,
                              "ID", &id,
-                             "IMAGE_ID", &image_id,
-                             "VERSION_ID", &version_id,
-                             "IMAGE_VERSION", &image_version);
+                             "IMAGE_ID", &image_id);
         if (r < 0)
-                log_warning_errno(r, "Failed to parse os-release, ignoring: %m");
+                log_warning_errno(r, "Failed to parse os-release: %m");
 
-        if (!streq(uts.release, strempty(e->kernel_version)) ||
-            !streq_ptr(id, e->id) ||
-            !streq_ptr(image_id, e->image_id) ||
-            !streq_ptr(version_id, e->version_id) ||
-            !streq_ptr(image_version, e->image_version)) {
-
-                log_notice("HibernateLocation system info doesn't match with current running system, not resuming from it.");
+        if (!streq_ptr(id, e->id) ||
+            !streq_ptr(image_id, e->image_id)) {
+                log_notice("HibernateLocation system identifier doesn't match currently running system, not resuming from it.");
                 return false;
         }
+
+        /*
+         * Note that we accept kernel version mismatches. Linux writes the old kernel to disk as part of the
+         * hibernation image, and thus resuming means the short-lived kernel that reads the image from the
+         * disk will be replaced by the original kernel and effectively removed from memory as part of that.
+         */
 
         return true;
 }
@@ -143,13 +137,13 @@ static bool validate_efi_hibernate_location(EFIHibernateLocation *e) {
 static int get_efi_hibernate_location(EFIHibernateLocation **ret) {
 
         static const JsonDispatch dispatch_table[] = {
-                { "uuid",                  JSON_VARIANT_STRING,   json_dispatch_id128,  offsetof(EFIHibernateLocation, uuid),           JSON_MANDATORY             },
-                { "offset",                JSON_VARIANT_UNSIGNED, json_dispatch_uint64, offsetof(EFIHibernateLocation, offset),         JSON_MANDATORY             },
-                { "kernelVersion",         JSON_VARIANT_STRING,   json_dispatch_string, offsetof(EFIHibernateLocation, kernel_version), JSON_PERMISSIVE|JSON_DEBUG },
-                { "osReleaseId",           JSON_VARIANT_STRING,   json_dispatch_string, offsetof(EFIHibernateLocation, id),             JSON_PERMISSIVE|JSON_DEBUG },
-                { "osReleaseImageId",      JSON_VARIANT_STRING,   json_dispatch_string, offsetof(EFIHibernateLocation, image_id),       JSON_PERMISSIVE|JSON_DEBUG },
-                { "osReleaseVersionId",    JSON_VARIANT_STRING,   json_dispatch_string, offsetof(EFIHibernateLocation, version_id),     JSON_PERMISSIVE|JSON_DEBUG },
-                { "osReleaseImageVersion", JSON_VARIANT_STRING,   json_dispatch_string, offsetof(EFIHibernateLocation, image_version),  JSON_PERMISSIVE|JSON_DEBUG },
+                { "uuid",                  JSON_VARIANT_STRING,        json_dispatch_id128,  offsetof(EFIHibernateLocation, uuid),           JSON_MANDATORY             },
+                { "offset",                _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(EFIHibernateLocation, offset),         JSON_MANDATORY             },
+                { "kernelVersion",         JSON_VARIANT_STRING,        json_dispatch_string, offsetof(EFIHibernateLocation, kernel_version), JSON_PERMISSIVE|JSON_DEBUG },
+                { "osReleaseId",           JSON_VARIANT_STRING,        json_dispatch_string, offsetof(EFIHibernateLocation, id),             JSON_PERMISSIVE|JSON_DEBUG },
+                { "osReleaseImageId",      JSON_VARIANT_STRING,        json_dispatch_string, offsetof(EFIHibernateLocation, image_id),       JSON_PERMISSIVE|JSON_DEBUG },
+                { "osReleaseVersionId",    JSON_VARIANT_STRING,        json_dispatch_string, offsetof(EFIHibernateLocation, version_id),     JSON_PERMISSIVE|JSON_DEBUG },
+                { "osReleaseImageVersion", JSON_VARIANT_STRING,        json_dispatch_string, offsetof(EFIHibernateLocation, image_version),  JSON_PERMISSIVE|JSON_DEBUG },
                 {},
         };
 
@@ -179,9 +173,18 @@ static int get_efi_hibernate_location(EFIHibernateLocation **ret) {
         if (!e)
                 return log_oom();
 
-        r = json_dispatch(v, dispatch_table, NULL, JSON_LOG, e);
+        r = json_dispatch(v, dispatch_table, JSON_LOG, e);
         if (r < 0)
                 return r;
+
+        log_info("Reported hibernation image:%s%s%s%s%s%s%s%s%s%s UUID="SD_ID128_UUID_FORMAT_STR" offset=%"PRIu64,
+                 e->id ? " ID=" : "",                       strempty(e->id),
+                 e->image_id ? " IMAGE_ID=" : "",           strempty(e->image_id),
+                 e->version_id ? " VERSION_ID=" : "",       strempty(e->version_id),
+                 e->image_version ? " IMAGE_VERSION=" : "", strempty(e->image_version),
+                 e->kernel_version ? " kernel=" : "",       strempty(e->kernel_version),
+                 SD_ID128_FORMAT_VAL(e->uuid),
+                 e->offset);
 
         if (!validate_efi_hibernate_location(e))
                 goto skip;
@@ -252,9 +255,11 @@ int acquire_hibernate_info(HibernateInfo *ret) {
 
         if (i.cmdline) {
                 i.device = i.cmdline->device;
+                i.offset = i.cmdline->offset;
                 i.from_efi = false;
         } else if (i.efi) {
                 i.device = i.efi->device;
+                i.offset = i.efi->offset;
                 i.from_efi = true;
         } else
                 return -ENODEV;

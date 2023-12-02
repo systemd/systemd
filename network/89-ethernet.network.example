@@ -1,0 +1,18 @@
+# SPDX-License-Identifier: MIT-0
+#
+# This example config file is installed as part of systemd.
+# It may be freely copied and edited (following the MIT No Attribution license).
+#
+# To use the file, one of the following methods may be used:
+# 1. add a symlink from /etc/systemd/network to the current location of this file,
+# 2. copy the file into /etc/systemd/network or one of the other paths checked
+#    by systemd-networkd and edit it there.
+# This file should not be edited in place, because it'll be overwritten on upgrades.
+
+# Enable DHCPv4 and DHCPv6 on all physical ethernet links
+[Match]
+Kind=!*
+Type=ether
+
+[Network]
+DHCP=yes

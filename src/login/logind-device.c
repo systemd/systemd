@@ -27,7 +27,7 @@ Device* device_new(Manager *m, const char *sysfs, bool master) {
 
         d->manager = m;
         d->master = master;
-        dual_timestamp_get(&d->timestamp);
+        dual_timestamp_now(&d->timestamp);
 
         return d;
 }

@@ -10,15 +10,16 @@
 
 typedef enum DHCPType {
         DHCP_TYPE_NONE,
-        DHCP_TYPE_OFF,
+        DHCP_TYPE_OFF,   /* Same as DHCP_TYPE_NONE */
         DHCP_TYPE_ON,
-        DHCP_TYPE_ANY,
-        DHCP_TYPE_DHCP4,
+        DHCP_TYPE_ANY,   /* Same as DHCP_TYPE_ON */
+        DHCP_TYPE_DHCP,  /* Actually means: DHCPv4 */
         DHCP_TYPE_DHCP6,
         DHCP_TYPE_AUTO6,
         DHCP_TYPE_EITHER6,
         DHCP_TYPE_IBFT,
         DHCP_TYPE_LINK6,
+        DHCP_TYPE_LINK_LOCAL,
         _DHCP_TYPE_MAX,
         _DHCP_TYPE_INVALID = -EINVAL,
 } DHCPType;

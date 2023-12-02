@@ -1,0 +1,27 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Storage Target Mode (NVMe-TCP)
+Documentation=man:systemd-storagetm.service(8)
+ConditionVirtualization=!container
+DefaultDependencies=no
+Wants=modprobe@nvmet_tcp.service modprobe@thunderbolt_net.service sys-kernel-config.mount
+After=modprobe@nvmet_tcp.service modprobe@thunderbolt_net.service sys-kernel-config.mount plymouth-start.service
+Conflicts=shutdown.target
+Before=shutdown.target
+FailureAction=reboot
+SuccessAction=reboot
+
+[Service]
+Type=notify
+RemainAfterExit=yes
+StandardInput=tty
+StandardOutput=tty
+ExecStart={{LIBEXECDIR}}/systemd-storagetm --all

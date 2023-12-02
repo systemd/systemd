@@ -422,8 +422,13 @@ _public_ int sd_device_new_from_subsystem_sysname(
         int r;
 
         assert_return(ret, -EINVAL);
-        assert_return(path_is_normalized(subsystem), -EINVAL);
-        assert_return(path_is_normalized(sysname), -EINVAL);
+        assert_return(subsystem, -EINVAL);
+        assert_return(sysname, -EINVAL);
+
+        if (!path_is_normalized(subsystem))
+                return -EINVAL;
+        if (!path_is_normalized(sysname))
+                return -EINVAL;
 
         /* translate sysname back to sysfs filename */
         name = strdupa_safe(sysname);

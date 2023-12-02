@@ -157,7 +157,7 @@ node /org/freedesktop/import1 {
       available. The file descriptor argument is followed by a local name for the image. This should be a
       name suitable as a hostname and will be used to name the imported image below
       <filename>/var/lib/machines/</filename>. A tar import is placed as a directory tree or a
-      <citerefentry project="man-pages"><refentrytitle>btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      <citerefentry project="url"><refentrytitle url="https://btrfs.readthedocs.io/en/latest/btrfs.html">btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>
       subvolume below <filename>/var/lib/machines/</filename> under the specified name with no suffix
       appended. A raw import is placed as a file in <filename>/var/lib/machines/</filename> with the
       <filename>.raw</filename> suffix appended. If the <option>force</option> argument is true, any

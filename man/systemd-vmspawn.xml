@@ -1,0 +1,221 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-vmspawn" conditional="ENABLE_VMSPAWN"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-vmspawn</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-vmspawn</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-vmspawn</refname>
+    <refpurpose>Spawn an OS in a virtual machine.</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>systemd-vmspawn</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="opt" rep="repeat">ARGS</arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+    <para><command>systemd-vmspawn</command> may be used to start a virtual machine from an OS image. In many ways it is similar to <citerefentry
+    project='man-pages'><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>, but it
+    launches a full virtual machine instead of using namespaces.</para>
+
+    <para>Note: on Ubuntu/Debian derivatives systemd-vmspawn requires the user to be in the <literal>kvm</literal> group to use the VSock options.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The excess arguments are passed as extra kernel command line arguments using SMBIOS.</para>
+
+    <para>The following options are understood:</para>
+
+    <refsect2>
+      <title>Image Options</title>
+
+      <variablelist>
+        <varlistentry>
+          <term><option>-i</option></term>
+          <term><option>--image=</option></term>
+
+          <listitem><para>Root file system disk image (or device node) for the virtual machine.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Host Configuration</title>
+
+      <variablelist>
+        <varlistentry>
+          <term><option>--qemu-smp=</option><replaceable>SMP</replaceable></term>
+
+          <listitem><para>Configures the number of CPUs to start the virtual machine with.
+          Defaults to 1.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--qemu-mem=</option><replaceable>MEM</replaceable></term>
+
+          <listitem><para>Configures the amount of memory to start the virtual machine with.
+          Defaults to 2G.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+          </listitem>
+        </varlistentry>
+
+      <varlistentry>
+        <term><option>--qemu-kvm=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>Configures whether to use KVM. If the option is not specified KVM support will be
+        detected automatically. If true, KVM is always used, and if false, KVM is never used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--qemu-vsock=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem>
+          <para>Configure whether to use VSock networking.</para>
+          <para>If the option is not specified VSock support will be detected automatically.
+          If yes is specified VSocks are always used, and vice versa if no is set VSocks are never used.</para>
+          <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--vsock-cid=</option><replaceable>CID</replaceable></term>
+
+        <listitem>
+          <para>Configure vmspawn to use a specific CID for the guest.</para>
+          <para>If the option is not specified or an empty argument is supplied the guest will be assigned a random CID.</para>
+          <para>Valid CIDs are in the range <constant>3</constant> to <constant>4294967294</constant> (<constant>0xFFFF_FFFE</constant>).
+          CIDs outside of this range are reserved.</para>
+          <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--qemu-gui</option></term>
+
+        <listitem><para>Start QEMU in graphical mode.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--secure-boot=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>Configure whether to search for firmware which supports Secure Boot.</para>
+        <para>If the option is not specified the first firmware which is detected will be used.
+        If the option is set to yes then the first firmware with Secure Boot support will be selected.
+        If no is specified then the first firmware without Secure Boot will be selected.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    </refsect2><refsect2>
+      <title>System Identity Options</title>
+
+      <variablelist>
+        <varlistentry>
+          <term><option>-M</option></term>
+          <term><option>--machine=</option></term>
+
+          <listitem><para>Sets the machine name for this container. This
+          name may be used to identify this container during its runtime
+          (for example in tools like
+          <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          and similar).</para>
+          <xi:include href="version-info.xml" xpointer="v255"/>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+    </refsect2><refsect2>
+      <title>Credentials</title>
+
+      <variablelist>
+        <varlistentry>
+          <term><option>--load-credential=</option><replaceable>ID</replaceable>:<replaceable>PATH</replaceable></term>
+          <term><option>--set-credential=</option><replaceable>ID</replaceable>:<replaceable>VALUE</replaceable></term>
+
+          <listitem><para>Pass a credential to the container. These two options correspond to the
+          <varname>LoadCredential=</varname> and <varname>SetCredential=</varname> settings in unit files. See
+          <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+          details about these concepts, as well as the syntax of the option's arguments.</para>
+
+          <para>In order to embed binary data into the credential data for <option>--set-credential=</option>,
+          use C-style escaping (i.e. <literal>\n</literal> to embed a newline, or <literal>\x00</literal> to
+          embed a <constant>NUL</constant> byte). Note that the invoking shell might already apply unescaping
+          once, hence this might require double escaping!.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+        </varlistentry>
+      </variablelist>
+
+    </refsect2><refsect2>
+      <title>Other</title>
+
+      <variablelist>
+        <xi:include href="standard-options.xml" xpointer="no-pager" />
+        <xi:include href="standard-options.xml" xpointer="help" />
+        <xi:include href="standard-options.xml" xpointer="version" />
+      </variablelist>
+    </refsect2>
+  </refsect1>
+
+  <xi:include href="common-variables.xml" />
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Run an Arch Linux VM image generated by mkosi</title>
+
+      <programlisting>
+$ mkosi -d arch -p systemd -p linux --autologin -o image.raw -f build
+$ systemd-vmspawn --image=image.raw
+      </programlisting>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>If an error occurred the value errno is propagated to the return code.
+    If EXIT_STATUS is supplied by the running image that is returned.
+    Otherwise EXIT_SUCCESS is returned.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>mkosi</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+</refentry>

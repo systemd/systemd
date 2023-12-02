@@ -55,12 +55,12 @@
     last check, number of mounts, unclean unmount, etc.</para>
 
     <para><filename>systemd-fsck-root.service</filename> and <filename>systemd-fsck-usr.service</filename>
-    will activate <filename>reboot.target</filename> if <filename>fsck</filename> returns the "System
-    should reboot" condition, or <filename>emergency.target</filename> if <filename>fsck</filename>
+    will activate <filename>reboot.target</filename> if <command>fsck</command> returns the "System
+    should reboot" condition, or <filename>emergency.target</filename> if <command>fsck</command>
     returns the "Filesystem errors left uncorrected" condition.</para>
 
     <para><filename>systemd-fsck@.service</filename> will fail if
-    <filename>fsck</filename> returns with either "System should reboot"
+    <command>fsck</command> returns with either "System should reboot"
     or "Filesystem errors left uncorrected" conditions. For filesystems
     listed in <filename>/etc/fstab</filename> without <literal>nofail</literal>
     or <literal>noauto</literal> options, <literal>local-fs.target</literal>
@@ -70,7 +70,7 @@
   <refsect1>
     <title>Kernel Command Line</title>
 
-    <para><filename>systemd-fsck</filename> understands these kernel
+    <para><command>systemd-fsck</command> understands these kernel
     command line parameters:</para>
 
     <variablelist class='kernel-commandline-options'>
@@ -111,7 +111,7 @@
       <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>fsck</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-quotacheck.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry project='man-pages'><refentrytitle>fsck.btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry project='url'><refentrytitle url='https://btrfs.readthedocs.io/en/latest/fsck.btrfs.html'>fsck.btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>fsck.cramfs</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>fsck.ext4</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
       <citerefentry project='man-pages'><refentrytitle>fsck.fat</refentrytitle><manvolnum>8</manvolnum></citerefentry>,

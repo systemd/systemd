@@ -1860,16 +1860,16 @@ int dns_resource_key_from_json(JsonVariant *v, DnsResourceKey **ret) {
         int r;
 
         JsonDispatch dispatch_table[] = {
-                { "class", JSON_VARIANT_INTEGER, json_dispatch_uint16,       PTR_TO_SIZE(&class), JSON_MANDATORY },
-                { "type",  JSON_VARIANT_INTEGER, json_dispatch_uint16,       PTR_TO_SIZE(&type),  JSON_MANDATORY },
-                { "name",  JSON_VARIANT_STRING,  json_dispatch_const_string, PTR_TO_SIZE(&name),  JSON_MANDATORY },
+                { "class", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint16,       PTR_TO_SIZE(&class), JSON_MANDATORY },
+                { "type",  _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint16,       PTR_TO_SIZE(&type),  JSON_MANDATORY },
+                { "name",  JSON_VARIANT_STRING,        json_dispatch_const_string, PTR_TO_SIZE(&name),  JSON_MANDATORY },
                 {}
         };
 
         assert(v);
         assert(ret);
 
-        r = json_dispatch(v, dispatch_table, NULL, 0, NULL);
+        r = json_dispatch(v, dispatch_table, 0, NULL);
         if (r < 0)
                 return r;
 

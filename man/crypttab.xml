@@ -556,8 +556,9 @@
         <para>Note that VeraCrypt enforces a minimal allowed PIM value depending on the
         password strength and the hash algorithm used for key derivation, however
         <option>veracrypt-pim=</option> is not checked against these bounds.
-        <ulink url="https://www.veracrypt.fr/en/Personal%20Iterations%20Multiplier%20%28PIM%29.html">See
-        documentation</ulink> for more information.</para>
+        See
+        <ulink url="https://www.veracrypt.fr/en/Personal%20Iterations%20Multiplier%20%28PIM%29.html">Veracrypt Personal Iterations Multiplier</ulink>
+        documentation for more information.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
@@ -809,6 +810,22 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>tpm2-pcrlock=</option></term>
+
+        <listitem><para>Takes an absolute path to a TPM2 pcrlock policy file, as produced by the
+        <citerefentry><refentrytitle>systemd-pcrlock</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        tool. This permits locking LUKS2 volumes to a local policy of allowed PCR values with
+        variants. See
+        <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for details on enrolling TPM2 pcrlock policies. If this option is not specified but it is attempted
+        to unlock a LUKS2 volume with a TPM2 pcrlock enrollment a suitable signature file
+        <filename>pcrlock.json</filename> is searched for in <filename>/run/systemd/</filename> and
+        <filename>/var/lib/systemd/</filename> (in this order).</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>tpm2-measure-pcr=</option></term>
 
         <listitem><para>Controls whether to measure the volume key of the encrypted volume to a TPM2 PCR. If
@@ -964,8 +981,9 @@ external   /dev/sda3       keyfile:LABEL=keydev keyfile-timeout=10s,cipher=xchac
       <itemizedlist>
         <listitem><para>We use RSA2048, which is the longest key size current Yubikeys support</para></listitem>
         <listitem><para>We use Yubikey key slot 9d, since that's apparently the keyslot to use for decryption purposes,
-        <ulink url="https://developers.yubico.com/PIV/Introduction/Certificate_slots.html">see
-        documentation</ulink>.</para></listitem>
+        see
+        <ulink url="https://developers.yubico.com/PIV/Introduction/Certificate_slots.html">Yubico PIV certificate slots</ulink>.
+        </para></listitem>
       </itemizedlist>
     </example>
 

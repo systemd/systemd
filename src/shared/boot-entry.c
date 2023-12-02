@@ -7,6 +7,7 @@
 #include "id128-util.h"
 #include "os-util.h"
 #include "path-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "utf8.h"
 
@@ -260,3 +261,13 @@ int parse_boot_entry_token_type(const char *s, BootEntryTokenType *type, char **
         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                "Unexpected parameter for --entry-token=: %s", s);
 }
+
+static const char *const boot_entry_token_type_table[] = {
+        [BOOT_ENTRY_TOKEN_MACHINE_ID]  = "machine-id",
+        [BOOT_ENTRY_TOKEN_OS_IMAGE_ID] = "os-image-id",
+        [BOOT_ENTRY_TOKEN_OS_ID]       = "os-id",
+        [BOOT_ENTRY_TOKEN_LITERAL]     = "literal",
+        [BOOT_ENTRY_TOKEN_AUTO]        = "auto",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(boot_entry_token_type, BootEntryTokenType);

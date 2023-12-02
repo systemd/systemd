@@ -250,6 +250,10 @@ typedef struct UnitStatusInfo {
 
         /* CGroup */
         uint64_t memory_current;
+        uint64_t memory_peak;
+        uint64_t memory_swap_current;
+        uint64_t memory_swap_peak;
+        uint64_t memory_zswap_current;
         uint64_t memory_min;
         uint64_t memory_low;
         uint64_t startup_memory_low;
@@ -480,7 +484,7 @@ static void print_status_info(
                 dual_timestamp nw, next = {i->next_elapse_real, i->next_elapse_monotonic};
                 usec_t next_elapse;
 
-                dual_timestamp_get(&nw);
+                dual_timestamp_now(&nw);
                 next_elapse = calc_next_elapse(&nw, &next);
 
                 if (timestamp_is_set(next_elapse))
@@ -626,7 +630,7 @@ static void print_status_info(
                                 if (arg_transport == BUS_TRANSPORT_LOCAL) {
                                         _cleanup_free_ char *comm = NULL;
 
-                                        (void) get_process_comm(i->main_pid, &comm);
+                                        (void) pid_get_comm(i->main_pid, &comm);
                                         if (comm)
                                                 printf(" (%s)", comm);
                                 }
@@ -656,12 +660,12 @@ static void print_status_info(
                         if (i->main_pid > 0)
                                 fputs("; Control PID: ", stdout);
                         else
-                                fputs("Cntrl PID: ", stdout); /* if first in column, abbreviated so it fits alignment */
+                                fputs("  Cntrl PID: ", stdout); /* if first in column, abbreviated so it fits alignment */
 
                         printf(PID_FMT, i->control_pid);
 
                         if (arg_transport == BUS_TRANSPORT_LOCAL) {
-                                (void) get_process_comm(i->control_pid, &c);
+                                (void) pid_get_comm(i->control_pid, &c);
                                 if (c)
                                         printf(" (%s)", c);
                         }
@@ -702,7 +706,17 @@ static void print_status_info(
         if (i->memory_current != UINT64_MAX) {
                 printf("     Memory: %s", FORMAT_BYTES(i->memory_current));
 
-                if (i->memory_min > 0 ||
+                /* Only show current swap if it ever was non-zero or is currently non-zero. In both cases
+                   memory_swap_peak will be non-zero (and not CGROUP_LIMIT_MAX).
+                   Only show the available memory if it was artificially limited. */
+                bool show_memory_swap = !IN_SET(i->memory_swap_peak, 0, CGROUP_LIMIT_MAX),
+                     show_memory_zswap_current = !IN_SET(i->memory_zswap_current, 0, CGROUP_LIMIT_MAX),
+                     show_memory_available = i->memory_high != CGROUP_LIMIT_MAX || i->memory_max != CGROUP_LIMIT_MAX;
+                if (i->memory_peak != CGROUP_LIMIT_MAX ||
+                    show_memory_swap ||
+                    show_memory_zswap_current ||
+                    show_memory_available ||
+                    i->memory_min > 0 ||
                     i->memory_low > 0 || i->startup_memory_low > 0 ||
                     i->memory_high != CGROUP_LIMIT_MAX || i->startup_memory_high != CGROUP_LIMIT_MAX ||
                     i->memory_max != CGROUP_LIMIT_MAX || i->startup_memory_max != CGROUP_LIMIT_MAX ||
@@ -761,8 +775,21 @@ static void print_status_info(
                                 printf("%slimit: %s", prefix, FORMAT_BYTES(i->memory_limit));
                                 prefix = " ";
                         }
-                        if (i->memory_available != CGROUP_LIMIT_MAX) {
+                        if (show_memory_available) {
                                 printf("%savailable: %s", prefix, FORMAT_BYTES(i->memory_available));
+                                prefix = " ";
+                        }
+                        if (i->memory_peak != CGROUP_LIMIT_MAX) {
+                                printf("%speak: %s", prefix, FORMAT_BYTES(i->memory_peak));
+                                prefix = " ";
+                        }
+                        if (show_memory_swap) {
+                                printf("%sswap: %s swap peak: %s", prefix,
+                                       FORMAT_BYTES(i->memory_swap_current), FORMAT_BYTES(i->memory_swap_peak));
+                                prefix = " ";
+                        }
+                        if (show_memory_zswap_current) {
+                                printf("%szswap: %s", prefix, FORMAT_BYTES(i->memory_zswap_current));
                                 prefix = " ";
                         }
                         printf(")");
@@ -1969,6 +1996,7 @@ static int show_one(
                 bool *ellipsized) {
 
         static const struct bus_properties_map property_map[] = {
+                { "Id",                             "s",               NULL,           offsetof(UnitStatusInfo, id)                                },
                 { "LoadState",                      "s",               NULL,           offsetof(UnitStatusInfo, load_state)                        },
                 { "ActiveState",                    "s",               NULL,           offsetof(UnitStatusInfo, active_state)                      },
                 { "FreezerState",                   "s",               NULL,           offsetof(UnitStatusInfo, freezer_state)                     },
@@ -2031,6 +2059,10 @@ static int show_one(
                 { "Where",                          "s",               NULL,           offsetof(UnitStatusInfo, where)                             },
                 { "What",                           "s",               NULL,           offsetof(UnitStatusInfo, what)                              },
                 { "MemoryCurrent",                  "t",               NULL,           offsetof(UnitStatusInfo, memory_current)                    },
+                { "MemoryPeak",                     "t",               NULL,           offsetof(UnitStatusInfo, memory_peak)                       },
+                { "MemorySwapCurrent",              "t",               NULL,           offsetof(UnitStatusInfo, memory_swap_current)               },
+                { "MemorySwapPeak",                 "t",               NULL,           offsetof(UnitStatusInfo, memory_swap_peak)                  },
+                { "MemoryZSwapCurrent",             "t",               NULL,           offsetof(UnitStatusInfo, memory_zswap_current)              },
                 { "MemoryAvailable",                "t",               NULL,           offsetof(UnitStatusInfo, memory_available)                  },
                 { "DefaultMemoryMin",               "t",               NULL,           offsetof(UnitStatusInfo, default_memory_min)                },
                 { "DefaultMemoryLow",               "t",               NULL,           offsetof(UnitStatusInfo, default_memory_low)                },
@@ -2087,6 +2119,10 @@ static int show_one(
                 .memory_zswap_max = CGROUP_LIMIT_MAX,
                 .startup_memory_zswap_max = CGROUP_LIMIT_MAX,
                 .memory_limit = CGROUP_LIMIT_MAX,
+                .memory_peak = CGROUP_LIMIT_MAX,
+                .memory_swap_current = CGROUP_LIMIT_MAX,
+                .memory_swap_peak = CGROUP_LIMIT_MAX,
+                .memory_zswap_current = CGROUP_LIMIT_MAX,
                 .memory_available = CGROUP_LIMIT_MAX,
                 .cpu_usage_nsec = UINT64_MAX,
                 .tasks_current = UINT64_MAX,

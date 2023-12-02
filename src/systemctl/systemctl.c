@@ -162,7 +162,8 @@ static int systemctl_help(void) {
                "  list-timers [PATTERN...]            List timer units currently in memory,\n"
                "                                      ordered by next elapse\n"
                "  is-active PATTERN...                Check whether units are active\n"
-               "  is-failed PATTERN...                Check whether units are failed\n"
+               "  is-failed [PATTERN...]              Check whether units are failed or\n"
+               "                                      system is in degraded state\n"
                "  status [PATTERN...|PID...]          Show runtime status of one or more units\n"
                "  show [PATTERN...|JOB...]            Show properties of one or more\n"
                "                                      units/jobs or the manager\n"
@@ -829,14 +830,9 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_CHECK_INHIBITORS:
-                        if (streq(optarg, "auto"))
-                                arg_check_inhibitors = -1;
-                        else {
-                                r = parse_boolean(optarg);
-                                if (r < 0)
-                                        return log_error_errno(r, "Failed to parse --check-inhibitors= argument: %s", optarg);
-                                arg_check_inhibitors = r;
-                        }
+                        r = parse_tristate_full(optarg, "auto", &arg_check_inhibitors);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --check-inhibitors= argument: %s", optarg);
                         break;
 
                 case ARG_PLAIN:
@@ -1089,10 +1085,7 @@ int systemctl_dispatch_parse_argv(int argc, char *argv[]) {
                 return halt_parse_argv(argc, argv);
 
         } else if (invoked_as(argv, "reboot")) {
-                if (kexec_loaded())
-                        arg_action = ACTION_KEXEC;
-                else
-                        arg_action = ACTION_REBOOT;
+                arg_action = ACTION_REBOOT;
                 return halt_parse_argv(argc, argv);
 
         } else if (invoked_as(argv, "shutdown")) {
@@ -1165,7 +1158,7 @@ static int systemctl_main(int argc, char *argv[]) {
                 { "thaw",                  2,        VERB_ANY, VERB_ONLINE_ONLY, verb_clean_or_freeze         },
                 { "is-active",             2,        VERB_ANY, VERB_ONLINE_ONLY, verb_is_active               },
                 { "check",                 2,        VERB_ANY, VERB_ONLINE_ONLY, verb_is_active               }, /* deprecated alias of is-active */
-                { "is-failed",             2,        VERB_ANY, VERB_ONLINE_ONLY, verb_is_failed               },
+                { "is-failed",             VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_is_failed               },
                 { "show",                  VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_show                    },
                 { "cat",                   2,        VERB_ANY, VERB_ONLINE_ONLY, verb_cat                     },
                 { "status",                VERB_ANY, VERB_ANY, VERB_ONLINE_ONLY, verb_show                    },

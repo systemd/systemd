@@ -7,17 +7,15 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-07-14 10:32+0100\n"
+"POT-Creation-Date: 2023-11-14 21:25+0000\n"
 "PO-Revision-Date: 2023-07-14 11:47+0000\n"
 "Last-Translator: Yuri Chornoivan <yurchor@ukr.net>\n"
-"Language-Team: Ukrainian <https://translate.fedoraproject.org/projects/"
-"systemd/master/uk/>\n"
+"Language-Team: Ukrainian <https://translate.fedoraproject.org/projects/systemd/master/uk/>\n"
 "Language: uk\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && "
-"n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
+"Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
 "X-Generator: Weblate 4.18.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
@@ -119,17 +117,12 @@ msgstr "Для зміни пароля для доступу до домашнь
 #: src/home/pam_systemd_home.c:287
 #, c-format
 msgid "Home of user %s is currently absent, please plug in the necessary storage device or backing file system."
-msgstr ""
-"Доступ до домашнього каталогу користувача %s зараз немає, будь ласка, "
-"з'єднайте з комп'ютером відповідний пристрій зберігання даних або резервну "
-"файлову систему."
+msgstr "Доступ до домашнього каталогу користувача %s зараз немає, будь ласка, з'єднайте з комп'ютером відповідний пристрій зберігання даних або резервну файлову систему."
 
 #: src/home/pam_systemd_home.c:292
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
-msgstr ""
-"Надто часті спроби увійти до системи з боку користувача %s, повторіть спробу "
-"пізніше."
+msgstr "Надто часті спроби увійти до системи з боку користувача %s, повторіть спробу пізніше."
 
 #: src/home/pam_systemd_home.c:304
 msgid "Password: "
@@ -138,9 +131,7 @@ msgstr "Пароль: "
 #: src/home/pam_systemd_home.c:306
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
-msgstr ""
-"Неправильно вказано пароль або пароля недостатньо для розпізнавання "
-"користувача %s."
+msgstr "Неправильно вказано пароль або пароля недостатньо для розпізнавання користувача %s."
 
 #: src/home/pam_systemd_home.c:307
 msgid "Sorry, try again: "
@@ -153,9 +144,7 @@ msgstr "Ключ відновлення: "
 #: src/home/pam_systemd_home.c:331
 #, c-format
 msgid "Password/recovery key incorrect or not sufficient for authentication of user %s."
-msgstr ""
-"Неправильно вказано пароль або пароля недостатньо для розпізнавання "
-"користувача %s."
+msgstr "Неправильно вказано пароль або пароля недостатньо для розпізнавання користувача %s."
 
 #: src/home/pam_systemd_home.c:332
 msgid "Sorry, reenter recovery key: "
@@ -173,9 +162,7 @@ msgstr "Повторіть спробу з паролем: "
 #: src/home/pam_systemd_home.c:355
 #, c-format
 msgid "Password incorrect or not sufficient, and configured security token of user %s not inserted."
-msgstr ""
-"Пароль введено неправильно або пароля недостатньо, а налаштований жетон "
-"безпеки користувача %s не вставлено."
+msgstr "Пароль введено неправильно або пароля недостатньо, а налаштований жетон безпеки користувача %s не вставлено."
 
 #: src/home/pam_systemd_home.c:376
 msgid "Security token PIN: "
@@ -184,8 +171,7 @@ msgstr "PIN-код жетона безпеки: "
 #: src/home/pam_systemd_home.c:393
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
-msgstr ""
-"Будь ласка, виконайте фізичне розпізнавання на жетоні безпеки користувача %s."
+msgstr "Будь ласка, виконайте фізичне розпізнавання на жетоні безпеки користувача %s."
 
 #: src/home/pam_systemd_home.c:404
 #, c-format
@@ -199,9 +185,7 @@ msgstr "Будь ласка, перевірте користувача на же
 
 #: src/home/pam_systemd_home.c:424
 msgid "Security token PIN is locked, please unlock it first. (Hint: Removal and re-insertion might suffice.)"
-msgstr ""
-"PIN-код жетона захисту заблоковано. Будь ласка, спочатку зніміть його "
-"блокування. (Підказка: іноді досить вийняти і знову вставити жетон.)"
+msgstr "PIN-код жетона захисту заблоковано. Будь ласка, спочатку зніміть його блокування. (Підказка: іноді досить вийняти і знову вставити жетон.)"
 
 #: src/home/pam_systemd_home.c:432
 #, c-format
@@ -216,35 +200,27 @@ msgstr "Вибачте, повторіть введення PIN-коду жет�
 #: src/home/pam_systemd_home.c:451
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
-msgstr ""
-"Помилковий PIN-код жетона безпеки користувача %s (лишилося лише декілька "
-"спроб!)"
+msgstr "Помилковий PIN-код жетона безпеки користувача %s (лишилося лише декілька спроб!)"
 
 #: src/home/pam_systemd_home.c:470
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
-msgstr ""
-"Помилковий PIN-код жетона безпеки користувача %s (лишилася одна спроба!)"
+msgstr "Помилковий PIN-код жетона безпеки користувача %s (лишилася одна спроба!)"
 
 #: src/home/pam_systemd_home.c:616
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
-msgstr ""
-"Домашня тека користувача %s є неактивною. Будь ласка, виконайте спочатку "
-"локальний вхід до системи."
+msgstr "Домашня тека користувача %s є неактивною. Будь ласка, виконайте спочатку локальний вхід до системи."
 
 #: src/home/pam_systemd_home.c:618
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
-msgstr ""
-"Зараз домашню теку користувача %s заблоковано. Будь ласка, спочатку "
-"розблокуйте її."
+msgstr "Зараз домашню теку користувача %s заблоковано. Будь ласка, спочатку розблокуйте її."
 
 #: src/home/pam_systemd_home.c:645
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
-msgstr ""
-"Забагато неуспішних спроб увійти з боку користувача %s. У доступі відмовлено."
+msgstr "Забагато неуспішних спроб увійти з боку користувача %s. У доступі відмовлено."
 
 #: src/home/pam_systemd_home.c:868
 msgid "User record is blocked, prohibiting access."
@@ -277,8 +253,7 @@ msgstr "Строк дії пароля вичерпано. Потрібна зм
 
 #: src/home/pam_systemd_home.c:914
 msgid "Password is expired, but can't change, refusing login."
-msgstr ""
-"Строк дії пароля вичерпано, але його неможливо змінити. Забороняємо вхід."
+msgstr "Строк дії пароля вичерпано, але його неможливо змінити. Забороняємо вхід."
 
 #: src/home/pam_systemd_home.c:918
 msgid "Password will expire soon, please change."
@@ -948,38 +923,38 @@ msgstr "Вмикання або вимикання синхронізації ч
 msgid "Authentication is required to control whether network time synchronization shall be enabled."
 msgstr "Для керування тим, чи слід вмикати синхронізацію часу за допомогою мережі, слід пройти розпізнавання."
 
-#: src/core/dbus-unit.c:364
+#: src/core/dbus-unit.c:352
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Для запуску «$(unit)» слід пройти розпізнавання."
 
-#: src/core/dbus-unit.c:365
+#: src/core/dbus-unit.c:353
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Для зупинення «$(unit)» слід пройти розпізнавання."
 
-#: src/core/dbus-unit.c:366
+#: src/core/dbus-unit.c:354
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Для перезавантаження «$(unit)» слід пройти розпізнавання."
 
-#: src/core/dbus-unit.c:367 src/core/dbus-unit.c:368
+#: src/core/dbus-unit.c:355 src/core/dbus-unit.c:356
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Для перезапуску «$(unit)» слід пройти розпізнавання."
 
-#: src/core/dbus-unit.c:565
+#: src/core/dbus-unit.c:553
 msgid "Authentication is required to send a UNIX signal to the processes of '$(unit)'."
 msgstr "Для надсилання сигналу UNIX до процесів «$(unit)» слід пройти розпізнавання."
 
-#: src/core/dbus-unit.c:595
+#: src/core/dbus-unit.c:583
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "Для скидання «пошкодженого» стану з «$(unit)» слід пройти розпізнавання."
 
-#: src/core/dbus-unit.c:627
+#: src/core/dbus-unit.c:615
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Для визначення властивостей на «$(unit)» слід пройти розпізнавання."
 
-#: src/core/dbus-unit.c:728
+#: src/core/dbus-unit.c:716
 msgid "Authentication is required to delete files and directories associated with '$(unit)'."
 msgstr "Для вилучення файлів і каталогів, які пов'язано із «$(unit)», слід пройти розпізнавання."
 
-#: src/core/dbus-unit.c:776
+#: src/core/dbus-unit.c:764
 msgid "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "Для замороження або розмороження процесів модуля «$(unit)» слід пройти розпізнавання."

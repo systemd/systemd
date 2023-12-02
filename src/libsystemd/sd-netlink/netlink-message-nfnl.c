@@ -7,7 +7,7 @@
 
 #include "sd-netlink.h"
 
-#include "io-util.h"
+#include "iovec-util.h"
 #include "netlink-internal.h"
 #include "netlink-types.h"
 #include "netlink-util.h"
@@ -149,9 +149,9 @@ int sd_nfnl_send_batch(
                 if (serials)
                         serials[i] = message_get_serial(messages[i]);
 
-                /* It seems that the kernel accepts an arbitrary number. Let's set the serial of the
-                 * first message. */
-                nfnl_message_set_res_id(messages[i], message_get_serial(batch_begin));
+                /* It seems that the kernel accepts an arbitrary number. Let's set the lower 16 bits of the
+                 * serial of the first message. */
+                nfnl_message_set_res_id(messages[i], (uint16_t) (message_get_serial(batch_begin) & UINT16_MAX));
 
                 iovs[c++] = IOVEC_MAKE(messages[i]->hdr, messages[i]->hdr->nlmsg_len);
         }

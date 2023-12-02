@@ -6,6 +6,7 @@
 #include "bootctl.h"
 #include "bootctl-set-efivar.h"
 #include "efivars.h"
+#include "efi-loader.h"
 #include "stdio-util.h"
 #include "utf8.h"
 #include "virt.h"
@@ -14,17 +15,35 @@ static int parse_timeout(const char *arg1, char16_t **ret_timeout, size_t *ret_t
         char utf8[DECIMAL_STR_MAX(usec_t)];
         char16_t *encoded;
         usec_t timeout;
+        bool menu_disabled = false;
         int r;
 
         assert(arg1);
         assert(ret_timeout);
         assert(ret_timeout_size);
 
+        assert_cc(STRLEN("menu-disabled") < ELEMENTSOF(utf8));
+
+        /* Note: Since there is no way to query if the bootloader supports the string tokens, we explicitly
+         * set their numerical value(s) instead. This means that some of the sd-boot internal ABI has leaked
+         * although the ship has sailed and the side-effects are self-contained.
+         */
         if (streq(arg1, "menu-force"))
                 timeout = USEC_INFINITY;
         else if (streq(arg1, "menu-hidden"))
                 timeout = 0;
-        else {
+        else if (streq(arg1, "menu-disabled")) {
+                uint64_t loader_features = 0;
+
+                (void) efi_loader_get_features(&loader_features);
+                if (!(loader_features & EFI_LOADER_FEATURE_MENU_DISABLE)) {
+                        if (!arg_graceful)
+                                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Loader does not support 'menu-disabled': %m");
+
+                        log_warning("Loader does not support 'menu-disabled', setting anyway.");
+                }
+                menu_disabled = true;
+        } else {
                 r = parse_time(arg1, &timeout, USEC_PER_SEC);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse timeout '%s': %m", arg1);
@@ -32,7 +51,10 @@ static int parse_timeout(const char *arg1, char16_t **ret_timeout, size_t *ret_t
                         log_warning("Timeout is too long and will be treated as 'menu-force' instead.");
         }
 
-        xsprintf(utf8, USEC_FMT, MIN(timeout / USEC_PER_SEC, UINT32_MAX));
+        if (menu_disabled)
+                xsprintf(utf8, "menu-disabled");
+        else
+                xsprintf(utf8, USEC_FMT, MIN(timeout / USEC_PER_SEC, UINT32_MAX));
 
         encoded = utf8_to_utf16(utf8, SIZE_MAX);
         if (!encoded)

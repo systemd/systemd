@@ -30,8 +30,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (outside_size_range(size, 3, 65536))
                 return 0;
 
-        if (!getenv("SYSTEMD_LOG_LEVEL"))
-                log_set_max_level(LOG_ERR);
+        fuzz_setup_logging();
 
         assert_se(mkdtemp_malloc("/tmp/fuzz-journal-remote-XXXXXX", &tmp) >= 0);
         assert_se(name = path_join(tmp, "fuzz-journal-remote.XXXXXX.journal"));

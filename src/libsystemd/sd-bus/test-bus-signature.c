@@ -4,10 +4,13 @@
 #include "bus-signature.h"
 #include "log.h"
 #include "string-util.h"
+#include "tests.h"
 
 int main(int argc, char *argv[]) {
         char prefix[256];
         int r;
+
+        test_setup_logging(LOG_DEBUG);
 
         assert_se(signature_is_single("y", false));
         assert_se(signature_is_single("u", false));

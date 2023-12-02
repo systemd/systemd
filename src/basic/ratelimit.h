@@ -12,6 +12,8 @@ typedef struct RateLimit {
         usec_t begin;
 } RateLimit;
 
+#define RATELIMIT_OFF (const RateLimit) { .interval = USEC_INFINITY, .burst = UINT_MAX }
+
 static inline void ratelimit_reset(RateLimit *rl) {
         rl->num = rl->begin = 0;
 }

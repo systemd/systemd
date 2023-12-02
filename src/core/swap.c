@@ -557,7 +557,7 @@ static int swap_coldplug(Unit *u) {
                 return 0;
 
         if (pidref_is_set(&s->control_pid) &&
-            pid_is_unwaited(s->control_pid.pid) &&
+            pidref_is_unwaited(&s->control_pid) > 0 &&
             SWAP_STATE_WITH_PROCESS(new_state)) {
 
                 r = unit_watch_pidref(UNIT(s), &s->control_pid, /* exclusive= */ false);
@@ -632,13 +632,8 @@ static void swap_dump(Unit *u, FILE *f, const char *prefix) {
 
 static int swap_spawn(Swap *s, ExecCommand *c, PidRef *ret_pid) {
 
-        _cleanup_(exec_params_clear) ExecParameters exec_params = {
-                .flags     = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
-                .stdin_fd  = -EBADF,
-                .stdout_fd = -EBADF,
-                .stderr_fd = -EBADF,
-                .exec_fd   = -EBADF,
-        };
+        _cleanup_(exec_params_shallow_clear) ExecParameters exec_params = EXEC_PARAMETERS_INIT(
+                        EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN);
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         pid_t pid;
         int r;
@@ -962,9 +957,7 @@ static int swap_serialize(Unit *u, FILE *f, FDSet *fds) {
 
         (void) serialize_item(f, "state", swap_state_to_string(s->state));
         (void) serialize_item(f, "result", swap_result_to_string(s->result));
-
-        if (pidref_is_set(&s->control_pid))
-                (void) serialize_item_format(f, "control-pid", PID_FMT, s->control_pid.pid);
+        (void) serialize_pidref(f, fds, "control-pid", &s->control_pid);
 
         if (s->control_command_id >= 0)
                 (void) serialize_item(f, "control-command", swap_exec_command_to_string(s->control_command_id));
@@ -974,7 +967,6 @@ static int swap_serialize(Unit *u, FILE *f, FDSet *fds) {
 
 static int swap_deserialize_item(Unit *u, const char *key, const char *value, FDSet *fds) {
         Swap *s = SWAP(u);
-        int r;
 
         assert(s);
         assert(fds);
@@ -998,9 +990,7 @@ static int swap_deserialize_item(Unit *u, const char *key, const char *value, FD
         } else if (streq(key, "control-pid")) {
 
                 pidref_done(&s->control_pid);
-                r = pidref_set_pidstr(&s->control_pid, value);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to pin control PID '%s', ignoring: %m", value);
+                (void) deserialize_pidref(fds, value, &s->control_pid);
 
         } else if (streq(key, "control-command")) {
                 SwapExecCommand id;
@@ -1567,6 +1557,27 @@ static int swap_can_start(Unit *u) {
         }
 
         return 1;
+}
+
+int swap_get_priority(const Swap *s) {
+        assert(s);
+
+        if (s->from_proc_swaps && s->parameters_proc_swaps.priority_set)
+                return s->parameters_proc_swaps.priority;
+
+        if (s->from_fragment && s->parameters_fragment.priority_set)
+                return s->parameters_fragment.priority;
+
+        return -1;
+}
+
+const char* swap_get_options(const Swap *s) {
+        assert(s);
+
+        if (s->from_fragment)
+                return s->parameters_fragment.options;
+
+        return NULL;
 }
 
 static const char* const swap_exec_command_table[_SWAP_EXEC_COMMAND_MAX] = {

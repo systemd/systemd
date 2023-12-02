@@ -9,7 +9,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-07-14 10:32+0100\n"
+"POT-Creation-Date: 2023-11-14 21:25+0000\n"
 "PO-Revision-Date: 2023-05-13 19:20+0000\n"
 "Last-Translator: Maksim Kliazovich <maxklezovich@gmail.com>\n"
 "Language-Team: Belarusian <https://translate.fedoraproject.org/projects/systemd/master/be/>\n"
@@ -926,39 +926,39 @@ msgstr "Уключыць або выключыць сінхранізацыю ч
 msgid "Authentication is required to control whether network time synchronization shall be enabled."
 msgstr "Для ўключэння або выключэння сінхранізацыі часу па сетцы патрабуецца аўтэнтыфікацыя."
 
-#: src/core/dbus-unit.c:364
+#: src/core/dbus-unit.c:352
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Для запуску \"$(unit)\" патрабуецца аўтэнтыфікацыя."
 
-#: src/core/dbus-unit.c:365
+#: src/core/dbus-unit.c:353
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Для спынення \"$(unit)\" патрабуецца аўтэнтыфікацыя."
 
-#: src/core/dbus-unit.c:366
+#: src/core/dbus-unit.c:354
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Для перачытання стану \"$(unit)\" патрабуецца аўтэнтыфікацыя."
 
-#: src/core/dbus-unit.c:367 src/core/dbus-unit.c:368
+#: src/core/dbus-unit.c:355 src/core/dbus-unit.c:356
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Для перазапуску \"$(unit)\" патрабуецца аўтэнтыфікацыя."
 
-#: src/core/dbus-unit.c:565
+#: src/core/dbus-unit.c:553
 msgid "Authentication is required to send a UNIX signal to the processes of '$(unit)'."
 msgstr "Для адпраўкі сігналу UNIX працэсам адзінкі \"$(unit)\" патрабуецца аўтэнтыфікацыя."
 
-#: src/core/dbus-unit.c:595
+#: src/core/dbus-unit.c:583
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "Для таго, каб скінуць стан \"failed\" у \"$(unit)\", патрабуецца аўтэнтыфікацыя."
 
-#: src/core/dbus-unit.c:627
+#: src/core/dbus-unit.c:615
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Для змены ўласцівасцей \"$(unit)\" патрабуецца аўтэнтыфікацыя."
 
-#: src/core/dbus-unit.c:728
+#: src/core/dbus-unit.c:716
 msgid "Authentication is required to delete files and directories associated with '$(unit)'."
 msgstr "Для выдалення файлаў і каталогаў, якія звязаныя з \"$(unit)\", патрабуецца аўтэнтыфікацыя."
 
-#: src/core/dbus-unit.c:776
+#: src/core/dbus-unit.c:764
 msgid "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "Для спынення альбо ўзнаўлення працэсаў \"$(unit)\" патрабуецца аўтэнтыфікацыя."
 

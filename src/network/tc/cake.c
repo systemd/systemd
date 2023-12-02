@@ -354,13 +354,7 @@ int config_parse_cake_tristate(
         else
                 assert_not_reached();
 
-        if (isempty(rvalue)) {
-                *dest = -1;
-                TAKE_PTR(qdisc);
-                return 0;
-        }
-
-        r = parse_boolean(rvalue);
+        r = parse_tristate(rvalue, dest);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
@@ -368,7 +362,6 @@ int config_parse_cake_tristate(
                 return 0;
         }
 
-        *dest = r;
         TAKE_PTR(qdisc);
         return 0;
 }
