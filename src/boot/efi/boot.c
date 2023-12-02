@@ -659,7 +659,7 @@ static bool entry_is_visible(ConfigEntry *entry, ConfigEntry *visible_group) {
 
         if (entry->group_entry == NULL)
                 return true;
-        else if (entry->group_entry == visible_group)
+        if (entry->group_entry == visible_group)
                 return true;
         return false;
 }
