@@ -272,6 +272,8 @@ node /org/freedesktop/login1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t NCurrentInhibitors = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly b EnforceInhibitors = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t SessionsMax = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly t NCurrentSessions = ...;
@@ -295,6 +297,8 @@ node /org/freedesktop/login1 {
     <!--property HandleSuspendKeyLongPress is not documented!-->
 
     <!--property HandleHibernateKeyLongPress is not documented!-->
+
+    <!--property EnforceInhibitors is not documented!-->
 
     <!--property StopIdleSessionUSec is not documented!-->
 
@@ -531,6 +535,8 @@ node /org/freedesktop/login1 {
     <variablelist class="dbus-property" generated="True" extra-ref="InhibitorsMax"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="NCurrentInhibitors"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="EnforceInhibitors"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="SessionsMax"/>
 
@@ -1560,8 +1566,9 @@ node /org/freedesktop/login1/session/1 {
       <para><function>PrepareForShutdownWithMetadata</function> and
       <function>CreateSessionWithPIDFD()</function> were added in version 255.</para>
       <para><function>Sleep()</function>,
-      <function>CanSleep()</function>, and
-      <varname>SleepOperation</varname> were added in version 256.</para>
+      <function>CanSleep()</function>,
+      <varname>SleepOperation</varname> and
+      <varname>EnforceInhibitors</varname> were added in version 256.</para>
     </refsect2>
     <refsect2>
       <title>Session Objects</title>

@@ -2227,6 +2227,11 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
           <para>Option <option>--force</option> provides another way to override inhibitors.</para>
 
+          <para>If <varname>EnforceInhibitors=yes</varname> is set in
+          <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+          then inhibitor locks will be enforced regardless of the privilege leves of the requestor. Check
+          its documentation for more information and for instructions on how to use it and bypass it.</para>
+
           <xi:include href="version-info.xml" xpointer="v248"/>
         </listitem>
       </varlistentry>
