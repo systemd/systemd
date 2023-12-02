@@ -657,7 +657,7 @@ static EFI_STATUS reboot_into_firmware(void) {
 static bool entry_is_visible(ConfigEntry *entry, ConfigEntry *visible_group) {
         assert(entry);
 
-        if (entry->group_entry == NULL)
+        if (!entry->group_entry)
                 return true;
         if (entry->group_entry == visible_group)
                 return true;
@@ -2001,13 +2001,13 @@ static void config_group_entries(Config *config){
         for(size_t i = 0; i < config->n_entries; i++){
                 if (config->entries[i]->type == LOADER_MORE)
                         continue;
-                if(config->entries[i]->sort_key == NULL)
+                if(!config->entries[i]->sort_key)
                         continue;
                 size_t k = i;
                 for(; k < config->n_entries; k++){
                         if(config->entries[k]->type == LOADER_MORE)
                                 break;
-                        if(config->entries[k]->sort_key == NULL)
+                        if(!config->entries[k]->sort_key)
                                 break;
                         if(strcmp(config->entries[i]->sort_key,
                                   config->entries[k]->sort_key) == 0)
