@@ -87,6 +87,17 @@ int session_new(Session **ret, Manager *m, const char *id) {
         return 0;
 }
 
+static void session_reset_leader(Session *s) {
+        assert(s);
+
+        if (!pidref_is_set(&s->leader))
+                return;
+
+        assert_se(hashmap_remove_value(s->manager->sessions_by_leader, &s->leader, s));
+
+        return pidref_done(&s->leader);
+}
+
 Session* session_free(Session *s) {
         SessionDevice *sd;
 
@@ -129,12 +140,9 @@ Session* session_free(Session *s) {
                 free(s->scope);
         }
 
-        if (pidref_is_set(&s->leader)) {
-                (void) hashmap_remove_value(s->manager->sessions_by_leader, PID_TO_PTR(s->leader.pid), s);
-                pidref_done(&s->leader);
-        }
-
         free(s->scope_job);
+
+        session_reset_leader(s);
 
         sd_bus_message_unref(s->create_message);
 
@@ -170,32 +178,25 @@ void session_set_user(Session *s, User *u) {
         user_update_last_session_timer(u);
 }
 
-int session_set_leader(Session *s, pid_t pid) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+int session_set_leader_consume(Session *s, PidRef _leader) {
+        _cleanup_(pidref_done) PidRef pidref = _leader;
         int r;
 
         assert(s);
+        assert(pidref_is_set(&pidref));
 
-        if (!pid_is_valid(pid))
-                return -EINVAL;
-
-        if (s->leader.pid == pid)
+        if (pidref_equal(&s->leader, &pidref))
                 return 0;
 
-        r = pidref_set_pid(&pidref, pid);
-        if (r < 0)
-                return r;
-
-        r = hashmap_put(s->manager->sessions_by_leader, PID_TO_PTR(pidref.pid), s);
-        if (r < 0)
-                return r;
-
-        if (pidref_is_set(&s->leader)) {
-                (void) hashmap_remove_value(s->manager->sessions_by_leader, PID_TO_PTR(s->leader.pid), s);
-                pidref_done(&s->leader);
-        }
+        session_reset_leader(s);
 
         s->leader = TAKE_PIDREF(pidref);
+
+        r = hashmap_ensure_put(&s->manager->sessions_by_leader, &pidref_hash_ops, &s->leader, s);
+        if (r < 0)
+                return r;
+        assert(r > 0);
+
         (void) audit_session_from_pid(s->leader.pid, &s->audit_id);
 
         return 1;
@@ -523,13 +524,13 @@ int session_load(Session *s) {
         }
 
         if (leader) {
-                pid_t pid;
+                _cleanup_(pidref_done) PidRef p = PIDREF_NULL;
 
-                r = parse_pid(leader, &pid);
+                r = pidref_set_pidstr(&p, leader);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse leader PID of session: %s", leader);
                 else {
-                        r = session_set_leader(s, pid);
+                        r = session_set_leader_consume(s, TAKE_PIDREF(p));
                         if (r < 0)
                                 log_warning_errno(r, "Failed to set session leader PID, ignoring: %m");
                 }
@@ -684,7 +685,7 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
                 r = manager_start_scope(
                                 s->manager,
                                 scope,
-                                s->leader.pid,
+                                &s->leader,
                                 s->user->slice,
                                 description,
                                 /* These two have StopWhenUnneeded= set, hence add a dep towards them */
@@ -793,7 +794,7 @@ int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error) {
                    LOG_MESSAGE("New session %s of user %s.", s->id, s->user->user_record->user_name));
 
         if (!dual_timestamp_is_set(&s->timestamp))
-                dual_timestamp_get(&s->timestamp);
+                dual_timestamp_now(&s->timestamp);
 
         if (s->seat)
                 seat_read_active_vt(s->seat);
@@ -884,6 +885,7 @@ int session_stop(Session *s, bool force) {
                 return 0;
 
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
+        s->leader_pidfd_event_source = sd_event_source_unref(s->leader_pidfd_event_source);
 
         if (s->seat)
                 seat_evict_position(s->seat, s);
@@ -921,6 +923,7 @@ int session_finalize(Session *s) {
                            LOG_MESSAGE("Removed session %s.", s->id));
 
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
+        s->leader_pidfd_event_source = sd_event_source_unref(s->leader_pidfd_event_source);
 
         if (s->seat)
                 seat_evict_position(s->seat, s);
@@ -944,6 +947,8 @@ int session_finalize(Session *s) {
 
                 seat_save(s->seat);
         }
+
+        session_reset_leader(s);
 
         user_save(s->user);
         user_send_changed(s->user, "Display", NULL);
@@ -1083,7 +1088,7 @@ int session_set_idle_hint(Session *s, bool b) {
                 return 0;
 
         s->idle_hint = b;
-        dual_timestamp_get(&s->idle_hint_timestamp);
+        dual_timestamp_now(&s->idle_hint_timestamp);
 
         session_send_changed(s, "IdleHint", "IdleSinceHint", "IdleSinceHintMonotonic", NULL);
 
@@ -1226,6 +1231,36 @@ static void session_remove_fifo(Session *s) {
         }
 }
 
+static int session_dispatch_leader_pidfd(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
+        Session *s = ASSERT_PTR(userdata);
+
+        assert(s->leader.fd == fd);
+        session_stop(s, /* force= */ false);
+
+        return 1;
+}
+
+int session_watch_pidfd(Session *s) {
+        int r;
+
+        assert(s);
+
+        if (s->leader.fd < 0)
+                return 0;
+
+        r = sd_event_add_io(s->manager->event, &s->leader_pidfd_event_source, s->leader.fd, EPOLLIN, session_dispatch_leader_pidfd, s);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_priority(s->leader_pidfd_event_source, SD_EVENT_PRIORITY_IMPORTANT);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_source_set_description(s->leader_pidfd_event_source, "session-pidfd");
+
+        return 0;
+}
+
 bool session_may_gc(Session *s, bool drop_not_started) {
         int r;
 
@@ -1236,6 +1271,12 @@ bool session_may_gc(Session *s, bool drop_not_started) {
 
         if (!s->user)
                 return true;
+
+        r = pidref_is_alive(&s->leader);
+        if (r < 0)
+                log_debug_errno(r, "Unable to determine if leader PID " PID_FMT " is still alive, assuming not.", s->leader.pid);
+        if (r > 0)
+                return false;
 
         if (s->fifo_fd >= 0) {
                 if (pipe_eof(s->fifo_fd) <= 0)
@@ -1282,7 +1323,7 @@ SessionState session_get_state(Session *s) {
         if (s->stopping || s->timer_event_source)
                 return SESSION_CLOSING;
 
-        if (s->scope_job || s->fifo_fd < 0)
+        if (s->scope_job || (!pidref_is_set(&s->leader) && s->fifo_fd < 0))
                 return SESSION_OPENING;
 
         if (session_is_active(s))

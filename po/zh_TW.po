@@ -3,19 +3,20 @@
 # Traditional Chinese translation for systemd.
 # Jeff Huang <s8321414@gmail.com>, 2015, 2016.
 # pan93412 <pan93412@gmail.com>, 2019.
+# Cheng-Chia Tseng <pswo10680@gmail.com>, 2023.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-07-14 10:32+0100\n"
-"PO-Revision-Date: 2021-08-10 11:36+0800\n"
-"Last-Translator: pan93412 <pan93412@gmail.com>\n"
-"Language-Team: Chinese <chinese-l10n@googlegroups.com>\n"
+"POT-Creation-Date: 2023-11-14 21:25+0000\n"
+"PO-Revision-Date: 2023-11-10 11:30+0000\n"
+"Last-Translator: Cheng-Chia Tseng <pswo10680@gmail.com>\n"
+"Language-Team: Chinese (Traditional) <https://translate.fedoraproject.org/projects/systemd/master/zh_TW/>\n"
 "Language: zh_TW\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Poedit 2.2.1\n"
+"X-Generator: Weblate 5.1.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -126,7 +127,7 @@ msgstr ""
 
 #: src/home/pam_systemd_home.c:304
 msgid "Password: "
-msgstr ""
+msgstr "密碼： "
 
 #: src/home/pam_systemd_home.c:306
 #, c-format
@@ -926,39 +927,39 @@ msgstr "打開或關閉網路時間同步"
 msgid "Authentication is required to control whether network time synchronization shall be enabled."
 msgstr "控制網路時間同步是否啟用需要驗證。"
 
-#: src/core/dbus-unit.c:364
+#: src/core/dbus-unit.c:352
 msgid "Authentication is required to start '$(unit)'."
 msgstr "啟動 '$(unit)' 需要驗證。"
 
-#: src/core/dbus-unit.c:365
+#: src/core/dbus-unit.c:353
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "停止 '$(unit)' 需要驗證。"
 
-#: src/core/dbus-unit.c:366
+#: src/core/dbus-unit.c:354
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "重新載入 '$(unit)' 需要驗證。"
 
-#: src/core/dbus-unit.c:367 src/core/dbus-unit.c:368
+#: src/core/dbus-unit.c:355 src/core/dbus-unit.c:356
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "重新啟動 '$(unit)' 需要驗證。"
 
-#: src/core/dbus-unit.c:565
+#: src/core/dbus-unit.c:553
 msgid "Authentication is required to send a UNIX signal to the processes of '$(unit)'."
 msgstr "傳送 UNIX 信號至「$(unit)」的程序需要身份驗證。"
 
-#: src/core/dbus-unit.c:595
+#: src/core/dbus-unit.c:583
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "重置 '$(unit)' 的「失敗」狀態需要驗證。"
 
-#: src/core/dbus-unit.c:627
+#: src/core/dbus-unit.c:615
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "在 '$(unit)' 上設定屬性需要驗證。"
 
-#: src/core/dbus-unit.c:728
+#: src/core/dbus-unit.c:716
 msgid "Authentication is required to delete files and directories associated with '$(unit)'."
 msgstr "刪除與 '$(unit)' 相關的檔案及目錄需要身份驗證。"
 
-#: src/core/dbus-unit.c:776
+#: src/core/dbus-unit.c:764
 msgid "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "凍結或解凍「$(unit)」的程序需要身份驗證。"
 

@@ -279,8 +279,7 @@ static void path_init(Unit *u) {
 
         p->directory_mode = 0755;
 
-        p->trigger_limit.interval = USEC_INFINITY;
-        p->trigger_limit.burst = UINT_MAX;
+        p->trigger_limit = RATELIMIT_OFF;
 }
 
 void path_free_specs(Path *p) {
@@ -683,6 +682,8 @@ static int path_serialize(Unit *u, FILE *f, FDSet *fds) {
                                              escaped);
         }
 
+        (void) serialize_ratelimit(f, "trigger-ratelimit", &p->trigger_limit);
+
         return 0;
 }
 
@@ -744,7 +745,10 @@ static int path_deserialize_item(Unit *u, const char *key, const char *value, FD
                                 }
                 }
 
-        } else
+        } else if (streq(key, "trigger-ratelimit"))
+                deserialize_ratelimit(&p->trigger_limit, key, value);
+
+        else
                 log_unit_debug(u, "Unknown serialization key: %s", key);
 
         return 0;

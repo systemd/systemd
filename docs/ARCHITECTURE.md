@@ -201,3 +201,25 @@ can be found under various directories such as `factory/`, `modprobe.d/`, `netwo
 `tools/`, `coccinelle/`, `.github/`, `.semaphore/`, `.mkosi/` host various
 utilities and scripts that are used by maintainers and developers. They are not
 shipped or installed.
+
+# Service Manager Overview
+
+The Service Manager takes configuration in the form of unit files, credentials,
+kernel command line options and D-Bus commands, and based on those manages the
+system and spawns other processes. It runs in system mode as PID1, and in user
+mode with one instance per user session.
+
+When starting a unit requires forking a new process, configuration for the new
+process will be serialized and passed over to the new process, created via a
+posix_spawn() call. This is done in order to avoid excessive processing after
+a fork() but before an exec(), which is against glibc's best practices and can
+also result in a copy-on-write trap. The new process will start as the
+`systemd-executor` binary, which will deserialize the configuration and apply
+all the options (sandboxing, namespacing, cgroup, etc.) before exec'ing the
+configured executable.
+
+```
+ ┌──────┐posix_spawn() ┌───────────┐execve() ┌────────┐
+ │ PID1 ├─────────────►│sd-executor├────────►│program │
+ └──────┘  (memfd)     └───────────┘         └────────┘
+```

@@ -147,7 +147,7 @@ static void raw_import_report_progress(RawImport *i) {
         if (!ratelimit_below(&i->progress_ratelimit))
                 return;
 
-        sd_notifyf(false, "X_IMPORT_PROGRESS=%u", percent);
+        sd_notifyf(false, "X_IMPORT_PROGRESS=%u%%", percent);
         log_info("Imported %u%%.", percent);
 
         i->last_percent = percent;
@@ -303,7 +303,7 @@ static int raw_import_open_disk(RawImport *i) {
                                        "Target file is not a regular file or block device");
 
         if (i->offset != UINT64_MAX) {
-                if (lseek(i->output_fd, i->offset, SEEK_SET) == (off_t) -1)
+                if (lseek(i->output_fd, i->offset, SEEK_SET) < 0)
                         return log_error_errno(errno, "Failed to seek to offset: %m");
         }
 
@@ -328,7 +328,7 @@ static int raw_import_try_reflink(RawImport *i) {
                 return 0;
 
         p = lseek(i->input_fd, 0, SEEK_CUR);
-        if (p == (off_t) -1)
+        if (p < 0)
                 return log_error_errno(errno, "Failed to read file offset of input file: %m");
 
         /* Let's only try a btrfs reflink, if we are reading from the beginning of the file */

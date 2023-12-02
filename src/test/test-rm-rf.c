@@ -93,7 +93,7 @@ TEST(rm_rf_chmod) {
                 /* This test only works unpriv (as only then the access mask for the owning user matters),
                  * hence drop privs here */
 
-                r = safe_fork("(setresuid)", FORK_DEATHSIG|FORK_WAIT, NULL);
+                r = safe_fork("(setresuid)", FORK_DEATHSIG_SIGTERM|FORK_WAIT, NULL);
                 assert_se(r >= 0);
 
                 if (r == 0) {

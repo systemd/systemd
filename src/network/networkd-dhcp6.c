@@ -16,6 +16,7 @@
 #include "networkd-manager.h"
 #include "networkd-queue.h"
 #include "networkd-route.h"
+#include "networkd-state-file.h"
 #include "string-table.h"
 #include "string-util.h"
 
@@ -95,27 +96,20 @@ static int dhcp6_address_ready_callback(Address *address) {
 }
 
 int dhcp6_check_ready(Link *link) {
-        bool has_ready = false;
-        Address *address;
         int r;
 
         assert(link);
+        assert(link->network);
 
         if (link->dhcp6_messages > 0) {
                 log_link_debug(link, "%s(): DHCPv6 addresses and routes are not set.", __func__);
                 return 0;
         }
 
-        SET_FOREACH(address, link->addresses) {
-                if (address->source != NETWORK_CONFIG_SOURCE_DHCP6)
-                        continue;
-                if (address_is_ready(address)) {
-                        has_ready = true;
-                        break;
-                }
-        }
+        if (link->network->dhcp6_use_address &&
+            !link_check_addresses_ready(link, NETWORK_CONFIG_SOURCE_DHCP6)) {
+                Address *address;
 
-        if (!has_ready) {
                 SET_FOREACH(address, link->addresses)
                         if (address->source == NETWORK_CONFIG_SOURCE_DHCP6)
                                 address->callback = dhcp6_address_ready_callback;
@@ -341,6 +335,19 @@ static int dhcp6_lease_ip_acquired(sd_dhcp6_client *client, Link *link) {
 }
 
 static int dhcp6_lease_information_acquired(sd_dhcp6_client *client, Link *link) {
+        sd_dhcp6_lease *lease;
+        int r;
+
+        assert(client);
+        assert(link);
+
+        r = sd_dhcp6_client_get_lease(client, &lease);
+        if (r < 0)
+                return log_link_error_errno(link, r, "Failed to get DHCPv6 lease: %m");
+
+        unref_and_replace_full(link->dhcp6_lease, lease, sd_dhcp6_lease_ref, sd_dhcp6_lease_unref);
+
+        link_dirty(link);
         return 0;
 }
 
@@ -366,7 +373,7 @@ static int dhcp6_lease_lost(Link *link) {
 
 static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
         Link *link = ASSERT_PTR(userdata);
-        int r;
+        int r = 0;
 
         assert(link->network);
 
@@ -378,31 +385,24 @@ static void dhcp6_handler(sd_dhcp6_client *client, int event, void *userdata) {
         case SD_DHCP6_CLIENT_EVENT_RESEND_EXPIRE:
         case SD_DHCP6_CLIENT_EVENT_RETRANS_MAX:
                 r = dhcp6_lease_lost(link);
-                if (r < 0)
-                        link_enter_failed(link);
                 break;
 
         case SD_DHCP6_CLIENT_EVENT_IP_ACQUIRE:
                 r = dhcp6_lease_ip_acquired(client, link);
-                if (r < 0) {
-                        link_enter_failed(link);
-                        return;
-                }
+                break;
 
-                _fallthrough_;
         case SD_DHCP6_CLIENT_EVENT_INFORMATION_REQUEST:
                 r = dhcp6_lease_information_acquired(client, link);
-                if (r < 0)
-                        link_enter_failed(link);
                 break;
 
         default:
                 if (event < 0)
-                        log_link_warning_errno(link, event, "DHCPv6 error: %m");
+                        log_link_warning_errno(link, event, "DHCPv6 error, ignoring: %m");
                 else
                         log_link_warning(link, "DHCPv6 unknown event: %d", event);
-                return;
         }
+        if (r < 0)
+                link_enter_failed(link);
 }
 
 int dhcp6_start_on_ra(Link *link, bool information_request) {
@@ -515,10 +515,10 @@ static int dhcp6_set_hostname(sd_dhcp6_client *client, Link *link) {
 
         assert(link);
 
-        if (!link->network->dhcp_send_hostname)
+        if (!link->network->dhcp6_send_hostname)
                 hn = NULL;
-        else if (link->network->dhcp_hostname)
-                hn = link->network->dhcp_hostname;
+        else if (link->network->dhcp6_hostname)
+                hn = link->network->dhcp6_hostname;
         else {
                 r = gethostname_strict(&hostname);
                 if (r < 0 && r != -ENXIO) /* ENXIO: no hostname set or hostname is "localhost" */

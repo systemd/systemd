@@ -1,80 +1,26 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
-from html.parser import HTMLParser
-from enum import Enum
+from csv import reader
 
-class State(Enum):
-    NOWHERE = 0
-    COMPANY = 1
-    AFTER_COMPANY = 2
-    PNPID = 3
-    AFTER_PNPID = 4
-    DATE = 5
+# pylint: disable=consider-using-with
 
-class PNPTableParser(HTMLParser):
+def read_table(filename):
+    table = list(reader(open(filename, newline='')))
+    table = table[1:]  # Skip header
+    table.sort(key=lambda x: x[1])
 
-    def __init__(self):
-        HTMLParser.__init__(self)
-        self.state = State.NOWHERE
-        self.data = ""
-        self.pnpid = None
-        self.company = None
-        self.table = []
+    for row in table:
+        # Some IDs end with whitespace, while they didn't in the old HTML table, so it's probably
+        # a mistake, strip it.
+        print(f'\nacpi:{row[1].strip()}*:\n ID_VENDOR_FROM_DATABASE={row[0].strip()}')
 
-    def handle_starttag(self, tag, attrs):
+print('''\
+# This file is part of systemd.
+#
+# Data imported from:
+#     https://uefi.org/uefi-pnp-export
+#     https://uefi.org/uefi-acpi-export''')
 
-        if tag == "td":
-            if self.state == State.NOWHERE:
-                self.state = State.COMPANY
-            elif self.state == State.AFTER_COMPANY:
-                self.state = State.PNPID
-            elif self.state == State.AFTER_PNPID:
-                self.state = State.DATE
-            else:
-                raise ValueError
-
-            self.data = ""
-
-    def handle_endtag(self, tag):
-
-        if tag == "td":
-            if self.state == State.COMPANY:
-                self.company = ' '.join(self.data.strip().split())
-                self.state = State.AFTER_COMPANY
-            elif self.state == State.PNPID:
-                self.pnpid = self.data.strip()
-                self.state = State.AFTER_PNPID
-                self.table.append((self.pnpid, self.company))
-            elif self.state == State.DATE:
-                self.state = State.NOWHERE
-            else:
-                raise ValueError
-
-    def handle_data(self, data):
-        self.data += data
-
-def read_table(a):
-
-    parser = PNPTableParser()
-
-    for line in a:
-        parser.feed(line)
-
-    parser.close()
-    parser.table.sort()
-
-    for pnpid, company in parser.table:
-        print("\nacpi:{0}*:\n ID_VENDOR_FROM_DATABASE={1}".format(pnpid, company))
-
-a = open("acpi_id_registry.html")
-b = open("pnp_id_registry.html")
-
-print('# This file is part of systemd.\n'
-      '#\n'
-      '# Data imported from:\n'
-      '#     https://uefi.org/uefi-pnp-export\n'
-      '#     https://uefi.org/uefi-acpi-export')
-
-read_table(a)
-read_table(b)
+read_table('acpi_id_registry.csv')
+read_table('pnp_id_registry.csv')

@@ -266,6 +266,7 @@ def test_parse_sections():
 
 def test_config_priority(tmp_path):
     config = tmp_path / 'config1.conf'
+    # config: use pesign and give certdir + certname
     config.write_text(textwrap.dedent(
         f'''
         [UKI]
@@ -282,10 +283,8 @@ def test_config_priority(tmp_path):
         Stub = some/path4
         PCRBanks = sha512,sha1
         SigningEngine = engine1
-        SignTool = pesign
-        SecureBootPrivateKey = some/path5
-        SecureBootCertificate = some/path6
-        SecureBootCertificateDir = some/path7
+        SecureBootSigningTool = pesign
+        SecureBootCertificateDir = some/path5
         SecureBootCertificateName = some/name1
         SignKernel = no
 
@@ -295,6 +294,7 @@ def test_config_priority(tmp_path):
         Phases = {':'.join(ukify.KNOWN_PHASES)}
         '''))
 
+    # args: use sbsign and give key + cert, should override pesign
     opts = ukify.parse_args(
         ['build',
          '--linux=/ARG1',
@@ -311,11 +311,9 @@ def test_config_priority(tmp_path):
          '--pcr-public-key=PKEY2',
          '--pcr-banks=SHA1,SHA256',
          '--signing-engine=ENGINE',
-         '--signtool=pesign',
+         '--signtool=sbsign',
          '--secureboot-private-key=SBKEY',
          '--secureboot-certificate=SBCERT',
-         '--secureboot-certificate-dir=SBPATH',
-         '--secureboot-certificate-name=SBNAME',
          '--sign-kernel',
          '--no-sign-kernel',
          '--tools=TOOLZ///',
@@ -345,11 +343,11 @@ def test_config_priority(tmp_path):
                                     pathlib.Path('some/path8')]
     assert opts.pcr_banks == ['SHA1', 'SHA256']
     assert opts.signing_engine == 'ENGINE'
-    assert opts.signtool == 'pesign'
-    assert opts.sb_key == 'SBKEY'
-    assert opts.sb_cert == 'SBCERT'
-    assert opts.sb_certdir == 'SBPATH'
-    assert opts.sb_cert_name == 'SBNAME'
+    assert opts.signtool == 'sbsign' # from args
+    assert opts.sb_key == 'SBKEY' # from args
+    assert opts.sb_cert == 'SBCERT' # from args
+    assert opts.sb_certdir == 'some/path5' # from config
+    assert opts.sb_cert_name == 'some/name1' # from config
     assert opts.sign_kernel is False
     assert opts.tools == [pathlib.Path('TOOLZ/')]
     assert opts.output == pathlib.Path('OUTPUT')

@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for AmbientCapabilities (dynamic user)
+
+[Service]
+ExecStart=/bin/sh -x -c 'c=$$(grep "CapAmb:" /proc/self/status); test "$$c" = "CapAmb:	0000000000002081"'
+Type=oneshot
+AmbientCapabilities=CAP_CHOWN CAP_SETUID CAP_NET_RAW
+DynamicUser=yes
+PrivateUsers=yes

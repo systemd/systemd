@@ -10,11 +10,10 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-07-14 10:32+0100\n"
+"POT-Creation-Date: 2023-11-14 21:25+0000\n"
 "PO-Revision-Date: 2023-07-17 11:20+0000\n"
 "Last-Translator: Luna Jernberg <bittin@reimu.nl>\n"
-"Language-Team: Swedish <https://translate.fedoraproject.org/projects/systemd/"
-"master/sv/>\n"
+"Language-Team: Swedish <https://translate.fedoraproject.org/projects/systemd/master/sv/>\n"
 "Language: sv\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -121,9 +120,7 @@ msgstr "Autentisering krävs för att ändra lösenorded för en användares hem
 #: src/home/pam_systemd_home.c:287
 #, c-format
 msgid "Home of user %s is currently absent, please plug in the necessary storage device or backing file system."
-msgstr ""
-"Hemför användaren %s är för närvarande inte tillgänglig, vänligen koppla in "
-"nödvändiga lagringsenheter eller säkerhetskopieringsfilsystem."
+msgstr "Hemför användaren %s är för närvarande inte tillgänglig, vänligen koppla in nödvändiga lagringsenheter eller säkerhetskopieringsfilsystem."
 
 #: src/home/pam_systemd_home.c:292
 #, c-format
@@ -137,9 +134,7 @@ msgstr "Lösenord: "
 #: src/home/pam_systemd_home.c:306
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
-msgstr ""
-"Lösenordet är felaktigt eller inte tillräckligt för autentisering av "
-"användare %s."
+msgstr "Lösenordet är felaktigt eller inte tillräckligt för autentisering av användare %s."
 
 #: src/home/pam_systemd_home.c:307
 msgid "Sorry, try again: "
@@ -152,9 +147,7 @@ msgstr "Återställningsnyckel: "
 #: src/home/pam_systemd_home.c:331
 #, c-format
 msgid "Password/recovery key incorrect or not sufficient for authentication of user %s."
-msgstr ""
-"Lösenord/återställningsnyckel är felaktig eller inte tillräcklig för "
-"autentisering av användare %s."
+msgstr "Lösenord/återställningsnyckel är felaktig eller inte tillräcklig för autentisering av användare %s."
 
 #: src/home/pam_systemd_home.c:332
 msgid "Sorry, reenter recovery key: "
@@ -172,9 +165,7 @@ msgstr "Prova igen med lösenord: "
 #: src/home/pam_systemd_home.c:355
 #, c-format
 msgid "Password incorrect or not sufficient, and configured security token of user %s not inserted."
-msgstr ""
-"Lösenordet är felaktigt eller inte tillräckligt, och konfigurerad "
-"säkerhetstoken för användare %s har inte kopplats in."
+msgstr "Lösenordet är felaktigt eller inte tillräckligt, och konfigurerad säkerhetstoken för användare %s har inte kopplats in."
 
 #: src/home/pam_systemd_home.c:376
 msgid "Security token PIN: "
@@ -197,9 +188,7 @@ msgstr "Vänligen verifiera användare på säkerhetstoken för användare %s."
 
 #: src/home/pam_systemd_home.c:424
 msgid "Security token PIN is locked, please unlock it first. (Hint: Removal and re-insertion might suffice.)"
-msgstr ""
-"PIN-kod för säkerhetstoken är låst. Lås upp den först. (Tips: Det kan räcka "
-"med borttagning och återinsättning.)"
+msgstr "PIN-kod för säkerhetstoken är låst. Lås upp den först. (Tips: Det kan räcka med borttagning och återinsättning.)"
 
 #: src/home/pam_systemd_home.c:432
 #, c-format
@@ -214,27 +203,22 @@ msgstr "Förlåt, försök igen med PIN-kod för säkerhetstoken: "
 #: src/home/pam_systemd_home.c:451
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
-msgstr ""
-"Säkerhetstoken-PIN för användare %s är felaktig (bara några försök kvar!)"
+msgstr "Säkerhetstoken-PIN för användare %s är felaktig (bara några försök kvar!)"
 
 #: src/home/pam_systemd_home.c:470
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
-msgstr ""
-"Säkerhetstoken-PIN för användare %s är felaktig (endast ett försök kvar!)"
+msgstr "Säkerhetstoken-PIN för användare %s är felaktig (endast ett försök kvar!)"
 
 #: src/home/pam_systemd_home.c:616
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
-msgstr ""
-"Hem för användare %s är för närvarande inte aktivt, vänligen logga in lokalt "
-"först."
+msgstr "Hem för användare %s är för närvarande inte aktivt, vänligen logga in lokalt först."
 
 #: src/home/pam_systemd_home.c:618
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
-msgstr ""
-"Hemför användare %s är för närvarande låst, vänligen lås upp lokalt först."
+msgstr "Hemför användare %s är för närvarande låst, vänligen lås upp lokalt först."
 
 #: src/home/pam_systemd_home.c:645
 #, c-format
@@ -942,39 +926,39 @@ msgstr "Växla synkronisering av nätverkstid på och av"
 msgid "Authentication is required to control whether network time synchronization shall be enabled."
 msgstr "Autentisering krävs för att kontrollera huruvida synkronisering av nätverkstid ska vara aktiverat."
 
-#: src/core/dbus-unit.c:364
+#: src/core/dbus-unit.c:352
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Autentisering krävs för att starta \"$(unit)\"."
 
-#: src/core/dbus-unit.c:365
+#: src/core/dbus-unit.c:353
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Autentisering krävs för att stoppa \"$(unit)\"."
 
-#: src/core/dbus-unit.c:366
+#: src/core/dbus-unit.c:354
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Autentisering krävs för att läsa om \"$(unit)\"."
 
-#: src/core/dbus-unit.c:367 src/core/dbus-unit.c:368
+#: src/core/dbus-unit.c:355 src/core/dbus-unit.c:356
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Autentisering krävs för att starta om \"$(unit)\"."
 
-#: src/core/dbus-unit.c:565
+#: src/core/dbus-unit.c:553
 msgid "Authentication is required to send a UNIX signal to the processes of '$(unit)'."
 msgstr "Autentisering krävs för att skicka en UNIX-signal till processerna i ”$(unit)”."
 
-#: src/core/dbus-unit.c:595
+#: src/core/dbus-unit.c:583
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "Autentisering krävs för att återställa det \"fallerade\" tillståndet för \"$(unit)\"."
 
-#: src/core/dbus-unit.c:627
+#: src/core/dbus-unit.c:615
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Autentisering krävs för att ställa in egenskaper på \"$(unit)\"."
 
-#: src/core/dbus-unit.c:728
+#: src/core/dbus-unit.c:716
 msgid "Authentication is required to delete files and directories associated with '$(unit)'."
 msgstr "Autentisering krävs för att radera filer och kataloger associerade med ”$(unit)”."
 
-#: src/core/dbus-unit.c:776
+#: src/core/dbus-unit.c:764
 msgid "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "Autentisering krävs för att frysa eller töa processerna i enheten ”$(unit)”."
 

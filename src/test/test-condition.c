@@ -969,6 +969,8 @@ TEST(condition_test_group) {
 
         max_gid = getgid();
         for (i = 0; i < ngroups; i++) {
+                _cleanup_free_ char *name = NULL;
+
                 assert_se(0 < asprintf(&gid, "%u", gids[i]));
                 condition = condition_new(CONDITION_GROUP, gid, false, false);
                 assert_se(condition);
@@ -979,15 +981,16 @@ TEST(condition_test_group) {
                 free(gid);
                 max_gid = gids[i] > max_gid ? gids[i] : max_gid;
 
-                groupname = gid_to_name(gids[i]);
-                assert_se(groupname);
-                condition = condition_new(CONDITION_GROUP, groupname, false, false);
+                name = gid_to_name(gids[i]);
+                assert_se(name);
+                if (STR_IN_SET(name, "sbuild", "buildd"))
+                        return; /* Debian package build in chroot, groupnames won't match, skip */
+                condition = condition_new(CONDITION_GROUP, name, false, false);
                 assert_se(condition);
                 r = condition_test(condition, environ);
-                log_info("ConditionGroup=%s → %i", groupname, r);
+                log_info("ConditionGroup=%s → %i", name, r);
                 assert_se(r > 0);
                 condition_free(condition);
-                free(groupname);
                 max_gid = gids[i] > max_gid ? gids[i] : max_gid;
         }
 

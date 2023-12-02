@@ -69,28 +69,41 @@ static int deserialize_markers(Unit *u, const char *value) {
         }
 }
 
-static const char *const ip_accounting_metric_field[_CGROUP_IP_ACCOUNTING_METRIC_MAX] = {
-        [CGROUP_IP_INGRESS_BYTES] = "ip-accounting-ingress-bytes",
+static const char* const ip_accounting_metric_field_table[_CGROUP_IP_ACCOUNTING_METRIC_MAX] = {
+        [CGROUP_IP_INGRESS_BYTES]   = "ip-accounting-ingress-bytes",
         [CGROUP_IP_INGRESS_PACKETS] = "ip-accounting-ingress-packets",
-        [CGROUP_IP_EGRESS_BYTES] = "ip-accounting-egress-bytes",
-        [CGROUP_IP_EGRESS_PACKETS] = "ip-accounting-egress-packets",
+        [CGROUP_IP_EGRESS_BYTES]    = "ip-accounting-egress-bytes",
+        [CGROUP_IP_EGRESS_PACKETS]  = "ip-accounting-egress-packets",
 };
 
-static const char *const io_accounting_metric_field_base[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
-        [CGROUP_IO_READ_BYTES] = "io-accounting-read-bytes-base",
-        [CGROUP_IO_WRITE_BYTES] = "io-accounting-write-bytes-base",
-        [CGROUP_IO_READ_OPERATIONS] = "io-accounting-read-operations-base",
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(ip_accounting_metric_field, CGroupIPAccountingMetric);
+
+static const char* const io_accounting_metric_field_base_table[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
+        [CGROUP_IO_READ_BYTES]       = "io-accounting-read-bytes-base",
+        [CGROUP_IO_WRITE_BYTES]      = "io-accounting-write-bytes-base",
+        [CGROUP_IO_READ_OPERATIONS]  = "io-accounting-read-operations-base",
         [CGROUP_IO_WRITE_OPERATIONS] = "io-accounting-write-operations-base",
 };
 
-static const char *const io_accounting_metric_field_last[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
-        [CGROUP_IO_READ_BYTES] = "io-accounting-read-bytes-last",
-        [CGROUP_IO_WRITE_BYTES] = "io-accounting-write-bytes-last",
-        [CGROUP_IO_READ_OPERATIONS] = "io-accounting-read-operations-last",
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(io_accounting_metric_field_base, CGroupIOAccountingMetric);
+
+static const char* const io_accounting_metric_field_last_table[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
+        [CGROUP_IO_READ_BYTES]       = "io-accounting-read-bytes-last",
+        [CGROUP_IO_WRITE_BYTES]      = "io-accounting-write-bytes-last",
+        [CGROUP_IO_READ_OPERATIONS]  = "io-accounting-read-operations-last",
         [CGROUP_IO_WRITE_OPERATIONS] = "io-accounting-write-operations-last",
 };
 
-int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(io_accounting_metric_field_last, CGroupIOAccountingMetric);
+
+static const char* const memory_accounting_metric_field_last_table[_CGROUP_MEMORY_ACCOUNTING_METRIC_CACHED_LAST + 1] = {
+        [CGROUP_MEMORY_PEAK]      = "memory-accounting-peak",
+        [CGROUP_MEMORY_SWAP_PEAK] = "memory-accounting-swap-peak",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP(memory_accounting_metric_field_last, CGroupMemoryAccountingMetric);
+
+int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         int r;
 
         assert(u);
@@ -127,6 +140,9 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         (void) serialize_dual_timestamp(f, "condition-timestamp", &u->condition_timestamp);
         (void) serialize_dual_timestamp(f, "assert-timestamp", &u->assert_timestamp);
 
+        (void) serialize_ratelimit(f, "start-ratelimit", &u->start_ratelimit);
+        (void) serialize_ratelimit(f, "auto-start-stop-ratelimit", &u->auto_start_stop_ratelimit);
+
         if (dual_timestamp_is_set(&u->condition_timestamp))
                 (void) serialize_bool(f, "condition-result", u->condition_result);
 
@@ -153,10 +169,18 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
                 (void) serialize_item_format(f, "oom-kill-last", "%" PRIu64, u->oom_kill_last);
 
         for (CGroupIOAccountingMetric im = 0; im < _CGROUP_IO_ACCOUNTING_METRIC_MAX; im++) {
-                (void) serialize_item_format(f, io_accounting_metric_field_base[im], "%" PRIu64, u->io_accounting_base[im]);
+                (void) serialize_item_format(f, io_accounting_metric_field_base_to_string(im), "%" PRIu64, u->io_accounting_base[im]);
 
                 if (u->io_accounting_last[im] != UINT64_MAX)
-                        (void) serialize_item_format(f, io_accounting_metric_field_last[im], "%" PRIu64, u->io_accounting_last[im]);
+                        (void) serialize_item_format(f, io_accounting_metric_field_last_to_string(im), "%" PRIu64, u->io_accounting_last[im]);
+        }
+
+        for (CGroupMemoryAccountingMetric metric = 0; metric <= _CGROUP_MEMORY_ACCOUNTING_METRIC_CACHED_LAST; metric++) {
+                uint64_t v;
+
+                r = unit_get_memory_accounting(u, metric, &v);
+                if (r >= 0)
+                        (void) serialize_item_format(f, memory_accounting_metric_field_last_to_string(metric), "%" PRIu64, v);
         }
 
         if (u->cgroup_path)
@@ -195,7 +219,7 @@ int unit_serialize(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
 
                 r = unit_get_ip_accounting(u, m, &v);
                 if (r >= 0)
-                        (void) serialize_item_format(f, ip_accounting_metric_field[m], "%" PRIu64, v);
+                        (void) serialize_item_format(f, ip_accounting_metric_field_to_string(m), "%" PRIu64, v);
         }
 
         if (!switching_root) {
@@ -264,7 +288,7 @@ static int unit_deserialize_job(Unit *u, FILE *f) {
                 _deserialize_matched;                                   \
         })
 
-int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
+int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
         int r;
 
         assert(u);
@@ -320,6 +344,13 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         continue;
                 } else if (streq(l, "assert-timestamp")) {
                         (void) deserialize_dual_timestamp(v, &u->assert_timestamp);
+                        continue;
+
+                } else if (streq(l, "start-ratelimit")) {
+                        deserialize_ratelimit(&u->start_ratelimit, l, v);
+                        continue;
+                } else if (streq(l, "auto-start-stop-ratelimit")) {
+                        deserialize_ratelimit(&u->auto_start_stop_ratelimit, l, v);
                         continue;
 
                 } else if (MATCH_DESERIALIZE("condition-result", l, v, parse_boolean, u->condition_result))
@@ -387,16 +418,9 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                 else if (STR_IN_SET(l, "ipv4-socket-bind-bpf-link-fd", "ipv6-socket-bind-bpf-link-fd")) {
                         int fd;
 
-                        if ((fd = parse_fd(v)) < 0 || !fdset_contains(fds, fd))
-                                log_unit_debug(u, "Failed to parse %s value: %s, ignoring.", l, v);
-                        else {
-                                if (fdset_remove(fds, fd) < 0) {
-                                        log_unit_debug(u, "Failed to remove %s value=%d from fdset", l, fd);
-                                        continue;
-                                }
-
+                        fd = deserialize_fd(fds, v);
+                        if (fd >= 0)
                                 (void) bpf_socket_bind_add_initial_link_fd(u, fd);
-                        }
                         continue;
 
                 } else if (streq(l, "ip-bpf-ingress-installed")) {
@@ -419,16 +443,10 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                 } else if (streq(l, "restrict-ifaces-bpf-fd")) {
                         int fd;
 
-                        if ((fd = parse_fd(v)) < 0 || !fdset_contains(fds, fd)) {
-                                log_unit_debug(u, "Failed to parse restrict-ifaces-bpf-fd value: %s", v);
-                                continue;
-                        }
-                        if (fdset_remove(fds, fd) < 0) {
-                                log_unit_debug(u, "Failed to remove restrict-ifaces-bpf-fd %d from fdset", fd);
-                                continue;
-                        }
+                        fd = deserialize_fd(fds, v);
+                        if (fd >= 0)
+                                (void) restrict_network_interfaces_add_initial_link_fd(u, fd);
 
-                        (void) restrict_network_interfaces_add_initial_link_fd(u, fd);
                         continue;
 
                 } else if (streq(l, "ref-uid")) {
@@ -481,8 +499,20 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         continue;
                 }
 
+                m = memory_accounting_metric_field_last_from_string(l);
+                if (m >= 0) {
+                        uint64_t c;
+
+                        r = safe_atou64(v, &c);
+                        if (r < 0)
+                                log_unit_debug(u, "Failed to parse memory accounting last value %s, ignoring.", v);
+                        else
+                                u->memory_accounting_last[m] = c;
+                        continue;
+                }
+
                 /* Check if this is an IP accounting metric serialization field */
-                m = string_table_lookup(ip_accounting_metric_field, ELEMENTSOF(ip_accounting_metric_field), l);
+                m = ip_accounting_metric_field_from_string(l);
                 if (m >= 0) {
                         uint64_t c;
 
@@ -494,7 +524,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         continue;
                 }
 
-                m = string_table_lookup(io_accounting_metric_field_base, ELEMENTSOF(io_accounting_metric_field_base), l);
+                m = io_accounting_metric_field_base_from_string(l);
                 if (m >= 0) {
                         uint64_t c;
 
@@ -506,7 +536,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
                         continue;
                 }
 
-                m = string_table_lookup(io_accounting_metric_field_last, ELEMENTSOF(io_accounting_metric_field_last), l);
+                m = io_accounting_metric_field_last_from_string(l);
                 if (m >= 0) {
                         uint64_t c;
 
@@ -539,7 +569,7 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
          * reboots. */
 
         if (!dual_timestamp_is_set(&u->state_change_timestamp))
-                dual_timestamp_get(&u->state_change_timestamp);
+                dual_timestamp_now(&u->state_change_timestamp);
 
         /* Let's make sure that everything that is deserialized also gets any potential new cgroup settings
          * applied after we are done. For that we invalidate anything already realized, so that we can
@@ -552,26 +582,24 @@ int unit_deserialize(Unit *u, FILE *f, FDSet *fds) {
         return 0;
 }
 
-int unit_deserialize_skip(FILE *f) {
+int unit_deserialize_state_skip(FILE *f) {
         int r;
+
         assert(f);
 
         /* Skip serialized data for this unit. We don't know what it is. */
 
         for (;;) {
                 _cleanup_free_ char *line = NULL;
-                char *l;
 
-                r = read_line(f, LONG_LINE_MAX, &line);
+                r = read_stripped_line(f, LONG_LINE_MAX, &line);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read serialization line: %m");
                 if (r == 0)
                         return 0;
 
-                l = strstrip(line);
-
                 /* End marker */
-                if (isempty(l))
+                if (isempty(line))
                         return 1;
         }
 }

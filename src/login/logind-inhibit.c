@@ -176,7 +176,7 @@ int inhibitor_start(Inhibitor *i) {
         if (i->started)
                 return 0;
 
-        dual_timestamp_get(&i->since);
+        dual_timestamp_now(&i->since);
 
         log_debug("Inhibitor %s (%s) pid="PID_FMT" uid="UID_FMT" mode=%s started.",
                   strna(i->who), strna(i->why),
@@ -376,18 +376,20 @@ InhibitWhat manager_inhibit_what(Manager *m, InhibitMode mm) {
         return what;
 }
 
-static int pid_is_active(Manager *m, pid_t pid) {
+static int pidref_is_active_session(Manager *m, const PidRef *pid) {
         Session *s;
         int r;
 
-        /* Get client session.  This is not what you are looking for these days.
+        assert(m);
+        assert(pid);
+
+        /* Get client session. This is not what you are looking for these days.
          * FIXME #6852 */
-        r = manager_get_session_by_pid(m, pid, &s);
+        r = manager_get_session_by_pidref(m, pid, &s);
         if (r < 0)
                 return r;
 
-        /* If there's no session assigned to it, then it's globally
-         * active on all ttys */
+        /* If there's no session assigned to it, then it's globally active on all ttys */
         if (r == 0)
                 return 1;
 
@@ -409,7 +411,8 @@ bool manager_is_inhibited(
         bool inhibited = false;
 
         assert(m);
-        assert(w > 0 && w < _INHIBIT_WHAT_MAX);
+        assert(w > 0);
+        assert(w < _INHIBIT_WHAT_MAX);
 
         HASHMAP_FOREACH(i, m->inhibitors) {
                 if (!i->started)
@@ -421,7 +424,7 @@ bool manager_is_inhibited(
                 if (i->mode != mm)
                         continue;
 
-                if (ignore_inactive && pid_is_active(m, i->pid.pid) <= 0)
+                if (ignore_inactive && pidref_is_active_session(m, &i->pid) <= 0)
                         continue;
 
                 if (ignore_uid && i->uid == uid)
@@ -455,7 +458,7 @@ const char *inhibit_what_to_string(InhibitWhat w) {
             "handle-reboot-key")+1];
         char *p;
 
-        if (w < 0 || w >= _INHIBIT_WHAT_MAX)
+        if (!inhibit_what_is_valid(w))
                 return NULL;
 
         p = buffer;

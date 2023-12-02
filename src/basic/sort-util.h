@@ -18,7 +18,7 @@ void *xbsearch_r(const void *key, const void *base, size_t nmemb, size_t size,
         ({                                                              \
                 const typeof((b)[0]) *_k = k;                           \
                 int (*_func_)(const typeof((b)[0])*, const typeof((b)[0])*, typeof(userdata)) = func; \
-                xbsearch_r((const void*) _k, (b), (n), sizeof((b)[0]), (comparison_userdata_fn_t) _func_, userdata); \
+                (typeof((b)[0])*) xbsearch_r((const void*) _k, (b), (n), sizeof((b)[0]), (comparison_userdata_fn_t) _func_, userdata); \
         })
 
 /**
@@ -38,7 +38,7 @@ static inline void* bsearch_safe(const void *key, const void *base,
         ({                                                              \
                 const typeof((b)[0]) *_k = k;                           \
                 int (*_func_)(const typeof((b)[0])*, const typeof((b)[0])*) = func; \
-                bsearch_safe((const void*) _k, (b), (n), sizeof((b)[0]), (comparison_fn_t) _func_); \
+                (typeof((b)[0])*) bsearch_safe((const void*) _k, (b), (n), sizeof((b)[0]), (comparison_fn_t) _func_); \
         })
 
 /**
@@ -76,3 +76,4 @@ static inline void qsort_r_safe(void *base, size_t nmemb, size_t size, compariso
         })
 
 int cmp_int(const int *a, const int *b);
+int cmp_uint16(const uint16_t *a, const uint16_t *b);

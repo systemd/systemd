@@ -365,6 +365,9 @@ typedef struct Unit {
         nsec_t cpu_usage_base;
         nsec_t cpu_usage_last; /* the most recently read value */
 
+        /* Most recently read value of memory accounting metrics */
+        uint64_t memory_accounting_last[_CGROUP_MEMORY_ACCOUNTING_METRIC_CACHED_LAST + 1];
+
         /* The current counter of OOM kills initiated by systemd-oomd */
         uint64_t managed_oom_kill_last;
 
@@ -921,7 +924,6 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
 
 int unit_watch_pidref(Unit *u, PidRef *pid, bool exclusive);
 int unit_watch_pid(Unit *u, pid_t pid, bool exclusive);
-int unit_watch_pid_str(Unit *u, const char *s, bool exclusive);
 void unit_unwatch_pidref(Unit *u, PidRef *pid);
 void unit_unwatch_pid(Unit *u, pid_t pid);
 void unit_unwatch_all_pids(Unit *u);
@@ -1025,8 +1027,6 @@ void unit_notify_user_lookup(Unit *u, uid_t uid, gid_t gid);
 int unit_set_invocation_id(Unit *u, sd_id128_t id);
 int unit_acquire_invocation_id(Unit *u);
 
-bool unit_shall_confirm_spawn(Unit *u);
-
 int unit_set_exec_params(Unit *s, ExecParameters *p);
 
 int unit_fork_helper_process(Unit *u, const char *name, PidRef *ret);
@@ -1039,8 +1039,9 @@ void unit_unlink_state_files(Unit *u);
 
 int unit_prepare_exec(Unit *u);
 
-int unit_log_leftover_process_start(pid_t pid, int sig, void *userdata);
-int unit_log_leftover_process_stop(pid_t pid, int sig, void *userdata);
+int unit_log_leftover_process_start(const PidRef* pid, int sig, void *userdata);
+int unit_log_leftover_process_stop(const PidRef* pid, int sig, void *userdata);
+
 int unit_warn_leftover_processes(Unit *u, cg_kill_log_func_t log_func);
 
 bool unit_needs_console(Unit *u);
@@ -1080,6 +1081,10 @@ void unit_destroy_runtime_data(Unit *u, const ExecContext *context);
 int unit_clean(Unit *u, ExecCleanMask mask);
 int unit_can_clean(Unit *u, ExecCleanMask *ret_mask);
 
+bool unit_can_start_refuse_manual(Unit *u);
+bool unit_can_stop_refuse_manual(Unit *u);
+bool unit_can_isolate_refuse_manual(Unit *u);
+
 bool unit_can_freeze(Unit *u);
 int unit_freeze(Unit *u);
 void unit_frozen(Unit *u);
@@ -1093,6 +1098,8 @@ int unit_thaw_vtable_common(Unit *u);
 Condition *unit_find_failed_condition(Unit *u);
 
 int unit_arm_timer(Unit *u, sd_event_source **source, bool relative, usec_t usec, sd_event_time_handler_t handler);
+
+int unit_compare_priority(Unit *a, Unit *b);
 
 /* Macros which append UNIT= or USER_UNIT= to the message */
 

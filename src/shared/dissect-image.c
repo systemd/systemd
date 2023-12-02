@@ -1665,7 +1665,8 @@ DissectedImage* dissected_image_unref(DissectedImage *m) {
         strv_free(m->machine_info);
         strv_free(m->os_release);
         strv_free(m->initrd_release);
-        strv_free(m->extension_release);
+        strv_free(m->confext_release);
+        strv_free(m->sysext_release);
 
         return mfree(m);
 }
@@ -1717,7 +1718,7 @@ static int run_fsck(int node_fd, const char *fstype) {
                         "(fsck)",
                         NULL,
                         &node_fd, 1, /* Leave the node fd open */
-                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG|FORK_REARRANGE_STDIO|FORK_CLOEXEC_OFF,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_CLOEXEC_OFF,
                         &pid);
         if (r < 0)
                 return log_debug_errno(r, "Failed to fork off fsck: %m");
@@ -2006,8 +2007,12 @@ static int mount_partition(
                 if (m->fsmount_fd >= 0) {
                         /* Case #1: Attach existing fsmount fd to the file system */
 
-                        if (move_mount(m->fsmount_fd, "", -EBADF, p, MOVE_MOUNT_F_EMPTY_PATH) < 0)
-                                return -errno;
+                        r = mount_exchange_graceful(
+                                        m->fsmount_fd,
+                                        p,
+                                        FLAGS_SET(flags, DISSECT_IMAGE_TRY_ATOMIC_MOUNT_EXCHANGE));
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to mount image on '%s': %m", p);
 
                 } else {
                         assert(node);
@@ -2021,7 +2026,7 @@ static int mount_partition(
                                 (void) fs_grow(node, -EBADF, p);
 
                         if (userns_fd >= 0) {
-                                r = remount_idmap_fd(p, userns_fd);
+                                r = remount_idmap_fd(STRV_MAKE(p), userns_fd);
                                 if (r < 0)
                                         return r;
                         }
@@ -2609,7 +2614,7 @@ static int do_crypt_activate_verity(
                 const VeritySettings *verity) {
 
         bool check_signature;
-        int r;
+        int r, k;
 
         assert(cd);
         assert(name);
@@ -2639,20 +2644,23 @@ static int do_crypt_activate_verity(
                 if (r >= 0)
                         return r;
 
-                log_debug("Validation of dm-verity signature failed via the kernel, trying userspace validation instead.");
+                log_debug_errno(r, "Validation of dm-verity signature failed via the kernel, trying userspace validation instead: %m");
 #else
                 log_debug("Activation of verity device with signature requested, but not supported via the kernel by %s due to missing crypt_activate_by_signed_key(), trying userspace validation instead.",
                           program_invocation_short_name);
+                r = 0; /* Set for the propagation below */
 #endif
 
                 /* So this didn't work via the kernel, then let's try userspace validation instead. If that
                  * works we'll try to activate without telling the kernel the signature. */
 
-                r = validate_signature_userspace(verity);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENOKEY),
+                /* Preferably propagate the original kernel error, so that the fallback logic can work,
+                 * as the device-mapper is finicky around concurrent activations of the same volume */
+                k = validate_signature_userspace(verity);
+                if (k < 0)
+                        return r < 0 ? r : k;
+                if (k == 0)
+                        return log_debug_errno(r < 0 ? r : SYNTHETIC_ERRNO(ENOKEY),
                                                "Activation of signed Verity volume worked neither via the kernel nor in userspace, can't activate.");
         }
 
@@ -2695,7 +2703,6 @@ static int verity_partition(
                 DecryptedImage *d) {
 
         _cleanup_(sym_crypt_freep) struct crypt_device *cd = NULL;
-        _cleanup_(dm_deferred_remove_cleanp) char *restore_deferred_remove = NULL;
         _cleanup_free_ char *node = NULL, *name = NULL;
         _cleanup_close_ int mount_node_fd = -EBADF;
         int r;
@@ -2758,6 +2765,7 @@ static int verity_partition(
          * In case of ENODEV/ENOENT, which can happen if another process is activating at the exact same time,
          * retry a few times before giving up. */
         for (unsigned i = 0; i < N_DEVICE_NODE_LIST_ATTEMPTS; i++) {
+                _cleanup_(dm_deferred_remove_cleanp) char *restore_deferred_remove = NULL;
                 _cleanup_(sym_crypt_freep) struct crypt_device *existing_cd = NULL;
                 _cleanup_close_ int fd = -EBADF;
 
@@ -2787,21 +2795,19 @@ static int verity_partition(
                         return log_debug_errno(r, "Failed to activate verity device %s: %m", node);
 
         check:
-                if (!restore_deferred_remove){
-                        /* To avoid races, disable automatic removal on umount while setting up the new device. Restore it on failure. */
-                        r = dm_deferred_remove_cancel(name);
-                        /* -EBUSY and -ENXIO: the device has already been removed or being removed. We cannot
-                         * use the device, try to open again. See target_message() in drivers/md/dm-ioctl.c
-                         * and dm_cancel_deferred_remove() in drivers/md/dm.c */
-                        if (IN_SET(r, -EBUSY, -ENXIO))
-                                goto try_again;
-                        if (r < 0)
-                                return log_debug_errno(r, "Failed to disable automated deferred removal for verity device %s: %m", node);
+                /* To avoid races, disable automatic removal on umount while setting up the new device. Restore it on failure. */
+                r = dm_deferred_remove_cancel(name);
+                /* -EBUSY and -ENXIO: the device has already been removed or being removed. We cannot
+                 * use the device, try to open again. See target_message() in drivers/md/dm-ioctl.c
+                 * and dm_cancel_deferred_remove() in drivers/md/dm.c */
+                if (IN_SET(r, -EBUSY, -ENXIO))
+                        goto try_again;
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to disable automated deferred removal for verity device %s: %m", node);
 
-                        restore_deferred_remove = strdup(name);
-                        if (!restore_deferred_remove)
-                                return log_oom_debug();
-                }
+                restore_deferred_remove = strdup(name);
+                if (!restore_deferred_remove)
+                        return log_oom_debug();
 
                 r = verity_can_reuse(verity, name, &existing_cd);
                 /* Same as above, -EINVAL can randomly happen when it actually means -EEXIST */
@@ -2839,6 +2845,9 @@ static int verity_partition(
                         }
                 }
 
+                /* Everything looks good and we'll be able to mount the device, so deferred remove will be re-enabled at that point. */
+                restore_deferred_remove = mfree(restore_deferred_remove);
+
                 mount_node_fd = TAKE_FD(fd);
                 if (existing_cd)
                         crypt_free_and_replace(cd, existing_cd);
@@ -2866,9 +2875,6 @@ static int verity_partition(
         return log_debug_errno(SYNTHETIC_ERRNO(EBUSY), "All attempts to activate verity device %s failed.", name);
 
 success:
-        /* Everything looks good and we'll be able to mount the device, so deferred remove will be re-enabled at that point. */
-        restore_deferred_remove = mfree(restore_deferred_remove);
-
         d->decrypted[d->n_decrypted++] = (DecryptedPartition) {
                 .name = TAKE_PTR(name),
                 .device = TAKE_PTR(cd),
@@ -3349,7 +3355,8 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
                 META_MACHINE_INFO,
                 META_OS_RELEASE,
                 META_INITRD_RELEASE,
-                META_EXTENSION_RELEASE,
+                META_SYSEXT_RELEASE,
+                META_CONFEXT_RELEASE,
                 META_HAS_INIT_SYSTEM,
                 _META_MAX,
         };
@@ -3358,16 +3365,17 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
                 [META_HOSTNAME]          = "/etc/hostname\0",
                 [META_MACHINE_ID]        = "/etc/machine-id\0",
                 [META_MACHINE_INFO]      = "/etc/machine-info\0",
-                [META_OS_RELEASE]        = ("/etc/os-release\0"
-                                            "/usr/lib/os-release\0"),
-                [META_INITRD_RELEASE]    = ("/etc/initrd-release\0"
-                                            "/usr/lib/initrd-release\0"),
-                [META_EXTENSION_RELEASE] = "extension-release\0",    /* Used only for logging. */
+                [META_OS_RELEASE]        = "/etc/os-release\0"
+                                           "/usr/lib/os-release\0",
+                [META_INITRD_RELEASE]    = "/etc/initrd-release\0"
+                                           "/usr/lib/initrd-release\0",
+                [META_SYSEXT_RELEASE]    = "sysext-release\0",       /* String used only for logging. */
+                [META_CONFEXT_RELEASE]   = "confext-release\0",      /* ditto */
                 [META_HAS_INIT_SYSTEM]   = "has-init-system\0",      /* ditto */
         };
 
-        _cleanup_strv_free_ char **machine_info = NULL, **os_release = NULL, **initrd_release = NULL, **extension_release = NULL;
-        _cleanup_close_pair_ int error_pipe[2] = PIPE_EBADF;
+        _cleanup_strv_free_ char **machine_info = NULL, **os_release = NULL, **initrd_release = NULL, **sysext_release = NULL, **confext_release = NULL;
+        _cleanup_close_pair_ int error_pipe[2] = EBADF_PAIR;
         _cleanup_(rmdir_and_freep) char *t = NULL;
         _cleanup_(sigkill_waitp) pid_t child = 0;
         sd_id128_t machine_id = SD_ID128_NULL;
@@ -3376,12 +3384,10 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
         int fds[2 * _META_MAX], r, v;
         int has_init_system = -1;
         ssize_t n;
-        ImageClass image_class = IMAGE_SYSEXT;
 
         BLOCK_SIGNALS(SIGCHLD);
 
         assert(m);
-        assert(image_class);
 
         for (; n_meta_initialized < _META_MAX; n_meta_initialized ++) {
                 if (!paths[n_meta_initialized]) {
@@ -3404,7 +3410,7 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
                 goto finish;
         }
 
-        r = safe_fork("(sd-dissect)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, &child);
+        r = safe_fork("(sd-dissect)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, &child);
         if (r < 0)
                 goto finish;
         if (r == 0) {
@@ -3436,40 +3442,46 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
 
                         switch (k) {
 
-                        case META_EXTENSION_RELEASE: {
-                                /* As per the os-release spec, if the image is an extension it will have a file
-                                 * named after the image name in extension-release.d/ - we use the image name
-                                 * and try to resolve it with the extension-release helpers, as sometimes
-                                 * the image names are mangled on deployment and do not match anymore.
-                                 * Unlike other paths this is not fixed, and the image name
-                                 * can be mangled on deployment, so by calling into the helper
-                                 * we allow a fallback that matches on the first extension-release
-                                 * file found in the directory, if one named after the image cannot
-                                 * be found first. */
-                                ImageClass class = IMAGE_SYSEXT;
-                                r = open_extension_release(t, IMAGE_SYSEXT, m->image_name, /* relax_extension_release_check= */ false, NULL, &fd);
-                                if (r == -ENOENT) {
-                                        r = open_extension_release(t, IMAGE_CONFEXT, m->image_name, /* relax_extension_release_check= */ false, NULL, &fd);
-                                        if (r >= 0)
-                                                class = IMAGE_CONFEXT;
-                                }
+                        case META_SYSEXT_RELEASE:
+                                /* As per the os-release spec, if the image is an extension it will have a
+                                 * file named after the image name in extension-release.d/ - we use the image
+                                 * name and try to resolve it with the extension-release helpers, as
+                                 * sometimes the image names are mangled on deployment and do not match
+                                 * anymore.  Unlike other paths this is not fixed, and the image name can be
+                                 * mangled on deployment, so by calling into the helper we allow a fallback
+                                 * that matches on the first extension-release file found in the directory,
+                                 * if one named after the image cannot be found first. */
+                                r = open_extension_release(
+                                                t,
+                                                IMAGE_SYSEXT,
+                                                m->image_name,
+                                                /* relax_extension_release_check= */ false,
+                                                /* ret_path= */ NULL,
+                                                &fd);
                                 if (r < 0)
                                         fd = r;
-                                else {
-                                        r = loop_write(fds[2*k+1], &class, sizeof(class));
-                                        if (r < 0)
-                                                goto inner_fail; /* Propagate the error to the parent */
-                                }
+                                break;
+
+                        case META_CONFEXT_RELEASE:
+                                /* As above */
+                                r = open_extension_release(
+                                                t,
+                                                IMAGE_CONFEXT,
+                                                m->image_name,
+                                                /* relax_extension_release_check= */ false,
+                                                /* ret_path= */ NULL,
+                                                &fd);
+                                if (r < 0)
+                                        fd = r;
 
                                 break;
-                        }
 
                         case META_HAS_INIT_SYSTEM: {
                                 bool found = false;
 
                                 FOREACH_STRING(init,
-                                               "/usr/lib/systemd/systemd",  /* systemd on /usr merged system */
-                                               "/lib/systemd/systemd",      /* systemd on /usr non-merged systems */
+                                               "/usr/lib/systemd/systemd",  /* systemd on /usr/ merged system */
+                                               "/lib/systemd/systemd",      /* systemd on /usr/ non-merged systems */
                                                "/sbin/init") {              /* traditional path the Linux kernel invokes */
 
                                         r = chase(init, t, CHASE_PREFIX_ROOT, NULL, NULL);
@@ -3584,23 +3596,19 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
 
                         break;
 
-                case META_EXTENSION_RELEASE: {
-                        ImageClass cl = IMAGE_SYSEXT;
-                        size_t nr;
-
-                        errno = 0;
-                        nr = fread(&cl, 1, sizeof(cl), f);
-                        if (nr != sizeof(cl))
-                                log_debug_errno(errno_or_else(EIO), "Failed to read class of extension image: %m");
-                        else {
-                                image_class = cl;
-                                r = load_env_file_pairs(f, "extension-release", &extension_release);
-                                if (r < 0)
-                                        log_debug_errno(r, "Failed to read extension release file of image: %m");
-                        }
+                case META_SYSEXT_RELEASE:
+                        r = load_env_file_pairs(f, "sysext-release", &sysext_release);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to read sysext release file of image: %m");
 
                         break;
-                }
+
+                case META_CONFEXT_RELEASE:
+                        r = load_env_file_pairs(f, "confext-release", &confext_release);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to read confext release file of image: %m");
+
+                        break;
 
                 case META_HAS_INIT_SYSTEM: {
                         bool b = false;
@@ -3638,9 +3646,9 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
         strv_free_and_replace(m->machine_info, machine_info);
         strv_free_and_replace(m->os_release, os_release);
         strv_free_and_replace(m->initrd_release, initrd_release);
-        strv_free_and_replace(m->extension_release, extension_release);
+        strv_free_and_replace(m->sysext_release, sysext_release);
+        strv_free_and_replace(m->confext_release, confext_release);
         m->has_init_system = has_init_system;
-        m->image_class = image_class;
 
 finish:
         for (unsigned k = 0; k < n_meta_initialized; k++)
@@ -3909,6 +3917,7 @@ int verity_dissect_and_mount(
                 const char *required_host_os_release_id,
                 const char *required_host_os_release_version_id,
                 const char *required_host_os_release_sysext_level,
+                const char *required_host_os_release_confext_level,
                 const char *required_sysext_scope,
                 DissectedImage **ret_image) {
 
@@ -4026,7 +4035,7 @@ int verity_dissect_and_mount(
                                 dissected_image->image_name,
                                 required_host_os_release_id,
                                 required_host_os_release_version_id,
-                                required_host_os_release_sysext_level,
+                                class == IMAGE_SYSEXT ? required_host_os_release_sysext_level : required_host_os_release_confext_level,
                                 required_sysext_scope,
                                 extension_release,
                                 class);

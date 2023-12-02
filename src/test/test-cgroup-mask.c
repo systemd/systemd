@@ -58,7 +58,7 @@ TEST_RET(cgroup_mask, .sd_booted = true) {
                 m->defaults.blockio_accounting =
                 m->defaults.io_accounting =
                 m->defaults.tasks_accounting = false;
-        m->defaults.tasks_max = TASKS_MAX_UNSET;
+        m->defaults.tasks_max = CGROUP_TASKS_MAX_UNSET;
 
         assert_se(manager_startup(m, NULL, NULL, NULL) >= 0);
 
@@ -154,6 +154,31 @@ TEST(cg_mask_to_string) {
         test_cg_mask_to_string_one(CGROUP_MASK_CPUACCT|CGROUP_MASK_PIDS, "cpuacct pids");
         test_cg_mask_to_string_one(CGROUP_MASK_DEVICES|CGROUP_MASK_PIDS, "devices pids");
         test_cg_mask_to_string_one(CGROUP_MASK_IO|CGROUP_MASK_BLKIO, "io blkio");
+}
+
+static void cgroup_device_permissions_test_normalize(const char *a, const char *b) {
+        assert_se(streq_ptr(cgroup_device_permissions_to_string(cgroup_device_permissions_from_string(a)), b));
+}
+
+TEST(cgroup_device_permissions) {
+        for (CGroupDevicePermissions p = 0; p < _CGROUP_DEVICE_PERMISSIONS_MAX; p++) {
+                const char *s;
+
+                assert_se(s = cgroup_device_permissions_to_string(p));
+                assert_se(cgroup_device_permissions_from_string(s) == p);
+        }
+
+        cgroup_device_permissions_test_normalize("", "");
+        cgroup_device_permissions_test_normalize("rw", "rw");
+        cgroup_device_permissions_test_normalize("wr", "rw");
+        cgroup_device_permissions_test_normalize("wwrr", "rw");
+        cgroup_device_permissions_test_normalize("mmmmmmmmmmmmmm", "m");
+        cgroup_device_permissions_test_normalize("mmmmrrrrmmmwwmwmwmwmwmrmrmr", "rwm");
+
+        assert_se(cgroup_device_permissions_from_string(NULL) == -EINVAL);
+        assert_se(cgroup_device_permissions_from_string("rwq") == -EINVAL);
+        assert_se(cgroup_device_permissions_from_string("RW") == -EINVAL);
+        assert_se(cgroup_device_permissions_from_string("") == 0);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

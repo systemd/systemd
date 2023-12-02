@@ -51,7 +51,7 @@ static int do_remount(const char *path, bool force_rw, Hashmap **pids) {
         log_debug("Remounting %s...", path);
 
         r = safe_fork(force_rw ? "(remount-rw)" : "(remount)",
-                      FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+                      FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {

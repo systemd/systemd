@@ -6,6 +6,7 @@
 #include "mkdir.h"
 #include "path-util.h"
 #include "rm-rf.h"
+#include "tests.h"
 #include "tmpfile-util.h"
 
 int main(int argc, char *argv[]) {
@@ -13,8 +14,10 @@ int main(int argc, char *argv[]) {
         const char *f;
         struct stat st;
 
+        test_setup_logging(LOG_DEBUG);
+
         if (have_effective_cap(CAP_DAC_OVERRIDE) <= 0)
-                return EXIT_TEST_SKIP;
+                return log_tests_skipped("missing capability (CAP_DAC_OVERRIDE)");
 
         assert_se(mkdtemp_malloc("/tmp/test-dev-setupXXXXXX", &p) >= 0);
 

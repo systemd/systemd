@@ -229,7 +229,82 @@
           <xi:include href="version-info.xml" xpointer="v243"/>
           </listitem>
         </varlistentry>
+        <varlistentry>
+          <term><option>--subsystem-match<optional>=SUBSYSTEM</optional></option></term>
+          <term><option>--subsystem-nomatch<optional>=SUBSYSTEM</optional></option></term>
+          <listitem>
+            <para>When used with <option>--export-db</option>, only show devices of or not of the given
+            subsystem respectively.</para>
 
+          <xi:include href="version-info.xml" xpointer="v255"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--attr-match<optional>=FILE[=VALUE]</optional></option></term>
+          <term><option>--attr-nomatch<optional>=FILE[=VALUE]</optional></option></term>
+          <listitem>
+            <para>When used with <option>--export-db</option>, only show devices matching or not matching the
+            given attribute respectively.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--property-match<optional>=KEY=VALUE</optional></option></term>
+          <listitem>
+            <para>When used with <option>--export-db</option>, only show devices matching the given property
+            and value.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--tag-match<optional>=TAG</optional></option></term>
+          <listitem>
+            <para>When used with <option>--export-db</option>, only show devices with the given tag.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--sysname-match<optional>=NAME</optional></option></term>
+          <listitem>
+            <para>When used with <option>--export-db</option>, only show devices with the given
+            <literal>/sys</literal> path.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--name-match<optional>=NAME</optional></option></term>
+          <listitem>
+            <para>When used with <option>--export-db</option>, only show devices with the given name in
+            <literal>/dev</literal>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--parent-match<optional>=NAME</optional></option></term>
+          <listitem>
+            <para>When used with <option>--export-db</option>, only show devices with the given parent
+            device.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><option>--initialized-match</option></term>
+          <term><option>--initialized-nomatch</option></term>
+          <listitem>
+            <para>When used with <option>--export-db</option>, only show devices that are initialized or not
+            initialized respectively.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+          </listitem>
+        </varlistentry>
+
+        <xi:include href="standard-options.xml" xpointer="json" />
         <xi:include href="standard-options.xml" xpointer="help" />
         <xi:include href="standard-options.xml" xpointer="no-pager" />
       </variablelist>

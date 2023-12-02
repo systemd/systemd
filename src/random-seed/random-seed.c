@@ -49,7 +49,6 @@ typedef enum CreditEntropy {
 static SeedAction arg_action = _ACTION_INVALID;
 
 static CreditEntropy may_credit(int seed_fd) {
-        _cleanup_free_ char *creditable = NULL;
         const char *e;
         int r;
 
@@ -76,7 +75,7 @@ static CreditEntropy may_credit(int seed_fd) {
         }
 
         /* Determine if the file is marked as creditable */
-        r = fgetxattr_malloc(seed_fd, "user.random-seed-creditable", &creditable);
+        r = getxattr_at_bool(seed_fd, /* path= */ NULL, "user.random-seed-creditable", /* flags= */ 0);
         if (r < 0) {
                 if (ERRNO_IS_XATTR_ABSENT(r))
                         log_debug_errno(r, "Seed file is not marked as creditable, not crediting.");
@@ -85,14 +84,8 @@ static CreditEntropy may_credit(int seed_fd) {
 
                 return CREDIT_ENTROPY_NO_WAY;
         }
-
-        r = parse_boolean(creditable);
-        if (r <= 0) {
-                if (r < 0)
-                        log_warning_errno(r, "Failed to parse user.random-seed-creditable extended attribute, ignoring: %s", creditable);
-                else
-                        log_debug("Seed file is marked as not creditable, not crediting.");
-
+        if (r == 0) {
+                log_debug("Seed file is marked as not creditable, not crediting.");
                 return CREDIT_ENTROPY_NO_WAY;
         }
 
@@ -348,6 +341,7 @@ static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
                 { "help",    no_argument, NULL, 'h'         },
                 { "version", no_argument, NULL, ARG_VERSION },
+                {}
         };
 
         int c;

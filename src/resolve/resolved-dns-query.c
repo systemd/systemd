@@ -586,7 +586,7 @@ void dns_query_complete(DnsQuery *q, DnsTransactionState state) {
 
         q->state = state;
 
-        (void) manager_monitor_send(q->manager, q->state, q->answer_rcode, q->answer_errno, q->question_idna, q->question_utf8, q->collected_questions, q->answer);
+        (void) manager_monitor_send(q->manager, q->state, q->answer_rcode, q->answer_errno, q->question_idna, q->question_utf8, q->question_bypass, q->collected_questions, q->answer);
 
         dns_query_stop(q);
         if (q->complete)

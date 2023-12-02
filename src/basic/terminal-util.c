@@ -233,7 +233,7 @@ int ask_string(char **ret, const char *text, ...) {
 
 int reset_terminal_fd(int fd, bool switch_to_text) {
         struct termios termios;
-        int r = 0;
+        int r;
 
         /* Set terminal to some sane defaults */
 
@@ -256,7 +256,9 @@ int reset_terminal_fd(int fd, bool switch_to_text) {
 
 
         /* Set default keyboard mode */
-        (void) vt_reset_keyboard(fd);
+        r = vt_reset_keyboard(fd);
+        if (r < 0)
+                log_debug_errno(r, "Failed to reset VT keyboard, ignoring: %m");
 
         if (tcgetattr(fd, &termios) < 0) {
                 r = log_debug_errno(errno, "Failed to get terminal parameters: %m");
@@ -271,7 +273,7 @@ int reset_terminal_fd(int fd, bool switch_to_text) {
         termios.c_iflag |= ICRNL | IMAXBEL | IUTF8;
         termios.c_oflag |= ONLCR | OPOST;
         termios.c_cflag |= CREAD;
-        termios.c_lflag = ISIG | ICANON | IEXTEN | ECHO | ECHOE | ECHOK | ECHOCTL | ECHOPRT | ECHOKE;
+        termios.c_lflag = ISIG | ICANON | IEXTEN | ECHO | ECHOE | ECHOK | ECHOCTL | ECHOKE;
 
         termios.c_cc[VINTR]    =   03;  /* ^C */
         termios.c_cc[VQUIT]    =  034;  /* ^\ */
@@ -290,8 +292,7 @@ int reset_terminal_fd(int fd, bool switch_to_text) {
         termios.c_cc[VTIME]  = 0;
         termios.c_cc[VMIN]   = 1;
 
-        if (tcsetattr(fd, TCSANOW, &termios) < 0)
-                r = -errno;
+        r = RET_NERRNO(tcsetattr(fd, TCSANOW, &termios));
 
 finish:
         /* Just in case, flush all crap out */
@@ -1191,7 +1192,7 @@ static int ptsname_namespace(int pty, char **ret) {
 
 int openpt_allocate_in_namespace(pid_t pid, int flags, char **ret_slave) {
         _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF, fd = -EBADF;
-        _cleanup_close_pair_ int pair[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         pid_t child;
         int r;
 
@@ -1204,7 +1205,7 @@ int openpt_allocate_in_namespace(pid_t pid, int flags, char **ret_slave) {
         if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
                 return -errno;
 
-        r = namespace_fork("(sd-openptns)", "(sd-openpt)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG,
+        r = namespace_fork("(sd-openptns)", "(sd-openpt)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
                            pidnsfd, mntnsfd, -1, usernsfd, rootfd, &child);
         if (r < 0)
                 return r;
@@ -1244,7 +1245,7 @@ int openpt_allocate_in_namespace(pid_t pid, int flags, char **ret_slave) {
 
 int open_terminal_in_namespace(pid_t pid, const char *name, int mode) {
         _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF;
-        _cleanup_close_pair_ int pair[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         pid_t child;
         int r;
 
@@ -1255,7 +1256,7 @@ int open_terminal_in_namespace(pid_t pid, const char *name, int mode) {
         if (socketpair(AF_UNIX, SOCK_DGRAM, 0, pair) < 0)
                 return -errno;
 
-        r = namespace_fork("(sd-terminalns)", "(sd-terminal)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG,
+        r = namespace_fork("(sd-terminalns)", "(sd-terminal)", NULL, 0, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL,
                            pidnsfd, mntnsfd, -1, usernsfd, rootfd, &child);
         if (r < 0)
                 return r;

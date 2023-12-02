@@ -20,7 +20,7 @@
 #define TEST_LLDP_TYPE_SYSTEM_NAME "systemd-lldp"
 #define TEST_LLDP_TYPE_SYSTEM_DESC "systemd-lldp-desc"
 
-static int test_fd[2] = PIPE_EBADF;
+static int test_fd[2] = EBADF_PAIR;
 static int lldp_rx_handler_calls;
 
 int lldp_network_bind_raw_socket(int ifindex) {

@@ -43,10 +43,10 @@
 
     <para>The default configuration is set during compilation, so configuration is only needed when it is
     necessary to deviate from those defaults. The main configuration file is either in
-    <filename>/usr/lib/systemd</filename> or <filename>/etc/systemd/</filename> and contains commented out
+    <filename>/usr/lib/systemd/</filename> or <filename>/etc/systemd/</filename> and contains commented out
     entries showing the defaults as a guide to the administrator. Local overrides can be created by creating
     drop-ins, as described below. The main configuration file can also be edited for this purpose (or a copy
-    in <filename>/etc</filename> if it's shipped in <filename>/usr</filename>) however using drop-ins for
+    in <filename>/etc/</filename> if it's shipped in <filename>/usr/</filename>) however using drop-ins for
     local configuration is recommended over modifications to the main configuration file.</para>
 
     <para>In addition to the "main" configuration file, drop-in configuration snippets are read from

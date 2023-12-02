@@ -475,7 +475,7 @@ TEST(setenv_systemd_exec_pid) {
 TEST(getenv_steal_erase) {
         int r;
 
-        r = safe_fork("(sd-getenvstealerase)", FORK_DEATHSIG|FORK_LOG|FORK_WAIT, NULL);
+        r = safe_fork("(sd-getenvstealerase)", FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT, NULL);
         if (r == 0) {
                 _cleanup_strv_free_ char **l = NULL;
 

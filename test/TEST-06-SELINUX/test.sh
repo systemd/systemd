@@ -6,57 +6,38 @@ TEST_DESCRIPTION="SELinux tests"
 IMAGE_NAME="selinux"
 TEST_NO_NSPAWN=1
 
-# Requirements:
-# A selinux policy is installed. Preferably selinux-policy-targeted, but it could work with others
-# selinux-policy-devel
+if [[ -e /etc/selinux/config ]]; then
+    SEPOLICY="$(awk -F= '/^SELINUXTYPE=/ {print $2; exit}' /etc/selinux/config)"
 
-# Check if
-# - selinux-policy-devel is installed and
-# - some selinux policy is installed. To keep this generic just check for the
-#   existence of a directory below /etc/selinux/, indicating a SELinux policy is
-#   installed
-# otherwise bail out early instead of failing
-test -f /usr/share/selinux/devel/include/system/systemd.if && find /etc/selinux -mindepth 1 -maxdepth 1 -not -empty -type d | grep -q . || exit 0
+    # C8S doesn't set SELINUXTYPE in /etc/selinux/config, so default to 'targeted'
+    if [[ -z "$SEPOLICY" ]]; then
+        echo "Failed to parse SELinux policy from /etc/selinux/config, falling back to 'targeted'"
+        SEPOLICY="targeted"
+    fi
+
+    if [[ ! -d "/etc/selinux/$SEPOLICY" ]]; then
+        echo "Missing policy directory /etc/selinux/$SEPOLICY, skipping the test"
+        exit 0
+    fi
+
+    echo "Using SELinux policy '$SEPOLICY'"
+else
+    echo "/etc/selinux/config is missing, skipping the test"
+    exit 0
+fi
 
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 
 SETUP_SELINUX=yes
-KERNEL_APPEND="${KERNEL_APPEND:=} selinux=1 security=selinux"
+KERNEL_APPEND="${KERNEL_APPEND:-} selinux=1 enforcing=0 lsm=selinux"
 
 test_append_files() {
     local workspace="${1:?}"
-    local policy_headers_dir=/usr/share/selinux/devel
-    local modules_dir=/var/lib/selinux
 
     setup_selinux
-    # Make sure we never expand this to "/..."
-    rm -rf "${workspace:?}/$modules_dir"
-
-    if ! cp -ar "$modules_dir" "$workspace/$modules_dir"; then
-        dfatal "Failed to copy $modules_dir"
-        exit 1
-    fi
-
-    rm -rf "${workspace:?}/$policy_headers_dir"
-    inst_dir /usr/share/selinux
-
-    if ! cp -ar "$policy_headers_dir" "$workspace/$policy_headers_dir"; then
-        dfatal "Failed to copy $policy_headers_dir"
-        exit 1
-    fi
-
-    mkdir "$workspace/systemd-test-module"
-    cp -v systemd_test.* "$workspace/systemd-test-module/"
-    image_install checkmodule load_policy m4 make sefcontext_compile semodule semodule_package runcon
-    image_install -o sesearch
-    image_install -o /usr/libexec/selinux/hll/pp # Fedora/RHEL/...
-    image_install -o /usr/lib/selinux/hll/pp     # Debian/Ubuntu/...
-
-    if ! chroot "$workspace" make -C /systemd-test-module -f /usr/share/selinux/devel/Makefile clean load systemd_test.pp QUIET=n; then
-        dfatal "Failed to build the systemd test module"
-        exit 1
-    fi
+    # Config file has (unfortunately) always precedence, so let's switch it there as well
+    sed -i '/^SELINUX=disabled$/s/disabled/permissive/' "$workspace/etc/selinux/config"
 }
 
 do_test "$@"

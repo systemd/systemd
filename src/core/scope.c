@@ -546,7 +546,7 @@ static int scope_serialize(Unit *u, FILE *f, FDSet *fds) {
                 (void) serialize_item(f, "controller", s->controller);
 
         SET_FOREACH(pid, u->pids)
-                serialize_item_format(f, "pids", PID_FMT, pid->pid);
+                serialize_pidref(f, fds, "pids", pid);
 
         return 0;
 }
@@ -584,10 +584,13 @@ static int scope_deserialize_item(Unit *u, const char *key, const char *value, F
                         return log_oom();
 
         } else if (streq(key, "pids")) {
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
-                r = unit_watch_pid_str(u, value, /* exclusive= */ false);
-                if (r < 0)
-                        log_unit_debug(u, "Failed to parse pids value, ignoring: %s", value);
+                if (deserialize_pidref(fds, value, &pidref) >= 0) {
+                        r = unit_watch_pidref(u, &pidref, /* exclusive= */ false);
+                        if (r < 0)
+                                log_unit_debug(u, "Failed to watch PID, ignoring: %s", value);
+                }
         } else
                 log_unit_debug(u, "Unknown serialization key: %s", key);
 

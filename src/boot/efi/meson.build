@@ -42,6 +42,9 @@ executables += [
                 'sources' : files('fuzz-efi-string.c'),
         },
         efi_fuzz_template + {
+                'sources' : files('fuzz-efi-osrel.c'),
+        },
+        efi_fuzz_template + {
                 'sources' : files('fuzz-efi-printf.c'),
         },
 ]

@@ -859,8 +859,7 @@ int config_parse_macsec_sa_activate(
         _cleanup_(macsec_transmit_association_free_or_set_invalidp) TransmitAssociation *a = NULL;
         _cleanup_(macsec_receive_association_free_or_set_invalidp) ReceiveAssociation *b = NULL;
         MACsec *s = userdata;
-        int *dest;
-        int r;
+        int *dest, r;
 
         assert(filename);
         assert(section);
@@ -877,21 +876,16 @@ int config_parse_macsec_sa_activate(
 
         dest = a ? &a->sa.activate : &b->sa.activate;
 
-        if (isempty(rvalue))
-                r = -1;
-        else {
-                r = parse_boolean(rvalue);
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to parse activation mode of %s security association. "
-                                   "Ignoring assignment: %s",
-                                   streq(section, "MACsecTransmitAssociation") ? "transmit" : "receive",
-                                   rvalue);
-                        return 0;
-                }
+        r = parse_tristate(rvalue, dest);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to parse activation mode of %s security association. "
+                           "Ignoring assignment: %s",
+                           streq(section, "MACsecTransmitAssociation") ? "transmit" : "receive",
+                           rvalue);
+                return 0;
         }
 
-        *dest = r;
         TAKE_PTR(a);
         TAKE_PTR(b);
 
@@ -930,7 +924,7 @@ int config_parse_macsec_use_for_encoding(
                 return 0;
         }
 
-        r = parse_boolean(rvalue);
+        r = parse_tristate(rvalue, &a->sa.use_for_encoding);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse %s= setting. Ignoring assignment: %s",
@@ -938,7 +932,6 @@ int config_parse_macsec_use_for_encoding(
                 return 0;
         }
 
-        a->sa.use_for_encoding = r;
         if (a->sa.use_for_encoding > 0)
                 a->sa.activate = true;
 

@@ -255,6 +255,7 @@ static int help(void) {
                "  -t --type=                        Type of events to trigger\n"
                "          devices                     sysfs devices (default)\n"
                "          subsystems                  sysfs subsystems and drivers\n"
+               "          all                         sysfs devices, subsystems, and drivers\n"
                "  -c --action=ACTION|help           Event action value, default is \"change\"\n"
                "  -s --subsystem-match=SUBSYSTEM    Trigger devices from a matching subsystem\n"
                "  -S --subsystem-nomatch=SUBSYSTEM  Exclude devices from a matching subsystem\n"

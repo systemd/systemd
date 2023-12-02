@@ -389,7 +389,7 @@ static usec_t timespan_to_timestamp(usec_t usec) {
                         default_timeout_set = true;
                         default_timeout = NETLINK_DEFAULT_TIMEOUT_USEC;
 
-                        e = getenv("SYSTEMD_NETLINK_DEFAULT_TIMEOUT");
+                        e = secure_getenv("SYSTEMD_NETLINK_DEFAULT_TIMEOUT");
                         if (e) {
                                 r = parse_sec(e, &default_timeout);
                                 if (r < 0)
@@ -458,6 +458,12 @@ static int timeout_compare(const void *a, const void *b) {
         return CMP(x->timeout, y->timeout);
 }
 
+size_t netlink_get_reply_callback_count(sd_netlink *nl) {
+        assert(nl);
+
+        return hashmap_size(nl->reply_callbacks);
+}
+
 int sd_netlink_call_async(
                 sd_netlink *nl,
                 sd_netlink_slot **ret_slot,
@@ -477,7 +483,7 @@ int sd_netlink_call_async(
         assert_return(!netlink_pid_changed(nl), -ECHILD);
 
         if (hashmap_size(nl->reply_callbacks) >= REPLY_CALLBACKS_MAX)
-                return -ERANGE;
+                return -EXFULL;
 
         r = hashmap_ensure_allocated(&nl->reply_callbacks, &trivial_hash_ops);
         if (r < 0)
@@ -759,6 +765,12 @@ int sd_netlink_detach_event(sd_netlink *nl) {
         nl->event = sd_event_unref(nl->event);
 
         return 0;
+}
+
+sd_event* sd_netlink_get_event(sd_netlink *nl) {
+        assert_return(nl, NULL);
+
+        return nl->event;
 }
 
 int netlink_add_match_internal(

@@ -114,7 +114,7 @@ static void test_proc_cmdline_given_one(bool flip_initrd) {
                 in_initrd_force(!in_initrd());
 }
 
-TEST(test_proc_cmdline_given) {
+TEST(proc_cmdline_given) {
         assert_se(putenv((char*) "SYSTEMD_PROC_CMDLINE=foo_bar=quux wuff-piep=\"tuet \" rd.zumm space='x y z' miepf=\"uuu\"") == 0);
         assert_se(putenv((char*) "SYSTEMD_EFI_OPTIONS=miepf=\"uuu\"") == 0);
 
@@ -274,7 +274,7 @@ TEST(proc_cmdline_key_startswith) {
                 _cleanup_strv_free_ char **a = NULL, **b = NULL;        \
                 const char s[] = (nulstr);                              \
                                                                         \
-                /* This emulates get_process_cmdline_strv(). */         \
+                /* This emulates pid_get_cmdline_strv(). */         \
                 assert_se(a = strv_parse_nulstr_full(s, ELEMENTSOF(s),  \
                                                      /* drop_trailing_nuls = */ true)); \
                 assert_se(proc_cmdline_filter_pid1_args(a, &b) >= 0);   \

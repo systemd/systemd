@@ -22,10 +22,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (size > 16*1024)
                 return 0; /* See the comment below about the limit for strv_length(). */
 
-        /* We don't want to fill the logs with messages about parse errors.
-         * Disable most logging if not running standalone */
-        if (!getenv("SYSTEMD_LOG_LEVEL"))
-                log_set_max_level(LOG_CRIT);
+        fuzz_setup_logging();
 
         arg_pager_flags = PAGER_DISABLE; /* We shouldn't execute the pager */
 

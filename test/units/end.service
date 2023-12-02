@@ -7,5 +7,5 @@ OnFailureJobMode=replace-irreversibly
 
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -x -c 'systemctl poweroff --no-block'
+ExecStart=/usr/lib/systemd/tests/testdata/units/end.sh
 TimeoutStartSec=5m

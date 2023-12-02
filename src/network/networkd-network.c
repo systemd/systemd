@@ -396,10 +396,12 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_send_hostname = true,
                 .dhcp_send_release = true,
                 .dhcp_route_metric = DHCP_ROUTE_METRIC,
+                .dhcp_use_rapid_commit = -1,
                 .dhcp_client_identifier = _DHCP_CLIENT_ID_INVALID,
                 .dhcp_route_table = RT_TABLE_MAIN,
                 .dhcp_ip_service_type = -1,
                 .dhcp_broadcast = -1,
+                .dhcp_ipv6_only_mode = -1,
 
                 .dhcp6_use_address = true,
                 .dhcp6_use_pd_prefix = true,
@@ -408,6 +410,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp6_use_ntp = true,
                 .dhcp6_use_captive_portal = true,
                 .dhcp6_use_rapid_commit = true,
+                .dhcp6_send_hostname = true,
                 .dhcp6_duid.type = _DUID_TYPE_INVALID,
                 .dhcp6_client_start_mode = _DHCP6_CLIENT_START_MODE_INVALID,
                 .dhcp6_send_release = true,
@@ -425,6 +428,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_server_emit[SD_DHCP_LEASE_SIP].emit = true,
                 .dhcp_server_emit_router = true,
                 .dhcp_server_emit_timezone = true,
+                .dhcp_server_rapid_commit = true,
 
                 .router_lifetime_usec = RADV_DEFAULT_ROUTER_LIFETIME_USEC,
                 .router_dns_lifetime_usec = RADV_DEFAULT_VALID_LIFETIME_USEC,
@@ -463,7 +467,6 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .ipv4_route_localnet = -1,
                 .ipv6_privacy_extensions = _IPV6_PRIVACY_EXTENSIONS_INVALID,
                 .ipv6_dad_transmits = -1,
-                .ipv6_hop_limit = -1,
                 .ipv6_proxy_ndp = -1,
                 .proxy_arp = -1,
                 .ipv4_rp_filter = _IP_REVERSE_PATH_FILTER_INVALID,
@@ -719,6 +722,7 @@ static Network *network_free(Network *network) {
 
         /* DHCPv6 client */
         free(network->dhcp6_mudurl);
+        free(network->dhcp6_hostname);
         strv_free(network->dhcp6_user_class);
         strv_free(network->dhcp6_vendor_class);
         set_free(network->dhcp6_request_options);

@@ -352,7 +352,7 @@ int cg_attach(const char *controller, const char *path, pid_t pid) {
         xsprintf(c, PID_FMT "\n", pid);
 
         r = write_string_file(fs, c, WRITE_STRING_FILE_DISABLE_BUFFER);
-        if (r == -EOPNOTSUPP && cg_is_threaded(controller, path) > 0)
+        if (r == -EOPNOTSUPP && cg_is_threaded(path) > 0)
                 /* When the threaded mode is used, we cannot read/write the file. Let's return recognizable error. */
                 return -EUCLEAN;
         if (r < 0)
@@ -611,7 +611,7 @@ int cg_migrate(
                          * them there. */
                         if (cfrom &&
                             empty_or_root(pfrom) &&
-                            is_kernel_thread(pid) > 0)
+                            pid_is_kernel_thread(pid) > 0)
                                 continue;
 
                         r = cg_attach(cto, pto, pid);

@@ -205,22 +205,44 @@ LOCAL"
 }
 
 assert_ntp() {
-    assert_eq "$(busctl get-property org.freedesktop.timedate1 /org/freedesktop/timedate1 org.freedesktop.timedate1 NTP)" "b $1"
-}
+    local value="${1:?}"
 
-start_mon() {
-    busctl monitor --match="type='signal',sender=org.freedesktop.timedate1,member='PropertiesChanged',path=/org/freedesktop/timedate1" >"$mon" &
-    MONPID=$!
-}
-
-wait_mon() {
-    for i in {1..10}; do
-        (( i > 1 )) && sleep 1
-        if grep -q "$1" "$mon"; then break; fi
+    for _ in {0..9}; do
+        [[ "$(busctl get-property org.freedesktop.timedate1 /org/freedesktop/timedate1 org.freedesktop.timedate1 NTP)" == "b $value" ]] && return 0
+        sleep .5
     done
-    assert_in "$2" "$(cat "$mon")"
-    kill "$MONPID"
-    wait "$MONPID" 2>/dev/null || true
+
+    return 1
+}
+
+assert_timedated_signal() {
+    local timestamp="${1:?}"
+    local value="${2:?}"
+    local args=(-q -n 1 --since="$timestamp" -p info _SYSTEMD_UNIT="busctl-monitor.service")
+
+    journalctl --sync
+
+    for _ in {0..9}; do
+        if journalctl "${args[@]}" --grep .; then
+            [[ "$(journalctl "${args[@]}" -o cat | jq -r '.payload.data[1].NTP.data')" == "$value" ]];
+            return 0
+        fi
+
+        sleep .5
+    done
+
+    return 1
+}
+
+assert_timesyncd_state() {
+    local state="${1:?}"
+
+    for _ in {0..9}; do
+        [[ "$(systemctl show systemd-timesyncd.service -P ActiveState)" == "$state" ]] && return 0
+        sleep .5
+    done
+
+    return 1
 }
 
 testcase_ntp() {
@@ -241,40 +263,144 @@ EOF
         systemctl daemon-reload
     fi
 
-    mon=$(mktemp -t dbusmon.XXXXXX)
+    systemd-run --unit busctl-monitor.service --service-type=notify \
+        busctl monitor --json=short --match="type=signal,sender=org.freedesktop.timedate1,member=PropertiesChanged,path=/org/freedesktop/timedate1"
 
-    echo 'disable NTP'
+    : 'Disable NTP'
+    ts="$(date +"%F %T.%6N")"
     timedatectl set-ntp false
-    for i in {1..10}; do
-        (( i > 1 )) && sleep 1
-        if [[ "$(systemctl show systemd-timesyncd --property ActiveState)" == "ActiveState=inactive" ]]; then
-            break;
-        fi
-    done
-    assert_eq "$(systemctl show systemd-timesyncd --property ActiveState)" "ActiveState=inactive"
+    assert_timedated_signal "$ts" "false"
+    assert_timesyncd_state "inactive"
     assert_ntp "false"
     assert_rc 3 systemctl is-active --quiet systemd-timesyncd
 
-    echo 'enable NTP'
-    start_mon
+    : 'Enable NTP'
+    ts="$(date +"%F %T.%6N")"
     timedatectl set-ntp true
-    wait_mon "NTP" "BOOLEAN true"
+    assert_timedated_signal "$ts" "true"
     assert_ntp "true"
-    for i in {1..10}; do
-        (( i > 1 )) && sleep 1
-        if [[ "$(systemctl show systemd-timesyncd --property ActiveState)" == "ActiveState=active" ]]; then
-            break;
-        fi
-    done
-    assert_eq "$(systemctl show systemd-timesyncd --property ActiveState)" "ActiveState=active"
+    assert_timesyncd_state "active"
     assert_rc 0 systemctl is-active --quiet systemd-timesyncd
 
-    echo 're-disable NTP'
-    start_mon
+    : 'Re-disable NTP'
+    ts="$(date +"%F %T.%6N")"
     timedatectl set-ntp false
-    wait_mon "NTP" "BOOLEAN false"
+    assert_timedated_signal "$ts" "false"
     assert_ntp "false"
     assert_rc 3 systemctl is-active --quiet systemd-timesyncd
+
+    systemctl stop busctl-monitor.service
+    rm -rf /run/systemd/system/systemd-timesyncd.service.d/
+    systemctl daemon-reload
+}
+
+assert_timesyncd_signal() {
+    local timestamp="${1:?}"
+    local property="${2:?}"
+    local value="${3:?}"
+    local args=(-q --since="$timestamp" -p info _SYSTEMD_UNIT="busctl-monitor.service")
+
+    journalctl --sync
+
+    for _ in {0..9}; do
+        if journalctl "${args[@]}" --grep .; then
+            [[ "$(journalctl "${args[@]}" -o cat | jq -r ".payload.data[1].$property.data | join(\" \")")" == "$value" ]];
+            return 0
+        fi
+
+        sleep .5
+    done
+
+    return 1
+}
+
+assert_networkd_ntp() {
+    local interface="${1:?}"
+    local value="${2:?}"
+    # Go through the array of NTP servers and for each entry do:
+    #   - if the entry is an IPv4 address, join the Address array into a dot separated string
+    #   - if the entry is a server address, select it unchanged
+    # These steps produce an array of strings, that is then joined into a space-separated string
+    # Note: this doesn't support IPv6 addresses, since converting them to a string is a bit more
+    # involved than a simple join(), but let's leave that to another time
+    local expr='[.NTP[] | (select(.Family == 2).Address | join(".")), select(has("Server")).Server] | join(" ")'
+
+    [[ "$(networkctl status "$interface" --json=short | jq -r "$expr")" == "$value" ]]
+}
+
+testcase_timesyncd() {
+    if systemd-detect-virt -cq; then
+        echo "This test case requires a VM, skipping..."
+        return 0
+    fi
+
+    if ! command -v networkctl >/dev/null; then
+        echo "This test requires systemd-networkd, skipping..."
+        return 0
+    fi
+
+    # Create a dummy interface managed by networkd, so we can configure link NTP servers
+    mkdir -p /run/systemd/network/
+    cat >/etc/systemd/network/10-ntp99.netdev <<EOF
+[NetDev]
+Name=ntp99
+Kind=dummy
+EOF
+    cat >/etc/systemd/network/10-ntp99.network <<EOF
+[Match]
+Name=ntp99
+
+[Network]
+Address=10.0.0.1/24
+EOF
+
+    systemctl unmask systemd-timesyncd systemd-networkd
+    systemctl restart systemd-timesyncd
+    systemctl restart systemd-networkd
+    networkctl status ntp99
+
+    systemd-run --unit busctl-monitor.service --service-type=notify \
+        busctl monitor --json=short --match="type=signal,sender=org.freedesktop.timesync1,member=PropertiesChanged,path=/org/freedesktop/timesync1"
+
+    # LinkNTPServers
+    #
+    # Single IP
+    ts="$(date +"%F %T.%6N")"
+    timedatectl ntp-servers ntp99 10.0.0.1
+    assert_networkd_ntp ntp99 10.0.0.1
+    assert_timesyncd_signal "$ts" LinkNTPServers 10.0.0.1
+    # Setting NTP servers to the same value shouldn't emit a PropertiesChanged signal
+    ts="$(date +"%F %T.%6N")"
+    timedatectl ntp-servers ntp99 10.0.0.1
+    assert_networkd_ntp ntp99 10.0.0.1
+    (! assert_timesyncd_signal "$ts" LinkNTPServers 10.0.0.1)
+    # Multiple IPs
+    ts="$(date +"%F %T.%6N")"
+    timedatectl ntp-servers ntp99 10.0.0.1 192.168.0.99
+    assert_networkd_ntp ntp99 "10.0.0.1 192.168.0.99"
+    assert_timesyncd_signal "$ts" LinkNTPServers "10.0.0.1 192.168.0.99"
+    # Multiple IPs + servers
+    ts="$(date +"%F %T.%6N")"
+    timedatectl ntp-servers ntp99 10.0.0.1 192.168.0.99 foo.localhost foo 10.11.12.13
+    assert_networkd_ntp ntp99 "10.0.0.1 192.168.0.99 foo.localhost foo 10.11.12.13"
+    assert_timesyncd_signal "$ts" LinkNTPServers "10.0.0.1 192.168.0.99 foo.localhost foo 10.11.12.13"
+
+    # RuntimeNTPServers
+    #
+    # There's no user-facing API that allows changing this property (afaik), so let's
+    # call SetRuntimeNTPServers() directly to test things out. The inner workings should
+    # be exactly the same as in the previous case, so do just one test to make sure
+    # things work
+    ts="$(date +"%F %T.%6N")"
+    busctl call org.freedesktop.timesync1 /org/freedesktop/timesync1 org.freedesktop.timesync1.Manager \
+        SetRuntimeNTPServers as 4 "10.0.0.1" foo "192.168.99.1" bar
+    servers="$(busctl get-property org.freedesktop.timesync1 /org/freedesktop/timesync1 org.freedesktop.timesync1.Manager RuntimeNTPServers)"
+    [[ "$servers" == 'as 4 "10.0.0.1" "foo" "192.168.99.1" "bar"' ]]
+    assert_timesyncd_signal "$ts" RuntimeNTPServers "10.0.0.1 foo 192.168.99.1 bar"
+
+    # Cleanup
+    systemctl stop systemd-networkd systemd-timesyncd
+    rm -f /run/systemd/network/ntp99.*
 }
 
 run_testcases

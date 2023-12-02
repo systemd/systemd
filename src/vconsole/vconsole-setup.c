@@ -21,13 +21,13 @@
 
 #include "alloc-util.h"
 #include "creds-util.h"
+#include "dev-setup.h"
 #include "env-file.h"
 #include "errno-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "io-util.h"
 #include "locale-util.h"
-#include "lock-util.h"
 #include "log.h"
 #include "main-func.h"
 #include "proc-cmdline.h"
@@ -361,7 +361,16 @@ static int font_load_and_wait(const char *vc, Context *c) {
                 _exit(EXIT_FAILURE);
         }
 
-        return wait_for_terminate_and_check(KBD_SETFONT, pid, WAIT_LOG);
+        /* setfont returns EX_OSERR when ioctl(KDFONTOP/PIO_FONTX/PIO_FONTX) fails.  This might mean various
+         * things, but in particular lack of a graphical console. Let's be generous and not treat this as an
+         * error. */
+        r = wait_for_terminate_and_check(KBD_SETFONT, pid, WAIT_LOG_ABNORMAL);
+        if (r == EX_OSERR)
+                log_notice(KBD_SETFONT " failed with a \"system error\" (EX_OSERR), ignoring.");
+        else if (r >= 0 && r != EXIT_SUCCESS)
+                log_error(KBD_SETFONT " failed with exit status %i.", r);
+
+        return r;
 }
 
 /*
@@ -512,7 +521,7 @@ static int find_source_vc(char **ret_path, unsigned *ret_idx) {
 
                 r = verify_vc_allocation(i);
                 if (r < 0) {
-                        log_debug_errno(r, "VC %u existance check failed, skipping: %m", i);
+                        log_debug_errno(r, "VC %u existence check failed, skipping: %m", i);
                         RET_GATHER(err, r);
                         continue;
                 }
@@ -574,7 +583,7 @@ static int verify_source_vc(char **ret_path, const char *src_vc) {
 static int run(int argc, char **argv) {
         _cleanup_(context_done) Context c = {};
         _cleanup_free_ char *vc = NULL;
-        _cleanup_close_ int fd = -EBADF;
+        _cleanup_close_ int fd = -EBADF, lock_fd = -EBADF;
         bool utf8, keyboard_ok;
         unsigned idx = 0;
         int r;
@@ -596,9 +605,15 @@ static int run(int argc, char **argv) {
 
         /* Take lock around the remaining operation to avoid being interrupted by a tty reset operation
          * performed for services with TTYVHangup=yes. */
-        r = lock_generic(fd, LOCK_BSD, LOCK_EX);
-        if (r < 0)
-                return log_error_errno(r, "Failed to lock console: %m");
+        lock_fd = lock_dev_console();
+        if (lock_fd < 0) {
+                log_full_errno(lock_fd == -ENOENT ? LOG_DEBUG : LOG_ERR,
+                               lock_fd,
+                               "Failed to lock /dev/console%s: %m",
+                               lock_fd == -ENOENT ? ", ignoring" : "");
+                if (lock_fd != -ENOENT)
+                        return lock_fd;
+        }
 
         (void) toggle_utf8_sysfs(utf8);
         (void) toggle_utf8_vc(vc, fd, utf8);
@@ -609,13 +624,9 @@ static int run(int argc, char **argv) {
         if (idx > 0) {
                 if (r == 0)
                         setup_remaining_vcs(fd, idx, utf8);
-                else if (r == EX_OSERR)
-                        /* setfont returns EX_OSERR when ioctl(KDFONTOP/PIO_FONTX/PIO_FONTX) fails.
-                         * This might mean various things, but in particular lack of a graphical
-                         * console. Let's be generous and not treat this as an error. */
-                        log_notice("Setting fonts failed with a \"system error\", ignoring.");
                 else
-                        log_warning("Setting source virtual console failed, ignoring remaining ones");
+                        log_full(r == EX_OSERR ? LOG_NOTICE : LOG_WARNING,
+                                 "Setting source virtual console failed, ignoring remaining ones.");
         }
 
         return IN_SET(r, 0, EX_OSERR) && keyboard_ok ? EXIT_SUCCESS : EXIT_FAILURE;

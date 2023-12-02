@@ -6,13 +6,6 @@
 #include "string-util.h"
 #include "string-table.h"
 
-#ifdef _DEFAULT_NET_NAMING_SCHEME_TEST
-/* The primary purpose of this check is to verify that _DEFAULT_NET_NAMING_SCHEME_TEST
- * is a valid identifier. If an invalid name is given during configuration, this will
- * fail with a name error. */
-assert_cc(_DEFAULT_NET_NAMING_SCHEME_TEST >= 0);
-#endif
-
 static const NamingScheme naming_schemes[] = {
         { "v238", NAMING_V238 },
         { "v239", NAMING_V239 },
@@ -26,6 +19,8 @@ static const NamingScheme naming_schemes[] = {
         { "v251", NAMING_V251 },
         { "v252", NAMING_V252 },
         { "v253", NAMING_V253 },
+        { "v254", NAMING_V254 },
+        { "v255", NAMING_V255 },
         /* … add more schemes here, as the logic to name devices is updated … */
 
         EXTRA_NET_NAMING_MAP
@@ -86,23 +81,23 @@ const NamingScheme* naming_scheme(void) {
 }
 
 static const char* const name_policy_table[_NAMEPOLICY_MAX] = {
-        [NAMEPOLICY_KERNEL] = "kernel",
-        [NAMEPOLICY_KEEP] = "keep",
+        [NAMEPOLICY_KERNEL]   = "kernel",
+        [NAMEPOLICY_KEEP]     = "keep",
         [NAMEPOLICY_DATABASE] = "database",
-        [NAMEPOLICY_ONBOARD] = "onboard",
-        [NAMEPOLICY_SLOT] = "slot",
-        [NAMEPOLICY_PATH] = "path",
-        [NAMEPOLICY_MAC] = "mac",
+        [NAMEPOLICY_ONBOARD]  = "onboard",
+        [NAMEPOLICY_SLOT]     = "slot",
+        [NAMEPOLICY_PATH]     = "path",
+        [NAMEPOLICY_MAC]      = "mac",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(name_policy, NamePolicy);
 
 static const char* const alternative_names_policy_table[_NAMEPOLICY_MAX] = {
         [NAMEPOLICY_DATABASE] = "database",
-        [NAMEPOLICY_ONBOARD] = "onboard",
-        [NAMEPOLICY_SLOT] = "slot",
-        [NAMEPOLICY_PATH] = "path",
-        [NAMEPOLICY_MAC] = "mac",
+        [NAMEPOLICY_ONBOARD]  = "onboard",
+        [NAMEPOLICY_SLOT]     = "slot",
+        [NAMEPOLICY_PATH]     = "path",
+        [NAMEPOLICY_MAC]      = "mac",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(alternative_names_policy, NamePolicy);
