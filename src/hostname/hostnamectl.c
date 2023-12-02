@@ -56,6 +56,8 @@ typedef struct StatusInfo {
         const char *hardware_model;
         const char *firmware_version;
         usec_t firmware_date;
+        sd_id128_t machine_id;
+        sd_id128_t boot_id;
 } StatusInfo;
 
 static const char* chassis_string_to_glyph(const char *chassis) {
@@ -97,7 +99,6 @@ static const char *os_support_end_color(usec_t n, usec_t eol) {
 
 static int print_status_info(StatusInfo *i) {
         _cleanup_(table_unrefp) Table *table = NULL;
-        sd_id128_t mid = {}, bid = {};
         TableCell *cell;
         int r;
 
@@ -174,20 +175,18 @@ static int print_status_info(StatusInfo *i) {
                         return table_log_add_error(r);
         }
 
-        r = sd_id128_get_machine(&mid);
-        if (r >= 0) {
+        if (!sd_id128_is_null(i->machine_id)) {
                 r = table_add_many(table,
                                    TABLE_FIELD, "Machine ID",
-                                   TABLE_ID128, mid);
+                                   TABLE_ID128, i->machine_id);
                 if (r < 0)
                         return table_log_add_error(r);
         }
 
-        r = sd_id128_get_boot(&bid);
-        if (r >= 0) {
+        if (!sd_id128_is_null(i->boot_id)) {
                 r = table_add_many(table,
                                    TABLE_FIELD, "Boot ID",
-                                   TABLE_ID128, bid);
+                                   TABLE_ID128, i->boot_id);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -387,6 +386,13 @@ static int show_all_names(sd_bus *bus) {
                                    &info);
         if (r < 0)
                 return log_error_errno(r, "Failed to query system properties: %s", bus_error_message(&error, r));
+
+        if (!arg_host) {
+                if (sd_id128_is_null(info.machine_id))
+                        (void) sd_id128_get_machine(&info.machine_id);
+                if (sd_id128_is_null(info.boot_id))
+                        (void) sd_id128_get_boot(&info.boot_id);
+        }
 
         return print_status_info(&info);
 }
