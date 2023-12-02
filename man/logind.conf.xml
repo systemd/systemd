@@ -346,6 +346,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>EnforceInhibitors=</varname></term>
+
+        <listitem><para>Takes a boolean argument. Defaults to false. If enabled, inhibitor locks will always
+        be enforced when an inhibited operation is requested to <filename>systemd-logind</filename> or via
+        <filename>systemctl</filename>, regardless of the privilege level of the requestor. Operations
+        performed directly can still bypass this enforcement, e.g.:
+        <literal>systemctl reboot --force --force</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>SessionsMax=</varname></term>
 
         <listitem><para>Controls the maximum number of concurrent user sessions to manage. Defaults to 8192

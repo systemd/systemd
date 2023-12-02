@@ -203,6 +203,12 @@ EOF
 
     # Check that we can set up an inhibitor, and that busctl monitor sees the
     # PrepareForShutdownWithMetadata signal and that it says 'soft-reboot'.
+    mkdir -p /run/systemd/logind.conf.d
+    cat >/run/systemd/logind.conf.d/lock.conf <<EOF
+[Login]
+EnforceInhibitors=yes
+EOF
+    systemctl reload systemd-logind.service
     systemd-run --unit busctl.service --service-type=exec --property StandardOutput=file:/run/testsuite82.signal \
         busctl monitor --json=pretty --match 'sender=org.freedesktop.login1,path=/org/freedesktop/login1,interface=org.freedesktop.login1.Manager,member=PrepareForShutdownWithMetadata,type=signal'
     systemd-run --unit inhibit.service --service-type=exec \
