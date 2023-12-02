@@ -1106,37 +1106,39 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <term><command>edit <replaceable>UNIT</replaceable>…</command></term>
 
           <listitem>
-            <para>Edit a drop-in snippet or a whole replacement file if
-            <option>--full</option> is specified, to extend or override the
-            specified unit.</para>
+            <para>Edit or replace a drop-in snippet or the main unit file, to extend or override the
+            definition of the specified unit.</para>
 
-            <para>Depending on whether <option>--system</option> (the default),
-            <option>--user</option>, or <option>--global</option> is specified,
-            this command creates a drop-in file for each unit either for the system,
-            for the calling user, or for all futures logins of all users. Then,
-            the editor (see the "Environment" section below) is invoked on
-            temporary files which will be written to the real location if the
-            editor exits successfully.</para>
+            <para>Depending on whether <option>--system</option> (the default), <option>--user</option>, or
+            <option>--global</option> is specified, this command will operate on the system unit files, unit
+            files for the calling user, or the unit files shared between all users.</para>
+
+            <para>The editor (see the "Environment" section below) is invoked on temporary files which will
+            be written to the real location if the editor exits successfully. After the editing is finished,
+            configuration is reloaded, equivalent to <command>systemctl daemon-reload --system</command> or
+            <command>systemctl daemon-reload --user</command>. For <command>edit --global</command>, the
+            reload is not performed and the edits will take effect only for subsequent logins (or after a
+            reload is requested in a different way).</para>
+
+            <para>If <option>--full</option> is specified, a replacement for the main unit file will be
+            created or edited. Otherwise, a drop-in file will be created or edited.</para>
 
             <para>If <option>--drop-in=</option> is specified, the given drop-in file name
             will be used instead of the default <filename>override.conf</filename>.</para>
 
-            <para>If <option>--full</option> is specified, this will copy the
-            original units instead of creating drop-in files.</para>
-
-            <para>If <option>--force</option> is specified and any units do
-            not already exist, new unit files will be opened for editing.</para>
+            <para>The unit must exist, i.e. its main unit file must be present. If <option>--force</option>
+            is specified, this requirement is ignored and a new unit may be created (with
+            <option>--full</option>), or a drop-in for a nonexistent unit may be crated.</para>
 
             <para>If <option>--runtime</option> is specified, the changes will
             be made temporarily in <filename>/run/</filename> and they will be
             lost on the next reboot.</para>
 
+            <para>If <option>--stdin</option> is specified, the new contents will be read from standard
+            input. In this mode, the old contents of the file are discarded.</para>
+
             <para>If the temporary file is empty upon exit, the modification of
             the related unit is canceled.</para>
-
-            <para>After the units have been edited, systemd configuration is
-            reloaded (in a way that is equivalent to <command>daemon-reload</command>).
-            </para>
 
             <para>Note that this command cannot be used to remotely edit units
             and that you cannot temporarily edit units which are in
@@ -2571,6 +2573,27 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           project='man-pages'><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>
           section "PARSING TIMESTAMPS". Specially, if <literal>show</literal> is given, the currently scheduled
           action will be shown, which can be canceled by passing an empty string or <literal>cancel</literal>.</para>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--stdin</option></term>
+
+        <listitem>
+          <para>When used with <command>edit</command>, the contents of the file will be read from standard
+          input and the editor will not be launched. In this mode, the old contents of the file are
+          completely replaced. This is useful to "edit" unit files from scripts:</para>
+
+          <programlisting>$ systemctl edit --drop-in=limits.conf --stdin some-service.service &lt;&lt;EOF
+[Unit]
+AllowedCPUs=7,11
+EOF
+          </programlisting>
+
+          <para>Multiple drop-ins may be "edited" in this mode; the same contents will be written to all of
+          them.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
       </varlistentry>
 

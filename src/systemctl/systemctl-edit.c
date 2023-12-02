@@ -317,12 +317,13 @@ int verb_edit(int argc, char *argv[], void *userdata) {
                 .marker_end = DROPIN_MARKER_END,
                 .remove_parent = !arg_full,
                 .overwrite_with_origin = true,
+                .stdin = arg_stdin,
         };
         _cleanup_strv_free_ char **names = NULL;
         sd_bus *bus;
         int r;
 
-        if (!on_tty())
+        if (!on_tty() && !arg_stdin)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Cannot edit units if not on a tty.");
 
         if (arg_transport != BUS_TRANSPORT_LOCAL)
@@ -341,6 +342,10 @@ int verb_edit(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to expand names: %m");
         if (strv_isempty(names))
                 return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No units matched the specified patterns.");
+
+        if (arg_stdin && arg_full && strv_length(names) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "With 'edit --stdin --full', exactly one unit for editing must be specified.");
 
         STRV_FOREACH(tmp, names) {
                 r = unit_is_masked(bus, *tmp);
