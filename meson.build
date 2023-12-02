@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 project('systemd', 'c',
-        version : '254',
+        version : '255',
         license : 'LGPLv2+',
         default_options: [
                 'c_std=gnu11',
@@ -13,8 +13,8 @@ project('systemd', 'c',
         meson_version : '>= 0.60.0',
        )
 
-libsystemd_version = '0.37.0'
-libudev_version = '1.7.7'
+libsystemd_version = '0.38.0'
+libudev_version = '1.7.8'
 
 conf = configuration_data()
 conf.set_quoted('PROJECT_URL', 'https://systemd.io/')
@@ -33,6 +33,7 @@ conf.set_quoted('RELATIVE_SOURCE_PATH', relative_source_path)
 
 conf.set10('BUILD_MODE_DEVELOPER', get_option('mode') == 'developer',
            description : 'tailor build to development or release builds')
+
 feature = get_option('log-message-verification')
 if feature.auto()
         have = conf.get('BUILD_MODE_DEVELOPER') == 1
@@ -171,8 +172,16 @@ systemdstatedir = localstatedir / 'lib/systemd'
 catalogstatedir = systemdstatedir / 'catalog'
 randomseeddir = localstatedir / 'lib/systemd'
 profiledir = libexecdir / 'portable' / 'profile'
+repartdefinitionsdir = libexecdir / 'repart/definitions'
 ntpservicelistdir = prefixdir / 'lib/systemd/ntp-units.d'
 credstoredir = prefixdir / 'lib/credstore'
+pcrlockdir = prefixdir / 'lib/pcrlock.d'
+
+configfiledir = get_option('configfiledir')
+if configfiledir == ''
+        configfiledir= sysconfdir
+endif
+pkgconfigfiledir = configfiledir / 'systemd'
 
 docdir = get_option('docdir')
 if docdir == ''
@@ -224,6 +233,7 @@ conf.set_quoted('SYSCONF_DIR',                                sysconfdir)
 conf.set_quoted('SYSCTL_DIR',                                 sysctldir)
 conf.set_quoted('SYSTEMCTL_BINARY_PATH',                      bindir / 'systemctl')
 conf.set_quoted('SYSTEMD_BINARY_PATH',                        libexecdir / 'systemd')
+conf.set_quoted('SYSTEMD_EXECUTOR_BINARY_PATH',               libexecdir / 'systemd-executor')
 conf.set_quoted('SYSTEMD_CATALOG_DIR',                        catalogdir)
 conf.set_quoted('SYSTEMD_CGROUPS_AGENT_PATH',                 libexecdir / 'systemd-cgroups-agent')
 conf.set_quoted('SYSTEMD_CRYPTSETUP_PATH',                    bindir / 'systemd-cryptsetup')
@@ -278,7 +288,7 @@ conf.set('DEFAULT_TIMEOUT_SEC',                               get_option('defaul
 conf.set('DEFAULT_USER_TIMEOUT_SEC',                          get_option('default-user-timeout-sec'))
 conf.set('UPDATE_HELPER_USER_TIMEOUT_SEC',                    get_option('update-helper-user-timeout-sec'))
 
-conf.set10('FIRST_BOOT_FULL_PRESET',                          get_option('first-boot-full-preset'))
+conf.set10('ENABLE_FIRST_BOOT_FULL_PRESET',                   get_option('first-boot-full-preset'))
 
 #####################################################################
 
@@ -482,7 +492,7 @@ if cxx_cmd != ''
         add_project_arguments(cxx.get_supported_arguments(basic_disabled_warnings), language : 'cpp')
 endif
 
-cpp = ' '.join(cc.cmd_array()) + ' -E'
+cpp = ' '.join(cc.cmd_array() + get_option('c_args')) + ' -E'
 
 has_wstringop_truncation = cc.has_argument('-Wstringop-truncation')
 
@@ -560,6 +570,8 @@ foreach ident : [
         ['memfd_create',      '''#include <sys/mman.h>'''],
         ['gettid',            '''#include <sys/types.h>
                                  #include <unistd.h>'''],
+        ['fchmodat2',         '''#include <stdlib.h>
+                                 #include <fcntl.h>'''],      # no known header declares fchmodat2
         ['pivot_root',        '''#include <stdlib.h>
                                  #include <unistd.h>'''],     # no known header declares pivot_root
         ['ioprio_get',        '''#include <sched.h>'''],      # no known header declares ioprio_get
@@ -765,10 +777,12 @@ conf.set('EXTRA_NET_NAMING_SCHEMES', ' '.join(extra_net_naming_schemes))
 conf.set('EXTRA_NET_NAMING_MAP', ' '.join(extra_net_naming_map))
 
 default_net_naming_scheme = get_option('default-net-naming-scheme')
-conf.set_quoted('DEFAULT_NET_NAMING_SCHEME', default_net_naming_scheme)
+conf.set_quoted('DEFAULT_NET_NAMING_SCHEME', default_net_naming_scheme,
+                description : 'Default naming scheme as a string')
 if default_net_naming_scheme != 'latest'
-        conf.set('_DEFAULT_NET_NAMING_SCHEME_TEST',
-                 'NAMING_' + default_net_naming_scheme.underscorify().to_upper())
+        conf.set('_DEFAULT_NET_NAMING_SCHEME',
+                 'NAMING_' + default_net_naming_scheme.underscorify().to_upper(),
+                 description : 'Default naming scheme as a constant')
 endif
 
 time_epoch = get_option('time-epoch')
@@ -880,7 +894,7 @@ if not meson.is_cross_build()
 endif
 if nobody_user != nobody_group and not (nobody_user == 'nobody' and nobody_group == 'nogroup')
         warning('\n' +
-                'The configured user name "@0@" and group name "@0@" of the nobody user/group are not equivalent.\n'.format(nobody_user, nobody_group) +
+                'The configured user name "@0@" and group name "@1@" of the nobody user/group are not equivalent.\n'.format(nobody_user, nobody_group) +
                 'Please re-check that both "nobody-user" and "nobody-group" options are correctly set.')
 endif
 
@@ -1191,6 +1205,7 @@ libxenctrl = dependency('xencontrol',
                         version : '>= 4.9',
                         required : get_option('xenctrl'))
 conf.set10('HAVE_XENCTRL', libxenctrl.found())
+libxenctrl_cflags = libxenctrl.partial_dependency(includes: true, compile_args: true)
 
 feature = get_option('pam')
 libpam = dependency('pam',
@@ -1215,7 +1230,7 @@ libcryptsetup = get_option('libcryptsetup')
 libcryptsetup_plugins = get_option('libcryptsetup-plugins')
 if libcryptsetup_plugins.enabled()
         if libcryptsetup.disabled()
-                error('libcryptsetup-plugins can not be requested without libcryptsetup')
+                error('libcryptsetup-plugins cannot be requested without libcryptsetup')
         endif
         libcryptsetup = libcryptsetup_plugins
 endif
@@ -1275,6 +1290,7 @@ conf.set10('HAVE_LIBIDN2', have)
 libiptc = dependency('libiptc',
                      required : get_option('libiptc'))
 conf.set10('HAVE_LIBIPTC', libiptc.found())
+libiptc_cflags = libiptc.partial_dependency(includes: true, compile_args: true)
 
 libqrencode = dependency('libqrencode',
                          version : '>= 3',
@@ -1521,6 +1537,8 @@ have = get_option('sysupdate').require(
         error_message : 'fdisk and openssl required').allowed()
 conf.set10('ENABLE_SYSUPDATE', have)
 
+conf.set10('ENABLE_STORAGETM', get_option('storagetm'))
+
 have = get_option('importd').require(
         conf.get('HAVE_LIBCURL') == 1 and
         conf.get('HAVE_OPENSSL_OR_GCRYPT') == 1 and
@@ -1551,6 +1569,9 @@ if feature.enabled() and not (have_deps[0] and have_deps[1])
 endif
 have = feature.allowed() and (have_deps[0] or have_deps[1])
 conf.set10('ENABLE_REMOTE', have)
+
+feature = get_option('vmspawn').disable_auto_if(conf.get('BUILD_MODE_DEVELOPER') == 0)
+conf.set10('ENABLE_VMSPAWN', feature.allowed())
 
 foreach term : ['analyze',
                 'backlight',
@@ -1794,6 +1815,7 @@ export_dbus_interfaces_py = find_program('tools/dbus_exporter.py')
 generate_gperfs = find_program('tools/generate-gperfs.py')
 make_autosuspend_rules_py = find_program('tools/make-autosuspend-rules.py')
 make_directive_index_py = find_program('tools/make-directive-index.py')
+sync_docs_py = find_program('tools/sync-docs.py')
 make_man_index_py = find_program('tools/make-man-index.py')
 meson_render_jinja2 = find_program('tools/meson-render-jinja2.py')
 update_dbus_docs_py = find_program('tools/update-dbus-docs.py')
@@ -2098,8 +2120,6 @@ module_additional_kwargs = {
 
 # systemd-analyze requires 'libcore'
 subdir('src/core')
-# systemd-journal-remote requires 'libjournal_core'
-subdir('src/journal')
 # systemd-networkd requires 'libsystemd_network'
 subdir('src/libsystemd-network')
 # hwdb requires 'udev_link_with' and 'udev_rpath'
@@ -2140,6 +2160,7 @@ subdir('src/id128')
 subdir('src/import')
 subdir('src/initctl')
 subdir('src/integritysetup')
+subdir('src/journal')
 subdir('src/journal-remote')
 subdir('src/kernel-install')
 subdir('src/locale')
@@ -2159,6 +2180,7 @@ subdir('src/oom')
 subdir('src/partition')
 subdir('src/path')
 subdir('src/pcrextend')
+subdir('src/pcrlock')
 subdir('src/portable')
 subdir('src/pstore')
 subdir('src/quotacheck')
@@ -2184,17 +2206,20 @@ subdir('src/systemctl')
 subdir('src/sysupdate')
 subdir('src/sysusers')
 subdir('src/sysv-generator')
+subdir('src/storagetm')
 subdir('src/timedate')
 subdir('src/timesync')
-subdir('src/tpm2-setup')
 subdir('src/tmpfiles')
+subdir('src/tpm2-setup')
 subdir('src/tty-ask-password-agent')
 subdir('src/update-done')
 subdir('src/update-utmp')
 subdir('src/user-sessions')
 subdir('src/userdb')
+subdir('src/varlinkctl')
 subdir('src/vconsole')
 subdir('src/veritysetup')
+subdir('src/vmspawn')
 subdir('src/volatile-root')
 subdir('src/xdg-autostart-generator')
 
@@ -2780,11 +2805,13 @@ foreach tuple : [
         ['systemd-analyze',        conf.get('ENABLE_ANALYZE') == 1],
         ['sysupdate'],
         ['sysusers'],
+        ['storagetm'],
         ['timedated'],
         ['timesyncd'],
         ['tmpfiles'],
         ['userdb'],
         ['vconsole'],
+        ['vmspawn'],
         ['xdg-autostart'],
 
         # optional features

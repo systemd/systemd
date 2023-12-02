@@ -460,7 +460,7 @@ int user_start(User *u) {
 
         if (!u->started) {
                 if (!dual_timestamp_is_set(&u->timestamp))
-                        dual_timestamp_get(&u->timestamp);
+                        dual_timestamp_now(&u->timestamp);
                 user_send_signal(u, true);
                 u->started = true;
         }
@@ -861,12 +861,12 @@ void user_update_last_session_timer(User *u) {
 }
 
 static const char* const user_state_table[_USER_STATE_MAX] = {
-        [USER_OFFLINE] = "offline",
-        [USER_OPENING] = "opening",
+        [USER_OFFLINE]   = "offline",
+        [USER_OPENING]   = "opening",
         [USER_LINGERING] = "lingering",
-        [USER_ONLINE] = "online",
-        [USER_ACTIVE] = "active",
-        [USER_CLOSING] = "closing"
+        [USER_ONLINE]    = "online",
+        [USER_ACTIVE]    = "active",
+        [USER_CLOSING]   = "closing"
 };
 
 DEFINE_STRING_TABLE_LOOKUP(user_state, UserState);

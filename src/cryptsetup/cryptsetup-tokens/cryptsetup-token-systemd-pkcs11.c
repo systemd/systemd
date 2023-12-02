@@ -95,7 +95,7 @@ _public_ void cryptsetup_token_dump(
 
         r = crypt_dump_buffer_to_hex_string(pkcs11_key, pkcs11_key_size, &key_str);
         if (r < 0)
-                return (void) crypt_log_debug_errno(cd, r, "Can not dump " TOKEN_NAME " content: %m");
+                return (void) crypt_log_debug_errno(cd, r, "Cannot dump " TOKEN_NAME " content: %m");
 
         crypt_log(cd, "\tpkcs11-uri: %s\n", pkcs11_uri);
         crypt_log(cd, "\tpkcs11-key: %s\n", key_str);

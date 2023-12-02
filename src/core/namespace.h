@@ -5,7 +5,7 @@
   Copyright © 2016 Djalal Harouni
 ***/
 
-typedef struct NamespaceInfo NamespaceInfo;
+typedef struct NamespaceParameters NamespaceParameters;
 typedef struct BindMount BindMount;
 typedef struct TemporaryFileSystem TemporaryFileSystem;
 typedef struct MountImage MountImage;
@@ -53,24 +53,6 @@ typedef enum ProcSubset {
         _PROC_SUBSET_INVALID = -EINVAL,
 } ProcSubset;
 
-struct NamespaceInfo {
-        bool ignore_protect_paths;
-        bool private_dev;
-        bool protect_control_groups;
-        bool protect_kernel_tunables;
-        bool protect_kernel_modules;
-        bool protect_kernel_logs;
-        bool mount_apivfs;
-        bool protect_hostname;
-        bool private_network;
-        bool private_ipc;
-        bool mount_nosuid;
-        ProtectHome protect_home;
-        ProtectSystem protect_system;
-        ProtectProc protect_proc;
-        ProcSubset proc_subset;
-};
-
 struct BindMount {
         char *source;
         char *destination;
@@ -100,43 +82,77 @@ struct MountImage {
         MountImageType type;
 };
 
-int setup_namespace(
-                const char *root_directory,
-                const char *root_image,
-                const MountOptions *root_image_options,
-                const ImagePolicy *root_image_policy,
-                const NamespaceInfo *ns_info,
-                char **read_write_paths,
-                char **read_only_paths,
-                char **inaccessible_paths,
-                char **exec_paths,
-                char **no_exec_paths,
-                char **empty_directories,
-                char **symlinks,
-                const BindMount *bind_mounts,
-                size_t n_bind_mounts,
-                const TemporaryFileSystem *temporary_filesystems,
-                size_t n_temporary_filesystems,
-                const MountImage *mount_images,
-                size_t n_mount_images,
-                const ImagePolicy *mount_image_policy,
-                const char *tmp_dir,
-                const char *var_tmp_dir,
-                const char *creds_path,
-                const char *log_namespace,
-                unsigned long mount_propagation_flag,
-                VeritySettings *verity,
-                const MountImage *extension_images,
-                size_t n_extension_images,
-                const ImagePolicy *extension_image_policy,
-                char **extension_directories,
-                const char *propagate_dir,
-                const char *incoming_dir,
-                const char *extension_dir,
-                const char *notify_socket,
-                const char *host_os_release_stage,
-                RuntimeScope scope,
-                char **error_path);
+struct NamespaceParameters {
+        RuntimeScope runtime_scope;
+
+        const char *root_directory;
+        const char *root_image;
+        const MountOptions *root_image_options;
+        const ImagePolicy *root_image_policy;
+
+        char **read_write_paths;
+        char **read_only_paths;
+        char **inaccessible_paths;
+
+        char **exec_paths;
+        char **no_exec_paths;
+
+        char **empty_directories;
+        char **symlinks;
+
+        const BindMount *bind_mounts;
+        size_t n_bind_mounts;
+
+        const TemporaryFileSystem *temporary_filesystems;
+        size_t n_temporary_filesystems;
+
+        const MountImage *mount_images;
+        size_t n_mount_images;
+        const ImagePolicy *mount_image_policy;
+
+        const char *tmp_dir;
+        const char *var_tmp_dir;
+
+        const char *creds_path;
+        const char *log_namespace;
+
+        unsigned long mount_propagation_flag;
+        VeritySettings *verity;
+
+        const MountImage *extension_images;
+        size_t n_extension_images;
+        const ImagePolicy *extension_image_policy;
+        char **extension_directories;
+
+        const char *propagate_dir;
+        const char *incoming_dir;
+
+        const char *extension_dir;
+        const char *notify_socket;
+        const char *host_os_release_stage;
+
+        bool ignore_protect_paths;
+
+        bool protect_control_groups;
+        bool protect_kernel_tunables;
+        bool protect_kernel_modules;
+        bool protect_kernel_logs;
+        bool protect_hostname;
+
+        bool private_dev;
+        bool private_network;
+        bool private_ipc;
+
+        bool mount_apivfs;
+        bool mount_nosuid;
+
+        ProtectHome protect_home;
+        ProtectSystem protect_system;
+        ProtectProc protect_proc;
+        ProcSubset proc_subset;
+};
+
+int setup_namespace(const NamespaceParameters *p, char **error_path);
 
 #define RUN_SYSTEMD_EMPTY "/run/systemd/empty"
 

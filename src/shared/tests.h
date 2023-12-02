@@ -28,8 +28,23 @@ int get_testdata_dir(const char *suffix, char **ret);
 const char* get_catalog_dir(void);
 bool slow_tests_enabled(void);
 void test_setup_logging(int level);
-int log_tests_skipped(const char *message);
-int log_tests_skipped_errno(int r, const char *message);
+
+#define log_tests_skipped(fmt, ...)                                     \
+        ({                                                              \
+                log_notice("%s: " fmt ", skipping tests.",              \
+                           program_invocation_short_name,               \
+                           ##__VA_ARGS__);                              \
+                EXIT_TEST_SKIP;                                         \
+        })
+
+#define log_tests_skipped_errno(error, fmt, ...)                        \
+        ({                                                              \
+                log_notice_errno(error,                                 \
+                                 "%s: " fmt ", skipping tests: %m",     \
+                                 program_invocation_short_name,         \
+                                 ##__VA_ARGS__);                        \
+                EXIT_TEST_SKIP;                                         \
+        })
 
 int write_tmpfile(char *pattern, const char *contents);
 
@@ -88,6 +103,9 @@ extern const TestFunc _weak_ __stop_SYSTEMD_TEST_TABLE[];
         static int test_##name(void);              \
         REGISTER_TEST(test_##name, ##__VA_ARGS__); \
         static int test_##name(void)
+
+#define TEST_LOG_FUNC() \
+        log_info("/* %s() */", __func__)
 
 static inline int run_test_table(void) {
         _cleanup_strv_free_ char **tests = NULL;

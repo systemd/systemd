@@ -36,7 +36,7 @@ static uint64_t ticks_freq_arch(void) {
 
         uint64_t freq = crystal_hz;
         if (crystal_hz == 0) {
-                /* If the crystal frquency is not available, try to deduce it from
+                /* If the crystal frequency is not available, try to deduce it from
                  * the processor frequency leaf if available. */
                 if (max_leaf < 0x16)
                         return 0;

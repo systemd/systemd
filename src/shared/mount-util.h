@@ -10,6 +10,7 @@
 #include "dissect-image.h"
 #include "errno-util.h"
 #include "macro.h"
+#include "pidref.h"
 
 int repeat_unmount(const char *path, int flags);
 
@@ -68,6 +69,8 @@ int umount_verbose(
                 const char *where,
                 int flags);
 
+int mount_exchange_graceful(int fsmount_fd, const char *dest, bool mount_beneath);
+
 int mount_option_mangle(
                 const char *options,
                 unsigned long mount_flags,
@@ -96,8 +99,8 @@ static inline char *umount_and_free(char *p) {
 }
 DEFINE_TRIVIAL_CLEANUP_FUNC(char*, umount_and_free);
 
-int bind_mount_in_namespace(pid_t target, const char *propagate_path, const char *incoming_path, const char *src, const char *dest, bool read_only, bool make_file_or_directory);
-int mount_image_in_namespace(pid_t target, const char *propagate_path, const char *incoming_path, const char *src, const char *dest, bool read_only, bool make_file_or_directory, const MountOptions *options, const ImagePolicy *image_policy);
+int bind_mount_in_namespace(PidRef *target, const char *propagate_path, const char *incoming_path, const char *src, const char *dest, bool read_only, bool make_file_or_directory);
+int mount_image_in_namespace(PidRef *target, const char *propagate_path, const char *incoming_path, const char *src, const char *dest, bool read_only, bool make_file_or_directory, const MountOptions *options, const ImagePolicy *image_policy);
 
 int make_mount_point(const char *path);
 int fd_make_mount_point(int fd);
@@ -121,8 +124,8 @@ typedef enum RemountIdmapping {
 } RemountIdmapping;
 
 int make_userns(uid_t uid_shift, uid_t uid_range, uid_t owner, RemountIdmapping idmapping);
-int remount_idmap_fd(const char *p, int userns_fd);
-int remount_idmap(const char *p, uid_t uid_shift, uid_t uid_range, uid_t owner, RemountIdmapping idmapping);
+int remount_idmap_fd(char **p, int userns_fd);
+int remount_idmap(char **p, uid_t uid_shift, uid_t uid_range, uid_t owner, RemountIdmapping idmapping);
 
 int bind_mount_submounts(
                 const char *source,

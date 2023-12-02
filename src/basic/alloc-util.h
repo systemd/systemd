@@ -15,7 +15,6 @@
 
 typedef void (*free_func_t)(void *p);
 typedef void* (*mfree_func_t)(void *p);
-typedef void (*free_array_func_t)(void *p, size_t n);
 
 /* If for some reason more than 4M are allocated on the stack, let's abort immediately. It's better than
  * proceeding and smashing the stack limits. Note that by default RLIMIT_STACK is 8M on Linux. */
@@ -252,6 +251,26 @@ static inline void free_many(void **p, size_t n) {
 /* Typesafe wrapper for char** rather than void**. Unfortunately C won't implicitly cast this. */
 static inline void free_many_charp(char **c, size_t n) {
         free_many((void**) c, n);
+}
+
+_alloc_(2) static inline void *realloc0(void *p, size_t new_size) {
+        size_t old_size;
+        void *q;
+
+        /* Like realloc(), but initializes anything appended to zero */
+
+        old_size = MALLOC_SIZEOF_SAFE(p);
+
+        q = realloc(p, new_size);
+        if (!q)
+                return NULL;
+
+        new_size = MALLOC_SIZEOF_SAFE(q); /* Update with actually allocated space */
+
+        if (new_size > old_size)
+                memset((uint8_t*) q + old_size, 0, new_size - old_size);
+
+        return q;
 }
 
 #include "memory-util.h"

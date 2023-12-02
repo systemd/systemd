@@ -171,3 +171,48 @@ systemctl_final() {
 
     systemctl "$@"
 }
+
+cgroupfs_supports_user_xattrs() {
+    local xattr
+
+    xattr="user.supported_$RANDOM"
+    # shellcheck disable=SC2064
+    trap "setfattr --remove=$xattr /sys/fs/cgroup || :" RETURN
+
+    setfattr --name="$xattr" --value=254 /sys/fs/cgroup
+    [[ "$(getfattr --name="$xattr" --absolute-names --only-values /sys/fs/cgroup)" -eq 254 ]]
+}
+
+tpm_has_pcr() {
+    local algorithm="${1:?}"
+    local pcr="${2:?}"
+
+    [[ -f "/sys/class/tpm/tpm0/pcr-$algorithm/$pcr" ]]
+}
+
+openssl_supports_kdf() {
+    local kdf="${1:?}"
+
+    # The arguments will need to be adjusted to make this work for other KDFs than SSKDF,
+    # but let's do that when/if the need arises
+    openssl kdf -keylen 16 -kdfopt digest:SHA2-256 -kdfopt key:foo -out /dev/null "$kdf"
+}
+
+kernel_supports_lsm() {
+    local lsm="${1:?}"
+    local items item
+
+    if [[ ! -e /sys/kernel/security/lsm ]]; then
+        echo "/sys/kernel/security/lsm doesn't exist, assuming $lsm is not supported"
+        return 1
+    fi
+
+    mapfile -t -d, items </sys/kernel/security/lsm
+    for item in "${items[@]}"; do
+        if [[ "$item" == "$lsm" ]]; then
+            return 0
+        fi
+    done
+
+    return 1
+}

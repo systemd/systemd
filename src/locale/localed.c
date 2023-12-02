@@ -192,7 +192,7 @@ static int locale_gen_process_locale(char *new_locale[static _VARIABLE_LC_MAX], 
                         log_error_errno(r, "Failed to enable invalid locale %s for generation.", new_locale[p]);
                         return sd_bus_error_setf(error,
                                                  SD_BUS_ERROR_INVALID_ARGS,
-                                                 "Can not enable locale generation for invalid locale: %s",
+                                                 "Cannot enable locale generation for invalid locale: %s",
                                                  new_locale[p]);
                 }
                 if (r < 0) {

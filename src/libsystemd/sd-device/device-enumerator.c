@@ -40,6 +40,7 @@ struct sd_device_enumerator {
         Hashmap *match_sysattr;
         Hashmap *nomatch_sysattr;
         Hashmap *match_property;
+        Hashmap *match_property_required;
         Set *match_sysname;
         Set *nomatch_sysname;
         Set *match_tag;
@@ -95,6 +96,7 @@ static sd_device_enumerator *device_enumerator_free(sd_device_enumerator *enumer
         hashmap_free(enumerator->match_sysattr);
         hashmap_free(enumerator->nomatch_sysattr);
         hashmap_free(enumerator->match_property);
+        hashmap_free(enumerator->match_property_required);
         set_free(enumerator->match_sysname);
         set_free(enumerator->nomatch_sysname);
         set_free(enumerator->match_tag);
@@ -172,6 +174,21 @@ _public_ int sd_device_enumerator_add_match_property(sd_device_enumerator *enume
         assert_return(property, -EINVAL);
 
         r = update_match_strv(&enumerator->match_property, property, value, /* clear_on_null = */ false);
+        if (r <= 0)
+                return r;
+
+        enumerator->scan_uptodate = false;
+
+        return 1;
+}
+
+_public_ int sd_device_enumerator_add_match_property_required(sd_device_enumerator *enumerator, const char *property, const char *value) {
+        int r;
+
+        assert_return(enumerator, -EINVAL);
+        assert_return(property, -EINVAL);
+
+        r = update_match_strv(&enumerator->match_property_required, property, value, /* clear_on_null = */ false);
         if (r <= 0)
                 return r;
 
@@ -459,28 +476,38 @@ int device_enumerator_add_device(sd_device_enumerator *enumerator, sd_device *de
         return 1;
 }
 
-static bool match_property(sd_device_enumerator *enumerator, sd_device *device) {
+static bool match_property(Hashmap *properties, sd_device *device, bool match_all) {
         const char *property_pattern;
         char * const *value_patterns;
 
-        assert(enumerator);
         assert(device);
 
         /* Unlike device_match_sysattr(), this accepts device that has at least one matching property. */
 
-        if (hashmap_isempty(enumerator->match_property))
+        if (hashmap_isempty(properties))
                 return true;
 
-        HASHMAP_FOREACH_KEY(value_patterns, property_pattern, enumerator->match_property)
+        HASHMAP_FOREACH_KEY(value_patterns, property_pattern, properties) {
+                bool match = false;
+
                 FOREACH_DEVICE_PROPERTY(device, property, value) {
                         if (fnmatch(property_pattern, property, 0) != 0)
                                 continue;
 
-                        if (strv_fnmatch(value_patterns, value))
-                                return true;
+                        match = strv_fnmatch(value_patterns, value);
+                        if (match) {
+                                if (!match_all)
+                                        return true;
+
+                                break;
+                        }
                 }
 
-        return false;
+                if (!match && match_all)
+                        return false;
+        }
+
+        return match_all;
 }
 
 static bool match_tag(sd_device_enumerator *enumerator, sd_device *device) {
@@ -599,7 +626,10 @@ static int test_matches(
         if (r <= 0)
                 return r;
 
-        if (!match_property(enumerator, device))
+        if (!match_property(enumerator->match_property, device, /* match_all = */ false))
+                return false;
+
+        if (!match_property(enumerator->match_property_required, device, /* match_all = */ true))
                 return false;
 
         if (!device_match_sysattr(device, enumerator->match_sysattr, enumerator->nomatch_sysattr))

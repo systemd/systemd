@@ -17,6 +17,7 @@
 #include "fileio.h"
 #include "hashmap.h"
 #include "locale-util.h"
+#include "missing_syscall.h"
 #include "path-util.h"
 #include "set.h"
 #include "string-table.h"
@@ -280,11 +281,6 @@ int locale_is_installed(const char *name) {
         return true;
 }
 
-void init_gettext(void) {
-        setlocale(LC_ALL, "");
-        textdomain(GETTEXT_PACKAGE);
-}
-
 bool is_locale_utf8(void) {
         static int cached_answer = -1;
         const char *set;
@@ -302,6 +298,12 @@ bool is_locale_utf8(void) {
                 goto out;
         } else if (r != -ENXIO)
                 log_debug_errno(r, "Failed to parse $SYSTEMD_UTF8, ignoring: %m");
+
+        /* This function may be called from libsystemd, and setlocale() is not thread safe. Assuming yes. */
+        if (gettid() != raw_getpid()) {
+                cached_answer = true;
+                goto out;
+        }
 
         if (!setlocale(LC_ALL, "")) {
                 cached_answer = true;

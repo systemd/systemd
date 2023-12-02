@@ -32,6 +32,21 @@
 
 /* ======================================================================= */
 
+#if !HAVE_FCHMODAT2
+static inline int missing_fchmodat2(int dirfd, const char *path, mode_t mode, int flags) {
+#  ifdef __NR_fchmodat2
+        return syscall(__NR_fchmodat2, dirfd, path, mode, flags);
+#  else
+        errno = ENOSYS;
+        return -1;
+#  endif
+}
+
+#  define fchmodat2 missing_fchmodat2
+#endif
+
+/* ======================================================================= */
+
 #if !HAVE_PIVOT_ROOT
 static inline int missing_pivot_root(const char *new_root, const char *put_old) {
         return syscall(__NR_pivot_root, new_root, put_old);
@@ -538,6 +553,10 @@ static inline int missing_open_tree(
 #endif
 
 /* ======================================================================= */
+
+#ifndef MOVE_MOUNT_BENEATH
+#define MOVE_MOUNT_BENEATH 0x00000200
+#endif
 
 #if !HAVE_MOVE_MOUNT
 

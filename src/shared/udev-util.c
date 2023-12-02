@@ -382,3 +382,58 @@ bool udev_available(void) {
 
         return (cache = (path_is_read_only_fs("/sys/") <= 0));
 }
+
+int device_get_vendor_string(sd_device *device, const char **ret) {
+        int r;
+
+        assert(device);
+
+        FOREACH_STRING(field, "ID_VENDOR_FROM_DATABASE", "ID_VENDOR") {
+                r = sd_device_get_property_value(device, field, ret);
+                if (r != -ENOENT)
+                        return r;
+        }
+
+        return -ENOENT;
+}
+
+int device_get_model_string(sd_device *device, const char **ret) {
+        int r;
+
+        assert(device);
+
+        FOREACH_STRING(field, "ID_MODEL_FROM_DATABASE", "ID_MODEL") {
+                r = sd_device_get_property_value(device, field, ret);
+                if (r != -ENOENT)
+                        return r;
+        }
+
+        return -ENOENT;
+}
+
+int device_get_property_value_with_fallback(
+                sd_device *device,
+                const char *prop,
+                Hashmap *extra_props,
+                const char **ret) {
+        const char *value;
+        int r;
+
+        assert(device);
+        assert(prop);
+        assert(ret);
+
+        r = sd_device_get_property_value(device, prop, &value);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        return r;
+
+                value = hashmap_get(extra_props, prop);
+                if (!value)
+                        return -ENOENT;
+        }
+
+        *ret = value;
+
+        return 1;
+}

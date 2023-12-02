@@ -36,6 +36,7 @@ libcore_sources = files(
         'emergency-action.c',
         'exec-credential.c',
         'execute.c',
+        'execute-serialize.c',
         'generator-setup.c',
         'ima-setup.c',
         'import-creds.c',
@@ -143,6 +144,11 @@ systemd_sources = files(
         'crash-handler.c',
 )
 
+systemd_executor_sources = files(
+        'executor.c',
+        'exec-invoke.c',
+)
+
 executables += [
         libexec_template + {
                 'name' : 'systemd',
@@ -154,6 +160,22 @@ executables += [
                         libshared,
                 ],
                 'dependencies' : libseccomp,
+        },
+        libexec_template + {
+                'name' : 'systemd-executor',
+                'public' : true,
+                'sources' : systemd_executor_sources,
+                'include_directories' : core_includes,
+                'link_with' : [
+                        libcore,
+                        libshared,
+                ],
+                'dependencies' : [
+                        libapparmor,
+                        libpam,
+                        libseccomp,
+                        libselinux,
+                ],
         },
         fuzz_template + {
                 'sources' : files('fuzz-unit-file.c'),
@@ -170,10 +192,17 @@ executables += [
                         libshared
                 ],
         },
+        fuzz_template + {
+                'sources' : files('fuzz-execute-serialize.c'),
+                'link_with' : [
+                        libcore,
+                        libshared
+                ],
+        },
 ]
 
-in_files = [['system.conf',                     pkgsysconfdir],
-            ['user.conf',                       pkgsysconfdir],
+in_files = [['system.conf',                     pkgconfigfiledir],
+            ['user.conf',                       pkgconfigfiledir],
             ['org.freedesktop.systemd1.policy', polkitpolicydir]]
 
 foreach item : in_files
@@ -185,7 +214,7 @@ foreach item : in_files
                 input : file + '.in',
                 output: file,
                 command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
-                install : (dir == pkgsysconfdir) ? install_sysconfdir_samples : (dir != 'no'),
+                install : (dir == pkgconfigfiledir) ? install_sysconfdir_samples : (dir != 'no'),
                 install_dir : dir)
 endforeach
 

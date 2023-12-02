@@ -39,6 +39,9 @@ static char *runtime_dir = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(runtime_dir, rm_rf_physical_and_freep);
 
+/* For testing type compatibility. */
+_unused_ ConfigPerfItemLookup unused_lookup = load_fragment_gperf_lookup;
+
 TEST_RET(unit_file_get_set) {
         int r;
         _cleanup_hashmap_free_ Hashmap *h = NULL;

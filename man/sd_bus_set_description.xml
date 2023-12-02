@@ -121,7 +121,7 @@
     i.e. lack of authentication, of the bus peer. This function must be called before the bus is
     started. See the
     <ulink url="view-source:https://dbus.freedesktop.org/doc/dbus-specification.html#auth-mechanisms">
-    Authentication Mechanisms</ulink> section of the D-Bus specification for details.</para>
+    D-Bus Authentication Mechanisms</ulink> section of the D-Bus specification for details.</para>
 
     <para><function>sd_bus_is_anonymous()</function> returns true if the bus connection allows
     anonymous authentication (in the sense described in previous paragraph).</para>

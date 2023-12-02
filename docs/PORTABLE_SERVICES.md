@@ -5,7 +5,7 @@ layout: default
 SPDX-License-Identifier: LGPL-2.1-or-later
 ---
 
-# Portable Services Introduction
+# Portable Services
 
 systemd (since version 239) supports a concept of "Portable Services".
 "Portable Services" are a delivery method for system services that uses
@@ -277,12 +277,14 @@ following must be also be observed:
 
 2. The upper extension images must contain an extension-release file in
    `/usr/lib/extension-release.d/`, with an `ID=` and `SYSEXT_LEVEL=`/`VERSION_ID=`
-   matching the base image.
+   matching the base image for sysexts, or `/etc/extension-release.d/`, with an
+   `ID=` and `CONFEXT_LEVEL=`/`VERSION_ID=` matching the base image for confexts.
 
 3. The base/OS image does not need to have any unit files.
 
-4. The upper extension images must contain at least one matching unit file
-   each, with the right name prefix and suffix (see above).
+4. The upper sysext images must contain at least one matching unit file each,
+   with the right name prefix and suffix (see above). Confext images do not have
+   to contain units.
 
 5. As with the base/OS image, each upper extension image must be a plain
    sub-directory, btrfs subvolume, or a raw disk image.
@@ -354,10 +356,10 @@ underscore (`_`) as separator. If only either one is found, it will be used by i
 The field will be named `PORTABLE_NAME_AND_VERSION=`.
 
 In case extensions are used, the same fields in the same order are, but prefixed by
-`SYSEXT_`, are parsed from each `extension-release` file, and are appended to the
-journal as log entries, using `PORTABLE_EXTENSION_NAME_AND_VERSION=` as the field
-name. The base layer's field will be named `PORTABLE_ROOT_NAME_AND_VERSION=` instead
-of `PORTABLE_NAME_AND_VERSION=` in this case.
+`SYSEXT_`/`CONFEXT_`, are parsed from each `extension-release` file, and are appended
+to the journal as log entries, using `PORTABLE_EXTENSION_NAME_AND_VERSION=` as the
+field name. The base layer's field will be named `PORTABLE_ROOT_NAME_AND_VERSION=`
+instead of `PORTABLE_NAME_AND_VERSION=` in this case.
 
 For example, a portable service `app0` using two extensions `app0.raw` and
 `app1.raw` (with `SYSEXT_ID=app`, and `SYSEXT_VERSION_ID=` `0` and `1` in their

@@ -83,6 +83,7 @@
     <filename>sockets.target</filename>,
     <filename>soft-reboot.target</filename>,
     <filename>sound.target</filename>,
+    <filename>storage-target-mode.target</filename>,
     <filename>suspend.target</filename>,
     <filename>swap.target</filename>,
     <filename>sysinit.target</filename>,
@@ -765,6 +766,18 @@
             for further details of the operation this target pulls in.</para>
 
             <xi:include href="version-info.xml" xpointer="v254"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
+          <term><filename>storage-target-mode.target</filename></term>
+          <listitem>
+            <para>A special target unit that can be booted into that selects the "Storage Target Mode" for
+            the OS. In this mode all local storage disks are exposed to external systems as block
+            devices. This invokes
+            <citerefentry><refentrytitle>systemd-storagetm.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            which exposes all local disks as NVMe-TCP devices for access over the network. It might as well
+            invoke other services too that make local disks available via other mechanisms.</para>
+            <xi:include href="version-info.xml" xpointer="v255"/>
           </listitem>
         </varlistentry>
         <varlistentry>

@@ -2,6 +2,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 # -*- mode: shell-script; indent-tabs-mode: nil; sh-basic-offset: 4; -*-
 # ex: ts=8 sw=4 sts=4 et filetype=sh
+# shellcheck disable=SC2233,SC2235
 set -eux
 set -o pipefail
 
@@ -159,9 +160,11 @@ if systemctl --version | grep -q -- +OPENSSL ; then
         echo "openssl missing" >/failed
         exit 1
     fi
+
     HAVE_OPENSSL=1
+    OPENSSL_CONFIG="$(mktemp)"
     # Unfortunately OpenSSL insists on reading some config file, hence provide one with mostly placeholder contents
-    cat >>"${image}.openssl.cnf" <<EOF
+    cat >"${OPENSSL_CONFIG:?}" <<EOF
 [ req ]
 prompt = no
 distinguished_name = req_distinguished_name
@@ -177,7 +180,7 @@ emailAddress = test@email.com
 EOF
 
     # Create key pair
-    openssl req -config "${image}.openssl.cnf" -new -x509 -newkey rsa:1024 -keyout "${image}.key" -out "${image}.crt" -days 365 -nodes
+    openssl req -config "$OPENSSL_CONFIG" -new -x509 -newkey rsa:1024 -keyout "${image}.key" -out "${image}.crt" -days 365 -nodes
     # Sign Verity root hash with it
     openssl smime -sign -nocerts -noattr -binary -in "${image}.roothash" -inkey "${image}.key" -signer "${image}.crt" -outform der -out "${image}.roothash.p7s"
     # Generate signature partition JSON data
@@ -360,6 +363,11 @@ ExecStart=/bin/sh -c ' \\
 EOF
 systemctl start testservice-50d.service
 
+# Mount twice to exercise mount-beneath (on kernel 6.5+, on older kernels it will just overmount)
+mkdir -p /tmp/wrong/foo
+mksquashfs /tmp/wrong/foo /tmp/wrong.raw
+systemctl mount-image --mkdir testservice-50d.service /tmp/wrong.raw /tmp/img
+test "$(systemctl show -P SubState testservice-50d.service)" = "running"
 systemctl mount-image --mkdir testservice-50d.service "${image}.raw" /tmp/img root:nosuid
 
 while systemctl show -P SubState testservice-50d.service | grep -q running
@@ -389,6 +397,15 @@ mkdir -p /etc/symlink-test/
 cp /etc/service-scoped-test.raw /etc/symlink-test/service-scoped-test-v1.raw
 ln -fs /etc/symlink-test/service-scoped-test-v1.raw /etc/symlink-test/service-scoped-test.raw
 systemd-run -P --property ExtensionImages=/etc/symlink-test/service-scoped-test.raw --property RootImage="${image}.raw" cat /etc/systemd/system/some_file | grep -q -F "MARKER_CONFEXT_123"
+# And again mixing sysext and confext
+systemd-run -P \
+    --property ExtensionImages=/usr/share/symlink-test/app-nodistro.raw \
+    --property ExtensionImages=/etc/symlink-test/service-scoped-test.raw \
+    --property RootImage="${image}.raw" cat /etc/systemd/system/some_file | grep -q -F "MARKER_CONFEXT_123"
+systemd-run -P \
+    --property ExtensionImages=/usr/share/symlink-test/app-nodistro.raw \
+    --property ExtensionImages=/etc/symlink-test/service-scoped-test.raw \
+    --property RootImage="${image}.raw" cat /usr/lib/systemd/system/some_file | grep -q -F "MARKER=1"
 
 cat >/run/systemd/system/testservice-50e.service <<EOF
 [Service]
@@ -453,6 +470,16 @@ systemd-sysext merge
 test ! -e /usr/lib/systemd/system/some_file
 systemd-sysext unmerge
 rmdir /etc/extensions/app-nodistro
+
+# Similar, but go via varlink
+varlinkctl call /run/systemd/io.systemd.sysext io.systemd.sysext.List '{}'
+(! grep -q -F "MARKER=1" /usr/lib/systemd/system/some_file )
+varlinkctl call /run/systemd/io.systemd.sysext io.systemd.sysext.Merge '{}'
+grep -q -F "MARKER=1" /usr/lib/systemd/system/some_file
+varlinkctl call /run/systemd/io.systemd.sysext io.systemd.sysext.Refresh '{}'
+grep -q -F "MARKER=1" /usr/lib/systemd/system/some_file
+varlinkctl call /run/systemd/io.systemd.sysext io.systemd.sysext.Unmerge '{}'
+(! grep -q -F "MARKER=1" /usr/lib/systemd/system/some_file )
 
 # Check that extensions cannot contain os-release
 mkdir -p /run/extensions/app-reject/usr/lib/{extension-release.d/,systemd/system}
@@ -570,8 +597,8 @@ echo "MARKER_SYSEXT_123" >testkit/usr/lib/testfile
 mksquashfs testkit/ testkit.raw
 cp testkit.raw /run/extensions/
 unsquashfs -l /run/extensions/testkit.raw
-systemd-dissect --no-pager /run/extensions/testkit.raw | grep -q '✓ sysext extension for portable service'
-systemd-dissect --no-pager /run/extensions/testkit.raw | grep -q '✓ sysext extension for system'
+systemd-dissect --no-pager /run/extensions/testkit.raw | grep -q '✓ sysext for portable service'
+systemd-dissect --no-pager /run/extensions/testkit.raw | grep -q '✓ sysext for system'
 systemd-sysext merge
 systemd-sysext status
 grep -q -F "MARKER_SYSEXT_123" /usr/lib/testfile
@@ -586,8 +613,8 @@ echo "MARKER_CONFEXT_123" >testjob/etc/testfile
 mksquashfs testjob/ testjob.raw
 cp testjob.raw /run/confexts/
 unsquashfs -l /run/confexts/testjob.raw
-systemd-dissect --no-pager /run/confexts/testjob.raw | grep -q '✓ confext extension for system'
-systemd-dissect --no-pager /run/confexts/testjob.raw | grep -q '✓ confext extension for portable service'
+systemd-dissect --no-pager /run/confexts/testjob.raw | grep -q '✓ confext for system'
+systemd-dissect --no-pager /run/confexts/testjob.raw | grep -q '✓ confext for portable service'
 systemd-confext merge
 systemd-confext status
 grep -q -F "MARKER_CONFEXT_123" /etc/testfile
@@ -623,5 +650,45 @@ systemctl status foo.service 2>&1 | grep -q -F "Warning"
 systemd-sysext merge
 systemd-sysext unmerge
 systemctl status foo.service 2>&1 | grep -v -q -F "Warning"
+rm /var/lib/extensions/app-reload.raw
+
+# Test systemd-repart --make-ddi=:
+if command -v mksquashfs >/dev/null 2>&1; then
+
+    openssl req -config "$OPENSSL_CONFIG" -subj="/CN=waldo" -x509 -sha256 -nodes -days 365 -newkey rsa:4096 -keyout /tmp/test-50-privkey.key -out /tmp/test-50-cert.crt
+
+    mkdir -p /tmp/test-50-confext/etc/extension-release.d/
+
+    echo "foobar50" > /tmp/test-50-confext/etc/waldo
+
+    ( grep -e '^\(ID\|VERSION_ID\)=' /etc/os-release ; echo IMAGE_ID=waldo ; echo IMAGE_VERSION=7 ) > /tmp/test-50-confext/etc/extension-release.d/extension-release.waldo
+
+    mkdir -p /run/confexts
+
+    SYSTEMD_REPART_OVERRIDE_FSTYPE=squashfs systemd-repart -C -s /tmp/test-50-confext --certificate=/tmp/test-50-cert.crt --private-key=/tmp/test-50-privkey.key /run/confexts/waldo.confext.raw
+    rm -rf /tmp/test-50-confext
+
+    mkdir -p /run/verity.d
+    cp /tmp/test-50-cert.crt /run/verity.d/
+    systemd-dissect --mtree /run/confexts/waldo.confext.raw
+
+    systemd-confext refresh
+
+    read -r X < /etc/waldo
+    test "$X" = foobar50
+
+    rm /run/verity.d/test-50-cert.crt /run/confexts/waldo.confext.raw /tmp/test-50-cert.crt /tmp/test-50-privkey.key
+
+    systemd-confext refresh
+
+    (! test -f /tmp/test-50-confext/etc/waldo )
+fi
+
+# Sneak in a couple of expected-to-fail invocations to cover
+# https://github.com/systemd/systemd/issues/29610
+(! systemd-run -P -p MountImages="/this/should/definitely/not/exist.img:/run/img2\:3:nosuid" false)
+(! systemd-run -P -p ExtensionImages="/this/should/definitely/not/exist.img" false)
+(! systemd-run -P -p RootImage="/this/should/definitely/not/exist.img" false)
+(! systemd-run -P -p ExtensionDirectories="/foo/bar /foo/baz" false)
 
 touch /testok

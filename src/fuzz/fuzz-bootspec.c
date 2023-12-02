@@ -87,9 +87,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (outside_size_range(size, 0, 65536))
                 return 0;
 
-        /* Disable most logging if not running standalone */
-        if (!getenv("SYSTEMD_LOG_LEVEL"))
-                log_set_max_level(LOG_CRIT);
+        fuzz_setup_logging();
 
         assert_se(datadup = memdup_suffix0(data, size));
 
@@ -98,7 +96,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (r < 0)
                 return 0;
 
-        r = json_dispatch(v, data_dispatch, NULL, 0, &config);
+        r = json_dispatch(v, data_dispatch, 0, &config);
         if (r < 0)
                 return 0;
 

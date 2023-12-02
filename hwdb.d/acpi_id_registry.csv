@@ -1,0 +1,123 @@
+Company,"ACPI ID","Approved On Date"
+"Aava Mobile Oy",AAVA,04/02/2014
+AMD,AMDI,08/06/2014
+"Applied Micro Circuits Corporation",APMC,11/14/2013
+"Aptina Imaging Corporation",APTA,10/28/2013
+"ARM Ltd.",ARMH,08/13/2012
+"ARM Ltd.",ARML,02/24/2015
+ASUS,ASUS,09/13/2012
+Atmel,ATML,11/17/2011
+AuthenTec,AUTH,06/01/2012
+"Broadcom Corporation",BRCM,05/14/2015
+"Capella Microsystems Inc.",CPLM,05/09/2012
+"Dell, Inc.",DLLK,04/17/2012
+"Dell, Inc.",DELL,07/26/2012
+"ELAN MICROELECTRONICS CORPORATION",ELAN,11/14/2014
+"Everest Semiconductor Co., Ltd.",ESSX,11/17/2014
+"FocalTech Systems Co., Ltd.",FTSC,07/23/2013
+"Freescale, Inc",FRSC,01/01/2010
+"Fuzhou Rockchip Electronics Co., Ltd.",RKCP,07/20/2015
+"Google, Inc.",GOOG,12/05/2013
+"Hewlett-Packard Company",HPQC,11/26/2012
+"Hewlett Packard Enterprise",HWPE,01/15/2015
+"Himax Technologies, Inc.",HIMX,03/19/2014
+"HiSilicon Technologies Co., Ltd.",HISI,11/14/2014
+"HP Inc.",HPIC,01/15/2015
+"HTBLuVA Mödling",HTLM,02/18/2014
+IBM,IBMX,11/15/2012
+Impinj,IMPJ,08/14/2012
+"Inphi Corporation",IPHI,07/15/2014
+"Intel Corporation",ACPI,11/18/2011
+"Intel Corporation",INTC,01/01/2010
+"Intel Corporation",INTL,01/01/2010
+"Invensense, Inc",INVN,02/09/2012
+"IP3 Technology Ltd.",IP3T,11/11/2013
+"Kionix, Inc.",KIOX,12/23/2013
+"Lenovo Beijing Co. Ltd.",IDEA,05/22/2012
+"Linaro, Ltd.",LNRO,11/26/2013
+"Microsoft Corporation",MSAY,03/01/2012
+"Microsoft Corporation",MSFT,01/01/2010
+"Microsoft Corporation",MSHW,01/10/2011
+"MIPI Alliance",MIPI,04/17/2015
+"Nuvoton Technology Corporation",NVTN,11/14/2014
+Nvidia,NVDA,01/01/2010
+"OmniVision Technologies, Inc.",OVTI,02/26/2014
+"Pegatron Corporation",PEGA,08/27/2013
+"Qualcomm Inc",QCOM,01/01/2010
+"REALTEK Semiconductor Corp.",OBDA,11/07/2013
+"Red Hat, Inc.",QEMU,07/30/2015
+"Robert Bosch GmbH",BOSC,05/16/2014
+"Rozsnyó, s.r.o.",RZSN,03/24/2014
+"Sharp Corporation",SHRP,01/27/2015
+"Shenzhen DSO Microelectronics Co.,Ltd.",DSUO,10/10/2013
+"Shenzhen South-Top Computer Co., Ltd.",ST86,12/06/2013
+"Shenzhen three Connaught Information Technology Co., Ltd. (3nod Group)",3NOD,09/23/2013
+"Sierra Wireless",SWEM,01/22/2013
+"Sony Corporation",SONY,09/12/2012
+"Synaptics Inc",SYNA,11/17/2011
+"Teracue AG",TCAG,12/07/2012
+"Texas Instruments",TXNW,01/01/2010
+"The Linux Foundation",LNUX,04/04/2014
+"Dynabook Inc.",TOSB,07/07/2015
+"VAIO Corporation",VAIO,04/18/2014
+"Validity Sensors, Inc",VFSI,06/17/2013
+Wacom,WCOM,11/17/2011
+"Winsider Seminars & Solutions Inc.",WSDR,07/07/2015
+"Maxim Integrated",MXIM,10/16/2015
+"Xiaomi Inc.",XMCC,12/08/2015
+"u-blox AG",UBLX,12/08/2015
+"Raydium Semiconductor Corporation",RAYD,04/13/2016
+"Dialog Semiconductor PLC",DLGS,04/27/2016
+OmniPreSense,OMPS,05/25/2016
+"CoreOS, Inc",CORE,07/01/2016
+"Microchip Technology Inc",MCHP,08/03/2016
+"Green Hills Software",GHSW,08/11/2016
+"AAEON Technology Inc.",AANT,09/01/2016
+"VR Technology Holdings Limited",3GVR,01/19/2017
+"Exar Corporation",EXAR,02/28/2017
+"Coreboot Project",BOOT,02/28/2017
+"Marvell Technology Group Ltd.",MRVL,05/25/2017
+"IHSE GmbH",IHSE,06/22/2017
+"Insyde Software",INSY,11/10/2017
+"Nexstgo Company Limited",NXGO,11/13/2017
+"Ampere Computing",AMPC,03/29/2018
+IDEMIA,IDEM,06/26/2018
+"Vishay Intertechnology, Inc.",VSHY,07/09/2018
+"DMIST RESEARCH LTD",DMST,07/09/2018
+"COMHEAR, INC.",CMHR,08/02/2018
+"Sensel, Inc.",SNSL,08/20/2018
+"G2touch Co., LTD",GTCH,12/04/2018
+"Guizhou Huaxintong Semiconductor Technology Co., Ltd",HXTS,01/18/2019
+"Amazon Corporation",AMZN,02/06/2019
+"ASEM S.p.A.",ASEM,04/29/2019
+"Fujitsu Limited",FUJI,06/18/2019
+"Phytium Technology Co. Ltd.",PHYT,02/14/2020
+"CHENGDU HAIGUANG IC DESIGN CO., LTD",HYGO,07/15/2020
+"PixArt imaging inc.",PIXA,07/15/2020
+"Loongson Technology Corporation Limited",LOON,09/10/2020
+"Seiko Epson Corporation",SECC,02/16/2021
+"Alibaba Co., Ltd.",BABA,02/02/2021
+"Juniper Systems, Inc.",JSYS,03/18/2021
+"Framework Computer LLC",FRMW,03/22/2021
+"Pensando Systems, Inc.",PNSO,03/24/2021
+"Dynabook Inc.",DNBK,06/01/2021
+"Dioo Microcircuits Co., Ltd. Jiangsu",DIOO,06/04/2021
+"Purism SPC",PURI,06/10/2021
+"Lontium Semiconductor Corporation",LTSC,07/21/2021
+"Wacom Technology",WACF,09/21/2021
+"Shanghai Aiwei Electronic Technology Co., Ltd.",AWDZ,12/31/2021
+"Silicom Ltd. Connectivity Solutions",SILC,03/28/2022
+"NOLO Co., Ltd.",NOLO,03/28/2022
+"GoUp Co.,Ltd",GOUP,06/24/2022
+"Shenzhen Jaguar Microsystems Co.,Ltd.",JMIC,09/23/2022
+"Elliptic Laboratories AS",ELAS,10/20/2022
+"Micro Crystal AG",MCRY,11/10/2022
+"Cix Technology (Shanghai) Co., Ltd.",CIXH,11/16/2022
+"EyeTech Digital Systems",ETDS,11/29/2022
+"Raspberry Pi",RPIL,02/22/2023
+"Shenzhen Istaric Technology Co., Ltd.",ISIC,04/24/2023
+"Cirque Corporation",CIRQ,05/09/2023
+"Rivos Inc.",RVOS,06/07/2023
+"Beijer Electronics AB",BECS,06/07/2023
+"ILI Technology Corp",ILIT,06/20/2023
+"Hangzhou hj-micro Technology Co., Ltd",HJMC,07/31/2023

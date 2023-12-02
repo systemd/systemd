@@ -24,7 +24,7 @@
 #include "string-util.h"
 #include "strv.h"
 
-static bool arg_cat_config = false;
+static CatFlags arg_cat_flags = CAT_CONFIG_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_unregister = false;
 
@@ -85,25 +85,29 @@ static int apply_file(const char *filename, bool ignore_enoent) {
         log_debug("Applying %s%s", pp, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
         for (unsigned line = 1;; line++) {
                 _cleanup_free_ char *text = NULL;
-                char *p;
                 int k;
 
-                k = read_line(f, LONG_LINE_MAX, &text);
+                k = read_stripped_line(f, LONG_LINE_MAX, &text);
                 if (k < 0)
                         return log_error_errno(k, "Failed to read file '%s': %m", pp);
                 if (k == 0)
                         break;
 
-                p = strstrip(text);
-                if (isempty(p))
+                if (isempty(text))
                         continue;
-                if (strchr(COMMENTS, p[0]))
+                if (strchr(COMMENTS, text[0]))
                         continue;
 
-                RET_GATHER(r, apply_rule(filename, line, p));
+                RET_GATHER(r, apply_rule(filename, line, text));
         }
 
         return r;
+}
+
+static int cat_config(char **files) {
+        pager_open(arg_pager_flags);
+
+        return cat_files(NULL, files, arg_cat_flags);
 }
 
 static int help(void) {
@@ -119,6 +123,7 @@ static int help(void) {
                "  -h --help             Show this help\n"
                "     --version          Show package version\n"
                "     --cat-config       Show configuration files\n"
+               "     --tldr             Show non-comment parts of configuration\n"
                "     --no-pager         Do not pipe output into a pager\n"
                "     --unregister       Unregister all existing entries\n"
                "\nSee the %s for details.\n",
@@ -132,6 +137,7 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
                 ARG_CAT_CONFIG,
+                ARG_TLDR,
                 ARG_NO_PAGER,
                 ARG_UNREGISTER,
         };
@@ -140,6 +146,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "help",       no_argument, NULL, 'h'            },
                 { "version",    no_argument, NULL, ARG_VERSION    },
                 { "cat-config", no_argument, NULL, ARG_CAT_CONFIG },
+                { "tldr",       no_argument, NULL, ARG_TLDR       },
                 { "no-pager",   no_argument, NULL, ARG_NO_PAGER   },
                 { "unregister", no_argument, NULL, ARG_UNREGISTER },
                 {}
@@ -161,7 +168,11 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case ARG_CAT_CONFIG:
-                        arg_cat_config = true;
+                        arg_cat_flags = CAT_CONFIG_ON;
+                        break;
+
+                case ARG_TLDR:
+                        arg_cat_flags = CAT_TLDR;
                         break;
 
                 case ARG_NO_PAGER:
@@ -179,9 +190,9 @@ static int parse_argv(int argc, char *argv[]) {
                         assert_not_reached();
                 }
 
-        if ((arg_unregister || arg_cat_config) && argc > optind)
+        if ((arg_unregister || arg_cat_flags != CAT_CONFIG_OFF) && argc > optind)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Positional arguments are not allowed with --cat-config or --unregister");
+                                       "Positional arguments are not allowed with --cat-config/--tldr or --unregister.");
 
         return 1;
 }
@@ -229,11 +240,8 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to enumerate binfmt.d files: %m");
 
-                if (arg_cat_config) {
-                        pager_open(arg_pager_flags);
-
-                        return cat_files(NULL, files, 0);
-                }
+                if (arg_cat_flags != CAT_CONFIG_OFF)
+                        return cat_config(files);
 
                 r = binfmt_mounted_warn();
                 if (r <= 0)

@@ -23,7 +23,7 @@
 #include "tmpfile-util.h"
 
 int import_fork_tar_x(const char *path, pid_t *ret) {
-        _cleanup_close_pair_ int pipefd[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
         bool use_selinux;
         pid_t pid;
         int r;
@@ -39,7 +39,7 @@ int import_fork_tar_x(const char *path, pid_t *ret) {
         r = safe_fork_full("(tar)",
                            (int[]) { pipefd[0], -EBADF, STDERR_FILENO },
                            NULL, 0,
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_REARRANGE_STDIO|FORK_LOG, &pid);
+                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -92,7 +92,7 @@ int import_fork_tar_x(const char *path, pid_t *ret) {
 }
 
 int import_fork_tar_c(const char *path, pid_t *ret) {
-        _cleanup_close_pair_ int pipefd[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
         bool use_selinux;
         pid_t pid;
         int r;
@@ -108,7 +108,7 @@ int import_fork_tar_c(const char *path, pid_t *ret) {
         r = safe_fork_full("(tar)",
                            (int[]) { -EBADF, pipefd[1], STDERR_FILENO },
                            NULL, 0,
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_REARRANGE_STDIO|FORK_LOG, &pid);
+                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {

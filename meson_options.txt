@@ -130,6 +130,8 @@ option('homed', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : '
        description : 'install the systemd-homed stack')
 option('networkd', type : 'boolean',
        description : 'install the systemd-networkd stack')
+option('default-network', type : 'boolean', value : false,
+       description : 'install default .network files')
 option('timedated', type : 'boolean',
        description : 'install the systemd-timedated daemon')
 option('timesyncd', type : 'boolean',
@@ -154,10 +156,14 @@ option('backlight', type : 'boolean',
        description : 'support for restoring backlight state')
 option('vconsole', type : 'boolean',
        description : 'support for vconsole configuration')
+option('vmspawn', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
+       description : 'install the systemd-vmspawn tool')
 option('quotacheck', type : 'boolean',
        description : 'support for the quotacheck tools')
 option('sysusers', type : 'boolean',
        description : 'support for the sysusers configuration')
+option('storagetm', type : 'boolean',
+       description : 'support for Storage Target Mode')
 option('tmpfiles', type : 'boolean',
        description : 'support for tmpfiles.d')
 option('importd', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
@@ -210,7 +216,9 @@ option('libcryptsetup-plugins-dir', type : 'string',
 option('docdir', type : 'string',
        description : 'documentation directory')
 option('install-sysconfdir', type : 'combo', choices : ['true', 'no-samples', 'false'], value : 'true',
-       description : 'install configuration files and directories to $sysconfdir')
+       description : 'install configuration files and directories')
+option('configfiledir', type : 'string', value : '',
+       description : 'directory for configuration files')
 
 option('fallback-hostname', type : 'string', value : 'localhost',
        description : 'the hostname used if none configured')

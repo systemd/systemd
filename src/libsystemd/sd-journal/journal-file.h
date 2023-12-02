@@ -189,6 +189,9 @@ static inline bool VALID_EPOCH(uint64_t u) {
 #define JOURNAL_HEADER_SEALED(h) \
         FLAGS_SET(le32toh((h)->compatible_flags), HEADER_COMPATIBLE_SEALED)
 
+#define JOURNAL_HEADER_SEALED_CONTINUOUS(h) \
+        FLAGS_SET(le32toh((h)->compatible_flags), HEADER_COMPATIBLE_SEALED_CONTINUOUS)
+
 #define JOURNAL_HEADER_TAIL_ENTRY_BOOT_ID(h) \
         FLAGS_SET(le32toh((h)->compatible_flags), HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID)
 
@@ -208,6 +211,7 @@ static inline bool VALID_EPOCH(uint64_t u) {
         FLAGS_SET(le32toh((h)->incompatible_flags), HEADER_INCOMPATIBLE_COMPACT)
 
 int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset, Object **ret);
+int journal_file_pin_object(JournalFile *f, Object *o);
 int journal_file_read_object_header(JournalFile *f, ObjectType type, uint64_t offset, Object *ret);
 
 int journal_file_tail_end_by_pread(JournalFile *f, uint64_t *ret_offset);

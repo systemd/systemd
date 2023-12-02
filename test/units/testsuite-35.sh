@@ -364,7 +364,7 @@ testcase_sanity_check() {
     session=$(loginctl --no-legend | awk '$3 == "logind-test-user" { print $1; exit; }')
     loginctl kill-session --signal=SIGCONT "$session"
     # FIXME(?)
-    #loginctl kill-session --signal=SIGCONT --kill-who=leader "$session"
+    #loginctl kill-session --signal=SIGCONT --kill-whom=leader "$session"
 
     loginctl list-users
     loginctl user-status
@@ -544,7 +544,7 @@ testcase_list_users_sessions_seats() {
     assert_eq "$(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $5 }')" tty2
     assert_eq "$(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $6 }')" active
     assert_eq "$(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $7 }')" no
-    assert_eq "$(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $8 }')" ''
+    assert_eq "$(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $8 }')" '-'
 
     loginctl list-seats --no-legend | grep -Fwq "${seat?}"
 

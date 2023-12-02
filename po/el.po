@@ -6,7 +6,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-07-14 10:32+0100\n"
+"POT-Creation-Date: 2023-11-14 21:25+0000\n"
 "PO-Revision-Date: 2014-04-29 09:17+0300\n"
 "Last-Translator: Dimitris Spingos (Δημήτρης Σπίγγος) <dmtrs32@gmail.com>\n"
 "Language-Team: team@lists.gnome.gr\n"
@@ -992,47 +992,47 @@ msgstr "Ενεργοποίηση/Απενεργοποίηση συγχρονισ
 msgid "Authentication is required to control whether network time synchronization shall be enabled."
 msgstr "Απαιτείται πιστοποίηση για να ελέγξετε αν ο συγχρονισμός ώρας δικτύου θα ενεργοποιηθεί."
 
-#: src/core/dbus-unit.c:364
+#: src/core/dbus-unit.c:352
 #, fuzzy
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
 
-#: src/core/dbus-unit.c:365
+#: src/core/dbus-unit.c:353
 #, fuzzy
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
 
-#: src/core/dbus-unit.c:366
+#: src/core/dbus-unit.c:354
 #, fuzzy
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
 
-#: src/core/dbus-unit.c:367 src/core/dbus-unit.c:368
+#: src/core/dbus-unit.c:355 src/core/dbus-unit.c:356
 #, fuzzy
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
 
-#: src/core/dbus-unit.c:565
+#: src/core/dbus-unit.c:553
 #, fuzzy
 msgid "Authentication is required to send a UNIX signal to the processes of '$(unit)'."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
 
-#: src/core/dbus-unit.c:595
+#: src/core/dbus-unit.c:583
 #, fuzzy
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε τοπικά όνομα οικοδεσπότη."
 
-#: src/core/dbus-unit.c:627
+#: src/core/dbus-unit.c:615
 #, fuzzy
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε την ώρα του συστήματος."
 
-#: src/core/dbus-unit.c:728
+#: src/core/dbus-unit.c:716
 #, fuzzy
 msgid "Authentication is required to delete files and directories associated with '$(unit)'."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε τοπικά όνομα οικοδεσπότη."
 
-#: src/core/dbus-unit.c:776
+#: src/core/dbus-unit.c:764
 #, fuzzy
 msgid "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "Απαιτείται πιστοποίηση για να ορίσετε τοπικά όνομα οικοδεσπότη."

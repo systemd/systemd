@@ -3,6 +3,9 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/util.sh
+ . "$(dirname "$0")"/util.sh
+
 add_logs_filtering_override() {
     local unit="${1:?}"
     local override_name="${2:?}"
@@ -27,20 +30,7 @@ run_service_and_fetch_logs() {
     systemctl stop "$unit"
 }
 
-is_xattr_supported() {
-    local start end
-
-    start="$(date '+%Y-%m-%d %T.%6N')"
-    systemd-run --unit text_xattr --property LogFilterPatterns=log sh -c "sleep .5"
-    sleep .5
-    journalctl --sync
-    end="$(date '+%Y-%m-%d %T.%6N')"
-    systemctl stop text_xattr
-
-    ! journalctl -q -u "text_xattr" -S "$start" -U "$end" --grep "Failed to set 'user.journald_log_filter_patterns' xattr.*not supported$"
-}
-
-if is_xattr_supported; then
+if cgroupfs_supports_user_xattrs; then
     # Accept all log messages
     add_logs_filtering_override "logs-filtering.service" "00-reset" ""
     [[ -n $(run_service_and_fetch_logs "logs-filtering.service") ]]
@@ -76,6 +66,10 @@ if is_xattr_supported; then
 
     # Allow a pattern starting with a tilde
     add_logs_filtering_override "logs-filtering.service" "10-allow-with-escape-char" "\\\\x7emore~"
+    [[ -n $(run_service_and_fetch_logs "logs-filtering.service") ]]
+
+    add_logs_filtering_override "logs-filtering.service" "11-reset" ""
+    add_logs_filtering_override "logs-filtering.service" "12-allow-with-spaces" "foo bar"
     [[ -n $(run_service_and_fetch_logs "logs-filtering.service") ]]
 
     add_logs_filtering_override "delegated-cgroup-filtering.service" "00-allow-all" ".*"

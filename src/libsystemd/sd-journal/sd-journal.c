@@ -57,7 +57,7 @@ DEFINE_PRIVATE_ORIGIN_ID_HELPERS(sd_journal, journal);
 
 static void remove_file_real(sd_journal *j, JournalFile *f);
 static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f);
-static void journal_file_unlink_newest_by_bood_id(sd_journal *j, JournalFile *f);
+static void journal_file_unlink_newest_by_boot_id(sd_journal *j, JournalFile *f);
 
 static int journal_put_error(sd_journal *j, int r, const char *path) {
         _cleanup_free_ char *copy = NULL;
@@ -235,7 +235,8 @@ _public_ int sd_journal_add_match(sd_journal *j, const void *data, size_t size) 
         if (size == 0)
                 size = strlen(data);
 
-        assert_return(match_is_valid(data, size), -EINVAL);
+        if (!match_is_valid(data, size))
+                return -EINVAL;
 
         /* level 0: AND term
          * level 1: OR terms
@@ -1569,7 +1570,7 @@ static void remove_file_real(sd_journal *j, JournalFile *f) {
                         j->fields_file_lost = true;
         }
 
-        journal_file_unlink_newest_by_bood_id(j, f);
+        journal_file_unlink_newest_by_boot_id(j, f);
         (void) journal_file_close(f);
 
         j->current_invalidate_counter++;
@@ -2276,7 +2277,7 @@ _public_ void sd_journal_close(sd_journal *j) {
                 return;
 
         while ((p = hashmap_first(j->newest_by_boot_id)))
-                journal_file_unlink_newest_by_bood_id(j, prioq_peek(p));
+                journal_file_unlink_newest_by_boot_id(j, prioq_peek(p));
         hashmap_free(j->newest_by_boot_id);
 
         sd_journal_flush_matches(j);
@@ -2313,7 +2314,7 @@ _public_ void sd_journal_close(sd_journal *j) {
         free(j);
 }
 
-static void journal_file_unlink_newest_by_bood_id(sd_journal *j, JournalFile *f) {
+static void journal_file_unlink_newest_by_boot_id(sd_journal *j, JournalFile *f) {
         JournalFile *nf;
         Prioq *p;
 
@@ -2464,7 +2465,7 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
                 return -ENODATA;
 
         if (!sd_id128_equal(f->newest_boot_id, id))
-                journal_file_unlink_newest_by_bood_id(j, f);
+                journal_file_unlink_newest_by_boot_id(j, f);
 
         f->newest_boot_id = id;
         f->newest_monotonic_usec = mo;
@@ -2640,10 +2641,10 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
                 p = journal_file_entry_item_object_offset(f, o, i);
                 r = journal_file_data_payload(f, NULL, p, field, field_length, j->data_threshold, &d, &l);
                 if (r == 0)
-                        goto next;
+                        continue;
                 if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
                         log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", i);
-                        goto next;
+                        continue;
                 }
                 if (r < 0)
                         return r;
@@ -2652,12 +2653,6 @@ _public_ int sd_journal_get_data(sd_journal *j, const char *field, const void **
                 *size = l;
 
                 return 0;
-
-        next:
-                /* journal_file_data_payload() may clear or overwrite cached object. */
-                r = journal_file_move_to_object(f, OBJECT_ENTRY, f->current_offset, &o);
-                if (r < 0)
-                        return r;
         }
 
         return -ENOENT;
@@ -2693,7 +2688,7 @@ _public_ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t 
                 r = journal_file_data_payload(f, NULL, p, NULL, 0, j->data_threshold, &d, &l);
                 if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
                         log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", j->current_field);
-                        goto next;
+                        continue;
                 }
                 if (r < 0)
                         return r;
@@ -2705,12 +2700,6 @@ _public_ int sd_journal_enumerate_data(sd_journal *j, const void **data, size_t 
                 j->current_field++;
 
                 return 1;
-
-        next:
-                /* journal_file_data_payload() may clear or overwrite cached object. */
-                r = journal_file_move_to_object(f, OBJECT_ENTRY, f->current_offset, &o);
-                if (r < 0)
-                        return r;
         }
 
         return 0;
@@ -3132,8 +3121,9 @@ _public_ int sd_journal_query_unique(sd_journal *j, const char *field) {
 
         assert_return(j, -EINVAL);
         assert_return(!journal_origin_changed(j), -ECHILD);
-        assert_return(!isempty(field), -EINVAL);
-        assert_return(field_is_valid(field), -EINVAL);
+
+        if (!field_is_valid(field))
+                return -EINVAL;
 
         r = free_and_strdup(&j->unique_field, field);
         if (r < 0)
@@ -3202,20 +3192,14 @@ _public_ int sd_journal_enumerate_unique(
                         continue;
                 }
 
-                /* We do not use OBJECT_DATA context here, but OBJECT_UNUSED
-                 * instead, so that we can look at this data object at the same
-                 * time as one on another file */
-                r = journal_file_move_to_object(j->unique_file, OBJECT_UNUSED, j->unique_offset, &o);
+                r = journal_file_move_to_object(j->unique_file, OBJECT_DATA, j->unique_offset, &o);
                 if (r < 0)
                         return r;
 
-                /* Let's do the type check by hand, since we used 0 context above. */
-                if (o->object.type != OBJECT_DATA)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                               "%s:offset " OFSfmt ": object has type %d, expected %d",
-                                               j->unique_file->path,
-                                               j->unique_offset,
-                                               o->object.type, OBJECT_DATA);
+                /* Let's pin the data object, so we can look at it at the same time as one on another file. */
+                r = journal_file_pin_object(j->unique_file, o);
+                if (r < 0)
+                        return r;
 
                 r = journal_file_data_payload(j->unique_file, o, j->unique_offset, NULL, 0,
                                               j->data_threshold, &odata, &ol);

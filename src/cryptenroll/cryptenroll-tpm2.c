@@ -64,9 +64,9 @@ static int search_policy_hash(
 }
 
 static int get_pin(char **ret_pin_str, TPM2Flags *ret_flags) {
-        _cleanup_free_ char *pin_str = NULL;
-        int r;
+        _cleanup_(erase_and_freep) char *pin_str = NULL;
         TPM2Flags flags = 0;
+        int r;
 
         assert(ret_pin_str);
         assert(ret_flags);
@@ -133,12 +133,15 @@ int enroll_tpm2(struct crypt_device *cd,
                 const void *volume_key,
                 size_t volume_key_size,
                 const char *device,
+                uint32_t seal_key_handle,
+                const char *device_key,
                 Tpm2PCRValue *hash_pcr_values,
                 size_t n_hash_pcr_values,
                 const char *pubkey_path,
                 uint32_t pubkey_pcr_mask,
                 const char *signature_path,
-                bool use_pin) {
+                bool use_pin,
+                const char *pcrlock_path) {
 
         _cleanup_(erase_and_freep) void *secret = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *signature_json = NULL;
@@ -190,32 +193,62 @@ int enroll_tpm2(struct crypt_device *cd,
                         return log_error_errno(base64_encoded_size, "Failed to base64 encode salted pin: %m");
         }
 
+        TPM2B_PUBLIC public = {};
         r = tpm2_load_pcr_public_key(pubkey_path, &pubkey, &pubkey_size);
         if (r < 0) {
                 if (pubkey_path || signature_path || r != -ENOENT)
-                        return log_error_errno(r, "Failed read TPM PCR public key: %m");
+                        return log_error_errno(r, "Failed to read TPM PCR public key: %m");
 
                 log_debug_errno(r, "Failed to read TPM2 PCR public key, proceeding without: %m");
                 pubkey_pcr_mask = 0;
-        } else if (signature_path) {
-                /* Also try to load the signature JSON object, to verify that our enrollment will work.
-                 * This is optional however, skip it if it's not explicitly provided. */
-
-                r = tpm2_load_pcr_signature(signature_path, &signature_json);
+        } else {
+                r = tpm2_tpm2b_public_from_pem(pubkey, pubkey_size, &public);
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to read TPM PCR signature: %m");
+                        return log_error_errno(r, "Could not convert public key to TPM2B_PUBLIC: %m");
+
+                if (signature_path) {
+                        /* Also try to load the signature JSON object, to verify that our enrollment will work.
+                         * This is optional however, skip it if it's not explicitly provided. */
+
+                        r = tpm2_load_pcr_signature(signature_path, &signature_json);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to read TPM PCR signature: %m");
+                }
+        }
+
+        bool any_pcr_value_specified = tpm2_pcr_values_has_any_values(hash_pcr_values, n_hash_pcr_values);
+
+        _cleanup_(tpm2_pcrlock_policy_done) Tpm2PCRLockPolicy pcrlock_policy = {};
+        if (pcrlock_path) {
+                r = tpm2_pcrlock_policy_load(pcrlock_path, &pcrlock_policy);
+                if (r < 0)
+                        return r;
+
+                any_pcr_value_specified = true;
+                flags |= TPM2_FLAGS_USE_PCRLOCK;
         }
 
         _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;
-        r = tpm2_context_new(device, &tpm2_context);
-        if (r < 0)
-                return r;
+        TPM2B_PUBLIC device_key_public = {};
+        if (device_key) {
+                r = tpm2_load_public_key_file(device_key, &device_key_public);
+                if (r < 0)
+                        return r;
 
-        bool pcr_value_specified = tpm2_pcr_values_has_any_values(hash_pcr_values, n_hash_pcr_values);
+                if (!tpm2_pcr_values_has_all_values(hash_pcr_values, n_hash_pcr_values))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "Must provide all PCR values when using TPM2 device key.");
+        } else {
+                r = tpm2_context_new(device, &tpm2_context);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create TPM2 context: %m");
 
-        r = tpm2_pcr_read_missing_values(tpm2_context, hash_pcr_values, n_hash_pcr_values);
-        if (r < 0)
-                return r;
+                if (!tpm2_pcr_values_has_all_values(hash_pcr_values, n_hash_pcr_values)) {
+                        r = tpm2_pcr_read_missing_values(tpm2_context, hash_pcr_values, n_hash_pcr_values);
+                        if (r < 0)
+                                return log_error_errno(r, "Could not read pcr values: %m");
+                }
+        }
 
         uint16_t hash_pcr_bank = 0;
         uint32_t hash_pcr_mask = 0;
@@ -234,33 +267,39 @@ int enroll_tpm2(struct crypt_device *cd,
                         return log_error_errno(r, "Could not get hash mask: %m");
         }
 
-        TPM2B_PUBLIC public;
-        if (pubkey) {
-                r = tpm2_tpm2b_public_from_pem(pubkey, pubkey_size, &public);
-                if (r < 0)
-                        return log_error_errno(r, "Could not convert public key to TPM2B_PUBLIC: %m");
-        }
-
         TPM2B_DIGEST policy = TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE);
         r = tpm2_calculate_sealing_policy(
                         hash_pcr_values,
                         n_hash_pcr_values,
                         pubkey ? &public : NULL,
                         use_pin,
+                        pcrlock_path ? &pcrlock_policy : NULL,
                         &policy);
         if (r < 0)
                 return r;
 
-        r = tpm2_seal(tpm2_context,
-                      &policy,
-                      pin_str,
-                      &secret, &secret_size,
-                      &blob, &blob_size,
-                      /* ret_primary_alg= */ NULL,
-                      &srk_buf,
-                      &srk_buf_size);
+        if (device_key)
+                r = tpm2_calculate_seal(
+                                seal_key_handle,
+                                &device_key_public,
+                                /* attributes= */ NULL,
+                                /* secret= */ NULL, /* secret_size= */ 0,
+                                &policy,
+                                pin_str,
+                                &secret, &secret_size,
+                                &blob, &blob_size,
+                                &srk_buf, &srk_buf_size);
+        else
+                r = tpm2_seal(tpm2_context,
+                              seal_key_handle,
+                              &policy,
+                              pin_str,
+                              &secret, &secret_size,
+                              &blob, &blob_size,
+                              /* ret_primary_alg= */ NULL,
+                              &srk_buf, &srk_buf_size);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to seal to TPM2: %m");
 
         /* Let's see if we already have this specific PCR policy hash enrolled, if so, exit early. */
         r = search_policy_hash(cd, policy.buffer, policy.size);
@@ -273,26 +312,27 @@ int enroll_tpm2(struct crypt_device *cd,
                 return r; /* return existing keyslot, so that wiping won't kill it */
         }
 
-        /* Quick verification that everything is in order, we are not in a hurry after all. */
-        if ((!pubkey || signature_json) && !pcr_value_specified) {
+        /* If possible, verify the sealed data object. */
+        if ((!pubkey || signature_json) && !any_pcr_value_specified && !device_key) {
                 _cleanup_(erase_and_freep) void *secret2 = NULL;
                 size_t secret2_size;
 
                 log_debug("Unsealing for verification...");
-                r = tpm2_unseal(device,
+                r = tpm2_unseal(tpm2_context,
                                 hash_pcr_mask,
                                 hash_pcr_bank,
                                 pubkey, pubkey_size,
                                 pubkey_pcr_mask,
                                 signature_json,
                                 pin_str,
+                                pcrlock_path ? &pcrlock_policy : NULL,
                                 /* primary_alg= */ 0,
                                 blob, blob_size,
                                 policy.buffer, policy.size,
                                 srk_buf, srk_buf_size,
                                 &secret2, &secret2_size);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Failed to unseal secret using TPM2: %m");
 
                 if (memcmp_nn(secret, secret_size, secret2, secret2_size) != 0)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM2 seal/unseal verification failed.");

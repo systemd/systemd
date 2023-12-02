@@ -1229,20 +1229,12 @@ int config_parse_nexthop_onlink(
         if (r < 0)
                 return log_oom();
 
-        if (isempty(rvalue)) {
-                n->onlink = -1;
-                TAKE_PTR(n);
-                return 0;
-        }
-
-        r = parse_boolean(rvalue);
+        r = parse_tristate(rvalue, &n->onlink);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
-
-        n->onlink = r;
 
         TAKE_PTR(n);
         return 0;

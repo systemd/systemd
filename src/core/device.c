@@ -516,9 +516,7 @@ static int device_update_description(Unit *u, sd_device *dev, const char *path) 
 
         desc = path;
 
-        if (dev &&
-            (sd_device_get_property_value(dev, "ID_MODEL_FROM_DATABASE", &model) >= 0 ||
-             sd_device_get_property_value(dev, "ID_MODEL", &model) >= 0)) {
+        if (dev && device_get_model_string(dev, &model) >= 0) {
                 desc = model;
 
                 /* Try to concatenate the device model string with a label, if there is one */
@@ -1027,11 +1025,6 @@ static void device_enumerate(Manager *m) {
                         log_error_errno(r, "Failed to allocate device monitor: %m");
                         goto fail;
                 }
-
-                /* This will fail if we are unprivileged, but that
-                 * should not matter much, as user instances won't run
-                 * during boot. */
-                (void) sd_device_monitor_set_receive_buffer_size(m->device_monitor, 128*1024*1024);
 
                 r = sd_device_monitor_filter_add_match_tag(m->device_monitor, "systemd");
                 if (r < 0) {

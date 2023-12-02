@@ -810,6 +810,7 @@ int session_send_create_reply(Session *s, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *c = NULL;
         _cleanup_close_ int fifo_fd = -EBADF;
         _cleanup_free_ char *p = NULL;
+        int r;
 
         assert(s);
 
@@ -829,6 +830,10 @@ int session_send_create_reply(Session *s, sd_bus_error *error) {
         fifo_fd = session_create_fifo(s);
         if (fifo_fd < 0)
                 return fifo_fd;
+
+        r = session_watch_pidfd(s);
+        if (r < 0)
+                return r;
 
         /* Update the session state file before we notify the client about the result. */
         session_save(s);
@@ -869,8 +874,8 @@ static const sd_bus_vtable session_vtable[] = {
         BUS_PROPERTY_DUAL_TIMESTAMP("Timestamp", offsetof(Session, timestamp), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("VTNr", "u", NULL, offsetof(Session, vtnr), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Seat", "(so)", property_get_seat, 0, SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("TTY", "s", NULL, offsetof(Session, tty), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("Display", "s", NULL, offsetof(Session, display), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("TTY", "s", NULL, offsetof(Session, tty), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
+        SD_BUS_PROPERTY("Display", "s", NULL, offsetof(Session, display), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("Remote", "b", bus_property_get_bool, offsetof(Session, remote), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RemoteHost", "s", NULL, offsetof(Session, remote_host), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RemoteUser", "s", NULL, offsetof(Session, remote_user), SD_BUS_VTABLE_PROPERTY_CONST),

@@ -9,7 +9,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
-#include "io-util.h"
+#include "iovec-util.h"
 #include "journal-importer.h"
 #include "journal-internal.h"
 #include "journal-util.h"
@@ -405,6 +405,7 @@ void server_process_native_file(
                 /* The file is sealed, we can just map it and use it. */
 
                 ps = PAGE_ALIGN(st.st_size);
+                assert(ps < SIZE_MAX);
                 p = mmap(NULL, ps, PROT_READ, MAP_PRIVATE, fd, 0);
                 if (p == MAP_FAILED) {
                         log_ratelimit_error_errno(errno, JOURNAL_LOG_RATELIMIT,

@@ -6,14 +6,28 @@
 #include "env-file.h"
 #include "selinux-util.h"
 
-int write_env_file_label(const char *fname, char **l) {
+int write_env_file_label(int dir_fd, const char *fname, char **headers, char **l) {
         int r;
 
         r = mac_selinux_create_file_prepare(fname, S_IFREG);
         if (r < 0)
                 return r;
 
-        r = write_env_file(fname, l);
+        r = write_env_file(dir_fd, fname, headers, l);
+
+        mac_selinux_create_file_clear();
+
+        return r;
+}
+
+int write_vconsole_conf_label(char **l) {
+        int r;
+
+        r = mac_selinux_create_file_prepare("/etc/vconsole.conf", S_IFREG);
+        if (r < 0)
+                return r;
+
+        r = write_vconsole_conf(AT_FDCWD, "/etc/vconsole.conf", l);
 
         mac_selinux_create_file_clear();
 

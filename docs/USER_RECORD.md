@@ -704,28 +704,40 @@ for other purposes too.
 
 The `perMachine` field in the top-level object is an array of objects. When
 processing the user record first the various fields on the top-level object
-should be used. Then this array should be iterated in order, and the various
-settings be applied that match either the indicated machine ID or host
-name. There may be multiple array entries that match a specific system, in
-which case all the object's setting should be applied. If the same option is
-set in the top-level object as in a per-machine object the latter wins and
-entirely undoes the setting in the top-level object (i.e. no merging of
-properties that are arrays themselves is done). If the same option is set in
-multiple per-machine objects the one specified later in the array wins (and
-here too no merging of individual fields is done, the later field always wins
-in full).
+should be parsed. Then, the `perMachine` array should be iterated in order, and
+the various settings within each contained object should be applied that match
+either the indicated machine ID or host name, overriding any corresponding
+settings previously parsed from the top-level object. There may be multiple
+array entries that match a specific system, in which case all settings should
+be applied. If the same option is set in the top-level object as in a
+per-machine object then the per-machine setting wins and entirely undoes the
+setting in the top-level object (i.e. no merging of properties that are arrays
+is done). If the same option is set in multiple per-machine objects the one
+specified later in the array wins (and here too no merging of individual fields
+is done, the later field always wins in full). To summarize, the order of
+application is (last one wins):
+
+1. Settings in the top-level object
+2. Settings in the first matching `perMachine` array entry
+3. Settings in the second matching `perMachine` array entry
+4. …
+5. Settings in the last matching `perMachine` array entry
 
 The following fields are defined in this section:
 
 `matchMachineId` → An array of strings that are formatted 128-bit IDs in
 hex. If any of the specified IDs match the system's local machine ID
-(i.e. matches `/etc/machine-id`) the fields in this object are honored.
+(i.e. matches `/etc/machine-id`) the fields in this object are honored. (As a
+special case, if only a single machine ID is listed this field may be a single
+string rather than an array of strings.)
 
-`matchHostname` → An array of strings that are valid hostnames. If any of
-the specified hostnames match the system's local hostname, the fields in this
+`matchHostname` → An array of strings that are valid hostnames. If any of the
+specified hostnames match the system's local hostname, the fields in this
 object are honored. If both `matchHostname` and `matchMachineId` are used
 within the same array entry, the object is honored when either match succeeds,
-i.e. the two match types are combined in OR, not in AND.
+i.e. the two match types are combined in OR, not in AND. (As a special case, if
+only a single machine ID is listed this field may be a single string rather
+than an array of strings.)
 
 These two are the only two fields specific to this section. All other fields
 that may be used in this section are identical to the equally named ones in the

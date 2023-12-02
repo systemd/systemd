@@ -74,7 +74,7 @@ executables += [
                         libcrypt,
                         libfdisk,
                         libopenssl,
-                        libp11kit,
+                        libp11kit_cflags,
                         threads,
                 ],
         },
@@ -101,7 +101,7 @@ executables += [
                         libcrypt,
                         libdl,
                         libopenssl,
-                        libp11kit,
+                        libp11kit_cflags,
                         threads,
                 ],
         },
@@ -135,6 +135,6 @@ if conf.get('ENABLE_HOMED') == 1
 
         if install_sysconfdir_samples
                 install_data('homed.conf',
-                             install_dir : pkgsysconfdir)
+                             install_dir : pkgconfigfiledir)
         endif
 endif

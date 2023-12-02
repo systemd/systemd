@@ -223,6 +223,18 @@ COREDUMP_FILENAME=/var/lib/systemd/coredump/core.Web….552351.….zst
 
       <varlistentry>
         <term><varname>COREDUMP_CGROUP=</varname></term>
+
+        <listitem><para>The primary cgroup of the unit of the crashed process.</para>
+
+        <para>When the crashed process was in a container, this is the full path, as seen outside of the
+        container.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>COREDUMP_PROC_CGROUP=</varname></term>
         <listitem><para>Control group information in the format used in
         <filename>/proc/self/cgroup</filename>. On systems with the unified cgroup hierarchy, this is a
         single path prefixed with <literal>0::</literal>, and multiple paths prefixed with controller numbers
@@ -238,9 +250,10 @@ COREDUMP_FILENAME=/var/lib/systemd/coredump/core.Web….552351.….zst
       <varlistentry>
         <term><varname>COREDUMP_OWNER_UID=</varname></term>
         <term><varname>COREDUMP_USER_UNIT=</varname></term>
+        <term><varname>COREDUMP_SESSION=</varname></term>
         <listitem><para>The numerical UID of the user owning the login session or systemd user unit of the
-        crashed process, and the user manager unit. Both fields are only present for user processes.
-        </para>
+        crashed process, the user manager unit, and the session identifier. All three fields are only present
+        for user processes.</para>
 
         <para>When the crashed process was in container, those are the values <emphasis>outside</emphasis>,
         in the main system.</para>
@@ -315,23 +328,29 @@ flags:   ...
       </varlistentry>
 
       <varlistentry>
+        <term><varname>COREDUMP_CMDLINE=</varname></term>
         <term><varname>COREDUMP_COMM=</varname></term>
-        <term><varname>COREDUMP_PROC_STATUS=</varname></term>
-        <term><varname>COREDUMP_PROC_MAPS=</varname></term>
-        <term><varname>COREDUMP_PROC_LIMITS=</varname></term>
-        <term><varname>COREDUMP_PROC_MOUNTINFO=</varname></term>
         <term><varname>COREDUMP_ENVIRON=</varname></term>
+        <term><varname>COREDUMP_PROC_AUXV=</varname></term>
+        <term><varname>COREDUMP_PROC_LIMITS=</varname></term>
+        <term><varname>COREDUMP_PROC_MAPS=</varname></term>
+        <term><varname>COREDUMP_PROC_MOUNTINFO=</varname></term>
+        <term><varname>COREDUMP_PROC_STATUS=</varname></term>
 
         <listitem><para>Fields that map the per-process entries in the <filename>/proc/</filename>
-        filesystem: <filename>/proc/<replaceable>pid</replaceable>/comm</filename> (the command name
-        associated with the process), <filename>/proc/<replaceable>pid</replaceable>/exe</filename> (the
-        filename of the executed command), <filename>/proc/<replaceable>pid</replaceable>/status</filename>
-        (various metadata about the process), <filename>/proc/<replaceable>pid</replaceable>/maps</filename>
-        (memory regions visible to the process and their access permissions),
+        filesystem: <filename>/proc/<replaceable>pid</replaceable>/cmdline</filename> (the command line of
+        the crashed process), <filename>/proc/<replaceable>pid</replaceable>/comm</filename> (the command
+        name associated with the process), <filename>/proc/<replaceable>pid</replaceable>/environ</filename>
+        (the environment block of the crashed process),
+        <filename>/proc/<replaceable>pid</replaceable>/auxv</filename> (the auxiliary vector of the crashed
+        process, see <citerefentry
+        project='man-pages'><refentrytitle>getauxval</refentrytitle><manvolnum>3</manvolnum></citerefentry>),
         <filename>/proc/<replaceable>pid</replaceable>/limits</filename> (the soft and hard resource limits),
-        <filename>/proc/<replaceable>pid</replaceable>/mountinfo</filename> (mount points in the process's
-        mount namespace), <filename>/proc/<replaceable>pid</replaceable>/environ</filename>
-        (the environment block of the crashed process).</para>
+        <filename>/proc/<replaceable>pid</replaceable>/maps</filename> (memory regions visible to the process
+        and their access permissions), <filename>/proc/<replaceable>pid</replaceable>/mountinfo</filename>
+        (mount points in the process's mount namespace),
+        <filename>/proc/<replaceable>pid</replaceable>/status</filename> (various metadata about the
+        process).</para>
 
         <para>See
         <citerefentry project='man-pages'><refentrytitle>proc</refentrytitle><manvolnum>5</manvolnum></citerefentry>

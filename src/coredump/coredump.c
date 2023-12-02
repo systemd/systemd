@@ -29,7 +29,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "io-util.h"
+#include "iovec-util.h"
 #include "journal-importer.h"
 #include "journal-send.h"
 #include "log.h"
@@ -38,7 +38,9 @@
 #include "memory-util.h"
 #include "memstream-util.h"
 #include "mkdir-label.h"
+#include "namespace-util.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "process-util.h"
 #include "signal-util.h"
 #include "socket-util.h"
@@ -131,6 +133,8 @@ typedef struct Context {
         const char *meta[_META_MAX];
         size_t meta_size[_META_MAX];
         pid_t pid;
+        uid_t uid;
+        gid_t gid;
         bool is_pid1;
         bool is_journald;
 } Context;
@@ -271,7 +275,6 @@ static int fix_permissions(
                 const char *filename,
                 const char *target,
                 const Context *context,
-                uid_t uid,
                 bool allow_user) {
 
         int r;
@@ -282,7 +285,7 @@ static int fix_permissions(
 
         /* Ignore errors on these */
         (void) fchmod(fd, 0640);
-        (void) fix_acl(fd, uid, allow_user);
+        (void) fix_acl(fd, context->uid, allow_user);
         (void) fix_xattr(fd, context);
 
         r = link_tmpfile(fd, filename, target, LINK_TMPFILE_SYNC);
@@ -418,7 +421,6 @@ static int save_external_coredump(
         uint64_t rlimit, process_limit, max_size;
         bool truncated, storage_on_tmpfs;
         struct stat st;
-        uid_t uid;
         int r;
 
         assert(context);
@@ -428,10 +430,6 @@ static int save_external_coredump(
         assert(ret_size);
         assert(ret_compressed_size);
         assert(ret_truncated);
-
-        r = parse_uid(context->meta[META_ARGV_UID], &uid);
-        if (r < 0)
-                return log_error_errno(r, "Failed to parse UID: %m");
 
         r = safe_atou64(context->meta[META_ARGV_RLIMIT], &rlimit);
         if (r < 0)
@@ -533,7 +531,7 @@ static int save_external_coredump(
                 _cleanup_close_ int fd_compressed = -EBADF;
                 uint64_t uncompressed_size = 0;
 
-                if (lseek(fd, 0, SEEK_SET) == (off_t) -1)
+                if (lseek(fd, 0, SEEK_SET) < 0)
                         return log_error_errno(errno, "Failed to seek on coredump %s: %m", fn);
 
                 fn_compressed = strjoin(fn, default_compression_extension());
@@ -563,7 +561,7 @@ static int save_external_coredump(
                         uncompressed_size += partial_uncompressed_size;
                 }
 
-                r = fix_permissions(fd_compressed, tmp_compressed, fn_compressed, context, uid, allow_user);
+                r = fix_permissions(fd_compressed, tmp_compressed, fn_compressed, context, allow_user);
                 if (r < 0)
                         return r;
 
@@ -590,14 +588,14 @@ static int save_external_coredump(
                            "SIZE_LIMIT=%"PRIu64, max_size,
                            "MESSAGE_ID=" SD_MESSAGE_TRUNCATED_CORE_STR);
 
-        r = fix_permissions(fd, tmp, fn, context, uid, allow_user);
+        r = fix_permissions(fd, tmp, fn, context, allow_user);
         if (r < 0)
                 return log_error_errno(r, "Failed to fix permissions and finalize coredump %s into %s: %m", coredump_tmpfile_name(tmp), fn);
 
         if (fstat(fd, &st) < 0)
                 return log_error_errno(errno, "Failed to fstat core file %s: %m", coredump_tmpfile_name(tmp));
 
-        if (lseek(fd, 0, SEEK_SET) == (off_t) -1)
+        if (lseek(fd, 0, SEEK_SET) < 0)
                 return log_error_errno(errno, "Failed to seek on coredump %s: %m", fn);
 
         *ret_filename = TAKE_PTR(fn);
@@ -616,7 +614,7 @@ static int allocate_journal_field(int fd, size_t size, char **ret, size_t *ret_s
         assert(ret);
         assert(ret_size);
 
-        if (lseek(fd, 0, SEEK_SET) == (off_t) -1)
+        if (lseek(fd, 0, SEEK_SET) < 0)
                 return log_warning_errno(errno, "Failed to seek: %m");
 
         field = malloc(9 + size);
@@ -717,56 +715,6 @@ static int compose_open_fds(pid_t pid, char **ret) {
         return memstream_finalize(&m, ret, NULL);
 }
 
-static int get_process_ns(pid_t pid, const char *namespace, ino_t *ns) {
-        const char *p;
-        struct stat stbuf;
-        _cleanup_close_ int proc_ns_dir_fd = -EBADF;
-
-        p = procfs_file_alloca(pid, "ns");
-
-        proc_ns_dir_fd = open(p, O_DIRECTORY | O_CLOEXEC | O_RDONLY);
-        if (proc_ns_dir_fd < 0)
-                return -errno;
-
-        if (fstatat(proc_ns_dir_fd, namespace, &stbuf, /* flags */0) < 0)
-                return -errno;
-
-        *ns = stbuf.st_ino;
-        return 0;
-}
-
-static int get_mount_namespace_leader(pid_t pid, pid_t *ret) {
-        ino_t proc_mntns;
-        int r;
-
-        r = get_process_ns(pid, "mnt", &proc_mntns);
-        if (r < 0)
-                return r;
-
-        for (;;) {
-                ino_t parent_mntns;
-                pid_t ppid;
-
-                r = get_process_ppid(pid, &ppid);
-                if (r == -EADDRNOTAVAIL) /* Reached the top (i.e. typically PID 1, but could also be a process
-                                          * whose parent is not in our pidns) */
-                        return -ENOENT;
-                if (r < 0)
-                        return r;
-
-                r = get_process_ns(ppid, "mnt", &parent_mntns);
-                if (r < 0)
-                        return r;
-
-                if (proc_mntns != parent_mntns) {
-                        *ret = ppid;
-                        return 0;
-                }
-
-                pid = ppid;
-        }
-}
-
 /* Returns 1 if the parent was found.
  * Returns 0 if there is not a process we can call the pid's
  * container parent (the pid's process isn't 'containerized').
@@ -792,11 +740,11 @@ static int get_process_container_parent_cmdline(pid_t pid, char** cmdline) {
                 return 0;
         }
 
-        r = get_mount_namespace_leader(pid, &container_pid);
+        r = namespace_get_leader(pid, NAMESPACE_MOUNT, &container_pid);
         if (r < 0)
                 return r;
 
-        r = get_process_cmdline(container_pid, SIZE_MAX, PROCESS_CMDLINE_QUOTE_POSIX, cmdline);
+        r = pid_get_cmdline(container_pid, SIZE_MAX, PROCESS_CMDLINE_QUOTE_POSIX, cmdline);
         if (r < 0)
                 return r;
 
@@ -804,13 +752,9 @@ static int get_process_container_parent_cmdline(pid_t pid, char** cmdline) {
 }
 
 static int change_uid_gid(const Context *context) {
-        uid_t uid;
-        gid_t gid;
+        uid_t uid = context->uid;
+        gid_t gid = context->gid;
         int r;
-
-        r = parse_uid(context->meta[META_ARGV_UID], &uid);
-        if (r < 0)
-                return r;
 
         if (uid_is_system(uid)) {
                 const char *user = "systemd-coredump";
@@ -820,10 +764,6 @@ static int change_uid_gid(const Context *context) {
                         log_warning_errno(r, "Cannot resolve %s user. Proceeding to dump core as root: %m", user);
                         uid = gid = 0;
                 }
-        } else {
-                r = parse_gid(context->meta[META_ARGV_GID], &gid);
-                if (r < 0)
-                        return r;
         }
 
         return drop_privileges(uid, gid, 0);
@@ -838,10 +778,9 @@ static int submit_coredump(
         _cleanup_close_ int coredump_fd = -EBADF, coredump_node_fd = -EBADF;
         _cleanup_free_ char *filename = NULL, *coredump_data = NULL;
         _cleanup_free_ char *stacktrace = NULL;
-        char *core_message;
         const char *module_name;
         uint64_t coredump_size = UINT64_MAX, coredump_compressed_size = UINT64_MAX;
-        bool truncated = false;
+        bool truncated = false, written = false;
         JsonVariant *module_json;
         int r;
 
@@ -853,60 +792,69 @@ static int submit_coredump(
         (void) coredump_vacuum(-1, arg_keep_free, arg_max_use);
 
         /* Always stream the coredump to disk, if that's possible */
-        r = save_external_coredump(context, input_fd,
-                                   &filename, &coredump_node_fd, &coredump_fd,
-                                   &coredump_size, &coredump_compressed_size, &truncated);
-        if (r < 0)
-                /* Skip whole core dumping part */
-                goto log;
+        written = save_external_coredump(
+                        context, input_fd,
+                        &filename, &coredump_node_fd, &coredump_fd,
+                        &coredump_size, &coredump_compressed_size, &truncated) >= 0;
+        if (written) {
+                /* If we could write it to disk we can now process it. */
+                /* If we don't want to keep the coredump on disk, remove it now, as later on we
+                 * will lack the privileges for it. However, we keep the fd to it, so that we can
+                 * still process it and log it. */
+                r = maybe_remove_external_coredump(filename, coredump_node_fd >= 0 ? coredump_compressed_size : coredump_size);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        (void) iovw_put_string_field(iovw, "COREDUMP_FILENAME=", filename);
+                else if (arg_storage == COREDUMP_STORAGE_EXTERNAL)
+                        log_info("The core will not be stored: size %"PRIu64" is greater than %"PRIu64" (the configured maximum)",
+                                 coredump_node_fd >= 0 ? coredump_compressed_size : coredump_size, arg_external_size_max);
 
-        /* If we don't want to keep the coredump on disk, remove it now, as later on we
-         * will lack the privileges for it. However, we keep the fd to it, so that we can
-         * still process it and log it. */
-        r = maybe_remove_external_coredump(filename, coredump_node_fd >= 0 ? coredump_compressed_size : coredump_size);
-        if (r < 0)
-                return r;
-        if (r == 0)
-                (void) iovw_put_string_field(iovw, "COREDUMP_FILENAME=", filename);
-        else if (arg_storage == COREDUMP_STORAGE_EXTERNAL)
-                log_info("The core will not be stored: size %"PRIu64" is greater than %"PRIu64" (the configured maximum)",
-                         coredump_node_fd >= 0 ? coredump_compressed_size : coredump_size, arg_external_size_max);
+                /* Vacuum again, but exclude the coredump we just created */
+                (void) coredump_vacuum(coredump_node_fd >= 0 ? coredump_node_fd : coredump_fd, arg_keep_free, arg_max_use);
+        }
 
-        /* Vacuum again, but exclude the coredump we just created */
-        (void) coredump_vacuum(coredump_node_fd >= 0 ? coredump_node_fd : coredump_fd, arg_keep_free, arg_max_use);
-
-        /* Now, let's drop privileges to become the user who owns the segfaulted process
-         * and allocate the coredump memory under the user's uid. This also ensures that
-         * the credentials journald will see are the ones of the coredumping user, thus
-         * making sure the user gets access to the core dump. Let's also get rid of all
-         * capabilities, if we run as root, we won't need them anymore. */
+        /* Now, let's drop privileges to become the user who owns the segfaulted process and allocate the
+         * coredump memory under the user's uid. This also ensures that the credentials journald will see are
+         * the ones of the coredumping user, thus making sure the user gets access to the core dump. Let's
+         * also get rid of all capabilities, if we run as root, we won't need them anymore. */
         r = change_uid_gid(context);
         if (r < 0)
                 return log_error_errno(r, "Failed to drop privileges: %m");
 
-        /* Try to get a stack trace if we can */
-        if (coredump_size > arg_process_size_max)
-                log_debug("Not generating stack trace: core size %"PRIu64" is greater "
-                          "than %"PRIu64" (the configured maximum)",
-                          coredump_size, arg_process_size_max);
-        else if (coredump_fd >= 0) {
-                bool skip = startswith(context->meta[META_COMM], "systemd-coredum"); /* COMM is 16 bytes usually */
+        if (written) {
+                /* Try to get a stack trace if we can */
+                if (coredump_size > arg_process_size_max)
+                        log_debug("Not generating stack trace: core size %"PRIu64" is greater "
+                                  "than %"PRIu64" (the configured maximum)",
+                                  coredump_size, arg_process_size_max);
+                else if (coredump_fd >= 0) {
+                        bool skip = startswith(context->meta[META_COMM], "systemd-coredum"); /* COMM is 16 bytes usually */
 
-                (void) parse_elf_object(coredump_fd,
-                                        context->meta[META_EXE],
-                                        /* fork_disable_dump= */ skip, /* avoid loops */
-                                        &stacktrace,
-                                        &json_metadata);
+                        (void) parse_elf_object(coredump_fd,
+                                                context->meta[META_EXE],
+                                                /* fork_disable_dump= */ skip, /* avoid loops */
+                                                &stacktrace,
+                                                &json_metadata);
+                }
         }
 
-log:
-        core_message = strjoina("Process ", context->meta[META_ARGV_PID],
-                                " (", context->meta[META_COMM], ") of user ",
-                                context->meta[META_ARGV_UID], " dumped core.",
-                                context->is_journald && filename ? "\nCoredump diverted to " : NULL,
-                                context->is_journald && filename ? filename : NULL);
+        _cleanup_free_ char *core_message = NULL;
+        core_message = strjoin(
+                        "Process ", context->meta[META_ARGV_PID],
+                        " (", context->meta[META_COMM],
+                        ") of user ", context->meta[META_ARGV_UID],
+                        written ? " dumped core." : " terminated abnormally without generating a coredump.");
+        if (!core_message)
+                return log_oom();
 
-        core_message = strjoina(core_message, stacktrace ? "\n\n" : NULL, stacktrace);
+        if (context->is_journald && filename)
+                if (!strextend(&core_message, "\nCoredump diverted to ", filename))
+                        return log_oom();
+
+        if (stacktrace)
+                if (!strextend(&core_message, "\n\n", stacktrace))
+                        return log_oom();
 
         if (context->is_journald)
                 /* We might not be able to log to the journal, so let's always print the message to another
@@ -1030,6 +978,14 @@ static int save_context(Context *context, const struct iovec_wrapper *iovw) {
         r = parse_pid(context->meta[META_ARGV_PID], &context->pid);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse PID \"%s\": %m", context->meta[META_ARGV_PID]);
+
+        r = parse_uid(context->meta[META_ARGV_UID], &context->uid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse UID \"%s\": %m", context->meta[META_ARGV_UID]);
+
+        r = parse_gid(context->meta[META_ARGV_GID], &context->gid);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse GID \"%s\": %m", context->meta[META_ARGV_GID]);
 
         unit = context->meta[META_UNIT];
         context->is_pid1 = streq(context->meta[META_ARGV_PID], "1") || streq_ptr(unit, SPECIAL_INIT_SCOPE);
@@ -1270,7 +1226,7 @@ static int gather_pid_metadata_from_procfs(struct iovec_wrapper *iovw, Context *
         pid = context->pid;
 
         /* The following is mandatory */
-        r = get_process_comm(pid, &t);
+        r = pid_get_comm(pid, &t);
         if (r < 0)
                 return log_error_errno(r, "Failed to get COMM: %m");
 
@@ -1303,7 +1259,7 @@ static int gather_pid_metadata_from_procfs(struct iovec_wrapper *iovw, Context *
         if (sd_pid_get_slice(pid, &t) >= 0)
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_SLICE=", t);
 
-        if (get_process_cmdline(pid, SIZE_MAX, PROCESS_CMDLINE_QUOTE_POSIX, &t) >= 0)
+        if (pid_get_cmdline(pid, SIZE_MAX, PROCESS_CMDLINE_QUOTE_POSIX, &t) >= 0)
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_CMDLINE=", t);
 
         if (cg_pid_get_path_shifted(pid, NULL, &t) >= 0)
@@ -1368,6 +1324,237 @@ static int gather_pid_metadata_from_procfs(struct iovec_wrapper *iovw, Context *
         return save_context(context, iovw);
 }
 
+static int send_ucred(int transport_fd, struct ucred *ucred) {
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control = {};
+        struct msghdr mh = {
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+        struct cmsghdr *cmsg;
+
+        assert(transport_fd >= 0);
+
+        cmsg = CMSG_FIRSTHDR(&mh);
+        *cmsg = (struct cmsghdr) {
+                .cmsg_level = SOL_SOCKET,
+                .cmsg_type = SCM_CREDENTIALS,
+                .cmsg_len = CMSG_LEN(sizeof(struct ucred)),
+        };
+        memcpy(CMSG_DATA(cmsg), ucred, sizeof(struct ucred));
+
+        return RET_NERRNO(sendmsg(transport_fd, &mh, MSG_NOSIGNAL));
+}
+
+static int receive_ucred(int transport_fd, struct ucred *ret_ucred) {
+        CMSG_BUFFER_TYPE(CMSG_SPACE(sizeof(struct ucred))) control = {};
+        struct msghdr mh = {
+                .msg_control = &control,
+                .msg_controllen = sizeof(control),
+        };
+        struct cmsghdr *cmsg = NULL;
+        struct ucred *ucred = NULL;
+        ssize_t n;
+
+        assert(ret_ucred);
+
+        n = recvmsg_safe(transport_fd, &mh, 0);
+        if (n < 0)
+                return n;
+
+        CMSG_FOREACH(cmsg, &mh)
+                if (cmsg->cmsg_level == SOL_SOCKET &&
+                    cmsg->cmsg_type == SCM_CREDENTIALS &&
+                    cmsg->cmsg_len == CMSG_LEN(sizeof(struct ucred))) {
+
+                        assert(!ucred);
+                        ucred = CMSG_TYPED_DATA(cmsg, struct ucred);
+                }
+
+        if (!ucred)
+                return -EIO;
+
+        *ret_ucred = *ucred;
+
+        return 0;
+}
+
+static int can_forward_coredump(pid_t pid) {
+        _cleanup_free_ char *cgroup = NULL, *path = NULL, *unit = NULL;
+        int r;
+
+        r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &cgroup);
+        if (r < 0)
+                return r;
+
+        r = path_extract_directory(cgroup, &path);
+        if (r < 0)
+                return r;
+
+        r = cg_path_get_unit_path(path, &unit);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r == -ENXIO)
+                /* No valid units in this path. */
+                return false;
+        if (r < 0)
+                return r;
+
+        /* We require that this process belongs to a delegated cgroup
+         * (i.e. Delegate=yes), with CoredumpReceive=yes also. */
+        r = cg_is_delegated(unit);
+        if (r <= 0)
+                return r;
+
+        return cg_has_coredump_receive(unit);
+}
+
+static int forward_coredump_to_container(Context *context) {
+        _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, netnsfd = -EBADF, usernsfd = -EBADF, rootfd = -EBADF;
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+        pid_t pid, child;
+        struct ucred ucred = {
+                .pid = context->pid,
+                .uid = context->uid,
+                .gid = context->gid,
+        };
+        int r;
+
+        r = namespace_get_leader(context->pid, NAMESPACE_PID, &pid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get namespace leader: %m");
+
+        r = can_forward_coredump(pid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to check if coredump can be forwarded: %m");
+        if (r == 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT),
+                                       "Coredump will not be forwarded because no target cgroup was found.");
+
+        r = RET_NERRNO(socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, pair));
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create socket pair: %m");
+
+        r = setsockopt_int(pair[1], SOL_SOCKET, SO_PASSCRED, true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to set SO_PASSCRED: %m");
+
+        r = namespace_open(pid, &pidnsfd, &mntnsfd, &netnsfd, &usernsfd, &rootfd);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to join namespaces of PID " PID_FMT ": %m", pid);
+
+        r = namespace_fork("(sd-coredumpns)", "(sd-coredump)", NULL, 0,
+                           FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM,
+                           pidnsfd, mntnsfd, netnsfd, usernsfd, rootfd, &child);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to fork into namespaces of PID " PID_FMT ": %m", pid);
+        if (r == 0) {
+                _cleanup_(iovw_free_freep) struct iovec_wrapper *iovw = NULL;
+                Context child_context = {};
+
+                pair[0] = safe_close(pair[0]);
+
+                if (laccess("/run/systemd/coredump", W_OK) < 0) {
+                        log_debug_errno(errno, "Cannot find coredump socket, exiting: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = receive_ucred(pair[1], &ucred);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to receive ucred and fd: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                iovw = iovw_new();
+                if (!iovw) {
+                        log_oom();
+                        _exit(EXIT_FAILURE);
+                }
+
+                (void) iovw_put_string_field(iovw, "MESSAGE_ID=", SD_MESSAGE_COREDUMP_STR);
+                (void) iovw_put_string_field(iovw, "PRIORITY=", STRINGIFY(LOG_CRIT));
+                (void) iovw_put_string_field(iovw, "COREDUMP_FORWARDED=", "1");
+
+                for (int i = 0; i < _META_ARGV_MAX; i++) {
+                        int signo;
+                        char buf[DECIMAL_STR_MAX(pid_t)];
+                        const char *t = context->meta[i];
+
+                        switch(i) {
+
+                        case META_ARGV_PID:
+                                xsprintf(buf, PID_FMT, ucred.pid);
+                                t = buf;
+
+                                break;
+
+                        case META_ARGV_UID:
+                                xsprintf(buf, UID_FMT, ucred.uid);
+                                t = buf;
+                                break;
+
+                        case META_ARGV_GID:
+                                xsprintf(buf, GID_FMT, ucred.gid);
+                                t = buf;
+                                break;
+
+                        case META_ARGV_SIGNAL:
+                                if (safe_atoi(t, &signo) >= 0 && SIGNAL_VALID(signo))
+                                        (void) iovw_put_string_field(iovw,
+                                                                     "COREDUMP_SIGNAL_NAME=SIG",
+                                                                     signal_to_string(signo));
+                                break;
+
+                        default:
+                                break;
+                        }
+
+                        r = iovw_put_string_field(iovw, meta_field_names[i], t);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to construct iovec: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+                }
+
+                r = save_context(&child_context, iovw);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to save context: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = gather_pid_metadata_from_procfs(iovw, &child_context);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to gather metadata from procfs: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                r = send_iovec(iovw, STDIN_FILENO);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to send iovec to coredump socket: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                _exit(EXIT_SUCCESS);
+        }
+
+        pair[1] = safe_close(pair[1]);
+
+        /* We need to translate the PID, UID, and GID of the crashing process
+         * to the container's namespaces. Do this by sending an SCM_CREDENTIALS
+         * message on a socket pair, and read the result when we join the
+         * container. The kernel will perform the translation for us. */
+        r = send_ucred(pair[0], &ucred);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to send metadata to container: %m");
+
+        r = wait_for_terminate_and_check("(sd-coredumpns)", child, 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to wait for child to terminate: %m");
+        if (r != EXIT_SUCCESS)
+                return log_debug_errno(SYNTHETIC_ERRNO(EPROTO), "Failed to process coredump in container: %m");
+
+        return 0;
+}
+
 static int process_kernel(int argc, char* argv[]) {
         _cleanup_(iovw_free_freep) struct iovec_wrapper *iovw = NULL;
         Context context = {};
@@ -1386,9 +1573,6 @@ static int process_kernel(int argc, char* argv[]) {
         if (!iovw)
                 return log_oom();
 
-        (void) iovw_put_string_field(iovw, "MESSAGE_ID=", SD_MESSAGE_COREDUMP_STR);
-        (void) iovw_put_string_field(iovw, "PRIORITY=", STRINGIFY(LOG_CRIT));
-
         /* Collect all process metadata passed by the kernel through argv[] */
         r = gather_pid_metadata_from_argv(iovw, &context, argc - 1, argv + 1);
         if (r < 0)
@@ -1403,6 +1587,17 @@ static int process_kernel(int argc, char* argv[]) {
                 /* OK, now we know it's not the journal, hence we can make use of it now. */
                 log_set_target_and_open(LOG_TARGET_JOURNAL_OR_KMSG);
 
+        r = in_same_namespace(getpid_cached(), context.pid, NAMESPACE_PID);
+        if (r < 0)
+                log_debug_errno(r, "Failed to check pidns of crashing process, ignoring: %m");
+        if (r == 0) {
+                /* If this fails, fallback to the old behavior so that
+                 * there is still some record of the crash. */
+                r = forward_coredump_to_container(&context);
+                if (r >= 0)
+                        return 0;
+        }
+
         /* If this is PID 1 disable coredump collection, we'll unlikely be able to process
          * it later on.
          *
@@ -1413,6 +1608,9 @@ static int process_kernel(int argc, char* argv[]) {
                 log_notice("Due to PID 1 having crashed coredump collection will now be turned off.");
                 disable_coredumps();
         }
+
+        (void) iovw_put_string_field(iovw, "MESSAGE_ID=", SD_MESSAGE_COREDUMP_STR);
+        (void) iovw_put_string_field(iovw, "PRIORITY=", STRINGIFY(LOG_CRIT));
 
         if (context.is_journald || context.is_pid1)
                 return submit_coredump(&context, iovw, STDIN_FILENO);

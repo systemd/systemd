@@ -30,7 +30,7 @@ executables += [
                         libcryptsetup,
                         libdl,
                         libopenssl,
-                        libp11kit,
+                        libp11kit_cflags,
                 ],
         },
 ]

@@ -1,0 +1,230 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+# This is a build script for OS image generation using mkosi (https://github.com/systemd/mkosi).
+# Simply invoke "mkosi" in the project directory to build an OS image.
+
+# We don't want to install our build of systemd in the base image, but use it as an extra tree for the
+# initrd and system images, so override DESTDIR to store it in the output directory so we can reference it as
+# an extra tree in the initrd and system image builds.
+DESTDIR="$OUTPUTDIR/systemd"
+
+# If mkosi.builddir/ exists mkosi will set $BUILDDIR to it, let's then use it
+# as out-of-tree build dir. Otherwise, let's make up our own builddir.
+[ -z "$BUILDDIR" ] && BUILDDIR="$PWD"/build
+
+# Let's make sure we're using stuff from the build directory first if available there.
+PATH="$BUILDDIR:$PATH"
+export PATH
+
+# The bpftool script shipped by Ubuntu tries to find the actual program to run via querying `uname -r` and
+# using the current kernel version. This obviously doesn't work in containers. As a workaround, we override
+# the ubuntu script with a symlink to the first bpftool program we can find.
+for bpftool in /usr/lib/linux-tools/*/bpftool; do
+    [ -x "$bpftool" ] || continue
+    ln -sf "$bpftool" "$BUILDDIR"/bpftool
+    break
+done
+
+# CentOS Stream 8 includes bpftool 4.18.0 which is lower than what we need. However, they've backported the
+# specific feature we need ("gen skeleton") to this version, so we replace bpftool with a script that reports
+# version 5.6.0 to satisfy meson which makes bpf work on CentOS Stream 8 as well.
+. /usr/lib/os-release
+if [ "$ID" = "centos" ] && [ "$VERSION" = "8" ]; then
+    cat >"$BUILDDIR"/bpftool <<EOF
+#!/bin/sh
+if [ "\$1" = --version ]; then
+    echo 5.6.0
+else
+    exec /usr/sbin/bpftool \$@
+fi
+EOF
+    chmod +x "$BUILDDIR"/bpftool
+fi
+
+if [ ! -f "$BUILDDIR"/build.ninja ]; then
+    sysvinit_path=$(realpath /etc/init.d)
+
+    if [ "$ID" = "centos" ] && [ "$VERSION" = "8" ]; then
+        UKIFY="disabled"
+    else
+        UKIFY="enabled"
+    fi
+
+    # On Debian 'loadkeys us' fails
+    if [ "$ID" = "debian" ] || [ "$ID_LIKE" = "debian" ]; then
+        DEFAULT_KEYMAP=""
+    else
+        DEFAULT_KEYMAP="us"
+    fi
+
+    CONFIGURE_OPTS=(
+        -D sysvinit-path="$sysvinit_path"
+        -D man=disabled
+        -D translations=false
+        -D version-tag="${VERSION_TAG}"
+        -D mode=developer
+        -D b_sanitize="${SANITIZERS:-none}"
+        -D install-tests=true
+        -D tests=unsafe
+        -D slow-tests="${SLOW_TESTS:-false}"
+        -D create-log-dirs=false
+        -D pamconfdir=no
+        -D utmp=true
+        -D hibernate=true
+        -D ldconfig=true
+        -D resolve=true
+        -D efi=true
+        -D tpm=true
+        -D environment-d=true
+        -D binfmt=true
+        -D repart=enabled
+        -D sysupdate=enabled
+        -D coredump=true
+        -D pstore=true
+        -D oomd=true
+        -D logind=true
+        -D hostnamed=true
+        -D localed=true
+        -D machined=true
+        -D portabled=true
+        -D sysext=true
+        -D userdb=true
+        -D homed=enabled
+        -D networkd=true
+        -D timedated=true
+        -D timesyncd=true
+        -D remote=enabled
+        -D nss-myhostname=true
+        -D nss-mymachines=enabled
+        -D nss-resolve=enabled
+        -D nss-systemd=true
+        -D firstboot=true
+        -D randomseed=true
+        -D backlight=true
+        -D vconsole=true
+        -D quotacheck=true
+        -D sysusers=true
+        -D tmpfiles=true
+        -D importd=enabled
+        -D hwdb=true
+        -D rfkill=true
+        -D xdg-autostart=true
+        -D translations=true
+        -D polkit=enabled
+        -D acl=enabled
+        -D audit=enabled
+        -D blkid=enabled
+        -D fdisk=enabled
+        -D kmod=enabled
+        -D pam=enabled
+        -D pwquality=enabled
+        -D microhttpd=enabled
+        -D libcryptsetup=enabled
+        -D libcurl=enabled
+        -D idn=true
+        -D libidn2=enabled
+        -D qrencode=enabled
+        -D gcrypt=enabled
+        -D gnutls=enabled
+        -D openssl=enabled
+        -D cryptolib=openssl
+        -D p11kit=enabled
+        -D libfido2=enabled
+        -D tpm2=enabled
+        -D elfutils=enabled
+        -D zstd=enabled
+        -D xkbcommon=enabled
+        -D pcre2=enabled
+        -D glib=enabled
+        -D dbus=enabled
+        -D bootloader=enabled
+        -D kernel-install=true
+        -D analyze=true
+        -D bpf-framework=enabled
+        -D ukify="$UKIFY"
+        -D seccomp=enabled
+        -D selinux=auto
+        -D apparmor=auto
+        -D smack=true
+        -D ima=true
+        -D first-boot-full-preset=true
+        -D initrd=true
+        -D fexecve=true
+        -D default-keymap="$DEFAULT_KEYMAP"
+    )
+
+    # On debian-like systems the library directory is not /usr/lib64 but /usr/lib/<arch-triplet>/.
+    # It is important to use the right one especially for cryptsetup plugins, otherwise they will be
+    # installed in the wrong directory and not be found by cryptsetup. Assume native build.
+    if grep -q -e "ID=debian" -e "ID_LIKE=debian" /usr/lib/os-release && command -v dpkg 2>/dev/null; then
+        CONFIGURE_OPTS+=(
+            -D libdir="/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)"
+            -D pamlibdir="/usr/lib/$(dpkg-architecture -qDEB_HOST_MULTIARCH)/security"
+        )
+    fi
+
+    # Set various uids and gids for which Fedora has "soft static" allocations.
+    # Without this, we would get warning about mismatched sysusers.d entries
+    # between the files that we and Fedora's setup package install.
+    if grep -q '^ID=fedora' /usr/lib/os-release; then
+        CONFIGURE_OPTS+=(
+            -Dadm-gid=4
+            -Daudio-gid=63
+            -Dcdrom-gid=11
+            -Ddialout-gid=18
+            -Ddisk-gid=6
+            -Dinput-gid=104
+            -Dkmem-gid=9
+            -Dkvm-gid=36
+            -Dlp-gid=7
+            -Drender-gid=105
+            -Dsgx-gid=106
+            -Dtape-gid=33
+            -Dtty-gid=5
+            -Dusers-gid=100
+            -Dutmp-gid=22
+            -Dvideo-gid=39
+            -Dwheel-gid=10
+            -Dsystemd-journal-gid=190
+            -Dsystemd-network-uid=192
+            -Dsystemd-resolve-uid=193
+        )
+    fi
+
+    if grep -q '^ID="opensuse' /usr/lib/os-release; then
+        CONFIGURE_OPTS+=(
+            -Dbpf-compiler=gcc
+        )
+    fi
+
+    ( set -x; meson setup "$BUILDDIR" "$SRCDIR" "${CONFIGURE_OPTS[@]}" )
+fi
+
+( set -x; ninja -C "$BUILDDIR" "$@" )
+if [ "$WITH_TESTS" = 1 ]; then
+    if [ -n "$SANITIZERS" ]; then
+        export ASAN_OPTIONS="$MKOSI_ASAN_OPTIONS"
+        export UBSAN_OPTIONS="$MKOSI_UBSAN_OPTIONS"
+        TIMEOUT_MULTIPLIER=3
+    else
+        TIMEOUT_MULTIPLIER=1
+    fi
+
+    ( set -x; meson test -C "$BUILDDIR" --print-errorlogs --timeout-multiplier=$TIMEOUT_MULTIPLIER )
+fi
+
+( set -x; meson install -C "$BUILDDIR" --quiet --no-rebuild --only-changed )
+
+# Ensure that side-loaded PE addons are loaded if signed, and ignored if not
+if [ -d "${DESTDIR}/boot/loader" ]; then
+    addons_dir="${DESTDIR}/boot/loader/addons"
+elif [ -d "${DESTDIR}/efi/loader" ]; then
+    addons_dir="${DESTDIR}/efi/loader/addons"
+fi
+if [ -n "${addons_dir}" ]; then
+    mkdir -p "${addons_dir}"
+    ukify --secureboot-private-key mkosi.secure-boot.key --secureboot-certificate mkosi.secure-boot.crt --cmdline this_should_be_here -o "${addons_dir}/good.addon.efi"
+    ukify --cmdline this_should_not_be_here -o "${addons_dir}/bad.addon.efi"
+fi

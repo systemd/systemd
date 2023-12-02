@@ -30,18 +30,6 @@
 #include "user-util.h"
 #include "web-util.h"
 
-static bool unit_can_start_refuse_manual(Unit *u) {
-        return unit_can_start(u) && !u->refuse_manual_start;
-}
-
-static bool unit_can_stop_refuse_manual(Unit *u) {
-        return unit_can_stop(u) && !u->refuse_manual_stop;
-}
-
-static bool unit_can_isolate_refuse_manual(Unit *u) {
-        return unit_can_isolate(u) && !u->refuse_manual_start;
-}
-
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_collect_mode, collect_mode, CollectMode);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_load_state, unit_load_state, UnitLoadState);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_job_mode, job_mode, JobMode);
@@ -1087,7 +1075,7 @@ static int property_get_current_memory(
 
         r = unit_get_memory_current(u, &sz);
         if (r < 0 && r != -ENODATA)
-                log_unit_warning_errno(u, r, "Failed to get memory.usage_in_bytes attribute: %m");
+                log_unit_warning_errno(u, r, "Failed to get current memory usage from cgroup: %m");
 
         return sd_bus_message_append(reply, "t", sz);
 }
@@ -1112,6 +1100,27 @@ static int property_get_available_memory(
         if (r < 0 && r != -ENODATA)
                 log_unit_warning_errno(u, r, "Failed to get total available memory from cgroup: %m");
 
+        return sd_bus_message_append(reply, "t", sz);
+}
+
+static int property_get_memory_accounting(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Unit *u = ASSERT_PTR(userdata);
+        CGroupMemoryAccountingMetric metric;
+        uint64_t sz = UINT64_MAX;
+
+        assert(bus);
+        assert(reply);
+
+        assert_se((metric = cgroup_memory_accounting_metric_from_string(property)) >= 0);
+        (void) unit_get_memory_accounting(u, metric, &sz);
         return sd_bus_message_append(reply, "t", sz);
 }
 
@@ -1232,21 +1241,21 @@ static int property_get_cgroup(
         return sd_bus_message_append(reply, "s", t);
 }
 
-static int append_process(sd_bus_message *reply, const char *p, pid_t pid, Set *pids) {
+static int append_process(sd_bus_message *reply, const char *p, PidRef *pid, Set *pids) {
         _cleanup_free_ char *buf = NULL, *cmdline = NULL;
         int r;
 
         assert(reply);
-        assert(pid > 0);
+        assert(pidref_is_set(pid));
 
-        r = set_put(pids, PID_TO_PTR(pid));
+        r = set_put(pids, PID_TO_PTR(pid->pid));
         if (IN_SET(r, 0, -EEXIST))
                 return 0;
         if (r < 0)
                 return r;
 
         if (!p) {
-                r = cg_pid_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &buf);
+                r = cg_pidref_get_path(SYSTEMD_CGROUP_CONTROLLER, pid, &buf);
                 if (r == -ESRCH)
                         return 0;
                 if (r < 0)
@@ -1255,14 +1264,16 @@ static int append_process(sd_bus_message *reply, const char *p, pid_t pid, Set *
                 p = buf;
         }
 
-        (void) get_process_cmdline(pid, SIZE_MAX,
-                                   PROCESS_CMDLINE_COMM_FALLBACK | PROCESS_CMDLINE_QUOTE,
-                                   &cmdline);
+        (void) pidref_get_cmdline(
+                        pid,
+                        SIZE_MAX,
+                        PROCESS_CMDLINE_COMM_FALLBACK | PROCESS_CMDLINE_QUOTE,
+                        &cmdline);
 
         return sd_bus_message_append(reply,
                                      "(sus)",
                                      p,
-                                     (uint32_t) pid,
+                                     (uint32_t) pid->pid,
                                      cmdline);
 }
 
@@ -1281,22 +1292,28 @@ static int append_cgroup(sd_bus_message *reply, const char *p, Set *pids) {
                 return r;
 
         for (;;) {
-                pid_t pid;
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
                 /* libvirt / qemu uses threaded mode and cgroup.procs cannot be read at the lower levels.
-                 * From https://docs.kernel.org/admin-guide/cgroup-v2.html#threads,
-                 * “cgroup.procs” in a threaded domain cgroup contains the PIDs of all processes in
-                 * the subtree and is not readable in the subtree proper. */
-                r = cg_read_pid(f, &pid);
+                 * From https://docs.kernel.org/admin-guide/cgroup-v2.html#threads, “cgroup.procs” in a
+                 * threaded domain cgroup contains the PIDs of all processes in the subtree and is not
+                 * readable in the subtree proper. */
+
+                r = cg_read_pidref(f, &pidref);
                 if (IN_SET(r, 0, -EOPNOTSUPP))
                         break;
                 if (r < 0)
                         return r;
 
-                if (is_kernel_thread(pid) > 0)
+                r = pidref_is_kernel_thread(&pidref);
+                if (r == -ESRCH) /* gone by now */
+                        continue;
+                if (r < 0)
+                        log_debug_errno(r, "Failed to determine if " PID_FMT " is a kernel thread, assuming not: %m", pidref.pid);
+                if (r > 0)
                         continue;
 
-                r = append_process(reply, p, pid, pids);
+                r = append_process(reply, p, &pidref, pids);
                 if (r < 0)
                         return r;
         }
@@ -1361,14 +1378,14 @@ int bus_unit_method_get_processes(sd_bus_message *message, void *userdata, sd_bu
         /* The main and control pids might live outside of the cgroup, hence fetch them separately */
         PidRef *pid = unit_main_pid(u);
         if (pidref_is_set(pid)) {
-                r = append_process(reply, NULL, pid->pid, pids);
+                r = append_process(reply, NULL, pid, pids);
                 if (r < 0)
                         return r;
         }
 
         pid = unit_control_pid(u);
         if (pidref_is_set(pid)) {
-                r = append_process(reply, NULL, pid->pid, pids);
+                r = append_process(reply, NULL, pid, pids);
                 if (r < 0)
                         return r;
         }
@@ -1389,22 +1406,15 @@ static int property_get_ip_counter(
                 void *userdata,
                 sd_bus_error *error) {
 
-        static const char *const table[_CGROUP_IP_ACCOUNTING_METRIC_MAX] = {
-                [CGROUP_IP_INGRESS_BYTES]   = "IPIngressBytes",
-                [CGROUP_IP_EGRESS_BYTES]    = "IPEgressBytes",
-                [CGROUP_IP_INGRESS_PACKETS] = "IPIngressPackets",
-                [CGROUP_IP_EGRESS_PACKETS]  = "IPEgressPackets",
-        };
-
         uint64_t value = UINT64_MAX;
         Unit *u = ASSERT_PTR(userdata);
-        ssize_t metric;
+        CGroupIPAccountingMetric metric;
 
         assert(bus);
         assert(reply);
         assert(property);
 
-        assert_se((metric = string_table_lookup(table, ELEMENTSOF(table), property)) >= 0);
+        assert_se((metric = cgroup_ip_accounting_metric_from_string(property)) >= 0);
         (void) unit_get_ip_accounting(u, metric, &value);
         return sd_bus_message_append(reply, "t", value);
 }
@@ -1418,13 +1428,6 @@ static int property_get_io_counter(
                 void *userdata,
                 sd_bus_error *error) {
 
-        static const char *const table[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
-                [CGROUP_IO_READ_BYTES]       = "IOReadBytes",
-                [CGROUP_IO_WRITE_BYTES]      = "IOWriteBytes",
-                [CGROUP_IO_READ_OPERATIONS]  = "IOReadOperations",
-                [CGROUP_IO_WRITE_OPERATIONS] = "IOWriteOperations",
-        };
-
         uint64_t value = UINT64_MAX;
         Unit *u = ASSERT_PTR(userdata);
         ssize_t metric;
@@ -1433,8 +1436,8 @@ static int property_get_io_counter(
         assert(reply);
         assert(property);
 
-        assert_se((metric = string_table_lookup(table, ELEMENTSOF(table), property)) >= 0);
-        (void) unit_get_io_accounting(u, metric, false, &value);
+        assert_se((metric = cgroup_io_accounting_metric_from_string(property)) >= 0);
+        (void) unit_get_io_accounting(u, metric, /* allow_cache= */ false, &value);
         return sd_bus_message_append(reply, "t", value);
 }
 
@@ -1522,7 +1525,7 @@ int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd
                 /* Let's validate security: if the sender is root, then all is OK. If the sender is any other unit,
                  * then the process' UID and the target unit's UID have to match the sender's UID */
                 if (sender_uid != 0 && sender_uid != getuid()) {
-                        r = get_process_uid(pidref->pid, &process_uid);
+                        r = pidref_get_uid(pidref, &process_uid);
                         if (r < 0)
                                 return sd_bus_error_set_errnof(error, r, "Failed to retrieve process UID: %m");
 
@@ -1532,7 +1535,7 @@ int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd
                                 return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Process " PID_FMT " not owned by target unit's UID. Refusing.", pid);
                 }
 
-                r = set_ensure_consume(&pids, &pidref_hash_ops, TAKE_PTR(pidref));
+                r = set_ensure_consume(&pids, &pidref_hash_ops_free, TAKE_PTR(pidref));
                 if (r < 0)
                         return r;
         }
@@ -1554,6 +1557,10 @@ const sd_bus_vtable bus_unit_cgroup_vtable[] = {
         SD_BUS_PROPERTY("ControlGroup", "s", property_get_cgroup, 0, 0),
         SD_BUS_PROPERTY("ControlGroupId", "t", NULL, offsetof(Unit, cgroup_id), 0),
         SD_BUS_PROPERTY("MemoryCurrent", "t", property_get_current_memory, 0, 0),
+        SD_BUS_PROPERTY("MemoryPeak", "t", property_get_memory_accounting, 0, 0),
+        SD_BUS_PROPERTY("MemorySwapCurrent", "t", property_get_memory_accounting, 0, 0),
+        SD_BUS_PROPERTY("MemorySwapPeak", "t", property_get_memory_accounting, 0, 0),
+        SD_BUS_PROPERTY("MemoryZSwapCurrent", "t", property_get_memory_accounting, 0, 0),
         SD_BUS_PROPERTY("MemoryAvailable", "t", property_get_available_memory, 0, 0),
         SD_BUS_PROPERTY("CPUUsageNSec", "t", property_get_cpu_usage, 0, 0),
         SD_BUS_PROPERTY("EffectiveCPUs", "ay", property_get_cpuset_cpus, 0, 0),
