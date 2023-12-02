@@ -58,6 +58,7 @@ void manager_reset_config(Manager *m) {
         m->hibernate_key_ignore_inhibited = false;
         m->lid_switch_ignore_inhibited = true;
         m->reboot_key_ignore_inhibited = false;
+        m->enforce_inhibitors = false;
 
         m->holdoff_timeout_usec = 30 * USEC_PER_SEC;
 
