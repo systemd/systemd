@@ -141,6 +141,7 @@ node /org/freedesktop/login1 {
       HybridSleepWithFlags(in  t flags);
       SuspendThenHibernate(in  b interactive);
       SuspendThenHibernateWithFlags(in  t flags);
+      Sleep(in  t flags);
       CanPowerOff(out s result);
       CanReboot(out s result);
       CanHalt(out s result);
@@ -148,6 +149,7 @@ node /org/freedesktop/login1 {
       CanHibernate(out s result);
       CanHybridSleep(out s result);
       CanSuspendThenHibernate(out s result);
+      CanSleep(out s result);
       ScheduleShutdown(in  s type,
                        in  t usec);
       CancelScheduledShutdown(out b cancelled);
@@ -218,6 +220,8 @@ node /org/freedesktop/login1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly t UserStopDelayUSec = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as SleepOperation = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s HandlePowerKey = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s HandlePowerKeyLongPress = '...';
@@ -279,6 +283,8 @@ node /org/freedesktop/login1 {
   interface org.freedesktop.DBus.Properties { ... };
 };
     </programlisting>
+
+    <!--property SleepOperation is not documented!-->
 
     <!--property HandlePowerKeyLongPress is not documented!-->
 
@@ -378,6 +384,8 @@ node /org/freedesktop/login1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="SuspendThenHibernateWithFlags()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="Sleep()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="CanPowerOff()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="CanReboot()"/>
@@ -391,6 +399,8 @@ node /org/freedesktop/login1 {
     <variablelist class="dbus-method" generated="True" extra-ref="CanHybridSleep()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="CanSuspendThenHibernate()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="CanSleep()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="ScheduleShutdown()"/>
 
@@ -469,6 +479,8 @@ node /org/freedesktop/login1 {
     <variablelist class="dbus-property" generated="True" extra-ref="InhibitDelayMaxUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="UserStopDelayUSec"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="SleepOperation"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="HandlePowerKey"/>
 
@@ -609,17 +621,20 @@ node /org/freedesktop/login1 {
       off, rebooted, halted (shut down without turning off power), suspended (the system state is saved to
       RAM and the CPU is turned off), or hibernated (the system state is saved to disk and the machine is
       powered down). <function>HybridSleep()</function> results in the system entering a hybrid-sleep mode,
-      i.e. the system is both hibernated and suspended.  <function>SuspendThenHibernate()</function> results
+      i.e. the system is both hibernated and suspended. <function>SuspendThenHibernate()</function> results
       in the system being suspended, then later woken using an RTC timer and hibernated. The only argument is
       the polkit interactivity boolean <varname>interactive</varname> (see below). The main purpose of these
       calls is that they enforce polkit policy and hence allow powering off/rebooting/suspending/hibernating
-      even by unprivileged users. They also enforce inhibition locks for non-privileged users. UIs should
-      expose these calls as the primary mechanism to poweroff/reboot/suspend/hibernate the machine. Methods
+      even by unprivileged users. They also enforce inhibition locks for non-privileged users.
+      <function>Sleep()</function> automatically selects the most suitable sleep operation supported by the
+      machine. The candidate sleep operations to check for support can be configured through <varname>SleepOperation=</varname>
+      setting in <citerefentry><refentrytitle>logind.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+      UIs should expose these calls as the primary mechanism to poweroff/reboot/suspend/hibernate the machine. Methods
       <function>PowerOffWithFlags()</function>, <function>RebootWithFlags()</function>,
       <function>HaltWithFlags()</function>, <function>SuspendWithFlags()</function>,
-      <function>HibernateWithFlags()</function>, <function>HybridSleepWithFlags()</function> and
-      <function>SuspendThenHibernateWithFlags()</function> add <varname>flags</varname> to allow for
-      extendability, defined as follows:</para>
+      <function>HibernateWithFlags()</function>, <function>HybridSleepWithFlags()</function>,
+      <function>SuspendThenHibernateWithFlags()</function>, and <function>Sleep()</function> take
+      <varname>flags</varname> to allow for extendability, defined as follows:</para>
       <programlisting>
 #define SD_LOGIND_ROOT_CHECK_INHIBITORS          (UINT64_C(1) &lt;&lt; 0)
 #define SD_LOGIND_KEXEC_REBOOT                   (UINT64_C(1) &lt;&lt; 1)
@@ -649,20 +664,18 @@ node /org/freedesktop/login1 {
       <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry> for the
       corresponding command line interface.</para>
 
-      <para><function>CanPowerOff()</function>, <function>CanReboot()</function>,
-      <function>CanHalt()</function>, <function>CanSuspend()</function>, <function>CanHibernate()</function>,
-      <function>CanHybridSleep()</function>, <function>CanSuspendThenHibernate()</function>,
+      <para><function>CanPowerOff()</function>, <function>CanReboot()</function>, <function>CanHalt()</function>,
+      <function>CanSuspend()</function>, <function>CanHibernate()</function>, <function>CanHybridSleep()</function>,
+      <function>CanSuspendThenHibernate()</function>, <function>CanSleep()</function>,
       <function>CanRebootParameter()</function>, <function>CanRebootToFirmwareSetup()</function>,
-      <function>CanRebootToBootLoaderMenu()</function>, and
-      <function>CanRebootToBootLoaderEntry()</function> test whether the system supports the respective
-      operation and whether the calling user is allowed to execute it. Returns one of <literal>na</literal>,
-      <literal>yes</literal>, <literal>no</literal>, and <literal>challenge</literal>. If
-      <literal>na</literal> is returned, the operation is not available because hardware, kernel, or drivers
-      do not support it. If <literal>yes</literal> is returned, the operation is supported and the user may
-      execute the operation without further authentication. If <literal>no</literal> is returned, the
-      operation is available but the user is not allowed to execute the operation. If
-      <literal>challenge</literal> is returned, the operation is available but only after
-      authorization.</para>
+      <function>CanRebootToBootLoaderMenu()</function>, and <function>CanRebootToBootLoaderEntry()</function>
+      test whether the system supports the respective operation and whether the calling user is allowed to
+      execute it. Returns one of <literal>na</literal>, <literal>yes</literal>, <literal>no</literal>, and
+      <literal>challenge</literal>. If <literal>na</literal> is returned, the operation is not available because
+      hardware, kernel, or drivers do not support it. If <literal>yes</literal> is returned, the operation is
+      supported and the user may execute the operation without further authentication. If <literal>no</literal>
+      is returned, the operation is available but the user is not allowed to execute the operation. If
+      <literal>challenge</literal> is returned, the operation is available but only after authorization.</para>
 
       <para><function>ScheduleShutdown()</function> schedules a shutdown operation <varname>type</varname> at
       time <varname>usec</varname> in microseconds since the UNIX epoch. <varname>type</varname> can be one
@@ -819,8 +832,8 @@ node /org/freedesktop/login1 {
       <interfacename>org.freedesktop.login1.hibernate-ignore-inhibit</interfacename>,
       respectively depending on whether there are other sessions around or active inhibits are present.
       <function>HybridSleep()</function> and <function>SuspendThenHibernate()</function>
-      use the same privileges as <function>Hibernate()</function>.
-      <function>SetRebootParameter()</function> requires
+      use the same privileges as <function>Hibernate()</function>. <function>Sleep()</function> uses
+      the inhibits of the auto-selected sleep operation. <function>SetRebootParameter()</function> requires
       <interfacename>org.freedesktop.login1.set-reboot-parameter</interfacename>.</para>
 
       <para><function>SetRebootToFirmwareSetup</function> requires
@@ -1546,6 +1559,9 @@ node /org/freedesktop/login1/session/1 {
       <para><varname>StopIdleSessionUSec</varname> was added in version 252.</para>
       <para><function>PrepareForShutdownWithMetadata</function> and
       <function>CreateSessionWithPIDFD()</function> were added in version 255.</para>
+      <para><function>Sleep()</function>,
+      <function>CanSleep()</function>, and
+      <varname>SleepOperation</varname> were added in version 256.</para>
     </refsect2>
     <refsect2>
       <title>Session Objects</title>
