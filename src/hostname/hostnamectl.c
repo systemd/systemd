@@ -335,29 +335,29 @@ static int show_all_names(sd_bus *bus) {
         StatusInfo info = {};
 
         static const struct bus_properties_map hostname_map[]  = {
-                { "Hostname",                  "s", NULL, offsetof(StatusInfo, hostname)         },
-                { "StaticHostname",            "s", NULL, offsetof(StatusInfo, static_hostname)  },
-                { "PrettyHostname",            "s", NULL, offsetof(StatusInfo, pretty_hostname)  },
-                { "IconName",                  "s", NULL, offsetof(StatusInfo, icon_name)        },
-                { "Chassis",                   "s", NULL, offsetof(StatusInfo, chassis)          },
-                { "Deployment",                "s", NULL, offsetof(StatusInfo, deployment)       },
-                { "Location",                  "s", NULL, offsetof(StatusInfo, location)         },
-                { "KernelName",                "s", NULL, offsetof(StatusInfo, kernel_name)      },
-                { "KernelRelease",             "s", NULL, offsetof(StatusInfo, kernel_release)   },
-                { "OperatingSystemPrettyName", "s", NULL, offsetof(StatusInfo, os_pretty_name)   },
-                { "OperatingSystemCPEName",    "s", NULL, offsetof(StatusInfo, os_cpe_name)      },
-                { "OperatingSystemSupportEnd", "t", NULL, offsetof(StatusInfo, os_support_end)   },
-                { "HomeURL",                   "s", NULL, offsetof(StatusInfo, home_url)         },
-                { "HardwareVendor",            "s", NULL, offsetof(StatusInfo, hardware_vendor)  },
-                { "HardwareModel",             "s", NULL, offsetof(StatusInfo, hardware_model)   },
-                { "FirmwareVersion",           "s", NULL, offsetof(StatusInfo, firmware_version) },
-                { "FirmwareDate",              "t", NULL, offsetof(StatusInfo, firmware_date)    },
+                { "Hostname",                  "s",  NULL,          offsetof(StatusInfo, hostname)         },
+                { "StaticHostname",            "s",  NULL,          offsetof(StatusInfo, static_hostname)  },
+                { "PrettyHostname",            "s",  NULL,          offsetof(StatusInfo, pretty_hostname)  },
+                { "IconName",                  "s",  NULL,          offsetof(StatusInfo, icon_name)        },
+                { "Chassis",                   "s",  NULL,          offsetof(StatusInfo, chassis)          },
+                { "Deployment",                "s",  NULL,          offsetof(StatusInfo, deployment)       },
+                { "Location",                  "s",  NULL,          offsetof(StatusInfo, location)         },
+                { "KernelName",                "s",  NULL,          offsetof(StatusInfo, kernel_name)      },
+                { "KernelRelease",             "s",  NULL,          offsetof(StatusInfo, kernel_release)   },
+                { "OperatingSystemPrettyName", "s",  NULL,          offsetof(StatusInfo, os_pretty_name)   },
+                { "OperatingSystemCPEName",    "s",  NULL,          offsetof(StatusInfo, os_cpe_name)      },
+                { "OperatingSystemSupportEnd", "t",  NULL,          offsetof(StatusInfo, os_support_end)   },
+                { "HomeURL",                   "s",  NULL,          offsetof(StatusInfo, home_url)         },
+                { "HardwareVendor",            "s",  NULL,          offsetof(StatusInfo, hardware_vendor)  },
+                { "HardwareModel",             "s",  NULL,          offsetof(StatusInfo, hardware_model)   },
+                { "FirmwareVersion",           "s",  NULL,          offsetof(StatusInfo, firmware_version) },
+                { "FirmwareDate",              "t",  NULL,          offsetof(StatusInfo, firmware_date)    },
+                { "MachineID",                 "ay", bus_map_id128, offsetof(StatusInfo, machine_id)       },
+                { "BootID",                    "ay", bus_map_id128, offsetof(StatusInfo, boot_id)          },
                 {}
-        };
-
-        static const struct bus_properties_map manager_map[] = {
-                { "Virtualization",            "s", NULL, offsetof(StatusInfo, virtualization)  },
-                { "Architecture",              "s", NULL, offsetof(StatusInfo, architecture)    },
+        }, manager_map[] = {
+                { "Virtualization",            "s",  NULL,          offsetof(StatusInfo, virtualization)   },
+                { "Architecture",              "s",  NULL,          offsetof(StatusInfo, architecture)     },
                 {}
         };
 
@@ -387,6 +387,7 @@ static int show_all_names(sd_bus *bus) {
         if (r < 0)
                 return log_error_errno(r, "Failed to query system properties: %s", bus_error_message(&error, r));
 
+        /* For older version of hostnamed. */
         if (!arg_host) {
                 if (sd_id128_is_null(info.machine_id))
                         (void) sd_id128_get_machine(&info.machine_id);
