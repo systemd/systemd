@@ -22,6 +22,8 @@ trap at_exit EXIT
 # Note: the service file is created under /usr on purpose to test
 #       the 'revert' verb as well
 export UNIT_NAME="systemctl-test-$RANDOM.service"
+export UNIT_NAME2="systemctl-test-$RANDOM.service"
+
 cat >"/usr/lib/systemd/system/$UNIT_NAME" <<\EOF
 [Unit]
 Description=systemctl test
@@ -55,6 +57,20 @@ printf '%s\n' '[Service]' 'ExecStart=' 'ExecStart=sleep 10d' | cmp - "/etc/syste
 printf '%b'   '[Service]\n' 'ExecStart=\n' 'ExecStart=sleep 10d' >"+4"
 EDITOR='mv' script -ec 'systemctl edit "$UNIT_NAME"' /dev/null
 printf '%s\n' '[Service]'   'ExecStart='   'ExecStart=sleep 10d' | cmp - "/etc/systemd/system/$UNIT_NAME.d/override.conf"
+
+systemctl edit "$UNIT_NAME" --stdin --drop-in=override2.conf <<EOF
+[Unit]
+Description=spectacular
+# this comment should remain
+
+EOF
+printf '%s\n' '[Unit]'   'Description=spectacular' '# this comment should remain' | \
+    cmp - "/etc/systemd/system/$UNIT_NAME.d/override2.conf"
+
+# Test simultaneous editing of two units and creation of drop-in for a nonexistent unit
+systemctl edit "$UNIT_NAME" "$UNIT_NAME2" --stdin --force --drop-in=override2.conf <<<'[X-Section]'
+printf '%s\n' '[X-Section]' | cmp - "/etc/systemd/system/$UNIT_NAME.d/override2.conf"
+printf '%s\n' '[X-Section]' | cmp - "/etc/systemd/system/$UNIT_NAME2.d/override2.conf"
 
 # Double free when editing a template unit (#26483)
 EDITOR='true' script -ec 'systemctl edit user@0' /dev/null
