@@ -100,6 +100,7 @@ static bool arg_tpm2_device_auto = false;
 static uint32_t arg_tpm2_pcr_mask = UINT32_MAX;
 static char *arg_tpm2_signature = NULL;
 static bool arg_tpm2_pin = false;
+static char *arg_tpm2_pcrlock = NULL;
 static bool arg_headless = false;
 static usec_t arg_token_timeout_usec = 30*USEC_PER_SEC;
 static unsigned arg_tpm2_measure_pcr = UINT_MAX; /* This and the following field is about measuring the unlocked volume key to the local TPM */
@@ -116,6 +117,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_fido2_rp_id, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_signature, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_measure_banks, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_tpm2_pcrlock, freep);
 
 static const char* const passphrase_type_table[_PASSPHRASE_TYPE_MAX] = {
         [PASSPHRASE_REGULAR] = "passphrase",
@@ -423,6 +425,16 @@ static int parse_one_option(const char *option) {
                 }
 
                 arg_tpm2_pin = r;
+
+        } else if ((val = startswith(option, "tpm2-pcrlock="))) {
+
+                if (!path_is_absolute(val))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "TPM2 pcrlock policy path \"%s\" is not absolute, refusing.", val);
+
+                r = free_and_strdup(&arg_tpm2_pcrlock, val);
+                if (r < 0)
+                        return log_oom();
 
         } else if ((val = startswith(option, "tpm2-measure-pcr="))) {
                 unsigned pcr;
@@ -836,13 +848,13 @@ static int measure_volume_key(
         _cleanup_(tpm2_context_unrefp) Tpm2Context *c = NULL;
         r = tpm2_context_new(arg_tpm2_device, &c);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Failed to create TPM2 context: %m");
 
         _cleanup_strv_free_ char **l = NULL;
         if (strv_isempty(arg_tpm2_measure_banks)) {
                 r = tpm2_get_good_pcr_banks_strv(c, UINT32_C(1) << arg_tpm2_measure_pcr, &l);
                 if (r < 0)
-                        return r;
+                        return log_error_errno(r, "Could not verify pcr banks: %m");
         }
 
         _cleanup_free_ char *joined = strv_join(l ?: arg_tpm2_measure_banks, ", ");
@@ -865,7 +877,7 @@ static int measure_volume_key(
 
         r = tpm2_extend_bytes(c, l ?: arg_tpm2_measure_banks, arg_tpm2_measure_pcr, s, SIZE_MAX, volume_key, volume_key_size, TPM2_EVENT_VOLUME_KEY, s);
         if (r < 0)
-                return r;
+                return log_error_errno(r, "Could not extend PCR: %m");
 
         log_struct(LOG_INFO,
                    "MESSAGE_ID=" SD_MESSAGE_TPM_PCR_EXTEND_STR,
@@ -994,31 +1006,37 @@ static int attach_tcrypt(
         if (key_data) {
                 params.passphrase = key_data;
                 params.passphrase_size = key_data_size;
+                r = crypt_load(cd, CRYPT_TCRYPT, &params);
+        } else if (key_file) {
+                r = read_one_line_file(key_file, &passphrase);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to read password file '%s': %m", key_file);
+                        return -EAGAIN; /* log with the actual error, but return EAGAIN */
+                }
+                params.passphrase = passphrase;
+                params.passphrase_size = strlen(passphrase);
+                r = crypt_load(cd, CRYPT_TCRYPT, &params);
         } else {
-                if (key_file) {
-                        r = read_one_line_file(key_file, &passphrase);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to read password file '%s': %m", key_file);
-                                return -EAGAIN; /* log with the actual error, but return EAGAIN */
-                        }
-
-                        params.passphrase = passphrase;
-                } else
-                        params.passphrase = passwords[0];
-
-                params.passphrase_size = strlen(params.passphrase);
+                r = -EINVAL;
+                STRV_FOREACH(p, passwords){
+                        params.passphrase = *p;
+                        params.passphrase_size = strlen(*p);
+                        r = crypt_load(cd, CRYPT_TCRYPT, &params);
+                        if (r >= 0)
+                                break;
+                }
         }
 
-        r = crypt_load(cd, CRYPT_TCRYPT, &params);
         if (r < 0) {
                 if (r == -EPERM) {
                         if (key_data)
                                 log_error_errno(r, "Failed to activate using discovered key. (Key not correct?)");
-
-                        if (key_file)
+                        else if (key_file)
                                 log_error_errno(r, "Failed to activate using password file '%s'. (Key data not correct?)", key_file);
+                        else
+                                log_error_errno(r, "Failed to activate using supplied passwords.");
 
-                        return -EAGAIN; /* log the actual error, but return EAGAIN */
+                        return r;
                 }
 
                 return log_error_errno(r, "Failed to load tcrypt superblock on device %s: %m", crypt_get_device_name(cd));
@@ -1175,20 +1193,20 @@ static int crypt_activate_by_token_pin_ask_password(
                 const char *type,
                 usec_t until,
                 bool headless,
-                void *usrptr,
+                void *userdata,
                 uint32_t activation_flags,
                 const char *message,
                 const char *key_name,
                 const char *credential_name) {
 
 #if HAVE_LIBCRYPTSETUP_PLUGINS
-        AskPasswordFlags flags = ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_ACCEPT_CACHED;
+        AskPasswordFlags flags = arg_ask_password_flags | ASK_PASSWORD_PUSH_CACHE | ASK_PASSWORD_ACCEPT_CACHED;
         _cleanup_strv_free_erase_ char **pins = NULL;
         int r;
 
-        r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, NULL, 0, usrptr, activation_flags);
+        r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, /* pin=*/ NULL, /* pin_size= */ 0, userdata, activation_flags);
         if (r > 0) /* returns unlocked keyslot id on success */
-                r = 0;
+                return 0;
         if (r != -ENOANO) /* needs pin or pin is wrong */
                 return r;
 
@@ -1197,9 +1215,9 @@ static int crypt_activate_by_token_pin_ask_password(
                 return r;
 
         STRV_FOREACH(p, pins) {
-                r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, *p, strlen(*p), usrptr, activation_flags);
+                r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, *p, strlen(*p), userdata, activation_flags);
                 if (r > 0) /* returns unlocked keyslot id on success */
-                        r = 0;
+                        return 0;
                 if (r != -ENOANO) /* needs pin or pin is wrong */
                         return r;
         }
@@ -1209,14 +1227,14 @@ static int crypt_activate_by_token_pin_ask_password(
 
         for (;;) {
                 pins = strv_free_erase(pins);
-                r = ask_password_auto(message, "drive-harddisk", NULL, key_name, credential_name, until, flags, &pins);
+                r = ask_password_auto(message, "drive-harddisk", /* id= */ NULL, key_name, credential_name, until, flags, &pins);
                 if (r < 0)
                         return r;
 
                 STRV_FOREACH(p, pins) {
-                        r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, *p, strlen(*p), usrptr, activation_flags);
+                        r = crypt_activate_by_token_pin(cd, name, type, CRYPT_ANY_TOKEN, *p, strlen(*p), userdata, activation_flags);
                         if (r > 0) /* returns unlocked keyslot id on success */
-                                r = 0;
+                                return 0;
                         if (r != -ENOANO) /* needs pin or pin is wrong */
                                 return r;
                 }
@@ -1234,7 +1252,7 @@ static int attach_luks2_by_fido2_via_plugin(
                 const char *name,
                 usec_t until,
                 bool headless,
-                void *usrptr,
+                void *userdata,
                 uint32_t activation_flags) {
 
         return crypt_activate_by_token_pin_ask_password(
@@ -1243,7 +1261,7 @@ static int attach_luks2_by_fido2_via_plugin(
                         "systemd-fido2",
                         until,
                         headless,
-                        usrptr,
+                        userdata,
                         activation_flags,
                         "Please enter security token PIN:",
                         "fido2-pin",
@@ -1399,7 +1417,8 @@ static int attach_luks2_by_pkcs11_via_plugin(
         systemd_pkcs11_plugin_params params = {
                 .friendly_name = friendly_name,
                 .until = until,
-                .headless = headless
+                .headless = headless,
+                .askpw_flags = arg_ask_password_flags,
         };
 
         r = crypt_activate_by_token_pin(cd, name, "systemd-pkcs11", CRYPT_ANY_TOKEN, NULL, 0, &params, flags);
@@ -1490,8 +1509,8 @@ static int attach_luks_or_plain_or_bitlk_by_pkcs11(
                         if (r < 0)
                                 return r;
 
-                        log_notice("Security token %s not present for unlocking volume %s, please plug it in.",
-                                   uri, friendly);
+                        log_notice("Security token%s%s not present for unlocking volume %s, please plug it in.",
+                                   uri ? " " : "", strempty(uri), friendly);
 
                         /* Let's immediately rescan in case the token appeared in the time we needed
                          * to create and configure the monitor */
@@ -1578,6 +1597,20 @@ static int make_tpm2_device_monitor(
         return 0;
 }
 
+static bool use_token_plugins(void) {
+        int r;
+
+        /* Disable tokens if we shall measure, since we won't get access to the volume key then. */
+        if (arg_tpm2_measure_pcr != UINT_MAX)
+                return false;
+
+        r = getenv_bool("SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE value, ignoring: %m");
+
+        return r != 0;
+}
+
 static int attach_luks2_by_tpm2_via_plugin(
                 struct crypt_device *cd,
                 const char *name,
@@ -1590,6 +1623,7 @@ static int attach_luks2_by_tpm2_via_plugin(
                 .search_pcr_mask = arg_tpm2_pcr_mask,
                 .device = arg_tpm2_device,
                 .signature_path = arg_tpm2_signature,
+                .pcrlock_path = arg_tpm2_pcrlock,
         };
 
         if (!libcryptsetup_plugins_support())
@@ -1649,6 +1683,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                         /* pubkey= */ NULL, /* pubkey_size= */ 0,
                                         /* pubkey_pcr_mask= */ 0,
                                         /* signature_path= */ NULL,
+                                        /* pcrlock_path= */ NULL,
                                         /* primary_alg= */ 0,
                                         key_file, arg_keyfile_size, arg_keyfile_offset,
                                         key_data, key_data_size,
@@ -1746,6 +1781,7 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                                                 pubkey, pubkey_size,
                                                 pubkey_pcr_mask,
                                                 arg_tpm2_signature,
+                                                arg_tpm2_pcrlock,
                                                 primary_alg,
                                                 /* key_file= */ NULL, /* key_file_size= */ 0, /* key_file_offset= */ 0, /* no key file */
                                                 blob, blob_size,
@@ -2260,14 +2296,14 @@ static int run(int argc, char *argv[]) {
                         }
 
                         /* Tokens are available in LUKS2 only, but it is ok to call (and fail) with LUKS1. */
-                        if (!key_file && !key_data && getenv_bool("SYSTEMD_CRYPTSETUP_USE_TOKEN_MODULE") != 0) {
+                        if (!key_file && !key_data && use_token_plugins()) {
                                 r = crypt_activate_by_token_pin_ask_password(
                                                 cd,
                                                 volume,
-                                                NULL,
+                                                /* type= */ NULL,
                                                 until,
                                                 arg_headless,
-                                                NULL,
+                                                /* userdata= */ NULL,
                                                 flags,
                                                 "Please enter LUKS2 token PIN:",
                                                 "luks2-pin",

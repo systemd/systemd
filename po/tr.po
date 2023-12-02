@@ -9,11 +9,10 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-07-14 10:32+0100\n"
+"POT-Creation-Date: 2023-11-14 21:25+0000\n"
 "PO-Revision-Date: 2023-08-03 17:21+0000\n"
 "Last-Translator: Oğuz Ersen <oguz@ersen.moe>\n"
-"Language-Team: Turkish <https://translate.fedoraproject.org/projects/systemd/"
-"master/tr/>\n"
+"Language-Team: Turkish <https://translate.fedoraproject.org/projects/systemd/master/tr/>\n"
 "Language: tr\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -67,9 +66,7 @@ msgstr "systemd durumunu hız sınırlamaları olmadan dök"
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
 msgid "Authentication is required to dump the systemd state without rate limits."
-msgstr ""
-"systemd durumunu hız sınırlamaları olmadan dökmek kimlik doğrulaması "
-"gerektirir."
+msgstr "systemd durumunu hız sınırlamaları olmadan dökmek kimlik doğrulaması gerektirir."
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
@@ -928,39 +925,39 @@ msgstr "Ağ zaman eş zamanlamasını aç veya kapat"
 msgid "Authentication is required to control whether network time synchronization shall be enabled."
 msgstr "Ağ zaman eş zamanlamasını denetlemek kimlik doğrulaması gerektiriyor."
 
-#: src/core/dbus-unit.c:364
+#: src/core/dbus-unit.c:352
 msgid "Authentication is required to start '$(unit)'."
 msgstr "'$(unit)' başlatmak için kimlik doğrulaması gereklidir."
 
-#: src/core/dbus-unit.c:365
+#: src/core/dbus-unit.c:353
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "'$(unit)' durdurmak için kimlik doğrulaması gereklidir."
 
-#: src/core/dbus-unit.c:366
+#: src/core/dbus-unit.c:354
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "'$(unit)' yeniden yüklemek için kimlik doğrulaması gereklidir."
 
-#: src/core/dbus-unit.c:367 src/core/dbus-unit.c:368
+#: src/core/dbus-unit.c:355 src/core/dbus-unit.c:356
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "'$(unit)' yeniden başlatmak için kimlik doğrulaması gereklidir."
 
-#: src/core/dbus-unit.c:565
+#: src/core/dbus-unit.c:553
 msgid "Authentication is required to send a UNIX signal to the processes of '$(unit)'."
 msgstr "'$(unit)' süreçlerine bir UNIX sinyali göndermek için kimlik doğrulaması gereklidir."
 
-#: src/core/dbus-unit.c:595
+#: src/core/dbus-unit.c:583
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "'$(unit)'in \"failed\" (başarısız) durumunu sıfırlamak için kimlik doğrulaması gereklidir."
 
-#: src/core/dbus-unit.c:627
+#: src/core/dbus-unit.c:615
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "'$(unit)' üzerindeki özellikleri ayarlamak için kimlik doğrulaması gereklidir."
 
-#: src/core/dbus-unit.c:728
+#: src/core/dbus-unit.c:716
 msgid "Authentication is required to delete files and directories associated with '$(unit)'."
 msgstr "'$(unit)' ile ilişkili dosyaları ve dizinleri silmek için kimlik doğrulaması gereklidir."
 
-#: src/core/dbus-unit.c:776
+#: src/core/dbus-unit.c:764
 msgid "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "'$(unit)' biriminin işlemlerini dondurmak veya devam ettirmek için kimlik doğrulaması gereklidir."
 

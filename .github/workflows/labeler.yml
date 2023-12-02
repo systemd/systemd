@@ -30,7 +30,7 @@ jobs:
         sync-labels: "" # This is a workaround for issue 18671
 
     - name: Set or remove labels based on systemd development workflow
-      uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
       if: github.event_name == 'pull_request_target' && github.event.action != 'closed' && !github.event.pull_request.draft
       with:
         script: |
@@ -75,7 +75,7 @@ jobs:
           }
 
     - name: Add please-review label on command in issue comment
-      uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
       if: github.event_name == 'issue_comment' && github.event.issue.pull_request && startsWith(github.event.comment.body, '/please-review')
       with:
         script: |
@@ -87,7 +87,7 @@ jobs:
           })
 
     - name: Remove specific labels when PR is closed or merged
-      uses: actions/github-script@d7906e4ad0b1822421a7e6a35d5ca353c962f410
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
       if: github.event_name == 'pull_request_target' && github.event.action == 'closed'
       with:
         script: |

@@ -85,6 +85,13 @@ static const char* const image_search_path_initrd[_IMAGE_CLASS_MAX] = {
                             "/.extra/sysext\0"             /* put sysext picked up by systemd-stub last, since not trusted */
 };
 
+static const char* image_class_suffix_table[_IMAGE_CLASS_MAX] = {
+        [IMAGE_SYSEXT]  = ".sysext",
+        [IMAGE_CONFEXT] = ".confext",
+};
+
+DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(image_class_suffix, ImageClass);
+
 static Image *image_free(Image *i) {
         assert(i);
 
@@ -94,7 +101,8 @@ static Image *image_free(Image *i) {
         free(i->hostname);
         strv_free(i->machine_info);
         strv_free(i->os_release);
-        strv_free(i->extension_release);
+        strv_free(i->sysext_release);
+        strv_free(i->confext_release);
 
         return mfree(i);
 }
@@ -201,27 +209,34 @@ static int image_new(
         return 0;
 }
 
-static int extract_pretty(const char *path, const char *suffix, char **ret) {
+static int extract_pretty(
+                const char *path,
+                const char *class_suffix,
+                const char *format_suffix,
+                char **ret) {
+
         _cleanup_free_ char *name = NULL;
-        const char *p;
+        int r;
 
         assert(path);
         assert(ret);
 
-        p = last_path_component(path);
+        r = path_extract_filename(path, &name);
+        if (r < 0)
+                return r;
 
-        name = strdupcspn(p, "/");
-        if (!name)
-                return -ENOMEM;
-
-        if (suffix) {
-                char *e;
-
-                e = endswith(name, suffix);
-                if (!e)
+        if (format_suffix) {
+                char *e = endswith(name, format_suffix);
+                if (!e) /* Format suffix is required */
                         return -EINVAL;
 
                 *e = 0;
+        }
+
+        if (class_suffix) {
+                char *e = endswith(name, class_suffix);
+                if (e) /* Class suffix is optional */
+                        *e = 0;
         }
 
         if (!image_name_is_valid(name))
@@ -282,7 +297,7 @@ static int image_make(
                         return 0;
 
                 if (!pretty) {
-                        r = extract_pretty(filename, NULL, &pretty_buffer);
+                        r = extract_pretty(filename, image_class_suffix_to_string(c), NULL, &pretty_buffer);
                         if (r < 0)
                                 return r;
 
@@ -369,7 +384,7 @@ static int image_make(
                 (void) fd_getcrtime_at(dfd, filename, AT_SYMLINK_FOLLOW, &crtime);
 
                 if (!pretty) {
-                        r = extract_pretty(filename, ".raw", &pretty_buffer);
+                        r = extract_pretty(filename, image_class_suffix_to_string(c), ".raw", &pretty_buffer);
                         if (r < 0)
                                 return r;
 
@@ -403,7 +418,7 @@ static int image_make(
                         return 0;
 
                 if (!pretty) {
-                        r = extract_pretty(filename, NULL, &pretty_buffer);
+                        r = extract_pretty(filename, NULL, NULL, &pretty_buffer);
                         if (r < 0)
                                 return r;
 
@@ -592,8 +607,7 @@ int image_discover(
 
                 FOREACH_DIRENT_ALL(de, d, return -errno) {
                         _cleanup_(image_unrefp) Image *image = NULL;
-                        _cleanup_free_ char *truncated = NULL;
-                        const char *pretty;
+                        _cleanup_free_ char *pretty = NULL;
                         struct stat st;
                         int flags;
 
@@ -610,25 +624,20 @@ int image_discover(
                                 return -errno;
                         }
 
-                        if (S_ISREG(st.st_mode)) {
-                                const char *e;
-
-                                e = endswith(de->d_name, ".raw");
-                                if (!e)
-                                        continue;
-
-                                truncated = strndup(de->d_name, e - de->d_name);
-                                if (!truncated)
-                                        return -ENOMEM;
-
-                                pretty = truncated;
-                        } else if (S_ISDIR(st.st_mode) || S_ISBLK(st.st_mode))
-                                pretty = de->d_name;
-                        else
+                        if (S_ISREG(st.st_mode))
+                                r = extract_pretty(de->d_name, image_class_suffix_to_string(class), ".raw", &pretty);
+                        else if (S_ISDIR(st.st_mode))
+                                r = extract_pretty(de->d_name, image_class_suffix_to_string(class), NULL, &pretty);
+                        else if (S_ISBLK(st.st_mode))
+                                r = extract_pretty(de->d_name, NULL, NULL, &pretty);
+                        else {
+                                log_debug("Skipping directory entry '%s', which is neither regular file, directory nor block device.", de->d_name);
                                 continue;
-
-                        if (!image_name_is_valid(pretty))
+                        }
+                        if (r < 0) {
+                                log_debug_errno(r, "Skipping directory entry '%s', which doesn't look like an image.", de->d_name);
                                 continue;
+                        }
 
                         if (hashmap_contains(h, pretty))
                                 continue;
@@ -645,7 +654,7 @@ int image_discover(
                         if (r < 0)
                                 return r;
 
-                        image = NULL;
+                        TAKE_PTR(image);
                 }
         }
 
@@ -1172,10 +1181,9 @@ int image_read_metadata(Image *i, const ImagePolicy *image_policy) {
 
         case IMAGE_SUBVOLUME:
         case IMAGE_DIRECTORY: {
-                _cleanup_strv_free_ char **machine_info = NULL, **os_release = NULL, **extension_release = NULL;
+                _cleanup_strv_free_ char **machine_info = NULL, **os_release = NULL, **sysext_release = NULL, **confext_release = NULL;
+                _cleanup_free_ char *hostname = NULL, *path = NULL;
                 sd_id128_t machine_id = SD_ID128_NULL;
-                _cleanup_free_ char *hostname = NULL;
-                _cleanup_free_ char *path = NULL;
 
                 if (i->class == IMAGE_SYSEXT) {
                         r = extension_has_forbidden_content(i->path);
@@ -1215,16 +1223,20 @@ int image_read_metadata(Image *i, const ImagePolicy *image_policy) {
                 if (r < 0)
                         log_debug_errno(r, "Failed to read os-release in image, ignoring: %m");
 
-                r = load_extension_release_pairs(i->path, i->class, i->name, /* relax_extension_release_check= */ false, &extension_release);
+                r = load_extension_release_pairs(i->path, IMAGE_SYSEXT, i->name, /* relax_extension_release_check= */ false, &sysext_release);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to read extension-release in image, ignoring: %m");
+                        log_debug_errno(r, "Failed to read sysext-release in image, ignoring: %m");
+
+                r = load_extension_release_pairs(i->path, IMAGE_CONFEXT, i->name, /* relax_extension_release_check= */ false, &confext_release);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to read confext-release in image, ignoring: %m");
 
                 free_and_replace(i->hostname, hostname);
                 i->machine_id = machine_id;
                 strv_free_and_replace(i->machine_info, machine_info);
                 strv_free_and_replace(i->os_release, os_release);
-                strv_free_and_replace(i->extension_release, extension_release);
-
+                strv_free_and_replace(i->sysext_release, sysext_release);
+                strv_free_and_replace(i->confext_release, confext_release);
                 break;
         }
 
@@ -1263,7 +1275,8 @@ int image_read_metadata(Image *i, const ImagePolicy *image_policy) {
                 i->machine_id = m->machine_id;
                 strv_free_and_replace(i->machine_info, m->machine_info);
                 strv_free_and_replace(i->os_release, m->os_release);
-                strv_free_and_replace(i->extension_release, m->extension_release);
+                strv_free_and_replace(i->sysext_release, m->sysext_release);
+                strv_free_and_replace(i->confext_release, m->confext_release);
 
                 break;
         }
@@ -1340,11 +1353,29 @@ bool image_in_search_path(
         return false;
 }
 
+int image_to_json(const struct Image *img, JsonVariant **ret) {
+        assert(img);
+
+        return json_build(ret,
+                          JSON_BUILD_OBJECT(
+                                          JSON_BUILD_PAIR_STRING("Type", image_type_to_string(img->type)),
+                                          JSON_BUILD_PAIR_STRING("Class", image_class_to_string(img->class)),
+                                          JSON_BUILD_PAIR_STRING("Name", img->name),
+                                          JSON_BUILD_PAIR_CONDITION(img->path, "Path", JSON_BUILD_STRING(img->path)),
+                                          JSON_BUILD_PAIR_BOOLEAN("ReadOnly", img->read_only),
+                                          JSON_BUILD_PAIR_CONDITION(img->crtime != 0, "CreationTimestamp", JSON_BUILD_UNSIGNED(img->crtime)),
+                                          JSON_BUILD_PAIR_CONDITION(img->mtime != 0, "ModificationTimestamp", JSON_BUILD_UNSIGNED(img->mtime)),
+                                          JSON_BUILD_PAIR_CONDITION(img->usage != UINT64_MAX, "Usage", JSON_BUILD_UNSIGNED(img->usage)),
+                                          JSON_BUILD_PAIR_CONDITION(img->usage_exclusive != UINT64_MAX, "UsageExclusive", JSON_BUILD_UNSIGNED(img->usage_exclusive)),
+                                          JSON_BUILD_PAIR_CONDITION(img->limit != UINT64_MAX, "Limit", JSON_BUILD_UNSIGNED(img->limit)),
+                                          JSON_BUILD_PAIR_CONDITION(img->limit_exclusive != UINT64_MAX, "LimitExclusive", JSON_BUILD_UNSIGNED(img->limit_exclusive))));
+}
+
 static const char* const image_type_table[_IMAGE_TYPE_MAX] = {
         [IMAGE_DIRECTORY] = "directory",
         [IMAGE_SUBVOLUME] = "subvolume",
-        [IMAGE_RAW] = "raw",
-        [IMAGE_BLOCK] = "block",
+        [IMAGE_RAW]       = "raw",
+        [IMAGE_BLOCK]     = "block",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(image_type, ImageType);

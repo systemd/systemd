@@ -184,8 +184,6 @@ static int setup_monitor(sd_event *event, MonitorNetlinkGroup group, const char 
         if (r < 0)
                 return r;
 
-        (void) sd_device_monitor_set_receive_buffer_size(monitor, 128*1024*1024);
-
         r = sd_device_monitor_attach_event(monitor, event);
         if (r < 0)
                 return r;

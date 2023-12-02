@@ -293,8 +293,8 @@
         <term><option>--force</option></term>
 
         <listitem><para>Write configuration even if the relevant files already exist. Without this option,
-        <filename>systemd-firstboot</filename> doesn't modify or replace existing files. Note that when
-        configuring the root account, even with this option, <filename>systemd-firstboot</filename> only
+        <command>systemd-firstboot</command> doesn't modify or replace existing files. Note that when
+        configuring the root account, even with this option, <command>systemd-firstboot</command> only
         modifies the entry of the <literal>root</literal> user, leaving other entries in
         <filename>/etc/passwd</filename> and <filename>/etc/shadow</filename> intact.</para>
 

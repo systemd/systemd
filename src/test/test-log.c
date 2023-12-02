@@ -5,10 +5,13 @@
 
 #include "format-util.h"
 #include "io-util.h"
+#include "iovec-util.h"
+#include "iovec-wrapper.h"
 #include "log.h"
 #include "process-util.h"
 #include "string-util.h"
 #include "strv.h"
+#include "tests.h"
 
 assert_cc(IS_SYNTHETIC_ERRNO(SYNTHETIC_ERRNO(EINVAL)));
 assert_cc(!IS_SYNTHETIC_ERRNO(EINVAL));
@@ -202,6 +205,8 @@ static void test_log_prefix(void) {
 }
 
 int main(int argc, char* argv[]) {
+        test_setup_logging(LOG_DEBUG);
+
         test_file();
 
         assert_se(log_info_errno(SYNTHETIC_ERRNO(EUCLEAN), "foo") == -EUCLEAN);

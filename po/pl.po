@@ -6,17 +6,15 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-07-14 10:32+0100\n"
+"POT-Creation-Date: 2023-11-14 21:25+0000\n"
 "PO-Revision-Date: 2023-07-15 10:56+0000\n"
 "Last-Translator: Piotr Drąg <piotrdrag@gmail.com>\n"
-"Language-Team: Polish <https://translate.fedoraproject.org/projects/systemd/"
-"master/pl/>\n"
+"Language-Team: Polish <https://translate.fedoraproject.org/projects/systemd/master/pl/>\n"
 "Language: pl\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=3; plural=n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 "
-"|| n%100>=20) ? 1 : 2;\n"
+"Plural-Forms: nplurals=3; plural=n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
 "X-Generator: Weblate 4.18.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
@@ -118,10 +116,7 @@ msgstr "Wymagane jest uwierzytelnienie, aby zmienić hasło przestrzeni domowej 
 #: src/home/pam_systemd_home.c:287
 #, c-format
 msgid "Home of user %s is currently absent, please plug in the necessary storage device or backing file system."
-msgstr ""
-"Katalog domowy użytkownika %s jest teraz nieobecny, proszę podłączyć "
-"wymagane urządzenie do przechowywania danych lub system plików, na którym "
-"się znajduje."
+msgstr "Katalog domowy użytkownika %s jest teraz nieobecny, proszę podłączyć wymagane urządzenie do przechowywania danych lub system plików, na którym się znajduje."
 
 #: src/home/pam_systemd_home.c:292
 #, c-format
@@ -135,9 +130,7 @@ msgstr "Hasło: "
 #: src/home/pam_systemd_home.c:306
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
-msgstr ""
-"Hasło jest niepoprawne lub niewystarczające do uwierzytelnienia użytkownika "
-"%s."
+msgstr "Hasło jest niepoprawne lub niewystarczające do uwierzytelnienia użytkownika %s."
 
 #: src/home/pam_systemd_home.c:307
 msgid "Sorry, try again: "
@@ -150,9 +143,7 @@ msgstr "Klucz odzyskiwania: "
 #: src/home/pam_systemd_home.c:331
 #, c-format
 msgid "Password/recovery key incorrect or not sufficient for authentication of user %s."
-msgstr ""
-"Hasło/klucz odzyskiwania jest niepoprawny lub niewystarczający do "
-"uwierzytelnienia użytkownika %s."
+msgstr "Hasło/klucz odzyskiwania jest niepoprawny lub niewystarczający do uwierzytelnienia użytkownika %s."
 
 #: src/home/pam_systemd_home.c:332
 msgid "Sorry, reenter recovery key: "
@@ -170,9 +161,7 @@ msgstr "Proszę spróbować ponownie za pomocą hasła: "
 #: src/home/pam_systemd_home.c:355
 #, c-format
 msgid "Password incorrect or not sufficient, and configured security token of user %s not inserted."
-msgstr ""
-"Hasło jest niepoprawne lub niewystarczające, a skonfigurowany token "
-"zabezpieczeń użytkownika %s nie jest włożony."
+msgstr "Hasło jest niepoprawne lub niewystarczające, a skonfigurowany token zabezpieczeń użytkownika %s nie jest włożony."
 
 #: src/home/pam_systemd_home.c:376
 msgid "Security token PIN: "
@@ -195,9 +184,7 @@ msgstr "Proszę zweryfikować użytkownika na tokenie zabezpieczeń użytkownika
 
 #: src/home/pam_systemd_home.c:424
 msgid "Security token PIN is locked, please unlock it first. (Hint: Removal and re-insertion might suffice.)"
-msgstr ""
-"Kod PIN tokena zabezpieczeń jest zablokowany, proszę najpierw go odblokować "
-"(wskazówka: wyjęcie i włożenie ponownie może wystarczyć)."
+msgstr "Kod PIN tokena zabezpieczeń jest zablokowany, proszę najpierw go odblokować (wskazówka: wyjęcie i włożenie ponownie może wystarczyć)."
 
 #: src/home/pam_systemd_home.c:432
 #, c-format
@@ -212,30 +199,22 @@ msgstr "Proszę ponownie wpisać kod PIN tokena zabezpieczeń: "
 #: src/home/pam_systemd_home.c:451
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
-msgstr ""
-"Niepoprawny kod PIN tokena zabezpieczeń użytkownika %s (pozostało tylko "
-"kilka prób)."
+msgstr "Niepoprawny kod PIN tokena zabezpieczeń użytkownika %s (pozostało tylko kilka prób)."
 
 #: src/home/pam_systemd_home.c:470
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
-msgstr ""
-"Niepoprawny kod PIN tokena zabezpieczeń użytkownika %s (pozostała tylko "
-"jedna próba)."
+msgstr "Niepoprawny kod PIN tokena zabezpieczeń użytkownika %s (pozostała tylko jedna próba)."
 
 #: src/home/pam_systemd_home.c:616
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
-msgstr ""
-"Katalog domowy użytkownika %s jest teraz nieaktywny, proszę najpierw "
-"zalogować się lokalnie."
+msgstr "Katalog domowy użytkownika %s jest teraz nieaktywny, proszę najpierw zalogować się lokalnie."
 
 #: src/home/pam_systemd_home.c:618
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
-msgstr ""
-"Katalog domowy użytkownika %s jest teraz zablokowany, proszę najpierw "
-"odblokować go lokalnie."
+msgstr "Katalog domowy użytkownika %s jest teraz zablokowany, proszę najpierw odblokować go lokalnie."
 
 #: src/home/pam_systemd_home.c:645
 #, c-format
@@ -943,39 +922,39 @@ msgstr "Włączenie lub wyłączenie synchronizacji czasu przez sieć"
 msgid "Authentication is required to control whether network time synchronization shall be enabled."
 msgstr "Wymagane jest uwierzytelnienie, aby kontrolować, czy włączyć synchronizację czasu przez sieć."
 
-#: src/core/dbus-unit.c:364
+#: src/core/dbus-unit.c:352
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Wymagane jest uwierzytelnienie, aby uruchomić jednostkę „$(unit)”."
 
-#: src/core/dbus-unit.c:365
+#: src/core/dbus-unit.c:353
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Wymagane jest uwierzytelnienie, aby zatrzymać jednostkę „$(unit)”."
 
-#: src/core/dbus-unit.c:366
+#: src/core/dbus-unit.c:354
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Wymagane jest uwierzytelnienie, aby ponownie wczytać jednostkę „$(unit)”."
 
-#: src/core/dbus-unit.c:367 src/core/dbus-unit.c:368
+#: src/core/dbus-unit.c:355 src/core/dbus-unit.c:356
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Wymagane jest uwierzytelnienie, aby ponownie uruchomić jednostkę „$(unit)”."
 
-#: src/core/dbus-unit.c:565
+#: src/core/dbus-unit.c:553
 msgid "Authentication is required to send a UNIX signal to the processes of '$(unit)'."
 msgstr "Wymagane jest uwierzytelnienie, aby wysłać sygnał uniksowy do procesów jednostki „$(unit)”."
 
-#: src/core/dbus-unit.c:595
+#: src/core/dbus-unit.c:583
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "Wymagane jest uwierzytelnienie, aby przywrócić stan „failed” (niepowodzenia) jednostki „$(unit)”."
 
-#: src/core/dbus-unit.c:627
+#: src/core/dbus-unit.c:615
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Wymagane jest uwierzytelnienie, aby ustawić właściwości jednostki „$(unit)”."
 
-#: src/core/dbus-unit.c:728
+#: src/core/dbus-unit.c:716
 msgid "Authentication is required to delete files and directories associated with '$(unit)'."
 msgstr "Wymagane jest uwierzytelnienie, aby usunąć pliki i katalogi powiązane z jednostką „$(unit)”."
 
-#: src/core/dbus-unit.c:776
+#: src/core/dbus-unit.c:764
 msgid "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "Wymagane jest uwierzytelnienie, aby zamrozić lub odmrozić procesy jednostki „$(unit)”."
 

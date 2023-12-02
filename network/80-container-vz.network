@@ -15,8 +15,8 @@
 # --network-zone= switch. See systemd-nspawn(1) for details.
 
 [Match]
+Kind=bridge
 Name=vz-*
-Driver=bridge
 
 [Network]
 # Default to using a /24 prefix, giving up to 253 addresses per virtual network.
@@ -26,4 +26,5 @@ DHCPServer=yes
 IPMasquerade=both
 LLDP=yes
 EmitLLDP=customer-bridge
+IPv6AcceptRA=no
 IPv6SendRA=yes

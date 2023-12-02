@@ -13,6 +13,7 @@
 #include "main-func.h"
 #include "mkdir.h"
 #include "parse-util.h"
+#include "percent-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
 #include "reboot-util.h"
@@ -326,7 +327,13 @@ static int get_max_brightness(sd_device *device, unsigned *ret) {
         return 0;
 }
 
-static int clamp_brightness(sd_device *device, bool saved, unsigned max_brightness, unsigned *brightness) {
+static int clamp_brightness(
+                sd_device *device,
+                unsigned percent,
+                bool saved,
+                unsigned max_brightness,
+                unsigned *brightness) {
+
         unsigned new_brightness, min_brightness;
         const char *subsystem;
         int r;
@@ -344,7 +351,7 @@ static int clamp_brightness(sd_device *device, bool saved, unsigned max_brightne
                 return log_device_warning_errno(device, r, "Failed to get device subsystem: %m");
 
         if (streq(subsystem, "backlight"))
-                min_brightness = MAX(1U, max_brightness/20);
+                min_brightness = MAX(1U, (unsigned) ((double) max_brightness * percent / 100));
         else
                 min_brightness = 0;
 
@@ -361,26 +368,36 @@ static int clamp_brightness(sd_device *device, bool saved, unsigned max_brightne
         return 0;
 }
 
-static bool shall_clamp(sd_device *d) {
+static bool shall_clamp(sd_device *d, unsigned *ret) {
         const char *s;
         int r;
 
         assert(d);
+        assert(ret);
 
         r = sd_device_get_property_value(d, "ID_BACKLIGHT_CLAMP", &s);
         if (r < 0) {
                 if (r != -ENOENT)
                         log_device_debug_errno(d, r, "Failed to get ID_BACKLIGHT_CLAMP property, ignoring: %m");
+                *ret = 5; /* defaults to 5% */
                 return true;
         }
 
         r = parse_boolean(s);
+        if (r >= 0) {
+                *ret = r ? 5 : 0;
+                return r;
+        }
+
+        r = parse_percent(s);
         if (r < 0) {
                 log_device_debug_errno(d, r, "Failed to parse ID_BACKLIGHT_CLAMP property, ignoring: %m");
+                *ret = 5;
                 return true;
         }
 
-        return r;
+        *ret = r;
+        return true;
 }
 
 static int read_brightness(sd_device *device, unsigned max_brightness, unsigned *ret_brightness) {
@@ -526,6 +543,7 @@ static int run(int argc, char *argv[]) {
 
         if (streq(argv[1], "load")) {
                 _cleanup_free_ char *value = NULL;
+                unsigned percent;
                 bool clamp;
 
                 if (!shall_restore_state())
@@ -534,7 +552,7 @@ static int run(int argc, char *argv[]) {
                 if (validate_device(device) == 0)
                         return 0;
 
-                clamp = shall_clamp(device);
+                clamp = shall_clamp(device, &percent);
 
                 r = read_one_line_file(saved, &value);
                 if (r < 0 && r != -ENOENT)
@@ -548,7 +566,7 @@ static int run(int argc, char *argv[]) {
                         } else {
                                 log_debug("Using saved brightness %u.", brightness);
                                 if (clamp)
-                                        (void) clamp_brightness(device, true, max_brightness, &brightness);
+                                        (void) clamp_brightness(device, percent, /* saved = */ true, max_brightness, &brightness);
 
                                 /* Do not fall back to read current brightness below. */
                                 r = 1;
@@ -564,7 +582,7 @@ static int run(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_device_error_errno(device, r, "Failed to read current brightness: %m");
 
-                        (void) clamp_brightness(device, false, max_brightness, &brightness);
+                        (void) clamp_brightness(device, percent, /* saved = */ false, max_brightness, &brightness);
                 }
 
                 r = sd_device_set_sysattr_valuef(device, "brightness", "%u", brightness);

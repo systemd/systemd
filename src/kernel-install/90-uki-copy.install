@@ -69,7 +69,7 @@ fi
 # If there is a UKI named uki.efi on the staging area use that, if not use what
 # was passed in as $KERNEL_IMAGE but insist it has a .efi extension
 if [ -f "$KERNEL_INSTALL_STAGING_AREA/uki.efi" ]; then
-    [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Installing $KERNEL_INSTALL_STAGING_AREA/uki.efi"
+    [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Installing $KERNEL_INSTALL_STAGING_AREA/uki.efi as $UKI_FILE"
     install -m 0644 "$KERNEL_INSTALL_STAGING_AREA/uki.efi" "$UKI_FILE" || {
         echo "Error: could not copy '$KERNEL_INSTALL_STAGING_AREA/uki.efi' to '$UKI_FILE'." >&2
         exit 1
@@ -83,7 +83,7 @@ elif [ -n "$KERNEL_IMAGE" ]; then
         echo "Error: $KERNEL_IMAGE is missing .efi suffix." >&2
         exit 1
     }
-    [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Installing $KERNEL_IMAGE"
+    [ "$KERNEL_INSTALL_VERBOSE" -gt 0 ] && echo "Installing $KERNEL_IMAGE as $UKI_FILE"
     install -m 0644 "$KERNEL_IMAGE" "$UKI_FILE" || {
         echo "Error: could not copy '$KERNEL_IMAGE' to '$UKI_FILE'." >&2
         exit 1

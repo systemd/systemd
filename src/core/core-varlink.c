@@ -5,6 +5,8 @@
 #include "strv.h"
 #include "user-util.h"
 #include "varlink.h"
+#include "varlink-io.systemd.UserDatabase.h"
+#include "varlink-io.systemd.ManagedOOM.h"
 
 typedef struct LookupParameters {
         const char *user_name;
@@ -232,7 +234,7 @@ static int vl_method_subscribe_managed_oom_cgroups(
         /* We only take one subscriber for this method so return an error if there's already an existing one.
          * This shouldn't happen since systemd-oomd is the only client of this method. */
         if (FLAGS_SET(flags, VARLINK_METHOD_MORE) && m->managed_oom_varlink)
-                return varlink_error(link, VARLINK_ERROR_SUBSCRIPTION_TAKEN, NULL);
+                return varlink_error(link, "io.systemd.ManagedOOM.SubscriptionTaken", NULL);
 
         r = build_managed_oom_cgroups_json(m, &v);
         if (r < 0)
@@ -285,8 +287,8 @@ static int vl_method_get_user_record(Varlink *link, JsonVariant *parameters, Var
 
         assert(parameters);
 
-        r = json_dispatch(parameters, dispatch_table, NULL, 0, &p);
-        if (r < 0)
+        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
                 return r;
 
         if (!streq_ptr(p.service, "io.systemd.DynamicUser"))
@@ -392,8 +394,8 @@ static int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, Va
 
         assert(parameters);
 
-        r = json_dispatch(parameters, dispatch_table, NULL, 0, &p);
-        if (r < 0)
+        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
                 return r;
 
         if (!streq_ptr(p.service, "io.systemd.DynamicUser"))
@@ -468,8 +470,8 @@ static int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, Var
 
         assert(parameters);
 
-        r = json_dispatch(parameters, dispatch_table, NULL, 0, &p);
-        if (r < 0)
+        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
                 return r;
 
         if (!streq_ptr(p.service, "io.systemd.DynamicUser"))
@@ -508,13 +510,21 @@ static int manager_varlink_init_system(Manager *m) {
         if (!MANAGER_IS_TEST_RUN(m)) {
                 (void) mkdir_p_label("/run/systemd/userdb", 0755);
 
-                r = varlink_server_listen_address(s, "/run/systemd/userdb/io.systemd.DynamicUser", 0666);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to bind to varlink socket: %m");
+                FOREACH_STRING(address, "/run/systemd/userdb/io.systemd.DynamicUser", VARLINK_ADDR_PATH_MANAGED_OOM_SYSTEM) {
+                        if (MANAGER_IS_RELOADING(m)) {
+                                /* If manager is reloading, we skip listening on existing addresses, since
+                                 * the fd should be acquired later through deserialization. */
+                                if (access(address, F_OK) >= 0)
+                                        continue;
+                                if (errno != ENOENT)
+                                        return log_error_errno(errno,
+                                                               "Failed to check if varlink socket '%s' exists: %m", address);
+                        }
 
-                r = varlink_server_listen_address(s, VARLINK_ADDR_PATH_MANAGED_OOM_SYSTEM, 0666);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to bind to varlink socket: %m");
+                        r = varlink_server_listen_address(s, address, 0666);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to bind to varlink socket '%s': %m", address);
+                }
         }
 
         r = varlink_server_attach_event(s, m->event, SD_EVENT_PRIORITY_NORMAL);
@@ -599,6 +609,13 @@ int manager_setup_varlink_server(Manager *m, VarlinkServer **ret) {
                 return log_debug_errno(r, "Failed to allocate varlink server object: %m");
 
         varlink_server_set_userdata(s, m);
+
+        r = varlink_server_add_interface_many(
+                        s,
+                        &vl_interface_io_systemd_UserDatabase,
+                        &vl_interface_io_systemd_ManagedOOM);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add interfaces to varlink server: %m");
 
         r = varlink_server_bind_method_many(
                         s,

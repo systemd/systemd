@@ -10,6 +10,7 @@
 #include "device-util.h"
 #include "fd-util.h"
 #include "fdset.h"
+#include "lock-util.h"
 #include "main-func.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -194,91 +195,31 @@ static int lock_device(
         if (!S_ISBLK(st.st_mode) || st.st_rdev != devno)
                 return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "Path '%s' no longer refers to specified block device %u:%u: %m", path, major(devno), minor(devno));
 
-        if (flock(fd, LOCK_EX|LOCK_NB) < 0) {
-
-                if (errno != EAGAIN)
-                        return log_error_errno(errno, "Failed to lock device '%s': %m", path);
+        r = lock_generic(fd, LOCK_BSD, LOCK_EX|LOCK_NB);
+        if (r < 0) {
+                if (r != -EAGAIN)
+                        return log_error_errno(r, "Failed to lock device '%s': %m", path);
 
                 if (deadline == 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EBUSY), "Device '%s' is currently locked.", path);
 
                 if (deadline == USEC_INFINITY)  {
-
                         log_info("Device '%s' is currently locked, waiting%s", path, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
-                        if (flock(fd, LOCK_EX) < 0)
-                                return log_error_errno(errno, "Failed to lock device '%s': %m", path);
-
+                        r = lock_generic(fd, LOCK_BSD, LOCK_EX);
                 } else {
-                        _cleanup_(sigkill_waitp) pid_t flock_pid = 0;
-
-                        /* flock() doesn't support a time-out. Let's fake one then. The traditional way to do
-                         * this is via alarm()/setitimer()/timer_create(), but that's racy, given that the
-                         * SIGALRM might already fire between the alarm() and the flock() in which case the
-                         * flock() is never cancelled and we lock up (this is a short time window, but with
-                         * short timeouts on a loaded machine we might run into it, who knows?). Let's
-                         * instead do the lock out-of-process: fork off a child that does the locking, and
-                         * that we'll wait on and kill if it takes too long. */
+                        usec_t left = usec_sub_unsigned(deadline, now(CLOCK_MONOTONIC));
 
                         log_info("Device '%s' is currently locked, waiting %s%s",
-                                 path, FORMAT_TIMESPAN(usec_sub_unsigned(deadline, now(CLOCK_MONOTONIC)), 0),
+                                 path, FORMAT_TIMESPAN(left, 0),
                                  special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
-                        BLOCK_SIGNALS(SIGCHLD);
-
-                        r = safe_fork("(timed-flock)", FORK_DEATHSIG|FORK_LOG, &flock_pid);
-                        if (r < 0)
-                                return r;
-                        if (r == 0) {
-                                /* Child */
-
-                                if (flock(fd, LOCK_EX) < 0) {
-                                        log_error_errno(errno, "Failed to lock device '%s': %m", path);
-                                        _exit(EXIT_FAILURE);
-                                }
-
-                                _exit(EXIT_SUCCESS);
-                        }
-
-                        for (;;) {
-                                siginfo_t si;
-                                sigset_t ss;
-                                usec_t n;
-
-                                assert_se(sigemptyset(&ss) >= 0);
-                                assert_se(sigaddset(&ss, SIGCHLD) >= 0);
-
-                                n = now(CLOCK_MONOTONIC);
-                                if (n >= deadline)
-                                        return log_error_errno(SYNTHETIC_ERRNO(ETIMEDOUT), "Timeout reached.");
-
-                                r = sigtimedwait(&ss, NULL, TIMESPEC_STORE(deadline - n));
-                                if (r < 0) {
-                                        if (errno != EAGAIN)
-                                                return log_error_errno(errno, "Failed to wait for SIGCHLD: %m");
-
-                                        return log_error_errno(SYNTHETIC_ERRNO(ETIMEDOUT), "Timeout reached.");
-                                }
-
-                                assert(r == SIGCHLD);
-
-                                zero(si);
-
-                                if (waitid(P_PID, flock_pid, &si, WEXITED|WNOHANG|WNOWAIT) < 0)
-                                        return log_error_errno(errno, "Failed to wait for child: %m");
-
-                                if (si.si_pid != 0) {
-                                        assert(si.si_pid == flock_pid);
-
-                                        if (si.si_code != CLD_EXITED || si.si_status != EXIT_SUCCESS)
-                                                return log_error_errno(SYNTHETIC_ERRNO(EPROTO), "Unexpected exit status of file lock child.");
-
-                                        break;
-                                }
-
-                                log_debug("Got SIGCHLD for other child, continuing.");
-                        }
+                        r = lock_generic_with_timeout(fd, LOCK_BSD, LOCK_EX, left);
+                        if (r == -ETIMEDOUT)
+                                return log_error_errno(r, "Timeout reached.");
                 }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to lock device '%s': %m", path);
         }
 
         log_debug("Successfully locked %s (%u:%u)%s", path, major(devno), minor(devno), special_glyph(SPECIAL_GLYPH_ELLIPSIS));
@@ -349,7 +290,7 @@ int lock_main(int argc, char *argv[], void *userdata) {
         /* Ignore SIGINT and allow the forked process to receive it */
         (void) ignore_signals(SIGINT);
 
-        r = safe_fork("(lock)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+        r = safe_fork("(lock)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {

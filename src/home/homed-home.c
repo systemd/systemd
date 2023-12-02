@@ -519,7 +519,7 @@ static int home_parse_worker_stdout(int _fd, UserRecord **ret) {
                 return 0;
         }
 
-        if (lseek(fd, SEEK_SET, 0) == (off_t) -1)
+        if (lseek(fd, SEEK_SET, 0) < 0)
                 return log_error_errno(errno, "Failed to seek to beginning of memfd: %m");
 
         f = take_fdopen(&fd, "r");
@@ -1184,7 +1184,7 @@ static int home_start_work(Home *h, const char *verb, UserRecord *hr, UserRecord
         r = safe_fork_full("(sd-homework)",
                            (int[]) { stdin_fd, stdout_fd, STDERR_FILENO },
                            NULL, 0,
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_REARRANGE_STDIO|FORK_LOG|FORK_REOPEN_LOG, &pid);
+                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG|FORK_REOPEN_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -2080,7 +2080,7 @@ int home_killall(Home *h) {
 
         /* Let's kill everything matching the specified UID */
         r = safe_fork("(sd-killer)",
-                      FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_WAIT|FORK_LOG|FORK_REOPEN_LOG,
+                      FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_WAIT|FORK_LOG|FORK_REOPEN_LOG,
                       NULL);
         if (r < 0)
                 return r;
@@ -3144,7 +3144,7 @@ int home_wait_for_worker(Home *h) {
         r = wait_for_terminate_with_timeout(h->worker_pid, 30 * USEC_PER_SEC);
         if (r == -ETIMEDOUT)
                 log_warning_errno(r, "Waiting for worker process for home %s timed out. Ignoring.", h->user_name);
-        else
+        else if (r < 0)
                 log_warning_errno(r, "Failed to wait for worker process for home %s. Ignoring.", h->user_name);
 
         (void) hashmap_remove_value(h->manager->homes_by_worker_pid, PID_TO_PTR(h->worker_pid), h);

@@ -90,8 +90,8 @@ int vl_method_get_user_record(Varlink *link, JsonVariant *parameters, VarlinkMet
 
         assert(parameters);
 
-        r = json_dispatch(parameters, dispatch_table, NULL, 0, &p);
-        if (r < 0)
+        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
                 return r;
 
         if (!streq_ptr(p.service, m->userdb_service))
@@ -204,8 +204,8 @@ int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, VarlinkMe
 
         assert(parameters);
 
-        r = json_dispatch(parameters, dispatch_table, NULL, 0, &p);
-        if (r < 0)
+        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
                 return r;
 
         if (!streq_ptr(p.service, m->userdb_service))
@@ -270,8 +270,8 @@ int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, VarlinkMet
 
         assert(parameters);
 
-        r = json_dispatch(parameters, dispatch_table, NULL, 0, &p);
-        if (r < 0)
+        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
                 return r;
 
         if (!streq_ptr(p.service, m->userdb_service))

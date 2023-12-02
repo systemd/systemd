@@ -223,14 +223,7 @@ int config_parse_controlled_delay_bool(
 
         cd = CODEL(qdisc);
 
-        if (isempty(rvalue)) {
-                cd->ecn = -1;
-
-                qdisc = NULL;
-                return 0;
-        }
-
-        r = parse_boolean(rvalue);
+        r = parse_tristate(rvalue, &cd->ecn);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
@@ -238,8 +231,7 @@ int config_parse_controlled_delay_bool(
                 return 0;
         }
 
-        cd->ecn = r;
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
 
         return 0;
 }

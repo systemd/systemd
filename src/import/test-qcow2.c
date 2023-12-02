@@ -7,10 +7,13 @@
 #include "fd-util.h"
 #include "log.h"
 #include "qcow2-util.h"
+#include "tests.h"
 
 int main(int argc, char *argv[]) {
         _cleanup_close_ int sfd = -EBADF, dfd = -EBADF;
         int r;
+
+        test_setup_logging(LOG_DEBUG);
 
         if (argc != 3) {
                 log_error("Needs two arguments.");

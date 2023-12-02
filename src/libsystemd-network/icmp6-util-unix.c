@@ -7,7 +7,7 @@
 #include "icmp6-util-unix.h"
 
 send_ra_t send_ra_function = NULL;
-int test_fd[2] = PIPE_EBADF;
+int test_fd[2] = EBADF_PAIR;
 
 static struct in6_addr dummy_link_local = {
         .s6_addr = {
@@ -44,7 +44,7 @@ int icmp6_receive(
         assert_se(read (fd, iov_base, iov_len) == (ssize_t) iov_len);
 
         if (ret_timestamp)
-                triple_timestamp_get(ret_timestamp);
+                triple_timestamp_now(ret_timestamp);
 
         if (ret_sender)
                 *ret_sender = dummy_link_local;

@@ -6,13 +6,31 @@
 
 #include "alloc-util.h"
 #include "dev-setup.h"
+#include "fd-util.h"
 #include "label-util.h"
+#include "lock-util.h"
 #include "log.h"
 #include "mkdir-label.h"
 #include "nulstr-util.h"
 #include "path-util.h"
+#include "terminal-util.h"
 #include "umask-util.h"
 #include "user-util.h"
+
+int lock_dev_console(void) {
+        _cleanup_close_ int fd = -EBADF;
+        int r;
+
+        fd = open_terminal("/dev/console", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
+        if (fd < 0)
+                return fd;
+
+        r = lock_generic(fd, LOCK_BSD, LOCK_EX);
+        if (r < 0)
+                return log_error_errno(r, "Failed to lock /dev/console: %m");
+
+        return TAKE_FD(fd);
+}
 
 int dev_setup(const char *prefix, uid_t uid, gid_t gid) {
         static const char symlinks[] =

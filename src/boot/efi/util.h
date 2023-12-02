@@ -35,12 +35,6 @@ static inline void *xmalloc(size_t size) {
         return p;
 }
 
-#define xmalloc0(size)                                  \
-        ({                                              \
-                size_t _size_ = (size);                 \
-                memzero(xmalloc(_size_), _size_);       \
-        })
-
 _malloc_ _alloc_(1, 2) _returns_nonnull_ _warn_unused_result_
 static inline void *xmalloc_multiply(size_t size, size_t n) {
         assert_se(!__builtin_mul_overflow(size, n, &size));
@@ -56,6 +50,11 @@ static inline void *xrealloc(void *p, size_t old_size, size_t new_size) {
                 memcpy(t, p, new_size);
         free(p);
         return t;
+}
+
+_malloc_ _alloc_(2) _returns_nonnull_ _warn_unused_result_
+static inline void* xmemdup(const void *p, size_t l) {
+        return memcpy(xmalloc(l), p, l);
 }
 
 #define xnew(type, n) ((type *) xmalloc_multiply(sizeof(type), (n)))
@@ -86,14 +85,14 @@ static inline Pages xmalloc_pages(
         };
 }
 
-EFI_STATUS parse_boolean(const char *v, bool *b);
-
 EFI_STATUS efivar_set(const EFI_GUID *vendor, const char16_t *name, const char16_t *value, uint32_t flags);
 EFI_STATUS efivar_set_raw(const EFI_GUID *vendor, const char16_t *name, const void *buf, size_t size, uint32_t flags);
 EFI_STATUS efivar_set_uint_string(const EFI_GUID *vendor, const char16_t *name, size_t i, uint32_t flags);
 EFI_STATUS efivar_set_uint32_le(const EFI_GUID *vendor, const char16_t *NAME, uint32_t value, uint32_t flags);
 EFI_STATUS efivar_set_uint64_le(const EFI_GUID *vendor, const char16_t *name, uint64_t value, uint32_t flags);
 void efivar_set_time_usec(const EFI_GUID *vendor, const char16_t *name, uint64_t usec);
+
+EFI_STATUS efivar_unset(const EFI_GUID *vendor, const char16_t *name, uint32_t flags);
 
 EFI_STATUS efivar_get(const EFI_GUID *vendor, const char16_t *name, char16_t **ret);
 EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const char16_t *name, char **ret, size_t *ret_size);

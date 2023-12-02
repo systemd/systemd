@@ -4,9 +4,9 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include "fuzz.h"
-
 #include "sd-dhcp-server.c"
+
+#include "fuzz.h"
 
 ssize_t sendto(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen) {
         return len;
@@ -24,6 +24,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
 
         if (size < sizeof(DHCPMessage))
                 return 0;
+
+        fuzz_setup_logging();
 
         assert_se(sd_dhcp_server_new(&server, 1) >= 0);
         assert_se(sd_dhcp_server_attach_event(server, NULL, 0) >= 0);

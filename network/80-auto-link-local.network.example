@@ -1,0 +1,20 @@
+# SPDX-License-Identifier: MIT-0
+#
+# This example config file is installed as part of systemd.
+# It may be freely copied and edited (following the MIT No Attribution license).
+#
+# To use the file, one of the following methods may be used:
+# 1. add a symlink from /etc/systemd/network to the current location of this file,
+# 2. copy the file into /etc/systemd/network or one of the other paths checked
+#    by systemd-networkd and edit it there.
+# This file should not be edited in place, because it'll be overwritten on upgrades.
+
+# Enable IPv4LL + IPv6LL (but no DHCP/IPv6RA) for local links
+[Match]
+Type=ether
+Property=ID_NET_AUTO_LINK_LOCAL_ONLY=1
+
+[Network]
+LinkLocalAddressing=yes
+IPv6AcceptRA=no
+MulticastDNS=yes

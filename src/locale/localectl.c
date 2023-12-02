@@ -314,27 +314,25 @@ static int list_x11_keymaps(int argc, char **argv, void *userdata) {
 
         for (;;) {
                 _cleanup_free_ char *line = NULL;
-                char *l, *w;
+                char *w;
 
-                r = read_line(f, LONG_LINE_MAX, &line);
+                r = read_stripped_line(f, LONG_LINE_MAX, &line);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read keyboard mapping list: %m");
                 if (r == 0)
                         break;
 
-                l = strstrip(line);
-
-                if (isempty(l))
+                if (isempty(line))
                         continue;
 
-                if (l[0] == '!') {
-                        if (startswith(l, "! model"))
+                if (line[0] == '!') {
+                        if (startswith(line, "! model"))
                                 state = MODELS;
-                        else if (startswith(l, "! layout"))
+                        else if (startswith(line, "! layout"))
                                 state = LAYOUTS;
-                        else if (startswith(l, "! variant"))
+                        else if (startswith(line, "! variant"))
                                 state = VARIANTS;
-                        else if (startswith(l, "! option"))
+                        else if (startswith(line, "! option"))
                                 state = OPTIONS;
                         else
                                 state = NONE;
@@ -345,7 +343,7 @@ static int list_x11_keymaps(int argc, char **argv, void *userdata) {
                 if (state != look_for)
                         continue;
 
-                w = l + strcspn(l, WHITESPACE);
+                w = line + strcspn(line, WHITESPACE);
 
                 if (argc > 1) {
                         char *e;
@@ -368,8 +366,7 @@ static int list_x11_keymaps(int argc, char **argv, void *userdata) {
                 } else
                         *w = 0;
 
-                r = strv_extend(&list, l);
-                if (r < 0)
+                if (strv_consume(&list, TAKE_PTR(line)) < 0)
                         return log_oom();
         }
 

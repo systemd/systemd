@@ -80,7 +80,7 @@ TEST(mkdir_p_safe) {
         p = mfree(p);
         assert_se(p = path_join(tmp, "zero-mode/should-fail-to-create-child"));
         assert_se(mkdir_parents_safe(tmp, p, 0000, UID_INVALID, GID_INVALID, 0) >= 0);
-        r = safe_fork("(test-mkdir-no-cap)", FORK_DEATHSIG | FORK_WAIT | FORK_LOG, NULL);
+        r = safe_fork("(test-mkdir-no-cap)", FORK_DEATHSIG_SIGTERM | FORK_WAIT | FORK_LOG, NULL);
         if (r == 0) {
                 (void) capability_bounding_set_drop(0, /* right_now = */ true);
                 assert_se(mkdir_p_safe(tmp, p, 0000, UID_INVALID, GID_INVALID, 0) == -EACCES);

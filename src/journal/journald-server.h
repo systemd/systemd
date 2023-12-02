@@ -11,11 +11,11 @@ typedef struct Server Server;
 #include "common-signal.h"
 #include "conf-parser.h"
 #include "hashmap.h"
+#include "journal-file.h"
 #include "journald-context.h"
 #include "journald-rate-limit.h"
 #include "journald-stream.h"
 #include "list.h"
-#include "managed-journal-file.h"
 #include "prioq.h"
 #include "ratelimit.h"
 #include "time-util.h"
@@ -98,8 +98,8 @@ struct Server {
         sd_event_source *idle_event_source;
         struct sigrtmin18_info sigrtmin18_info;
 
-        ManagedJournalFile *runtime_journal;
-        ManagedJournalFile *system_journal;
+        JournalFile *runtime_journal;
+        JournalFile *system_journal;
         OrderedHashmap *user_journals;
 
         SeqnumData *seqnum;

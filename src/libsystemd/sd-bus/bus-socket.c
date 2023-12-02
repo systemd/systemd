@@ -18,6 +18,7 @@
 #include "fs-util.h"
 #include "hexdecoct.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "macro.h"
 #include "memory-util.h"
 #include "path-util.h"
@@ -920,7 +921,7 @@ static int bind_description(sd_bus *b, int fd, int family) {
          * - a random 64-bit value (to avoid collisions)
          * - our "comm" process name (suppressed if contains "/" to avoid parsing issues)
          * - the description string of the bus connection. */
-        (void) get_process_comm(0, &comm);
+        (void) pid_get_comm(0, &comm);
         if (comm && strchr(comm, '/'))
                 comm = mfree(comm);
 

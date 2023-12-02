@@ -4,9 +4,9 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#include "fuzz.h"
-
 #include "sd-dhcp-server.c"
+
+#include "fuzz.h"
 
 /* stub out network so that the server doesn't send */
 ssize_t sendto(int sockfd, const void *buf, size_t len, int flags, const struct sockaddr *dest_addr, socklen_t addrlen) {
@@ -78,6 +78,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (size < sizeof(DHCPMessage))
                 return 0;
 
+        fuzz_setup_logging();
+
         assert_se(duped = memdup(data, size));
 
         assert_se(sd_dhcp_server_new(&server, 1) >= 0);
@@ -94,7 +96,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         assert_se(add_static_lease(server, 3) >= 0);
         assert_se(add_static_lease(server, 4) >= 0);
 
-        (void) dhcp_server_handle_message(server, (DHCPMessage*) duped, size);
+        (void) dhcp_server_handle_message(server, (DHCPMessage*) duped, size, NULL);
 
         return 0;
 }
