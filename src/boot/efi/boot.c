@@ -686,7 +686,7 @@ static size_t get_entry_index(Config *config, size_t idx_highlight, ConfigEntry 
         return idx;
 }
 
-static size_t entries_count(Config *config, ConfigEntry *visible_group) {
+static size_t entries_count_visible(Config *config, BootEntry *visible_group) {
         assert(config);
 
         size_t count = 0;
@@ -758,7 +758,7 @@ static bool menu_run(
                         /* account for padding+status */
                         visible_max = y_max - 2;
 
-                        visible_entries = entries_count(config, visible_group);
+                        visible_entries = entries_count_visible(config, visible_group);
 
                         /* Drawing entries starts at idx_first until idx_last. We want to make
                         * sure that idx_highlight is centered, but not if we are close to the
