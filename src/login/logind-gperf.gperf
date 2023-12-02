@@ -51,3 +51,4 @@ Login.InhibitorsMax,                config_parse_uint64,                0, offse
 Login.SessionsMax,                  config_parse_uint64,                0, offsetof(Manager, sessions_max)
 Login.UserTasksMax,                 config_parse_compat_user_tasks_max, 0, 0
 Login.StopIdleSessionSec,           config_parse_sec_fix_0,             0, offsetof(Manager, stop_idle_session_usec)
+Login.EnforceInhibitors,            config_parse_bool,                  0, offsetof(Manager, enforce_inhibitors)
