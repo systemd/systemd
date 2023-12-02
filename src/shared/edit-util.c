@@ -93,41 +93,22 @@ int edit_files_add(
                 .path = TAKE_PTR(new_path),
                 .original_path = TAKE_PTR(new_original_path),
                 .comment_paths = TAKE_PTR(new_comment_paths),
+                .line = 1,
         };
         context->n_files++;
 
         return 1;
 }
 
-static int create_edit_temp_file(EditFile *e) {
-        _cleanup_(unlink_and_freep) char *temp = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        const char *source;
-        bool has_original, has_target;
-        unsigned line = 1;
-        int r;
-
+static int populate_edit_temp_file(EditFile *e, FILE *f, const char *filename) {
         assert(e);
-        assert(e->context);
-        assert(e->path);
-        assert(!e->comment_paths || (e->context->marker_start && e->context->marker_end));
+        assert(f);
+        assert(filename);
 
-        if (e->temp)
-                return 0;
-
-        r = mkdir_parents_label(e->path, 0755);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create parent directories for '%s': %m", e->path);
-
-        r = fopen_temporary_label(e->path, e->path, &f, &temp);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create temporary file for '%s': %m", e->path);
-
-        if (fchmod(fileno(f), 0644) < 0)
-                return log_error_errno(errno, "Failed to change mode of temporary file '%s': %m", temp);
-
-        has_original = e->original_path && access(e->original_path, F_OK) >= 0;
-        has_target = access(e->path, F_OK) >= 0;
+        bool has_original = e->original_path && access(e->original_path, F_OK) >= 0;
+        bool has_target = access(e->path, F_OK) >= 0;
+        const char *source;
+        int r;
 
         if (has_original && (!has_target || e->context->overwrite_with_origin))
                 /* We are asked to overwrite target with original_path or target doesn't exist. */
@@ -160,7 +141,7 @@ static int create_edit_temp_file(EditFile *e) {
                         source_contents && endswith(source_contents, "\n") ? "" : "\n",
                         e->context->marker_end);
 
-                line = 4; /* Start editing at the contents area */
+                e->line = 4; /* Start editing at the contents area */
 
                 STRV_FOREACH(path, e->comment_paths) {
                         _cleanup_free_ char *comment = NULL;
@@ -189,16 +170,47 @@ static int create_edit_temp_file(EditFile *e) {
                 r = copy_file_fd(source, fileno(f), COPY_REFLINK);
                 if (r < 0) {
                         assert(r != -ENOENT);
-                        return log_error_errno(r, "Failed to copy file '%s' to temporary file '%s': %m", source, temp);
+                        return log_error_errno(r, "Failed to copy file '%s' to temporary file '%s': %m",
+                                               source, filename);
                 }
         }
+
+        return 0;
+}
+
+static int create_edit_temp_file(EditFile *e) {
+        _cleanup_(unlink_and_freep) char *temp = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        assert(e);
+        assert(e->context);
+        assert(e->path);
+        assert(!e->comment_paths || (e->context->marker_start && e->context->marker_end));
+
+        if (e->temp)
+                return 0;
+
+        r = mkdir_parents_label(e->path, 0755);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create parent directories for '%s': %m", e->path);
+
+        r = fopen_temporary_label(e->path, e->path, &f, &temp);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create temporary file for '%s': %m", e->path);
+
+        if (fchmod(fileno(f), 0644) < 0)
+                return log_error_errno(errno, "Failed to change mode of temporary file '%s': %m", temp);
+
+        r = populate_edit_temp_file(e, f, temp);
+        if (r < 0)
+                return r;
 
         r = fflush_and_check(f);
         if (r < 0)
                 return log_error_errno(r, "Failed to write to temporary file '%s': %m", temp);
 
         e->temp = TAKE_PTR(temp);
-        e->line = line;
 
         return 0;
 }
