@@ -140,13 +140,8 @@ int logind_check_inhibitors(enum action a) {
         if (arg_when > 0)
                 return 0;
 
-        if (arg_check_inhibitors < 0) {
-                if (geteuid() == 0)
-                        return 0;
-
-                if (!on_tty())
-                        return 0;
-        }
+        if (arg_check_inhibitors < 0 && !on_tty())
+                return 0;
 
         if (arg_transport != BUS_TRANSPORT_LOCAL)
                 return 0;
@@ -229,8 +224,7 @@ int logind_check_inhibitors(enum action a) {
 
         return log_error_errno(SYNTHETIC_ERRNO(EPERM),
                                "Please retry operation after closing inhibitors and logging out other users.\n"
-                               "Alternatively, ignore inhibitors and users with 'systemctl %s -i'.",
-                               action_table[a].verb);
+                               "'systemd-inhibit' can be used to list active inhibitors.");
 #else
         return 0;
 #endif
