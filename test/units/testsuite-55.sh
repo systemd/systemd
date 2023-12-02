@@ -3,6 +3,9 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/util.sh
+ . "$(dirname "$0")"/util.sh
+
 systemd-analyze log-level debug
 
 # Ensure that the init.scope.d drop-in is applied on boot
@@ -66,6 +69,12 @@ systemctl enable systemd-oomd.service
 # if oomd is already running for some reasons, then restart it to make sure the above settings to be applied
 if systemctl is-active systemd-oomd.service; then
     systemctl restart systemd-oomd.service
+fi
+
+# Ensure that we can start services even with a very low hard memory cap without oom-kills, but skip under
+# sanitizers as they balloon memory usage.
+if ! [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
+    systemd-run -t -p MemoryMax=10M -p MemorySwapMax=0 -p MemoryZSwapMax=0 /bin/true
 fi
 
 systemctl start testsuite-55-testchill.service
@@ -143,7 +152,7 @@ if systemctl --machine "testuser@.host" --user status testsuite-55-testbloat.ser
 if ! systemctl --machine "testuser@.host" --user status testsuite-55-testchill.service; then exit 24; fi
 
 # only run this portion of the test if we can set xattrs
-if setfattr -n user.xattr_test -v 1 /sys/fs/cgroup/; then
+if cgroupfs_supports_user_xattrs; then
     sleep 120 # wait for systemd-oomd kill cool down and elevated memory pressure to come down
 
     mkdir -p /run/systemd/system/testsuite-55-testbloat.service.d/

@@ -30,7 +30,7 @@ static int spawn_getent(const char *database, const char *key, pid_t *rpid) {
 
         r = safe_fork_full("(getent)",
                            (int[]) { -EBADF, pipe_fds[1], -EBADF }, NULL, 0,
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_REARRANGE_STDIO|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE,
+                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE,
                            &pid);
         if (r < 0) {
                 safe_close_pair(pipe_fds);

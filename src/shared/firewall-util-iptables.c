@@ -21,13 +21,24 @@
 #include <libiptc/libiptc.h>
 
 #include "alloc-util.h"
+#include "dlfcn-util.h"
 #include "firewall-util.h"
 #include "firewall-util-private.h"
 #include "in-addr-util.h"
 #include "macro.h"
 #include "socket-util.h"
 
-DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct xtc_handle*, iptc_free, NULL);
+static DLSYM_FUNCTION(iptc_check_entry);
+static DLSYM_FUNCTION(iptc_commit);
+static DLSYM_FUNCTION(iptc_delete_entry);
+static DLSYM_FUNCTION(iptc_free);
+static DLSYM_FUNCTION(iptc_init);
+static DLSYM_FUNCTION(iptc_insert_entry);
+static DLSYM_FUNCTION(iptc_strerror);
+
+static void *iptc_dl = NULL;
+
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(struct xtc_handle*, sym_iptc_free, NULL);
 
 static int entry_fill_basics(
                 struct ipt_entry *entry,
@@ -86,7 +97,7 @@ int fw_iptables_add_masquerade(
                 unsigned source_prefixlen) {
 
         static const xt_chainlabel chain = "POSTROUTING";
-        _cleanup_(iptc_freep) struct xtc_handle *h = NULL;
+        _cleanup_(sym_iptc_freep) struct xtc_handle *h = NULL;
         struct ipt_entry *entry, *mask;
         struct ipt_entry_target *t;
         size_t sz;
@@ -132,15 +143,15 @@ int fw_iptables_add_masquerade(
         memset(mask, 0xFF, sz);
 
         if (add) {
-                if (iptc_check_entry(chain, entry, (unsigned char*) mask, h))
+                if (sym_iptc_check_entry(chain, entry, (unsigned char*) mask, h))
                         return 0;
                 if (errno != ENOENT) /* if other error than not existing yet, fail */
                         return -errno;
 
-                if (!iptc_insert_entry(chain, entry, 0, h))
+                if (!sym_iptc_insert_entry(chain, entry, 0, h))
                         return -errno;
         } else {
-                if (!iptc_delete_entry(chain, entry, (unsigned char*) mask, h)) {
+                if (!sym_iptc_delete_entry(chain, entry, (unsigned char*) mask, h)) {
                         if (errno == ENOENT) /* if it's already gone, all is good! */
                                 return 0;
 
@@ -148,7 +159,7 @@ int fw_iptables_add_masquerade(
                 }
         }
 
-        if (!iptc_commit(h))
+        if (!sym_iptc_commit(h))
                 return -errno;
 
         return 0;
@@ -164,7 +175,7 @@ int fw_iptables_add_local_dnat(
                 const union in_addr_union *previous_remote) {
 
         static const xt_chainlabel chain_pre = "PREROUTING", chain_output = "OUTPUT";
-        _cleanup_(iptc_freep) struct xtc_handle *h = NULL;
+        _cleanup_(sym_iptc_freep) struct xtc_handle *h = NULL;
         struct ipt_entry *entry, *mask;
         struct ipt_entry_target *t;
         struct ipt_entry_match *m;
@@ -275,11 +286,11 @@ int fw_iptables_add_local_dnat(
 
         if (add) {
                 /* Add the PREROUTING rule, if it is missing so far */
-                if (!iptc_check_entry(chain_pre, entry, (unsigned char*) mask, h)) {
+                if (!sym_iptc_check_entry(chain_pre, entry, (unsigned char*) mask, h)) {
                         if (errno != ENOENT)
                                 return -EINVAL;
 
-                        if (!iptc_insert_entry(chain_pre, entry, 0, h))
+                        if (!sym_iptc_insert_entry(chain_pre, entry, 0, h))
                                 return -errno;
                 }
 
@@ -287,7 +298,7 @@ int fw_iptables_add_local_dnat(
                 if (previous_remote && previous_remote->in.s_addr != remote->in.s_addr) {
                         mr->range[0].min_ip = mr->range[0].max_ip = previous_remote->in.s_addr;
 
-                        if (!iptc_delete_entry(chain_pre, entry, (unsigned char*) mask, h)) {
+                        if (!sym_iptc_delete_entry(chain_pre, entry, (unsigned char*) mask, h)) {
                                 if (errno != ENOENT)
                                         return -errno;
                         }
@@ -305,11 +316,11 @@ int fw_iptables_add_local_dnat(
                                 entry->ip.invflags = IPT_INV_DSTIP;
                         }
 
-                        if (!iptc_check_entry(chain_output, entry, (unsigned char*) mask, h)) {
+                        if (!sym_iptc_check_entry(chain_output, entry, (unsigned char*) mask, h)) {
                                 if (errno != ENOENT)
                                         return -errno;
 
-                                if (!iptc_insert_entry(chain_output, entry, 0, h))
+                                if (!sym_iptc_insert_entry(chain_output, entry, 0, h))
                                         return -errno;
                         }
 
@@ -317,14 +328,14 @@ int fw_iptables_add_local_dnat(
                         if (previous_remote && previous_remote->in.s_addr != remote->in.s_addr) {
                                 mr->range[0].min_ip = mr->range[0].max_ip = previous_remote->in.s_addr;
 
-                                if (!iptc_delete_entry(chain_output, entry, (unsigned char*) mask, h)) {
+                                if (!sym_iptc_delete_entry(chain_output, entry, (unsigned char*) mask, h)) {
                                         if (errno != ENOENT)
                                                 return -errno;
                                 }
                         }
                 }
         } else {
-                if (!iptc_delete_entry(chain_pre, entry, (unsigned char*) mask, h)) {
+                if (!sym_iptc_delete_entry(chain_pre, entry, (unsigned char*) mask, h)) {
                         if (errno != ENOENT)
                                 return -errno;
                 }
@@ -336,25 +347,43 @@ int fw_iptables_add_local_dnat(
                                 entry->ip.invflags = IPT_INV_DSTIP;
                         }
 
-                        if (!iptc_delete_entry(chain_output, entry, (unsigned char*) mask, h)) {
+                        if (!sym_iptc_delete_entry(chain_output, entry, (unsigned char*) mask, h)) {
                                 if (errno != ENOENT)
                                         return -errno;
                         }
                 }
         }
 
-        if (!iptc_commit(h))
+        if (!sym_iptc_commit(h))
                 return -errno;
 
         return 0;
 }
 
-int fw_iptables_init_nat(struct xtc_handle **ret) {
-        _cleanup_(iptc_freep) struct xtc_handle *h = NULL;
+static int dlopen_iptc(void) {
+        return dlopen_many_sym_or_warn(
+                        &iptc_dl,
+                        "libip4tc.so.2", LOG_DEBUG,
+                        DLSYM_ARG(iptc_check_entry),
+                        DLSYM_ARG(iptc_commit),
+                        DLSYM_ARG(iptc_delete_entry),
+                        DLSYM_ARG(iptc_free),
+                        DLSYM_ARG(iptc_init),
+                        DLSYM_ARG(iptc_insert_entry),
+                        DLSYM_ARG(iptc_strerror));
+}
 
-        h = iptc_init("nat");
+int fw_iptables_init_nat(struct xtc_handle **ret) {
+        _cleanup_(sym_iptc_freep) struct xtc_handle *h = NULL;
+        int r;
+
+        r = dlopen_iptc();
+        if (r < 0)
+                return r;
+
+        h = sym_iptc_init("nat");
         if (!h)
-                return log_debug_errno(errno, "Failed to init \"nat\" table: %s", iptc_strerror(errno));
+                return log_debug_errno(errno, "Failed to init \"nat\" table: %s", sym_iptc_strerror(errno));
 
         if (ret)
                 *ret = TAKE_PTR(h);

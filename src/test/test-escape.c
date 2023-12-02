@@ -59,7 +59,7 @@ static void test_xescape_full_one(bool eight_bits) {
         }
 }
 
-TEST(test_xescape_full) {
+TEST(xescape_full) {
         test_xescape_full_one(false);
         test_xescape_full_one(true);
 }

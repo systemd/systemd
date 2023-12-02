@@ -91,7 +91,7 @@ static int print_inhibitors(sd_bus *bus) {
                 if (arg_mode && !streq(mode, arg_mode))
                         continue;
 
-                (void) get_process_comm(pid, &comm);
+                (void) pid_get_comm(pid, &comm);
                 u = uid_to_name(uid);
 
                 r = table_add_many(table,
@@ -300,7 +300,7 @@ static int run(int argc, char *argv[]) {
                 if (!arguments)
                         return log_oom();
 
-                r = safe_fork("(inhibit)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
+                r = safe_fork("(inhibit)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG, &pid);
                 if (r < 0)
                         return r;
                 if (r == 0) {

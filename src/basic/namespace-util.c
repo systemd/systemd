@@ -219,7 +219,7 @@ int userns_acquire(const char *uid_map, const char *gid_map) {
          * and then kills the process again. This way we have a userns fd that is not bound to any
          * process. We can use that for file system mounts and similar. */
 
-        r = safe_fork("(sd-mkuserns)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_NEW_USERNS, &pid);
+        r = safe_fork("(sd-mkuserns)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_NEW_USERNS, &pid);
         if (r < 0)
                 return r;
         if (r == 0)

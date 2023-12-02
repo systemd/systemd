@@ -45,8 +45,11 @@ int journal_file_append_tag(JournalFile *f) {
         if (!JOURNAL_HEADER_SEALED(f->header))
                 return 0;
 
-        if (!f->hmac_running)
-                return 0;
+        if (!f->hmac_running) {
+                r = journal_file_hmac_start(f);
+                if (r < 0)
+                        return r;
+        }
 
         assert(f->hmac);
 
@@ -166,6 +169,11 @@ int journal_file_fsprg_evolve(JournalFile *f, uint64_t realtime) {
 
                 FSPRG_Evolve(f->fsprg_state);
                 epoch = FSPRG_GetEpoch(f->fsprg_state);
+                if (epoch < goal) {
+                        r = journal_file_append_tag(f);
+                        if (r < 0)
+                                return r;
+                }
         }
 }
 
@@ -379,7 +387,9 @@ int journal_file_fss_load(JournalFile *f) {
         if (le64toh(header->start_usec) <= 0 || le64toh(header->interval_usec) <= 0)
                 return -EBADMSG;
 
-        f->fss_file = mmap(NULL, PAGE_ALIGN(f->fss_file_size), PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
+        size_t sz = PAGE_ALIGN(f->fss_file_size);
+        assert(sz < SIZE_MAX);
+        f->fss_file = mmap(NULL, sz, PROT_READ|PROT_WRITE, MAP_SHARED, fd, 0);
         if (f->fss_file == MAP_FAILED) {
                 f->fss_file = NULL;
                 return -errno;

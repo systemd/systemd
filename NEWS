@@ -33,20 +33,281 @@ CHANGES WITH 255 in spe:
           by default when combined with --scope, will be changed in a future
           release to be enabled by default.
 
-        * "systemctl switch-root" is now restricted to initrd transtions only.
-          Transitions between real systems should be done with "systemctl soft-reboot"
-          instead.
+        * "systemctl switch-root" is now restricted to initrd transitions only.
+
+          Transitions between real systems should be done with
+          "systemctl soft-reboot" instead.
+
+        * The "ip=off" and "ip=none" kernel command line options interpreted by
+          systemd-network-generator will now result in IPv6RA + link-local
+          addressing being disabled, too. Previously DHCP was turned off, but
+          IPv6RA and IPv6 link-local addressing was left enabled.
+
+        * The NAMING_BRIDGE_MULTIFUNCTION_SLOT naming scheme has been deprecated
+          and is now disabled.
+
+        * SuspendMode=, HibernateState= and HybridSleepState= in the [Sleep]
+          section of systemd-sleep.conf are now deprecated and have no effect.
+          They did not (and could not) take any value other than the respective
+          default. HybridSleepMode= is also deprecated, and will now always use
+          the 'suspend' disk mode.
+
+        Service Manager:
+
+        * The way services are spawned has been overhauled. Previously, a
+          process was forked that shared all of the manager's memory (via
+          copy-on-write) while doing all the required setup (e.g.: mount
+          namespaces, CGroup configuration, etc.) before exec'ing the target
+          executable. This was problematic for various reasons: several glibc
+          APIs were called that are not supposed to be used after a fork but
+          before an exec, copy-on-write meant that if either process (the
+          manager or the child) touched a memory page a copy was triggered, and
+          also the memory footprint of the child process was that of the
+          manager, but with the memory limits of the service. From this version
+          onward, the new process is spawned using CLONE_VM and CLONE_VFORK
+          semantics via posix_spawn(3), and it immediately execs a new internal
+          binary, systemd-executor, that receives the configuration to apply
+          via memfd, and sets up the process before exec'ing the target
+          executable. The systemd-executor binary is pinned by file descriptor
+          by each manager instance (system and users), and the reference is
+          updated on daemon-reexec - it is thus important to reexec all running
+          manager instances when the systemd-executor and/or libsystemd*
+          libraries are updated on the filesystem.
+
+        * Most of the internal process tracking is being changed to use PIDFDs
+          instead of PIDs when the kernel supports it, to improve robustness
+          and reliability.
+
+        * A new option SurviveFinalKillSignal= can be used to configure the
+          unit to be skipped in the final SIGTERM/SIGKILL spree on shutdown.
+          This is part of the required configuration to let a unit's processes
+          survive a soft-reboot operation.
+
+        * System extension images (sysext) can now set
+          EXTENSION_RELOAD_MANAGER=1 in their extension-release files to
+          automatically reload the service manager (PID 1) when
+          merging/refreshing/unmerging on boot. Generally, while this can be
+          used to ship services in system extension images it's recommended to
+          do that via portable services instead.
+
+        * The ExtensionImages= and ExtensionDirectories= options now support
+          confexts images/directories.
+
+        * A new option NFTSet= provides a method for integrating dynamic cgroup
+          IDs into firewall rules with NFT sets. The benefit of using this
+          setting is to be able to use control group as a selector in firewall
+          rules easily and this in turn allows more fine grained filtering.
+          Also, NFT rules for cgroup matching use numeric cgroup IDs, which
+          change every time a service is restarted, making them hard to use in
+          systemd environment.
+
+        * A new option CoredumpReceive= can be set for service and scope units,
+          together with Delegate=yes, to make systemd-coredump on the host
+          forward core files from processes crashing inside the delegated
+          CGroup subtree to systemd-coredump running in the container. This new
+          option is by default used by systemd-nspawn containers that use the
+          "--boot" switch.
+
+        * A new ConditionSecurity=measured-uki option is now available, to ensure
+          a unit can only run when the system has been booted from a measured UKI.
+
+        * MemoryAvailable= now considers physical memory if there are no CGroup
+          memory limits set anywhere in the tree.
+
+        * The $USER environment variable is now always set for services, while
+          previously it was only set if User= was specified. A new option
+          SetLoginEnvironment= is now supported to determine whether to also set
+          $HOME, $LOGNAME, and $SHELL.
+
+        * Socket units now support a new pair of
+          PollLimitBurst=/PollLimitInterval= options to configure a limit on
+          how often polling events on the file descriptors backing this unit
+          will be considered within a time window.
+
+        * Scope units can now be created using PIDFDs instead of PIDs to select
+          the processes they should include.
+
+        * Sending SIGRTMIN+18 with 0x500 as sigqueue() value will now cause the
+          manager to dump the list of currently pending jobs.
+
+        * If the kernel supports MOVE_MOUNT_BENEATH, the systemctl and
+          machinectl bind and mount-image verbs will now cause the new mount to
+          replace the old mount (if any), instead of overmounting it.
+
+        * Units now have MemoryPeak, MemorySwapPeak, MemorySwapCurrent and
+          MemoryZSwapCurrent properties, which respectively contain the values
+          of the cgroup v2's memory.peak, memory.swap.peak, memory.swap.current
+          and memory.zswap.current properties. This information is also show in
+          "systemctl status" output, if available.
+
+        TPM2 Support + Disk Encryption & Authentication:
+
+        * systemd-cryptenroll now allows specifying a PCR bank and explicit hash
+          value in the --tpm2-pcrs= option.
+
+        * systemd-cryptenroll now allows specifying a TPM2 key handle (nv
+          index) to be used instead of the default SRK via the new
+          --tpm2-seal-key-handle= option.
+
+        * systemd-cryptenroll now allows TPM2 enrollment using only a TPM2
+          public key (in TPM2B_PUBLIC format) – without access to the TPM2
+          device itself – which enables offline sealing of LUKS images for a
+          specific TPM2 chip, as long as the SRK public key is known. Pass the
+          public to the tool via the new --tpm2-device-key= switch.
+
+        * systemd-cryptsetup is now installed in /usr/bin/ and is no longer an
+          internal-only executable.
+
+        * The TPM2 Storage Root Key will now be set up, if not already present,
+          by a new systemd-tpm2-setup.service early boot service. The SRK will
+          be stored in PEM format and TPM2_PUBLIC format (the latter is useful
+          for systemd-cryptenroll --tpm2-device-key=, as mentioned above) for
+          easier access. A new "srk" verb has been added to systemd-analyze to
+          allow extracting it on demand if it is already set up.
+
+        * The internal systemd-pcrphase executable has been renamed to
+          systemd-pcrextend.
+
+        * The systemd-pcrextend tool gained a new --pcr= switch to override
+          which PCR to measure into.
+
+        * systemd-pcrextend now exposes a Varlink interface at
+          io.systemd.PCRExtend that can be used to do measurements and event
+          logging on demand.
+
+        * TPM measurements are now also written to an event log at
+          /run/log/systemd/tpm2-measure.log, using a derivative of the TCG
+          Canonical Event Log format. Previously we'd only log them to the
+          journal, where they however were subject to rotation and similar.
+
+        * A new component "systemd-pcrlock" has been added that allows managing
+          local TPM2 PCR policies for PCRs 0-7 and similar, which are hard to
+          predict by the OS vendor because of the inherently local nature of
+          what measurements they contain, such as firmware versions of the
+          system and extension cards and suchlike. pcrlock can predict PCR
+          measurements ahead of time based on various inputs, such as the local
+          TPM2 event log, GPT partition tables, PE binaries, UKI kernels, and
+          various other things. It can then pre-calculate a TPM2 policy from
+          this, which it stores in an TPM2 NV index. TPM2 objects (such as disk
+          encryption keys) can be locked against this NV index, so that they
+          are locked against a specific combination of system firmware and
+          state. Alternatives for each component are supported to allowlist
+          multiple kernel versions or boot loader version simultaneously
+          without losing access to the disk encryption keys. The tool can also
+          be used to analyze and validate the local TPM2 event log.
+          systemd-cryptsetup, systemd-cryptenroll, systemd-repart have all been
+          updated to support such policies. There's currently no support for
+          locking the system's root disk against a pcrlock policy, this will be
+          added soon. Moreover, it is currently not possible to combine a
+          pcrlock policy with a signed PCR policy. This component is
+          experimental and its public interface is subject to change.
+
+        systemd-boot, systemd-stub, ukify, bootctl, kernel-install:
+
+        * bootctl will now show whether the system was booted from a UKI in its
+          status output.
+
+        * systemd-boot and systemd-stub now use different project keys in their
+          respective SBAT sections, so that they can be revoked individually if
+          needed.
+
+        * systemd-boot will no longer load unverified Devicetree blobs when UEFI
+          SecureBoot is enabled. For more details see:
+          https://github.com/systemd/systemd/security/advisories/GHSA-6m6p-rjcq-334c
+
+        * systemd-boot gained new hotkeys to reboot and power off the system
+          from the boot menu ("B" and "O"). If the "auto-poweroff" and
+          "auto-reboot" options in loader.conf are set these entries are also
+          shown as menu items (which is useful on devices lacking a regular
+          keyboard).
+
+        * systemd-boot gained a new configuration value "menu-disabled" for the
+          set-timeout option, to allow completely disabling the boot menu,
+          including the hotkey.
+
+        * systemd-boot will now measure the content of loader.conf in TPM2
+          PCR 5.
+
+        * systemd-stub will now concatenate the content of all kernel
+          command-line addons before measuring them in TPM2 PCR 12, in a single
+          measurement, instead of measuring them individually.
+
+        * systemd-stub will now measure and load Devicetree Blob addons, which
+          are searched and loaded following the same model as the existing
+          kernel command-line addons.
+
+        * systemd-stub will now ignore unauthenticated kernel command line options
+          passed from systemd-boot when running inside Confidential VMs with UEFI
+          SecureBoot enabled.
+
+        * systemd-stub will now load a Devicetree blob even if the firmware did
+          not load any beforehand (e.g.: for ACPI systems).
+
+        * ukify is no longer considered experimental, and now ships in /usr/bin/.
+
+        * ukify gained a new verb inspect to describe the sections of a UKI and
+          print the contents of the well-known sections.
+
+        * ukify gained a new verb genkey to generate a set of key pairs for
+          signing UKIs and their PCR data.
+
+        * The 90-loaderentry kernel-install hook now supports installing device
+          trees.
+
+        * kernel-install now supports the --json=, --root=, --image=, and
+          --image-policy= options for the inspect verb.
+
+        * kernel-install now supports new list and add-all verbs. The former
+          lists all installed kernel images (if those are available in
+          /usr/lib/modules/). The latter will install all the kernels it can
+          find to the ESP.
+
+        systemd-repart:
+
+        * A new option --copy-from= has been added that synthesizes partition
+          definitions from the given image, which are then applied by the
+          systemd-repart algorithm.
+
+        * A new option --copy-source= has been added, which can be used to specify
+          a directory to which CopyFiles= is considered relative to.
+
+        * New --make-ddi=confext, --make-ddi=sysext, and --make-ddi=portable
+          options have been added to make it easier to generate these types of
+          DDIs, without having to provide repart.d definitions for them.
+
+        * The dm-verity salt and UUID will now be derived from the specified
+          seed value.
+
+        * New VerityDataBlockSizeBytes= and VerityHashBlockSizeBytes= can now be
+          configured in repart.d/ configuration files.
+
+        * A new Subvolumes= setting is now supported in repart.d/ configuration
+          files, to indicate which directories in the target partition should be
+          btrfs subvolumes.
+
+        * A new --tpm2-device-key= option can be used to lock a disk against a
+          specific TPM2 public key. This matches the same switch the
+          systemd-cryptenroll tool now supports (see above).
+
+        Journal:
+
+        * The journalctl --lines= parameter now accepts +N to show the oldest N
+          entries instead of the newest.
+
+        * journald now ensures that sealing happens once per epoch, and sets a
+          new compatibility flag to distinguish old journal files that were
+          created before this change, for backward compatibility.
 
         Device Management:
 
         * udev will now create symlinks to loopback block devices in the
           /dev/disk/by-loop-ref/ directory that are based on the .lo_file_name
           string field selected during allocation. The systemd-dissect tool and
-          the util-linux losetup command now supports a complementing new
-          switch --loop-ref= for selecting the string. This means a loopback
-          block device may now be allocated under a caller-chosen reference and
-          can subsequently be referenced by that without first having to look
-          up the block device name the caller ended up with.
+          the util-linux losetup command now supports a complementing new switch
+          --loop-ref= for selecting the string. This means a loopback block
+          device may now be allocated under a caller-chosen reference and can
+          subsequently be referenced without first having to look up the block
+          device name the caller ended up with.
 
         * udev also creates symlinks to loopback block devices in the
           /dev/disk/by-loop-inode/ directory based on the .st_dev/st_ino fields
@@ -54,11 +315,313 @@ CHANGES WITH 255 in spe:
           attaching a file to a loopback device will implicitly make a handle
           available to be found via that file's inode information.
 
+        * udevadm info gained support for JSON output via a new --json= flag, and
+          for filtering output using the same mechanism that udevadm trigger
+          already implements.
+
+        * The predictable network interface naming logic is extended to include
+          the SR-IOV-R "representor" information in network interface names.
+          This feature was intended for v254, but even though the code was
+          merged, the part that actually enabled the feature was forgotten.
+          It is now enabled by default and is part of the new "v255" naming
+          scheme.
+
+        * A new hwdb/rules file has been added that sets the
+          ID_NET_AUTO_LINK_LOCAL_ONLY=1 udev property on all network interfaces
+          that should usually only be configured with link-local addressing
+          (IPv4LL + IPv6LL), i.e. for PC-to-PC cables ("laplink") or
+          Thunderbolt networking. systemd-networkd and NetworkManager (soon)
+          will make use of this information to apply an appropriate network
+          configuration by default.
+
+        * The ID_NET_DRIVER property on network interfaces is now set
+          relatively early in the udev rule set so that other rules may rely on
+          its use. This is implemented in a new "net-driver" udev built-in.
+
         Network Management:
 
         * The "duid-only" option for DHCPv4 client's ClientIdentifier= setting
           is now dropped, as it never worked, hence it should not be used by
           anyone.
+
+        * The 'prefixstable' ipv6 address generation mode now considers the SSID
+          when generating stable addresses, so that a different stable address
+          is used when roaming between wireless networks. If you already use
+          'prefixstable' addresses with wireless networks, the stable address
+          will be changed by the update.
+
+        * The DHCPv4 client gained a RapidCommit option, true by default, which
+          enables RFC4039 Rapid Commit behavior to obtain a lease in a
+          simplified 2-message exchange instead of the typical 4-message
+          exchange, if also supported by the DHCP server.
+
+        * The DHCPv4 client gained new InitialCongestionWindow= and
+          InitialAdvertisedReceiveWindow= options for route configurations.
+
+        * The DHCPv4 client gained a new RequestAddress= option that allows
+          to send a preferred IP address in the initial DHCPDISCOVER message.
+
+        * The DHCPv4 server and client gained support for IPv6-only mode
+          (RFC8925).
+
+        * The SendHostname= and Hostname= options are now available for the
+          DHCPv6 client, independently of the DHCPv4= option, so that these
+          configuration values can be set independently for each client.
+
+        * The DHCPv4 and DHCPv6 client state can now be queried via D-Bus,
+          including lease information.
+
+        * The DHCPv6 client can now be configured to use a custom DUID type.
+
+        * .network files gained a new IPv4ReversePathFilter= setting in the
+          [Network] section, to control sysctl's rp_filter setting.
+
+        * .network files gaiend a new HopLimit= setting in the [Route] section,
+          to configure a per-route hop limit.
+
+        * .network files gained a new TCPRetransmissionTimeoutSec= setting in
+          the [Route] section, to configure a per-route TCP retransmission
+          timeout.
+
+        * A new directive NFTSet= provides a method for integrating network
+          configuration into firewall rules with NFT sets. The benefit of using
+          this setting is that static network configuration or dynamically
+          obtained network addresses can be used in firewall rules with the
+          indirection of NFT set types.
+
+        * The [IPv6AcceptRA] section supports the following new options:
+          UsePREF64=, UseHopLimit=, UseICMP6RateLimit=, and NFTSet=.
+
+        * The [IPv6SendRA] section supports the following new options:
+          RetransmitSec=, HopLimit=, HomeAgent=, HomeAgentLifetimeSec=, and
+          HomeAgentPreference=.
+
+        * A new [IPv6PREF64Prefix] set of options, containing Prefix= and
+          LifetimeSec=, has been introduced to append pref64 options in router
+          advertisements (RFC8781).
+
+        * The network generator now configures the interfaces with only
+          link-local addressing if "ip=link-local" is specified on the kernel
+          command line.
+
+        * The prefix of the configuration files generated by the network
+          generator from the kernel command line is now prefixed with '70-',
+          to make them have higher precedence over the default configuration
+          files.
+
+        * Added a new -Ddefault-network=BOOL meson option, that causes more
+          .network files to be installed as enabled by default. These configuration
+          files will which match generic setups, e.g. 89-ethernet.network matches
+          all Ethernet interfaces and enables both DHCPv4 and DHCPv6 clients.
+
+        * If a ID_NET_MANAGED_BY= udev property is set on a network device and
+          it is any other string than "io.systemd.Network" then networkd will
+          not manage this device. This may be used to allow multiple network
+          management services to run in parallel and assign ownership of
+          specific devices explicitly. NetworkManager will soon implement a
+          similar logic.
+
+        systemctl:
+
+        * systemctl is-failed now checks the system state if no unit is
+          specified.
+
+        * systemctl will now automatically soft-reboot if a new root file system
+          is found under /run/nextroot/ when a reboot operation is invoked.
+
+        Login management:
+
+        * Wall messages now work even when utmp support is disabled, using
+          systemd-logind to query the necessary information.
+
+        * systemd-logind now sends a new PrepareForShutdownWithMetadata D-Bus
+          signal before shutdown/reboot/soft-reboot that includes additional
+          information compared to the PrepareForShutdown signal. Currently the
+          additional information is the type of operation that is about to be
+          executed.
+
+        Hibernation & Suspend:
+
+        * The kernel and OS versions will no longer be checked on resume from
+          hibernation.
+
+        * Hibernation into swap files backed by btrfs are now
+          supported. (Previously this was supported only for other file
+          systems.)
+
+        Other:
+
+        * A new systemd-vmspawn tool has been added, that aims to provide for VMs
+          the same interfaces and functionality that systemd-nspawn provides for
+          containers. For now it supports QEMU as a backend, and exposes some of
+          its options to the user. This component is experimental and its public
+          interface is subject to change.
+
+        * "systemd-analyze plot" has gained tooltips on each unit name with
+          related-unit information in its svg output, such as Before=,
+          Requires=, and similar properties.
+
+        * A new varlinkctl tool has been added to allow interfacing with
+          Varlink services, and introspection has been added to all such
+          services.
+
+        * systemd-sysext and systemd-confext now expose a Varlink service
+          at io.systemd.sysext.
+
+        * portable services now accept confexts as extensions.
+
+        * systemd-sysupdate now accepts directories in the MatchPattern= option.
+
+        * systemd-run will now output the invocation ID of the launched
+          transient unit and its peak memory usage.
+
+        * systemd-analyze, systemd-tmpfiles, systemd-sysusers, systemd-sysctl,
+          and systemd-binfmt gained a new --tldr option that can be used instead
+          of --cat-config to suppress uninteresting configuration lines, such as
+          comments and whitespace.
+
+        * resolvectl gained a new "show-server-state" command that shows
+          current statistics of the resolver. This is backed by a new
+          DumpStatistics() Varlink method provided by systemd-resolved.
+
+        * systemd-timesyncd will now emit a D-Bus signal when the LinkNTPServers
+          property changes.
+
+        * vconsole now supports KEYMAP=@kernel for preserving the kernel keymap
+          as-is.
+
+        * seccomp now supports the LoongArch64 architecture.
+
+        * seccomp may now be enabled for services running as a non-root User=
+          without NoNewPrivileges=yes.
+
+        * systemd-id128 now supports a new -P option to show only values. The
+          combination of -P and --app options is also supported.
+
+        * A new pam_systemd_loadkey.so PAM module is now available, which will
+          automatically fetch the passphrase used by cryptsetup to unlock the
+          root file system and set it as the PAM authtok. This enables, among
+          other things, configuring auto-unlock of the GNOME Keyring / KDE
+          Wallet when autologin is configured.
+
+        * Many meson options now use the 'feature' type, which means they
+          take enabled/disabled/auto as values.
+
+        * A new meson option -Dconfigfiledir= can be used to change where
+          configuration files with default values are installed to.
+
+        * Options and verbs in man pages are now tagged with the version they
+          were first introduced in.
+
+        * A new component "systemd-storagetm" has been added, which exposes all
+          local block devices as NVMe-TCP devices, fully automatically. It's
+          hooked into a new target unit storage-target-mode.target that is
+          suppsoed to be booted into via
+          rd.systemd.unit=storage-target-mode.target on the kernel command
+          line. This is intended to be used for installers and debugging to
+          quickly get access to the local disk. It's inspired by MacOS "target
+          disk mode".
+
+        * A new component "systemd-bsod" has been added, which can show logged
+          error messages full screen, if they have a log level of LOG_EMERG log
+          level.
+
+        * The systemd-dissect tool's --with command will now set the
+          $SYSTEMD_DISSECT_DEVICE environment variable to the block device it
+          operates on for the invoked process.
+
+        * The systemd-mount tool gained a new --tmpfs switch for mounting a new
+          'tmpfs' instance. This is useful since it does so via .mount units
+          and thus can be executed remotely or in containers.
+
+        * The various tools in systemd that take "verbs" (such as systemctl,
+          loginctl, machinectl, …) now will suggest a close verb name in case
+          the user specified an unrecognized one.
+
+        * libsystemd now exports a new function sd_id128_get_app_specific()
+          that generates "app-specific" 128bit IDs from any ID. It's similar to
+          sd_id128_get_machine_app_specific() and
+          sd_id128_get_boot_app_specific() but takes the ID to base calculation
+          on as input. This new functionality is also exposed in the
+          "systemd-id128" tool where you can now combine --app= with `show`.
+
+        * All tools that parse timestamps now can also parse RFC3339 style
+          timestamps that include the "T" and Z" characters.
+
+        * New documentation has been added:
+
+          https://systemd.io/FILE_DESCRIPTOR_STORE
+          https://systemd.io/TPM2_PCR_MEASUREMENTS
+          https://systemd.io/MOUNT_REQUIREMENTS
+
+        * The codebase now recognizes the suffix .confext.raw and .sysext.raw
+          as alternative to the .raw suffix generally accepted for DDIs. It is
+          recommended to name configuration extensions and system extensions
+          with such suffixes, to indicate their purpose in the name.
+
+        * The sd-device API gained a new function
+          sd_device_enumerator_add_match_property_required() which allows
+          configuring matches on properties that are strictly required. This is
+          different from the existing sd_device_enumerator_add_match_property()
+          matches of which one one needs to apply.
+
+        * The MAC address the veth side of an nspawn container shall get
+          assigned may now be controlled via the $SYSTEMD_NSPAWN_NETWORK_MAC
+          environment variable.
+
+        * The libiptc dependency is now implemented via dlopen(), so that tools
+          such as networkd and nspawn no longer have a hard dependency on the
+          shared library when compiled with support for libiptc.
+
+        * New rpm macros have been added: %systemd_user_daemon_reexec does
+          daemon-reexec for all user managers, and %systemd_postun_with_reload
+          and %systemd_user_postun_with_reload do a reload for system and user
+          units on upgrades.
+
+        * coredumpctl now propagates SIGTERM to the debugger process.
+
+        Contributions from: 김인수, Abderrahim Kitouni, Adam Goldman,
+        Adam Williamson, Alexandre Peixoto Ferreira, Alex Hudspith,
+        Alvin Alvarado, André Paiusco, Antonio Alvarez Feijoo,
+        Anton Lundin, Arian van Putten, Arseny Maslennikov, Arthur Shau,
+        Balázs Úr, beh_10257, Benjamin Peterson, Bertrand Jacquin,
+        Brian Norris, Charles Lee, Cheng-Chia Tseng, Chris Patterson,
+        Christian Hergert, Christian Hesse, Christian Kirbach,
+        Clayton Craft, commondservice, cunshunxia, Curtis Klein, cvlc12,
+        Daan De Meyer, Daniele Medri, Daniel P. Berrangé, Daniel Rusek,
+        Daniel Thompson, Dan Nicholson, Dan Streetman, David Rheinsberg,
+        David Santamaría Rogado, David Tardon, dependabot[bot],
+        Diego Viola, Dmitry V. Levin, Emanuele Giuseppe Esposito,
+        Emil Renner Berthing, Emil Velikov, Etienne Dechamps, Fabian Vogt,
+        felixdoerre, Felix Dörre, Florian Schmaus, Franck Bui,
+        Frantisek Sumsal, G2-Games, Gioele Barabucci, Hugo Carvalho,
+        huyubiao, Iago López Galeiras, IllusionMan1212, Jade Lovelace,
+        janana, Jan Janssen, Jan Kuparinen, Jan Macku, Jeremy Fleischman,
+        Jin Liu, jjimbo137, Joerg Behrmann, Johannes Segitz, Jordan Rome,
+        Jordan Williams, Julien Malka, Juno Computers, Khem Raj, khm,
+        Kingbom Dou, Kiran Vemula, Krzesimir Nowak, Laszlo Gombos,
+        Lennart Poettering, linuxlion, Luca Boccassi, Lucas Adriano Salles,
+        Lukas, Lukáš Nykrýn, Maanya Goenka, Maarten, Malte Poll,
+        Marc Pervaz Boocha, Martin Beneš, Martin Joerg, Martin Wilck,
+        Mathieu Tortuyaux, Matthias Schiffer, Maxim Mikityanskiy,
+        Max Kellermann, Michael A Cassaniti, Michael Biebl, Michael Kuhn,
+        Michael Vasseur, Michal Koutný, Michal Sekletár, Mike Yuan,
+        Milton D. Miller II, mordner, msizanoen, NAHO, Nandakumar Raghavan,
+        Neil Wilson, Nick Rosbrook, Nils K, NRK, Oğuz Ersen,
+        Omojola Joshua, onenowy, Paul Meyer, Paymon MARANDI, pelaufer,
+        Peter Hutterer, PhylLu, Pierre GRASSER, Piotr Drąg, Priit Laes,
+        Rahil Bhimjiani, Raito Bezarius, Raul Cheleguini, Reto Schneider,
+        Richard Maw, Robby Red, RoepLuke, Roland Hieber, Ronan Pigott,
+        Sam James, Sam Leonard, Sergey A, Susant Sahani, Sven Joachim,
+        Tad Fisher, Takashi Sakamoto, Thorsten Kukuk, Tj, Tomasz Świątek,
+        Topi Miettinen, Valentin David, Valentin Lefebvre,
+        Victor Westerhuis, Vincent Haupert, Vishal Chillara Srinivas,
+        Vito Caputo, Warren, Weblate, Xiaotian Wu, xinpeng wang,
+        Yaron Shahrabani, Yo-Jung Lin, Yu Watanabe,
+        Zbigniew Jędrzejewski-Szmek, zeroskyx,
+        Дамјан Георгиевски, наб
+
+        — Edinburgh, 2023-12-02
 
 CHANGES WITH 254:
 
@@ -206,9 +769,9 @@ CHANGES WITH 254:
           store enabled.
 
         * A new service option FileDescriptorStorePreserve= has been added that
-          allows tuning the life-cycle of the per-service file descriptor
-          store. If set to "yes", the entries in the fd store are retained even
-          after the service has been fully stopped.
+          allows tuning the lifecycle of the per-service file descriptor store.
+          If set to "yes", the entries in the fd store are retained even after
+          the service has been fully stopped.
 
         * The "systemctl clean" command may now be used to clear the fdstore of
           a service.
@@ -384,7 +947,7 @@ CHANGES WITH 254:
           kernel command line it invokes. This is useful for VMMs such as qemu
           to pass additional kernel command lines into the system even when
           booting via full UEFI. The contents of the field are measured into
-          TPM PCR 12.
+          TPM PCR 12.
 
         * The KERNEL_INSTALL_LAYOUT= setting for kernel-install gained a new
           value "auto". With this value, a kernel will be automatically
@@ -407,9 +970,6 @@ CHANGES WITH 254:
 
         * ukify has been updated to allow building these UEFI PE "add-on"
           images, using the new 'addon<EFI-ARCH>.efi.stub'.
-
-        * ukify gained a new "genkey" verb for generating a set of of key pairs
-          to sign UKIs and their PCR data with.
 
         * ukify now accepts SBAT information to place in the .sbat PE section
           of UKIs and addons. If a UKI is built the SBAT information from the
@@ -570,8 +1130,11 @@ CHANGES WITH 254:
           selects the default value of the per-network setting of the same
           name.
 
-        * The predictable network interface naming logic will now include
-          SR-IOV-R "representor" information in network interface names.
+        * The predictable network interface naming logic was extended to
+          include SR-IOV-R "representor" information in network interface
+          names. Unfortunately, this feature was not enabled by default and can
+          only be enabled at compilation time by setting
+          -Ddefault-net-naming-scheme=v254.
 
         * The DHCPv4 + DHCPv6 + IPv6 RA logic in networkd gained support for
           the RFC8910 captive portal option.
@@ -907,7 +1470,7 @@ CHANGES WITH 253:
           manager is also enabled and used.
 
         * Some compatibility helpers were dropped: EmergencyAction= in the user
-          manager, as well as measuring kernel command line into PCR 8 in
+          manager, as well as measuring kernel command line into PCR 8 in
           systemd-stub, along with the -Defi-tpm-pcr-compat compile-time
           option.
 
@@ -1312,8 +1875,8 @@ CHANGES WITH 253:
           specified via root=.
 
         * systemd-pcrphase gained new options --machine-id and --file-system=
-          to measure the machine-id and mount point information into PCR 15. New
-          service unit files systemd-pcrmachine.service and
+          to measure the machine-id and mount point information into PCR 15.
+          New service unit files systemd-pcrmachine.service and
           systemd-pcrfs@.service have been added that invoke the tool with
           these switches during early boot.
 
@@ -1571,7 +2134,7 @@ CHANGES WITH 252 🎃:
           course users can always enroll non-TPM ways to unlock the volume.)
 
         * systemd-pcrphase is a new tool that is invoked at six places during
-          system runtime, and measures additional words into TPM2 PCR 11, to
+          system runtime, and measures additional words into TPM2 PCR 11, to
           mark milestones of the boot process. This allows binding access to
           specific TPM2-encrypted secrets to specific phases of the boot
           process. (Example: LUKS2 disk encryption key only accessible in the
@@ -1631,7 +2194,7 @@ CHANGES WITH 252 🎃:
           associated service unit, if any.
 
         * Boot phase transitions (start initrd → exit initrd → boot complete →
-          shutdown) will be measured into TPM2 PCR 11, so that secrets can be
+          shutdown) will be measured into TPM2 PCR 11, so that secrets can be
           bound to a specific runtime phase. E.g.: a LUKS encryption key can be
           unsealed only in the initrd.
 
@@ -1696,13 +2259,13 @@ CHANGES WITH 252 🎃:
           (e.g. comparisons for empty strings). Boot counting is now part of
           the main specification.
 
-        * New PCRs measurements are performed during boot: PCR 11 for the
-          kernel+initrd combo, PCR 13 for any sysext images. If a measurement
+        * New PCRs measurements are performed during boot: PCR 11 for the
+          kernel+initrd combo, PCR 13 for any sysext images. If a measurement
           took place this is now reported to userspace via the new
           StubPcrKernelImage and StubPcrInitRDSysExts EFI variables.
 
         * As before, systemd-stub will measure kernel parameters and system
-          credentials into PCR 12. It will now report this fact via the
+          credentials into PCR 12. It will now report this fact via the
           StubPcrKernelParameters EFI variable to userspace.
 
         * The UEFI monotonic boot counter is now included in the updated random
@@ -1790,7 +2353,7 @@ CHANGES WITH 252 🎃:
           sends the setting only once, causing it to be lost if resolved was
           restarted at any point.
 
-        * systemd-resolved now exposes a varlink socket at
+        * systemd-resolved now exposes a Varlink socket at
           /run/systemd/resolve/io.systemd.Resolve.Monitor, accessible only for
           root. Processed DNS requests in a JSON format will be published to
           any clients connected to this socket.
@@ -2147,17 +2710,17 @@ CHANGES WITH 251:
           seen with 250. For newer kernels, non-x86 systems, or older x86
           systems, there should be no visible changes.
 
-        * sd-boot will now measure the kernel command line into TPM PCR 12
-          rather than PCR 8. This improves usefulness of the measurements on
+        * sd-boot will now measure the kernel command line into TPM PCR 12
+          rather than PCR 8. This improves usefulness of the measurements on
           systems where sd-boot is chainloaded from Grub. Grub measures all
-          commands its executes into PCR 8, which makes it very hard to use
-          reasonably, hence separate ourselves from that and use PCR 12
+          commands its executes into PCR 8, which makes it very hard to use
+          reasonably, hence separate ourselves from that and use PCR 12
           instead, which is what certain Ubuntu editions already do. To retain
           compatibility with systems running older systemd systems a new meson
           option 'efi-tpm-pcr-compat' has been added (which defaults to false).
-          If enabled, the measurement is done twice: into the new-style PCR 12
-          *and* the old-style PCR 8. It's strongly advised to migrate all users
-          to PCR 12 for this purpose in the long run, as we intend to remove
+          If enabled, the measurement is done twice: into the new-style PCR 12
+          *and* the old-style PCR 8. It's strongly advised to migrate all users
+          to PCR 12 for this purpose in the long run, as we intend to remove
           this compatibility feature in two years' time.
 
         * busctl capture now writes output in the newer pcapng format instead
@@ -5758,7 +6321,8 @@ CHANGES WITH 246:
           started automatically as part of the desktop session.
 
         * "bootctl" gained a new verb "reboot-to-firmware" that may be used
-          to query and change the firmware's 'reboot into firmware' setup flag.
+          to query and change the firmware's 'Reboot Into Firmware Interface'
+          setup flag.
 
         * systemd-firstboot gained a new switch --kernel-command-line= that may
           be used to initialize the /etc/kernel/cmdline file of the image. It

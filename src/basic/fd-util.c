@@ -99,6 +99,20 @@ void close_many(const int fds[], size_t n_fd) {
                 safe_close(fds[i]);
 }
 
+void close_many_unset(int fds[], size_t n_fd) {
+        assert(fds || n_fd <= 0);
+
+        for (size_t i = 0; i < n_fd; i++)
+                fds[i] = safe_close(fds[i]);
+}
+
+void close_many_and_free(int *fds, size_t n_fds) {
+        assert(fds || n_fds <= 0);
+
+        close_many(fds, n_fds);
+        free(fds);
+}
+
 int fclose_nointr(FILE *f) {
         assert(f);
 
@@ -640,7 +654,7 @@ int rearrange_stdio(int original_input_fd, int original_output_fd, int original_
                       original_output_fd,
                       original_error_fd },
             null_fd = -EBADF,                        /* If we open /dev/null, we store the fd to it here */
-            copy_fd[3] = { -EBADF, -EBADF, -EBADF }, /* This contains all fds we duplicate here
+            copy_fd[3] = EBADF_TRIPLET,              /* This contains all fds we duplicate here
                                                       * temporarily, and hence need to close at the end. */
             r;
         bool null_readable, null_writable;
@@ -738,8 +752,7 @@ finish:
                 safe_close_above_stdio(original_error_fd);
 
         /* Close the copies we moved > 2 */
-        for (int i = 0; i < 3; i++)
-                safe_close(copy_fd[i]);
+        close_many(copy_fd, 3);
 
         /* Close our null fd, if it's > 2 */
         safe_close_above_stdio(null_fd);
@@ -748,9 +761,10 @@ finish:
 }
 
 int fd_reopen(int fd, int flags) {
-        int new_fd, r;
+        int r;
 
         assert(fd >= 0 || fd == AT_FDCWD);
+        assert(!FLAGS_SET(flags, O_CREAT));
 
         /* Reopens the specified fd with new flags. This is useful for convert an O_PATH fd into a regular one, or to
          * turn O_RDWR fds into O_RDONLY fds.
@@ -774,19 +788,12 @@ int fd_reopen(int fd, int flags) {
                  * the same way as the non-O_DIRECTORY case. */
                 return -ELOOP;
 
-        if (FLAGS_SET(flags, O_DIRECTORY) || fd == AT_FDCWD) {
+        if (FLAGS_SET(flags, O_DIRECTORY) || fd == AT_FDCWD)
                 /* If we shall reopen the fd as directory we can just go via "." and thus bypass the whole
                  * magic /proc/ directory, and make ourselves independent of that being mounted. */
-                new_fd = openat(fd, ".", flags | O_DIRECTORY);
-                if (new_fd < 0)
-                        return -errno;
+                return RET_NERRNO(openat(fd, ".", flags | O_DIRECTORY));
 
-                return new_fd;
-        }
-
-        assert(fd >= 0);
-
-        new_fd = open(FORMAT_PROC_FD_PATH(fd), flags);
+        int new_fd = open(FORMAT_PROC_FD_PATH(fd), flags);
         if (new_fd < 0) {
                 if (errno != ENOENT)
                         return -errno;
@@ -812,6 +819,7 @@ int fd_reopen_condition(
         int r, new_fd;
 
         assert(fd >= 0);
+        assert(!FLAGS_SET(flags, O_CREAT));
 
         /* Invokes fd_reopen(fd, flags), but only if the existing F_GETFL flags don't match the specified
          * flags (masked by the specified mask). This is useful for converting O_PATH fds into real fds if
@@ -974,4 +982,12 @@ const char *accmode_to_string(int flags) {
         default:
                 return NULL;
         }
+}
+
+char *format_proc_pid_fd_path(char buf[static PROC_PID_FD_PATH_MAX], pid_t pid, int fd) {
+        assert(buf);
+        assert(fd >= 0);
+        assert(pid >= 0);
+        assert_se(snprintf_ok(buf, PROC_PID_FD_PATH_MAX, "/proc/" PID_FMT "/fd/%i", pid == 0 ? getpid_cached() : pid, fd));
+        return buf;
 }

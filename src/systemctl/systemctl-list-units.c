@@ -193,13 +193,21 @@ static int output_units_list(const UnitInfo *unit_infos, size_t c) {
                 size_t records = table_get_rows(table) - 1;
 
                 if (records > 0) {
-                        puts("\n"
-                             "LOAD   = Reflects whether the unit definition was properly loaded.\n"
-                             "ACTIVE = The high-level unit activation state, i.e. generalization of SUB.\n"
-                             "SUB    = The low-level unit activation state, values depend on unit type.");
+                        printf("\n"
+                               "%1$sLegend: LOAD   %2$s Reflects whether the unit definition was properly loaded.%3$s\n"
+                               "%1$s        ACTIVE %2$s The high-level unit activation state, i.e. generalization of SUB.%3$s\n"
+                               "%1$s        SUB    %2$s The low-level unit activation state, values depend on unit type.%3$s\n",
+                               ansi_grey(),
+                               special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                               ansi_normal());
                         if (job_count > 0)
-                                puts("JOB    = Pending job for the unit.\n");
+                                printf("%s        JOB    %s Pending job for the unit.%s\n",
+                                       ansi_grey(),
+                                       special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                                       ansi_normal());
                 }
+
+                putchar('\n');
 
                 on = records > 0 ? ansi_highlight() : ansi_highlight_red();
                 off = ansi_normal();
@@ -761,7 +769,7 @@ int verb_list_timers(int argc, char *argv[], void *userdata) {
                 if (n < 0)
                         return n;
 
-                dual_timestamp_get(&nw);
+                dual_timestamp_now(&nw);
 
                 FOREACH_ARRAY(u, unit_infos, n) {
                         r = add_timer_info(bus, u, &nw, &timers, &n_timers);

@@ -28,7 +28,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
-#include "io-util.h"
+#include "iovec-util.h"
 #include "journal-importer.h"
 #include "log.h"
 #include "macro.h"
@@ -227,7 +227,9 @@ static int process_dmesg_files(PStoreList *list) {
                 if (!startswith(pe->dirent.d_name, "dmesg-"))
                         continue;
 
-                if ((p = startswith(pe->dirent.d_name, "dmesg-efi-"))) {
+                /* The linux kernel changed the prefix from dmesg-efi- to dmesg-efi_pstore-
+                 * so now we have to handle both cases. */
+                if ((p = STARTSWITH_SET(pe->dirent.d_name, "dmesg-efi-", "dmesg-efi_pstore-"))) {
                         /* For the EFI backend, the 3 least significant digits of record id encodes a
                          * "count" number, the next 2 least significant digits for the dmesg part
                          * (chunk) number, and the remaining digits as the timestamp.  See

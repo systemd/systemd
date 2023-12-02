@@ -10,6 +10,7 @@
 #include "dhcp-lease-internal.h"
 #include "extract-word.h"
 #include "hexdecoct.h"
+#include "in-addr-util.h"
 #include "log.h"
 #include "network-internal.h"
 #include "parse-util.h"

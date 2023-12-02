@@ -357,7 +357,7 @@ static int transfer_on_log(sd_event_source *s, int fd, uint32_t revents, void *u
 }
 
 static int transfer_start(Transfer *t) {
-        _cleanup_close_pair_ int pipefd[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int pipefd[2] = EBADF_PAIR;
         int r;
 
         assert(t);
@@ -369,7 +369,7 @@ static int transfer_start(Transfer *t) {
         r = safe_fork_full("(sd-transfer)",
                            (int[]) { t->stdin_fd, t->stdout_fd < 0 ? pipefd[1] : t->stdout_fd, pipefd[1] },
                            NULL, 0,
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_REARRANGE_STDIO, &t->pid);
+                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO, &t->pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -598,7 +598,7 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
 
         r = parse_percent(p);
         if (r < 0) {
-                log_warning("Got invalid percent value, ignoring.");
+                log_warning("Got invalid percent value '%s', ignoring.", p);
                 return 0;
         }
 

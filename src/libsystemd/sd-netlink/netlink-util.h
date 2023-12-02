@@ -107,5 +107,7 @@ int rtattr_read_nexthop(const struct rtnexthop *rtnh, size_t size, int family, O
 
 void netlink_seal_message(sd_netlink *nl, sd_netlink_message *m);
 
+size_t netlink_get_reply_callback_count(sd_netlink *nl);
+
 /* TODO: to be exported later */
 int sd_netlink_sendv(sd_netlink *nl, sd_netlink_message **messages, size_t msgcnt, uint32_t **ret_serial);

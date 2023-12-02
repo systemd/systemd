@@ -383,6 +383,15 @@ sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0C02:*
 sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0C40:*
 sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0C41:*
 sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0C42:*
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0CBD:*
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0CBF:*
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0CC0:*
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0CC1:*
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0CC3:*
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0CC4:*
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0CC5:*
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0CC7:*
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0CC8:*
  ACCEL_LOCATION=base
 
 # Dell Venue 8 Pro 3845
@@ -925,6 +934,14 @@ sensor:modalias:acpi:BOSC0200*:dmi:bvnINSYDECorp.:bvrMx.WT107.KUBNGEA*svnInsyde:
 #########################################
 sensor:modalias:acpi:SMO8500*:dmi:*:svnProwise:pnPT301:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
+
+#########################################
+# Purism
+#########################################
+
+# Librem11
+sensor:modalias:acpi:MXC6655*:dmi:*:svnPurism*:pnlibrem_11*
+ ACCEL_MOUNT_MATRIX=0, -1, 0; -1, 0, 0; 0, 0, 1
 
 #########################################
 # Reeder

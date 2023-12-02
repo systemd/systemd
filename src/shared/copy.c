@@ -638,6 +638,10 @@ static void hardlink_context_destroy(HardlinkContext *c) {
          * _cleanup_() so that we really delete this, even on failure. */
 
         if (c->dir_fd >= 0) {
+                /* <dir_fd> might be have already been used for reading, so we need to rewind it. */
+                if (lseek(c->dir_fd, 0, SEEK_SET) < 0)
+                        log_debug_errno(errno, "Failed to lseek on file descriptor, ignoring: %m");
+
                 r = rm_rf_children(TAKE_FD(c->dir_fd), REMOVE_PHYSICAL, NULL); /* consumes dir_fd in all cases, even on failure */
                 if (r < 0)
                         log_debug_errno(r, "Failed to remove hardlink store (%s) contents, ignoring: %m", c->subdir);

@@ -114,6 +114,14 @@ modules += [
                 'sources' : files('pam_systemd.c'),
                 'version-script' : meson.current_source_dir() / 'pam_systemd.sym',
         },
+        pam_template + {
+                'name' : 'pam_systemd_loadkey',
+                'conditions' : [
+                        'HAVE_PAM',
+                ],
+                'sources' : files('pam_systemd_loadkey.c'),
+                'version-script' : meson.current_source_dir() / 'pam_systemd_loadkey.sym',
+        },
 ]
 
 enable_logind = conf.get('ENABLE_LOGIND') == 1
@@ -124,7 +132,7 @@ custom_target(
         output : 'logind.conf',
         command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
         install : enable_logind and install_sysconfdir_samples and pkgsysconfdir != 'no',
-        install_dir : pkgsysconfdir)
+        install_dir : pkgconfigfiledir)
 
 custom_target(
         'systemd-user',

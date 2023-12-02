@@ -107,6 +107,13 @@
         <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
         for details of how search and route-only domains are used.</para>
 
+        <para>Note that configuring the MulticastDNS domain <literal>local</literal> as search or routing
+        domain has the effect of routing lookups for this domain to classic unicast DNS. This may be used to
+        provide compatibility with legacy installations that use this domain in a unicast DNS context,
+        against the IANA assignment of this domain to pure MulticastDNS purposes. Search and routing domains
+        are a unicast DNS concept, they <emphasis>cannot</emphasis> be used to resolve single-label lookups
+        via MulticastDNS.</para>
+
         <xi:include href="version-info.xml" xpointer="v229"/>
         </listitem>
       </varlistentry>
@@ -363,17 +370,21 @@ DNSStubListenerExtra=udp:[2001:db8:0:f102::13]:9953</programlisting>
       </varlistentry>
       <varlistentry>
         <term>StaleRetentionSec=<replaceable>SECONDS</replaceable></term>
-        <listitem><para>Takes a duration value, which determines the length of time DNS resource records can be retained
-        in the cache beyond their Time To Live (TTL). This allows these records to be returned as stale records.
-        By default, this value is set to zero, meaning that DNS resource records are not stored in the cache after their TTL expires.</para>
+        <listitem><para>Takes a duration value, which determines the length of time DNS resource records can
+        be retained in the cache beyond their Time To Live (TTL). This allows these records to be returned as
+        stale records. By default, this value is set to zero, meaning that DNS resource records are not
+        stored in the cache after their TTL expires.</para>
 
-        <para>This is useful when a DNS server failure occurs or becomes unreachable.
-        In such cases, systemd-resolved continues to use the stale records to answer DNS queries, particularly when no valid response
-        can be obtained from the upstream DNS servers. However, this doesn't apply to NXDOMAIN responses, as those are still perfectly valid responses.
-        This feature enhances resilience against DNS infrastructure failures and outages.</para>
+        <para>This is useful when a DNS server failure occurs or becomes unreachable. In such cases,
+        <citerefentry><refentrytitle>systemd-resolved</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        continues to use the stale records to answer DNS queries, particularly when no valid response can be
+        obtained from the upstream DNS servers. However, this doesn't apply to NXDOMAIN responses, as those
+        are still perfectly valid responses. This feature enhances resilience against DNS infrastructure
+        failures and outages.</para>
 
-        <para>systemd-resolved always attempts to reach the upstream DNS servers first, before providing the client application with any stale data.
-        If this feature is enabled, cache will not be flushed when changing servers.</para>
+        <para><command>systemd-resolved</command> always attempts to reach the upstream DNS servers first,
+        before providing the client application with any stale data. If this feature is enabled, cache will
+        not be flushed when changing servers.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>

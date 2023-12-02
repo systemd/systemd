@@ -114,6 +114,7 @@ struct Network {
 
         /* DHCP Client Support */
         AddressFamily dhcp;
+        struct in_addr dhcp_request_address;
         DHCPClientIdentifier dhcp_client_identifier;
         DUID dhcp_duid;
         uint32_t dhcp_iaid;
@@ -137,7 +138,10 @@ struct Network {
         bool dhcp_socket_priority_set;
         bool dhcp_anonymize;
         bool dhcp_send_hostname;
+        bool dhcp_send_hostname_set;
         int dhcp_broadcast;
+        int dhcp_ipv6_only_mode;
+        int dhcp_use_rapid_commit;
         bool dhcp_use_dns;
         bool dhcp_use_dns_set;
         bool dhcp_routes_to_dns;
@@ -170,6 +174,8 @@ struct Network {
         /* DHCPv6 Client support */
         bool dhcp6_use_address;
         bool dhcp6_use_pd_prefix;
+        bool dhcp6_send_hostname;
+        bool dhcp6_send_hostname_set;
         bool dhcp6_use_dns;
         bool dhcp6_use_dns_set;
         bool dhcp6_use_hostname;
@@ -185,6 +191,7 @@ struct Network {
         DUID dhcp6_duid;
         uint8_t dhcp6_pd_prefix_length;
         struct in6_addr dhcp6_pd_prefix_hint;
+        char *dhcp6_hostname;
         char *dhcp6_mudurl;
         char **dhcp6_user_class;
         char **dhcp6_vendor_class;
@@ -220,6 +227,8 @@ struct Network {
         struct in_addr dhcp_server_boot_server_address;
         char *dhcp_server_boot_server_name;
         char *dhcp_server_boot_filename;
+        usec_t dhcp_server_ipv6_only_preferred_usec;
+        bool dhcp_server_rapid_commit;
 
         /* link-local addressing support */
         AddressFamily link_local;
@@ -315,7 +324,7 @@ struct Network {
         int ipv4_accept_local;
         int ipv4_route_localnet;
         int ipv6_dad_transmits;
-        int ipv6_hop_limit;
+        uint8_t ipv6_hop_limit;
         int proxy_arp;
         uint32_t ipv6_mtu;
         IPv6PrivacyExtensions ipv6_privacy_extensions;

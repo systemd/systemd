@@ -229,7 +229,7 @@ static int lldp_rx_receive_datagram(sd_event_source *s, int fd, uint32_t revents
         if (ioctl(fd, SIOCGSTAMPNS, &ts) >= 0)
                 triple_timestamp_from_realtime(&n->timestamp, timespec_load(&ts));
         else
-                triple_timestamp_get(&n->timestamp);
+                triple_timestamp_now(&n->timestamp);
 
         (void) lldp_rx_handle_datagram(lldp_rx, n);
         return 0;

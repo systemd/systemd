@@ -60,8 +60,8 @@ TEST(dhcp_lease_parse_search_domains_no_data) {
         _cleanup_strv_free_ char **domains = NULL;
         static const uint8_t optionbuf[3] = {0, 0, 0};
 
-        assert_se(dhcp_lease_parse_search_domains(NULL, 0, &domains) == -ENODATA);
-        assert_se(dhcp_lease_parse_search_domains(optionbuf, 0, &domains) == -ENODATA);
+        assert_se(dhcp_lease_parse_search_domains(NULL, 0, &domains) == -EBADMSG);
+        assert_se(dhcp_lease_parse_search_domains(optionbuf, 0, &domains) == -EBADMSG);
 }
 
 TEST(dhcp_lease_parse_search_domains_loops) {

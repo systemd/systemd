@@ -39,7 +39,7 @@
 
     <para><function>sd_event_set_signal_exit()</function> may be used to ensure the event loop terminates
     once a <constant>SIGINT</constant> or <constant>SIGTERM</constant> signal is received. It is a
-    convencience wrapper around invocations of
+    convenience wrapper around invocations of
     <citerefentry><refentrytitle>sd_event_add_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     for both signals. The two signals are automatically added to the calling thread's signal mask (if a
     program is multi-threaded care should be taken to either invoke this function before the first thread is

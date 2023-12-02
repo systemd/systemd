@@ -74,6 +74,10 @@ static inline const sd_char *yes_no(bool b) {
         return b ? STR_C("yes") : STR_C("no");
 }
 
+static inline const sd_char *on_off(bool b) {
+        return b ? STR_C("on") : STR_C("off");
+}
+
 static inline const sd_char* comparison_operator(int result) {
         return result < 0 ? STR_C("<") : result > 0 ? STR_C(">") : STR_C("==");
 }

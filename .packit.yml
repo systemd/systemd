@@ -44,3 +44,11 @@ jobs:
   - fedora-rawhide-ppc64le
   - fedora-rawhide-s390x
   - fedora-rawhide-x86_64
+
+- job: tests
+  trigger: pull_request
+  fmf_url: https://src.fedoraproject.org/tests/systemd
+  fmf_ref: main
+  tmt_plan: ci
+  targets:
+  - fedora-rawhide-x86_64

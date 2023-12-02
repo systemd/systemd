@@ -335,8 +335,28 @@ int chaseat(int dir_fd, const char *path, ChaseFlags flags, char **ret_path, int
                             unsafe_transition(&st, &st_parent))
                                 return log_unsafe_transition(fd, fd_parent, path, flags);
 
-                        if (FLAGS_SET(flags, CHASE_PARENT) && isempty(todo))
+                        /* If the path ends on a "..", and CHASE_PARENT is specified then our current 'fd' is
+                         * the child of the returned normalized path, not the parent as requested. To correct
+                         * this we have to go *two* levels up. */
+                        if (FLAGS_SET(flags, CHASE_PARENT) && isempty(todo)) {
+                                _cleanup_close_ int fd_grandparent = -EBADF;
+                                struct stat st_grandparent;
+
+                                fd_grandparent = openat(fd_parent, "..", O_CLOEXEC|O_NOFOLLOW|O_PATH|O_DIRECTORY);
+                                if (fd_grandparent < 0)
+                                        return -errno;
+
+                                if (fstat(fd_grandparent, &st_grandparent) < 0)
+                                        return -errno;
+
+                                if (FLAGS_SET(flags, CHASE_SAFE) &&
+                                    unsafe_transition(&st_parent, &st_grandparent))
+                                        return log_unsafe_transition(fd_parent, fd_grandparent, path, flags);
+
+                                st = st_grandparent;
+                                close_and_replace(fd, fd_grandparent);
                                 break;
+                        }
 
                         /* update fd and stat */
                         st = st_parent;

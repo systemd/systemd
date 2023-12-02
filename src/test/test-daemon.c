@@ -7,11 +7,14 @@
 #include "parse-util.h"
 #include "strv.h"
 #include "time-util.h"
+#include "tests.h"
 
 int main(int argc, char *argv[]) {
         _cleanup_strv_free_ char **l = NULL;
         int n, i;
         usec_t duration = USEC_PER_SEC / 10;
+
+        test_setup_logging(LOG_DEBUG);
 
         if (argc >= 2) {
                 unsigned x;

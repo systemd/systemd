@@ -222,7 +222,7 @@ static void log_umount_blockers(const char *mnt) {
                         continue;
 
                 _cleanup_free_ char *comm = NULL;
-                r = get_process_comm(pid, &comm);
+                r = pid_get_comm(pid, &comm);
                 if (r < 0) {
                         if (r != -ESRCH) /* process gone by now */
                                 log_debug_errno(r, "Failed to read process name of PID " PID_FMT ": %m", pid);
@@ -241,7 +241,7 @@ static void log_umount_blockers(const char *mnt) {
 }
 
 static int remount_with_timeout(MountPoint *m, bool last_try) {
-        _cleanup_close_pair_ int pfd[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
         _cleanup_(sigkill_nowaitp) pid_t pid = 0;
         int r;
 
@@ -297,7 +297,7 @@ static int remount_with_timeout(MountPoint *m, bool last_try) {
 }
 
 static int umount_with_timeout(MountPoint *m, bool last_try) {
-        _cleanup_close_pair_ int pfd[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int pfd[2] = EBADF_PAIR;
         _cleanup_(sigkill_nowaitp) pid_t pid = 0;
         int r;
 

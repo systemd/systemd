@@ -19,9 +19,9 @@ at_exit() {
 
 trap at_exit EXIT
 
-export NETWORK_NAME="networkctl-test-$RANDOM.network"
-export NETDEV_NAME="networkctl-test-$RANDOM.netdev"
-export LINK_NAME="90-networkctl-test-$RANDOM.link"
+export NETWORK_NAME="10-networkctl-test-$RANDOM.network"
+export NETDEV_NAME="10-networkctl-test-$RANDOM.netdev"
+export LINK_NAME="10-networkctl-test-$RANDOM.link"
 cat >"/usr/lib/systemd/network/$NETWORK_NAME" <<EOF
 [Match]
 Name=test
@@ -40,7 +40,7 @@ printf '%s\n' '[Match]' 'Name=test2' | cmp - "/etc/systemd/network/$NETWORK_NAME
 
 cat >"+4" <<EOF
 [Network]
-DHCP=yes
+IPv6AcceptRA=no
 EOF
 
 EDITOR='cp' script -ec 'networkctl edit "$NETWORK_NAME" --drop-in test' /dev/null
@@ -74,7 +74,7 @@ systemctl stop systemd-networkd
 (! networkctl cat @test2)
 
 systemctl start systemd-networkd
-sleep 1
+SYSTEMD_LOG_LEVEL=debug /usr/lib/systemd/systemd-networkd-wait-online -i test2:carrier --timeout 20
 networkctl cat @test2:network | cmp - <(networkctl cat "$NETWORK_NAME")
 
 EDITOR='cp' script -ec 'networkctl edit @test2 --drop-in test2.conf' /dev/null

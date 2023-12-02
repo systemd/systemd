@@ -16,6 +16,7 @@ rules = [
                '60-input-id.rules',
                '60-persistent-alsa.rules',
                '60-persistent-input.rules',
+               '60-persistent-storage-mtd.rules',
                '60-persistent-storage-tape.rules',
                '60-persistent-v4l.rules',
                '60-sensor.rules',

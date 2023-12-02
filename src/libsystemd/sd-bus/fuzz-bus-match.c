@@ -9,8 +9,6 @@
 #include "fuzz.h"
 #include "memstream-util.h"
 
-DEFINE_TRIVIAL_DESTRUCTOR(bus_match_donep, struct bus_match_node, bus_match_free);
-
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         _cleanup_(memstream_done) MemStream m = {};
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
@@ -20,15 +18,12 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (outside_size_range(size, 0, 65536))
                 return 0;
 
-        /* We don't want to fill the logs with messages about parse errors.
-         * Disable most logging if not running standalone */
-        if (!getenv("SYSTEMD_LOG_LEVEL"))
-                log_set_max_level(LOG_CRIT);
+        fuzz_setup_logging();
 
         r = sd_bus_new(&bus);
         assert_se(r >= 0);
 
-        _cleanup_(bus_match_donep) struct bus_match_node root = {
+        _cleanup_(bus_match_free) struct bus_match_node root = {
                 .type = BUS_MATCH_ROOT,
         };
 

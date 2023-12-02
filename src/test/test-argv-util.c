@@ -35,13 +35,13 @@ static void test_rename_process_now(const char *p, int ret) {
                 return;
 #endif
 
-        assert_se(get_process_comm(0, &comm) >= 0);
+        assert_se(pid_get_comm(0, &comm) >= 0);
         log_debug("comm = <%s>", comm);
         assert_se(strneq(comm, p, TASK_COMM_LEN-1));
         /* We expect comm to be at most 16 bytes (TASK_COMM_LEN). The kernel may raise this limit in the
          * future. We'd only check the initial part, at least until we recompile, but this will still pass. */
 
-        r = get_process_cmdline(0, SIZE_MAX, 0, &cmdline);
+        r = pid_get_cmdline(0, SIZE_MAX, 0, &cmdline);
         assert_se(r >= 0);
         /* we cannot expect cmdline to be renamed properly without privileges */
         if (geteuid() == 0) {
