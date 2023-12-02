@@ -572,7 +572,10 @@ int xdg_autostart_service_generate_unit(
 
         r = xdg_autostart_format_exec_start(service->exec_string, &exec_start);
         if (r < 0) {
-                log_warning_errno(r, "%s: not generating unit, error parsing Exec= line: %m", service->path);
+                log_full_errno(r == -ENOENT ? LOG_INFO : LOG_WARNING, r,
+                               r == -ENOENT ? "%s: not generating unit, executable specified in Exec= does not exist."
+                                            : "%s: not generating unit, error parsing Exec= line: %m",
+                               service->path);
                 return 0;
         }
 

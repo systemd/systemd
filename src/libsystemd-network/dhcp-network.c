@@ -13,9 +13,9 @@
 #include <linux/if_infiniband.h>
 #include <linux/if_packet.h>
 
-#include "dhcp-internal.h"
+#include "dhcp-network.h"
+#include "dhcp-protocol.h"
 #include "fd-util.h"
-#include "socket-util.h"
 #include "unaligned.h"
 
 static int _bind_raw_socket(
@@ -115,6 +115,10 @@ static int _bind_raw_socket(
         if (r < 0)
                 return -errno;
 
+        r = setsockopt_int(s, SOL_SOCKET, SO_TIMESTAMP, true);
+        if (r < 0)
+                return r;
+
         if (so_priority_set) {
                 r = setsockopt_int(s, SOL_SOCKET, SO_PRIORITY, so_priority);
                 if (r < 0)
@@ -203,6 +207,10 @@ int dhcp_network_bind_udp_socket(int ifindex, be32_t address, uint16_t port, int
                 return r;
 
         r = setsockopt_int(s, SOL_SOCKET, SO_REUSEADDR, true);
+        if (r < 0)
+                return r;
+
+        r = setsockopt_int(s, SOL_SOCKET, SO_TIMESTAMP, true);
         if (r < 0)
                 return r;
 

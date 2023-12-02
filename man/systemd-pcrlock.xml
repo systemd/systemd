@@ -1,0 +1,559 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-pcrlock" xmlns:xi="http://www.w3.org/2001/XInclude" conditional='ENABLE_BOOTLOADER'>
+
+  <refentryinfo>
+    <title>systemd-pcrlock</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-pcrlock</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-pcrlock</refname>
+    <refname>systemd-pcrlock-file-system.service</refname>
+    <refname>systemd-pcrlock-firmware-code.service</refname>
+    <refname>systemd-pcrlock-firmware-config.service</refname>
+    <refname>systemd-pcrlock-machine-id.service</refname>
+    <refname>systemd-pcrlock-make-policy.service</refname>
+    <refname>systemd-pcrlock-secureboot-authority.service</refname>
+    <refname>systemd-pcrlock-secureboot-policy.service</refname>
+    <refpurpose>Analyze and predict TPM2 PCR states and generate an access policy from the prediction</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>/usr/lib/systemd/systemd-pcrlock <arg choice="opt" rep="repeat">OPTIONS</arg></command>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>Note: this command is experimental for now. While it is likely to become a regular component of
+    systemd, it might still change in behaviour and interface.</para>
+
+    <para><command>systemd-pcrlock</command> is a tool that may be used to analyze and predict TPM2 PCR
+    measurements, and generate TPM2 access policies from the prediction which it stores in a TPM2 NV index
+    (i.e. in the TPM2 non-volatile memory). This may then be used to restrict access to TPM2 objects (such as
+    disk encryption keys) to system boot-ups in which only specific, trusted components are used.</para>
+
+    <para><command>systemd-pcrlock</command> uses as input for its analysis and prediction:</para>
+
+    <itemizedlist>
+      <listitem><para>The UEFI firmware TPM2 event log
+      (i.e. <filename>/sys/kernel/security/tpm0/binary_bios_measurements</filename>) of the current
+      boot.</para></listitem>
+
+      <listitem><para>The userspace TPM2 event log
+      (i.e. <filename>/run/log/systemd/tpm2-measure.log</filename>) of the current
+      boot.</para></listitem>
+
+      <listitem><para>The current PCR state of the TPM2 chip.</para></listitem>
+
+      <listitem><para>Boot component definition files (<filename>*.pcrlock</filename> and
+      <filename>*.pcrlock.d/*.pcrlock</filename>, see
+      <citerefentry><refentrytitle>systemd.pcrlock</refentrytitle><manvolnum>5</manvolnum></citerefentry>)
+      that each define expected measurements for one component of the boot process, permitting alternative
+      variants for each. (Variants may be used used to bless multiple kernel versions or boot loader versions
+      at the same time.)</para></listitem>
+    </itemizedlist>
+
+    <para>It uses these inputs to generate a combined event log, validating it against the PCR states. It
+    then attempts to recognize event log records and matches them against the defined components. For each PCR
+    where this can be done comprehensively (i.e. where all listed records and all defined components have
+    been matched) this may then be used to predict future PCR measurements, taking the alternative variants
+    defined for each component into account. This prediction may then be converted into a TPM2 access policy
+    (consisting of TPM2 <function>PolicyPCR</function> and <function>PolicyOR</function> items), which is
+    then stored in an NV index in the TPM2. This may be used to then lock secrets (such as disk encryption
+    keys) to these policies (via a TPM2 <function>PolicyAuthorizeNV</function> policy).</para>
+
+    <para>Use tools such as
+    <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    or <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry> to
+    bind disk encryption to such a <command>systemd-pcrlock</command> TPM2 policy. Specifically, see the
+    <option>--tpm2-pcrlock=</option> switches of these tools.</para>
+
+    <para>The access policy logic requires a TPM2 device that implements the
+    <literal>PolicyAuthorizeNV</literal> command, i.e. implements TPM 2.0 version 1.38 or newer.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <para>The following commands are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><command>log</command></term>
+
+        <listitem><para>This reads the combined TPM2 event log, validates it, matches it against the current
+        PCR values, and outputs both in tabular form. Combine with <option>--json=</option> to generate
+        output in JSON format.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>cel</command></term>
+
+        <listitem><para>This reads the combined TPM2 event log and writes it to STDOUT in <ulink
+        url="https://trustedcomputinggroup.org/resource/canonical-event-log-format/">TCG Common Event Log
+        Format (CEL-JSON)</ulink> format.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>list-components</command></term>
+
+        <listitem><para>Shows a list of component definitions and their variants, i.e. the
+        <filename>*.pcrlock</filename> files discovered in <filename>/var/lib/pcrlock.d/</filename>,
+        <filename>/usr/lib/pcrlock.d/</filename>, and the other supported directories. See
+        <citerefentry><refentrytitle>systemd.pcrlock</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for details on these files and the full list of directories searched.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>predict</command></term>
+
+        <listitem><para>Predicts the PCR state on future boots. This will analyze the TPM2 event log as
+        described above, recognize components, and then generate all possible resulting PCR values for all
+        combinations of component variants. Note that no prediction is made for PCRs whose value does not
+        match the event log records, for which unrecognized measurements are discovered or for which
+        components are defined that cannot be found in the event log. This is a safety measure to ensure that
+        any generated access policy can be fulfilled correctly on current and future boots.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>make-policy</command></term>
+
+        <listitem><para>This predicts the PCR state for future boots, much like the
+        <command>predict</command> command above. It then uses this data to generate a TPM2 access policy
+        which it stores in a TPM2 NV index. The prediction and information about the used TPM2 and its NV
+        index are written to <filename>/var/lib/systemd/pcrlock.json</filename>.</para>
+
+        <para>The NV index is allocated on first invocation, and updated on subsequent invocations.</para>
+
+        <para>The NV index contents may be changed (and thus the policy stored in it updated) by providing an
+        access PIN. This PIN is normally generated automatically and stored in encrypted form (with an access
+        policy binding it to the NV index itself) in the aforementioned JSON policy file. This PIN may be
+        chosen by the user, via the <option>--recovery-pin=</option> switch. If specified it may be used as
+        alternative path of access to update the policy.</para>
+
+        <para>If the new prediction matches the old this command terminates quickly and executes no further
+        operation. (Unless <option>--force</option> is specified, see below.)</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>remove-policy</command></term>
+
+        <listitem><para>Removes a previously generated policy. Deletes the
+        <filename>/var/lib/systemd/pcrlock.json</filename> file, and deallocates the NV index.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>lock-firmware-code</command></term>
+        <term><command>unlock-firmware-code</command></term>
+
+        <listitem><para>Generates/removes <filename>.pcrlock</filename> files based on the TPM2 event log of
+        the current boot covering all records for PCRs 0 ("platform-code") and 2 ("external-code").</para>
+
+        <para>This operation allows locking the boot process to the current version of the firmware of the
+        system and its extension cards. This operation should only be used if the system vendor does not
+        provide suitable pcrlock data ahead of time.</para>
+
+        <para>Note that this data only matches the current version of the firmware. If a firmware update is
+        applied this data will be out-of-date and any access policy generated from it will no longer pass. It
+        is thus recommended to invoke <command>unlock-firmware-code</command> before doing a firmware update,
+        followed by <command>make-policy</command> to refresh the policy.</para>
+
+        <para><command>systemd-pcrlock lock-firmware-code</command> is invoked automatically at boot via the
+        <filename>systemd-pcrlock-firmware-code.service</filename> unit, if enabled. This ensures that an
+        access policy managed by <command>systemd-pcrlock</command> is automatically locked to the new
+        firmware version whenever the policy has been relaxed temporarily, in order to cover for firmware
+        updates, as described above.</para>
+
+        <para>The files are only generated from the event log if the event log matches the current TPM2 PCR
+        state.</para>
+
+        <para>This writes/removes the files
+        <filename>/var/lib/pcrlock.d/250-firmware-code-early.pcrlock.d/generated.pcrlock</filename> and
+        <filename>/var/lib/pcrlock.d/550-firmware-code-late.pcrlock.d/generated.pcrlock</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>lock-firmware-config</command></term>
+        <term><command>unlock-firmware-config</command></term>
+
+        <listitem><para>This is similar to
+        <command>lock-firmware-code</command>/<command>unlock-firmware-code</command> but locks down the
+        firmware configuration, i.e. PCRs 1 ("platform-config") and 3 ("external-config").</para>
+
+        <para>This functionality should be used with care as in most scenarios a minor firmware configuration
+        change should not invalidate access policies to TPM2 objects. Also note that some systems measure
+        unstable and unpredictable information (e.g. current CPU voltages, temperatures, as part of SMBIOS
+        data) to these PCRs, which means this form of lockdown cannot be used reliably on such systems. Use
+        this functionality only if the system and hardware is well known and does not suffer by these
+        limitations, for example in virtualized environments.</para>
+
+        <para>Use <command>unlock-firmware-config</command> before making firmware configuration changes. If
+        the <filename>systemd-pcrlock-firmware-config.service</filename> unit is enabled it will
+        automatically generate a pcrlock file from the new measurements.</para>
+
+        <para>This writes/removes the files
+        <filename>/var/lib/pcrlock.d/250-firmware-config-early.pcrlock.d/generated.pcrlock</filename> and
+        <filename>/var/lib/pcrlock.d/550-firmware-config-late.pcrlock.d/generated.pcrlock</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>lock-secureboot-policy</command></term>
+        <term><command>unlock-secureboot-policy</command></term>
+
+        <listitem><para>Generates/removes a <filename>.pcrlock</filename> file based on the SecureBoot policy
+        currently enforced. This looks at the SecureBoot, PK, KEK, db, dbx, dbt, dbr EFI variables and
+        predicts their measurements to PCR 7 ("secure-boot-policy") on the next boot.</para>
+
+        <para>Use <command>unlock-firmware-config</command> before applying SecureBoot policy updates. If
+        the <filename>systemd-pcrlock-secureboot-policy.service</filename> unit is enabled it will
+        automatically generate a pcrlock file from the policy discovered.</para>
+
+        <para>This writes/removes the file
+        <filename>/var/lib/pcrlock.d/230-secureboot-policy.pcrlock.d/generated.pcrlock</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>lock-secureboot-authority</command></term>
+        <term><command>unlock-secureboot-authority</command></term>
+
+        <listitem><para>Generates/removes a <filename>.pcrlock</filename> file based on the SecureBoot
+        authorities used to validate the boot path. SecureBoot authorities are the specific SecureBoot
+        database entries that where used to validate the UEFI PE binaries executed at boot. This looks at the
+        event log of the current boot, and uses relevant measurements on PCR 7
+        ("secure-boot-policy").</para>
+
+        <para>This writes/removes the file
+        <filename>/var/lib/pcrlock.d/620-secureboot-authority.pcrlock.d/generated.pcrlock</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>lock-gpt</command> <arg choice="opt"><replaceable>DEVICE</replaceable></arg></term>
+        <term><command>unlock-gpt</command></term>
+
+        <listitem><para>Generates/removes a <filename>.pcrlock</filename> file based on the GPT partition
+        table of the specified disk. If no disk is specified automatically determines the block device
+        backing the root file system. This locks the state of the disk partitioning of the booted medium,
+        which firmware measures to PCR 5 ("boot-loader-config").</para>
+
+        <para>This writes/removes the file
+        <filename>/var/lib/pcrlock.d/600-gpt.pcrlock.d/generated.pcrlock</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>lock-pe</command> <arg choice="opt"><replaceable>BINARY</replaceable></arg></term>
+        <term><command>unlock-pe</command></term>
+
+        <listitem><para>Generates/removes a <filename>.pcrlock</filename> file based on the specified PE
+        binary. This is useful for predicting measurements the firmware makes to PCR 4 ("boot-loader-code")
+        if the specified binary is part of the UEFI boot process. Use this on boot loader binaries and
+        suchlike. Use <command>lock-uki</command> (see below) for PE binaries that are unified kernel images
+        (UKIs).</para>
+
+        <para>Expects a path to the PE binary as argument. If not specified, reads the binary from STDIN
+        instead.</para>
+
+        <para>The pcrlock file to write must be specified via the <option>--pcrlock=</option> switch.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>lock-uki</command> <arg choice="opt"><replaceable>UKI</replaceable></arg></term>
+        <term><command>unlock-uki</command></term>
+
+        <listitem><para>Generates/removes a <filename>.pcrlock</filename> file based on the specified UKI PE
+        binary. This is useful for predicting measurements the firmware makes to PCR 4 ("boot-loader-code"),
+        and <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+        makes to PCR 11 ("kernel-boot"), if the specified UKI is booted. This is a superset of
+        <command>lock-pe</command>.</para>
+
+        <para>Expects a path to the UKI PE binary as argument. If not specified, reads the binary from STDIN
+        instead.</para>
+
+        <para>The pcrlock file to write must be specified via the <option>--pcrlock=</option> switch.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>lock-machine-id</command></term>
+        <term><command>unlock-machine-id</command></term>
+
+        <listitem><para>Generates/removes a <filename>.pcrlock</filename> file based on
+        <filename>/etc/machine-id</filename>. This is useful for predicting measurements
+        <citerefentry><refentrytitle>systemd-pcrmachine.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        makes to PCR 15 ("system-identity").</para>
+
+        <para>This writes/removes the file
+        <filename>/var/lib/pcrlock.d/820-machine-id.pcrlock</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>lock-file-system</command> <arg choice="opt"><replaceable>PATH</replaceable></arg></term>
+        <term><command>unlock-file-system</command> <arg choice="opt"><replaceable>PATH</replaceable></arg></term>
+
+        <listitem><para>Generates/removes a <filename>.pcrlock</filename> file based on file system
+        identity. This is useful for predicting measurements
+        <citerefentry><refentrytitle>systemd-pcrfs@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+        makes to PCR 15 ("system-identity") for the root and <filename>/var/</filename> file systems.</para>
+
+        <para>This writes/removes the files
+        <filename>/var/lib/pcrlock.d/830-root-file-system.pcrlock</filename> and
+        <filename>/var/lib/pcrlock.d/840-file-system-<replaceable>path</replaceable>.pcrlock</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>lock-kernel-cmdline</command> <arg choice="opt"><replaceable>FILE</replaceable></arg></term>
+        <term><command>unlock-kernel-cmdline</command></term>
+
+        <listitem><para>Generates/removes a <filename>.pcrlock</filename> file based on
+        <filename>/proc/cmdline</filename> (or the specified file if given). This is useful for predicting
+        measurements the Linux kernel makes to PCR 9 ("kernel-initrd").</para>
+
+        <para>This writes/removes the file
+        <filename>/var/lib/pcrlock.d/710-kernel-cmdline.pcrlock/generated.pcrlock</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>lock-kernel-initrd</command> <replaceable>FILE</replaceable></term>
+        <term><command>unlock-kernel-initrd</command></term>
+
+        <listitem><para>Generates/removes a <filename>.pcrlock</filename> file based on a kernel initrd cpio
+        archive. This is useful for predicting measurements the Linux kernel makes to PCR 9
+        ("kernel-initrd"). Do not use for <command>systemd-stub</command> UKIs, as the initrd is combined
+        dynamically from various sources and hence does not take a single input, like this command.</para>
+
+        <para>This writes/removes the file
+        <filename>/var/lib/pcrlock.d/720-kernel-initrd.pcrlock/generated.pcrlock</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>lock-raw</command> <arg choice="opt"><replaceable>FILE</replaceable></arg></term>
+        <term><command>unlock-raw</command></term>
+
+        <listitem><para>Generates/removes a <filename>.pcrlock</filename> file based on raw binary data. The
+        data is either read from the specified file or from STDIN (if none is specified). This requires that
+        <option>--pcrs=</option> is specified. The generated pcrlock file is written to the file specified
+        via <option>--pcrlock=</option> or to STDOUT (if none is specified).</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--raw-description</option></term>
+
+        <listitem><para>When displaying the TPM2 event log do not attempt to decode the records to provide a
+        friendly event log description string. Instead, show the binary payload data in escaped form.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--pcr=</option></term>
+
+        <listitem><para>Specifies the PCR number to use. May be specified more than once to select multiple
+        PCRs.</para>
+
+        <para>This is used by <command>lock-raw</command> and <command>lock-pe</command> to select the
+        PCR to lock against.</para>
+
+        <para>If used with <command>predict</command> and <command>make-policy</command> this will override
+        which PCRs to include in the prediction and policy. If unspecified this defaults to PCRs 0-5, 7,
+        11-15. Note that these commands will not include any PCRs in the prediction/policy (even if specified
+        explicitly) if there are measurements in the event log that do not match the current PCR value, or
+        there are unrecognized measurements in the event log, or components define measurements not seen in
+        the event log.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--nv-index=</option></term>
+
+        <listitem><para>Specifies to NV index to store the policy in. Honoured by
+        <command>make-policy</command>. If not specified the command will automatically pick a free NV
+        index.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--components=</option></term>
+
+        <listitem><para>Takes a path to read <filename>*.pcrlock</filename> and
+        <filename>*.pcrlock.d/*.pcrlock</filename> files from. May be used more than once to specify multiple
+        such directories. If not specified defaults to <filename>/etc/pcrlock.d/</filename>,
+        <filename>/run/pcrlock.d/</filename>, <filename>/var/lib/pcrlock.d/</filename>,
+        <filename>/usr/local/pcrlock.d/</filename>, <filename>/usr/lib/pcrlock.d/</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--location=</option></term>
+
+        <listitem><para>Takes either a string or a colon-separated pair of strings. Configures up to which
+        point in the sorted list of defined components to analyze/predict PCRs to. Typically, the
+        <command>systemd-pcrlock</command> tool is invoked from a fully booted system after boot-up and
+        before shutdown. This means various components that are defined for shutdown have not been measured
+        yet, and should not be searched for. This option allows one to restrict which components are
+        considered for analysis (taking only components before some point into account, ignoring components
+        after them). The expected string is ordered against the filenames of the components defined. Any
+        components with a lexicographically later name are ignored. This logic applies to the
+        <command>log</command>, <command>predict</command>, and <command>make-policy</command> verbs. If a
+        colon-separated pair of strings are specified then they select which phases of the boot to include
+        in the prediction/policy. The first string defines where the first prediction shall be made, and the
+        second string defines where the last prediction shall be made. All such predictions are then combined
+        into one set.</para>
+
+        <para>If used with <command>list-components</command> the selected location range will be highlighted
+        in the component list.</para>
+
+        <para>Defaults to <literal>760-:940-</literal>, which means the policies generated by default will
+        basically cover the whole runtime of the OS userspace, from the initrd (as <literal>760-</literal>
+        closely follows <filename>750-enter-initrd.pcrlock</filename>) until (and including) the main runtime
+        of the system (as <literal>940-</literal> is closely followed by
+        <filename>950-shutdown.pcrlock</filename>). See
+        <citerefentry><refentrytitle>systemd.pcrlock</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        for a full list of well-known components, that illustrate where this range is placed by
+        default.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--recovery-pin=</option></term>
+
+        <listitem><para>Takes a boolean. Defaults to false. Honoured by <command>make-policy</command>. If
+        true, will query the user for a PIN to unlock the TPM2 NV index with. If no policy was created before
+        this PIN is used to protect the newly allocated NV index. If a policy has been created before the PIN
+        is used to unlock write access to the NV index. If this option is not used a PIN is automatically
+        generated. Regardless if user supplied or automatically generated, it is stored in encrypted form in
+        the policy metadata file. The recovery PIN may be used to regain write access to an NV index in case
+        the access policy became out of date.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--pcrlock=</option></term>
+
+        <listitem><para>Takes a file system path as argument. If specified overrides where to write the
+        generated pcrlock data to. Honoured by the various <command>lock-*</command> commands. If not
+        specified, a default path is generally used, as documented above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--policy=</option></term>
+
+        <listitem><para>Takes a file system path as argument. If specified overrides where to write pcrlock
+        policy metadata to. If not specified defaults to
+        <filename>/var/lib/systemd/pcrlock.json</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--force</option></term>
+
+        <listitem><para>If specified with <command>make-policy</command>, the predicted policy will be
+        written to the NV index even if it is detected to be the same as the previously stored
+        one.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="json" />
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned, a non-zero failure code otherwise.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.pcrlock</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-cryptsetup@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-repart</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-pcrmachine.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+     </para>
+  </refsect1>
+
+</refentry>

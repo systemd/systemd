@@ -1153,10 +1153,24 @@ static int dump_core(int argc, char **argv, void *userdata) {
         return 0;
 }
 
+static void sigterm_handler(int signal, siginfo_t *info, void *ucontext) {
+        assert(signal == SIGTERM);
+        assert(info);
+
+        /* If the sender is not us, propagate the signal to all processes in
+         * the same process group */
+        if (pid_is_valid(info->si_pid) && info->si_pid != getpid_cached())
+                (void) kill(0, signal);
+}
+
 static int run_debug(int argc, char **argv, void *userdata) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         _cleanup_free_ char *exe = NULL, *path = NULL;
         _cleanup_strv_free_ char **debugger_call = NULL;
+        struct sigaction sa = {
+                .sa_sigaction = sigterm_handler,
+                .sa_flags = SA_SIGINFO,
+        };
         bool unlink_path = false;
         const char *data, *fork_name;
         size_t len;
@@ -1250,10 +1264,11 @@ static int run_debug(int argc, char **argv, void *userdata) {
 
         /* Don't interfere with gdb and its handling of SIGINT. */
         (void) ignore_signals(SIGINT);
+        (void) sigaction(SIGTERM, &sa, NULL);
 
         fork_name = strjoina("(", debugger_call[0], ")");
 
-        r = safe_fork(fork_name, FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG|FORK_FLUSH_STDIO, &pid);
+        r = safe_fork(fork_name, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_CLOSE_ALL_FDS|FORK_RLIMIT_NOFILE_SAFE|FORK_LOG|FORK_FLUSH_STDIO, &pid);
         if (r < 0)
                 goto finish;
         if (r == 0) {
@@ -1266,7 +1281,7 @@ static int run_debug(int argc, char **argv, void *userdata) {
         r = wait_for_terminate_and_check(debugger_call[0], pid, WAIT_LOG_ABNORMAL);
 
 finish:
-        (void) default_signals(SIGINT);
+        (void) default_signals(SIGINT, SIGTERM);
 
         if (unlink_path) {
                 log_debug("Removed temporary file %s", path);

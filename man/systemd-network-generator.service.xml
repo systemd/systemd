@@ -30,7 +30,7 @@
     <title>Description</title>
 
     <para><filename>systemd-network-generator.service</filename> is a system service that translates
-    <varname>ip=</varname> and the related settings on the kernel command line (see below) into
+    <varname>ip=</varname> and related settings on the kernel command line (see below) into
     <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
     <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>, and
     <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>
@@ -56,11 +56,19 @@
     <variablelist class='kernel-commandline-options'>
       <varlistentry>
         <term><varname>ip=</varname></term>
+        <term><varname>nameserver=</varname></term>
         <term><varname>rd.route=</varname></term>
         <term><varname>rd.peerdns=</varname></term>
         <listitem>
-          <para>— translated into
-          <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry> files.</para>
+          <para>Translated into
+          <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          files.</para>
+
+          <para>In addition to the parameters <citerefentry
+          project='man-pages'><refentrytitle>dracut.cmdline</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+          defines the <varname>ip=</varname> option accepts the special value
+          <literal>link-local</literal>. If selected, the network interfaces will be configured for
+          link-local addressing (IPv4LL, IPv6LL) only, DHCP or IPv6RA will not be enabled.</para>
 
           <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
@@ -70,8 +78,9 @@
         <term><varname>ifname=</varname></term>
         <term><varname>net.ifname-policy=</varname></term>
         <listitem>
-          <para>— translated into
-          <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry> files.</para>
+          <para>Translated into
+          <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          files.</para>
 
           <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>
@@ -83,8 +92,9 @@
         <term><varname>bridge=</varname></term>
         <term><varname>bootdev=</varname></term>
         <listitem>
-          <para>— translated into
-          <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry> files.</para>
+          <para>Translated into
+          <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          files.</para>
 
           <xi:include href="version-info.xml" xpointer="v245"/>
         </listitem>

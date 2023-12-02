@@ -58,6 +58,8 @@ DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(TClass, tclass);
 TClass* tclass_free(TClass *tclass);
 int tclass_new_static(TClassKind kind, Network *network, const char *filename, unsigned section_line, TClass **ret);
 
+TClass* tclass_drop(TClass *tclass);
+
 int link_find_tclass(Link *link, uint32_t classid, TClass **ret);
 
 int link_request_tclass(Link *link, TClass *tclass);
@@ -65,6 +67,7 @@ int link_request_tclass(Link *link, TClass *tclass);
 void network_drop_invalid_tclass(Network *network);
 
 int manager_rtnl_process_tclass(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
+int link_enumerate_tclass(Link *link, uint32_t parent);
 
 DEFINE_SECTION_CLEANUP_FUNCTIONS(TClass, tclass_free);
 

@@ -8,11 +8,10 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-07-14 10:32+0100\n"
+"POT-Creation-Date: 2023-11-14 21:25+0000\n"
 "PO-Revision-Date: 2023-09-25 03:36+0000\n"
 "Last-Translator: 김인수 <simmon@nplob.com>\n"
-"Language-Team: Korean <https://translate.fedoraproject.org/projects/systemd/"
-"master/ko/>\n"
+"Language-Team: Korean <https://translate.fedoraproject.org/projects/systemd/master/ko/>\n"
 "Language: ko\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -120,8 +119,7 @@ msgstr "사용자 홈 영역의 비밀번호를 변경하려면 인증이 필요
 #: src/home/pam_systemd_home.c:287
 #, c-format
 msgid "Home of user %s is currently absent, please plug in the necessary storage device or backing file system."
-msgstr "사용자 %s의 홈은 현재 비어 있으며, 필요한 저장 장치 또는 파일 시스템 백업에 "
-"연결하세요."
+msgstr "사용자 %s의 홈은 현재 비어 있으며, 필요한 저장 장치 또는 파일 시스템 백업에 연결하세요."
 
 #: src/home/pam_systemd_home.c:292
 #, c-format
@@ -166,8 +164,7 @@ msgstr "비밀번호로 다시 시도하세요: "
 #: src/home/pam_systemd_home.c:355
 #, c-format
 msgid "Password incorrect or not sufficient, and configured security token of user %s not inserted."
-msgstr "비밀번호가 올바르지 않거나 인증에 충분하지 않으며, 그리고 사용자 %s의 구성된 "
-"보안 토큰이 삽입되어 있지 않습니다."
+msgstr "비밀번호가 올바르지 않거나 인증에 충분하지 않으며, 그리고 사용자 %s의 구성된 보안 토큰이 삽입되어 있지 않습니다."
 
 #: src/home/pam_systemd_home.c:376
 msgid "Security token PIN: "
@@ -190,8 +187,7 @@ msgstr "사용자 %s의 보안 토큰에서 사용자를 확인해 주세요."
 
 #: src/home/pam_systemd_home.c:424
 msgid "Security token PIN is locked, please unlock it first. (Hint: Removal and re-insertion might suffice.)"
-msgstr "보안 토큰 핀이 잠겨 있으며, 이를 우선 잠금 해제를 해주세요. (암시: 제거하고 "
-"다시-삽입으로 충분 할 수 있습니다.)"
+msgstr "보안 토큰 핀이 잠겨 있으며, 이를 우선 잠금 해제를 해주세요. (암시: 제거하고 다시-삽입으로 충분 할 수 있습니다.)"
 
 #: src/home/pam_systemd_home.c:432
 #, c-format
@@ -929,38 +925,38 @@ msgstr "네트워크 시간 동기화 켜거나 끄기"
 msgid "Authentication is required to control whether network time synchronization shall be enabled."
 msgstr "네트워크 시간 동기화의 활성화 여부를 제어하려면 인증이 필요합니다."
 
-#: src/core/dbus-unit.c:364
+#: src/core/dbus-unit.c:352
 msgid "Authentication is required to start '$(unit)'."
 msgstr "인증은 '$(unit)'을 시작하는데 필요합니다."
 
-#: src/core/dbus-unit.c:365
+#: src/core/dbus-unit.c:353
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "인증은 '$(unit)'을 멈추는데 필요합니다."
 
-#: src/core/dbus-unit.c:366
+#: src/core/dbus-unit.c:354
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "인증은 '$(unit)'을 다시 불러오는데 필요합니다."
 
-#: src/core/dbus-unit.c:367 src/core/dbus-unit.c:368
+#: src/core/dbus-unit.c:355 src/core/dbus-unit.c:356
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "인증은 '$(unit)'을 다시 시작하는데 필요합니다."
 
-#: src/core/dbus-unit.c:565
+#: src/core/dbus-unit.c:553
 msgid "Authentication is required to send a UNIX signal to the processes of '$(unit)'."
 msgstr "'$(unit)'의 처리에 유닉스 신호를 전송하려면 인증이 필요합니다."
 
-#: src/core/dbus-unit.c:595
+#: src/core/dbus-unit.c:583
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "인증은 '$(unit)'의 \"실패\"를 되돌리는데 필요합니다."
 
-#: src/core/dbus-unit.c:627
+#: src/core/dbus-unit.c:615
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "인증은 '$(unit)'의 속성을 설정하는데 필요합니다."
 
-#: src/core/dbus-unit.c:728
+#: src/core/dbus-unit.c:716
 msgid "Authentication is required to delete files and directories associated with '$(unit)'."
 msgstr "인증은 '$(unit)'과 관련된 파일과 디렉토리를 삭제하는데 필요합니다."
 
-#: src/core/dbus-unit.c:776
+#: src/core/dbus-unit.c:764
 msgid "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "'$(unit)'단위의 처리를 동결 또는 해제하려면 인증이 필요합니다."

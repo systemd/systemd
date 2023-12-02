@@ -9,7 +9,7 @@
 #include "fuzz-journald.h"
 #include "journald-stream.h"
 
-static int stream_fds[2] = PIPE_EBADF;
+static int stream_fds[2] = EBADF_PAIR;
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         Server s;
@@ -19,8 +19,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         if (outside_size_range(size, 1, 65536))
                 return 0;
 
-        if (!getenv("SYSTEMD_LOG_LEVEL"))
-                log_set_max_level(LOG_CRIT);
+        fuzz_setup_logging();
 
         assert_se(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0, stream_fds) >= 0);
         dummy_server_init(&s, NULL, 0);

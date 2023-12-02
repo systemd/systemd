@@ -466,6 +466,42 @@ static int write_extra_dependencies(FILE *f, const char *opts) {
         return 0;
 }
 
+static int mandatory_mount_drop_unapplicable_options(
+                MountPointFlags *flags,
+                const char *where,
+                const char *options,
+                char **ret_options) {
+
+        int r;
+
+        assert(flags);
+        assert(where);
+        assert(options);
+        assert(ret_options);
+
+        if (!(*flags & (MOUNT_NOAUTO|MOUNT_NOFAIL|MOUNT_AUTOMOUNT))) {
+                _cleanup_free_ char *opts = NULL;
+
+                opts = strdup(options);
+                if (!opts)
+                        return -ENOMEM;
+
+                *ret_options = TAKE_PTR(opts);
+                return 0;
+        }
+
+        log_debug("Mount '%s' is mandatory, ignoring 'noauto', 'nofail', and 'x-systemd.automount' options.",
+                  where);
+
+        *flags &= ~(MOUNT_NOAUTO|MOUNT_NOFAIL|MOUNT_AUTOMOUNT);
+
+        r = fstab_filter_options(options, "noauto\0nofail\0x-systemd.automount\0", NULL, NULL, NULL, ret_options);
+        if (r < 0)
+                return r;
+
+        return 1;
+}
+
 static int add_mount(
                 const char *source,
                 const char *dest,
@@ -478,11 +514,8 @@ static int add_mount(
                 MountPointFlags flags,
                 const char *target_unit) {
 
-        _cleanup_free_ char
-                *name = NULL,
-                *automount_name = NULL,
-                *filtered = NULL,
-                *where_escaped = NULL;
+        _cleanup_free_ char *name = NULL, *automount_name = NULL, *filtered = NULL, *where_escaped = NULL,
+                *opts_root_filtered = NULL;
         _cleanup_strv_free_ char **wanted_by = NULL, **required_by = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -519,20 +552,18 @@ static int add_mount(
                 return r;
 
         if (path_equal(where, "/")) {
-                if (flags & MOUNT_NOAUTO)
-                        log_warning("Ignoring \"noauto\" option for root device");
-                if (flags & MOUNT_NOFAIL)
-                        log_warning("Ignoring \"nofail\" option for root device");
-                if (flags & MOUNT_AUTOMOUNT)
-                        log_warning("Ignoring \"automount\" option for root device");
+                r = mandatory_mount_drop_unapplicable_options(&flags, where, opts, &opts_root_filtered);
+                if (r < 0)
+                        return r;
+                opts = opts_root_filtered;
+
                 if (!strv_isempty(wanted_by))
-                        log_warning("Ignoring \"x-systemd.wanted-by=\" option for root device");
+                        log_debug("Ignoring 'x-systemd.wanted-by=' option for root device.");
                 if (!strv_isempty(required_by))
-                        log_warning("Ignoring \"x-systemd.required-by=\" option for root device");
+                        log_debug("Ignoring 'x-systemd.required-by=' option for root device.");
 
                 required_by = strv_free(required_by);
                 wanted_by = strv_free(wanted_by);
-                SET_FLAG(flags, MOUNT_NOAUTO | MOUNT_NOFAIL | MOUNT_AUTOMOUNT, false);
         }
 
         r = unit_name_from_path(where, ".mount", &name);
@@ -853,7 +884,7 @@ static int parse_fstab_one(
                 bool accept_root, /* This takes an effect only when prefix_sysroot is true. */
                 bool use_swap_enabled) {
 
-        _cleanup_free_ char *what = NULL, *where = NULL;
+        _cleanup_free_ char *what = NULL, *where = NULL, *opts = NULL;
         MountPointFlags flags;
         bool is_swap, where_changed;
         int r;
@@ -935,6 +966,14 @@ static int parse_fstab_one(
                         prefix_sysroot ?                    SPECIAL_INITRD_FS_TARGET :
                         mount_is_network(fstype, options) ? SPECIAL_REMOTE_FS_TARGET :
                                                             SPECIAL_LOCAL_FS_TARGET;
+
+        /* nofail, noauto and x-systemd.automount don't make sense for critical filesystems we must mount in initrd. */
+        if (is_sysroot || is_sysroot_usr) {
+                r = mandatory_mount_drop_unapplicable_options(&flags, where, options, &opts);
+                if (r < 0)
+                        return r;
+                options = opts;
+        }
 
         r = add_mount(source,
                       arg_dest,
@@ -1290,7 +1329,7 @@ static int add_volatile_var(void) {
 }
 
 static int add_mounts_from_cmdline(void) {
-        int r, ret = 0;
+        int r = 0;
 
         /* Handle each entries found in cmdline as a fstab entry. */
 
@@ -1298,28 +1337,25 @@ static int add_mounts_from_cmdline(void) {
                 if (m->for_initrd && !in_initrd())
                         continue;
 
-                r = parse_fstab_one(
-                              "/proc/cmdline",
-                              m->what,
-                              m->where,
-                              m->fstype,
-                              m->options,
-                              /* passno = */ -1,
-                              /* prefix_sysroot = */ !m->for_initrd && in_initrd(),
-                              /* accept_root = */ true,
-                              /* use_swap_enabled = */ false);
-                if (r < 0 && ret >= 0)
-                        ret = r;
+                RET_GATHER(r, parse_fstab_one("/proc/cmdline",
+                                              m->what,
+                                              m->where,
+                                              m->fstype,
+                                              m->options,
+                                              /* passno = */ -1,
+                                              /* prefix_sysroot = */ !m->for_initrd && in_initrd(),
+                                              /* accept_root = */ true,
+                                              /* use_swap_enabled = */ false));
         }
 
-        return ret;
+        return r;
 }
 
 static int add_mounts_from_creds(bool prefix_sysroot) {
         _cleanup_free_ void *b = NULL;
         struct mntent *me;
-        int r, ret = 0;
         size_t bs;
+        int r;
 
         assert(in_initrd() || !prefix_sysroot);
 
@@ -1334,22 +1370,20 @@ static int add_mounts_from_creds(bool prefix_sysroot) {
         if (!f)
                 return log_oom();
 
-        while ((me = getmntent(f))) {
-                r = parse_fstab_one(
-                                "/run/credentials",
-                                me->mnt_fsname,
-                                me->mnt_dir,
-                                me->mnt_type,
-                                me->mnt_opts,
-                                me->mnt_passno,
-                                /* prefix_sysroot = */ prefix_sysroot,
-                                /* accept_root = */ true,
-                                /* use_swap_enabled = */ true);
-                if (r < 0 && ret >= 0)
-                        ret = r;
-        }
+        r = 0;
 
-        return ret;
+        while ((me = getmntent(f)))
+                RET_GATHER(r, parse_fstab_one("/run/credentials",
+                                              me->mnt_fsname,
+                                              me->mnt_dir,
+                                              me->mnt_type,
+                                              me->mnt_opts,
+                                              me->mnt_passno,
+                                              /* prefix_sysroot = */ prefix_sysroot,
+                                              /* accept_root = */ true,
+                                              /* use_swap_enabled = */ true));
+
+        return r;
 }
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
@@ -1529,7 +1563,7 @@ static int determine_usr(void) {
  * with /sysroot/etc/fstab available, and then we can write additional units based
  * on that file. */
 static int run_generator(void) {
-        int r, ret = 0;
+        int r = 0;
 
         r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
         if (r < 0)
@@ -1547,56 +1581,38 @@ static int run_generator(void) {
                 return r;
         }
 
+        r = 0;
+
         /* Always honour root= and usr= in the kernel command line if we are in an initrd */
         if (in_initrd()) {
-                r = add_sysroot_mount();
-                if (r < 0 && ret >= 0)
-                        ret = r;
+                RET_GATHER(r, add_sysroot_mount());
 
-                r = add_sysroot_usr_mount_or_fallback();
-                if (r < 0 && ret >= 0)
-                        ret = r;
+                RET_GATHER(r, add_sysroot_usr_mount_or_fallback());
 
-                r = add_volatile_root();
-                if (r < 0 && ret >= 0)
-                        ret = r;
-        } else {
-                r = add_volatile_var();
-                if (r < 0 && ret >= 0)
-                        ret = r;
-        }
+                RET_GATHER(r, add_volatile_root());
+        } else
+                RET_GATHER(r, add_volatile_var());
 
         /* Honour /etc/fstab only when that's enabled */
         if (arg_fstab_enabled) {
                 /* Parse the local /etc/fstab, possibly from the initrd */
-                r = parse_fstab(/* prefix_sysroot = */ false);
-                if (r < 0 && ret >= 0)
-                        ret = r;
+                RET_GATHER(r, parse_fstab(/* prefix_sysroot = */ false));
 
                 /* If running in the initrd also parse the /etc/fstab from the host */
                 if (in_initrd())
-                        r = parse_fstab(/* prefix_sysroot = */ true);
+                        RET_GATHER(r, parse_fstab(/* prefix_sysroot = */ true));
                 else
-                        r = generator_enable_remount_fs_service(arg_dest);
-                if (r < 0 && ret >= 0)
-                        ret = r;
+                        RET_GATHER(r, generator_enable_remount_fs_service(arg_dest));
         }
 
-        r = add_mounts_from_cmdline();
-        if (r < 0 && ret >= 0)
-                ret = r;
+        RET_GATHER(r, add_mounts_from_cmdline());
 
-        r = add_mounts_from_creds(/* prefix_sysroot = */ false);
-        if (r < 0 && ret >= 0)
-                ret = r;
+        RET_GATHER(r, add_mounts_from_creds(/* prefix_sysroot = */ false));
 
-        if (in_initrd()) {
-                r = add_mounts_from_creds(/* prefix_sysroot = */ true);
-                if (r < 0 && ret >= 0)
-                        ret = r;
-        }
+        if (in_initrd())
+                RET_GATHER(r, add_mounts_from_creds(/* prefix_sysroot = */ true));
 
-        return ret;
+        return r;
 }
 
 static int run(int argc, char **argv) {

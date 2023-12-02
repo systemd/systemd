@@ -10,17 +10,16 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-07-14 10:32+0100\n"
-"PO-Revision-Date: 2023-07-31 22:21+0000\n"
+"POT-Creation-Date: 2023-11-14 21:25+0000\n"
+"PO-Revision-Date: 2023-10-12 16:36+0000\n"
 "Last-Translator: Pierre GRASSER <pierre.grasser@proton.me>\n"
-"Language-Team: French <https://translate.fedoraproject.org/projects/systemd/"
-"master/fr/>\n"
+"Language-Team: French <https://translate.fedoraproject.org/projects/systemd/master/fr/>\n"
 "Language: fr\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 4.18.2\n"
+"X-Generator: Weblate 5.0.2\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -36,8 +35,7 @@ msgstr "Gérer les services système ou d'autres unités"
 
 #: src/core/org.freedesktop.systemd1.policy.in:34
 msgid "Authentication is required to manage system services or other units."
-msgstr ""
-"Authentification requise pour gérer les services système ou d'autres unités."
+msgstr "Authentification requise pour gérer les services système ou d'autres unités."
 
 #: src/core/org.freedesktop.systemd1.policy.in:43
 msgid "Manage system service or unit files"
@@ -45,21 +43,15 @@ msgstr "Gérer les fichiers d'un service ou d'une unité système"
 
 #: src/core/org.freedesktop.systemd1.policy.in:44
 msgid "Authentication is required to manage system service or unit files."
-msgstr ""
-"Authentification requise pour gérer les fichiers d'un service ou d'une unité "
-"système."
+msgstr "Authentification requise pour gérer les fichiers d'un service ou d'une unité système."
 
 #: src/core/org.freedesktop.systemd1.policy.in:54
 msgid "Set or unset system and service manager environment variables"
-msgstr ""
-"Définir ou supprimer des variables d’environnement du gestionnaire du "
-"système et des services"
+msgstr "Définir ou supprimer des variables d’environnement du gestionnaire du système et des services"
 
 #: src/core/org.freedesktop.systemd1.policy.in:55
 msgid "Authentication is required to set or unset system and service manager environment variables."
-msgstr ""
-"Authentification requise pour définir ou supprimer des variables d’"
-"environnement du gestionnaire du système et des services."
+msgstr "Authentification requise pour définir ou supprimer des variables d’environnement du gestionnaire du système et des services."
 
 #: src/core/org.freedesktop.systemd1.policy.in:64
 msgid "Reload the systemd state"
@@ -75,9 +67,7 @@ msgstr "Récupérer l'état de systemd sans limites de taux"
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
 msgid "Authentication is required to dump the systemd state without rate limits."
-msgstr ""
-"Authentification requise pour récupérer l'état de systemd sans limites de "
-"taux."
+msgstr "Authentification requise pour récupérer l'état de systemd sans limites de taux."
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
@@ -130,15 +120,12 @@ msgstr "Authentification requise pour changer le mot de passe de l’espace pers
 #: src/home/pam_systemd_home.c:287
 #, c-format
 msgid "Home of user %s is currently absent, please plug in the necessary storage device or backing file system."
-msgstr ""
-"L'espace personnel de %s est actuellement absent, veuillez connecter le "
-"périphérique ou le système de fichiers qui le contient."
+msgstr "L'espace personnel de %s est actuellement absent, veuillez connecter le périphérique ou le système de fichiers qui le contient."
 
 #: src/home/pam_systemd_home.c:292
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
-msgstr ""
-"Trop de tentatives de connexion à l'utilisateur %s, réessayez plus tard."
+msgstr "Trop de tentatives de connexion à l'utilisateur %s, réessayez plus tard."
 
 #: src/home/pam_systemd_home.c:304
 msgid "Password: "
@@ -147,9 +134,7 @@ msgstr "Mot de passe : "
 #: src/home/pam_systemd_home.c:306
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
-msgstr ""
-"Mot de passe incorrect ou insuffisant pour l'authentification de "
-"l'utilisateur %s."
+msgstr "Mot de passe incorrect ou insuffisant pour l'authentification de l'utilisateur %s."
 
 #: src/home/pam_systemd_home.c:307
 msgid "Sorry, try again: "
@@ -162,9 +147,7 @@ msgstr "Clé de récupération : "
 #: src/home/pam_systemd_home.c:331
 #, c-format
 msgid "Password/recovery key incorrect or not sufficient for authentication of user %s."
-msgstr ""
-"Mot de passe ou clé de récupération incorrecte ou insuffisante pour "
-"l'authentification de l'utilisateur %s."
+msgstr "Mot de passe ou clé de récupération incorrecte ou insuffisante pour l'authentification de l'utilisateur %s."
 
 #: src/home/pam_systemd_home.c:332
 msgid "Sorry, reenter recovery key: "
@@ -182,9 +165,7 @@ msgstr "Réessayez avec un mot de passe : "
 #: src/home/pam_systemd_home.c:355
 #, c-format
 msgid "Password incorrect or not sufficient, and configured security token of user %s not inserted."
-msgstr ""
-"Mot de passe incorrect ou insuffisant, et la clé de sécurité de "
-"l'utilisateur %s n'est pas insérée."
+msgstr "Mot de passe incorrect ou insuffisant, et la clé de sécurité de l'utilisateur %s n'est pas insérée."
 
 #: src/home/pam_systemd_home.c:376
 msgid "Security token PIN: "
@@ -193,27 +174,21 @@ msgstr "PIN de la clé de sécurité : "
 #: src/home/pam_systemd_home.c:393
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
-msgstr ""
-"Veuillez vous authentifier physiquement à l'aide de la clé de sécurité de "
-"l'utilisateur %s."
+msgstr "Veuillez vous authentifier physiquement à l'aide de la clé de sécurité de l'utilisateur %s."
 
 #: src/home/pam_systemd_home.c:404
 #, c-format
 msgid "Please confirm presence on security token of user %s."
-msgstr ""
-"Veuillez confirmer votre présence sur la clé de sécurité de l'utilisateur %s."
+msgstr "Veuillez confirmer votre présence sur la clé de sécurité de l'utilisateur %s."
 
 #: src/home/pam_systemd_home.c:415
 #, c-format
 msgid "Please verify user on security token of user %s."
-msgstr ""
-"Veuillez confirmer l'utilisateur sur la clé de sécurité de l'utilisateur %s."
+msgstr "Veuillez confirmer l'utilisateur sur la clé de sécurité de l'utilisateur %s."
 
 #: src/home/pam_systemd_home.c:424
 msgid "Security token PIN is locked, please unlock it first. (Hint: Removal and re-insertion might suffice.)"
-msgstr ""
-"Le PIN de la clé de sécurité est verrouillé, veuillez commencer par le "
-"déverrouiller. (Astuce : débrancher et rebrancher peut suffire.)"
+msgstr "Le PIN de la clé de sécurité est verrouillé, veuillez commencer par le déverrouiller. (Astuce : débrancher et rebrancher peut suffire.)"
 
 #: src/home/pam_systemd_home.c:432
 #, c-format
@@ -228,30 +203,22 @@ msgstr "Désolé, entrez à nouveau le PIN de la clé de sécurité : "
 #: src/home/pam_systemd_home.c:451
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
-msgstr ""
-"PIN de la clé de sécurité de l'utilisateur %s incorrect (plus que quelques "
-"essais restants !)"
+msgstr "PIN de la clé de sécurité de l'utilisateur %s incorrect (plus que quelques essais restants !)"
 
 #: src/home/pam_systemd_home.c:470
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
-msgstr ""
-"PIN de la clé de sécurité de l'utilisateur %s incorrect (plus qu'un essai "
-"restant !)"
+msgstr "PIN de la clé de sécurité de l'utilisateur %s incorrect (plus qu'un essai restant !)"
 
 #: src/home/pam_systemd_home.c:616
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
-msgstr ""
-"L'espace personnel de l'utilisateur %s est actuellement inactif, veuillez "
-"vous connecter localement dans un premier temps."
+msgstr "L'espace personnel de l'utilisateur %s est actuellement inactif, veuillez vous connecter localement dans un premier temps."
 
 #: src/home/pam_systemd_home.c:618
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
-msgstr ""
-"L'espace personnel de l'utilisateur %s est actuellement verrouillé, veuillez "
-"commencer par un déverrouillage local."
+msgstr "L'espace personnel de l'utilisateur %s est actuellement verrouillé, veuillez commencer par un déverrouillage local."
 
 #: src/home/pam_systemd_home.c:645
 #, c-format
@@ -309,9 +276,7 @@ msgstr "Définir le nom d’hôte statique"
 
 #: src/hostname/org.freedesktop.hostname1.policy:31
 msgid "Authentication is required to set the statically configured local hostname, as well as the pretty hostname."
-msgstr ""
-"Authentification requise pour définir le nom d’hôte local de manière "
-"statique, ainsi que le nom d’hôte familier."
+msgstr "Authentification requise pour définir le nom d’hôte local de manière statique, ainsi que le nom d’hôte familier."
 
 #: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"
@@ -351,9 +316,7 @@ msgstr "Importer une image de machine virtuelle ou de conteneur"
 
 #: src/import/org.freedesktop.import1.policy:23
 msgid "Authentication is required to import a VM or container image"
-msgstr ""
-"Authentification requise pour importer une image de machine virtuelle ou de "
-"conteneur"
+msgstr "Authentification requise pour importer une image de machine virtuelle ou de conteneur"
 
 #: src/import/org.freedesktop.import1.policy:32
 msgid "Export a VM or container image"
@@ -361,9 +324,7 @@ msgstr "Exporter une image de machine virtuelle ou de conteneur"
 
 #: src/import/org.freedesktop.import1.policy:33
 msgid "Authentication is required to export a VM or container image"
-msgstr ""
-"Authentification requise pour exporter une image de machine virtuelle ou de "
-"conteneur"
+msgstr "Authentification requise pour exporter une image de machine virtuelle ou de conteneur"
 
 #: src/import/org.freedesktop.import1.policy:42
 msgid "Download a VM or container image"
@@ -371,9 +332,7 @@ msgstr "Télécharger une image de machine virtuelle (VM) ou de conteneur"
 
 #: src/import/org.freedesktop.import1.policy:43
 msgid "Authentication is required to download a VM or container image"
-msgstr ""
-"Authentification requise pour télécharger une image de machine virtuelle ou "
-"de conteneur"
+msgstr "Authentification requise pour télécharger une image de machine virtuelle ou de conteneur"
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
@@ -425,8 +384,7 @@ msgstr "Authentification requise pour permettre à une application de retarder l
 
 #: src/login/org.freedesktop.login1.policy:65
 msgid "Allow applications to inhibit automatic system suspend"
-msgstr ""
-"Permettre aux applications d’empêcher l’hibernation automatique du système"
+msgstr "Permettre aux applications d’empêcher l’hibernation automatique du système"
 
 #: src/login/org.freedesktop.login1.policy:66
 msgid "Authentication is required for an application to inhibit automatic system suspend."
@@ -434,63 +392,43 @@ msgstr "Authentification requise pour permettre à une application d’empêcher
 
 #: src/login/org.freedesktop.login1.policy:75
 msgid "Allow applications to inhibit system handling of the power key"
-msgstr ""
-"Permettre aux applications d’empêcher le système de gérer le bouton "
-"d’alimentation"
+msgstr "Permettre aux applications d’empêcher le système de gérer le bouton d’alimentation"
 
 #: src/login/org.freedesktop.login1.policy:76
 msgid "Authentication is required for an application to inhibit system handling of the power key."
-msgstr ""
-"Authentification requise pour permettre à une application d’empêcher le "
-"système de gérer le bouton d’alimentation."
+msgstr "Authentification requise pour permettre à une application d’empêcher le système de gérer le bouton d’alimentation."
 
 #: src/login/org.freedesktop.login1.policy:86
 msgid "Allow applications to inhibit system handling of the suspend key"
-msgstr ""
-"Permettre aux applications d’empêcher le système de gérer le bouton de mise "
-"en veille"
+msgstr "Permettre aux applications d’empêcher le système de gérer le bouton de mise en veille"
 
 #: src/login/org.freedesktop.login1.policy:87
 msgid "Authentication is required for an application to inhibit system handling of the suspend key."
-msgstr ""
-"Authentification requise pour permettre à une application d’empêcher le "
-"système de gérer le bouton de mise en veille."
+msgstr "Authentification requise pour permettre à une application d’empêcher le système de gérer le bouton de mise en veille."
 
 #: src/login/org.freedesktop.login1.policy:97
 msgid "Allow applications to inhibit system handling of the hibernate key"
-msgstr ""
-"Permettre aux applications d’empêcher au système de gérer le bouton "
-"d’hibernation"
+msgstr "Permettre aux applications d’empêcher au système de gérer le bouton d’hibernation"
 
 #: src/login/org.freedesktop.login1.policy:98
 msgid "Authentication is required for an application to inhibit system handling of the hibernate key."
-msgstr ""
-"Authentification requise pour permettre à une application d’empêcher le "
-"système de gérer le bouton d'hibernation."
+msgstr "Authentification requise pour permettre à une application d’empêcher le système de gérer le bouton d'hibernation."
 
 #: src/login/org.freedesktop.login1.policy:107
 msgid "Allow applications to inhibit system handling of the lid switch"
-msgstr ""
-"Permettre aux applications d’empêcher le système de gérer la fermeture du "
-"capot"
+msgstr "Permettre aux applications d’empêcher le système de gérer la fermeture du capot"
 
 #: src/login/org.freedesktop.login1.policy:108
 msgid "Authentication is required for an application to inhibit system handling of the lid switch."
-msgstr ""
-"Authentification requise pour permettre à une application d’empêcher le "
-"système de gérer la fermeture du capot."
+msgstr "Authentification requise pour permettre à une application d’empêcher le système de gérer la fermeture du capot."
 
 #: src/login/org.freedesktop.login1.policy:117
 msgid "Allow applications to inhibit system handling of the reboot key"
-msgstr ""
-"Permettre aux applications d’empêcher le système de gérer le bouton de "
-"redémarrage"
+msgstr "Permettre aux applications d’empêcher le système de gérer le bouton de redémarrage"
 
 #: src/login/org.freedesktop.login1.policy:118
 msgid "Authentication is required for an application to inhibit system handling of the reboot key."
-msgstr ""
-"Authentification requise pour permettre à une application d’empêcher le "
-"système de gérer le bouton de redémarrage."
+msgstr "Authentification requise pour permettre à une application d’empêcher le système de gérer le bouton de redémarrage."
 
 #: src/login/org.freedesktop.login1.policy:128
 msgid "Allow non-logged-in user to run programs"
@@ -522,9 +460,7 @@ msgstr "Supprimer toutes les associations des périphériques aux postes (seats)
 
 #: src/login/org.freedesktop.login1.policy:160
 msgid "Authentication is required to reset how devices are attached to seats."
-msgstr ""
-"Authentification requise pour réinitialiser les associations des "
-"périphériques aux postes (seats)."
+msgstr "Authentification requise pour réinitialiser les associations des périphériques aux postes (seats)."
 
 #: src/login/org.freedesktop.login1.policy:169
 msgid "Power off the system"
@@ -548,9 +484,7 @@ msgstr "Éteindre le système alors qu’une application l'en empêche"
 
 #: src/login/org.freedesktop.login1.policy:192
 msgid "Authentication is required to power off the system while an application is inhibiting this."
-msgstr ""
-"Authentification requise pour éteindre le système alors qu’une application "
-"l'en empêche."
+msgstr "Authentification requise pour éteindre le système alors qu’une application l'en empêche."
 
 #: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system"
@@ -574,9 +508,7 @@ msgstr "Redémarrer le système alors qu’une application l'en empêche"
 
 #: src/login/org.freedesktop.login1.policy:225
 msgid "Authentication is required to reboot the system while an application is inhibiting this."
-msgstr ""
-"Authentification requise pour redémarrer le système alors qu’une application "
-"l'en empêche."
+msgstr "Authentification requise pour redémarrer le système alors qu’une application l'en empêche."
 
 #: src/login/org.freedesktop.login1.policy:235
 msgid "Halt the system"
@@ -600,9 +532,7 @@ msgstr "Arrêter le système alors qu’une application l'en empêche"
 
 #: src/login/org.freedesktop.login1.policy:258
 msgid "Authentication is required to halt the system while an application is inhibiting this."
-msgstr ""
-"Authentification requise pour arrêter le système alors qu’une application "
-"l'en empêche."
+msgstr "Authentification requise pour arrêter le système alors qu’une application l'en empêche."
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid "Suspend the system"
@@ -626,9 +556,7 @@ msgstr "Mettre le système en veille alors qu’une application l'en empêche"
 
 #: src/login/org.freedesktop.login1.policy:290
 msgid "Authentication is required to suspend the system while an application is inhibiting this."
-msgstr ""
-"Authentification requise pour mettre le système en veille alors qu’une "
-"application l'en empêche."
+msgstr "Authentification requise pour mettre le système en veille alors qu’une application l'en empêche."
 
 #: src/login/org.freedesktop.login1.policy:300
 msgid "Hibernate the system"
@@ -652,9 +580,7 @@ msgstr "Mettre le système en hibernation alors qu’une application l'en empêc
 
 #: src/login/org.freedesktop.login1.policy:322
 msgid "Authentication is required to hibernate the system while an application is inhibiting this."
-msgstr ""
-"Authentification requise pour mettre le système en hibernation alors qu’une "
-"application l'en empêche."
+msgstr "Authentification requise pour mettre le système en hibernation alors qu’une application l'en empêche."
 
 #: src/login/org.freedesktop.login1.policy:332
 msgid "Manage active sessions, users and seats"
@@ -678,8 +604,7 @@ msgstr "Définir la raison du redémarrage dans le noyau"
 
 #: src/login/org.freedesktop.login1.policy:353
 msgid "Authentication is required to set the reboot \"reason\" in the kernel."
-msgstr ""
-"Authentification requise pour définir la raison du redémarrage dans le noyau."
+msgstr "Authentification requise pour définir la raison du redémarrage dans le noyau."
 
 #: src/login/org.freedesktop.login1.policy:363
 msgid "Indicate to the firmware to boot to setup interface"
@@ -687,9 +612,7 @@ msgstr "Indiquer au firmware de démarrer sur l’interface de configuration"
 
 #: src/login/org.freedesktop.login1.policy:364
 msgid "Authentication is required to indicate to the firmware to boot to setup interface."
-msgstr ""
-"Authentification requise pour indiquer au firmware de démarrer sur l’"
-"interface de configuration."
+msgstr "Authentification requise pour indiquer au firmware de démarrer sur l’interface de configuration."
 
 #: src/login/org.freedesktop.login1.policy:374
 msgid "Indicate to the boot loader to boot to the boot loader menu"
@@ -697,9 +620,7 @@ msgstr "Indiquer au boot loader d’afficher le menu de sélection"
 
 #: src/login/org.freedesktop.login1.policy:375
 msgid "Authentication is required to indicate to the boot loader to boot to the boot loader menu."
-msgstr ""
-"Authentification requise pour indiquer au boot loader d'afficher le menu de "
-"sélection."
+msgstr "Authentification requise pour indiquer au boot loader d'afficher le menu de sélection."
 
 #: src/login/org.freedesktop.login1.policy:385
 msgid "Indicate to the boot loader to boot a specific entry"
@@ -707,9 +628,7 @@ msgstr "Indiquer au boot loader de démarrer une entrée spécifique"
 
 #: src/login/org.freedesktop.login1.policy:386
 msgid "Authentication is required to indicate to the boot loader to boot into a specific boot loader entry."
-msgstr ""
-"Authentification requise pour indiquer au boot loader de démarrer une entrée "
-"spécifique."
+msgstr "Authentification requise pour indiquer au boot loader de démarrer une entrée spécifique."
 
 #: src/login/org.freedesktop.login1.policy:396
 msgid "Set a wall message"
@@ -765,9 +684,7 @@ msgstr "Obtenir un pseudo-terminal dans un conteneur local"
 
 #: src/machine/org.freedesktop.machine1.policy:65
 msgid "Authentication is required to acquire a pseudo TTY in a local container."
-msgstr ""
-"Authentification requise pour obtenir un pseudo-terminal dans un conteneur "
-"local."
+msgstr "Authentification requise pour obtenir un pseudo-terminal dans un conteneur local."
 
 #: src/machine/org.freedesktop.machine1.policy:74
 msgid "Acquire a pseudo TTY on the local host"
@@ -775,8 +692,7 @@ msgstr "Obtenir un pseudo-terminal sur l’hôte local"
 
 #: src/machine/org.freedesktop.machine1.policy:75
 msgid "Authentication is required to acquire a pseudo TTY on the local host."
-msgstr ""
-"Authentification requise pour obtenir un pseudo-terminal sur l’hôte local."
+msgstr "Authentification requise pour obtenir un pseudo-terminal sur l’hôte local."
 
 #: src/machine/org.freedesktop.machine1.policy:84
 msgid "Manage local virtual machines and containers"
@@ -784,9 +700,7 @@ msgstr "Gérer les machines virtuelles et conteneurs locaux"
 
 #: src/machine/org.freedesktop.machine1.policy:85
 msgid "Authentication is required to manage local virtual machines and containers."
-msgstr ""
-"Authentification requise pour gérer les machines virtuelles et les "
-"conteneurs locaux."
+msgstr "Authentification requise pour gérer les machines virtuelles et les conteneurs locaux."
 
 #: src/machine/org.freedesktop.machine1.policy:95
 msgid "Manage local virtual machine and container images"
@@ -794,9 +708,7 @@ msgstr "Gérer les images des machines virtuelles et des conteneurs locaux"
 
 #: src/machine/org.freedesktop.machine1.policy:96
 msgid "Authentication is required to manage local virtual machine and container images."
-msgstr ""
-"Authentification requise pour gérer les images des machines virtuelles et "
-"des conteneurs locaux."
+msgstr "Authentification requise pour gérer les images des machines virtuelles et des conteneurs locaux."
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
@@ -1004,9 +916,7 @@ msgstr "Synchroniser l’horloge matérielle à l’heure locale ou UTC"
 
 #: src/timedate/org.freedesktop.timedate1.policy:44
 msgid "Authentication is required to control whether the RTC stores the local or UTC time."
-msgstr ""
-"Authentification requise pour synchroniser l’horloge matérielle à l’heure "
-"locale ou UTC."
+msgstr "Authentification requise pour synchroniser l’horloge matérielle à l’heure locale ou UTC."
 
 #: src/timedate/org.freedesktop.timedate1.policy:53
 msgid "Turn network time synchronization on or off"
@@ -1016,44 +926,41 @@ msgstr "Activer ou désactiver la synchronisation de l’heure avec le réseau"
 msgid "Authentication is required to control whether network time synchronization shall be enabled."
 msgstr "Authentification requise pour activer ou désactiver la synchronisation de l’heure avec le réseau."
 
-#: src/core/dbus-unit.c:364
+#: src/core/dbus-unit.c:352
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Authentification requise pour démarrer « $(unit) »."
 
-#: src/core/dbus-unit.c:365
+#: src/core/dbus-unit.c:353
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Authentification requise pour arrêter « $(unit) »."
 
-#: src/core/dbus-unit.c:366
+#: src/core/dbus-unit.c:354
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Authentification requise pour recharger « $(unit) »."
 
-#: src/core/dbus-unit.c:367 src/core/dbus-unit.c:368
+#: src/core/dbus-unit.c:355 src/core/dbus-unit.c:356
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Authentification requise pour redémarrer « $(unit) »."
 
-#: src/core/dbus-unit.c:565
+#: src/core/dbus-unit.c:553
 msgid "Authentication is required to send a UNIX signal to the processes of '$(unit)'."
 msgstr "Authentification requise pour envoyer un signal UNIX aux processus de « $(unit) »."
 
-#: src/core/dbus-unit.c:595
+#: src/core/dbus-unit.c:583
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
-msgstr ""
-"Authentification requise pour réinitialiser l’état « échec » de « $(unit) »."
+msgstr "Authentification requise pour réinitialiser l’état « échec » de « $(unit) »."
 
-#: src/core/dbus-unit.c:627
+#: src/core/dbus-unit.c:615
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Authentification requise pour définir des propriétés de « $(unit) »."
 
-#: src/core/dbus-unit.c:728
+#: src/core/dbus-unit.c:716
 msgid "Authentication is required to delete files and directories associated with '$(unit)'."
 msgstr "Authentification requise pour supprimer les fichiers et les dossiers associés à « $(unit) »."
 
-#: src/core/dbus-unit.c:776
+#: src/core/dbus-unit.c:764
 msgid "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
-msgstr ""
-"Authentification requise pour suspendre ou reprendre les processus de "
-"l'unité « $(unit) »."
+msgstr "Authentification requise pour suspendre ou reprendre les processus de l'unité « $(unit) »."
 
 #~ msgid "Authentication is required to halt the system while an application asked to inhibit it."
 #~ msgstr "Authentification requise pour arrêter le système alors qu'une application a demandé de l'empêcher."

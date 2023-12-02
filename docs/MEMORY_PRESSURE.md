@@ -40,23 +40,23 @@ on.
 On Linux the [Pressure Stall Information
 (PSI)](https://docs.kernel.org/accounting/psi.html) Linux kernel interface is
 the primary way to determine the system or a part of it is under memory
-pressure. PSI provides a way how userspace can acquire a `poll()`-able file
-descriptor that gets notifications whenever memory pressure latencies for the
-system or a for a control group grow beyond some level.
+pressure. PSI makes available to userspace a `poll()`-able file descriptor that
+gets notifications whenever memory pressure latencies for the system or a
+control group grow beyond some level.
 
-`systemd` itself makes use of PSI, and helps applications to do so
-too. Specifically:
+`systemd` itself makes use of PSI, and helps applications to do so too.
+Specifically:
 
 * Most of systemd's long running components watch for PSI memory pressure
   events, and release allocation caches and other resources once seen.
 
-* systemd's service manager provides a protocol for asking services to listen
-  to PSI events and configure the appropriate pressure thresholds.
+* systemd's service manager provides a protocol for asking services to monitor
+  PSI events and configure the appropriate pressure thresholds.
 
 * systemd's `sd-event` event loop API provides a high-level call
-  `sd_event_add_memory_pressure()` which allows programs using it to
-  efficiently hook into the PSI memory pressure protocol provided by the
-  service manager, with very few lines of code.
+  `sd_event_add_memory_pressure()` enabling programs using it to efficiently
+  hook into the PSI memory pressure protocol provided by the service manager,
+  with very few lines of code.
 
 ## Memory Pressure Service Protocol
 
@@ -127,17 +127,17 @@ for example:
 
 * Terminate any idle worker threads or processes.
 
-* Run a garbage collection (GC) cycle, if the programming languages supports that.
+* Run a garbage collection (GC) cycle, if the runtime environment supports it.
 
-* Terminate the process if idle, and if it can be automatically started when
+* Terminate the process if idle, and can be automatically started when
   needed next.
 
 Which actions precisely to take depends on the service in question. Note that
 the notifications are delivered when memory allocation latency already degraded
-beyond some point. Hence when discussing which resources to keep and which ones
-to discard it should be kept in mind that it is typically acceptable that
-latencies to recover the discarded resources at a later point are less of a
-problem, given that latencies *already* are affected negatively.
+beyond some point. Hence when discussing which resources to keep and which to
+discard, keep in mind it's typically acceptable that latencies incurred
+recovering discarded resources at a later point are acceptable, given that
+latencies *already* are affected negatively.
 
 In case the path supplied via `$MEMORY_PRESSURE_WATCH` points to a PSI kernel
 API file, or to an `AF_UNIX` opening it multiple times is safe and reliable,
@@ -177,11 +177,10 @@ pressure handling:
   resources.
 
 The `/etc/systemd/system.conf` file provides two settings that may be used to
-select the default values for the above settings. If the threshold is neither
-configured via the per-service nor via the default system-wide option, it
-defaults to 100ms.
+select the default values for the above settings. If the threshold isn't
+configured via the per-service nor system-wide option, it defaults to 100ms.
 
-Ẁhen memory pressure monitoring is enabled for a service via
+When memory pressure monitoring is enabled for a service via
 `MemoryPressureWatch=` this primarily does three things:
 
 * It enables cgroup memory accounting for the service (this is a requirement
@@ -206,18 +205,17 @@ functionality described above:
   [`sd_event_add_memory_pressure()`](https://www.freedesktop.org/software/systemd/man/sd_event_add_memory_pressure.html)
   call implements the service-side of the memory pressure protocol and
   integrates it with an `sd-event` event loop. It reads the two environment
-  variables, connects/opens the specified file, writes the the specified data
-  to it and then watches for events.
+  variables, connects/opens the specified file, writes the specified data to it,
+  then watches it for events.
 
 * The `sd_event_trim_memory()` call may be called to trim the calling
   processes' memory. It's a wrapper around glibc's `malloc_trim()`, but first
-  releases allocation caches maintained by libsystemd internally. If the
-  callback function passed to `sd_event_add_memory_pressure()` is passed as
-  `NULL` this function is called as default implementation.
+  releases allocation caches maintained by libsystemd internally. This function
+  serves as the default when a NULL callback is supplied to
+  `sd_event_add_memory_pressure()`.
 
-Making use of this, in order to hook up a service using `sd-event` with
-automatic memory pressure handling, it's typically sufficient to add a line
-such as:
+When implementing a service using `sd-event`, for automatic memory pressure
+handling, it's typically sufficient to add a line such as:
 
 ```c
 (void) sd_event_add_memory_pressure(event, NULL, NULL, NULL);
@@ -230,11 +228,11 @@ such as:
 Other programming environments might have native APIs to watch memory
 pressure/low memory events. Most notable is probably GLib's
 [GMemoryMonitor](https://developer-old.gnome.org/gio/stable/GMemoryMonitor.html). It
-currently uses the per-system Linux PSI interface as backend, but it operates
+currently uses the per-system Linux PSI interface as the backend, but operates
 differently than the above: memory pressure events are picked up by a system
 service, which then propagates this through D-Bus to the applications. This is
 typically less than ideal, since this means each notification event has to
-travel through three processes before being handled, and this creates
+traverse three processes before being handled. This traversal creates
 additional latencies at a time where the system is already experiencing adverse
 latencies. Moreover, it focusses on system-wide PSI events, even though
 service-local ones are generally the better approach.

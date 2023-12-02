@@ -20,8 +20,7 @@ endif
 libsystemd_journal_remote = static_library(
         'systemd-journal-remote',
         libsystemd_journal_remote_sources,
-        include_directories : journal_includes,
-        link_with : libjournal_core,
+        include_directories : includes,
         dependencies : [libgnutls,
                         liblz4,
                         libmicrohttpd,
@@ -64,7 +63,6 @@ executables += [
                         'HAVE_MICROHTTPD',
                 ],
                 'sources' : systemd_journal_remote_sources,
-                'include_directories' : journal_includes,
                 'link_with' : [
                         libshared,
                         libsystemd_journal_remote,
@@ -87,7 +85,6 @@ executables += [
                         libshared,
                         libsystemd_journal_remote,
                 ],
-                'include_directories' : journal_includes,
         },
 ]
 
@@ -105,7 +102,7 @@ foreach tuple : in_files
                 output: file,
                 command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
                 install : tuple[1],
-                install_dir : pkgsysconfdir)
+                install_dir : pkgconfigfiledir)
 endforeach
 
 if conf.get('ENABLE_REMOTE') == 1 and conf.get('HAVE_MICROHTTPD') == 1

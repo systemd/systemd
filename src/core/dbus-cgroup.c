@@ -27,7 +27,7 @@
 #include "percent-util.h"
 #include "socket-util.h"
 
-BUS_DEFINE_PROPERTY_GET(bus_property_get_tasks_max, "t", TasksMax, tasks_max_resolve);
+BUS_DEFINE_PROPERTY_GET(bus_property_get_tasks_max, "t", CGroupTasksMax, cgroup_tasks_max_resolve);
 BUS_DEFINE_PROPERTY_GET_ENUM(bus_property_get_cgroup_pressure_watch, cgroup_pressure_watch, CGroupPressureWatch);
 
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_cgroup_device_policy, cgroup_device_policy, CGroupDevicePolicy);
@@ -281,19 +281,7 @@ static int property_get_device_allow(
                 return r;
 
         LIST_FOREACH(device_allow, a, c->device_allow) {
-                unsigned k = 0;
-                char rwm[4];
-
-                if (a->r)
-                        rwm[k++] = 'r';
-                if (a->w)
-                        rwm[k++] = 'w';
-                if (a->m)
-                        rwm[k++] = 'm';
-
-                rwm[k] = 0;
-
-                r = sd_bus_message_append(reply, "(ss)", a->path, rwm);
+                r = sd_bus_message_append(reply, "(ss)", a->path, cgroup_device_permissions_to_string(a->permissions));
                 if (r < 0)
                         return r;
         }
@@ -521,6 +509,7 @@ const sd_bus_vtable bus_cgroup_vtable[] = {
         SD_BUS_PROPERTY("MemoryPressureWatch", "s", bus_property_get_cgroup_pressure_watch, offsetof(CGroupContext, memory_pressure_watch), 0),
         SD_BUS_PROPERTY("MemoryPressureThresholdUSec", "t", bus_property_get_usec, offsetof(CGroupContext, memory_pressure_threshold_usec), 0),
         SD_BUS_PROPERTY("NFTSet", "a(iiss)", property_get_cgroup_nft_set, 0, 0),
+        SD_BUS_PROPERTY("CoredumpReceive", "b", bus_property_get_bool, offsetof(CGroupContext, coredump_receive), 0),
         SD_BUS_VTABLE_END
 };
 
@@ -746,7 +735,7 @@ static int bus_cgroup_set_transient_property(
                                                 name);
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                r = cgroup_add_bpf_foreign_program(c, attach_type, p);
+                                r = cgroup_context_add_bpf_foreign_program(c, attach_type, p);
                                 if (r < 0)
                                         return r;
                         }
@@ -837,6 +826,23 @@ static int bus_cgroup_set_transient_property(
                                 unit_write_setting(u, flags, name, "MemoryPressureThresholdUSec=");
                         else
                                 unit_write_settingf(u, flags, name, "MemoryPressureThresholdUSec=%" PRIu64, t);
+                }
+
+                return 1;
+        } else if (streq(name, "CoredumpReceive")) {
+                int b;
+
+                if (!UNIT_VTABLE(u)->can_delegate)
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Delegation not available for unit type");
+
+                r = sd_bus_message_read(message, "b", &b);
+                if (r < 0)
+                        return r;
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        c->coredump_receive = b;
+
+                        unit_write_settingf(u, flags, name, "CoredumpReceive=%s", yes_no(b));
                 }
 
                 return 1;
@@ -1025,7 +1031,7 @@ static int bus_cgroup_set_cpu_weight(
 static int bus_cgroup_set_tasks_max(
                 Unit *u,
                 const char *name,
-                TasksMax *p,
+                CGroupTasksMax *p,
                 sd_bus_message *message,
                 UnitWriteFlags flags,
                 sd_bus_error *error) {
@@ -1044,7 +1050,7 @@ static int bus_cgroup_set_tasks_max(
                                          "Value specified in %s is out of range", name);
 
         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                *p = (TasksMax) { .value = v, .scale = 0 }; /* When .scale==0, .value is the absolute value */
+                *p = (CGroupTasksMax) { .value = v, .scale = 0 }; /* When .scale==0, .value is the absolute value */
                 unit_invalidate_cgroup(u, CGROUP_MASK_PIDS);
 
                 if (v == CGROUP_LIMIT_MAX)
@@ -1061,7 +1067,7 @@ static int bus_cgroup_set_tasks_max(
 static int bus_cgroup_set_tasks_max_scale(
                 Unit *u,
                 const char *name,
-                TasksMax *p,
+                CGroupTasksMax *p,
                 sd_bus_message *message,
                 UnitWriteFlags flags,
                 sd_bus_error *error) {
@@ -1080,7 +1086,7 @@ static int bus_cgroup_set_tasks_max_scale(
                                          "Value specified in %s is out of range", name);
 
         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                *p = (TasksMax) { v, UINT32_MAX }; /* .scale is not 0, so this is interpreted as v/UINT32_MAX. */
+                *p = (CGroupTasksMax) { v, UINT32_MAX }; /* .scale is not 0, so this is interpreted as v/UINT32_MAX. */
                 unit_invalidate_cgroup(u, CGROUP_MASK_PIDS);
 
                 uint32_t scaled = DIV_ROUND_UP((uint64_t) v * 100U, (uint64_t) UINT32_MAX);
@@ -1810,41 +1816,23 @@ int bus_cgroup_set_property(
                         return r;
 
                 while ((r = sd_bus_message_read(message, "(ss)", &path, &rwm)) > 0) {
+                        CGroupDevicePermissions p;
 
                         if (!valid_device_allow_pattern(path) || strpbrk(path, WHITESPACE))
                                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "DeviceAllow= requires device node or pattern");
 
                         if (isempty(rwm))
-                                rwm = "rwm";
-                        else if (!in_charset(rwm, "rwm"))
-                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "DeviceAllow= requires combination of rwm flags");
+                                p = _CGROUP_DEVICE_PERMISSIONS_ALL;
+                        else {
+                                p = cgroup_device_permissions_from_string(rwm);
+                                if (p < 0)
+                                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "DeviceAllow= requires combination of rwm flags");
+                        }
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                CGroupDeviceAllow *a = NULL;
-
-                                LIST_FOREACH(device_allow, b, c->device_allow)
-                                        if (path_equal(b->path, path)) {
-                                                a = b;
-                                                break;
-                                        }
-
-                                if (!a) {
-                                        a = new0(CGroupDeviceAllow, 1);
-                                        if (!a)
-                                                return -ENOMEM;
-
-                                        a->path = strdup(path);
-                                        if (!a->path) {
-                                                free(a);
-                                                return -ENOMEM;
-                                        }
-
-                                        LIST_PREPEND(device_allow, c->device_allow, a);
-                                }
-
-                                a->r = strchr(rwm, 'r');
-                                a->w = strchr(rwm, 'w');
-                                a->m = strchr(rwm, 'm');
+                                r = cgroup_context_add_or_update_device_allow(c, path, p);
+                                if (r < 0)
+                                        return r;
                         }
 
                         n++;
@@ -1873,7 +1861,7 @@ int bus_cgroup_set_property(
 
                         fputs("DeviceAllow=\n", f);
                         LIST_FOREACH(device_allow, a, c->device_allow)
-                                fprintf(f, "DeviceAllow=%s %s%s%s\n", a->path, a->r ? "r" : "", a->w ? "w" : "", a->m ? "m" : "");
+                                fprintf(f, "DeviceAllow=%s %s\n", a->path, cgroup_device_permissions_to_string(a->permissions));
 
                         r = memstream_finalize(&m, &buf, NULL);
                         if (r < 0)

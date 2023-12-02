@@ -3,6 +3,7 @@
 #include <fnmatch.h>
 
 #include "efi-string.h"
+#include "fileio.h"
 #include "tests.h"
 
 TEST(strlen8) {
@@ -484,7 +485,86 @@ TEST(parse_number16) {
         assert_se(streq16(tail, u"rest"));
 }
 
-TEST(test_hexdump) {
+TEST(parse_boolean) {
+        bool b;
+
+        assert_se(!parse_boolean(NULL, &b));
+        assert_se(!parse_boolean("", &b));
+        assert_se(!parse_boolean("ja", &b));
+        assert_se(parse_boolean("1", &b) && b == true);
+        assert_se(parse_boolean("y", &b) && b == true);
+        assert_se(parse_boolean("yes", &b) && b == true);
+        assert_se(parse_boolean("t", &b) && b == true);
+        assert_se(parse_boolean("true", &b) && b == true);
+        assert_se(parse_boolean("on", &b) && b == true);
+        assert_se(parse_boolean("0", &b) && b == false);
+        assert_se(parse_boolean("n", &b) && b == false);
+        assert_se(parse_boolean("no", &b) && b == false);
+        assert_se(parse_boolean("f", &b) && b == false);
+        assert_se(parse_boolean("false", &b) && b == false);
+        assert_se(parse_boolean("off", &b) && b == false);
+}
+
+TEST(line_get_key_value) {
+        char s1[] = "key=value\n"
+                    " \t  # comment line \n"
+                    "k-e-y=\"quoted value\"\n\r"
+                    "  wrong= 'quotes' \n"
+                    "odd= stripping  # with comments  ";
+        char s2[] = "this parser\n"
+                    "\t\t\t# is\t\r"
+                    "  also\tused  \r\n"
+                    "for \"the conf\"\n"
+                    "format\t !!";
+        size_t pos = 0;
+        char *key, *value;
+
+        assert_se(!line_get_key_value((char[]){ "" }, "=", &pos, &key, &value));
+        assert_se(!line_get_key_value((char[]){ "\t" }, " \t", &pos, &key, &value));
+
+        pos = 0;
+        assert_se(line_get_key_value(s1, "=", &pos, &key, &value));
+        assert_se(streq8(key, "key"));
+        assert_se(streq8(value, "value"));
+        assert_se(line_get_key_value(s1, "=", &pos, &key, &value));
+        assert_se(streq8(key, "k-e-y"));
+        assert_se(streq8(value, "quoted value"));
+        assert_se(line_get_key_value(s1, "=", &pos, &key, &value));
+        assert_se(streq8(key, "wrong"));
+        assert_se(streq8(value, " 'quotes'"));
+        assert_se(line_get_key_value(s1, "=", &pos, &key, &value));
+        assert_se(streq8(key, "odd"));
+        assert_se(streq8(value, " stripping  # with comments"));
+        assert_se(!line_get_key_value(s1, "=", &pos, &key, &value));
+
+        pos = 0;
+        assert_se(line_get_key_value(s2, " \t", &pos, &key, &value));
+        assert_se(streq8(key, "this"));
+        assert_se(streq8(value, "parser"));
+        assert_se(line_get_key_value(s2, " \t", &pos, &key, &value));
+        assert_se(streq8(key, "also"));
+        assert_se(streq8(value, "used"));
+        assert_se(line_get_key_value(s2, " \t", &pos, &key, &value));
+        assert_se(streq8(key, "for"));
+        assert_se(streq8(value, "the conf"));
+        assert_se(line_get_key_value(s2, " \t", &pos, &key, &value));
+        assert_se(streq8(key, "format"));
+        assert_se(streq8(value, "!!"));
+        assert_se(!line_get_key_value(s2, " \t", &pos, &key, &value));
+
+        /* Let's make sure we don't fail on real os-release data. */
+        _cleanup_free_ char *osrel = NULL;
+        if (read_full_file("/usr/lib/os-release", &osrel, NULL) >= 0) {
+                pos = 0;
+                while (line_get_key_value(osrel, "=", &pos, &key, &value)) {
+                        assert_se(key);
+                        assert_se(value);
+                        printf("%s = %s\n", key, value);
+                }
+        }
+}
+
+TEST(hexdump) {
         char16_t *hex;
 
         hex = hexdump(NULL, 0);

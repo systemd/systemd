@@ -558,7 +558,7 @@ static void automount_trigger_notify(Unit *u, Unit *other) {
 }
 
 static void automount_enter_waiting(Automount *a) {
-        _cleanup_close_pair_ int pipe_fd[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int pipe_fd[2] = EBADF_PAIR;
         _cleanup_close_ int ioctl_fd = -EBADF;
         char name[STRLEN("systemd-") + DECIMAL_STR_MAX(pid_t) + 1];
         _cleanup_free_ char *options = NULL;
@@ -925,14 +925,8 @@ static int automount_deserialize_item(Unit *u, const char *key, const char *valu
                                 log_unit_error_errno(u, r, "Failed to add expire token to set: %m");
                 }
         } else if (streq(key, "pipe-fd")) {
-                int fd;
-
-                if ((fd = parse_fd(value)) < 0 || !fdset_contains(fds, fd))
-                        log_unit_debug(u, "Failed to parse pipe-fd value: %s", value);
-                else {
-                        safe_close(a->pipe_fd);
-                        a->pipe_fd = fdset_remove(fds, fd);
-                }
+                safe_close(a->pipe_fd);
+                a->pipe_fd = deserialize_fd(fds, value);
         } else
                 log_unit_debug(u, "Unknown serialization key: %s", key);
 
@@ -997,7 +991,7 @@ static int automount_dispatch_io(sd_event_source *s, int fd, uint32_t events, vo
                 if (packet.v5_packet.pid > 0) {
                         _cleanup_free_ char *p = NULL;
 
-                        (void) get_process_comm(packet.v5_packet.pid, &p);
+                        (void) pid_get_comm(packet.v5_packet.pid, &p);
                         log_unit_info(UNIT(a), "Got automount request for %s, triggered by %"PRIu32" (%s)", a->where, packet.v5_packet.pid, strna(p));
                 } else
                         log_unit_debug(UNIT(a), "Got direct mount request on %s", a->where);

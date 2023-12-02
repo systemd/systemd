@@ -219,15 +219,14 @@ Sun 2017-02-26 20:57:49 EST  2h 3min left  Sun 2017-02-26 11:56:36 EST  6h ago  
         </varlistentry>
 
         <varlistentry>
-          <term><command>is-failed <replaceable>PATTERN</replaceable>…</command></term>
+          <term><command>is-failed <optional><replaceable>PATTERN</replaceable>…</optional></command></term>
 
           <listitem>
-            <para>Check whether any of the specified units are in a
-            "failed" state. Returns an exit code
-            <constant>0</constant> if at least one has failed,
-            non-zero otherwise. Unless <option>--quiet</option> is
-            specified, this will also print the current unit state to
-            standard output.</para>
+            <para>Check whether any of the specified units is in the "failed" state. If no unit is specified,
+            check whether there are any failed units, which corresponds to the <literal>degraded</literal> state
+            returned by <command>is-system-running</command>. Returns an exit code <constant>0</constant>
+            if at least one has failed, non-zero otherwise. Unless <option>--quiet</option> is specified, this
+            will also print the current unit or system state to standard output.</para>
 
             <xi:include href="version-info.xml" xpointer="v197"/>
           </listitem>
@@ -663,6 +662,10 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           <option>ExecReload=</option>, <option>ExecStartPre=</option>, etc.) run in distinct namespaces.
           </para>
 
+          <para>If supported by the kernel, any prior mount on the selected target will be replaced by the
+          new mount. If not supported, any prior mount will be over-mounted, but remain pinned and
+          inaccessible.</para>
+
           <xi:include href="version-info.xml" xpointer="v248"/></listitem>
         </varlistentry>
 
@@ -692,6 +695,10 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           added to, is the one where the main service process runs. Other processes (those exececuted by
           <option>ExecReload=</option>, <option>ExecStartPre=</option>, etc.) run in distinct namespaces.
           </para>
+
+          <para>If supported by the kernel, any prior mount on the selected target will be replaced by the
+          new mount. If not supported, any prior mount will be over-mounted, but remain pinned and
+          inaccessible.</para>
 
           <para>Example:
           <programlisting>systemctl mount-image foo.service /tmp/img.raw /var/lib/image root:ro,nosuid</programlisting>
@@ -1645,6 +1652,13 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <para>This command honors <option>--force</option> and <option>--when=</option> in a similar way
             as <command>halt</command>.</para>
 
+            <para>If a new kernel has been loaded via <command>kexec --load</command>, a
+            <command>kexec</command> will be performed instead of a reboot, unless
+            <literal>SYSTEMCTL_SKIP_AUTO_KEXEC=1</literal> has been set. If a new root file system has
+            been set up on <literal>/run/nextroot/</literal>, a <command>soft-reboot</command> will be
+            performed instead of a reboot, unless <literal>SYSTEMCTL_SKIP_AUTO_SOFT_REBOOT=1</literal> has
+            been set.</para>
+
             <xi:include href="version-info.xml" xpointer="v246"/>
           </listitem>
         </varlistentry>
@@ -1674,6 +1688,10 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
             <para>This command honors <option>--force</option> and <option>--when=</option> similarly
             to <command>halt</command>.</para>
+
+            <para>If a new kernel has been loaded via <command>kexec --load</command>, a
+            <command>kexec</command> will be performed when <command>reboot</command> is invoked, unless
+            <literal>SYSTEMCTL_SKIP_AUTO_KEXEC=1</literal> has been set.</para>
           </listitem>
         </varlistentry>
 
@@ -1692,6 +1710,10 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
             <para>This operation only reboots userspace, leaving the kernel running. See
             <citerefentry><refentrytitle>systemd-soft-reboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
             for details.</para>
+
+            <para>If a new root file system has been set up on <literal>/run/nextroot/</literal>, a
+            <command>soft-reboot</command> will be performed when <command>reboot</command> is invoked,
+            unless <literal>SYSTEMCTL_SKIP_AUTO_SOFT_REBOOT=1</literal> has been set.</para>
 
             <xi:include href="version-info.xml" xpointer="v254"/>
           </listitem>
@@ -2714,15 +2736,15 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
         <listitem><para>When used with <command>bind</command>, creates a read-only bind mount.</para>
 
-        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v248"/>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
-        <term><option>--drop-in=</option></term>
+        <term><option>--drop-in=</option><replaceable>NAME</replaceable></term>
 
-        <listitem>
-          <para>When used with <command>edit</command>, use the given drop-in file name instead of
-          <filename>override.conf</filename>.</para>
+        <listitem><para>When used with <command>edit</command>, use <replaceable>NAME</replaceable> as the
+        drop-in file name instead of <filename>override.conf</filename>.</para>
 
         <xi:include href="version-info.xml" xpointer="v253"/>
         </listitem>

@@ -368,7 +368,6 @@ int main(int argc, char *argv[]) {
 
         return 0;
 #else
-        log_info("/* XZ, LZ4 and ZSTD tests skipped */");
-        return EXIT_TEST_SKIP;
+        return log_tests_skipped("no compression algorithm supported");
 #endif
 }

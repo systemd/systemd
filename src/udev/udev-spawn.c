@@ -227,10 +227,10 @@ int udev_event_spawn(
                 bool accept_failure,
                 const char *cmd,
                 char *result,
-                size_t ressize,
+                size_t result_size,
                 bool *ret_truncated) {
 
-        _cleanup_close_pair_ int outpipe[2] = PIPE_EBADF, errpipe[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int outpipe[2] = EBADF_PAIR, errpipe[2] = EBADF_PAIR;
         _cleanup_strv_free_ char **argv = NULL;
         char **envp = NULL;
         Spawn spawn;
@@ -239,7 +239,7 @@ int udev_event_spawn(
 
         assert(event);
         assert(event->dev);
-        assert(result || ressize == 0);
+        assert(result || result_size == 0);
 
         /* pipes from child to parent */
         if (result || log_get_max_level() >= LOG_INFO)
@@ -280,7 +280,7 @@ int udev_event_spawn(
         r = safe_fork_full("(spawn)",
                            (int[]) { -EBADF, outpipe[WRITE_END], errpipe[WRITE_END] },
                            NULL, 0,
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_REARRANGE_STDIO|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE,
+                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE,
                            &pid);
         if (r < 0)
                 return log_device_error_errno(event->dev, r,
@@ -307,7 +307,7 @@ int udev_event_spawn(
                 .fd_stdout = outpipe[READ_END],
                 .fd_stderr = errpipe[READ_END],
                 .result = result,
-                .result_size = ressize,
+                .result_size = result_size,
         };
         r = spawn_wait(&spawn);
         if (r < 0)

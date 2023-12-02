@@ -884,12 +884,12 @@
         <term><varname>JoinsNamespaceOf=</varname></term>
 
         <listitem><para>For units that start processes (such as service units), lists one or more other units
-        whose network and/or temporary file namespace to join. If this is specified on a unit (say, a.service
-        has <varname>JoinsNamespaceOf=b.service</varname>), then this the inverse dependency
-        (<varname>JoinsNamespaceOf=a.service</varname> for b.service) is implied. This only applies to unit
-        types which support the <varname>PrivateNetwork=</varname>, <varname>NetworkNamespacePath=</varname>,
-        <varname>PrivateIPC=</varname>, <varname>IPCNamespacePath=</varname>, and
-        <varname>PrivateTmp=</varname> directives (see
+        whose network and/or temporary file namespace to join. If this is specified on a unit (say,
+        <filename>a.service</filename> has <varname>JoinsNamespaceOf=b.service</varname>), then the inverse
+        dependency (<varname>JoinsNamespaceOf=a.service</varname> for b.service) is implied. This only
+        applies to unit types which support the <varname>PrivateNetwork=</varname>,
+        <varname>NetworkNamespacePath=</varname>, <varname>PrivateIPC=</varname>,
+        <varname>IPCNamespacePath=</varname>, and <varname>PrivateTmp=</varname> directives (see
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
         details). If a unit that has this setting set is started, its processes will see the same
         <filename>/tmp/</filename>, <filename>/var/tmp/</filename>, IPC namespace and network namespace as
@@ -1166,6 +1166,8 @@
         <para><replaceable>interval</replaceable> is a time span with the default unit of seconds, but other
         units may be specified, see
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        The special value <literal>infinity</literal> can be used to limit the total number of start
+        attempts, even if they happen at large time intervals.
         Defaults to <varname>DefaultStartLimitIntervalSec=</varname> in manager configuration file, and may
         be set to 0 to disable any kind of rate limiting. <replaceable>burst</replaceable> is a number and
         defaults to <varname>DefaultStartLimitBurst=</varname> in manager configuration file.</para>
@@ -2081,15 +2083,15 @@
             <entry>an automatic property</entry>
           </row>
           <row>
-            <entry><varname>Triggers=</varname></entry>
-            <entry><varname>TriggeredBy=</varname></entry>
-            <entry namest='fuse' nameend='ruse' valign='middle'>Automatic properties, see notes below</entry>
-          </row>
-          <row>
             <entry><varname>Conflicts=</varname></entry>
             <entry><varname>ConflictedBy=</varname></entry>
             <entry>[Unit] section</entry>
             <entry>an automatic property</entry>
+          </row>
+          <row>
+            <entry><varname>Triggers=</varname></entry>
+            <entry><varname>TriggeredBy=</varname></entry>
+            <entry namest='fuse' nameend='ruse' valign='middle'>Automatic properties, see notes below</entry>
           </row>
           <row>
             <entry><varname>PropagatesReloadTo=</varname></entry>
@@ -2099,6 +2101,15 @@
           <row>
             <entry><varname>ReloadPropagatedFrom=</varname></entry>
             <entry><varname>PropagatesReloadTo=</varname></entry>
+          </row>
+          <row>
+            <entry><varname>PropagatesStopTo=</varname></entry>
+            <entry><varname>StopPropagatedFrom=</varname></entry>
+            <entry morerows='1' namest='fuse' nameend='ruse' valign='middle'>[Unit] section</entry>
+          </row>
+          <row>
+            <entry><varname>StopPropagatedFrom=</varname></entry>
+            <entry><varname>PropagatesStopTo=</varname></entry>
           </row>
           <row>
             <entry><varname>Following=</varname></entry>

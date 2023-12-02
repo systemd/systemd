@@ -67,7 +67,7 @@
         <literal>handle-suspend-key</literal>,
         <literal>handle-hibernate-key</literal>,
         <literal>handle-lid-switch</literal>,
-        for inhibiting reboot/power-off/halt/kexec,
+        for inhibiting reboot/power-off/halt/kexec/soft-reboot,
         suspending/hibernating, the automatic idle detection, or the
         low-level handling of the power/sleep key and the lid switch,
         respectively. If omitted, defaults to

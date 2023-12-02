@@ -16,7 +16,7 @@
 #include "fd-util.h"
 #include "icmp6-util.h"
 #include "in-addr-util.h"
-#include "io-util.h"
+#include "iovec-util.h"
 #include "macro.h"
 #include "memory-util.h"
 #include "network-common.h"

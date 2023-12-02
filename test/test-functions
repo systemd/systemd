@@ -14,33 +14,6 @@
 #           * koalaman/shellcheck#280
 set -o pipefail
 
-PATH=/sbin:/bin:/usr/sbin:/usr/bin
-export PATH
-
-os_release=$(test -e /etc/os-release && echo /etc/os-release || echo /usr/lib/os-release)
-# shellcheck source=/dev/null
-source "$os_release"
-[[ "$ID" = "debian" || " $ID_LIKE " = *" debian "* ]] && LOOKS_LIKE_DEBIAN=yes || LOOKS_LIKE_DEBIAN=""
-[[ "$ID" = "arch" || " $ID_LIKE " = *" arch "* ]] && LOOKS_LIKE_ARCH=yes || LOOKS_LIKE_ARCH=""
-[[ " $ID_LIKE " = *" suse "* ]] && LOOKS_LIKE_SUSE=yes || LOOKS_LIKE_SUSE=""
-KERNEL_VER="${KERNEL_VER-$(uname -r)}"
-QEMU_TIMEOUT="${QEMU_TIMEOUT:-1800}"
-NSPAWN_TIMEOUT="${NSPAWN_TIMEOUT:-1800}"
-TIMED_OUT=  # will be 1 after run_* if *_TIMEOUT is set and test timed out
-[[ "$LOOKS_LIKE_SUSE" ]] && FSTYPE="${FSTYPE:-btrfs}" || FSTYPE="${FSTYPE:-ext4}"
-UNIFIED_CGROUP_HIERARCHY="${UNIFIED_CGROUP_HIERARCHY:-default}"
-EFI_MOUNT="${EFI_MOUNT:-$(bootctl -x 2>/dev/null || echo /boot)}"
-# Note that defining a different IMAGE_NAME in a test setup script will only result
-# in default.img being copied and renamed. It can then be extended by defining
-# a test_append_files() function. The $1 parameter will be the root directory.
-# To force creating a new image from scratch (eg: to encrypt it), also define
-# TEST_FORCE_NEWIMAGE=1 in the test setup script.
-IMAGE_NAME=${IMAGE_NAME:-default}
-TEST_REQUIRE_INSTALL_TESTS="${TEST_REQUIRE_INSTALL_TESTS:-1}"
-TEST_PARALLELIZE="${TEST_PARALLELIZE:-0}"
-TEST_SUPPORTING_SERVICES_SHOULD_BE_MASKED="${TEST_SUPPORTING_SERVICES_SHOULD_BE_MASKED:-1}"
-LOOPDEV=
-
 # Simple wrapper to unify boolean checks.
 # Note: this function needs to stay near the top of the file, so we can use it
 #       in code in the outermost scope.
@@ -58,6 +31,35 @@ get_bool() {
         exit 1
     fi
 }
+
+PATH=/sbin:/bin:/usr/sbin:/usr/bin
+export PATH
+
+os_release=$(test -e /etc/os-release && echo /etc/os-release || echo /usr/lib/os-release)
+# shellcheck source=/dev/null
+source "$os_release"
+[[ "$ID" == "debian" || " $ID_LIKE " == *" debian "* ]] && LOOKS_LIKE_DEBIAN=yes || LOOKS_LIKE_DEBIAN=no
+[[ "$ID" == "arch" || " $ID_LIKE " == *" arch "* ]] && LOOKS_LIKE_ARCH=yes || LOOKS_LIKE_ARCH=no
+[[ "$ID" == "fedora" ]] && LOOKS_LIKE_FEDORA=yes || LOOKS_LIKE_FEDORA=no
+[[ " $ID_LIKE " == *" suse "* ]] && LOOKS_LIKE_SUSE=yes || LOOKS_LIKE_SUSE=no
+
+KERNEL_VER="${KERNEL_VER-$(uname -r)}"
+QEMU_TIMEOUT="${QEMU_TIMEOUT:-1800}"
+NSPAWN_TIMEOUT="${NSPAWN_TIMEOUT:-1800}"
+TIMED_OUT=  # will be 1 after run_* if *_TIMEOUT is set and test timed out
+get_bool "$LOOKS_LIKE_SUSE" && FSTYPE="${FSTYPE:-btrfs}" || FSTYPE="${FSTYPE:-ext4}"
+UNIFIED_CGROUP_HIERARCHY="${UNIFIED_CGROUP_HIERARCHY:-default}"
+EFI_MOUNT="${EFI_MOUNT:-$(bootctl -x 2>/dev/null || echo /boot)}"
+# Note that defining a different IMAGE_NAME in a test setup script will only result
+# in default.img being copied and renamed. It can then be extended by defining
+# a test_append_files() function. The $1 parameter will be the root directory.
+# To force creating a new image from scratch (eg: to encrypt it), also define
+# TEST_FORCE_NEWIMAGE=1 in the test setup script.
+IMAGE_NAME=${IMAGE_NAME:-default}
+TEST_REQUIRE_INSTALL_TESTS="${TEST_REQUIRE_INSTALL_TESTS:-1}"
+TEST_PARALLELIZE="${TEST_PARALLELIZE:-0}"
+TEST_SUPPORTING_SERVICES_SHOULD_BE_MASKED="${TEST_SUPPORTING_SERVICES_SHOULD_BE_MASKED:-1}"
+LOOPDEV=
 
 # Since in Bash we can have only one handler per signal, let's overcome this
 # limitation by having one global handler for the EXIT signal which executes
@@ -159,35 +161,47 @@ BASICTOOLS=(
     chown
     chroot
     cmp
+    cp
     cryptsetup
     cut
     date
     dd
+    dhclient
     diff
     dirname
     dmsetup
     echo
     env
     false
+    find
+    findmnt
     flock
     getconf
     getent
     getfacl
+    getfattr
+    grep
     grep
     gunzip
     gzip
     head
+    hostname
+    id
     ionice
     ip
     jq
     killall
     ldd
     ln
+    ln
     loadkeys
     login
     losetup
+    ls
     lsattr
+    lsblk
     lz4cat
+    mkdir
     mkfifo
     mknod
     mktemp
@@ -197,13 +211,16 @@ BASICTOOLS=(
     mv
     nc
     nproc
+    ping
     pkill
+    ps
     readlink
     realpath
     rev
     rm
     rmdir
     rmmod
+    route
     script
     sed
     seq
@@ -215,6 +232,7 @@ BASICTOOLS=(
     sfdisk
     sh
     sleep
+    sort
     stat
     stty
     su
@@ -229,6 +247,7 @@ BASICTOOLS=(
     tr
     true
     truncate
+    tty
     umount
     uname
     unshare
@@ -240,26 +259,12 @@ BASICTOOLS=(
 )
 
 DEBUGTOOLS=(
-    cp
     df
-    dhclient
     dmesg
     du
-    find
     free
-    grep
-    hostname
-    id
     less
-    ln
-    ls
-    mkdir
-    ping
-    ps
-    route
-    sort
     strace
-    tty
     vi
     /usr/libexec/vi
 )
@@ -268,7 +273,7 @@ is_built_with_asan() {
     local _bin="${1:?}"
 
     if ! type -P objdump >/dev/null; then
-        ddebug "Failed to find objdump. Assuming systemd hasn't been built with ASAN."
+        echo "Failed to find objdump, assuming systemd hasn't been built with ASAN."
         return 1
     fi
 
@@ -467,6 +472,8 @@ run_qemu() {
 
     local CONSOLE=ttyS0
 
+    # Reset the boot counter, if present
+    rm -f "${initdir:?}/var/tmp/.systemd_reboot_count"
     rm -f "$initdir"/{testok,failed,skipped}
     # make sure the initdir is not mounted to avoid concurrent access
     cleanup_initdir
@@ -498,11 +505,11 @@ run_qemu() {
     if [[ ! "$INITRD" ]]; then
         if [[ -e "$default_fedora_initrd" ]]; then
             INITRD="$default_fedora_initrd"
-        elif [[ "$LOOKS_LIKE_DEBIAN" && -e "$default_debian_initrd" ]]; then
+        elif get_bool "$LOOKS_LIKE_DEBIAN" && [[ -e "$default_debian_initrd" ]]; then
             INITRD="$default_debian_initrd"
-        elif [[ "$LOOKS_LIKE_ARCH" && -e "$default_arch_initrd" ]]; then
+        elif get_bool "$LOOKS_LIKE_ARCH" && [[ -e "$default_arch_initrd" ]]; then
             INITRD="$default_arch_initrd"
-        elif [[ "$LOOKS_LIKE_SUSE" && -e "$default_suse_initrd" ]]; then
+        elif get_bool "$LOOKS_LIKE_SUSE" && [[ -e "$default_suse_initrd" ]]; then
             INITRD="$default_suse_initrd"
         fi
     fi
@@ -560,14 +567,15 @@ run_qemu() {
         "systemd.unit=testsuite.target"
         "systemd.wants=testsuite-$1.service"
         "noresume"
+        "oops=panic"
         ${TEST_MATCH_SUBTEST:+"systemd.setenv=TEST_MATCH_SUBTEST=$TEST_MATCH_SUBTEST"}
         ${TEST_MATCH_TESTCASE:+"systemd.setenv=TEST_MATCH_TESTCASE=$TEST_MATCH_TESTCASE"}
     )
 
-    if ! get_bool "$INTERACTIVE_DEBUG"; then
+    if ! get_bool "$INTERACTIVE_DEBUG" && ! get_bool "$TEST_SKIP_SHUTDOWN"; then
         kernel_params+=(
-            "oops=panic"
             "panic=1"
+            "softlockup_panic=1"
             "systemd.wants=end.service"
         )
     fi
@@ -589,12 +597,6 @@ run_qemu() {
         qemu_options+=("${user_qemu_options[@]}")
     fi
     qemu_options+=(${QEMU_OPTIONS_ARRAY:+"${QEMU_OPTIONS_ARRAY[@]}"})
-
-    if [[ -n "${KERNEL_APPEND:=}" ]]; then
-        local user_kernel_append
-        readarray user_kernel_append <<< "$KERNEL_APPEND"
-        kernel_params+=("${user_kernel_append[@]}")
-    fi
 
     if [[ -n "$INITRD" ]]; then
         if [[ -n "$INITRD_EXTRA" ]]; then
@@ -630,7 +632,7 @@ run_qemu() {
         qemu_cmd=(timeout --foreground "$QEMU_TIMEOUT" "$QEMU_BIN")
     fi
 
-    (set -x; "${qemu_cmd[@]}" "${qemu_options[@]}" -append "${kernel_params[*]}" |& tee "${TESTDIR:?}/console.log")
+    (set -x; "${qemu_cmd[@]}" "${qemu_options[@]}" -append "${kernel_params[*]} ${KERNEL_APPEND:-}" |& tee "${TESTDIR:?}/console.log")
     rc=$?
     if [ "$rc" -eq 124 ] && [ "$QEMU_TIMEOUT" != "infinity" ]; then
         derror "Test timed out after ${QEMU_TIMEOUT}s"
@@ -645,6 +647,8 @@ run_qemu() {
 # success), or 1 if nspawn is not available.
 run_nspawn() {
     [[ -d /run/systemd/system ]] || return 1
+    # Reset the boot counter, if present
+    rm -f "${initdir:?}/var/tmp/.systemd_reboot_count"
     rm -f "${initdir:?}"/{testok,failed,skipped}
 
     local nspawn_cmd=()
@@ -665,7 +669,7 @@ run_nspawn() {
 
     if get_bool "$INTERACTIVE_DEBUG"; then
         nspawn_options+=("--console=interactive")
-    else
+    elif ! get_bool "$TEST_SKIP_SHUTDOWN"; then
         kernel_params+=("systemd.wants=end.service")
     fi
 
@@ -673,12 +677,6 @@ run_nspawn() {
         local user_nspawn_arguments
         read -ra user_nspawn_arguments <<< "$NSPAWN_ARGUMENTS"
         nspawn_options+=("${user_nspawn_arguments[@]}")
-    fi
-
-    if [[ -n "${KERNEL_APPEND:=}" ]]; then
-        local user_kernel_append
-        readarray user_kernel_append <<< "$KERNEL_APPEND"
-        kernel_params+=("${user_kernel_append[@]}")
     fi
 
     if [[ "$UNIFIED_CGROUP_HIERARCHY" = "hybrid" ]]; then
@@ -699,7 +697,9 @@ run_nspawn() {
         nspawn_cmd+=("$SYSTEMD_NSPAWN")
     fi
 
-    (set -x; "${nspawn_cmd[@]}" "${nspawn_options[@]}" "${kernel_params[@]}" |& tee "${TESTDIR:?}/console.log")
+    # Word splitting here is intentional
+    # shellcheck disable=SC2086
+    (set -x; "${nspawn_cmd[@]}" "${nspawn_options[@]}" "${kernel_params[@]}" ${KERNEL_APPEND:-} |& tee "${TESTDIR:?}/console.log")
     rc=$?
     if [ "$rc" -eq 124 ] && [ "$NSPAWN_TIMEOUT" != "infinity" ]; then
         derror "Test timed out after ${NSPAWN_TIMEOUT}s"
@@ -811,6 +811,15 @@ EOF
         echo MARKER=1 >"$initdir/usr/lib/systemd/system/some_file"
         mksquashfs "$initdir" "$oldinitdir/usr/share/app0.raw" -noappend
 
+        export initdir="$TESTDIR/conf0"
+        mkdir -p "$initdir/etc/extension-release.d" "$initdir/etc/systemd/system" "$initdir/opt"
+        grep "^ID=" "$os_release" >"$initdir/etc/extension-release.d/extension-release.conf0"
+        echo "${version_id}" >>"$initdir/etc/extension-release.d/extension-release.conf0"
+        ( echo "${version_id}"
+          echo "CONFEXT_IMAGE_ID=app" ) >>"$initdir/etc/extension-release.d/extension-release.conf0"
+        echo MARKER_1 >"$initdir/etc/systemd/system/some_file"
+        mksquashfs "$initdir" "$oldinitdir/usr/share/conf0.raw" -noappend
+
         export initdir="$TESTDIR/app1"
         mkdir -p "$initdir/usr/lib/extension-release.d" "$initdir/usr/lib/systemd/system" "$initdir/opt"
         grep "^ID=" "$os_release" >"$initdir/usr/lib/extension-release.d/extension-release.app2"
@@ -921,16 +930,13 @@ setup_selinux() {
         return 0
     fi
 
-    local conf_dir=/etc/selinux
-    local fixfiles_tools=(awk bash cat chcon expr egrep find grep head secon setfiles rm sort uname uniq)
-
-    # Make sure the following statement can't expand to "/" to prevent
-    # a potential where-are-my-backups situation
-    rm -rf "${initdir:?}/$conf_dir"
-    if ! cp -ar "$conf_dir" "$initdir/$conf_dir"; then
-        dfatal "Failed to copy $conf_dir"
-        exit 1
-    fi
+    for dir in /etc/selinux /usr/share/selinux; do
+        rm -rf "${initdir:?}/$dir"
+        if ! cp -ar "$dir" "$initdir/$dir"; then
+            dfatal "Failed to copy $dir"
+            exit 1
+        fi
+    done
 
     # We use a custom autorelabel service instead of the SELinux provided set
     # of units & a generator, since the generator overrides the default target
@@ -941,13 +947,13 @@ setup_selinux() {
     # and does the relabeling unconditionally which always ends with a reboot, so
     # we end up in a reboot loop (and it also spews quite a lot of errors as it
     # wants /etc/fstab and dracut-initramfs-restore).
-
     touch "$initdir/.autorelabel"
     mkdir -p "$initdir/usr/lib/systemd/tests/testdata/units/basic.target.wants"
     ln -sf ../autorelabel.service "$initdir/usr/lib/systemd/tests/testdata/units/basic.target.wants/"
 
-    image_install "${fixfiles_tools[@]}"
-    image_install fixfiles sestatus
+    # Tools requires by fixfiles
+    image_install awk bash cat chcon expr egrep find grep head secon setfiles rm sort uname uniq
+    image_install fixfiles getenforce load_policy selinuxenabled sestatus
 }
 
 install_valgrind() {
@@ -1030,7 +1036,6 @@ EOF
 DefaultEnvironment=${default_environment[*]}
 ManagerEnvironment=${manager_environment[*]}
 DefaultTimeoutStartSec=180s
-DefaultStandardOutput=journal+console
 EOF
 
     # ASAN and syscall filters aren't compatible with each other.
@@ -1119,7 +1124,7 @@ install_modules() {
     instmods scsi_debug
 
     if get_bool "$LOOKS_LIKE_SUSE"; then
-        instmods ext4
+        instmods ext4 af_packet
     fi
 }
 
@@ -1312,6 +1317,31 @@ install_debian_systemd() {
     done < <(grep -E '^Package:' "${SOURCE_DIR}/debian/control" | cut -d ':' -f 2)
 }
 
+install_rpm() {
+    local rpm="${1:?}"
+    local file
+
+    if ! rpm -q "$rpm" >/dev/null; then
+        derror "RPM $rpm is not installed"
+        return 1
+    fi
+
+    dinfo "Installing contents of RPM $rpm"
+    while read -r file; do
+        # Skip missing files (like /etc/machine-info)
+        [[ ! -e "$file" ]] && continue
+        # Skip directories unless they are a symlink (both -L and -d pass in this case)
+        [[ -d "$file" && ! -L "$file" ]] && continue
+        # Skip python unit tests, since the image_install machinery will try to pull
+        # in the whole python stack in a very questionable state, making the tests fail.
+        # And given we're trying to transition to mkosi-based images anyway I'm not even
+        # going to bother
+        [[ "$file" =~ /tests/unit-tests/.*.py$ ]] && continue
+
+        image_install "$file"
+    done < <(rpm -ql "$rpm")
+}
+
 install_suse_systemd() {
     local pkgs
 
@@ -1334,12 +1364,7 @@ install_suse_systemd() {
     for p in "${pkgs[@]}"; do
         rpm -q "$p" &>/dev/null || continue
 
-        ddebug "Install files from package $p"
-        while read -r f; do
-            [ -e "$f" ] || continue
-            [ ! -L "$f" ] && [ -d "$f" ] && continue
-            inst "$f"
-        done < <(rpm -ql "$p")
+        install_rpm "$p"
     done
 
     dinfo "Install the data needed by the tests at runtime"
@@ -1351,6 +1376,35 @@ install_suse_systemd() {
     mkdir -p "$initdir/var/log/journal/remote"
 }
 
+install_fedora_systemd() {
+    local required_packages=(
+        systemd
+        systemd-container
+        systemd-libs
+        systemd-pam
+        systemd-tests
+        systemd-udev
+    )
+    local optional_packages=(
+        systemd-boot-unsigned
+        systemd-bootchart
+        systemd-journal-remote
+        systemd-networkd
+        systemd-oomd-defaults
+        systemd-resolved
+    )
+    local package
+
+    for package in "${required_packages[@]}"; do
+        install_rpm "$package"
+    done
+
+    for package in "${optional_packages[@]}"; do
+        rpm -q "$package" >/dev/null || continue
+        install_rpm "$package"
+    done
+}
+
 install_distro_systemd() {
     dinfo "Install distro systemd"
 
@@ -1358,6 +1412,8 @@ install_distro_systemd() {
         install_debian_systemd
     elif get_bool "$LOOKS_LIKE_SUSE"; then
         install_suse_systemd
+    elif get_bool "$LOOKS_LIKE_FEDORA"; then
+        install_fedora_systemd
     else
         dfatal "NO_BUILD not supported for this distro"
         exit 1
@@ -1712,48 +1768,53 @@ check_coverage_reports() {
 }
 
 save_journal() {
+    local source_dir="${1:?}"
+    local state="${2:?}"
     # Default to always saving journal
     local save="yes"
+    local dest_dir dest_name dest
 
-    if [ "${TEST_SAVE_JOURNAL}" = "no" ]; then
+    if [[ "${TEST_SAVE_JOURNAL:-}" == "no" ]]; then
         save="no"
-    elif [ "${TEST_SAVE_JOURNAL}" = "fail" ] && [ "$2" = "0" ]; then
+    elif [[ "${TEST_SAVE_JOURNAL:-}" == "fail" && "$state" -eq 0 ]]; then
         save="no"
     fi
 
-    if [ -n "${ARTIFACT_DIRECTORY}" ]; then
-        dest="${ARTIFACT_DIRECTORY}/${testname:?}.journal"
+    if [[ -n "${ARTIFACT_DIRECTORY:-}" ]]; then
+        dest_dir="$ARTIFACT_DIRECTORY"
+        dest_name="${testname:?}.journal"
     else
-        dest="${TESTDIR:?}/system.journal"
+        dest_dir="${TESTDIR:?}"
+        dest_name="system.journal"
     fi
 
-    for j in "${1:?}"/*; do
-        if get_bool "$save"; then
-            if [ "$SYSTEMD_JOURNAL_REMOTE" = "" ]; then
-                cp -a "$j" "$dest"
-            else
-                "$SYSTEMD_JOURNAL_REMOTE" -o "$dest" --getter="$JOURNALCTL -o export -D $j"
-            fi
+    # Show messages from the testsuite-XX.service or messages with priority "warning" and higher
+    echo " --- $source_dir ---"
+    "$JOURNALCTL" --no-pager --no-hostname -o short-monotonic -D "$source_dir" \
+        _SYSTEMD_UNIT="testsuite-${TESTID:?}.service" + PRIORITY=4 + PRIORITY=3 + PRIORITY=2 + PRIORITY=1 + PRIORITY=0
+
+    if get_bool "$save"; then
+        # If we don't have systemd-journal-remote copy all journals from /var/log/journal/
+        # to $dest_dir/journals/ as is, otherwise merge all journals into a single .journal
+        # file
+        if [[ -z "${SYSTEMD_JOURNAL_REMOTE:-}" ]]; then
+            dest="$dest_dir/journals"
+            mkdir -p "$dest"
+            cp -a "$source_dir/*" "$dest/"
+        else
+            dest="$dest_dir/$dest_name"
+            "$SYSTEMD_JOURNAL_REMOTE" -o "$dest" --getter="$JOURNALCTL -o export -D $source_dir"
         fi
 
-        if [ -n "${TEST_SHOW_JOURNAL}" ]; then
-            echo "---- $j ----"
-            "$JOURNALCTL" --no-pager -o short-monotonic --no-hostname --priority="${TEST_SHOW_JOURNAL}" -D "$j"
+        if [[ -n "${SUDO_USER:-}" ]]; then
+            setfacl -R -m "user:$SUDO_USER:r-X" "$dest"
         fi
 
-        rm -r "$j"
-    done
-
-    if ! get_bool "$save"; then
-        return 0
+        # we want to print this sometime later, so save this in a variable
+        JOURNAL_LIST="$(ls -lR "$dest")"
     fi
 
-    if [ -n "${SUDO_USER}" ]; then
-        setfacl -m "user:${SUDO_USER:?}:r-X" "$dest"*
-    fi
-
-    # we want to print this sometime later, so save this in a variable
-    JOURNAL_LIST="$(ls -l "$dest"*)"
+    rm -rf "${source_dir:?}"/*
 }
 
 check_result_common() {
@@ -1868,6 +1929,7 @@ check_result_nspawn_unittests() {
     check_coverage_reports "$workspace" || ret=5
 
     save_journal "$workspace/var/log/journal" $ret
+    echo "${JOURNAL_LIST:-"No journals were saved"}"
 
     _umount_dir "${initdir:?}"
 
@@ -1901,6 +1963,7 @@ check_result_qemu_unittests() {
     check_coverage_reports "$initdir" || ret=5
 
     save_journal "$initdir/var/log/journal" $ret
+    echo "${JOURNAL_LIST:-"No journals were saved"}"
 
     _umount_dir "$initdir"
 
@@ -3281,18 +3344,6 @@ test_setup() {
             mask_supporting_services
         fi
 
-        # Send stdout/stderr of testsuite-*.service units to both journal and
-        # console to make debugging in CIs easier
-        # Note: we can't use a dropin for `testsuite-.service`, since that also
-        #       overrides 'sub-units' of some tests that already use a specific
-        #       value for Standard(Output|Error)=
-        #       (e.g. test/units/testsuite-66-deviceisolation.service)
-        if ! get_bool "$INTERACTIVE_DEBUG"; then
-            local dropin_dir="${initdir:?}/etc/systemd/system/testsuite-${TESTID:?}.service.d"
-            mkdir -p "$dropin_dir"
-            printf '[Service]\nStandardOutput=journal+console\nStandardError=journal+console' >"$dropin_dir/99-stdout.conf"
-        fi
-
         if get_bool "$IS_BUILT_WITH_COVERAGE"; then
             # Do an initial coverage capture, to make sure the final report includes
             # files that the tests didn't touch at all
@@ -3310,9 +3361,6 @@ test_setup() {
 test_run() {
     local test_id="${1:?}"
     mount_initdir
-
-    # Reset the boot counter, if present
-    rm -f "${initdir:?}/var/tmp/.systemd_reboot_count"
 
     if ! get_bool "${TEST_NO_QEMU:=}"; then
         if run_qemu "$test_id"; then

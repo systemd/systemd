@@ -18,7 +18,7 @@
   <refnamediv>
     <refname>systemd-battery-check.service</refname>
     <refname>systemd-battery-check</refname>
-    <refpurpose>Check battery level whether there's enough charge, and power off if not.</refpurpose>
+    <refpurpose>Check battery level whether there's enough charge, and power off if not</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
@@ -32,14 +32,11 @@
   <refsect1>
     <title>Description</title>
 
-    <para>
-      <filename>systemd-battery-check.service</filename> is used to check the battery level during the early
-      boot stage to determine whether there's sufficient battery power to carry on with the booting process.
-    </para>
-    <para>
-      <command>systemd-battery-check</command> returns success if the device is connected to an AC power
-      source or if the battery charge is greater than 5%. It returns failure otherwise.
-    </para>
+    <para>This service checks the presence of an external power supply and the battery level during the early
+    boot stage to determine whether there is sufficient power to carry on with the booting process.</para>
+
+    <para><command>systemd-battery-check</command> returns success if the device is connected to an AC power
+    source or if the battery charge is greater than 5%. It returns failure otherwise.</para>
   </refsect1>
 
   <refsect1>

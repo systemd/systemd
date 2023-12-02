@@ -156,6 +156,7 @@ static ssize_t udev_event_subst_format(
                 const char *attr,
                 char *dest,
                 size_t l,
+                Hashmap *global_props,
                 bool *ret_truncated) {
 
         sd_device *parent, *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
@@ -348,7 +349,7 @@ static ssize_t udev_event_subst_format(
         case FORMAT_SUBST_ENV:
                 if (isempty(attr))
                         return -EINVAL;
-                r = sd_device_get_property_value(dev, attr, &val);
+                r = device_get_property_value_with_fallback(dev, attr, global_props, &val);
                 if (r == -ENOENT)
                         goto null_terminate;
                 if (r < 0)
@@ -378,6 +379,7 @@ size_t udev_event_apply_format(
                 char *dest,
                 size_t size,
                 bool replace_whitespace,
+                Hashmap *global_props,
                 bool *ret_truncated) {
 
         bool truncated = false;
@@ -410,7 +412,7 @@ size_t udev_event_apply_format(
                         continue;
                 }
 
-                subst_len = udev_event_subst_format(event, type, attr, dest, size, &t);
+                subst_len = udev_event_subst_format(event, type, attr, dest, size, global_props, &t);
                 if (subst_len < 0) {
                         log_device_warning_errno(event->dev, subst_len,
                                                  "Failed to substitute variable '$%s' or apply format '%%%c', ignoring: %m",

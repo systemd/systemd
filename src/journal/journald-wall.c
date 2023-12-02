@@ -27,7 +27,7 @@ void server_forward_wall(
 
         if (ucred) {
                 if (!identifier) {
-                        (void) get_process_comm(ucred->pid, &ident_buf);
+                        (void) pid_get_comm(ucred->pid, &ident_buf);
                         identifier = ident_buf;
                 }
 

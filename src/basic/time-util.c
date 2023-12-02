@@ -64,7 +64,7 @@ nsec_t now_nsec(clockid_t clock_id) {
         return timespec_load_nsec(&ts);
 }
 
-dual_timestamp* dual_timestamp_get(dual_timestamp *ts) {
+dual_timestamp* dual_timestamp_now(dual_timestamp *ts) {
         assert(ts);
 
         ts->realtime = now(CLOCK_REALTIME);
@@ -73,7 +73,7 @@ dual_timestamp* dual_timestamp_get(dual_timestamp *ts) {
         return ts;
 }
 
-triple_timestamp* triple_timestamp_get(triple_timestamp *ts) {
+triple_timestamp* triple_timestamp_now(triple_timestamp *ts) {
         assert(ts);
 
         ts->realtime = now(CLOCK_REALTIME);
@@ -1044,7 +1044,7 @@ int parse_timestamp(const char *t, usec_t *ret) {
         if (shared == MAP_FAILED)
                 return negative_errno();
 
-        r = safe_fork("(sd-timestamp)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_WAIT, NULL);
+        r = safe_fork("(sd-timestamp)", FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_WAIT, NULL);
         if (r < 0) {
                 (void) munmap(shared, sizeof *shared);
                 return r;

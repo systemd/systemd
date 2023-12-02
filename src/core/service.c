@@ -180,6 +180,8 @@ static void service_unwatch_pid_file(Service *s) {
 }
 
 static int service_set_main_pidref(Service *s, PidRef *pidref) {
+        int r;
+
         assert(s);
 
         /* Takes ownership of the specified pidref on success, but not on failure. */
@@ -190,7 +192,7 @@ static int service_set_main_pidref(Service *s, PidRef *pidref) {
         if (pidref->pid <= 1)
                 return -EINVAL;
 
-        if (pidref->pid == getpid_cached())
+        if (pidref_is_self(pidref))
                 return -EINVAL;
 
         if (pidref_equal(&s->main_pid, pidref) && s->main_pid_known) {
@@ -205,25 +207,15 @@ static int service_set_main_pidref(Service *s, PidRef *pidref) {
 
         s->main_pid = TAKE_PIDREF(*pidref);
         s->main_pid_known = true;
-        s->main_pid_alien = pid_is_my_child(s->main_pid.pid) == 0;
 
-        if (s->main_pid_alien)
+        r = pidref_is_my_child(&s->main_pid);
+        if (r < 0)
+                log_unit_warning_errno(UNIT(s), r, "Can't determine if process "PID_FMT" is our child, assuming it is not: %m", s->main_pid.pid);
+        else if (r == 0)
                 log_unit_warning(UNIT(s), "Supervising process "PID_FMT" which is not our child. We'll most likely not notice when it exits.", s->main_pid.pid);
 
+        s->main_pid_alien = r <= 0;
         return 0;
-}
-
-static int service_set_main_pid(Service *s, pid_t pid) {
-        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        int r;
-
-        assert(s);
-
-        r = pidref_set_pid(&pidref, pid);
-        if (r < 0)
-                return r;
-
-        return service_set_main_pidref(s, &pidref);
 }
 
 void service_release_socket_fd(Service *s) {
@@ -386,7 +378,7 @@ static void service_extend_timeout(Service *s, usec_t extend_timeout_usec) {
 static void service_reset_watchdog(Service *s) {
         assert(s);
 
-        dual_timestamp_get(&s->watchdog_timestamp);
+        dual_timestamp_now(&s->watchdog_timestamp);
         service_start_watchdog(s);
 }
 
@@ -1066,6 +1058,7 @@ static void service_dump(Unit *u, FILE *f, const char *prefix) {
 
 static int service_is_suitable_main_pid(Service *s, PidRef *pid, int prio) {
         Unit *owner;
+        int r;
 
         assert(s);
         assert(pidref_is_set(pid));
@@ -1074,13 +1067,16 @@ static int service_is_suitable_main_pid(Service *s, PidRef *pid, int prio) {
          * PID is questionnable but should be accepted if the source of configuration is trusted. > 0 if the PID is
          * good */
 
-        if (pid->pid == getpid_cached() || pid->pid == 1)
+        if (pidref_is_self(pid) || pid->pid == 1)
                 return log_unit_full_errno(UNIT(s), prio, SYNTHETIC_ERRNO(EPERM), "New main PID "PID_FMT" is the manager, refusing.", pid->pid);
 
         if (pidref_equal(pid, &s->control_pid))
                 return log_unit_full_errno(UNIT(s), prio, SYNTHETIC_ERRNO(EPERM), "New main PID "PID_FMT" is the control process, refusing.", pid->pid);
 
-        if (!pid_is_alive(pid->pid))
+        r = pidref_is_alive(pid);
+        if (r < 0)
+                return log_unit_full_errno(UNIT(s), prio, r, "Failed to check if main PID "PID_FMT" exists or is a zombie: %m", pid->pid);
+        if (r == 0)
                 return log_unit_full_errno(UNIT(s), prio, SYNTHETIC_ERRNO(ESRCH), "New main PID "PID_FMT" does not exist or is a zombie.", pid->pid);
 
         owner = manager_get_unit_by_pidref(UNIT(s)->manager, pid);
@@ -1330,7 +1326,7 @@ static int service_coldplug(Unit *u) {
                 return r;
 
         if (pidref_is_set(&s->main_pid) &&
-            pid_is_unwaited(s->main_pid.pid) &&
+            pidref_is_unwaited(&s->main_pid) > 0 &&
             (IN_SET(s->deserialized_state,
                     SERVICE_START, SERVICE_START_POST,
                     SERVICE_RUNNING,
@@ -1343,7 +1339,7 @@ static int service_coldplug(Unit *u) {
         }
 
         if (pidref_is_set(&s->control_pid) &&
-            pid_is_unwaited(s->control_pid.pid) &&
+            pidref_is_unwaited(&s->control_pid) > 0 &&
             IN_SET(s->deserialized_state,
                    SERVICE_CONDITION, SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
                    SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY,
@@ -1536,7 +1532,7 @@ static int service_allocate_exec_fd(
                 sd_event_source **ret_event_source,
                 int *ret_exec_fd) {
 
-        _cleanup_close_pair_ int p[] = PIPE_EBADF;
+        _cleanup_close_pair_ int p[] = EBADF_PAIR;
         int r;
 
         assert(s);
@@ -1615,13 +1611,7 @@ static int service_spawn_internal(
                 ExecFlags flags,
                 PidRef *ret_pid) {
 
-        _cleanup_(exec_params_clear) ExecParameters exec_params = {
-                .flags     = flags,
-                .stdin_fd  = -EBADF,
-                .stdout_fd = -EBADF,
-                .stderr_fd = -EBADF,
-                .exec_fd   = -EBADF,
-        };
+        _cleanup_(exec_params_shallow_clear) ExecParameters exec_params = EXEC_PARAMETERS_INIT(flags);
         _cleanup_(sd_event_source_unrefp) sd_event_source *exec_fd_source = NULL;
         _cleanup_strv_free_ char **final_env = NULL, **our_env = NULL;
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
@@ -1846,7 +1836,7 @@ static int main_pid_good(Service *s) {
 
                 /* If it's an alien child let's check if it is still alive ... */
                 if (s->main_pid_alien && pidref_is_set(&s->main_pid))
-                        return pid_is_alive(s->main_pid.pid);
+                        return pidref_is_alive(&s->main_pid);
 
                 /* .. otherwise assume we'll get a SIGCHLD for it, which we really should wait for to collect
                  * exit status and code */
@@ -2314,7 +2304,7 @@ static void service_kill_control_process(Service *s) {
         if (r < 0) {
                 _cleanup_free_ char *comm = NULL;
 
-                (void) get_process_comm(s->control_pid.pid, &comm);
+                (void) pidref_get_comm(&s->control_pid, &comm);
 
                 log_unit_debug_errno(UNIT(s), r, "Failed to kill control process " PID_FMT " (%s), ignoring: %m",
                                      s->control_pid.pid, strna(comm));
@@ -2949,11 +2939,9 @@ static int service_serialize(Unit *u, FILE *f, FDSet *fds) {
         (void) serialize_item(f, "result", service_result_to_string(s->result));
         (void) serialize_item(f, "reload-result", service_result_to_string(s->reload_result));
 
-        if (pidref_is_set(&s->control_pid))
-                (void) serialize_item_format(f, "control-pid", PID_FMT, s->control_pid.pid);
-
-        if (s->main_pid_known && pidref_is_set(&s->main_pid))
-                (void) serialize_item_format(f, "main-pid", PID_FMT, s->main_pid.pid);
+        (void) serialize_pidref(f, fds, "control-pid", &s->control_pid);
+        if (s->main_pid_known)
+                (void) serialize_pidref(f, fds, "main-pid", &s->main_pid);
 
         (void) serialize_bool(f, "main-pid-known", s->main_pid_known);
         (void) serialize_bool(f, "bus-name-good", s->bus_name_good);
@@ -3188,16 +3176,15 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
 
         } else if (streq(key, "control-pid")) {
                 pidref_done(&s->control_pid);
-                r = pidref_set_pidstr(&s->control_pid, value);
-                if (r < 0)
-                        log_unit_debug_errno(u, r, "Failed to initialize control PID '%s' from serialization, ignoring.", value);
-        } else if (streq(key, "main-pid")) {
-                pid_t pid;
 
-                if (parse_pid(value, &pid) < 0)
-                        log_unit_debug(u, "Failed to parse main-pid value: %s", value);
-                else
-                        (void) service_set_main_pid(s, pid);
+                (void) deserialize_pidref(fds, value, &s->control_pid);
+
+        } else if (streq(key, "main-pid")) {
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+
+                if (deserialize_pidref(fds, value, &pidref) >= 0)
+                        (void) service_set_main_pidref(s, &pidref);
+
         } else if (streq(key, "main-pid-known")) {
                 int b;
 
@@ -3245,27 +3232,27 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 }
 
         } else if (streq(key, "socket-fd")) {
-                int fd;
+                asynchronous_close(s->socket_fd);
+                s->socket_fd = deserialize_fd(fds, value);
 
-                if ((fd = parse_fd(value)) < 0 || !fdset_contains(fds, fd))
-                        log_unit_debug(u, "Failed to parse socket-fd value: %s", value);
-                else {
-                        asynchronous_close(s->socket_fd);
-                        s->socket_fd = fdset_remove(fds, fd);
-                }
         } else if (streq(key, "fd-store-fd")) {
                 _cleanup_free_ char *fdv = NULL, *fdn = NULL, *fdp = NULL;
-                int fd, do_poll;
+                _cleanup_close_ int fd = -EBADF;
+                int do_poll;
 
                 r = extract_first_word(&value, &fdv, NULL, 0);
-                if (r <= 0 || (fd = parse_fd(fdv)) < 0 || !fdset_contains(fds, fd)) {
-                        log_unit_debug(u, "Failed to parse fd-store-fd value: %s", value);
+                if (r <= 0) {
+                        log_unit_debug(u, "Failed to parse fd-store-fd value, ignoring: %s", value);
                         return 0;
                 }
 
+                fd = deserialize_fd(fds, fdv);
+                if (fd < 0)
+                        return 0;
+
                 r = extract_first_word(&value, &fdn, NULL, EXTRACT_CUNESCAPE | EXTRACT_UNQUOTE);
                 if (r <= 0) {
-                        log_unit_debug(u, "Failed to parse fd-store-fd value: %s", value);
+                        log_unit_debug(u, "Failed to parse fd-store-fd value, ignoring: %s", value);
                         return 0;
                 }
 
@@ -3273,23 +3260,18 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 if (r == 0) {
                         /* If the value is not present, we assume the default */
                         do_poll = 1;
-                } else if (r < 0 || safe_atoi(fdp, &do_poll) < 0) {
-                        log_unit_debug_errno(u, r, "Failed to parse fd-store-fd value \"%s\": %m", value);
+                } else if (r < 0 || (r = safe_atoi(fdp, &do_poll)) < 0) {
+                        log_unit_debug_errno(u, r, "Failed to parse fd-store-fd value \"%s\", ignoring: %m", value);
                         return 0;
                 }
-
-                r = fdset_remove(fds, fd);
-                if (r < 0) {
-                        log_unit_error_errno(u, r, "Could not find deserialized fd %i in fdset: %m", fd);
-                        return 0;
-                }
-                assert(r == fd);
 
                 r = service_add_fd_store(s, fd, fdn, do_poll);
                 if (r < 0) {
-                        log_unit_error_errno(u, r, "Failed to store deserialized fd %i: %m", fd);
+                        log_unit_debug_errno(u, r, "Failed to store deserialized fd %i, ignoring: %m", fd);
                         return 0;
                 }
+
+                TAKE_FD(fd);
         } else if (streq(key, "main-exec-status-pid")) {
                 pid_t pid;
 
@@ -3334,47 +3316,37 @@ static int service_deserialize_item(Unit *u, const char *key, const char *value,
                 else
                         s->forbid_restart = b;
         } else if (streq(key, "stdin-fd")) {
-                int fd;
 
-                if ((fd = parse_fd(value)) < 0 || !fdset_contains(fds, fd))
-                        log_unit_debug(u, "Failed to parse stdin-fd value: %s", value);
-                else {
-                        asynchronous_close(s->stdin_fd);
-                        s->stdin_fd = fdset_remove(fds, fd);
+                asynchronous_close(s->stdin_fd);
+                s->stdin_fd = deserialize_fd(fds, value);
+                if (s->stdin_fd >= 0)
                         s->exec_context.stdio_as_fds = true;
-                }
+
         } else if (streq(key, "stdout-fd")) {
-                int fd;
 
-                if ((fd = parse_fd(value)) < 0 || !fdset_contains(fds, fd))
-                        log_unit_debug(u, "Failed to parse stdout-fd value: %s", value);
-                else {
-                        asynchronous_close(s->stdout_fd);
-                        s->stdout_fd = fdset_remove(fds, fd);
+                asynchronous_close(s->stdout_fd);
+                s->stdout_fd = deserialize_fd(fds, value);
+                if (s->stdout_fd >= 0)
                         s->exec_context.stdio_as_fds = true;
-                }
+
         } else if (streq(key, "stderr-fd")) {
-                int fd;
 
-                if ((fd = parse_fd(value)) < 0 || !fdset_contains(fds, fd))
-                        log_unit_debug(u, "Failed to parse stderr-fd value: %s", value);
-                else {
-                        asynchronous_close(s->stderr_fd);
-                        s->stderr_fd = fdset_remove(fds, fd);
+                asynchronous_close(s->stderr_fd);
+                s->stderr_fd = deserialize_fd(fds, value);
+                if (s->stderr_fd >= 0)
                         s->exec_context.stdio_as_fds = true;
-                }
-        } else if (streq(key, "exec-fd")) {
-                int fd;
 
-                if ((fd = parse_fd(value)) < 0 || !fdset_contains(fds, fd))
-                        log_unit_debug(u, "Failed to parse exec-fd value: %s", value);
-                else {
+        } else if (streq(key, "exec-fd")) {
+                _cleanup_close_ int fd = -EBADF;
+
+                fd = deserialize_fd(fds, value);
+                if (fd >= 0) {
                         s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
 
-                        fd = fdset_remove(fds, fd);
-                        if (service_allocate_exec_fd_event_source(s, fd, &s->exec_fd_event_source) < 0)
-                                safe_close(fd);
+                        if (service_allocate_exec_fd_event_source(s, fd, &s->exec_fd_event_source) >= 0)
+                                TAKE_FD(fd);
                 }
+
         } else if (streq(key, "watchdog-override-usec")) {
                 if (deserialize_usec(value, &s->watchdog_override_usec) < 0)
                         log_unit_debug(u, "Failed to parse watchdog_override_usec value: %s", value);

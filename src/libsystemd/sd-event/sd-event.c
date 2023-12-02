@@ -4612,7 +4612,7 @@ static int process_epoll(sd_event *e, usec_t timeout, int64_t threshold, int64_t
 
         /* Set timestamp only when this is called first time. */
         if (threshold == INT64_MAX)
-                triple_timestamp_get(&e->timestamp);
+                triple_timestamp_now(&e->timestamp);
 
         for (size_t i = 0; i < m; i++) {
 

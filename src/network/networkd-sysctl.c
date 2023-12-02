@@ -165,7 +165,7 @@ static int link_set_ipv6_dad_transmits(Link *link) {
         return sysctl_write_ip_property_int(AF_INET6, link->ifname, "dad_transmits", link->network->ipv6_dad_transmits);
 }
 
-int link_set_ipv6_hop_limit(Link *link) {
+static int link_set_ipv6_hop_limit(Link *link) {
         assert(link);
 
         /* Make this a NOP if IPv6 is not available */
@@ -178,7 +178,7 @@ int link_set_ipv6_hop_limit(Link *link) {
         if (!link->network)
                 return 0;
 
-        if (link->network->ipv6_hop_limit < 0)
+        if (link->network->ipv6_hop_limit <= 0)
                 return 0;
 
         return sysctl_write_ip_property_int(AF_INET6, link->ifname, "hop_limit", link->network->ipv6_hop_limit);

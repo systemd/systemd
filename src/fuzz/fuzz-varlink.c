@@ -6,7 +6,7 @@
 #include "fd-util.h"
 #include "fuzz.h"
 #include "hexdecoct.h"
-#include "io-util.h"
+#include "iovec-util.h"
 #include "varlink.h"
 #include "log.h"
 
@@ -41,7 +41,7 @@ static int io_callback(sd_event_source *s, int fd, uint32_t revents, void *userd
                         else
                                 assert_se(errno == EAGAIN);
                 } else
-                        IOVEC_INCREMENT(iov, 1, n);
+                        iovec_increment(iov, 1, n);
         }
 
         if (revents & EPOLLIN) {
@@ -85,15 +85,14 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
         struct iovec server_iov = IOVEC_MAKE((void*) data, size), client_iov = IOVEC_MAKE((void*) data, size);
         /* Important: the declaration order matters here! we want that the fds are closed on return after the
          * event sources, hence we declare the fds first, the event sources second */
-        _cleanup_close_pair_ int server_pair[2] = PIPE_EBADF, client_pair[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int server_pair[2] = EBADF_PAIR, client_pair[2] = EBADF_PAIR;
         _cleanup_(sd_event_source_unrefp) sd_event_source *idle_event_source = NULL,
                 *server_event_source = NULL, *client_event_source = NULL;
         _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
         _cleanup_(varlink_flush_close_unrefp) Varlink *c = NULL;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
 
-        log_set_max_level(LOG_CRIT);
-        log_parse_environment();
+        fuzz_setup_logging();
 
         assert_se(null = fopen("/dev/null", "we"));
 

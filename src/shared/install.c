@@ -581,11 +581,9 @@ static int mark_symlink_for_removal(
         if (r < 0)
                 return r;
 
-        n = strdup(p);
-        if (!n)
-                return -ENOMEM;
-
-        path_simplify(n);
+        r = path_simplify_alloc(p, &n);
+        if (r < 0)
+                return r;
 
         r = set_consume(*remove_symlinks_to, n);
         if (r == -EEXIST)
@@ -3248,23 +3246,21 @@ static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePreset
                         _cleanup_free_ char *line = NULL;
                         _cleanup_(unit_file_preset_rule_done) UnitFilePresetRule rule = {};
                         const char *parameter;
-                        char *l;
 
-                        r = read_line(f, LONG_LINE_MAX, &line);
+                        r = read_stripped_line(f, LONG_LINE_MAX, &line);
                         if (r < 0)
                                 return r;
                         if (r == 0)
                                 break;
 
-                        l = strstrip(line);
                         n++;
 
-                        if (isempty(l))
+                        if (isempty(line))
                                 continue;
-                        if (strchr(COMMENTS, *l))
+                        if (strchr(COMMENTS, line[0]))
                                 continue;
 
-                        parameter = first_word(l, "enable");
+                        parameter = first_word(line, "enable");
                         if (parameter) {
                                 char *unit_name;
                                 char **instances = NULL;
@@ -3283,7 +3279,7 @@ static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePreset
                                 };
                         }
 
-                        parameter = first_word(l, "disable");
+                        parameter = first_word(line, "disable");
                         if (parameter) {
                                 char *pattern;
 
@@ -3297,7 +3293,7 @@ static int read_presets(RuntimeScope scope, const char *root_dir, UnitFilePreset
                                 };
                         }
 
-                        parameter = first_word(l, "ignore");
+                        parameter = first_word(line, "ignore");
                         if (parameter) {
                                 char *pattern;
 

@@ -1250,6 +1250,17 @@ static const struct security_assessor security_assessor_table[] = {
                 .parameter = (UINT64_C(1) << CAP_SYS_PACCT),
         },
         {
+                .id = "CapabilityBoundingSet=~CAP_BPF",
+                .json_field = "CapabilityBoundingSet_CAP_BPF",
+                .description_good = "Service may load BPF programs",
+                .description_bad = "Service may not load BPF programs",
+                .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#CapabilityBoundingSet=",
+                .weight = 25,
+                .range = 1,
+                .assess = assess_capability_bounding_set,
+                .parameter = (UINT64_C(1) << CAP_BPF),
+        },
+        {
                 .id = "UMask=",
                 .json_field = "UMask",
                 .url = "https://www.freedesktop.org/software/systemd/man/systemd.exec.html#UMask=",
@@ -2629,9 +2640,9 @@ static int get_security_info(Unit *u, ExecContext *c, CGroupContext *g, Security
 
                 LIST_FOREACH(device_allow, a, g->device_allow)
                         if (strv_extendf(&info->device_allow,
-                                         "%s:%s%s%s",
+                                         "%s:%s",
                                          a->path,
-                                         a->r ? "r" : "", a->w ? "w" : "", a->m ? "m" : "") < 0)
+                                         cgroup_device_permissions_to_string(a->permissions)) < 0)
                                 return log_oom();
         }
 
@@ -2679,23 +2690,20 @@ static int offline_security_checks(
                 MANAGER_TEST_RUN_MINIMAL |
                 MANAGER_TEST_RUN_ENV_GENERATORS |
                 MANAGER_TEST_RUN_IGNORE_DEPENDENCIES |
+                MANAGER_TEST_DONT_OPEN_EXECUTOR |
                 run_generators * MANAGER_TEST_RUN_GENERATORS;
 
         _cleanup_(manager_freep) Manager *m = NULL;
         Unit *units[strv_length(filenames)];
-        _cleanup_free_ char *var = NULL;
         int r, k;
         size_t count = 0;
 
         if (strv_isempty(filenames))
                 return 0;
 
-        /* set the path */
-        r = verify_generate_path(&var, filenames);
+        r = verify_set_unit_path(filenames);
         if (r < 0)
-                return log_error_errno(r, "Failed to generate unit load path: %m");
-
-        assert_se(set_unit_path(var) >= 0);
+                return log_error_errno(r, "Failed to set unit load path: %m");
 
         r = manager_new(scope, flags, &m);
         if (r < 0)

@@ -55,38 +55,37 @@
       <!-- Let's keep this in the canonical order we also measure the sections by, i.e. as in
            src/fundamental/uki.h's UnifiedSection enum -->
 
-      <listitem><para>The ELF Linux kernel images will be looked for in the <literal>.linux</literal> PE
-      section of the executed image.</para></listitem>
+      <listitem><para>A <literal>.linux</literal> section with the ELF Linux kernel image.</para></listitem>
 
-      <listitem><para>OS release information, i.e. the
-      <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file of
-      the OS the kernel belongs to, in the <literal>.osrel</literal> PE section.</para></listitem>
+      <listitem><para>An <literal>.osrel</literal> section with OS release information, i.e. the contents of
+      the <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file
+      of the OS the kernel belongs to.</para></listitem>
 
-      <listitem><para>The kernel command line to pass to the invoked kernel will be looked for in the
-      <literal>.cmdline</literal> PE section.</para></listitem>
+      <listitem><para>A <literal>.cmdline</literal> section with the kernel command line to pass to the
+      invoked kernel.</para></listitem>
 
-      <listitem><para>The initrd will be loaded from the <literal>.initrd</literal> PE
+      <listitem><para>An <literal>.initrd</literal> section with the initrd.</para></listitem>
+
+      <listitem><para>A <literal>.splash</literal> section with an image (in the Windows
+      <filename>.BMP</filename> format) to show on screen before invoking the kernel.</para></listitem>
+
+      <listitem><para>A <literal>.dtb</literal> section with a compiled binary DeviceTree.</para></listitem>
+
+      <listitem><para>A <literal>.uname</literal> section with the kernel version information, i.e. the
+      output of <command>uname -r</command> for the kernel included in the <literal>.linux</literal>
       section.</para></listitem>
 
-      <listitem><para>A boot splash (in Windows <filename>.BMP</filename> format) to show on screen before
-      invoking the kernel will be looked for in the <literal>.splash</literal> PE section.</para></listitem>
+      <listitem><para>An <literal>.sbat</literal> section with
+      <ulink url="https://github.com/rhboot/shim/blob/main/SBAT.md">SBAT</ulink> revocation
+      metadata.</para></listitem>
 
-      <listitem><para>A compiled binary DeviceTree will be looked for in the <literal>.dtb</literal> PE
-      section.</para></listitem>
+      <listitem><para>A <literal>.pcrsig</literal> section with a set of cryptographic signatures for the
+      expected TPM2 PCR values after the kernel has been booted, in JSON format. This is useful for
+      implementing TPM2 policies that bind disk encryption and similar to kernels that are signed by a
+      specific key.</para></listitem>
 
-      <listitem><para>Kernel version information, i.e. the output of <command>uname -r</command> for the
-      kernel included in the UKI, in the <literal>.uname</literal> PE section.</para></listitem>
-
-      <listitem><para><ulink url="https://github.com/rhboot/shim/blob/main/SBAT.md">SBAT</ulink> revocation
-      metadata, in the <literal>.sbat</literal> PE section.</para></listitem>
-
-      <listitem><para>A set of cryptographic signatures for expected TPM2 PCR values when this kernel is
-      booted, in JSON format, in the <literal>.pcrsig</literal> section. This is useful for implementing TPM2
-      policies that bind disk encryption and similar to kernels that are signed by a specific
-      key.</para></listitem>
-
-      <listitem><para>A public key in PEM format matching this TPM2 PCR signature data in the
-      <literal>.pcrpkey</literal> section.</para></listitem>
+      <listitem><para>A <literal>.pcrpkey</literal> section with a public key in the PEM format matching the
+      signature data in the the <literal>.pcrsig</literal> section.</para></listitem>
     </itemizedlist>
 
     <para>If UEFI SecureBoot is enabled and the <literal>.cmdline</literal> section is present in the executed
@@ -100,15 +99,14 @@
     DeviceTree in the corresponding EFI configuration table. systemd-stub will ask the firmware via the
     <literal>EFI_DT_FIXUP_PROTOCOL</literal> for hardware specific fixups to the DeviceTree.</para>
 
-    <para>The contents of seven of these eight PE sections are measured into TPM PCR 11, that is otherwise
-    not used. Thus, it can be pre-calculated without too much effort. The <literal>.pcrsig</literal> section
-    is not included in this PCR measurement, since it's supposed to contain signatures for the expected
-    results for these measurements, i.e. of the outputs of the measurement operation, and thus cannot also be
-    input to it.</para>
+    <para>The contents of eight of these nine sections are measured into TPM PCR 11. It is otherwise not used
+    and thus the result can be pre-calculated without too much effort. The <literal>.pcrsig</literal> section
+    is not included in this PCR measurement, since it is supposed to contain signatures for the output of the
+    measurement operation, and thus cannot also be input to it.</para>
 
-    <para>When <literal>.pcrsig</literal> and/or <literal>.pcrpkey</literal> are present in a unified kernel
-    image their contents are passed to the booted kernel in an synthetic initrd cpio archive that places them in the
-    <filename>/.extra/tpm2-pcr-signature.json</filename> and
+    <para>When <literal>.pcrsig</literal> and/or <literal>.pcrpkey</literal> sections are present in a
+    unified kernel image their contents are passed to the booted kernel in an synthetic initrd cpio archive
+    that places them in the <filename>/.extra/tpm2-pcr-signature.json</filename> and
     <filename>/.extra/tpm2-pcr-public-key.pem</filename> files. Typically, a
     <citerefentry><refentrytitle>tmpfiles.d</refentrytitle><manvolnum>5</manvolnum></citerefentry> line then
     ensures they are copied into <filename>/run/systemd/tpm2-pcr-signature.json</filename> and
@@ -135,7 +133,12 @@
     <itemizedlist>
       <listitem><para>For a kernel binary called <filename><replaceable>foo</replaceable>.efi</filename>, it
       will look for files with the <filename>.cred</filename> suffix in a directory named
-      <filename><replaceable>foo</replaceable>.efi.extra.d/</filename> next to it. A <command>cpio</command>
+      <filename><replaceable>foo</replaceable>.efi.extra.d/</filename> next to it. If the kernel binary
+      uses a counter for the purpose of
+      <ulink url="https://systemd.io/AUTOMATIC_BOOT_ASSESSMENT">Automatic Boot Assessment</ulink>, this
+      counter will be ignored. For example, <filename><replaceable>foo</replaceable>+3-0.efi</filename>
+      will look in directory <filename><replaceable>foo</replaceable>.efi.extra.d/</filename>.
+      A <command>cpio</command>
       archive is generated from all files found that way, placing them in the
       <filename>/.extra/credentials/</filename> directory of the initrd file hierarchy. The main initrd may
       then access them in this directory. This is supposed to be used to store auxiliary, encrypted,
@@ -157,28 +160,31 @@
       system extension images is measured into TPM PCR 13 (if a TPM is present).</para></listitem>
 
       <listitem><para>Similarly, files
-      <filename><replaceable>foo</replaceable>.efi.extra.d/*.addon.efi</filename>
-      are loaded and verified as PE binaries, and a <literal>.cmdline</literal> section is parsed from them.
-      In case Secure Boot is enabled, these files will be validated using keys in UEFI DB, Shim's DB or
-      Shim's MOK, and will be rejected otherwise. Additionally, if the both the addon and the UKI contain a
-      a <literal>.uname</literal> section, the addon will be rejected if they do not exactly match. It is
+      <filename><replaceable>foo</replaceable>.efi.extra.d/*.addon.efi</filename> are loaded and verified as
+      PE binaries, and a <literal>.cmdline</literal> section is parsed from them. Addons are supposed to be
+      used to pass additional kernel command line parameters or Devicetree blobs, regardless of the kernel
+      image being booted, for example to allow platform vendors to ship platform-specific
+      configuration.</para>
+
+      <para>In case Secure Boot is enabled, these files will be validated using keys in UEFI DB, Shim's DB or
+      Shim's MOK, and will be rejected otherwise. Additionally, if the both the addon and the UKI contain a a
+      <literal>.uname</literal> section, the addon will be rejected if they do not match exactly. It is
       recommended to always add a <literal>.sbat</literal> section to all signed addons, so that they may be
       revoked with a SBAT policy update, without requiring blocklisting via DBX/MOKX. The
-      <citerefentry><refentrytitle>ukify</refentrytitle><manvolnum>1</manvolnum></citerefentry> tool will
-      add a SBAT policy by default if none is passed when building addons. For more information on SBAT see
-      <ulink url="https://github.com/rhboot/shim/blob/main/SBAT.md">Shim's documentation</ulink>.
-      Addons are supposed to be used to pass additional kernel command line parameters, regardless of the
-      kernel image being booted, for example to allow platform vendors to ship platform-specific
-      configuration. The loaded command line addon files are sorted, loaded, measured into TPM PCR 12 (if a
-      TPM is present) and appended to the kernel command line. UKI command line options are listed first,
-      then options from addons in <filename>/loader/addons/*.addon.efi</filename> are appended next, and
-      finally UKI-specific addons are appended last. Addons are always loaded in the same order based on the
-      filename, so that, given the same set of addons, the same set of measurements can be expected in
-      PCR12, however note that the filename is not protected by the PE signature, and as such an attacker
-      with write access to the ESP could potentially rename these files to change the order in which they
-      are loaded, in a way that could alter the functionality of the kernel, as some options might be order
-      dependent. If you sign such addons, you should pay attention to the PCR12 values and make use of an
-      attestation service so that improper use of your signed addons can be detected and dealt with using
+      <citerefentry><refentrytitle>ukify</refentrytitle><manvolnum>1</manvolnum></citerefentry> tool will add
+      a SBAT policy by default if none is passed when building addons. For more information on SBAT see
+      <ulink url="https://github.com/rhboot/shim/blob/main/SBAT.md">Shim documentation</ulink>.</para>
+
+      <para>Addon files are sorted, loaded, and measured into TPM PCR 12 (if a TPM is present) and appended
+      to the kernel command line. UKI command line options are listed first, then options from addons in
+      <filename>/loader/addons/*.addon.efi</filename>, and finally UKI-specific addons. Device tree blobs are
+      loaded and measured following the same algorithm. Addons are always loaded in the same order based on
+      the filename, so that, given the same set of addons, the same set of measurements can be expected in
+      PCR12. However, note that the filename is not protected by the PE signature, and as such an attacker
+      with write access to the ESP could potentially rename these files to change the order in which they are
+      loaded, in a way that could alter the functionality of the kernel, as some options might be
+      order-dependent. If you sign such addons, you should pay attention to the PCR12 values and make use of
+      an attestation service so that improper use of your signed addons can be detected and dealt with using
       one of the aforementioned revocation mechanisms.</para></listitem>
 
       <listitem><para>Files <filename>/loader/credentials/*.cred</filename> are packed up in a
@@ -188,9 +194,9 @@
       measured into TPM PCR 12 (if a TPM is present).</para></listitem>
 
       <listitem><para>Additionally, files <filename>/loader/addons/*.addon.efi</filename> are loaded and
-      verified as PE binaries, and a <literal>.cmdline</literal> section is parsed from them. This is
-      supposed to be used to pass additional command line parameters to the kernel, regardless of the kernel
-      being booted.</para></listitem>
+      verified as PE binaries, and <literal>.cmdline</literal> and/or <literal>.dtb</literal> sections are
+      parsed from them. This is supposed to be used to pass additional command line parameters or Devicetree
+      blobs to the kernel, regardless of the kernel being booted.</para></listitem>
     </itemizedlist>
 
     <para>These mechanisms may be used to parameterize and extend trusted (i.e. signed), immutable initrd
@@ -387,7 +393,8 @@
       <varlistentry>
         <term><filename>/</filename></term>
 
-        <listitem><para>The main initrd from the <literal>.initrd</literal> PE section of the unified kernel image.</para>
+        <listitem><para>The main initrd from the <literal>.initrd</literal> PE section of the unified kernel
+        image.</para>
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
@@ -404,8 +411,8 @@
 
       <varlistentry>
         <term><filename>/.extra/global_credentials/*.cred</filename></term>
-        <listitem><para>Similar, credential files in the <filename>/loader/credentials/</filename> directory
-        in the file system the unified kernel image is placed in are copied into the
+        <listitem><para>Similarly, credential files in the <filename>/loader/credentials/</filename>
+        directory in the file system the unified kernel image is placed in are copied into the
         <filename>/.extra/global_credentials/</filename> directory in the initrd execution
         environment.</para>
 
@@ -425,8 +432,7 @@
         <term><filename>/.extra/tpm2-pcr-signature.json</filename></term>
         <listitem><para>The TPM2 PCR signature JSON object included in the <literal>.pcrsig</literal> PE
         section of the unified kernel image is copied into the
-        <filename>/.extra/tpm2-pcr-signature.json</filename> file in the initrd execution
-        environment.</para>
+        <filename>/.extra/tpm2-pcr-signature.json</filename> file in the initrd execution environment.</para>
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
@@ -485,7 +491,8 @@
       <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink>,
       <ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>,
       <citerefentry><refentrytitle>ukify</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <ulink url="https://systemd.io/TPM2_PCR_MEASUREMENTS">TPM2 PCR Measurements Made by systemd</ulink>
     </para>
   </refsect1>
 </refentry>

@@ -92,8 +92,7 @@ static int extension_release_strict_xattr_value(int extension_release_fd, const 
         assert(filename);
 
         /* No xattr or cannot parse it? Then skip this. */
-        _cleanup_free_ char *extension_release_xattr = NULL;
-        r = fgetxattr_malloc(extension_release_fd, "user.extension-release.strict", &extension_release_xattr);
+        r = getxattr_at_bool(extension_release_fd, /* path= */ NULL, "user.extension-release.strict", /* flags= */ 0);
         if (ERRNO_IS_NEG_XATTR_ABSENT(r))
                 return log_debug_errno(r, "%s/%s does not have user.extension-release.strict xattr, ignoring.",
                                        extension_release_dir_path, filename);
@@ -102,11 +101,6 @@ static int extension_release_strict_xattr_value(int extension_release_fd, const 
                                        extension_release_dir_path, filename);
 
         /* Explicitly set to request strict matching? Skip it. */
-        r = parse_boolean(extension_release_xattr);
-        if (r < 0)
-                return log_debug_errno(r,
-                                       "%s/%s: Failed to parse 'user.extension-release.strict' extended attribute from file, ignoring: %m",
-                                       extension_release_dir_path, filename);
         if (r > 0) {
                 log_debug("%s/%s: 'user.extension-release.strict' attribute is true, ignoring file.",
                           extension_release_dir_path, filename);

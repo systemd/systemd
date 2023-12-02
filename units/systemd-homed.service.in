@@ -32,7 +32,7 @@ RestrictRealtime=yes
 StateDirectory=systemd/home
 SystemCallArchitectures=native
 SystemCallErrorNumber=EPERM
-SystemCallFilter=@system-service @mount
+SystemCallFilter=@system-service @mount quotactl
 TimeoutStopSec=3min
 {{SERVICE_WATCHDOG}}
 

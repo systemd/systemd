@@ -20,7 +20,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
-#include "io-util.h"
+#include "iovec-util.h"
 #include "ioprio-util.h"
 #include "journal-file.h"
 #include "load-fragment.h"
@@ -61,6 +61,12 @@ static BUS_DEFINE_PROPERTY_GET_GLOBAL(property_get_empty_string, "s", NULL);
 static BUS_DEFINE_PROPERTY_GET_REF(property_get_syslog_level, "i", int, LOG_PRI);
 static BUS_DEFINE_PROPERTY_GET_REF(property_get_syslog_facility, "i", int, LOG_FAC);
 static BUS_DEFINE_PROPERTY_GET(property_get_cpu_affinity_from_numa, "b", ExecContext, exec_context_get_cpu_affinity_from_numa);
+static BUS_DEFINE_PROPERTY_GET(property_get_oom_score_adjust, "i", ExecContext, exec_context_get_oom_score_adjust);
+static BUS_DEFINE_PROPERTY_GET(property_get_nice, "i", ExecContext, exec_context_get_nice);
+static BUS_DEFINE_PROPERTY_GET(property_get_cpu_sched_policy, "i", ExecContext, exec_context_get_cpu_sched_policy);
+static BUS_DEFINE_PROPERTY_GET(property_get_cpu_sched_priority, "i", ExecContext, exec_context_get_cpu_sched_priority);
+static BUS_DEFINE_PROPERTY_GET(property_get_coredump_filter, "t", ExecContext, exec_context_get_coredump_filter);
+static BUS_DEFINE_PROPERTY_GET(property_get_timer_slack_nsec, "t", ExecContext, exec_context_get_timer_slack_nsec);
 
 static int property_get_environment_files(
                 sd_bus *bus,
@@ -90,150 +96,6 @@ static int property_get_environment_files(
         }
 
         return sd_bus_message_close_container(reply);
-}
-
-static int property_get_oom_score_adjust(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        ExecContext *c = ASSERT_PTR(userdata);
-        int r, n;
-
-        assert(bus);
-        assert(reply);
-
-        if (c->oom_score_adjust_set)
-                n = c->oom_score_adjust;
-        else {
-                n = 0;
-                r = get_oom_score_adjust(&n);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to read /proc/self/oom_score_adj, ignoring: %m");
-        }
-
-        return sd_bus_message_append(reply, "i", n);
-}
-
-static int property_get_coredump_filter(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        ExecContext *c = ASSERT_PTR(userdata);
-        uint64_t n;
-        int r;
-
-        assert(bus);
-        assert(reply);
-
-        if (c->coredump_filter_set)
-                n = c->coredump_filter;
-        else {
-                _cleanup_free_ char *t = NULL;
-
-                n = COREDUMP_FILTER_MASK_DEFAULT;
-                r = read_one_line_file("/proc/self/coredump_filter", &t);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to read /proc/self/coredump_filter, ignoring: %m");
-                else {
-                        r = safe_atoux64(t, &n);
-                        if (r < 0)
-                                log_debug_errno(r, "Failed to parse \"%s\" from /proc/self/coredump_filter, ignoring: %m", t);
-                }
-        }
-
-        return sd_bus_message_append(reply, "t", n);
-}
-
-static int property_get_nice(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        ExecContext *c = ASSERT_PTR(userdata);
-        int32_t n;
-
-        assert(bus);
-        assert(reply);
-
-        if (c->nice_set)
-                n = c->nice;
-        else {
-                errno = 0;
-                n = getpriority(PRIO_PROCESS, 0);
-                if (errno > 0)
-                        n = 0;
-        }
-
-        return sd_bus_message_append(reply, "i", n);
-}
-
-static int property_get_cpu_sched_policy(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        ExecContext *c = ASSERT_PTR(userdata);
-        int32_t n;
-
-        assert(bus);
-        assert(reply);
-
-        if (c->cpu_sched_set)
-                n = c->cpu_sched_policy;
-        else {
-                n = sched_getscheduler(0);
-                if (n < 0)
-                        n = SCHED_OTHER;
-        }
-
-        return sd_bus_message_append(reply, "i", n);
-}
-
-static int property_get_cpu_sched_priority(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        ExecContext *c = ASSERT_PTR(userdata);
-        int32_t n;
-
-        assert(bus);
-        assert(reply);
-
-        if (c->cpu_sched_set)
-                n = c->cpu_sched_priority;
-        else {
-                struct sched_param p = {};
-
-                if (sched_getparam(0, &p) >= 0)
-                        n = p.sched_priority;
-                else
-                        n = 0;
-        }
-
-        return sd_bus_message_append(reply, "i", n);
 }
 
 static int property_get_cpu_affinity(
@@ -306,29 +168,6 @@ static int property_get_numa_policy(
         return sd_bus_message_append_basic(reply, 'i', &policy);
 }
 
-static int property_get_timer_slack_nsec(
-                sd_bus *bus,
-                const char *path,
-                const char *interface,
-                const char *property,
-                sd_bus_message *reply,
-                void *userdata,
-                sd_bus_error *error) {
-
-        ExecContext *c = ASSERT_PTR(userdata);
-        uint64_t u;
-
-        assert(bus);
-        assert(reply);
-
-        if (c->timer_slack_nsec != NSEC_INFINITY)
-                u = (uint64_t) c->timer_slack_nsec;
-        else
-                u = (uint64_t) prctl(PR_GET_TIMERSLACK);
-
-        return sd_bus_message_append(reply, "t", u);
-}
-
 static int property_get_syscall_filter(
                 sd_bus *bus,
                 const char *path,
@@ -353,43 +192,9 @@ static int property_get_syscall_filter(
         if (r < 0)
                 return r;
 
-#if HAVE_SECCOMP
-        void *id, *val;
-        HASHMAP_FOREACH_KEY(val, id, c->syscall_filter) {
-                _cleanup_free_ char *name = NULL;
-                const char *e = NULL;
-                char *s;
-                int num = PTR_TO_INT(val);
-
-                if (c->syscall_allow_list && num >= 0)
-                        /* syscall with num >= 0 in allow-list is denied. */
-                        continue;
-
-                name = seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
-                if (!name)
-                        continue;
-
-                if (num >= 0) {
-                        e = seccomp_errno_or_action_to_string(num);
-                        if (e) {
-                                s = strjoin(name, ":", e);
-                                if (!s)
-                                        return -ENOMEM;
-                        } else {
-                                r = asprintf(&s, "%s:%d", name, num);
-                                if (r < 0)
-                                        return -ENOMEM;
-                        }
-                } else
-                        s = TAKE_PTR(name);
-
-                r = strv_consume(&l, s);
-                if (r < 0)
-                        return r;
-        }
-#endif
-
-        strv_sort(l);
+        l = exec_context_get_syscall_filter(c);
+        if (!l)
+                return -ENOMEM;
 
         r = sd_bus_message_append_strv(reply, l);
         if (r < 0)
@@ -422,22 +227,9 @@ static int property_get_syscall_log(
         if (r < 0)
                 return r;
 
-#if HAVE_SECCOMP
-        void *id, *val;
-        HASHMAP_FOREACH_KEY(val, id, c->syscall_log) {
-                char *name = NULL;
-
-                name = seccomp_syscall_resolve_num_arch(SCMP_ARCH_NATIVE, PTR_TO_INT(id) - 1);
-                if (!name)
-                        continue;
-
-                r = strv_consume(&l, name);
-                if (r < 0)
-                        return r;
-        }
-#endif
-
-        strv_sort(l);
+        l = exec_context_get_syscall_log(c);
+        if (!l)
+                return -ENOMEM;
 
         r = sd_bus_message_append_strv(reply, l);
         if (r < 0)
@@ -455,28 +247,16 @@ static int property_get_syscall_archs(
                 void *userdata,
                 sd_bus_error *error) {
 
+        ExecContext *c = ASSERT_PTR(userdata);
         _cleanup_strv_free_ char **l = NULL;
         int r;
 
         assert(bus);
         assert(reply);
 
-#if HAVE_SECCOMP
-        void *id;
-        SET_FOREACH(id, ASSERT_PTR((ExecContext*) userdata)->syscall_archs) {
-                const char *name;
-
-                name = seccomp_arch_to_string(PTR_TO_UINT32(id) - 1);
-                if (!name)
-                        continue;
-
-                r = strv_extend(&l, name);
-                if (r < 0)
-                        return -ENOMEM;
-        }
-#endif
-
-        strv_sort(l);
+        l = exec_context_get_syscall_archs(c);
+        if (!l)
+                return -ENOMEM;
 
         r = sd_bus_message_append_strv(reply, l);
         if (r < 0)
@@ -547,7 +327,6 @@ static int property_get_address_families(
 
         ExecContext *c = ASSERT_PTR(userdata);
         _cleanup_strv_free_ char **l = NULL;
-        void *af;
         int r;
 
         assert(bus);
@@ -561,19 +340,9 @@ static int property_get_address_families(
         if (r < 0)
                 return r;
 
-        SET_FOREACH(af, c->address_families) {
-                const char *name;
-
-                name = af_to_name(PTR_TO_INT(af));
-                if (!name)
-                        continue;
-
-                r = strv_extend(&l, name);
-                if (r < 0)
-                        return -ENOMEM;
-        }
-
-        strv_sort(l);
+        l = exec_context_get_address_families(c);
+        if (!l)
+                return -ENOMEM;
 
         r = sd_bus_message_append_strv(reply, l);
         if (r < 0)
@@ -678,13 +447,9 @@ static int property_get_restrict_filesystems(
         if (r < 0)
                 return r;
 
-#if HAVE_LIBBPF
-        l = set_get_strv(c->restrict_filesystems);
+        l = exec_context_get_restrict_filesystems(c);
         if (!l)
                 return -ENOMEM;
-#endif
-
-        strv_sort(l);
 
         r = sd_bus_message_append_strv(reply, l);
         if (r < 0)
@@ -1273,6 +1038,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("User", "s", NULL, offsetof(ExecContext, user), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Group", "s", NULL, offsetof(ExecContext, group), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DynamicUser", "b", bus_property_get_bool, offsetof(ExecContext, dynamic_user), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("SetLoginEnvironment", "b", bus_property_get_tristate, offsetof(ExecContext, set_login_environment), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RemoveIPC", "b", bus_property_get_bool, offsetof(ExecContext, remove_ipc), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SetCredential", "a(say)", property_get_set_credential, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SetCredentialEncrypted", "a(say)", property_get_set_credential, 0, SD_BUS_VTABLE_PROPERTY_CONST),
@@ -1729,6 +1495,9 @@ int bus_exec_context_set_transient_property(
 
         if (streq(name, "Group"))
                 return bus_set_transient_user_relaxed(u, name, &c->group, message, flags, error);
+
+        if (streq(name, "SetLoginEnvironment"))
+                return bus_set_transient_tristate(u, name, &c->set_login_environment, message, flags, error);
 
         if (streq(name, "TTYPath"))
                 return bus_set_transient_path(u, name, &c->tty_path, message, flags, error);

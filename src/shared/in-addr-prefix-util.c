@@ -312,7 +312,8 @@ int config_parse_in_addr_prefixes(
                         }
                         if (r < 0) {
                                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                                           "Address prefix is invalid, ignoring assignment: %s", word);
+                                           "Invalid address prefix is specified in [%s] %s=, ignoring assignment: %s",
+                                           section, lvalue, word);
                                 continue;
                         }
 
