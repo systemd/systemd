@@ -178,7 +178,7 @@ static int populate_edit_temp_file(EditFile *e, FILE *f, const char *filename) {
         return 0;
 }
 
-static int create_edit_temp_file(EditFile *e) {
+static int create_edit_temp_file(EditFile *e, bool use_stdin) {
         _cleanup_(unlink_and_freep) char *temp = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -202,13 +202,19 @@ static int create_edit_temp_file(EditFile *e) {
         if (fchmod(fileno(f), 0644) < 0)
                 return log_error_errno(errno, "Failed to change mode of temporary file '%s': %m", temp);
 
-        r = populate_edit_temp_file(e, f, temp);
-        if (r < 0)
-                return r;
+        if (use_stdin) {
+                r = copy_bytes(STDIN_FILENO, fileno(f), UINT64_MAX, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to copy input to temporary file '%s': %m", temp);
+        } else {
+                r = populate_edit_temp_file(e, f, temp);
+                if (r < 0)
+                        return r;
 
-        r = fflush_and_check(f);
-        if (r < 0)
-                return log_error_errno(r, "Failed to write to temporary file '%s': %m", temp);
+                r = fflush_and_check(f);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write to temporary file '%s': %m", temp);
+        }
 
         e->temp = TAKE_PTR(temp);
 
@@ -345,19 +351,22 @@ int do_edit_files_and_install(EditFileContext *context) {
         int r;
 
         assert(context);
+        assert(context->n_files == 1 || !context->stdin);
 
         if (context->n_files == 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "Got no files to edit.");
 
-        FOREACH_ARRAY(i, context->files, context->n_files) {
-                r = create_edit_temp_file(i);
+        FOREACH_ARRAY(editfile, context->files, context->n_files) {
+                r = create_edit_temp_file(editfile, /* use_stdin= */ context->stdin);
                 if (r < 0)
                         return r;
         }
 
-        r = run_editor(context);
-        if (r < 0)
-                return r;
+        if (!context->stdin) {
+                r = run_editor(context);
+                if (r < 0)
+                        return r;
+        }
 
         FOREACH_ARRAY(i, context->files, context->n_files) {
                 /* Always call strip_edit_temp_file which will tell if the temp file has actual changes */
