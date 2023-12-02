@@ -34,6 +34,7 @@
 #include "locale-util.h"
 #include "login-util.h"
 #include "macro.h"
+#include "missing_syscall.h"
 #include "pam-util.h"
 #include "parse-util.h"
 #include "path-util.h"
@@ -780,6 +781,101 @@ static uint64_t pick_default_capability_ambient_set(
                 (streq_ptr(service, "systemd-user") || !isempty(seat)) ? (UINT64_C(1) << CAP_WAKE_ALARM) : UINT64_MAX;
 }
 
+typedef struct SessionContext {
+        const uid_t uid;
+        const pid_t pid;
+        const char *service;
+        const char *type;
+        const char *class;
+        const char *desktop;
+        const char *seat;
+        const uint32_t vtnr;
+        const char *tty;
+        const char *display;
+        const bool remote;
+        const char *remote_user;
+        const char *remote_host;
+        const char *memory_max;
+        const char *tasks_max;
+        const char *cpu_weight;
+        const char *io_weight;
+        const char *runtime_max_sec;
+} SessionContext;
+
+static int create_session_message(sd_bus *bus, pam_handle_t *handle, const SessionContext *context, bool avoid_pidfd, sd_bus_message **ret) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        int r, pidfd = -EBADFD;
+
+        assert(bus);
+        assert(handle);
+        assert(context);
+
+        if (!avoid_pidfd) {
+                pidfd = pidfd_open(getpid_cached(), 0);
+                if (pidfd < 0 && !ERRNO_IS_NOT_SUPPORTED(errno))
+                        return -errno;
+        }
+
+        r = bus_message_new_method_call(bus, &m, bus_login_mgr, pidfd >= 0 ? "CreateSessionWithPIDFD" : "CreateSession");
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_append(m,
+                                  pidfd >= 0 ? "uhsssssussbss" : "uusssssussbss",
+                                  (uint32_t) context->uid,
+                                  pidfd >= 0 ? pidfd : context->pid,
+                                  context->service,
+                                  context->type,
+                                  context->class,
+                                  context->desktop,
+                                  context->seat,
+                                  context->vtnr,
+                                  context->tty,
+                                  context->display,
+                                  context->remote,
+                                  context->remote_user,
+                                  context->remote_host);
+        if (r < 0)
+                return r;
+
+        if (pidfd >= 0) {
+                r = sd_bus_message_append(m, "t", UINT64_C(0));
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_open_container(m, 'a', "(sv)");
+        if (r < 0)
+                return r;
+
+        r = append_session_memory_max(handle, m, context->memory_max);
+        if (r != PAM_SUCCESS)
+                return r;
+
+        r = append_session_runtime_max_sec(handle, m, context->runtime_max_sec);
+        if (r != PAM_SUCCESS)
+                return r;
+
+        r = append_session_tasks_max(handle, m, context->tasks_max);
+        if (r != PAM_SUCCESS)
+                return r;
+
+        r = append_session_cpu_weight(handle, m, context->cpu_weight);
+        if (r != PAM_SUCCESS)
+                return r;
+
+        r = append_session_io_weight(handle, m, context->io_weight);
+        if (r != PAM_SUCCESS)
+                return r;
+
+        r = sd_bus_message_close_container(m);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(m);
+        return 0;
+}
+
 _public_ PAM_EXTERN int pam_sm_open_session(
                 pam_handle_t *handle,
                 int flags,
@@ -963,52 +1059,32 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                          "memory_max=%s tasks_max=%s cpu_weight=%s io_weight=%s runtime_max_sec=%s",
                          strna(memory_max), strna(tasks_max), strna(cpu_weight), strna(io_weight), strna(runtime_max_sec));
 
-        r = bus_message_new_method_call(bus, &m, bus_login_mgr, "CreateSession");
-        if (r < 0)
-                return pam_bus_log_create_error(handle, r);
+        const SessionContext context = {
+                .uid = ur->uid,
+                .pid = 0,
+                .service = service,
+                .type = type,
+                .class = class,
+                .desktop = desktop,
+                .seat = seat,
+                .vtnr = vtnr,
+                .tty = tty,
+                .display = display,
+                .remote = remote,
+                .remote_user = remote_user,
+                .remote_host = remote_host,
+                .memory_max = memory_max,
+                .tasks_max = tasks_max,
+                .cpu_weight = cpu_weight,
+                .io_weight = io_weight,
+                .runtime_max_sec = runtime_max_sec,
+        };
 
-        r = sd_bus_message_append(m, "uusssssussbss",
-                        (uint32_t) ur->uid,
-                        0,
-                        service,
-                        type,
-                        class,
-                        desktop,
-                        seat,
-                        vtnr,
-                        tty,
-                        display,
-                        remote,
-                        remote_user,
-                        remote_host);
-        if (r < 0)
-                return pam_bus_log_create_error(handle, r);
-
-        r = sd_bus_message_open_container(m, 'a', "(sv)");
-        if (r < 0)
-                return pam_bus_log_create_error(handle, r);
-
-        r = append_session_memory_max(handle, m, memory_max);
-        if (r != PAM_SUCCESS)
-                return r;
-
-        r = append_session_runtime_max_sec(handle, m, runtime_max_sec);
-        if (r != PAM_SUCCESS)
-                return r;
-
-        r = append_session_tasks_max(handle, m, tasks_max);
-        if (r != PAM_SUCCESS)
-                return r;
-
-        r = append_session_cpu_weight(handle, m, cpu_weight);
-        if (r != PAM_SUCCESS)
-                return r;
-
-        r = append_session_io_weight(handle, m, io_weight);
-        if (r != PAM_SUCCESS)
-                return r;
-
-        r = sd_bus_message_close_container(m);
+        r = create_session_message(bus,
+                                   handle,
+                                   &context,
+                                   false /* avoid_pidfd = */,
+                                   &m);
         if (r < 0)
                 return pam_bus_log_create_error(handle, r);
 
@@ -1019,7 +1095,23 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                                          "Not creating session: %s", bus_error_message(&error, r));
                         /* We are already in a session, don't do anything */
                         goto success;
-                } else {
+                } else if (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD)) {
+                        pam_debug_syslog(handle, debug,
+                                         "CreateSessionWithPIDFD() API is not available, retrying with CreateSession().");
+
+                        m = sd_bus_message_unref(m);
+                        r = create_session_message(bus,
+                                                   handle,
+                                                   &context,
+                                                   true /* avoid_pidfd = */,
+                                                   &m);
+                        if (r < 0)
+                                return pam_bus_log_create_error(handle, r);
+
+                        sd_bus_error_free(&error);
+                        r = sd_bus_call(bus, m, LOGIN_SLOW_BUS_CALL_TIMEOUT_USEC, &error, &reply);
+                }
+                if (r < 0) {
                         pam_syslog(handle, LOG_ERR,
                                    "Failed to create session: %s", bus_error_message(&error, r));
                         return PAM_SESSION_ERR;

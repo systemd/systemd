@@ -307,13 +307,13 @@ int dns_packet_validate_query(DnsPacket *p) {
         if (DNS_PACKET_OPCODE(p) != 0)
                 return -EBADMSG;
 
-        if (DNS_PACKET_TC(p))
-                return -EBADMSG;
-
         switch (p->protocol) {
 
         case DNS_PROTOCOL_LLMNR:
         case DNS_PROTOCOL_DNS:
+                if (DNS_PACKET_TC(p)) /* mDNS query may have truncation flag. */
+                        return -EBADMSG;
+
                 /* RFC 4795, Section 2.1.1. says to discard all queries with QDCOUNT != 1 */
                 if (DNS_PACKET_QDCOUNT(p) != 1)
                         return -EBADMSG;

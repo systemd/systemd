@@ -16,7 +16,10 @@
 /* Make sure we can distinguish fd 0 and NULL */
 #define FD_TO_PTR(fd) INT_TO_PTR((fd)+1)
 #define PTR_TO_FD(p) (PTR_TO_INT(p)-1)
-#define PIPE_EBADF { -EBADF, -EBADF }
+
+/* Useful helpers for initializing pipe(), socketpair() or stdio fd arrays */
+#define EBADF_PAIR { -EBADF, -EBADF }
+#define EBADF_TRIPLET { -EBADF, -EBADF, -EBADF }
 
 int close_nointr(int fd);
 int safe_close(int fd);
@@ -30,6 +33,8 @@ static inline int safe_close_above_stdio(int fd) {
 }
 
 void close_many(const int fds[], size_t n_fd);
+void close_many_unset(int fds[], size_t n_fd);
+void close_many_and_free(int *fds, size_t n_fds);
 
 int fclose_nointr(FILE *f);
 FILE* safe_fclose(FILE *f);
@@ -125,6 +130,16 @@ static inline char *format_proc_fd_path(char buf[static PROC_FD_PATH_MAX], int f
 
 #define FORMAT_PROC_FD_PATH(fd) \
         format_proc_fd_path((char[PROC_FD_PATH_MAX]) {}, (fd))
+
+/* The maximum length a buffer for a /proc/<pid>/fd/<fd> path needs */
+#define PROC_PID_FD_PATH_MAX \
+        (STRLEN("/proc//fd/") + DECIMAL_STR_MAX(pid_t) + DECIMAL_STR_MAX(int))
+
+char *format_proc_pid_fd_path(char buf[static PROC_PID_FD_PATH_MAX], pid_t pid, int fd);
+
+/* Kinda the same as FORMAT_PROC_FD_PATH(), but goes by PID rather than "self" symlink */
+#define FORMAT_PROC_PID_FD_PATH(pid, fd)                                \
+        format_proc_pid_fd_path((char[PROC_PID_FD_PATH_MAX]) {}, (pid), (fd))
 
 const char *accmode_to_string(int flags);
 

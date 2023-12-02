@@ -475,7 +475,7 @@ static int print_uid_shift(sd_bus *bus, const char *name) {
         if (shift == 0) /* Don't show trivial mappings */
                 return 0;
 
-        printf("       UID Shift: %" PRIu32 "\n", shift);
+        printf("  UID Shift: %" PRIu32 "\n", shift);
         return 0;
 }
 
@@ -526,7 +526,7 @@ static void print_machine_status_info(sd_bus *bus, MachineStatusInfo *i) {
 
                 printf("\t  Leader: %u", (unsigned) i->leader);
 
-                (void) get_process_comm(i->leader, &t);
+                (void) pid_get_comm(i->leader, &t);
                 if (t)
                         printf(" (%s)", t);
 
@@ -1537,7 +1537,7 @@ static int cat_settings(int argc, char *argv[], void *userdata) {
                                                        "Invalid settings file path '%s'.",
                                                        *name);
 
-                        q = cat_files(*name, /* dropins = */ NULL, /* flags = */ 0);
+                        q = cat_files(*name, /* dropins = */ NULL, /* flags = */ CAT_FORMAT_HAS_SECTIONS);
                         if (q < 0)
                                 return r < 0 ? r : q;
                         continue;
@@ -1558,7 +1558,7 @@ static int cat_settings(int argc, char *argv[], void *userdata) {
                         return r < 0 ? r : q;
                 }
 
-                q = cat_files(path, /* dropins = */ NULL, /* flags = */ 0);
+                q = cat_files(path, /* dropins = */ NULL, /* flags = */ CAT_FORMAT_HAS_SECTIONS);
                 if (q < 0)
                         return r < 0 ? r : q;
         }

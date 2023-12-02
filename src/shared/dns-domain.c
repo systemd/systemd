@@ -206,7 +206,7 @@ int dns_label_escape(const char *p, size_t l, char *dest, size_t sz) {
         char *q;
 
         /* DNS labels must be between 1 and 63 characters long. A
-         * zero-length label does not exist. See RFC 2182, Section
+         * zero-length label does not exist. See RFC 2181, Section
          * 11. */
 
         if (l <= 0 || l > DNS_LABEL_MAX)

@@ -66,8 +66,6 @@ static int setup_monitor(MonitorNetlinkGroup sender, sd_event *event, sd_device_
         if (r < 0)
                 return log_error_errno(r, "Failed to create netlink socket: %m");
 
-        (void) sd_device_monitor_set_receive_buffer_size(monitor, 128*1024*1024);
-
         r = sd_device_monitor_attach_event(monitor, event);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach event: %m");
@@ -210,7 +208,7 @@ int monitor_main(int argc, char *argv[], void *userdata) {
                 goto finalize;
         }
 
-        assert_se(sigprocmask_many(SIG_UNBLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
         (void) sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
         (void) sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
 

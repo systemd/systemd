@@ -19,6 +19,7 @@
 #include "hostname-util.h"
 #include "idn-util.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "memstream-util.h"
 #include "missing_network.h"
 #include "missing_socket.h"
@@ -1104,6 +1105,7 @@ int manager_monitor_send(
                 int error,
                 DnsQuestion *question_idna,
                 DnsQuestion *question_utf8,
+                DnsPacket *question_bypass,
                 DnsQuestion *collected_questions,
                 DnsAnswer *answer) {
 
@@ -1118,10 +1120,21 @@ int manager_monitor_send(
         if (set_isempty(m->varlink_subscription))
                 return 0;
 
-        /* Merge both questions format into one */
+        /* Merge all questions into one */
         r = dns_question_merge(question_idna, question_utf8, &merged);
         if (r < 0)
                 return log_error_errno(r, "Failed to merge UTF8/IDNA questions: %m");
+
+        if (question_bypass) {
+                _cleanup_(dns_question_unrefp) DnsQuestion *merged2 = NULL;
+
+                r = dns_question_merge(merged, question_bypass->question, &merged2);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to merge UTF8/IDNA questions and DNS packet question: %m");
+
+                dns_question_unref(merged);
+                merged = TAKE_PTR(merged2);
+        }
 
         /* Convert the current primary question to JSON */
         r = dns_question_to_json(merged, &jquestion);
@@ -1185,8 +1198,11 @@ int manager_send(
         assert(port > 0);
         assert(p);
 
+        /* For mDNS, it is natural that the packet have truncated flag when we have many known answers. */
+        bool truncated = DNS_PACKET_TC(p) && (p->protocol != DNS_PROTOCOL_MDNS || !p->more);
+
         log_debug("Sending %s%s packet with id %" PRIu16 " on interface %i/%s of size %zu.",
-                  DNS_PACKET_TC(p) ? "truncated (!) " : "",
+                  truncated ? "truncated (!) " : "",
                   DNS_PACKET_QR(p) ? "response" : "query",
                   DNS_PACKET_ID(p),
                   ifindex, af_to_name(family),

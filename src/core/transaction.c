@@ -781,19 +781,11 @@ int transaction_activate(
 
         assert(hashmap_isempty(tr->jobs));
 
-        if (!hashmap_isempty(m->jobs)) {
-                /* Are there any jobs now? Then make sure we have the
-                 * idle pipe around. We don't really care too much
-                 * whether this works or not, as the idle pipe is a
-                 * feature for cosmetics, not actually useful for
-                 * anything beyond that. */
-
-                if (m->idle_pipe[0] < 0 && m->idle_pipe[1] < 0 &&
-                    m->idle_pipe[2] < 0 && m->idle_pipe[3] < 0) {
-                        (void) pipe2(m->idle_pipe, O_NONBLOCK|O_CLOEXEC);
-                        (void) pipe2(m->idle_pipe + 2, O_NONBLOCK|O_CLOEXEC);
-                }
-        }
+        /* Are there any jobs now? Then make sure we have the idle pipe around. We don't really care too much
+         * whether this works or not, as the idle pipe is a feature for cosmetics, not actually useful for
+         * anything beyond that. */
+        if (!hashmap_isempty(m->jobs))
+                (void) manager_allocate_idle_pipe(m);
 
         return 0;
 }

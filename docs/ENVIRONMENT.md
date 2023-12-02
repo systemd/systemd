@@ -136,6 +136,13 @@ All tools:
 
 * `$SYSTEMCTL_SKIP_SYSV=1` — if set, do not call SysV compatibility hooks.
 
+* `$SYSTEMCTL_SKIP_AUTO_KEXEC=1` — if set, do not automatically kexec instead of
+  reboot when a new kernel has been loaded.
+
+* `$SYSTEMCTL_SKIP_AUTO_SOFT_REBOOT=1` — if set, do not automatically soft-reboot
+  instead of reboot when a new root file system has been loaded in
+  `/run/nextroot/`.
+
 `systemd-nspawn`:
 
 * `$SYSTEMD_NSPAWN_UNIFIED_HIERARCHY=1` — if set, force `systemd-nspawn` into
@@ -157,11 +164,21 @@ All tools:
 * `$SYSTEMD_NSPAWN_TMPFS_TMP=0` — if set, do not overmount `/tmp/` in the
   container with a tmpfs, but leave the directory from the image in place.
 
+* `$SYSTEMD_NSPAWN_CHECK_OS_RELEASE=0` — if set, do not fail when trying to
+  boot an OS tree without an os-release file (useful when trying to boot a
+  container with empty `/etc/` and bind-mounted `/usr/`)
+
 * `$SYSTEMD_SUPPRESS_SYNC=1` — if set, all disk synchronization syscalls are
   blocked to the container payload (e.g. `sync()`, `fsync()`, `syncfs()`, …)
   and the `O_SYNC`/`O_DSYNC` flags are made unavailable to `open()` and
   friends. This is equivalent to passing `--suppress-sync=yes` on the
   `systemd-nspawn` command line.
+
+* `$SYSTEMD_NSPAWN_NETWORK_MAC=...` — if set, allows users to set a specific MAC
+  address for a container, ensuring that it uses the provided value instead of
+  generating a random one. It is effective when used with `--network-veth`. The
+  expected format is six groups of two hexadecimal digits separated by colons,
+  e.g. `SYSTEMD_NSPAWN_NETWORK_MAC=12:34:56:78:90:AB`
 
 `systemd-logind`:
 
@@ -452,6 +469,12 @@ disk images with `--image=` or similar:
   activating via FIDO2, PKCS#11, TPM2, i.e. mechanisms natively supported by
   `systemd-cryptsetup`. Defaults to enabled.
 
+* `$SYSTEMD_CRYPTSETUP_TOKEN_PATH` – takes a path to a directory in the file
+  system. If specified overrides where libcryptsetup will look for token
+  modules (.so). This is useful for debugging token modules: set this
+  environment variable to the build directory and you are set. This variable
+  is only supported when systemd is compiled in developer mode.
+
 Various tools that read passwords from the TTY, such as `systemd-cryptenroll`
 and `homectl`:
 
@@ -552,3 +575,23 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
 * `$SYSTEMD_REPART_MKFS_OPTIONS_<FSTYPE>` – configure additional arguments to use for
   `mkfs` when formatting partition file systems. There's one variable for each
   of the supported file systems.
+
+* `$SYSTEMD_REPART_OVERRIDE_FSTYPE` – if set the value will override the file
+  system type specified in Format= lines in partition definition files.
+
+`systemd-nspawn`, `systemd-networkd`:
+
+* `$SYSTEMD_FIREWALL_BACKEND` – takes a string, either `iptables` or
+  `nftables`. Selects the firewall backend to use. If not specified tries to
+  use `nftables` and falls back to `iptables` if that's not available.
+
+`systemd-storagetm`:
+
+* `$SYSTEMD_NVME_MODEL`, `$SYSTEMD_NVME_FIRMWARE`, `$SYSTEMD_NVME_SERIAL`,
+  `$SYSTEMD_NVME_UUID` – these take a model string, firmware version string,
+  serial number string, and UUID formatted as string. If specified these
+  override the defaults exposed on the NVME subsystem and namespace, which are
+  derived from the underlying block device and system identity. Do not set the
+  latter two via the environment variable unless `systemd-storagetm` is invoked
+  to expose a single device only, since those identifiers better should be kept
+  unique.

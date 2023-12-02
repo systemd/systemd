@@ -56,7 +56,7 @@ int client_context_read_log_filter_patterns(ClientContext *c, const char *cgroup
         if (r < 0)
                 return log_debug_errno(r, "Failed to get the unit's cgroup path for %s: %m", cgroup);
 
-        r = cg_get_xattr_malloc(SYSTEMD_CGROUP_CONTROLLER, unit_cgroup, "user.journald_log_filter_patterns", &xattr);
+        r = cg_get_xattr_malloc(unit_cgroup, "user.journald_log_filter_patterns", &xattr);
         if (ERRNO_IS_NEG_XATTR_ABSENT(r)) {
                 client_set_filtering_patterns(c, NULL, NULL);
                 return 0;

@@ -145,6 +145,7 @@ typedef enum ManagerTestRunFlags {
         MANAGER_TEST_RUN_ENV_GENERATORS      = 1 << 2,  /* also run env generators  */
         MANAGER_TEST_RUN_GENERATORS          = 1 << 3,  /* also run unit generators */
         MANAGER_TEST_RUN_IGNORE_DEPENDENCIES = 1 << 4,  /* run while ignoring dependencies */
+        MANAGER_TEST_DONT_OPEN_EXECUTOR      = 1 << 5,  /* avoid trying to load sd-executor */
         MANAGER_TEST_FULL = MANAGER_TEST_RUN_BASIC | MANAGER_TEST_RUN_ENV_GENERATORS | MANAGER_TEST_RUN_GENERATORS,
 } ManagerTestRunFlags;
 
@@ -167,7 +168,7 @@ typedef struct UnitDefaults {
         bool tasks_accounting;
         bool ip_accounting;
 
-        TasksMax tasks_max;
+        CGroupTasksMax tasks_max;
         usec_t timer_accuracy_usec;
 
         OOMPolicy oom_policy;
@@ -496,6 +497,10 @@ struct Manager {
 
         /* For NFTSet= */
         FirewallContext *fw_ctx;
+
+        /* Pin the systemd-executor binary, so that it never changes until re-exec, ensuring we don't have
+         * serialization/deserialization compatibility issues during upgrades. */
+        int executor_fd;
 };
 
 static inline usec_t manager_default_timeout_abort_usec(Manager *m) {
@@ -587,6 +592,8 @@ void manager_override_show_status(Manager *m, ShowStatus mode, const char *reaso
 void manager_set_first_boot(Manager *m, bool b);
 void manager_set_switching_root(Manager *m, bool switching_root);
 
+double manager_get_progress(Manager *m);
+
 void manager_status_printf(Manager *m, StatusType type, const char *status, const char *format, ...) _printf_(4,5);
 
 Set *manager_get_units_requiring_mounts_for(Manager *m, const char *path);
@@ -616,7 +623,6 @@ const char *manager_state_to_string(ManagerState m) _const_;
 ManagerState manager_state_from_string(const char *s) _pure_;
 
 const char *manager_get_confirm_spawn(Manager *m);
-bool manager_is_confirm_spawn_disabled(Manager *m);
 void manager_disable_confirm_spawn(void);
 
 const char *manager_timestamp_to_string(ManagerTimestamp m) _const_;
@@ -628,6 +634,10 @@ void manager_set_watchdog(Manager *m, WatchdogType t, usec_t timeout);
 void manager_override_watchdog(Manager *m, WatchdogType t, usec_t timeout);
 int manager_set_watchdog_pretimeout_governor(Manager *m, const char *governor);
 int manager_override_watchdog_pretimeout_governor(Manager *m, const char *governor);
+
+LogTarget manager_get_executor_log_target(Manager *m);
+
+int manager_allocate_idle_pipe(Manager *m);
 
 const char* oom_policy_to_string(OOMPolicy i) _const_;
 OOMPolicy oom_policy_from_string(const char *s) _pure_;

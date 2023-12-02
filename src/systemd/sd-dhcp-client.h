@@ -104,6 +104,9 @@ __extension__ int sd_dhcp_client_set_iaid_duid_raw(
                 uint16_t duid_type,
                 const uint8_t *duid,
                 size_t duid_len);
+__extension__ int sd_dhcp_client_set_rapid_commit(
+                sd_dhcp_client *client,
+                bool rapid_commit);
 int sd_dhcp_client_get_client_id(
                 sd_dhcp_client *client,
                 uint8_t *ret_type,
@@ -152,6 +155,8 @@ int sd_dhcp_client_start(sd_dhcp_client *client);
 int sd_dhcp_client_send_release(sd_dhcp_client *client);
 int sd_dhcp_client_send_decline(sd_dhcp_client *client);
 int sd_dhcp_client_send_renew(sd_dhcp_client *client);
+int sd_dhcp_client_set_ipv6_connectivity(sd_dhcp_client *client, int have);
+int sd_dhcp_client_interrupt_ipv6_only_mode(sd_dhcp_client *client);
 
 sd_dhcp_client *sd_dhcp_client_ref(sd_dhcp_client *client);
 sd_dhcp_client *sd_dhcp_client_unref(sd_dhcp_client *client);

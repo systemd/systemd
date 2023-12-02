@@ -21,6 +21,7 @@ systemd_analyze_sources = files(
         'analyze-plot.c',
         'analyze-security.c',
         'analyze-service-watchdogs.c',
+        'analyze-srk.c',
         'analyze-syscall-filter.c',
         'analyze-time.c',
         'analyze-time-data.c',

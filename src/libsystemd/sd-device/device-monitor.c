@@ -20,7 +20,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "hashmap.h"
-#include "io-util.h"
+#include "iovec-util.h"
 #include "missing_socket.h"
 #include "mountpoint-util.h"
 #include "set.h"
@@ -213,6 +213,15 @@ int device_monitor_new_full(sd_device_monitor **ret, MonitorNetlinkGroup group, 
                         } else if (!stat_inode_same(&a, &b))
                                 log_monitor(m, "Netlink socket we listen on is not from host netns, we won't see device events.");
                 }
+        }
+
+        /* Let's bump the receive buffer size, but only if we are not called via socket activation, as in
+         * that case the service manager sets the receive buffer size for us, and the value in the .socket
+         * unit should take full effect. */
+        if (fd < 0) {
+                r = sd_device_monitor_set_receive_buffer_size(m, 128*1024*1024);
+                if (r < 0)
+                        log_monitor_errno(m, r, "Failed to increase receive buffer size, ignoring: %m");
         }
 
         *ret = TAKE_PTR(m);

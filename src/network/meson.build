@@ -261,6 +261,6 @@ if conf.get('ENABLE_NETWORKD') == 1
 
         if install_sysconfdir_samples
                 install_data('networkd.conf',
-                             install_dir : pkgsysconfdir)
+                             install_dir : pkgconfigfiledir)
         endif
 endif

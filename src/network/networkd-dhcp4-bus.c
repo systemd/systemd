@@ -6,7 +6,6 @@
 #include "bus-common-errors.h"
 #include "bus-util.h"
 #include "dhcp-client-internal.h"
-#include "dhcp-protocol.h"
 #include "networkd-dhcp4-bus.h"
 #include "networkd-link-bus.h"
 #include "networkd-manager.h"

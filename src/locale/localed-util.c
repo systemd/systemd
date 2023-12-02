@@ -434,22 +434,20 @@ int x11_read_data(Context *c, sd_bus_message *m) {
 
         for (;;) {
                 _cleanup_free_ char *line = NULL;
-                char *l;
 
-                r = read_line(f, LONG_LINE_MAX, &line);
+                r = read_stripped_line(f, LONG_LINE_MAX, &line);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         break;
 
-                l = strstrip(line);
-                if (IN_SET(l[0], 0, '#'))
+                if (IN_SET(line[0], 0, '#'))
                         continue;
 
-                if (in_section && first_word(l, "Option")) {
+                if (in_section && first_word(line, "Option")) {
                         _cleanup_strv_free_ char **a = NULL;
 
-                        r = strv_split_full(&a, l, WHITESPACE, EXTRACT_UNQUOTE);
+                        r = strv_split_full(&a, line, WHITESPACE, EXTRACT_UNQUOTE);
                         if (r < 0)
                                 return r;
 
@@ -469,17 +467,17 @@ int x11_read_data(Context *c, sd_bus_message *m) {
                                         free_and_replace(*p, a[2]);
                         }
 
-                } else if (!in_section && first_word(l, "Section")) {
+                } else if (!in_section && first_word(line, "Section")) {
                         _cleanup_strv_free_ char **a = NULL;
 
-                        r = strv_split_full(&a, l, WHITESPACE, EXTRACT_UNQUOTE);
+                        r = strv_split_full(&a, line, WHITESPACE, EXTRACT_UNQUOTE);
                         if (r < 0)
                                 return -ENOMEM;
 
                         if (strv_length(a) == 2 && streq(a[1], "InputClass"))
                                 in_section = true;
 
-                } else if (in_section && first_word(l, "EndSection"))
+                } else if (in_section && first_word(line, "EndSection"))
                         in_section = false;
         }
 
@@ -534,7 +532,7 @@ int vconsole_write_data(Context *c) {
                 return 0;
         }
 
-        r = write_env_file_label("/etc/vconsole.conf", l);
+        r = write_vconsole_conf_label(l);
         if (r < 0)
                 return r;
 
@@ -570,7 +568,7 @@ int x11_write_data(Context *c) {
 
         fputs("# Written by systemd-localed(8), read by systemd-localed and Xorg. It's\n"
               "# probably wise not to edit this file manually. Use localectl(1) to\n"
-              "# instruct systemd-localed to update it.\n"
+              "# update this file.\n"
               "Section \"InputClass\"\n"
               "        Identifier \"system-keyboard\"\n"
               "        MatchIsKeyboard \"on\"\n", f);
@@ -618,10 +616,9 @@ static int read_next_mapping(
                 _cleanup_strv_free_ char **b = NULL;
                 _cleanup_free_ char *line = NULL;
                 size_t length;
-                const char *l;
                 int r;
 
-                r = read_line(f, LONG_LINE_MAX, &line);
+                r = read_stripped_line(f, LONG_LINE_MAX, &line);
                 if (r < 0)
                         return r;
                 if (r == 0)
@@ -629,11 +626,10 @@ static int read_next_mapping(
 
                 (*n)++;
 
-                l = strstrip(line);
-                if (IN_SET(l[0], 0, '#'))
+                if (IN_SET(line[0], 0, '#'))
                         continue;
 
-                r = strv_split_full(&b, l, WHITESPACE, EXTRACT_UNQUOTE);
+                r = strv_split_full(&b, line, WHITESPACE, EXTRACT_UNQUOTE);
                 if (r < 0)
                         return r;
 
@@ -1008,16 +1004,14 @@ static int locale_gen_locale_supported(const char *locale_entry) {
 
         for (;;) {
                 _cleanup_free_ char *line = NULL;
-                char *l;
 
-                r = read_line(f, LONG_LINE_MAX, &line);
+                r = read_stripped_line(f, LONG_LINE_MAX, &line);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to read /usr/share/i18n/SUPPORTED: %m");
                 if (r == 0)
                         return 0;
 
-                l = strstrip(line);
-                if (strcaseeq_ptr(l, locale_entry))
+                if (strcaseeq_ptr(line, locale_entry))
                         return 1;
         }
 }

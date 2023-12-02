@@ -41,14 +41,14 @@
   <refsect1>
     <title>Description</title>
 
-    <para><function>sd_bus_process()</function> drives the connection between the client and the message bus. That is,
-    it handles connecting, authentication, and message processing. When invoked pending I/O work is executed, and
-    queued incoming messages are dispatched to registered callbacks. Each time it is invoked a single operation is
-    executed. It returns zero when no operations were pending and positive if a message was processed. When zero is
-    returned the caller should synchronously poll for I/O events before calling into
-    <function>sd_bus_process()</function> again. For that either use the simple, synchronous
-    <citerefentry><refentrytitle>sd_bus_wait</refentrytitle><manvolnum>3</manvolnum></citerefentry> call, or hook up
-    the bus connection object to an external or manual event loop using
+    <para><function>sd_bus_process()</function> drives the connection between the client and the message bus.
+    That is, it handles connecting, authentication, and processing of messages. When invoked, pending I/O
+    work is executed, and queued incoming messages are dispatched to registered callbacks. Each time it is
+    invoked a single operation is executed. It returns zero when no operations were pending and positive if a
+    message was processed. When zero is returned the caller should poll for I/O events before calling into
+    <function>sd_bus_process()</function> again. For that either use the simple, blocking
+    <citerefentry><refentrytitle>sd_bus_wait</refentrytitle><manvolnum>3</manvolnum></citerefentry> call, or
+    hook up the bus connection object to an external or manual event loop using
     <citerefentry><refentrytitle>sd_bus_get_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     </para>
 

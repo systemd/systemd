@@ -90,15 +90,21 @@ Destination=149.10.123.4
 
 [Route]
 Destination=192.168.10.1/32
+MultiPathRoute=149.10.123.59@test1 20
+MultiPathRoute=149.10.123.60@test1 30
 MultiPathRoute=149.10.124.59 10
 MultiPathRoute=149.10.124.60 5
 
 [Route]
 Destination=2001:1234:5:7fff:ff:ff:ff:ff/128
+MultiPathRoute=2001:1234:5:6fff:ff:ff:ff:ff@test1 20
+MultiPathRoute=2001:1234:5:7fff:ff:ff:ff:ff@test1 30
 MultiPathRoute=2001:1234:5:8fff:ff:ff:ff:ff@dummy98 10
 MultiPathRoute=2001:1234:5:9fff:ff:ff:ff:ff@dummy98 5
 
 [Route]
 Destination=192.168.10.2/32
+MultiPathRoute=2001:1234:5:6fff:ff:ff:ff:ff@test1 20
+MultiPathRoute=2001:1234:5:7fff:ff:ff:ff:ff@test1 30
 MultiPathRoute=2001:1234:5:8fff:ff:ff:ff:ff@dummy98 10
 MultiPathRoute=2001:1234:5:9fff:ff:ff:ff:ff@dummy98 5

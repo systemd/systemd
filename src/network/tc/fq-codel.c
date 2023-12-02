@@ -251,14 +251,7 @@ int config_parse_fair_queueing_controlled_delay_bool(
 
         fqcd = FQ_CODEL(qdisc);
 
-        if (isempty(rvalue)) {
-                fqcd->ecn = -1;
-
-                TAKE_PTR(qdisc);
-                return 0;
-        }
-
-        r = parse_boolean(rvalue);
+        r = parse_tristate(rvalue, &fqcd->ecn);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
@@ -266,7 +259,6 @@ int config_parse_fair_queueing_controlled_delay_bool(
                 return 0;
         }
 
-        fqcd->ecn = r;
         TAKE_PTR(qdisc);
 
         return 0;

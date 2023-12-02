@@ -39,7 +39,7 @@ static const char *e(int r) {
 }
 
 TEST(login) {
-        _cleanup_close_pair_ int pair[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         _cleanup_free_ char *pp = NULL, *qq = NULL,
                 *display_session = NULL, *cgroup = NULL,
                 *display = NULL, *remote_user = NULL, *remote_host = NULL,

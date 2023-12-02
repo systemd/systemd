@@ -8,6 +8,7 @@
 
 #include "hashmap.h"
 #include "image-policy.h"
+#include "json.h"
 #include "lock-util.h"
 #include "macro.h"
 #include "os-util.h"
@@ -45,7 +46,8 @@ typedef struct Image {
         sd_id128_t machine_id;
         char **machine_info;
         char **os_release;
-        char **extension_release;
+        char **sysext_release;
+        char **confext_release;
 
         bool metadata_valid:1;
         bool discoverable:1;  /* true if we know for sure that image_find() would find the image given just the short name */
@@ -80,6 +82,17 @@ int image_read_metadata(Image *i, const ImagePolicy *image_policy);
 
 bool image_in_search_path(ImageClass class, const char *root, const char *image);
 
+static inline char **image_extension_release(Image *image, ImageClass class) {
+        assert(image);
+
+        if (class == IMAGE_SYSEXT)
+                return image->sysext_release;
+        if (class == IMAGE_CONFEXT)
+                return image->confext_release;
+
+        return NULL;
+}
+
 static inline bool IMAGE_IS_HIDDEN(const struct Image *i) {
         assert(i);
 
@@ -103,5 +116,7 @@ static inline bool IMAGE_IS_HOST(const struct Image *i) {
 
         return false;
 }
+
+int image_to_json(const struct Image *i, JsonVariant **ret);
 
 extern const struct hash_ops image_hash_ops;

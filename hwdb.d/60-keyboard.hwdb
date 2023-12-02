@@ -221,6 +221,16 @@ evdev:atkbd:dmi:bvn*:bvr*:bd*:svnGateway*:pn*:*
 evdev:atkbd:dmi:bvn*:bvr*:bd*:svnPackard*Bell*:pn*:*
  KEYBOARD_KEY_86=wlan                                   # Fn+F3 or Fn+Q for communication key
 
+# Swift SF314-511
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnSwiftSF314-511:pvr*
+ KEYBOARD_KEY_8a=f20					# Fn+F12, microphone mute
+
+# Predator PHN16-71
+evdev:atkbd:dmi:bvn*:bvr*:bd*:svnAcer*:pnPredatorPHN16-71:*
+ KEYBOARD_KEY_ef=unknown                                # Keyboard backlight up
+ KEYBOARD_KEY_f5=prog1                                  # "predator sense" button
+ KEYBOARD_KEY_66=micmute                                # Microphone mute button
+
 ###########################################################
 # Alienware
 ###########################################################
@@ -2082,6 +2092,8 @@ evdev:name:AT Translated Set 2 keyboard:dmi:bvn*:bvr*:svnPositivoTecnologiaSA:pn
 evdev:name:SIPODEV USB Composite Device:dmi:bvn*:bvr*:svnPositivoTecnologiaSA:pn*:pvr*:rvn*:rnK142*
 # Positivo Motion (N14ZP6, N14ZP7)
 evdev:name:SIPODEV USB Composite Device:dmi:bvn*:bvr*:svnPositivoTecnologiaSA:pn*:pvr*:rvn*:rnN14ZP[67]*
+# Positivo Motion (N14EP6)
+evdev:name:SIPODEV USB Composite Device:dmi:bvn*:bvr*:br*:svnPositivoTecnologiaSA:pn*:pvr*:rvn*:rnN14EP6*
 # Positivo Motion (CW14Q01P) (CW14Q01P-V2)
 evdev:name:SIPODEV USB Composite Device:dmi:bvn*:bvr*:svnPositivoTecnologiaSA:pn*:pvr*:rvn*:rnCW14Q01P*
  KEYBOARD_KEY_70073=f21                                 # Fn+f2 toggle touchpad

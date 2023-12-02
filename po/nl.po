@@ -7,11 +7,10 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-07-14 10:32+0100\n"
+"POT-Creation-Date: 2023-11-14 21:25+0000\n"
 "PO-Revision-Date: 2023-08-21 17:21+0000\n"
 "Last-Translator: Maarten <maarten@posteo.de>\n"
-"Language-Team: Dutch <https://translate.fedoraproject.org/projects/systemd/"
-"master/nl/>\n"
+"Language-Team: Dutch <https://translate.fedoraproject.org/projects/systemd/master/nl/>\n"
 "Language: nl\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -25,9 +24,7 @@ msgstr "Stuur de wachtzin terug naar het systeem"
 
 #: src/core/org.freedesktop.systemd1.policy.in:23
 msgid "Authentication is required to send the entered passphrase back to the system."
-msgstr ""
-"Authenticatie is vereist voor het terugsturen van de wachtzin naar het "
-"systeem."
+msgstr "Authenticatie is vereist voor het terugsturen van de wachtzin naar het systeem."
 
 #: src/core/org.freedesktop.systemd1.policy.in:33
 msgid "Manage system services or other units"
@@ -35,9 +32,7 @@ msgstr "Beheer de systeemdiensten of andere eenheden"
 
 #: src/core/org.freedesktop.systemd1.policy.in:34
 msgid "Authentication is required to manage system services or other units."
-msgstr ""
-"Authenticatie is vereist voor het beheren van de systeemdiensten of andere "
-"eenheden."
+msgstr "Authenticatie is vereist voor het beheren van de systeemdiensten of andere eenheden."
 
 #: src/core/org.freedesktop.systemd1.policy.in:43
 msgid "Manage system service or unit files"
@@ -45,9 +40,7 @@ msgstr "Beheer de bestanden van systeemdiensten of van eenheden"
 
 #: src/core/org.freedesktop.systemd1.policy.in:44
 msgid "Authentication is required to manage system service or unit files."
-msgstr ""
-"Authenticatie is vereist voor het beheren van de bestanden van "
-"systeemdiensten of van eenheden."
+msgstr "Authenticatie is vereist voor het beheren van de bestanden van systeemdiensten of van eenheden."
 
 #: src/core/org.freedesktop.systemd1.policy.in:54
 msgid "Set or unset system and service manager environment variables"
@@ -55,9 +48,7 @@ msgstr "Stel de omgevingsvariabelen in van de systeem- en dienstenbeheerder"
 
 #: src/core/org.freedesktop.systemd1.policy.in:55
 msgid "Authentication is required to set or unset system and service manager environment variables."
-msgstr ""
-"Authenticatie is vereist voor het instellen van de omgevingsvariabelen van "
-"de systeem- en dienstenbeheerder."
+msgstr "Authenticatie is vereist voor het instellen van de omgevingsvariabelen van de systeem- en dienstenbeheerder."
 
 #: src/core/org.freedesktop.systemd1.policy.in:64
 msgid "Reload the systemd state"
@@ -65,9 +56,7 @@ msgstr "Laad de opgeslagen toestand van systemd opnieuw"
 
 #: src/core/org.freedesktop.systemd1.policy.in:65
 msgid "Authentication is required to reload the systemd state."
-msgstr ""
-"Authenticatie is vereist voor het opnieuw laden van de opgeslagen toestand "
-"van systemd."
+msgstr "Authenticatie is vereist voor het opnieuw laden van de opgeslagen toestand van systemd."
 
 #: src/core/org.freedesktop.systemd1.policy.in:74
 msgid "Dump the systemd state without rate limits"
@@ -75,9 +64,7 @@ msgstr "Dump de toestand van systemd zonder snelheidsbeperkingen"
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
 msgid "Authentication is required to dump the systemd state without rate limits."
-msgstr ""
-"Authenticatie is vereist voor het opslaan van de toestand van systemd zonder "
-"snelheidsbeperkingen."
+msgstr "Authenticatie is vereist voor het opslaan van de toestand van systemd zonder snelheidsbeperkingen."
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
@@ -93,8 +80,7 @@ msgstr "Verwijder een persoonlijke ruimte"
 
 #: src/home/org.freedesktop.home1.policy:24
 msgid "Authentication is required to remove a user's home area."
-msgstr ""
-"Authenticatie is vereist voor het verwijderen van een persoonlijke ruimte."
+msgstr "Authenticatie is vereist voor het verwijderen van een persoonlijke ruimte."
 
 #: src/home/org.freedesktop.home1.policy:33
 msgid "Check credentials of a home area"
@@ -102,9 +88,7 @@ msgstr "Controleer de legitimatie van een persoonlijke ruimte"
 
 #: src/home/org.freedesktop.home1.policy:34
 msgid "Authentication is required to check credentials against a user's home area."
-msgstr ""
-"Authenticatie is vereist voor het controleren van de legitimatie van een "
-"persoonlijke ruimte."
+msgstr "Authenticatie is vereist voor het controleren van de legitimatie van een persoonlijke ruimte."
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
@@ -112,8 +96,7 @@ msgstr "Werk een persoonlijke ruimte bij"
 
 #: src/home/org.freedesktop.home1.policy:44
 msgid "Authentication is required to update a user's home area."
-msgstr ""
-"Authenticatie is vereist voor het bijwerken van een persoonlijke ruimte."
+msgstr "Authenticatie is vereist voor het bijwerken van een persoonlijke ruimte."
 
 #: src/home/org.freedesktop.home1.policy:53
 msgid "Resize a home area"
@@ -121,9 +104,7 @@ msgstr "Verander de grootte van een persoonlijke ruimte"
 
 #: src/home/org.freedesktop.home1.policy:54
 msgid "Authentication is required to resize a user's home area."
-msgstr ""
-"Authenticatie is vereist voor het veranderen van de grootte van een "
-"persoonlijke ruimte."
+msgstr "Authenticatie is vereist voor het veranderen van de grootte van een persoonlijke ruimte."
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Change password of a home area"
@@ -131,24 +112,17 @@ msgstr "Wijzig het wachtwoord van een persoonlijke ruimte"
 
 #: src/home/org.freedesktop.home1.policy:64
 msgid "Authentication is required to change the password of a user's home area."
-msgstr ""
-"Authenticatie is vereist voor het wijzigen van het wachtwoord van een "
-"persoonlijke ruimte."
+msgstr "Authenticatie is vereist voor het wijzigen van het wachtwoord van een persoonlijke ruimte."
 
 #: src/home/pam_systemd_home.c:287
 #, c-format
 msgid "Home of user %s is currently absent, please plug in the necessary storage device or backing file system."
-msgstr ""
-"De thuismap van gebruiker %s is thans niet aanwezig in het bestandssysteem. "
-"Gelieve het benodigde opslagapparaat aan te sluiten of het bestandssysteem "
-"aan te koppelen dat de thuismap bevat."
+msgstr "De thuismap van gebruiker %s is thans niet aanwezig in het bestandssysteem. Gelieve het benodigde opslagapparaat aan te sluiten of het bestandssysteem aan te koppelen dat de thuismap bevat."
 
 #: src/home/pam_systemd_home.c:292
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
-msgstr ""
-"Gebruiker %s heeft te veel aanmeldpogingen gedaan. Probeer het later nog "
-"eens."
+msgstr "Gebruiker %s heeft te veel aanmeldpogingen gedaan. Probeer het later nog eens."
 
 #: src/home/pam_systemd_home.c:304
 msgid "Password: "
@@ -157,9 +131,7 @@ msgstr "Wachtwoord: "
 #: src/home/pam_systemd_home.c:306
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
-msgstr ""
-"Wachtwoord is onjuist of niet voldoende voor de authenticatie van gebruiker "
-"%s."
+msgstr "Wachtwoord is onjuist of niet voldoende voor de authenticatie van gebruiker %s."
 
 #: src/home/pam_systemd_home.c:307
 msgid "Sorry, try again: "
@@ -172,9 +144,7 @@ msgstr "Herstelcode: "
 #: src/home/pam_systemd_home.c:331
 #, c-format
 msgid "Password/recovery key incorrect or not sufficient for authentication of user %s."
-msgstr ""
-"Het wachtwoord of de herstelcode is onjuist of niet voldoende voor de "
-"authenticatie van gebruiker %s."
+msgstr "Het wachtwoord of de herstelcode is onjuist of niet voldoende voor de authenticatie van gebruiker %s."
 
 #: src/home/pam_systemd_home.c:332
 msgid "Sorry, reenter recovery key: "
@@ -192,9 +162,7 @@ msgstr "Probeer het nog eens met wachtwoord: "
 #: src/home/pam_systemd_home.c:355
 #, c-format
 msgid "Password incorrect or not sufficient, and configured security token of user %s not inserted."
-msgstr ""
-"Het wachtwoord is onjuist of niet voldoende, en het geconfigureerde "
-"beveiligingsmiddel van gebruiker %s is niet ingestoken."
+msgstr "Het wachtwoord is onjuist of niet voldoende, en het geconfigureerde beveiligingsmiddel van gebruiker %s is niet ingestoken."
 
 #: src/home/pam_systemd_home.c:376
 msgid "Security token PIN: "
@@ -203,29 +171,21 @@ msgstr "PIN van het beveiligingsmiddel: "
 #: src/home/pam_systemd_home.c:393
 #, c-format
 msgid "Please authenticate physically on security token of user %s."
-msgstr ""
-"Gelieve in persoon het beveiligingsmiddel van gebruiker %s te authenticeren."
+msgstr "Gelieve in persoon het beveiligingsmiddel van gebruiker %s te authenticeren."
 
 #: src/home/pam_systemd_home.c:404
 #, c-format
 msgid "Please confirm presence on security token of user %s."
-msgstr ""
-"Gelieve te bevestigen dat het beveiligingsmiddel van gebruiker %s aanwezig "
-"is."
+msgstr "Gelieve te bevestigen dat het beveiligingsmiddel van gebruiker %s aanwezig is."
 
 #: src/home/pam_systemd_home.c:415
 #, c-format
 msgid "Please verify user on security token of user %s."
-msgstr ""
-"Gelieve te verifiëren dat het beveiligingsmiddel van gebruiker %s aan die "
-"gebruiker toebehoort."
+msgstr "Gelieve te verifiëren dat het beveiligingsmiddel van gebruiker %s aan die gebruiker toebehoort."
 
 #: src/home/pam_systemd_home.c:424
 msgid "Security token PIN is locked, please unlock it first. (Hint: Removal and re-insertion might suffice.)"
-msgstr ""
-"De PIN van het beveiligingsmiddel is geblokkeerd, gelieve de blokkering "
-"eerst op te heffen. (Tip: verwijderen en weer insteken zou voldoende kunnen "
-"zijn.)"
+msgstr "De PIN van het beveiligingsmiddel is geblokkeerd, gelieve de blokkering eerst op te heffen. (Tip: verwijderen en weer insteken zou voldoende kunnen zijn.)"
 
 #: src/home/pam_systemd_home.c:432
 #, c-format
@@ -240,61 +200,43 @@ msgstr "Sorry, probeer de PIN van het beveiligingsmiddel nogmaals: "
 #: src/home/pam_systemd_home.c:451
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
-msgstr ""
-"De PIN van het beveiligingsmiddel is onjuist voor gebruiker %s. U kunt het "
-"nog maar enkele malen proberen!"
+msgstr "De PIN van het beveiligingsmiddel is onjuist voor gebruiker %s. U kunt het nog maar enkele malen proberen!"
 
 #: src/home/pam_systemd_home.c:470
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
-msgstr ""
-"De PIN van het beveiligingsmiddel is onjuist voor gebruiker %s. U kunt het "
-"nog maar eenmaal proberen!"
+msgstr "De PIN van het beveiligingsmiddel is onjuist voor gebruiker %s. U kunt het nog maar eenmaal proberen!"
 
 #: src/home/pam_systemd_home.c:616
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
-msgstr ""
-"De thuismap van gebruiker %s is thans niet aangekoppeld. Gelieve u eerst "
-"plaatselijk aan te melden."
+msgstr "De thuismap van gebruiker %s is thans niet aangekoppeld. Gelieve u eerst plaatselijk aan te melden."
 
 #: src/home/pam_systemd_home.c:618
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
-msgstr ""
-"De thuismap van gebruiker %s is thans vergrendeld. Gelieve de vergrendeling "
-"eerst op te heffen op het plaatselijke systeem."
+msgstr "De thuismap van gebruiker %s is thans vergrendeld. Gelieve de vergrendeling eerst op te heffen op het plaatselijke systeem."
 
 #: src/home/pam_systemd_home.c:645
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
-msgstr ""
-"Er zijn te veel aanmeldpogingen voor gebruiker %s niet succesvol geweest. "
-"Verdere aanmelding voor die gebruiker wordt geweigerd."
+msgstr "Er zijn te veel aanmeldpogingen voor gebruiker %s niet succesvol geweest. Verdere aanmelding voor die gebruiker wordt geweigerd."
 
 #: src/home/pam_systemd_home.c:868
 msgid "User record is blocked, prohibiting access."
-msgstr ""
-"De registratie van de gebruiker wordt geblokkeerd, waardoor zijn toegang tot "
-"het systeem wordt belet."
+msgstr "De registratie van de gebruiker wordt geblokkeerd, waardoor zijn toegang tot het systeem wordt belet."
 
 #: src/home/pam_systemd_home.c:872
 msgid "User record is not valid yet, prohibiting access."
-msgstr ""
-"De registratie van de gebruiker is nog niet geldig, waardoor zijn toegang "
-"tot het systeem wordt belet."
+msgstr "De registratie van de gebruiker is nog niet geldig, waardoor zijn toegang tot het systeem wordt belet."
 
 #: src/home/pam_systemd_home.c:876
 msgid "User record is not valid anymore, prohibiting access."
-msgstr ""
-"De registratie van de gebruiker is niet meer geldig, waardoor zijn toegang "
-"tot het systeem wordt belet."
+msgstr "De registratie van de gebruiker is niet meer geldig, waardoor zijn toegang tot het systeem wordt belet."
 
 #: src/home/pam_systemd_home.c:881 src/home/pam_systemd_home.c:932
 msgid "User record not valid, prohibiting access."
-msgstr ""
-"De registratie van de gebruiker is niet geldig, waardoor zijn toegang tot "
-"het systeem wordt belet."
+msgstr "De registratie van de gebruiker is niet geldig, waardoor zijn toegang tot het systeem wordt belet."
 
 #: src/home/pam_systemd_home.c:893
 #, c-format
@@ -311,14 +253,11 @@ msgstr "Het wachtwoord is verlopen. Wijziging van het wachtwoord is vereist."
 
 #: src/home/pam_systemd_home.c:914
 msgid "Password is expired, but can't change, refusing login."
-msgstr ""
-"Het wachtwoord is verlopen maar kan niet worden gewijzigd. Daarom wordt de "
-"aanmelding geweigerd."
+msgstr "Het wachtwoord is verlopen maar kan niet worden gewijzigd. Daarom wordt de aanmelding geweigerd."
 
 #: src/home/pam_systemd_home.c:918
 msgid "Password will expire soon, please change."
-msgstr ""
-"Het wachtwoord zal spoedig verlopen. Gelieve het wachtwoord te wijzigen."
+msgstr "Het wachtwoord zal spoedig verlopen. Gelieve het wachtwoord te wijzigen."
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
@@ -334,9 +273,7 @@ msgstr "Stel de technische computernaam in"
 
 #: src/hostname/org.freedesktop.hostname1.policy:31
 msgid "Authentication is required to set the statically configured local hostname, as well as the pretty hostname."
-msgstr ""
-"Authenticatie is vereist voor het instellen van zowel de technische als de "
-"gebruikersvriendelijke computernaam."
+msgstr "Authenticatie is vereist voor het instellen van zowel de technische als de gebruikersvriendelijke computernaam."
 
 #: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"
@@ -344,9 +281,7 @@ msgstr "Opgeven van de algemene informatie over de computer"
 
 #: src/hostname/org.freedesktop.hostname1.policy:42
 msgid "Authentication is required to set local machine information."
-msgstr ""
-"Authenticatie is vereist voor het opgeven van de algemene informatie over de "
-"computer."
+msgstr "Authenticatie is vereist voor het opgeven van de algemene informatie over de computer."
 
 #: src/hostname/org.freedesktop.hostname1.policy:51
 msgid "Get product UUID"
@@ -374,36 +309,27 @@ msgstr "Authenticatie is vereist voor het verkrijgen van de systeembeschrijving.
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
-msgstr ""
-"Importeer het schijfbestand van een virtuele machine of dat van een container"
+msgstr "Importeer het schijfbestand van een virtuele machine of dat van een container"
 
 #: src/import/org.freedesktop.import1.policy:23
 msgid "Authentication is required to import a VM or container image"
-msgstr ""
-"Authenticatie is vereist voor het importeren van het schijfbestand van een "
-"virtuele machine of dat van een container."
+msgstr "Authenticatie is vereist voor het importeren van het schijfbestand van een virtuele machine of dat van een container."
 
 #: src/import/org.freedesktop.import1.policy:32
 msgid "Export a VM or container image"
-msgstr ""
-"Exporteer het schijfbestand van een virtuele machine of dat van een container"
+msgstr "Exporteer het schijfbestand van een virtuele machine of dat van een container"
 
 #: src/import/org.freedesktop.import1.policy:33
 msgid "Authentication is required to export a VM or container image"
-msgstr ""
-"Authenticatie is vereist voor het exporteren van het schijfbestand van een "
-"virtuele machine of dat van een container."
+msgstr "Authenticatie is vereist voor het exporteren van het schijfbestand van een virtuele machine of dat van een container."
 
 #: src/import/org.freedesktop.import1.policy:42
 msgid "Download a VM or container image"
-msgstr ""
-"Download het schijfbestand van een virtuele machine of dat van een container"
+msgstr "Download het schijfbestand van een virtuele machine of dat van een container"
 
 #: src/import/org.freedesktop.import1.policy:43
 msgid "Authentication is required to download a VM or container image"
-msgstr ""
-"Authenticatie is vereist voor het downloaden van het schijfbestand van een "
-"virtuele machine of dat van een container."
+msgstr "Authenticatie is vereist voor het downloaden van het schijfbestand van een virtuele machine of dat van een container."
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
@@ -411,8 +337,7 @@ msgstr "Stel de taal van het systeem in"
 
 #: src/locale/org.freedesktop.locale1.policy:23
 msgid "Authentication is required to set the system locale."
-msgstr ""
-"Authenticatie is vereist voor het instellen van de taal van het systeem."
+msgstr "Authenticatie is vereist voor het instellen van de taal van het systeem."
 
 #: src/locale/org.freedesktop.locale1.policy:33
 msgid "Set system keyboard settings"
@@ -420,164 +345,111 @@ msgstr "Opgeven van de indeling van het toetsenbord aan het besturingssysteem"
 
 #: src/locale/org.freedesktop.locale1.policy:34
 msgid "Authentication is required to set the system keyboard settings."
-msgstr ""
-"Authenticatie is vereist voor het opgeven van de indeling van het "
-"toetsenbord."
+msgstr "Authenticatie is vereist voor het opgeven van de indeling van het toetsenbord."
 
 #: src/login/org.freedesktop.login1.policy:22
 msgid "Allow applications to inhibit system shutdown"
-msgstr ""
-"Geef toestemming aan toepassingsprogramma's het afsluiten van het systeem te "
-"verhinderen"
+msgstr "Geef toestemming aan toepassingsprogramma's het afsluiten van het systeem te verhinderen"
 
 #: src/login/org.freedesktop.login1.policy:23
 msgid "Authentication is required for an application to inhibit system shutdown."
-msgstr ""
-"Authenticatie is vereist alvorens een toepassingsprogramma het afsluiten van "
-"het systeem mag verhinderen."
+msgstr "Authenticatie is vereist alvorens een toepassingsprogramma het afsluiten van het systeem mag verhinderen."
 
 #: src/login/org.freedesktop.login1.policy:33
 msgid "Allow applications to delay system shutdown"
-msgstr ""
-"Geef toestemming aan toepassingsprogramma's het afsluiten van het systeem "
-"uit te stellen"
+msgstr "Geef toestemming aan toepassingsprogramma's het afsluiten van het systeem uit te stellen"
 
 #: src/login/org.freedesktop.login1.policy:34
 msgid "Authentication is required for an application to delay system shutdown."
-msgstr ""
-"Authenticatie is vereist alvorens een toepassingsprogramma het afsluiten van "
-"het systeem mag uitstellen."
+msgstr "Authenticatie is vereist alvorens een toepassingsprogramma het afsluiten van het systeem mag uitstellen."
 
 #: src/login/org.freedesktop.login1.policy:44
 msgid "Allow applications to inhibit system sleep"
-msgstr ""
-"Geef toestemming aan toepassingsprogramma's de slaapstand van het systeem te "
-"verhinderen"
+msgstr "Geef toestemming aan toepassingsprogramma's de slaapstand van het systeem te verhinderen"
 
 #: src/login/org.freedesktop.login1.policy:45
 msgid "Authentication is required for an application to inhibit system sleep."
-msgstr ""
-"Authenticatie is vereist alvorens een toepassingsprogramma de slaapstand van "
-"het systeem mag verhinderen."
+msgstr "Authenticatie is vereist alvorens een toepassingsprogramma de slaapstand van het systeem mag verhinderen."
 
 #: src/login/org.freedesktop.login1.policy:55
 msgid "Allow applications to delay system sleep"
-msgstr ""
-"Geef toestemming aan toepassingsprogramma's de slaapstand van het systeem "
-"uit te stellen"
+msgstr "Geef toestemming aan toepassingsprogramma's de slaapstand van het systeem uit te stellen"
 
 #: src/login/org.freedesktop.login1.policy:56
 msgid "Authentication is required for an application to delay system sleep."
-msgstr ""
-"Authenticatie is vereist alvorens een toepassingsprogramma de slaapstand van "
-"het systeem mag uitstellen."
+msgstr "Authenticatie is vereist alvorens een toepassingsprogramma de slaapstand van het systeem mag uitstellen."
 
 #: src/login/org.freedesktop.login1.policy:65
 msgid "Allow applications to inhibit automatic system suspend"
-msgstr ""
-"Sta toepassingsprogramma's toe dat zij verhinderen dat het systeem "
-"automatisch in de pauzestand komt"
+msgstr "Sta toepassingsprogramma's toe dat zij verhinderen dat het systeem automatisch in de pauzestand komt"
 
 #: src/login/org.freedesktop.login1.policy:66
 msgid "Authentication is required for an application to inhibit automatic system suspend."
-msgstr ""
-"Authenticatie is vereist alvorens een toepassingsprogramma mag verhinderen "
-"dat het systeem automatisch in de pauzestand komt."
+msgstr "Authenticatie is vereist alvorens een toepassingsprogramma mag verhinderen dat het systeem automatisch in de pauzestand komt."
 
 #: src/login/org.freedesktop.login1.policy:75
 msgid "Allow applications to inhibit system handling of the power key"
-msgstr ""
-"Sta toepassingsprogramma's toe te verhinderen dat gevolg wordt gegeven aan "
-"het uitzetten van de computer met de drukknop"
+msgstr "Sta toepassingsprogramma's toe te verhinderen dat gevolg wordt gegeven aan het uitzetten van de computer met de drukknop"
 
 #: src/login/org.freedesktop.login1.policy:76
 msgid "Authentication is required for an application to inhibit system handling of the power key."
-msgstr ""
-"Authenticatie is vereist alvorens een toepassingsprogramma mag verhinderen "
-"dat gevolg wordt gegeven aan het uitzetten van de computer met de drukknop."
+msgstr "Authenticatie is vereist alvorens een toepassingsprogramma mag verhinderen dat gevolg wordt gegeven aan het uitzetten van de computer met de drukknop."
 
 #: src/login/org.freedesktop.login1.policy:86
 msgid "Allow applications to inhibit system handling of the suspend key"
-msgstr ""
-"Sta toepassingsprogramma's toe te verhinderen dat gevolg wordt gegeven aan "
-"het indrukken van de pauzeknop"
+msgstr "Sta toepassingsprogramma's toe te verhinderen dat gevolg wordt gegeven aan het indrukken van de pauzeknop"
 
 #: src/login/org.freedesktop.login1.policy:87
 msgid "Authentication is required for an application to inhibit system handling of the suspend key."
-msgstr ""
-"Authenticatie is vereist alvorens een toepassingsprogramma mag verhinderen "
-"dat gevolg wordt gegeven aan het indrukken van de pauzeknop."
+msgstr "Authenticatie is vereist alvorens een toepassingsprogramma mag verhinderen dat gevolg wordt gegeven aan het indrukken van de pauzeknop."
 
 #: src/login/org.freedesktop.login1.policy:97
 msgid "Allow applications to inhibit system handling of the hibernate key"
-msgstr ""
-"Sta toepassingsprogramma's toe te verhinderen dat gevolg wordt gegeven aan "
-"het indrukken van de slaapknop"
+msgstr "Sta toepassingsprogramma's toe te verhinderen dat gevolg wordt gegeven aan het indrukken van de slaapknop"
 
 #: src/login/org.freedesktop.login1.policy:98
 msgid "Authentication is required for an application to inhibit system handling of the hibernate key."
-msgstr ""
-"Authenticatie is vereist alvorens een toepassingsprogramma mag verhinderen "
-"dat gevolg wordt gegeven aan het indrukken van de slaapknop."
+msgstr "Authenticatie is vereist alvorens een toepassingsprogramma mag verhinderen dat gevolg wordt gegeven aan het indrukken van de slaapknop."
 
 #: src/login/org.freedesktop.login1.policy:107
 msgid "Allow applications to inhibit system handling of the lid switch"
-msgstr ""
-"Sta toepassingsprogramma's toe te verhinderen dat gevolg wordt gegeven aan "
-"het dichtklappen van een draagbare computer"
+msgstr "Sta toepassingsprogramma's toe te verhinderen dat gevolg wordt gegeven aan het dichtklappen van een draagbare computer"
 
 #: src/login/org.freedesktop.login1.policy:108
 msgid "Authentication is required for an application to inhibit system handling of the lid switch."
-msgstr ""
-"Authenticatie is vereist alvorens een toepassingsprogramma mag verhinderen "
-"dat gevolg wordt gegeven aan het dichtklappen van een draagbare computer."
+msgstr "Authenticatie is vereist alvorens een toepassingsprogramma mag verhinderen dat gevolg wordt gegeven aan het dichtklappen van een draagbare computer."
 
 #: src/login/org.freedesktop.login1.policy:117
 msgid "Allow applications to inhibit system handling of the reboot key"
-msgstr ""
-"Sta toepassingsprogramma's toe te verhinderen dat gevolg wordt gegeven aan "
-"het indrukken van de drukknop voor het herstarten van de computer"
+msgstr "Sta toepassingsprogramma's toe te verhinderen dat gevolg wordt gegeven aan het indrukken van de drukknop voor het herstarten van de computer"
 
 #: src/login/org.freedesktop.login1.policy:118
 msgid "Authentication is required for an application to inhibit system handling of the reboot key."
-msgstr ""
-"Authenticatie is vereist alvorens een toepassingsprogramma mag verhinderen "
-"dat gevolg wordt gegeven aan het indrukken van de drukknop voor het "
-"herstarten van de computer."
+msgstr "Authenticatie is vereist alvorens een toepassingsprogramma mag verhinderen dat gevolg wordt gegeven aan het indrukken van de drukknop voor het herstarten van de computer."
 
 #: src/login/org.freedesktop.login1.policy:128
 msgid "Allow non-logged-in user to run programs"
-msgstr ""
-"Sta aan een gebruiker die niet is aangemeld toe programma's uit te voeren"
+msgstr "Sta aan een gebruiker die niet is aangemeld toe programma's uit te voeren"
 
 #: src/login/org.freedesktop.login1.policy:129
 msgid "Explicit request is required to run programs as a non-logged-in user."
-msgstr ""
-"Een uitdrukkelijk verzoek is vereist alvorens een gebruiker die niet is "
-"aangemeld programma's mag uitvoeren."
+msgstr "Een uitdrukkelijk verzoek is vereist alvorens een gebruiker die niet is aangemeld programma's mag uitvoeren."
 
 #: src/login/org.freedesktop.login1.policy:138
 msgid "Allow non-logged-in users to run programs"
-msgstr ""
-"Sta aan gebruikers die niet zijn aangemeld toe dat zij programma's uitvoeren"
+msgstr "Sta aan gebruikers die niet zijn aangemeld toe dat zij programma's uitvoeren"
 
 #: src/login/org.freedesktop.login1.policy:139
 msgid "Authentication is required to run programs as a non-logged-in user."
-msgstr ""
-"Authenticatie is vereist alvorens een gebruiker die niet is aangemeld "
-"programma's mag uitvoeren."
+msgstr "Authenticatie is vereist alvorens een gebruiker die niet is aangemeld programma's mag uitvoeren."
 
 #: src/login/org.freedesktop.login1.policy:148
 msgid "Allow attaching devices to seats"
-msgstr ""
-"Maak het mogelijk dat apparaten kunnen worden toegewezen aan verschillende "
-"werkplekken"
+msgstr "Maak het mogelijk dat apparaten kunnen worden toegewezen aan verschillende werkplekken"
 
 #: src/login/org.freedesktop.login1.policy:149
 msgid "Authentication is required to attach a device to a seat."
-msgstr ""
-"Authenticatie is vereist alvorens een apparaat kan worden toegewezen aan een "
-"werkplek."
+msgstr "Authenticatie is vereist alvorens een apparaat kan worden toegewezen aan een werkplek."
 
 #: src/login/org.freedesktop.login1.policy:159
 msgid "Flush device to seat attachments"
@@ -585,9 +457,7 @@ msgstr "Verwijder alle toewijzingen van apparaten aan werkplekken"
 
 #: src/login/org.freedesktop.login1.policy:160
 msgid "Authentication is required to reset how devices are attached to seats."
-msgstr ""
-"Authenticatie is vereist voor het ongedaan maken van de toewijzingen van "
-"apparaten aan werkplekken."
+msgstr "Authenticatie is vereist voor het ongedaan maken van de toewijzingen van apparaten aan werkplekken."
 
 #: src/login/org.freedesktop.login1.policy:169
 msgid "Power off the system"
@@ -603,9 +473,7 @@ msgstr "Sluit het systeem af terwijl andere gebruikers nog zijn aangemeld"
 
 #: src/login/org.freedesktop.login1.policy:181
 msgid "Authentication is required to power off the system while other users are logged in."
-msgstr ""
-"Authenticatie is vereist voor het afsluiten van het systeem terwijl andere "
-"gebruikers nog zijn aangemeld."
+msgstr "Authenticatie is vereist voor het afsluiten van het systeem terwijl andere gebruikers nog zijn aangemeld."
 
 #: src/login/org.freedesktop.login1.policy:191
 msgid "Power off the system while an application is inhibiting this"
@@ -613,9 +481,7 @@ msgstr "Sluit het systeem af terwijl een toepassingsprogramma dit verhindert"
 
 #: src/login/org.freedesktop.login1.policy:192
 msgid "Authentication is required to power off the system while an application is inhibiting this."
-msgstr ""
-"Authenticatie is vereist voor het afsluiten van het systeem terwijl een "
-"toepassingsprogramma dit verhindert."
+msgstr "Authenticatie is vereist voor het afsluiten van het systeem terwijl een toepassingsprogramma dit verhindert."
 
 #: src/login/org.freedesktop.login1.policy:202
 msgid "Reboot the system"
@@ -631,9 +497,7 @@ msgstr "Herstart het systeem terwijl andere gebruikers nog zijn aangemeld"
 
 #: src/login/org.freedesktop.login1.policy:214
 msgid "Authentication is required to reboot the system while other users are logged in."
-msgstr ""
-"Authenticatie is vereist voor het herstarten van het systeem terwijl andere "
-"gebruikers nog zijn aangemeld."
+msgstr "Authenticatie is vereist voor het herstarten van het systeem terwijl andere gebruikers nog zijn aangemeld."
 
 #: src/login/org.freedesktop.login1.policy:224
 msgid "Reboot the system while an application is inhibiting this"
@@ -641,9 +505,7 @@ msgstr "Herstart het systeem terwijl een toepassing dit verhindert"
 
 #: src/login/org.freedesktop.login1.policy:225
 msgid "Authentication is required to reboot the system while an application is inhibiting this."
-msgstr ""
-"Authenticatie is vereist voor het herstarten van het systeem terwijl een "
-"toepassing dit verhindert."
+msgstr "Authenticatie is vereist voor het herstarten van het systeem terwijl een toepassing dit verhindert."
 
 #: src/login/org.freedesktop.login1.policy:235
 msgid "Halt the system"
@@ -659,9 +521,7 @@ msgstr "Stop het systeem terwijl andere gebruikers nog zijn aangemeld"
 
 #: src/login/org.freedesktop.login1.policy:247
 msgid "Authentication is required to halt the system while other users are logged in."
-msgstr ""
-"Authenticatie is vereist voor het stoppen van het systeem terwijl andere "
-"gebruikers nog zijn aangemeld."
+msgstr "Authenticatie is vereist voor het stoppen van het systeem terwijl andere gebruikers nog zijn aangemeld."
 
 #: src/login/org.freedesktop.login1.policy:257
 msgid "Halt the system while an application is inhibiting this"
@@ -669,9 +529,7 @@ msgstr "Stop het systeem terwijl een toepassingsprogramma dit verhindert"
 
 #: src/login/org.freedesktop.login1.policy:258
 msgid "Authentication is required to halt the system while an application is inhibiting this."
-msgstr ""
-"Authenticatie is vereist voor het stoppen van het systeem terwijl een "
-"toepassing dit verhindert."
+msgstr "Authenticatie is vereist voor het stoppen van het systeem terwijl een toepassing dit verhindert."
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid "Suspend the system"
@@ -683,26 +541,19 @@ msgstr "Authenticatie is vereist voor het in pauzestand zetten van het systeem."
 
 #: src/login/org.freedesktop.login1.policy:278
 msgid "Suspend the system while other users are logged in"
-msgstr ""
-"Zet het systeem in pauzestand terwijl andere gebruikers nog zijn aangemeld"
+msgstr "Zet het systeem in pauzestand terwijl andere gebruikers nog zijn aangemeld"
 
 #: src/login/org.freedesktop.login1.policy:279
 msgid "Authentication is required to suspend the system while other users are logged in."
-msgstr ""
-"Authenticatie is vereist voor het in de pauzestand zetten van het systeem "
-"terwijl andere gebruikers nog zijn aangemeld."
+msgstr "Authenticatie is vereist voor het in de pauzestand zetten van het systeem terwijl andere gebruikers nog zijn aangemeld."
 
 #: src/login/org.freedesktop.login1.policy:289
 msgid "Suspend the system while an application is inhibiting this"
-msgstr ""
-"Zet het systeem in de pauzestand terwijl een toepassingsprogramma dit "
-"verhindert"
+msgstr "Zet het systeem in de pauzestand terwijl een toepassingsprogramma dit verhindert"
 
 #: src/login/org.freedesktop.login1.policy:290
 msgid "Authentication is required to suspend the system while an application is inhibiting this."
-msgstr ""
-"Authenticatie is vereist voor het in de pauzestand zetten van het systeem "
-"terwijl een toepassingsprogramma dit verhindert."
+msgstr "Authenticatie is vereist voor het in de pauzestand zetten van het systeem terwijl een toepassingsprogramma dit verhindert."
 
 #: src/login/org.freedesktop.login1.policy:300
 msgid "Hibernate the system"
@@ -710,43 +561,31 @@ msgstr "Zet het systeem in de slaapstand"
 
 #: src/login/org.freedesktop.login1.policy:301
 msgid "Authentication is required to hibernate the system."
-msgstr ""
-"Authenticatie is vereist voor het in de slaapstand zetten van het systeem."
+msgstr "Authenticatie is vereist voor het in de slaapstand zetten van het systeem."
 
 #: src/login/org.freedesktop.login1.policy:310
 msgid "Hibernate the system while other users are logged in"
-msgstr ""
-"Zet het systeem in de slaapstand terwijl andere gebruikers nog zijn aangemeld"
+msgstr "Zet het systeem in de slaapstand terwijl andere gebruikers nog zijn aangemeld"
 
 #: src/login/org.freedesktop.login1.policy:311
 msgid "Authentication is required to hibernate the system while other users are logged in."
-msgstr ""
-"Authenticatie is vereist voor het in de slaapstand zetten van het systeem "
-"terwijl andere gebruikers nog zijn aangemeld."
+msgstr "Authenticatie is vereist voor het in de slaapstand zetten van het systeem terwijl andere gebruikers nog zijn aangemeld."
 
 #: src/login/org.freedesktop.login1.policy:321
 msgid "Hibernate the system while an application is inhibiting this"
-msgstr ""
-"Zet het systeem in de slaapstand terwijl een toepassingsprogramma dit "
-"verhindert"
+msgstr "Zet het systeem in de slaapstand terwijl een toepassingsprogramma dit verhindert"
 
 #: src/login/org.freedesktop.login1.policy:322
 msgid "Authentication is required to hibernate the system while an application is inhibiting this."
-msgstr ""
-"Authenticatie is vereist voor het in de slaapstand zetten van het systeem "
-"terwijl een toepassing dit verhindert."
+msgstr "Authenticatie is vereist voor het in de slaapstand zetten van het systeem terwijl een toepassing dit verhindert."
 
 #: src/login/org.freedesktop.login1.policy:332
 msgid "Manage active sessions, users and seats"
-msgstr ""
-"Beheren van de actieve sessies, van de gebruikers en van de apparaten die "
-"zijn toegewezen aan de werkplekken"
+msgstr "Beheren van de actieve sessies, van de gebruikers en van de apparaten die zijn toegewezen aan de werkplekken"
 
 #: src/login/org.freedesktop.login1.policy:333
 msgid "Authentication is required to manage active sessions, users and seats."
-msgstr ""
-"Authenticatie is vereist voor het beheren van de actieve sessies, van de "
-"gebruikers en van de apparaten die zijn toegewezen aan de werkplekken."
+msgstr "Authenticatie is vereist voor het beheren van de actieve sessies, van de gebruikers en van de apparaten die zijn toegewezen aan de werkplekken."
 
 #: src/login/org.freedesktop.login1.policy:342
 msgid "Lock or unlock active sessions"
@@ -754,9 +593,7 @@ msgstr "Vergrendel of ontgrendel de actieve sessies"
 
 #: src/login/org.freedesktop.login1.policy:343
 msgid "Authentication is required to lock or unlock active sessions."
-msgstr ""
-"Authenticatie is vereist voor het vergrendelen of ontgrendelen van de "
-"actieve sessies."
+msgstr "Authenticatie is vereist voor het vergrendelen of ontgrendelen van de actieve sessies."
 
 #: src/login/org.freedesktop.login1.policy:352
 msgid "Set the reboot \"reason\" in the kernel"
@@ -764,58 +601,39 @@ msgstr "Opgeven van de reden voor een herstart, aan de systeemkern"
 
 #: src/login/org.freedesktop.login1.policy:353
 msgid "Authentication is required to set the reboot \"reason\" in the kernel."
-msgstr ""
-"Authenticatie is vereist voor het opgeven van de reden voor een herstart aan "
-"de systeemkern."
+msgstr "Authenticatie is vereist voor het opgeven van de reden voor een herstart aan de systeemkern."
 
 #: src/login/org.freedesktop.login1.policy:363
 msgid "Indicate to the firmware to boot to setup interface"
-msgstr ""
-"Geef de aanwijzing aan de firmware van het moederbord dat bij het opstarten "
-"het configuratieprogramma gestart moet worden"
+msgstr "Geef de aanwijzing aan de firmware van het moederbord dat bij het opstarten het configuratieprogramma gestart moet worden"
 
 #: src/login/org.freedesktop.login1.policy:364
 msgid "Authentication is required to indicate to the firmware to boot to setup interface."
-msgstr ""
-"Authenticatie is vereist voor het geven van de aanwijzing aan de firmware "
-"van het moederbord dat bij het opstarten het configuratieprogramma gestart "
-"moet worden."
+msgstr "Authenticatie is vereist voor het geven van de aanwijzing aan de firmware van het moederbord dat bij het opstarten het configuratieprogramma gestart moet worden."
 
 #: src/login/org.freedesktop.login1.policy:374
 msgid "Indicate to the boot loader to boot to the boot loader menu"
-msgstr ""
-"Geef de aanwijzing aan opstartlader dat hij zijn opstartmenu moet weergeven"
+msgstr "Geef de aanwijzing aan opstartlader dat hij zijn opstartmenu moet weergeven"
 
 #: src/login/org.freedesktop.login1.policy:375
 msgid "Authentication is required to indicate to the boot loader to boot to the boot loader menu."
-msgstr ""
-"Authenticatie is vereist voor het geven van de aanwijzing aan de "
-"opstartlader dat hij zijn opstartmenu moet weergeven."
+msgstr "Authenticatie is vereist voor het geven van de aanwijzing aan de opstartlader dat hij zijn opstartmenu moet weergeven."
 
 #: src/login/org.freedesktop.login1.policy:385
 msgid "Indicate to the boot loader to boot a specific entry"
-msgstr ""
-"Geef de aanwijzing aan de opstartlader dat hij een specifieke "
-"keuzemogelijkheid van zijn opstartmenu moet opstarten"
+msgstr "Geef de aanwijzing aan de opstartlader dat hij een specifieke keuzemogelijkheid van zijn opstartmenu moet opstarten"
 
 #: src/login/org.freedesktop.login1.policy:386
 msgid "Authentication is required to indicate to the boot loader to boot into a specific boot loader entry."
-msgstr ""
-"Authenticatie is vereist voor het geven van de aanwijzing aan de "
-"opstartlader dat hij een specifieke keuzemogelijkheid van zijn opstartmenu "
-"moet opstarten."
+msgstr "Authenticatie is vereist voor het geven van de aanwijzing aan de opstartlader dat hij een specifieke keuzemogelijkheid van zijn opstartmenu moet opstarten."
 
 #: src/login/org.freedesktop.login1.policy:396
 msgid "Set a wall message"
-msgstr ""
-"Opgeven van een bericht dat naar alle aangemelde gebruikers zal worden "
-"verzonden"
+msgstr "Opgeven van een bericht dat naar alle aangemelde gebruikers zal worden verzonden"
 
 #: src/login/org.freedesktop.login1.policy:397
 msgid "Authentication is required to set a wall message"
-msgstr ""
-"Authenticatie is vereist voor het opgeven van een bericht dat naar alle "
-"aangemelde gebruikers zal worden verzonden."
+msgstr "Authenticatie is vereist voor het opgeven van een bericht dat naar alle aangemelde gebruikers zal worden verzonden."
 
 #: src/login/org.freedesktop.login1.policy:406
 msgid "Change Session"
@@ -831,8 +649,7 @@ msgstr "Aanmelden bij een plaatselijke container"
 
 #: src/machine/org.freedesktop.machine1.policy:23
 msgid "Authentication is required to log into a local container."
-msgstr ""
-"Authenticatie is vereist voor het aanmelden bij een plaatselijke container."
+msgstr "Authenticatie is vereist voor het aanmelden bij een plaatselijke container."
 
 #: src/machine/org.freedesktop.machine1.policy:32
 msgid "Log into the local host"
@@ -848,9 +665,7 @@ msgstr "Verkrijg een shell in een plaatselijke container"
 
 #: src/machine/org.freedesktop.machine1.policy:43
 msgid "Authentication is required to acquire a shell in a local container."
-msgstr ""
-"Authenticatie is vereist voor het verkrijgen van een shell in een "
-"plaatselijke container."
+msgstr "Authenticatie is vereist voor het verkrijgen van een shell in een plaatselijke container."
 
 #: src/machine/org.freedesktop.machine1.policy:53
 msgid "Acquire a shell on the local host"
@@ -858,8 +673,7 @@ msgstr "Verkrijg een shell op deze computer"
 
 #: src/machine/org.freedesktop.machine1.policy:54
 msgid "Authentication is required to acquire a shell on the local host."
-msgstr ""
-"Authenticatie is vereist voor het verkrijgen van een shell op deze computer."
+msgstr "Authenticatie is vereist voor het verkrijgen van een shell op deze computer."
 
 #: src/machine/org.freedesktop.machine1.policy:64
 msgid "Acquire a pseudo TTY in a local container"
@@ -867,9 +681,7 @@ msgstr "Verkrijg een pseudo-terminal in een plaatselijke container"
 
 #: src/machine/org.freedesktop.machine1.policy:65
 msgid "Authentication is required to acquire a pseudo TTY in a local container."
-msgstr ""
-"Authenticatie is vereist voor het verkrijgen van een pseudo-terminal in een "
-"plaatselijke container."
+msgstr "Authenticatie is vereist voor het verkrijgen van een pseudo-terminal in een plaatselijke container."
 
 #: src/machine/org.freedesktop.machine1.policy:74
 msgid "Acquire a pseudo TTY on the local host"
@@ -877,9 +689,7 @@ msgstr "Verkrijg een pseudo-terminal op deze computer"
 
 #: src/machine/org.freedesktop.machine1.policy:75
 msgid "Authentication is required to acquire a pseudo TTY on the local host."
-msgstr ""
-"Authenticatie is vereist voor het verkrijgen van een pseudo-terminal op deze "
-"computer."
+msgstr "Authenticatie is vereist voor het verkrijgen van een pseudo-terminal op deze computer."
 
 #: src/machine/org.freedesktop.machine1.policy:84
 msgid "Manage local virtual machines and containers"
@@ -887,21 +697,15 @@ msgstr "Beheer de plaatselijke virtuele machines en de containers"
 
 #: src/machine/org.freedesktop.machine1.policy:85
 msgid "Authentication is required to manage local virtual machines and containers."
-msgstr ""
-"Authenticatie is vereist voor het beheren van plaatselijke virtuele machines "
-"en containers."
+msgstr "Authenticatie is vereist voor het beheren van plaatselijke virtuele machines en containers."
 
 #: src/machine/org.freedesktop.machine1.policy:95
 msgid "Manage local virtual machine and container images"
-msgstr ""
-"Beheren van de plaatselijke schijfbestanden van virtuele machines en die van "
-"containers"
+msgstr "Beheren van de plaatselijke schijfbestanden van virtuele machines en die van containers"
 
 #: src/machine/org.freedesktop.machine1.policy:96
 msgid "Authentication is required to manage local virtual machine and container images."
-msgstr ""
-"Authenticatie is vereist voor het beheren van de plaatselijke "
-"schijfbestanden van virtuele machines en die van containers."
+msgstr "Authenticatie is vereist voor het beheren van de plaatselijke schijfbestanden van virtuele machines en die van containers."
 
 #: src/network/org.freedesktop.network1.policy:22
 msgid "Set NTP servers"
@@ -989,8 +793,7 @@ msgstr "Geef DNSSEC Negative Trust Anchors op"
 #: src/network/org.freedesktop.network1.policy:111
 #: src/resolve/org.freedesktop.resolve1.policy:122
 msgid "Authentication is required to set DNSSEC Negative Trust Anchors."
-msgstr ""
-"Authenticatie is vereist voor het opgeven van DNSSEC Negative Trust Anchors."
+msgstr "Authenticatie is vereist voor het opgeven van DNSSEC Negative Trust Anchors."
 
 #: src/network/org.freedesktop.network1.policy:121
 msgid "Revert NTP settings"
@@ -998,8 +801,7 @@ msgstr "Zet de instellingen voor NTP terug"
 
 #: src/network/org.freedesktop.network1.policy:122
 msgid "Authentication is required to reset NTP settings."
-msgstr ""
-"Authenticatie is vereist voor het terugzetten van de instellingen voor NTP."
+msgstr "Authenticatie is vereist voor het terugzetten van de instellingen voor NTP."
 
 #: src/network/org.freedesktop.network1.policy:132
 msgid "Revert DNS settings"
@@ -1007,13 +809,11 @@ msgstr "Zet de instellingen voor DNS terug"
 
 #: src/network/org.freedesktop.network1.policy:133
 msgid "Authentication is required to reset DNS settings."
-msgstr ""
-"Authenticatie is vereist voor het terugzetten van de instellingen voor DNS."
+msgstr "Authenticatie is vereist voor het terugzetten van de instellingen voor DNS."
 
 #: src/network/org.freedesktop.network1.policy:143
 msgid "DHCP server sends force renew message"
-msgstr ""
-"Draag de DHCP-server op een FORCERENEW-bericht naar zijn cliënten te zenden"
+msgstr "Draag de DHCP-server op een FORCERENEW-bericht naar zijn cliënten te zenden"
 
 #: src/network/org.freedesktop.network1.policy:144
 msgid "Authentication is required to send force renew message."
@@ -1025,8 +825,7 @@ msgstr "Hernieuw de dynamische adressen"
 
 #: src/network/org.freedesktop.network1.policy:155
 msgid "Authentication is required to renew dynamic addresses."
-msgstr ""
-"Authenticatie is vereist voor het hernieuwen van de dynamische adressen."
+msgstr "Authenticatie is vereist voor het hernieuwen van de dynamische adressen."
 
 #: src/network/org.freedesktop.network1.policy:165
 msgid "Reload network settings"
@@ -1034,8 +833,7 @@ msgstr "Laad de netwerkinstellingen opnieuw"
 
 #: src/network/org.freedesktop.network1.policy:166
 msgid "Authentication is required to reload network settings."
-msgstr ""
-"Authenticatie is vereist voor het opnieuw laden van de netwerkinstellingen."
+msgstr "Authenticatie is vereist voor het opnieuw laden van de netwerkinstellingen."
 
 #: src/network/org.freedesktop.network1.policy:176
 msgid "Reconfigure network interface"
@@ -1043,9 +841,7 @@ msgstr "Configureer de verbinding met het netwerk opnieuw"
 
 #: src/network/org.freedesktop.network1.policy:177
 msgid "Authentication is required to reconfigure network interface."
-msgstr ""
-"Authenticatie is vereist voor het opnieuw configureren van de verbinding met "
-"het netwerk."
+msgstr "Authenticatie is vereist voor het opnieuw configureren van de verbinding met het netwerk."
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
@@ -1053,9 +849,7 @@ msgstr "Inspecteer de representatie van een portable service"
 
 #: src/portable/org.freedesktop.portable1.policy:14
 msgid "Authentication is required to inspect a portable service image."
-msgstr ""
-"Authenticatie is vereist voor het inspecteren van de representatie van een "
-"portable service."
+msgstr "Authenticatie is vereist voor het inspecteren van de representatie van een portable service."
 
 #: src/portable/org.freedesktop.portable1.policy:23
 msgid "Attach or detach a portable service image"
@@ -1063,9 +857,7 @@ msgstr "Koppel de representatie van een portable service aan of af"
 
 #: src/portable/org.freedesktop.portable1.policy:24
 msgid "Authentication is required to attach or detach a portable service image."
-msgstr ""
-"Authenticatie is vereist voor het aan- of afkoppelen van de representatie "
-"van een portable service."
+msgstr "Authenticatie is vereist voor het aan- of afkoppelen van de representatie van een portable service."
 
 #: src/portable/org.freedesktop.portable1.policy:34
 msgid "Delete or modify portable service image"
@@ -1073,9 +865,7 @@ msgstr "Verwijder of wijzig de representatie van een portable service"
 
 #: src/portable/org.freedesktop.portable1.policy:35
 msgid "Authentication is required to delete or modify a portable service image."
-msgstr ""
-"Authenticatie is vereist voor het verwijderen of wijzigen van de "
-"representatie van een portable service."
+msgstr "Authenticatie is vereist voor het verwijderen of wijzigen van de representatie van een portable service."
 
 #: src/resolve/org.freedesktop.resolve1.policy:22
 msgid "Register a DNS-SD service"
@@ -1091,21 +881,15 @@ msgstr "Verwijder de registratie van een DNS-SD-dienst"
 
 #: src/resolve/org.freedesktop.resolve1.policy:34
 msgid "Authentication is required to unregister a DNS-SD service"
-msgstr ""
-"Authenticatie is vereist voor het verwijderen van de registratie van een DNS-"
-"SD-dienst"
+msgstr "Authenticatie is vereist voor het verwijderen van de registratie van een DNS-SD-dienst"
 
 #: src/resolve/org.freedesktop.resolve1.policy:132
 msgid "Revert name resolution settings"
-msgstr ""
-"Draai de instellingen terug die gebruikt worden voor het omzetten van "
-"domeinnamen in IP-adressen"
+msgstr "Draai de instellingen terug die gebruikt worden voor het omzetten van domeinnamen in IP-adressen"
 
 #: src/resolve/org.freedesktop.resolve1.policy:133
 msgid "Authentication is required to reset name resolution settings."
-msgstr ""
-"Authenticatie is vereist voor het terugzetten van de instellingen die "
-"gebruikt worden voor de omzetting van domeinnamen in IP-adressen."
+msgstr "Authenticatie is vereist voor het terugzetten van de instellingen die gebruikt worden voor de omzetting van domeinnamen in IP-adressen."
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
@@ -1121,9 +905,7 @@ msgstr "Stel de tijdzone in die het systeem gebruikt"
 
 #: src/timedate/org.freedesktop.timedate1.policy:34
 msgid "Authentication is required to set the system timezone."
-msgstr ""
-"Authenticatie is vereist voor het instellen van de tijdzone die het systeem "
-"gebruikt."
+msgstr "Authenticatie is vereist voor het instellen van de tijdzone die het systeem gebruikt."
 
 #: src/timedate/org.freedesktop.timedate1.policy:43
 msgid "Set RTC to local timezone or UTC"
@@ -1131,9 +913,7 @@ msgstr "Stel de RTC in op het gebruik van de plaatselijke tijdzone of van UTC"
 
 #: src/timedate/org.freedesktop.timedate1.policy:44
 msgid "Authentication is required to control whether the RTC stores the local or UTC time."
-msgstr ""
-"Authenticatie is vereist om in te stellen dat de RTC de tijd moet opslaan "
-"als plaatselijke tijd of gerekend naar de UTC."
+msgstr "Authenticatie is vereist om in te stellen dat de RTC de tijd moet opslaan als plaatselijke tijd of gerekend naar de UTC."
 
 #: src/timedate/org.freedesktop.timedate1.policy:53
 msgid "Turn network time synchronization on or off"
@@ -1141,50 +921,40 @@ msgstr "Schakel synchronisatie van de systeemtijd met een tijdserver in of uit"
 
 #: src/timedate/org.freedesktop.timedate1.policy:54
 msgid "Authentication is required to control whether network time synchronization shall be enabled."
-msgstr ""
-"Authenticatie is vereist voor het in- of uitschakelen van synchronisatie van "
-"de systeemtijd met een tijdserver."
+msgstr "Authenticatie is vereist voor het in- of uitschakelen van synchronisatie van de systeemtijd met een tijdserver."
 
-#: src/core/dbus-unit.c:364
+#: src/core/dbus-unit.c:352
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Authenticatie is vereist voor het starten van '$(unit)'."
 
-#: src/core/dbus-unit.c:365
+#: src/core/dbus-unit.c:353
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Authenticatie is vereist voor het stoppen van '$(unit)'."
 
-#: src/core/dbus-unit.c:366
+#: src/core/dbus-unit.c:354
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Authenticatie is vereist voor het opnieuw laden van '$(unit)'."
 
-#: src/core/dbus-unit.c:367 src/core/dbus-unit.c:368
+#: src/core/dbus-unit.c:355 src/core/dbus-unit.c:356
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Authenticatie is vereist voor het opnieuw starten van '$(unit)'."
 
-#: src/core/dbus-unit.c:565
+#: src/core/dbus-unit.c:553
 msgid "Authentication is required to send a UNIX signal to the processes of '$(unit)'."
 msgstr "Authenticatie is vereist voor het zenden van een UNIX-signaal naar de processen van '$(unit)'."
 
-#: src/core/dbus-unit.c:595
+#: src/core/dbus-unit.c:583
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
-msgstr ""
-"Authenticatie is vereist voor het terugzetten van de toestand \"failed\" van "
-"'$(unit)'."
+msgstr "Authenticatie is vereist voor het terugzetten van de toestand \"failed\" van '$(unit)'."
 
-#: src/core/dbus-unit.c:627
+#: src/core/dbus-unit.c:615
 msgid "Authentication is required to set properties on '$(unit)'."
-msgstr ""
-"Authenticatie is vereist voor het instellen van de eigenschappen van "
-"'$(unit)'."
+msgstr "Authenticatie is vereist voor het instellen van de eigenschappen van '$(unit)'."
 
-#: src/core/dbus-unit.c:728
+#: src/core/dbus-unit.c:716
 msgid "Authentication is required to delete files and directories associated with '$(unit)'."
-msgstr ""
-"Authenticatie is vereist voor het verwijderen van bestanden en mappen die "
-"gerelateerd zijn aan '$(unit)'."
+msgstr "Authenticatie is vereist voor het verwijderen van bestanden en mappen die gerelateerd zijn aan '$(unit)'."
 
-#: src/core/dbus-unit.c:776
+#: src/core/dbus-unit.c:764
 msgid "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
-msgstr ""
-"Authenticatie is vereist voor het bevriezen of ontdooien van de processen "
-"die behoren tot '$(unit)'."
+msgstr "Authenticatie is vereist voor het bevriezen of ontdooien van de processen die behoren tot '$(unit)'."

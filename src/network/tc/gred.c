@@ -163,14 +163,7 @@ int config_parse_generic_random_early_detection_bool(
 
         gred = GRED(qdisc);
 
-        if (isempty(rvalue)) {
-                gred->grio = -1;
-
-                TAKE_PTR(qdisc);
-                return 0;
-        }
-
-        r = parse_boolean(rvalue);
+        r = parse_tristate(rvalue, &gred->grio);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
@@ -178,7 +171,6 @@ int config_parse_generic_random_early_detection_bool(
                 return 0;
         }
 
-        gred->grio = r;
         TAKE_PTR(qdisc);
 
         return 0;

@@ -43,3 +43,9 @@ enum {
         TPM2_PCR_DEBUG               = 16,
         TPM2_PCR_APPLICATION_SUPPORT = 23,
 };
+
+/* The tag used for EV_EVENT_TAG event log records covering the boot loader config */
+#define LOADER_CONF_EVENT_TAG_ID UINT32_C(0xf5bc582a)
+
+/* The tag used for EV_EVENT_TAG event log records covering Devicetree blobs */
+#define DEVICETREE_ADDON_EVENT_TAG_ID UINT32_C(0x6c46f751)

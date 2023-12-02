@@ -10,10 +10,13 @@
 #include "format-util.h"
 #include "log.h"
 #include "string-util.h"
+#include "tests.h"
 
 int main(int argc, char *argv[]) {
         BtrfsQuotaInfo quota;
         int r, fd;
+
+        test_setup_logging(LOG_DEBUG);
 
         fd = open("/", O_RDONLY|O_CLOEXEC|O_DIRECTORY);
         if (fd < 0)

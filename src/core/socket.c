@@ -100,8 +100,7 @@ static void socket_init(Unit *u) {
         s->control_pid = PIDREF_NULL;
         s->control_command_id = _SOCKET_EXEC_COMMAND_INVALID;
 
-        s->trigger_limit.interval = USEC_INFINITY;
-        s->trigger_limit.burst = UINT_MAX;
+        s->trigger_limit = RATELIMIT_OFF;
 
         s->poll_limit_interval = USEC_INFINITY;
         s->poll_limit_burst = UINT_MAX;
@@ -1495,7 +1494,7 @@ static int socket_address_listen_in_cgroup(
                 const char *label) {
 
         _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
-        _cleanup_close_pair_ int pair[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         int fd, r;
 
         assert(s);
@@ -1852,7 +1851,7 @@ static int socket_coldplug(Unit *u) {
                 return 0;
 
         if (pidref_is_set(&s->control_pid) &&
-            pid_is_unwaited(s->control_pid.pid) &&
+            pidref_is_unwaited(&s->control_pid) > 0 &&
             IN_SET(s->deserialized_state,
                    SOCKET_START_PRE,
                    SOCKET_START_CHOWN,
@@ -1913,13 +1912,8 @@ static int socket_coldplug(Unit *u) {
 
 static int socket_spawn(Socket *s, ExecCommand *c, PidRef *ret_pid) {
 
-        _cleanup_(exec_params_clear) ExecParameters exec_params = {
-                .flags     = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN,
-                .stdin_fd  = -EBADF,
-                .stdout_fd = -EBADF,
-                .stderr_fd = -EBADF,
-                .exec_fd   = -EBADF,
-        };
+        _cleanup_(exec_params_shallow_clear) ExecParameters exec_params = EXEC_PARAMETERS_INIT(
+                        EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN);
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         pid_t pid;
         int r;
@@ -2557,9 +2551,7 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
         (void) serialize_item(f, "result", socket_result_to_string(s->result));
         (void) serialize_item_format(f, "n-accepted", "%u", s->n_accepted);
         (void) serialize_item_format(f, "n-refused", "%u", s->n_refused);
-
-        if (pidref_is_set(&s->control_pid))
-                (void) serialize_item_format(f, "control-pid", PID_FMT, s->control_pid.pid);
+        (void) serialize_pidref(f, fds, "control-pid", &s->control_pid);
 
         if (s->control_command_id >= 0)
                 (void) serialize_item(f, "control-command", socket_exec_command_to_string(s->control_command_id));
@@ -2596,6 +2588,8 @@ static int socket_serialize(Unit *u, FILE *f, FDSet *fds) {
                         (void) serialize_item_format(f, "fifo", "%i %s", copy, p->path);
                 }
         }
+
+        (void) serialize_ratelimit(f, "trigger-ratelimit", &s->trigger_limit);
 
         return 0;
 }
@@ -2641,9 +2635,8 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                         s->n_refused += k;
         } else if (streq(key, "control-pid")) {
                 pidref_done(&s->control_pid);
-                r = pidref_set_pidstr(&s->control_pid, value);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to pin control PID '%s', ignoring: %m", value);
+                (void) deserialize_pidref(fds, value, &s->control_pid);
+
         } else if (streq(key, "control-command")) {
                 SocketExecCommand id;
 
@@ -2832,7 +2825,10 @@ static int socket_deserialize_item(Unit *u, const char *key, const char *value, 
                 if (!found)
                         log_unit_debug(u, "No matching ffs socket found: %s", value);
 
-        } else
+        } else if (streq(key, "trigger-ratelimit"))
+                deserialize_ratelimit(&s->trigger_limit, key, value);
+
+        else
                 log_unit_debug(UNIT(s), "Unknown serialization key: %s", key);
 
         return 0;
@@ -2872,6 +2868,40 @@ static const char *socket_sub_state_to_string(Unit *u) {
         assert(u);
 
         return socket_state_to_string(SOCKET(u)->state);
+}
+
+int socket_port_to_address(const SocketPort *p, char **ret) {
+        _cleanup_free_ char *address = NULL;
+        int r;
+
+        assert(p);
+        assert(ret);
+
+        switch (p->type) {
+                case SOCKET_SOCKET: {
+                        r = socket_address_print(&p->address, &address);
+                        if (r < 0)
+                                return r;
+
+                        break;
+                }
+
+                case SOCKET_SPECIAL:
+                case SOCKET_MQUEUE:
+                case SOCKET_FIFO:
+                case SOCKET_USB_FUNCTION:
+                        address = strdup(p->path);
+                        if (!address)
+                                return -ENOMEM;
+                        break;
+
+                default:
+                        assert_not_reached();
+        }
+
+        *ret = TAKE_PTR(address);
+
+        return 0;
 }
 
 const char* socket_port_type_to_string(SocketPort *p) {
@@ -2960,7 +2990,7 @@ static int socket_accept_do(Socket *s, int fd) {
 
 static int socket_accept_in_cgroup(Socket *s, SocketPort *p, int fd) {
         _cleanup_(pidref_done) PidRef pid = PIDREF_NULL;
-        _cleanup_close_pair_ int pair[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
         int cfd, r;
 
         assert(s);

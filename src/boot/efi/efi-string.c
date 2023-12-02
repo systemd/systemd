@@ -391,6 +391,95 @@ bool efi_fnmatch(const char16_t *pattern, const char16_t *haystack) {
 DEFINE_PARSE_NUMBER(char, parse_number8);
 DEFINE_PARSE_NUMBER(char16_t, parse_number16);
 
+bool parse_boolean(const char *v, bool *ret) {
+        assert(ret);
+
+        if (!v)
+                return false;
+
+        if (streq8(v, "1") || streq8(v, "yes") || streq8(v, "y") || streq8(v, "true") || streq8(v, "t") ||
+            streq8(v, "on")) {
+                *ret = true;
+                return true;
+        }
+
+        if (streq8(v, "0") || streq8(v, "no") || streq8(v, "n") || streq8(v, "false") || streq8(v, "f") ||
+            streq8(v, "off")) {
+                *ret = false;
+                return true;
+        }
+
+        return false;
+}
+
+char *line_get_key_value(char *s, const char *sep, size_t *pos, char **ret_key, char **ret_value) {
+        char *line, *value;
+        size_t linelen;
+
+        assert(s);
+        assert(sep);
+        assert(pos);
+        assert(ret_key);
+        assert(ret_value);
+
+        for (;;) {
+                line = s + *pos;
+                if (*line == '\0')
+                        return NULL;
+
+                linelen = 0;
+                while (line[linelen] && !strchr8("\n\r", line[linelen]))
+                        linelen++;
+
+                /* move pos to next line */
+                *pos += linelen;
+                if (s[*pos])
+                        (*pos)++;
+
+                /* empty line */
+                if (linelen == 0)
+                        continue;
+
+                /* terminate line */
+                line[linelen] = '\0';
+
+                /* remove leading whitespace */
+                while (linelen > 0 && strchr8(" \t", *line)) {
+                        line++;
+                        linelen--;
+                }
+
+                /* remove trailing whitespace */
+                while (linelen > 0 && strchr8(" \t", line[linelen - 1]))
+                        linelen--;
+                line[linelen] = '\0';
+
+                if (*line == '#')
+                        continue;
+
+                /* split key/value */
+                value = line;
+                while (*value && !strchr8(sep, *value))
+                        value++;
+                if (*value == '\0')
+                        continue;
+                *value = '\0';
+                value++;
+                while (*value && strchr8(sep, *value))
+                        value++;
+
+                /* unquote */
+                if (value[0] == '"' && line[linelen - 1] == '"') {
+                        value++;
+                        line[linelen - 1] = '\0';
+                }
+
+                *ret_key = line;
+                *ret_value = value;
+                return line;
+        }
+}
+
 char16_t *hexdump(const void *data, size_t size) {
         static const char hex[16] = "0123456789abcdef";
         const uint8_t *d = data;

@@ -613,7 +613,7 @@ static int clean_pool_done(Operation *operation, int ret, sd_bus_error *error) {
         assert(operation);
         assert(operation->extra_fd >= 0);
 
-        if (lseek(operation->extra_fd, 0, SEEK_SET) == (off_t) -1)
+        if (lseek(operation->extra_fd, 0, SEEK_SET) < 0)
                 return -errno;
 
         f = take_fdopen(&operation->extra_fd, "r");
@@ -688,7 +688,7 @@ static int method_clean_pool(sd_bus_message *message, void *userdata, sd_bus_err
                 REMOVE_HIDDEN,
         } mode;
 
-        _cleanup_close_pair_ int errno_pipe_fd[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int errno_pipe_fd[2] = EBADF_PAIR;
         _cleanup_close_ int result_fd = -EBADF;
         Manager *m = userdata;
         Operation *operation;

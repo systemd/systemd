@@ -741,10 +741,10 @@ compatibility.
 Note that these automatically generated compatibility unit files cannot replace
 native unit files as they generally slow down the system (by creating
 unnecessary, additional synchronization points), are less robust (as SysV services
-cannot properly be life-cycle tracked or automatically restarted) and less
+cannot properly be lifecycle tracked or automatically restarted) and less
 secure (as no sandboxing restrictions can be enforced).
 
 Compatibility support for System V services in systemd is deprecated. Please
 make sure to update the package in question to provide proper, native systemd
-unit files. Contact vendor if necesssary. Compatibility support for System V
+unit files. Contact vendor if necessary. Compatibility support for System V
 services is deprecated and will be removed soon.

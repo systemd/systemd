@@ -62,7 +62,7 @@ typedef struct ConfigPerfItem {
 } ConfigPerfItem;
 
 /* Prototype for a low-level gperf lookup function */
-typedef const ConfigPerfItem* (*ConfigPerfItemLookup)(const char *section_and_lvalue, unsigned length);
+typedef const ConfigPerfItem* (*ConfigPerfItemLookup)(const char *section_and_lvalue, GPERF_LEN_TYPE length);
 
 /* Prototype for a generic high-level lookup function */
 typedef int (*ConfigItemLookup)(

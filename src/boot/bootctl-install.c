@@ -233,7 +233,7 @@ static int copy_file_with_version_check(const char *from, const char *to, bool f
                         if (r < 0)
                                 return r;
 
-                        if (lseek(fd_from, 0, SEEK_SET) == (off_t) -1)
+                        if (lseek(fd_from, 0, SEEK_SET) < 0)
                                 return log_error_errno(errno, "Failed to seek in \"%s\": %m", from);
 
                         fd_to = safe_close(fd_to);
@@ -972,9 +972,11 @@ static int remove_loader_variables(void) {
         /* Remove all persistent loader variables we define */
 
         FOREACH_STRING(var,
+                       EFI_LOADER_VARIABLE(LoaderConfigConsoleMode),
                        EFI_LOADER_VARIABLE(LoaderConfigTimeout),
                        EFI_LOADER_VARIABLE(LoaderConfigTimeoutOneShot),
                        EFI_LOADER_VARIABLE(LoaderEntryDefault),
+                       EFI_LOADER_VARIABLE(LoaderEntryLastBooted),
                        EFI_LOADER_VARIABLE(LoaderEntryOneShot),
                        EFI_LOADER_VARIABLE(LoaderSystemToken)){
 
@@ -1077,7 +1079,7 @@ int verb_remove(int argc, char *argv[], void *userdata) {
 int verb_is_installed(int argc, char *argv[], void *userdata) {
         int r;
 
-        r = acquire_esp(/* privileged_mode= */ false,
+        r = acquire_esp(/* unprivileged_mode= */ false,
                         /* graceful= */ arg_graceful,
                         NULL, NULL, NULL, NULL, NULL);
         if (r < 0)

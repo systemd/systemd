@@ -112,7 +112,7 @@
     suitable for shipping resources that are processed by subsystems running in earliest boot. Specifically,
     OS extension images are not suitable for shipping system services or
     <citerefentry><refentrytitle>systemd-sysusers</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    definitions. See the <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services Documentation</ulink>
+    definitions. See the <ulink url="https://systemd.io/PORTABLE_SERVICES">Portable Services</ulink> page
     for a simple mechanism for shipping system services in disk images, in a similar fashion to OS
     extensions. Note the different isolation on these two mechanisms: while system extension directly extend
     the underlying OS image with additional files that appear in a way very similar to as if they were
@@ -129,7 +129,7 @@
     an extension with the same name in a system folder with lower precedence.</para>
 
     <para>A simple mechanism for version compatibility is enforced: a system extension image must carry a
-    <filename>/usr/lib/extension-release.d/extension-release.<replaceable>$name</replaceable></filename>
+    <filename>/usr/lib/extension-release.d/extension-release.<replaceable>NAME</replaceable></filename>
     file, which must match its image name, that is compared with the host <filename>os-release</filename>
     file: the contained <varname>ID=</varname> fields have to match unless <literal>_any</literal> is set
     for the extension. If the extension <varname>ID=</varname> is not <literal>_any</literal>, the
@@ -168,11 +168,13 @@
     <filename>.raw</filename> suffix are considered disk image based confext images.</para>
 
     <para>Again, just like sysext images, the confext images will contain a
-    <filename>/etc/extension-release.d/extension-release.<replaceable>$name</replaceable></filename>
-    file, which must match the image name (with the usual escape hatch of xattr), and again with content
-    being one or more of <varname>ID=</varname>, <varname>VERSION_ID=</varname>, and
-    <varname>CONFEXT_LEVEL</varname>. Confext images will then be checked and matched against the
-    base OS layer.</para>
+    <filename>/etc/extension-release.d/extension-release.<replaceable>NAME</replaceable></filename>
+    file, which must match the image name (with the usual escape hatch of
+    the <varname>user.extension-release.strict</varname>
+    <citerefentry project='man-pages'><refentrytitle>xattr</refentrytitle><manvolnum>7</manvolnum></citerefentry>),
+    and again with content being one or more of <varname>ID=</varname>, <varname>VERSION_ID=</varname>, and
+    <varname>CONFEXT_LEVEL</varname>. Confext images will then be checked and matched against the base OS
+    layer.</para>
   </refsect1>
 
   <refsect1>

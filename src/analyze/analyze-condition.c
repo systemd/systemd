@@ -78,21 +78,12 @@ static int verify_conditions(char **lines, RuntimeScope scope, const char *unit,
         int r, q = 1;
 
         if (unit) {
-                _cleanup_strv_free_ char **filenames = NULL;
-                _cleanup_free_ char *var = NULL;
-
-                filenames = strv_new(unit);
-                if (!filenames)
-                        return log_oom();
-
-                r = verify_generate_path(&var, filenames);
+                r = verify_set_unit_path(STRV_MAKE(unit));
                 if (r < 0)
-                        return log_error_errno(r, "Failed to generate unit load path: %m");
-
-                assert_se(set_unit_path(var) >= 0);
+                        return log_error_errno(r, "Failed to set unit load path: %m");
         }
 
-        r = manager_new(scope, MANAGER_TEST_RUN_MINIMAL, &m);
+        r = manager_new(scope, MANAGER_TEST_RUN_MINIMAL|MANAGER_TEST_DONT_OPEN_EXECUTOR, &m);
         if (r < 0)
                 return log_error_errno(r, "Failed to initialize manager: %m");
 

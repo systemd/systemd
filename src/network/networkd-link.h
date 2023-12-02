@@ -127,7 +127,7 @@ typedef struct Link {
         sd_dhcp_lease *dhcp_lease;
         char *lease_file;
         unsigned dhcp4_messages;
-        bool dhcp4_configured:1;
+        bool dhcp4_configured;
         char *dhcp4_6rd_tunnel_name;
 
         Hashmap *ipv4acd_by_address;
@@ -236,6 +236,7 @@ static inline bool link_has_carrier(Link *link) {
 
 bool link_ipv6_enabled(Link *link);
 int link_ipv6ll_gained(Link *link);
+bool link_has_ipv6_connectivity(Link *link);
 
 int link_stop_engines(Link *link, bool may_keep_dhcp);
 

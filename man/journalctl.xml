@@ -865,7 +865,7 @@
 
         <para><option>--vacuum-time=</option> removes archived journal files older than the specified
         timespan. Accepts the usual <literal>s</literal> (default), <literal>m</literal>,
-        <literal>h</literal>, <literal>days</literal>, <literal>months</literal>, <literal>weeks</literal>
+        <literal>h</literal>, <literal>days</literal>, <literal>weeks</literal>, <literal>months</literal>,
         and <literal>years</literal> suffixes, see
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
         details.</para>
