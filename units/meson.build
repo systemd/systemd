@@ -431,6 +431,15 @@ units = [
           'conditions' : ['ENABLE_OOMD'],
         },
         {
+          'file' : 'systemd-pcrextend@.service.in',
+          'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
+        },
+        {
+          'file' : 'systemd-pcrextend.socket',
+          'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        {
           'file' : 'systemd-pcrfs-root.service.in',
           'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
         },
@@ -467,6 +476,34 @@ units = [
           'file' : 'systemd-tpm2-setup-early.service.in',
           'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
           'symlinks' : ['sysinit.target.wants/'],
+        },
+        {
+          'file' : 'systemd-pcrlock-make-policy.service.in',
+          'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
+        },
+        {
+          'file' : 'systemd-pcrlock-secureboot-policy.service.in',
+          'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
+        },
+        {
+          'file' : 'systemd-pcrlock-secureboot-authority.service.in',
+          'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
+        },
+        {
+          'file' : 'systemd-pcrlock-file-system.service.in',
+          'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
+        },
+        {
+          'file' : 'systemd-pcrlock-machine-id.service.in',
+          'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
+        },
+        {
+          'file' : 'systemd-pcrlock-firmware-code.service.in',
+          'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
+        },
+        {
+          'file' : 'systemd-pcrlock-firmware-config.service.in',
+          'conditions' : ['ENABLE_BOOTLOADER', 'HAVE_OPENSSL', 'HAVE_TPM2'],
         },
         {
           'file' : 'systemd-portabled.service.in',
@@ -521,6 +558,15 @@ units = [
           'conditions' : ['ENABLE_SYSEXT'],
         },
         {
+          'file' : 'systemd-sysext.socket',
+          'conditions' : ['ENABLE_SYSEXT'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        {
+          'file' : 'systemd-sysext@.service',
+          'conditions' : ['ENABLE_SYSEXT'],
+        },
+        {
           'file' : 'systemd-sysupdate-reboot.service.in',
           'conditions' : ['ENABLE_SYSUPDATE'],
         },
@@ -540,6 +586,14 @@ units = [
           'file' : 'systemd-sysusers.service',
           'conditions' : ['ENABLE_SYSUSERS'],
           'symlinks' : ['sysinit.target.wants/'],
+        },
+        {
+          'file' : 'systemd-storagetm.service.in',
+          'conditions' : ['ENABLE_STORAGETM'],
+        },
+        {
+          'file' : 'storage-target-mode.target',
+          'conditions' : ['ENABLE_STORAGETM'],
         },
         {
           'file' : 'systemd-time-wait-sync.service.in',

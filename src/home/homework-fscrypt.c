@@ -314,7 +314,7 @@ int home_setup_fscrypt(
 
         if (uid_is_valid(h->uid)) {
                 r = safe_fork("(sd-addkey)",
-                              FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_LOG|FORK_WAIT|FORK_REOPEN_LOG,
+                              FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_WAIT|FORK_REOPEN_LOG,
                               NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed install encryption key in user's keyring: %m");

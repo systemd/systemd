@@ -27,6 +27,7 @@ int block_device_new_from_path(const char *path, BlockDeviceLookupFlag flag, sd_
 
 int block_device_is_whole_disk(sd_device *dev);
 int block_device_get_whole_disk(sd_device *dev, sd_device **ret);
+int block_device_get_originating(sd_device *dev, sd_device **ret);
 
 int block_get_whole_disk(dev_t d, dev_t *ret);
 int block_get_originating(dev_t d, dev_t *ret);

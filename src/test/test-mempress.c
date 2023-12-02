@@ -188,7 +188,7 @@ TEST(real_pressure) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *es = NULL, *cs = NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_close_pair_ int pipe_fd[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int pipe_fd[2] = EBADF_PAIR;
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_free_ char *scope = NULL;
         const char *object;
@@ -226,7 +226,7 @@ TEST(real_pressure) {
 
         assert_se(pipe2(pipe_fd, O_CLOEXEC) >= 0);
 
-        r = safe_fork("(eat-memory)", FORK_RESET_SIGNALS|FORK_DEATHSIG, &pid);
+        r = safe_fork("(eat-memory)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM, &pid);
         assert_se(r >= 0);
         if (r == 0) {
                 real_pressure_eat_memory(pipe_fd[0]);

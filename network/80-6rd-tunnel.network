@@ -15,8 +15,8 @@
 # systemd-networkd when DHCPv4 6RD option is received.
 
 [Match]
+Kind=sit
 Name=6rd-*
-Type=sit
 
 [Network]
 DHCPPrefixDelegation=yes

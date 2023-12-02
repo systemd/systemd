@@ -18,6 +18,7 @@
 #include "bus-wait-for-jobs.h"
 #include "calendarspec.h"
 #include "env-util.h"
+#include "escape.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -653,12 +654,25 @@ static int parse_argv(int argc, char *argv[]) {
 static int transient_unit_set_properties(sd_bus_message *m, UnitType t, char **properties) {
         int r;
 
+        assert(m);
+
         r = sd_bus_message_append(m, "(sv)", "Description", "s", arg_description);
         if (r < 0)
                 return bus_log_create_error(r);
 
         if (arg_aggressive_gc) {
                 r = sd_bus_message_append(m, "(sv)", "CollectMode", "s", "inactive-or-failed");
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
+
+        r = sd_bus_is_bus_client(sd_bus_message_get_bus(m));
+        if (r < 0)
+                return log_error_errno(r, "Can't determine if bus connection is direct or to broker: %m");
+        if (r > 0) {
+                /* Pin the object as least as long as we are around. Note that AddRef (currently) only works
+                 * if we talk via the bus though. */
+                r = sd_bus_message_append(m, "(sv)", "AddRef", "b", 1);
                 if (r < 0)
                         return bus_log_create_error(r);
         }
@@ -753,12 +767,6 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
         r = transient_cgroup_set_properties(m);
         if (r < 0)
                 return r;
-
-        if (arg_wait || arg_stdio != ARG_STDIO_NONE) {
-                r = sd_bus_message_append(m, "(sv)", "AddRef", "b", 1);
-                if (r < 0)
-                        return bus_log_create_error(r);
-        }
 
         if (arg_remain_after_exit) {
                 r = sd_bus_message_append(m, "(sv)", "RemainAfterExit", "b", arg_remain_after_exit);
@@ -928,7 +936,7 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
         return 0;
 }
 
-static int transient_scope_set_properties(sd_bus_message *m) {
+static int transient_scope_set_properties(sd_bus_message *m, bool allow_pidfd) {
         int r;
 
         assert(m);
@@ -945,7 +953,18 @@ static int transient_scope_set_properties(sd_bus_message *m) {
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append(m, "(sv)", "PIDs", "au", 1, (uint32_t) getpid_cached());
+        if (allow_pidfd) {
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+
+                r = pidref_set_self(&pidref);
+                if (r < 0)
+                        return r;
+
+                r = bus_append_scope_pidref(m, &pidref);
+        } else
+                r = sd_bus_message_append(
+                                m, "(sv)",
+                                "PIDs", "au", 1, getpid_cached());
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -1031,6 +1050,8 @@ typedef struct RunContext {
         uint64_t inactive_enter_usec;
         char *result;
         uint64_t cpu_usage_nsec;
+        uint64_t memory_peak;
+        uint64_t memory_swap_peak;
         uint64_t ip_ingress_bytes;
         uint64_t ip_egress_bytes;
         uint64_t io_read_bytes;
@@ -1092,6 +1113,8 @@ static int run_context_update(RunContext *c, const char *path) {
                 { "ExecMainCode",                    "i",    NULL,    offsetof(RunContext, exit_code)           },
                 { "ExecMainStatus",                  "i",    NULL,    offsetof(RunContext, exit_status)         },
                 { "CPUUsageNSec",                    "t",    NULL,    offsetof(RunContext, cpu_usage_nsec)      },
+                { "MemoryPeak",                      "t",    NULL,    offsetof(RunContext, memory_peak)         },
+                { "MemorySwapPeak",                  "t",    NULL,    offsetof(RunContext, memory_swap_peak)    },
                 { "IPIngressBytes",                  "t",    NULL,    offsetof(RunContext, ip_ingress_bytes)    },
                 { "IPEgressBytes",                   "t",    NULL,    offsetof(RunContext, ip_egress_bytes)     },
                 { "IOReadBytes",                     "t",    NULL,    offsetof(RunContext, io_read_bytes)       },
@@ -1213,6 +1236,50 @@ static int bus_call_with_hint(
         return r;
 }
 
+static int acquire_invocation_id(sd_bus *bus, const char *unit, sd_id128_t *ret) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_free_ char *object = NULL;
+        const void *p;
+        size_t l;
+        int r;
+
+        assert(bus);
+        assert(ret);
+
+        if (unit) {
+                object = unit_dbus_path_from_name(unit);
+                if (!object)
+                        return log_oom();
+        }
+
+        r = sd_bus_get_property(bus,
+                                "org.freedesktop.systemd1",
+                                object ?: "/org/freedesktop/systemd1/unit/self",
+                                "org.freedesktop.systemd1.Unit",
+                                "InvocationID",
+                                &error,
+                                &reply,
+                                "ay");
+        if (r < 0)
+                return log_error_errno(r, "Failed to request invocation ID for unit: %s", bus_error_message(&error, r));
+
+        r = sd_bus_message_read_array(reply, 'y', &p, &l);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        if (l == 0) {
+                *ret = SD_ID128_NULL;
+                return 0; /* no uuid set */
+        }
+
+        if (l != sizeof(sd_id128_t))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid UUID size, %zu != %zu.", l, sizeof(sd_id128_t));
+
+        memcpy(ret, p, l);
+        return !sd_id128_is_null(*ret);
+}
+
 static int start_transient_service(sd_bus *bus) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1314,12 +1381,23 @@ static int start_transient_service(sd_bus *bus) {
                         return r;
         }
 
-        if (!arg_quiet)
-                log_info("Running as unit: %s", service);
+        if (!arg_quiet) {
+                sd_id128_t invocation_id;
+
+                r = acquire_invocation_id(bus, service, &invocation_id);
+                if (r < 0)
+                        return r;
+                if (r == 0) /* No invocation UUID set */
+                        log_info("Running as unit: %s", service);
+                else
+                        log_info("Running as unit: %s; invocation ID: " SD_ID128_FORMAT_STR, service, SD_ID128_FORMAT_VAL(invocation_id));
+        }
 
         if (arg_wait || arg_stdio != ARG_STDIO_NONE) {
                 _cleanup_(run_context_free) RunContext c = {
                         .cpu_usage_nsec = NSEC_INFINITY,
+                        .memory_peak = UINT64_MAX,
+                        .memory_swap_peak = UINT64_MAX,
                         .ip_ingress_bytes = UINT64_MAX,
                         .ip_egress_bytes = UINT64_MAX,
                         .io_read_bytes = UINT64_MAX,
@@ -1415,6 +1493,12 @@ static int start_transient_service(sd_bus *bus) {
                                 log_info("CPU time consumed: %s",
                                          FORMAT_TIMESPAN(DIV_ROUND_UP(c.cpu_usage_nsec, NSEC_PER_USEC), USEC_PER_MSEC));
 
+                        if (c.memory_peak != UINT64_MAX)
+                                log_info("Memory peak: %s", FORMAT_BYTES(c.memory_peak));
+
+                        if (c.memory_swap_peak != UINT64_MAX)
+                                log_info("Memory swap peak: %s", FORMAT_BYTES(c.memory_swap_peak));
+
                         if (c.ip_ingress_bytes != UINT64_MAX)
                                 log_info("IP traffic received: %s", FORMAT_BYTES(c.ip_ingress_bytes));
 
@@ -1442,46 +1526,14 @@ static int start_transient_service(sd_bus *bus) {
         return EXIT_SUCCESS;
 }
 
-static int acquire_invocation_id(sd_bus *bus, sd_id128_t *ret) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        const void *p;
-        size_t l;
-        int r;
-
-        assert(bus);
-        assert(ret);
-
-        r = sd_bus_get_property(bus,
-                                "org.freedesktop.systemd1",
-                                "/org/freedesktop/systemd1/unit/self",
-                                "org.freedesktop.systemd1.Unit",
-                                "InvocationID",
-                                &error,
-                                &reply,
-                                "ay");
-        if (r < 0)
-                return log_error_errno(r, "Failed to request invocation ID for scope: %s", bus_error_message(&error, r));
-
-        r = sd_bus_message_read_array(reply, 'y', &p, &l);
-        if (r < 0)
-                return bus_log_parse_error(r);
-
-        if (l != sizeof(sd_id128_t))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid UUID size, %zu != %zu.", l, sizeof(sd_id128_t));
-
-        memcpy(ret, p, l);
-        return 0;
-}
-
 static int start_transient_scope(sd_bus *bus) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(bus_wait_for_jobs_freep) BusWaitForJobs *w = NULL;
         _cleanup_strv_free_ char **env = NULL, **user_env = NULL;
         _cleanup_free_ char *scope = NULL;
         const char *object = NULL;
         sd_id128_t invocation_id;
+        bool allow_pidfd = true;
         int r;
 
         assert(bus);
@@ -1503,42 +1555,56 @@ static int start_transient_scope(sd_bus *bus) {
                         return r;
         }
 
-        r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "StartTransientUnit");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        /* Name and Mode */
-        r = sd_bus_message_append(m, "ss", scope, "fail");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        /* Properties */
-        r = sd_bus_message_open_container(m, 'a', "(sv)");
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        r = transient_scope_set_properties(m);
-        if (r < 0)
-                return r;
-
-        r = sd_bus_message_close_container(m);
-        if (r < 0)
-                return bus_log_create_error(r);
-
-        /* Auxiliary units */
-        r = sd_bus_message_append(m, "a(sa(sv))", 0);
-        if (r < 0)
-                return bus_log_create_error(r);
-
         polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        r = sd_bus_call(bus, m, 0, &error, &reply);
-        if (r < 0)
-                return log_error_errno(r, "Failed to start transient scope unit: %s", bus_error_message(&error, r));
+        for (;;) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+
+                r = bus_message_new_method_call(bus, &m, bus_systemd_mgr, "StartTransientUnit");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_set_allow_interactive_authorization(m, arg_ask_password);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                /* Name and Mode */
+                r = sd_bus_message_append(m, "ss", scope, "fail");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                /* Properties */
+                r = sd_bus_message_open_container(m, 'a', "(sv)");
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = transient_scope_set_properties(m, allow_pidfd);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_close_container(m);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                /* Auxiliary units */
+                r = sd_bus_message_append(m, "a(sa(sv))", 0);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_call(bus, m, 0, &error, &reply);
+                if (r < 0) {
+                        if (sd_bus_error_has_names(&error, SD_BUS_ERROR_UNKNOWN_PROPERTY, SD_BUS_ERROR_PROPERTY_READ_ONLY) && allow_pidfd) {
+                                log_debug("Retrying with classic PIDs.");
+                                allow_pidfd = false;
+                                continue;
+                        }
+
+                        return log_error_errno(r, "Failed to start transient scope unit: %s", bus_error_message(&error, r));
+                }
+
+                break;
+        }
 
         r = sd_bus_message_read(reply, "o", &object);
         if (r < 0)
@@ -1548,13 +1614,15 @@ static int start_transient_scope(sd_bus *bus) {
         if (r < 0)
                 return r;
 
-        r = acquire_invocation_id(bus, &invocation_id);
+        r = acquire_invocation_id(bus, NULL, &invocation_id);
         if (r < 0)
                 return r;
-
-        r = strv_extendf(&user_env, "INVOCATION_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(invocation_id));
-        if (r < 0)
-                return log_oom();
+        if (r == 0)
+                log_debug("No invocation ID set.");
+        else {
+                if (strv_extendf(&user_env, "INVOCATION_ID=" SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(invocation_id)) < 0)
+                        return log_oom();
+        }
 
         if (arg_nice_set) {
                 if (setpriority(PRIO_PROCESS, 0, arg_nice) < 0)
@@ -1617,8 +1685,12 @@ static int start_transient_scope(sd_bus *bus) {
         if (!env)
                 return log_oom();
 
-        if (!arg_quiet)
-                log_info("Running scope as unit: %s", scope);
+        if (!arg_quiet) {
+                if (sd_id128_is_null(invocation_id))
+                        log_info("Running as unit: %s", scope);
+                else
+                        log_info("Running as unit: %s; invocation ID: " SD_ID128_FORMAT_STR, scope, SD_ID128_FORMAT_VAL(invocation_id));
+        }
 
         if (arg_expand_environment > 0) {
                 _cleanup_strv_free_ char **expanded_cmdline = NULL, **unset_variables = NULL, **bad_variables = NULL;
@@ -1861,17 +1933,19 @@ static int run(int argc, char* argv[]) {
         }
 
         if (!arg_description) {
-                description = strv_join(arg_cmdline, " ");
-                if (!description)
-                        return log_oom();
-
-                if (arg_unit && isempty(description)) {
-                        r = free_and_strdup(&description, arg_unit);
-                        if (r < 0)
+                if (strv_isempty(arg_cmdline))
+                        arg_description = arg_unit;
+                else {
+                        _cleanup_free_ char *joined = strv_join(arg_cmdline, " ");
+                        if (!joined)
                                 return log_oom();
-                }
 
-                arg_description = description;
+                        description = shell_escape(joined, "\"");
+                        if (!description)
+                                return log_oom();
+
+                        arg_description = description;
+                }
         }
 
         /* For backward compatibility reasons env var expansion is disabled by default for scopes, and

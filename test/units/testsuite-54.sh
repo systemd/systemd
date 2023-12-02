@@ -22,7 +22,7 @@ mount -t tmpfs -o size=1,nr_inodes=1 tmpfs /tmp/full
 
 # verb: setup
 # Run this first, otherwise any encrypted credentials wouldn't be decryptable
-# as we regnerate the host key
+# as we regenerate the host key
 rm -fv /var/lib/systemd/credential.secret
 systemd-creds setup
 test -e /var/lib/systemd/credential.secret

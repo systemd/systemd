@@ -32,6 +32,7 @@
 #include "analyze-plot.h"
 #include "analyze-security.h"
 #include "analyze-service-watchdogs.h"
+#include "analyze-srk.h"
 #include "analyze-syscall-filter.h"
 #include "analyze-time.h"
 #include "analyze-time-data.h"
@@ -91,6 +92,7 @@ DotMode arg_dot = DEP_ALL;
 char **arg_dot_from_patterns = NULL, **arg_dot_to_patterns = NULL;
 usec_t arg_fuzz = 0;
 PagerFlags arg_pager_flags = 0;
+CatFlags arg_cat_flags = 0;
 BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
 const char *arg_host = NULL;
 RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
@@ -235,6 +237,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  malloc [D-BUS SERVICE...]  Dump malloc stats of a D-Bus service\n"
                "  fdstore SERVICE...         Show file descriptor store contents of service\n"
                "  pcrs [PCR...]              Show TPM2 PCRs and their names\n"
+               "  srk > FILE                 Write TPM2 SRK to stdout\n"
                "\nOptions:\n"
                "     --recursive-errors=MODE Control which units are verified\n"
                "     --offline=BOOL          Perform a security review on unit file(s)\n"
@@ -270,6 +273,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -h --help                  Show this help\n"
                "     --version               Show package version\n"
                "  -q --quiet                 Do not emit hints\n"
+               "     --tldr                  Skip comments and empty lines\n"
                "     --root=PATH             Operate on an alternate filesystem root\n"
                "     --image=PATH            Operate on disk image as filesystem root\n"
                "     --image-policy=POLICY   Specify disk image dissection policy\n"
@@ -313,6 +317,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PROFILE,
                 ARG_TABLE,
                 ARG_NO_LEGEND,
+                ARG_TLDR,
         };
 
         static const struct option options[] = {
@@ -346,6 +351,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "profile",          required_argument, NULL, ARG_PROFILE          },
                 { "table",            optional_argument, NULL, ARG_TABLE            },
                 { "no-legend",        optional_argument, NULL, ARG_NO_LEGEND        },
+                { "tldr",             no_argument,       NULL, ARG_TLDR             },
                 {}
         };
 
@@ -535,6 +541,10 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_legend = false;
                         break;
 
+                case ARG_TLDR:
+                        arg_cat_flags = CAT_TLDR;
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -638,6 +648,7 @@ static int run(int argc, char *argv[]) {
                 { "fdstore",           2,        VERB_ANY, 0,            verb_fdstore           },
                 { "image-policy",      2,        2,        0,            verb_image_policy      },
                 { "pcrs",              VERB_ANY, VERB_ANY, 0,            verb_pcrs              },
+                { "srk",               VERB_ANY, 1,        0,            verb_srk               },
                 {}
         };
 

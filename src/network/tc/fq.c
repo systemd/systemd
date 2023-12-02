@@ -267,14 +267,7 @@ int config_parse_fair_queueing_bool(
 
         fq = FQ(qdisc);
 
-        if (isempty(rvalue)) {
-                fq->pacing = -1;
-
-                qdisc = NULL;
-                return 0;
-        }
-
-        r = parse_boolean(rvalue);
+        r = parse_tristate(rvalue, &fq->pacing);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Failed to parse '%s=', ignoring assignment: %s",
@@ -283,7 +276,7 @@ int config_parse_fair_queueing_bool(
         }
 
         fq->pacing = r;
-        qdisc = NULL;
+        TAKE_PTR(qdisc);
 
         return 0;
 }

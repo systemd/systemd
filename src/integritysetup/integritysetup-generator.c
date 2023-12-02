@@ -132,9 +132,8 @@ static int add_integritytab_devices(void) {
 
         for (;;) {
                 _cleanup_free_ char *line = NULL, *name = NULL, *device_id = NULL, *device_path = NULL, *key_file = NULL, *options = NULL;
-                char *l;
 
-                r = read_line(f, LONG_LINE_MAX, &line);
+                r = read_stripped_line(f, LONG_LINE_MAX, &line);
                 if (r < 0)
                         return log_error_errno(r, "Failed to read %s: %m", arg_integritytab);
                 if (r == 0)
@@ -142,17 +141,13 @@ static int add_integritytab_devices(void) {
 
                 integritytab_line++;
 
-                l = strstrip(line);
-                if (!l)
-                        continue;
-
-                if (IN_SET(l[0], 0, '#'))
+                if (IN_SET(line[0], 0, '#'))
                         continue;
 
                 /* The key file and the options are optional */
-                r = sscanf(l, "%ms %ms %ms %ms", &name, &device_id, &key_file, &options);
+                r = sscanf(line, "%ms %ms %ms %ms", &name, &device_id, &key_file, &options);
                 if (!IN_SET(r, 2, 3, 4)) {
-                        log_error("Failed to parse %s:%u, ignoring.", l, integritytab_line);
+                        log_error("Failed to parse %s:%u, ignoring.", arg_integritytab, integritytab_line);
                         continue;
                 }
 

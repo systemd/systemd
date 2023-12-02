@@ -10,10 +10,7 @@
 #include "log.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        /* We don't want to fill the logs with messages about parse errors.
-         * Disable most logging if not running standalone */
-        if (!getenv("SYSTEMD_LOG_LEVEL"))
-                log_set_max_level(LOG_CRIT);
+        fuzz_setup_logging();
 
         if (outside_size_range(size, 0, HID_MAX_DESCRIPTOR_SIZE))
                 return 0;

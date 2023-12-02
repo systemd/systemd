@@ -1100,7 +1100,7 @@ static int show_statistics(int argc, char **argv, void *userdata) {
                 {},
         };
 
-        r = json_dispatch(reply, statistics_dispatch_table, NULL, JSON_LOG, &statistics);
+        r = json_dispatch(reply, statistics_dispatch_table, JSON_LOG, &statistics);
         if (r < 0)
                 return r;
 
@@ -1114,16 +1114,16 @@ static int show_statistics(int argc, char **argv, void *userdata) {
         } transactions;
 
         static const JsonDispatch transactions_dispatch_table[] = {
-                { "currentTransactions",                JSON_VARIANT_UNSIGNED,  json_dispatch_uint64,   offsetof(struct transactions, n_current_transactions),                  JSON_MANDATORY },
-                { "totalTransactions",                  JSON_VARIANT_UNSIGNED,  json_dispatch_uint64,   offsetof(struct transactions, n_transactions_total),                    JSON_MANDATORY },
-                { "totalTimeouts",                      JSON_VARIANT_UNSIGNED,  json_dispatch_uint64,   offsetof(struct transactions, n_timeouts_total),                        JSON_MANDATORY },
-                { "totalTimeoutsServedStale",           JSON_VARIANT_UNSIGNED,  json_dispatch_uint64,   offsetof(struct transactions, n_timeouts_served_stale_total),           JSON_MANDATORY },
-                { "totalFailedResponses",               JSON_VARIANT_UNSIGNED,  json_dispatch_uint64,   offsetof(struct transactions, n_failure_responses_total),               JSON_MANDATORY },
-                { "totalFailedResponsesServedStale",    JSON_VARIANT_UNSIGNED,  json_dispatch_uint64,   offsetof(struct transactions, n_failure_responses_served_stale_total),  JSON_MANDATORY },
+                { "currentTransactions",             _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(struct transactions, n_current_transactions),                 JSON_MANDATORY },
+                { "totalTransactions",               _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(struct transactions, n_transactions_total),                   JSON_MANDATORY },
+                { "totalTimeouts",                   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(struct transactions, n_timeouts_total),                       JSON_MANDATORY },
+                { "totalTimeoutsServedStale",        _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(struct transactions, n_timeouts_served_stale_total),          JSON_MANDATORY },
+                { "totalFailedResponses",            _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(struct transactions, n_failure_responses_total),              JSON_MANDATORY },
+                { "totalFailedResponsesServedStale", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(struct transactions, n_failure_responses_served_stale_total), JSON_MANDATORY },
                 {},
         };
 
-        r = json_dispatch(statistics.transactions, transactions_dispatch_table, NULL, JSON_LOG, &transactions);
+        r = json_dispatch(statistics.transactions, transactions_dispatch_table, JSON_LOG, &transactions);
         if (r < 0)
                 return r;
 
@@ -1134,13 +1134,13 @@ static int show_statistics(int argc, char **argv, void *userdata) {
         } cache;
 
         static const JsonDispatch cache_dispatch_table[] = {
-                { "size",       JSON_VARIANT_UNSIGNED,  json_dispatch_uint64,   offsetof(struct cache, cache_size),     JSON_MANDATORY },
-                { "hits",       JSON_VARIANT_UNSIGNED,  json_dispatch_uint64,   offsetof(struct cache, n_cache_hit),    JSON_MANDATORY },
-                { "misses",     JSON_VARIANT_UNSIGNED,  json_dispatch_uint64,   offsetof(struct cache, n_cache_miss),   JSON_MANDATORY },
+                { "size",   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(struct cache, cache_size),   JSON_MANDATORY },
+                { "hits",   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(struct cache, n_cache_hit),  JSON_MANDATORY },
+                { "misses", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(struct cache, n_cache_miss), JSON_MANDATORY },
                 {},
         };
 
-        r = json_dispatch(statistics.cache, cache_dispatch_table, NULL, JSON_LOG, &cache);
+        r = json_dispatch(statistics.cache, cache_dispatch_table, JSON_LOG, &cache);
         if (r < 0)
                 return r;
 
@@ -1152,14 +1152,14 @@ static int show_statistics(int argc, char **argv, void *userdata) {
         } dnsssec;
 
         static const JsonDispatch dnssec_dispatch_table[] = {
-                { "secure",             JSON_VARIANT_UNSIGNED,  json_dispatch_uint64,   offsetof(struct dnsssec, n_dnssec_secure),              JSON_MANDATORY },
-                { "insecure",           JSON_VARIANT_UNSIGNED,  json_dispatch_uint64,   offsetof(struct dnsssec, n_dnssec_insecure),            JSON_MANDATORY },
-                { "bogus",              JSON_VARIANT_UNSIGNED,  json_dispatch_uint64,   offsetof(struct dnsssec, n_dnssec_bogus),               JSON_MANDATORY },
-                { "indeterminate",      JSON_VARIANT_UNSIGNED,  json_dispatch_uint64,   offsetof(struct dnsssec, n_dnssec_indeterminate),       JSON_MANDATORY },
+                { "secure",        _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(struct dnsssec, n_dnssec_secure),        JSON_MANDATORY },
+                { "insecure",      _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(struct dnsssec, n_dnssec_insecure),      JSON_MANDATORY },
+                { "bogus",         _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(struct dnsssec, n_dnssec_bogus),         JSON_MANDATORY },
+                { "indeterminate", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64, offsetof(struct dnsssec, n_dnssec_indeterminate), JSON_MANDATORY },
                 {},
         };
 
-        r = json_dispatch(statistics.dnssec, dnssec_dispatch_table, NULL, JSON_LOG, &dnsssec);
+        r = json_dispatch(statistics.dnssec, dnssec_dispatch_table, JSON_LOG, &dnsssec);
         if (r < 0)
                 return r;
 
@@ -1465,8 +1465,6 @@ static int map_link_domains(sd_bus *bus, const char *member, sd_bus_message *m, 
         r = sd_bus_message_exit_container(m);
         if (r < 0)
                 return r;
-
-        strv_sort(*l);
 
         return 0;
 }
@@ -2723,16 +2721,16 @@ static void monitor_query_dump(JsonVariant *v) {
         assert(v);
 
         JsonDispatch dispatch_table[] = {
-                { "question",           JSON_VARIANT_ARRAY,   json_dispatch_variant,      PTR_TO_SIZE(&question),            JSON_MANDATORY },
-                { "answer",             JSON_VARIANT_ARRAY,   json_dispatch_variant,      PTR_TO_SIZE(&answer),              0              },
-                { "collectedQuestions", JSON_VARIANT_ARRAY,   json_dispatch_variant,      PTR_TO_SIZE(&collected_questions), 0              },
-                { "state",              JSON_VARIANT_STRING,  json_dispatch_const_string, PTR_TO_SIZE(&state),               JSON_MANDATORY },
-                { "rcode",              JSON_VARIANT_INTEGER, json_dispatch_int,          PTR_TO_SIZE(&rcode),               0              },
-                { "errno",              JSON_VARIANT_INTEGER, json_dispatch_int,          PTR_TO_SIZE(&error),               0              },
+                { "question",           JSON_VARIANT_ARRAY,         json_dispatch_variant,      PTR_TO_SIZE(&question),            JSON_MANDATORY },
+                { "answer",             JSON_VARIANT_ARRAY,         json_dispatch_variant,      PTR_TO_SIZE(&answer),              0              },
+                { "collectedQuestions", JSON_VARIANT_ARRAY,         json_dispatch_variant,      PTR_TO_SIZE(&collected_questions), 0              },
+                { "state",              JSON_VARIANT_STRING,        json_dispatch_const_string, PTR_TO_SIZE(&state),               JSON_MANDATORY },
+                { "rcode",              _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,          PTR_TO_SIZE(&rcode),               0              },
+                { "errno",              _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,          PTR_TO_SIZE(&error),               0              },
                 {}
         };
 
-        r = json_dispatch(v, dispatch_table, NULL, 0, NULL);
+        r = json_dispatch(v, dispatch_table, 0, NULL);
         if (r < 0)
                 return (void) log_warning("Received malformed monitor message, ignoring.");
 
@@ -2848,17 +2846,17 @@ static int dump_cache_item(JsonVariant *item) {
         } item_info = {};
 
         static const JsonDispatch dispatch_table[] = {
-                { "key",   JSON_VARIANT_OBJECT,   json_dispatch_variant_noref, offsetof(struct item_info, key),   JSON_MANDATORY },
-                { "rrs",   JSON_VARIANT_ARRAY,    json_dispatch_variant_noref, offsetof(struct item_info, rrs),   0              },
-                { "type",  JSON_VARIANT_STRING,   json_dispatch_const_string,  offsetof(struct item_info, type),  0              },
-                { "until", JSON_VARIANT_UNSIGNED, json_dispatch_uint64,        offsetof(struct item_info, until), 0              },
+                { "key",   JSON_VARIANT_OBJECT,        json_dispatch_variant_noref, offsetof(struct item_info, key),   JSON_MANDATORY },
+                { "rrs",   JSON_VARIANT_ARRAY,         json_dispatch_variant_noref, offsetof(struct item_info, rrs),   0              },
+                { "type",  JSON_VARIANT_STRING,        json_dispatch_const_string,  offsetof(struct item_info, type),  0              },
+                { "until", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,        offsetof(struct item_info, until), 0              },
                 {},
         };
 
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *k = NULL;
         int r, c = 0;
 
-        r = json_dispatch(item, dispatch_table, NULL, JSON_LOG, &item_info);
+        r = json_dispatch(item, dispatch_table, JSON_LOG, &item_info);
         if (r < 0)
                 return r;
 
@@ -2912,15 +2910,15 @@ static int dump_cache_scope(JsonVariant *scope) {
         int r, c = 0;
 
         static const JsonDispatch dispatch_table[] = {
-                { "protocol", JSON_VARIANT_STRING,  json_dispatch_const_string,  offsetof(struct scope_info, protocol), JSON_MANDATORY },
-                { "family",   JSON_VARIANT_INTEGER, json_dispatch_int,           offsetof(struct scope_info, family),   0              },
-                { "ifindex",  JSON_VARIANT_INTEGER, json_dispatch_int,           offsetof(struct scope_info, ifindex),  0              },
-                { "ifname",   JSON_VARIANT_STRING,  json_dispatch_const_string,  offsetof(struct scope_info, ifname),   0              },
-                { "cache",    JSON_VARIANT_ARRAY,   json_dispatch_variant_noref, offsetof(struct scope_info, cache),    JSON_MANDATORY },
+                { "protocol", JSON_VARIANT_STRING,        json_dispatch_const_string,  offsetof(struct scope_info, protocol), JSON_MANDATORY },
+                { "family",   _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,           offsetof(struct scope_info, family),   0              },
+                { "ifindex",  _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,           offsetof(struct scope_info, ifindex),  0              },
+                { "ifname",   JSON_VARIANT_STRING,        json_dispatch_const_string,  offsetof(struct scope_info, ifname),   0              },
+                { "cache",    JSON_VARIANT_ARRAY,         json_dispatch_variant_noref, offsetof(struct scope_info, cache),    JSON_MANDATORY },
                 {},
         };
 
-        r = json_dispatch(scope, dispatch_table, NULL, JSON_LOG, &scope_info);
+        r = json_dispatch(scope, dispatch_table, JSON_LOG, &scope_info);
         if (r < 0)
                 return r;
 
@@ -3017,26 +3015,26 @@ static int dump_server_state(JsonVariant *server) {
         int r;
 
         static const JsonDispatch dispatch_table[] = {
-                { "Server",                     JSON_VARIANT_STRING,    json_dispatch_const_string,  offsetof(struct server_state, server_name),                JSON_MANDATORY },
-                { "Type",                       JSON_VARIANT_STRING,    json_dispatch_const_string,  offsetof(struct server_state, type),                       JSON_MANDATORY },
-                { "Interface",                  JSON_VARIANT_STRING,    json_dispatch_const_string,  offsetof(struct server_state, ifname),                     0              },
-                { "InterfaceIndex",             JSON_VARIANT_INTEGER,   json_dispatch_int,           offsetof(struct server_state, ifindex),                    0              },
-                { "VerifiedFeatureLevel",       JSON_VARIANT_STRING,    json_dispatch_const_string,  offsetof(struct server_state, verified_feature_level),     0              },
-                { "PossibleFeatureLevel",       JSON_VARIANT_STRING,    json_dispatch_const_string,  offsetof(struct server_state, possible_feature_level),     0              },
-                { "DNSSECMode",                 JSON_VARIANT_STRING,    json_dispatch_const_string,  offsetof(struct server_state, dnssec_mode),                JSON_MANDATORY },
-                { "DNSSECSupported",            JSON_VARIANT_BOOLEAN,   json_dispatch_boolean,       offsetof(struct server_state, dnssec_supported),           JSON_MANDATORY },
-                { "ReceivedUDPFragmentMax",     JSON_VARIANT_UNSIGNED,  json_dispatch_uint64,        offsetof(struct server_state, received_udp_fragment_max),  JSON_MANDATORY },
-                { "FailedUDPAttempts",          JSON_VARIANT_UNSIGNED,  json_dispatch_uint64,        offsetof(struct server_state, n_failed_udp),               JSON_MANDATORY },
-                { "FailedTCPAttempts",          JSON_VARIANT_UNSIGNED,  json_dispatch_uint64,        offsetof(struct server_state, n_failed_tcp),               JSON_MANDATORY },
-                { "PacketTruncated",            JSON_VARIANT_BOOLEAN,   json_dispatch_boolean,       offsetof(struct server_state, packet_truncated),           JSON_MANDATORY },
-                { "PacketBadOpt",               JSON_VARIANT_BOOLEAN,   json_dispatch_boolean,       offsetof(struct server_state, packet_bad_opt),             JSON_MANDATORY },
-                { "PacketRRSIGMissing",         JSON_VARIANT_BOOLEAN,   json_dispatch_boolean,       offsetof(struct server_state, packet_rrsig_missing),       JSON_MANDATORY },
-                { "PacketInvalid",              JSON_VARIANT_BOOLEAN,   json_dispatch_boolean,       offsetof(struct server_state, packet_invalid),             JSON_MANDATORY },
-                { "PacketDoOff",                JSON_VARIANT_BOOLEAN,   json_dispatch_boolean,       offsetof(struct server_state, packet_do_off),              JSON_MANDATORY },
+                { "Server",                 JSON_VARIANT_STRING,        json_dispatch_const_string,  offsetof(struct server_state, server_name),               JSON_MANDATORY },
+                { "Type",                   JSON_VARIANT_STRING,        json_dispatch_const_string,  offsetof(struct server_state, type),                      JSON_MANDATORY },
+                { "Interface",              JSON_VARIANT_STRING,        json_dispatch_const_string,  offsetof(struct server_state, ifname),                    0              },
+                { "InterfaceIndex",         _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,           offsetof(struct server_state, ifindex),                   0              },
+                { "VerifiedFeatureLevel",   JSON_VARIANT_STRING,        json_dispatch_const_string,  offsetof(struct server_state, verified_feature_level),    0              },
+                { "PossibleFeatureLevel",   JSON_VARIANT_STRING,        json_dispatch_const_string,  offsetof(struct server_state, possible_feature_level),    0              },
+                { "DNSSECMode",             JSON_VARIANT_STRING,        json_dispatch_const_string,  offsetof(struct server_state, dnssec_mode),               JSON_MANDATORY },
+                { "DNSSECSupported",        JSON_VARIANT_BOOLEAN,       json_dispatch_boolean,       offsetof(struct server_state, dnssec_supported),          JSON_MANDATORY },
+                { "ReceivedUDPFragmentMax", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,        offsetof(struct server_state, received_udp_fragment_max), JSON_MANDATORY },
+                { "FailedUDPAttempts",      _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,        offsetof(struct server_state, n_failed_udp),              JSON_MANDATORY },
+                { "FailedTCPAttempts",      _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,        offsetof(struct server_state, n_failed_tcp),              JSON_MANDATORY },
+                { "PacketTruncated",        JSON_VARIANT_BOOLEAN,       json_dispatch_boolean,       offsetof(struct server_state, packet_truncated),          JSON_MANDATORY },
+                { "PacketBadOpt",           JSON_VARIANT_BOOLEAN,       json_dispatch_boolean,       offsetof(struct server_state, packet_bad_opt),            JSON_MANDATORY },
+                { "PacketRRSIGMissing",     JSON_VARIANT_BOOLEAN,       json_dispatch_boolean,       offsetof(struct server_state, packet_rrsig_missing),      JSON_MANDATORY },
+                { "PacketInvalid",          JSON_VARIANT_BOOLEAN,       json_dispatch_boolean,       offsetof(struct server_state, packet_invalid),            JSON_MANDATORY },
+                { "PacketDoOff",            JSON_VARIANT_BOOLEAN,       json_dispatch_boolean,       offsetof(struct server_state, packet_do_off),             JSON_MANDATORY },
                 {},
         };
 
-        r = json_dispatch(server, dispatch_table, NULL, JSON_LOG|JSON_PERMISSIVE, &server_state);
+        r = json_dispatch(server, dispatch_table, JSON_LOG|JSON_PERMISSIVE, &server_state);
         if (r < 0)
                 return r;
 

@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "env-util.h"
 #include "format-util.h"
 #include "network-common.h"
+#include "socket-util.h"
 #include "unaligned.h"
 
 int get_ifname(int ifindex, char **ifname) {
@@ -92,4 +94,33 @@ usec_t time_span_to_stamp(usec_t span, usec_t base) {
                 return 0;
 
         return usec_add(base, span);
+}
+
+bool network_test_mode_enabled(void) {
+        static int test_mode = -1;
+        int r;
+
+        if (test_mode < 0) {
+                r = getenv_bool("SYSTEMD_NETWORK_TEST_MODE");
+                if (r < 0) {
+                        if (r != -ENXIO)
+                                log_debug_errno(r, "Failed to parse $SYSTEMD_NETWORK_TEST_MODE environment variable, ignoring: %m");
+
+                        test_mode = false;
+                } else
+                        test_mode = r;
+        }
+
+        return test_mode;
+}
+
+triple_timestamp* triple_timestamp_from_cmsg(triple_timestamp *t, struct msghdr *mh) {
+        assert(t);
+        assert(mh);
+
+        struct timeval *tv = CMSG_FIND_AND_COPY_DATA(mh, SOL_SOCKET, SCM_TIMESTAMP, struct timeval);
+        if (tv)
+                return triple_timestamp_from_realtime(t, timeval_load(tv));
+
+        return triple_timestamp_now(t);
 }

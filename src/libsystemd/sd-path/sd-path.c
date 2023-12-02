@@ -70,7 +70,6 @@ static int from_user_dir(const char *field, char **buffer, const char **ret) {
         _cleanup_free_ char *b = NULL;
         _cleanup_free_ const char *fn = NULL;
         const char *c = NULL;
-        size_t n;
         int r;
 
         assert(field);
@@ -93,26 +92,21 @@ static int from_user_dir(const char *field, char **buffer, const char **ret) {
                 return -errno;
         }
 
-        /* This is an awful parse, but it follows closely what
-         * xdg-user-dirs does upstream */
-
-        n = strlen(field);
+        /* This is an awful parse, but it follows closely what xdg-user-dirs does upstream */
         for (;;) {
                 _cleanup_free_ char *line = NULL;
-                char *l, *p, *e;
+                char *p, *e;
 
-                r = read_line(f, LONG_LINE_MAX, &line);
+                r = read_stripped_line(f, LONG_LINE_MAX, &line);
                 if (r < 0)
                         return r;
                 if (r == 0)
                         break;
 
-                l = strstrip(line);
-
-                if (!strneq(l, field, n))
+                p = startswith(line, field);
+                if (!p)
                         continue;
 
-                p = l + n;
                 p += strspn(p, WHITESPACE);
 
                 if (*p != '=')

@@ -148,14 +148,17 @@ static int rename_netif(UdevEvent *event) {
 
         r = device_rename(dev, event->name);
         if (r < 0) {
-                log_device_warning_errno(dev, r, "Failed to update properties with new name '%s': %m", event->name);
+                /* Here and below, use dev_db_clone for logging, otherwise, logged message is prefixed with
+                 * the new interface name, and e.g. 'networkctl status INTERFACE' does not show the message. */
+                log_device_warning_errno(event->dev_db_clone, r,
+                                         "Failed to update properties with new name '%s': %m", event->name);
                 goto revert;
         }
 
         /* Set ID_RENAMING boolean property here. It will be dropped when the corresponding move uevent is processed. */
         r = device_add_property(dev, "ID_RENAMING", "1");
         if (r < 0) {
-                log_device_warning_errno(dev, r, "Failed to add 'ID_RENAMING' property: %m");
+                log_device_warning_errno(event->dev_db_clone, r, "Failed to add 'ID_RENAMING' property: %m");
                 goto revert;
         }
 
@@ -177,11 +180,13 @@ static int rename_netif(UdevEvent *event) {
         r = rtnl_set_link_name(&event->rtnl, ifindex, event->name, event->altnames);
         if (r < 0) {
                 if (r == -EBUSY) {
-                        log_device_info(dev, "Network interface '%s' is already up, cannot rename to '%s'.",
+                        log_device_info(event->dev_db_clone,
+                                        "Network interface '%s' is already up, cannot rename to '%s'.",
                                         old_sysname, event->name);
                         r = 0;
                 } else
-                        log_device_error_errno(dev, r, "Failed to rename network interface %i from '%s' to '%s': %m",
+                        log_device_error_errno(event->dev_db_clone, r,
+                                               "Failed to rename network interface %i from '%s' to '%s': %m",
                                                ifindex, old_sysname, event->name);
                 goto revert;
         }

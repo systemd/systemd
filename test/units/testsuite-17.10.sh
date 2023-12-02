@@ -25,7 +25,7 @@ netdev=dummy17.10
 ip link add $netdev type dummy
 
 blk="$(mktemp)"
-dd if=/dev/null of="$blk" bs=1M count=1
+dd if=/dev/zero of="$blk" bs=1M count=1
 loopdev="$(losetup --show -f "$blk")"
 
 udevadm -h
@@ -57,6 +57,9 @@ udevadm info --property DEVNAME --value /sys/class/net/$netdev
 udevadm info --property HELLO /sys/class/net/$netdev
 udevadm info -p class/net/$netdev
 udevadm info -p /class/net/$netdev
+udevadm info --json=off -p class/net/$netdev
+udevadm info --json=pretty -p class/net/$netdev | jq .
+udevadm info --json=short -p class/net/$netdev | jq .
 udevadm info -n null
 udevadm info -q all /sys/class/net/$netdev
 udevadm info -q name /dev/null
@@ -74,6 +77,20 @@ udevadm info -x -q path /sys/class/net/$netdev
 udevadm info -P TEST_ /sys/class/net/$netdev
 udevadm info -d /dev/null
 udevadm info -e >/dev/null
+udevadm info -e --json=off >/dev/null
+udevadm info -e --json=pretty | jq . >/dev/null
+udevadm info -e --json=short | jq . >/dev/null
+udevadm info -e --subsystem-match acpi >/dev/null
+udevadm info -e --subsystem-nomatch acpi >/dev/null
+udevadm info -e --attr-match ifindex=2 >/dev/null
+udevadm info -e --attr-nomatch ifindex=2 >/dev/null
+udevadm info -e --property-match SUBSYSTEM=acpi >/dev/null
+udevadm info -e --tag-match systemd >/dev/null
+udevadm info -e --sysname-match lo >/dev/null
+udevadm info -e --name-match /sys/class/net/$netdev >/dev/null
+udevadm info -e --parent-match /sys/class/net/$netdev >/dev/null
+udevadm info -e --initialized-match >/dev/null
+udevadm info -e --initialized-nomatch >/dev/null
 # udevadm info -c
 udevadm info -w /sys/class/net/$netdev
 udevadm info --wait-for-initialization=5 /sys/class/net/$netdev
@@ -201,6 +218,15 @@ udevadm trigger --wait-daemon
 udevadm settle -t 300
 udevadm trigger --wait-daemon=5
 udevadm trigger -h
+
+# https://github.com/systemd/systemd/issues/29863
+if [[ "$(systemd-detect-virt -v)" != "qemu" ]]; then
+    udevadm control --log-level=0
+    for _ in {0..9}; do
+        timeout 30 udevadm trigger --settle
+    done
+    udevadm control --log-level=debug
+fi
 
 udevadm wait /dev/null
 udevadm wait /sys/class/net/$netdev

@@ -405,9 +405,9 @@ static int method_get_session(sd_bus_message *message, void *userdata, sd_bus_er
  * as apps may instead belong to a user service unit.  This includes terminal
  * emulators and hence command-line apps. */
 static int method_get_session_by_pid(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = ASSERT_PTR(userdata);
         _cleanup_free_ char *p = NULL;
         Session *session = NULL;
-        Manager *m = ASSERT_PTR(userdata);
         pid_t pid;
         int r;
 
@@ -426,7 +426,7 @@ static int method_get_session_by_pid(sd_bus_message *message, void *userdata, sd
                 if (r < 0)
                         return r;
         } else {
-                r = manager_get_session_by_pid(m, pid, &session);
+                r = manager_get_session_by_pidref(m, &PIDREF_MAKE_FROM_PID(pid), &session);
                 if (r < 0)
                         return r;
 
@@ -677,36 +677,73 @@ static int method_list_inhibitors(sd_bus_message *message, void *userdata, sd_bu
         return sd_bus_send(NULL, reply, NULL);
 }
 
-static int method_create_session(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        const char *service, *type, *class, *cseat, *tty, *display, *remote_user, *remote_host, *desktop;
+static int create_session(
+                sd_bus_message *message,
+                void *userdata,
+                sd_bus_error *error,
+                uid_t uid,
+                pid_t pid,
+                int pidfd,
+                const char *service,
+                const char *type,
+                const char *class,
+                const char *desktop,
+                const char *cseat,
+                uint32_t vtnr,
+                const char *tty,
+                const char *display,
+                int remote,
+                const char *remote_user,
+                const char *remote_host,
+                uint64_t flags) {
+
+        _cleanup_(pidref_done) PidRef leader = PIDREF_NULL;
+        Manager *m = ASSERT_PTR(userdata);
         _cleanup_free_ char *id = NULL;
         Session *session = NULL;
         uint32_t audit_id = 0;
-        Manager *m = ASSERT_PTR(userdata);
         User *user = NULL;
         Seat *seat = NULL;
-        pid_t leader;
-        uid_t uid;
-        int remote;
-        uint32_t vtnr = 0;
         SessionType t;
         SessionClass c;
         int r;
 
         assert(message);
 
-        assert_cc(sizeof(pid_t) == sizeof(uint32_t));
-        assert_cc(sizeof(uid_t) == sizeof(uint32_t));
-
-        r = sd_bus_message_read(message, "uusssssussbss",
-                                &uid, &leader, &service, &type, &class, &desktop, &cseat,
-                                &vtnr, &tty, &display, &remote, &remote_user, &remote_host);
-        if (r < 0)
-                return r;
-
         if (!uid_is_valid(uid))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid UID");
-        if (leader < 0 || leader == 1 || leader == getpid_cached())
+
+        if (flags != 0)
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Flags must be zero.");
+
+        if (pidfd >= 0) {
+                r = pidref_set_pidfd(&leader, pidfd);
+                if (r < 0)
+                        return r;
+        } else if (pid == 0) {
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+                pid_t p;
+
+                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_creds_get_pid(creds, &p);
+                if (r < 0)
+                        return r;
+
+                r = pidref_set_pid(&leader, p);
+                if (r < 0)
+                        return r;
+        } else {
+                assert(pid > 0);
+
+                r = pidref_set_pid(&leader, pid);
+                if (r < 0)
+                        return r;
+        }
+
+        if (leader.pid == 1 || leader.pid == getpid_cached())
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid leader PID");
 
         if (isempty(type))
@@ -805,21 +842,9 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                         c = SESSION_USER;
         }
 
-        if (leader == 0) {
-                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-
-                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_creds_get_pid(creds, (pid_t*) &leader);
-                if (r < 0)
-                        return r;
-        }
-
         /* Check if we are already in a logind session. Or if we are in user@.service
          * which is a special PAM session that avoids creating a logind session. */
-        r = manager_get_user_by_pid(m, leader, NULL);
+        r = manager_get_user_by_pid(m, leader.pid, NULL);
         if (r < 0)
                 return r;
         if (r > 0)
@@ -848,7 +873,7 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                                          "Maximum number of sessions (%" PRIu64 ") reached, refusing further sessions.",
                                          m->sessions_max);
 
-        (void) audit_session_from_pid(leader, &audit_id);
+        (void) audit_session_from_pid(leader.pid, &audit_id);
         if (audit_session_is_valid(audit_id)) {
                 /* Keep our session IDs and the audit session IDs in sync */
 
@@ -890,7 +915,7 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                 goto fail;
 
         session_set_user(session, user);
-        r = session_set_leader(session, leader);
+        r = session_set_leader_consume(session, TAKE_PIDREF(leader));
         if (r < 0)
                 goto fail;
 
@@ -982,6 +1007,107 @@ fail:
                 user_add_to_gc_queue(user);
 
         return r;
+}
+
+static int method_create_session(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        const char *service, *type, *class, *cseat, *tty, *display, *remote_user, *remote_host, *desktop;
+        pid_t leader;
+        uid_t uid;
+        int remote;
+        uint32_t vtnr = 0;
+        int r;
+
+        assert(message);
+
+        assert_cc(sizeof(pid_t) == sizeof(uint32_t));
+        assert_cc(sizeof(uid_t) == sizeof(uint32_t));
+
+        r = sd_bus_message_read(message,
+                                "uusssssussbss",
+                                &uid,
+                                &leader,
+                                &service,
+                                &type,
+                                &class,
+                                &desktop,
+                                &cseat,
+                                &vtnr,
+                                &tty,
+                                &display,
+                                &remote,
+                                &remote_user,
+                                &remote_host);
+        if (r < 0)
+                return r;
+
+        return create_session(
+                        message,
+                        userdata,
+                        error,
+                        uid,
+                        leader,
+                        /* pidfd = */ -EBADF,
+                        service,
+                        type,
+                        class,
+                        desktop,
+                        cseat,
+                        vtnr,
+                        tty,
+                        display,
+                        remote,
+                        remote_user,
+                        remote_host,
+                        /* flags = */ 0);
+}
+
+static int method_create_session_pidfd(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        const char *service, *type, *class, *cseat, *tty, *display, *remote_user, *remote_host, *desktop;
+        int leaderfd = -EBADF;
+        uid_t uid;
+        int remote;
+        uint32_t vtnr = 0;
+        uint64_t flags;
+        int r;
+
+        r = sd_bus_message_read(message,
+                                "uhsssssussbsst",
+                                &uid,
+                                &leaderfd,
+                                &service,
+                                &type,
+                                &class,
+                                &desktop,
+                                &cseat,
+                                &vtnr,
+                                &tty,
+                                &display,
+                                &remote,
+                                &remote_user,
+                                &remote_host,
+                                &flags);
+        if (r < 0)
+                return r;
+
+        return create_session(
+                        message,
+                        userdata,
+                        error,
+                        uid,
+                        /* pid = */ 0,
+                        leaderfd,
+                        service,
+                        type,
+                        class,
+                        desktop,
+                        cseat,
+                        vtnr,
+                        tty,
+                        display,
+                        remote,
+                        remote_user,
+                        remote_host,
+                        flags);
 }
 
 static int method_release_session(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -1650,7 +1776,7 @@ int manager_dispatch_delayed(Manager *manager, bool timeout) {
                 if (!timeout)
                         return 0;
 
-                (void) get_process_comm(offending->pid.pid, &comm);
+                (void) pidref_get_comm(&offending->pid, &comm);
                 u = uid_to_name(offending->uid);
 
                 log_notice("Delay lock is active (UID "UID_FMT"/%s, PID "PID_FMT"/%s) but inhibitor timeout is reached.",
@@ -1895,7 +2021,7 @@ static int method_do_shutdown_or_sleep(
                         if (flags & SD_LOGIND_REBOOT_VIA_KEXEC)
                                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
                                                         "Reboot via kexec option is only applicable with reboot operations");
-                        if (flags & SD_LOGIND_SOFT_REBOOT)
+                        if ((flags & SD_LOGIND_SOFT_REBOOT) || (flags & SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP))
                                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS,
                                                         "Soft reboot option is only applicable with reboot operations");
                 }
@@ -1912,10 +2038,11 @@ static int method_do_shutdown_or_sleep(
                 flags = interactive ? SD_LOGIND_INTERACTIVE : 0;
         }
 
-        if ((flags & SD_LOGIND_REBOOT_VIA_KEXEC) && kexec_loaded())
-                a = handle_action_lookup(HANDLE_KEXEC);
-        else if ((flags & SD_LOGIND_SOFT_REBOOT))
+        if ((flags & SD_LOGIND_SOFT_REBOOT) ||
+            ((flags & SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP) && path_is_os_tree("/run/nextroot") > 0))
                 a = handle_action_lookup(HANDLE_SOFT_REBOOT);
+        else if ((flags & SD_LOGIND_REBOOT_VIA_KEXEC) && kexec_loaded())
+                a = handle_action_lookup(HANDLE_KEXEC);
 
         /* Don't allow multiple jobs being executed at the same time */
         if (m->delayed_action)
@@ -1923,16 +2050,38 @@ static int method_do_shutdown_or_sleep(
                                          "There's already a shutdown or sleep operation in progress");
 
         if (a->sleep_operation >= 0) {
-                r = can_sleep(a->sleep_operation);
-                if (r == -ENOSPC)
-                        return sd_bus_error_set(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,
-                                                "Not enough suitable swap space for hibernation available on compatible block devices and file systems");
-                if (r == 0)
-                        return sd_bus_error_setf(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,
-                                                 "Sleep verb \"%s\" not supported",
-                                                 sleep_operation_to_string(a->sleep_operation));
+                SleepSupport support;
+
+                r = sleep_supported_full(a->sleep_operation, &support);
                 if (r < 0)
                         return r;
+                if (r == 0)
+                        switch (support) {
+
+                        case SLEEP_DISABLED:
+                                return sd_bus_error_setf(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,
+                                                         "Sleep verb '%s' is disabled by config",
+                                                         sleep_operation_to_string(a->sleep_operation));
+
+                        case SLEEP_NOT_CONFIGURED:
+                        case SLEEP_STATE_OR_MODE_NOT_SUPPORTED:
+                        case SLEEP_ALARM_NOT_SUPPORTED:
+                                return sd_bus_error_setf(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,
+                                                         "Sleep verb '%s' is not configured or configuration is not supported by kernel",
+                                                         sleep_operation_to_string(a->sleep_operation));
+
+                        case SLEEP_RESUME_NOT_SUPPORTED:
+                                return sd_bus_error_set(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,
+                                                        "Not running on EFI and resume= is not set. No available method to resume from hibernation");
+
+                        case SLEEP_NOT_ENOUGH_SWAP_SPACE:
+                                return sd_bus_error_set(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,
+                                                        "Not enough suitable swap space for hibernation available on compatible block devices and file systems");
+
+                        default:
+                                assert_not_reached();
+
+                        }
         }
 
         r = verify_shutdown_creds(m, message, a, flags, error);
@@ -2181,7 +2330,6 @@ static void reset_scheduled_shutdown(Manager *m) {
         m->scheduled_shutdown_timeout = USEC_INFINITY;
         m->scheduled_shutdown_uid = UID_INVALID;
         m->scheduled_shutdown_tty = mfree(m->scheduled_shutdown_tty);
-        m->wall_message = mfree(m->wall_message);
         m->shutdown_dry_run = false;
 
         if (m->unlink_nologin) {
@@ -2394,11 +2542,13 @@ static int method_can_shutdown_or_sleep(
         assert(a);
 
         if (a->sleep_operation >= 0) {
-                r = can_sleep(a->sleep_operation);
-                if (IN_SET(r,  0, -ENOSPC))
-                        return sd_bus_reply_method_return(message, "s", "na");
+                SleepSupport support;
+
+                r = sleep_supported_full(a->sleep_operation, &support);
                 if (r < 0)
                         return r;
+                if (r == 0)
+                        return sd_bus_reply_method_return(message, "s", support == SLEEP_DISABLED ? "no" : "na");
         }
 
         r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID, &creds);
@@ -3471,6 +3621,32 @@ static const sd_bus_vtable manager_vtable[] = {
                                               "b", existing),
                                 method_create_session,
                                 0),
+        SD_BUS_METHOD_WITH_ARGS("CreateSessionWithPIDFD",
+                                SD_BUS_ARGS("u", uid,
+                                            "h", pidfd,
+                                            "s", service,
+                                            "s", type,
+                                            "s", class,
+                                            "s", desktop,
+                                            "s", seat_id,
+                                            "u", vtnr,
+                                            "s", tty,
+                                            "s", display,
+                                            "b", remote,
+                                            "s", remote_user,
+                                            "s", remote_host,
+                                            "t", flags,
+                                            "a(sv)", properties),
+                                SD_BUS_RESULT("s", session_id,
+                                              "o", object_path,
+                                              "s", runtime_path,
+                                              "h", fifo_fd,
+                                              "u", uid,
+                                              "s", seat_id,
+                                              "u", vtnr,
+                                              "b", existing),
+                                method_create_session_pidfd,
+                                0),
         SD_BUS_METHOD_WITH_ARGS("ReleaseSession",
                                 SD_BUS_ARGS("s", session_id),
                                 SD_BUS_NO_RESULT,
@@ -3946,7 +4122,7 @@ static int strdup_job(sd_bus_message *reply, char **job) {
 int manager_start_scope(
                 Manager *manager,
                 const char *scope,
-                pid_t pid,
+                const PidRef *pidref,
                 const char *slice,
                 const char *description,
                 char **wants,
@@ -3961,7 +4137,7 @@ int manager_start_scope(
 
         assert(manager);
         assert(scope);
-        assert(pid > 1);
+        assert(pidref_is_set(pidref));
         assert(job);
 
         r = bus_message_new_method_call(manager->bus, &m, bus_systemd_mgr, "StartTransientUnit");
@@ -4012,7 +4188,7 @@ int manager_start_scope(
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append(m, "(sv)", "PIDs", "au", 1, pid);
+        r = bus_append_scope_pidref(m, pidref);
         if (r < 0)
                 return r;
 

@@ -8,8 +8,8 @@
 #include <net/if_arp.h>
 #include <string.h>
 
-#include "dhcp-internal.h"
-#include "dhcp-protocol.h"
+#include "dhcp-option.h"
+#include "dhcp-packet.h"
 #include "memory-util.h"
 
 #define DHCP_CLIENT_MIN_OPTIONS_SIZE            312
@@ -129,7 +129,9 @@ int dhcp_packet_verify_headers(DHCPPacket *packet, size_t len, bool checksum, ui
         size_t hdrlen;
 
         assert(packet);
-        assert(len >= sizeof(DHCPPacket));
+
+        if (len < sizeof(DHCPPacket))
+                return 0;
 
         /* IP */
 

@@ -19,6 +19,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "io-util.h"
+#include "iovec-util.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -584,14 +585,14 @@ static int pid_notify_with_fds_internal(
                         send_ucred = false;
                 } else {
                         /* Unless we're using SOCK_STREAM, we expect to write all the contents immediately. */
-                        if (type != SOCK_STREAM && (size_t) n < IOVEC_TOTAL_SIZE(msghdr.msg_iov, msghdr.msg_iovlen))
+                        if (type != SOCK_STREAM && (size_t) n < iovec_total_size(msghdr.msg_iov, msghdr.msg_iovlen))
                                 return -EIO;
 
                         /* Make sure we only send fds and ucred once, even if we're using SOCK_STREAM. */
                         msghdr.msg_control = NULL;
                         msghdr.msg_controllen = 0;
                 }
-        } while (!IOVEC_INCREMENT(msghdr.msg_iov, msghdr.msg_iovlen, n));
+        } while (!iovec_increment(msghdr.msg_iov, msghdr.msg_iovlen, n));
 
         return 1;
 }
@@ -614,7 +615,7 @@ _public_ int sd_pid_notify_with_fds(
 }
 
 _public_ int sd_pid_notify_barrier(pid_t pid, int unset_environment, uint64_t timeout) {
-        _cleanup_close_pair_ int pipe_fd[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int pipe_fd[2] = EBADF_PAIR;
         int r;
 
         if (pipe2(pipe_fd, O_CLOEXEC) < 0)

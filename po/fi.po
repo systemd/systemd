@@ -6,11 +6,10 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-07-14 10:32+0100\n"
+"POT-Creation-Date: 2023-11-14 21:25+0000\n"
 "PO-Revision-Date: 2023-08-21 17:21+0000\n"
 "Last-Translator: Jan Kuparinen <copper_fin@hotmail.com>\n"
-"Language-Team: Finnish <https://translate.fedoraproject.org/projects/systemd/"
-"master/fi/>\n"
+"Language-Team: Finnish <https://translate.fedoraproject.org/projects/systemd/master/fi/>\n"
 "Language: fi\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -64,8 +63,7 @@ msgstr "Dumppaa systemd-tila ilman nopeusrajoituksia"
 
 #: src/core/org.freedesktop.systemd1.policy.in:75
 msgid "Authentication is required to dump the systemd state without rate limits."
-msgstr ""
-"Todennus vaaditaan järjestelmätilan tyhjentämiseksi ilman nopeusrajoituksia."
+msgstr "Todennus vaaditaan järjestelmätilan tyhjentämiseksi ilman nopeusrajoituksia."
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
@@ -118,16 +116,12 @@ msgstr "Todennus vaaditaan käyttäjän kotialueen salasanan vaihtamiseksi."
 #: src/home/pam_systemd_home.c:287
 #, c-format
 msgid "Home of user %s is currently absent, please plug in the necessary storage device or backing file system."
-msgstr ""
-"Käyttäjän %s kotihakemisto ei ole tällä hetkellä saatavissa, liitä "
-"tarvittava tallennuslaite tai taustatiedostojärjestelmä."
+msgstr "Käyttäjän %s kotihakemisto ei ole tällä hetkellä saatavissa, liitä tarvittava tallennuslaite tai taustatiedostojärjestelmä."
 
 #: src/home/pam_systemd_home.c:292
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
-msgstr ""
-"Liian nopeat peräkkäiset kirjautumisyritykset käyttäjälle %s, yritä "
-"uudelleen myöhemmin."
+msgstr "Liian nopeat peräkkäiset kirjautumisyritykset käyttäjälle %s, yritä uudelleen myöhemmin."
 
 #: src/home/pam_systemd_home.c:304
 msgid "Password: "
@@ -149,9 +143,7 @@ msgstr "Palautusavain: "
 #: src/home/pam_systemd_home.c:331
 #, c-format
 msgid "Password/recovery key incorrect or not sufficient for authentication of user %s."
-msgstr ""
-"Salasana/palautusavain on virheellinen tai se ei riitä käyttäjän %s "
-"todentamiseen."
+msgstr "Salasana/palautusavain on virheellinen tai se ei riitä käyttäjän %s todentamiseen."
 
 #: src/home/pam_systemd_home.c:332
 msgid "Sorry, reenter recovery key: "
@@ -169,9 +161,7 @@ msgstr "Yritä uudelleen salasanalla: "
 #: src/home/pam_systemd_home.c:355
 #, c-format
 msgid "Password incorrect or not sufficient, and configured security token of user %s not inserted."
-msgstr ""
-"Salasana on virheellinen tai riittämätön, eikä käyttäjän %s määritettyä "
-"suojaustunnusta ei ole laitettu sisään."
+msgstr "Salasana on virheellinen tai riittämätön, eikä käyttäjän %s määritettyä suojaustunnusta ei ole laitettu sisään."
 
 #: src/home/pam_systemd_home.c:376
 msgid "Security token PIN: "
@@ -194,9 +184,7 @@ msgstr "Vahvista käyttäjä käyttäjän %s suojaustunnuksella."
 
 #: src/home/pam_systemd_home.c:424
 msgid "Security token PIN is locked, please unlock it first. (Hint: Removal and re-insertion might suffice.)"
-msgstr ""
-"Turvatunnuksen PIN-koodi on lukittu, avaa se ensin. (Vihje: Poistaminen ja "
-"uudelleen asettaminen saattaa riittää.)"
+msgstr "Turvatunnuksen PIN-koodi on lukittu, avaa se ensin. (Vihje: Poistaminen ja uudelleen asettaminen saattaa riittää.)"
 
 #: src/home/pam_systemd_home.c:432
 #, c-format
@@ -211,37 +199,27 @@ msgstr "Yritä uudelleen suojaustunnuksen PIN-koodi: "
 #: src/home/pam_systemd_home.c:451
 #, c-format
 msgid "Security token PIN of user %s incorrect (only a few tries left!)"
-msgstr ""
-"Käyttäjän %s suojaustunnuksen PIN-koodi on virheellinen (vain muutama yritys "
-"jäljellä!)"
+msgstr "Käyttäjän %s suojaustunnuksen PIN-koodi on virheellinen (vain muutama yritys jäljellä!)"
 
 #: src/home/pam_systemd_home.c:470
 #, c-format
 msgid "Security token PIN of user %s incorrect (only one try left!)"
-msgstr ""
-"Käyttäjän %s suojaustunnuksen PIN-koodi on virheellinen (vain yksi yritys "
-"jäljellä!)"
+msgstr "Käyttäjän %s suojaustunnuksen PIN-koodi on virheellinen (vain yksi yritys jäljellä!)"
 
 #: src/home/pam_systemd_home.c:616
 #, c-format
 msgid "Home of user %s is currently not active, please log in locally first."
-msgstr ""
-"Käyttäjän %s kotihakemisto ei ole tällä hetkellä aktiivinen, kirjaudu ensin "
-"paikallisesti sisään."
+msgstr "Käyttäjän %s kotihakemisto ei ole tällä hetkellä aktiivinen, kirjaudu ensin paikallisesti sisään."
 
 #: src/home/pam_systemd_home.c:618
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
-msgstr ""
-"Käyttäjän %s kotihakemisto on tällä hetkellä lukittu, avaa lukitus ensin "
-"paikallisesti."
+msgstr "Käyttäjän %s kotihakemisto on tällä hetkellä lukittu, avaa lukitus ensin paikallisesti."
 
 #: src/home/pam_systemd_home.c:645
 #, c-format
 msgid "Too many unsuccessful login attempts for user %s, refusing."
-msgstr ""
-"Liian monta epäonnistunutta kirjautumisyritystä käyttäjälle %s, "
-"kieltäydytään."
+msgstr "Liian monta epäonnistunutta kirjautumisyritystä käyttäjälle %s, kieltäydytään."
 
 #: src/home/pam_systemd_home.c:868
 msgid "User record is blocked, prohibiting access."
@@ -944,38 +922,38 @@ msgstr "Ota verkon ajan synkronointi käyttöön tai poista se käytöstä"
 msgid "Authentication is required to control whether network time synchronization shall be enabled."
 msgstr "Todennus vaaditaan sen hallitsemiseksi, onko verkkoajan synkronointi käytössä."
 
-#: src/core/dbus-unit.c:364
+#: src/core/dbus-unit.c:352
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Todennus vaaditaan $(unit):n aloittamiseksi."
 
-#: src/core/dbus-unit.c:365
+#: src/core/dbus-unit.c:353
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Todennus vaaditaan $(unit):n lopettamiseksi."
 
-#: src/core/dbus-unit.c:366
+#: src/core/dbus-unit.c:354
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Todennus vaaditaan $(unit):n uudelleen lataamiseksi."
 
-#: src/core/dbus-unit.c:367 src/core/dbus-unit.c:368
+#: src/core/dbus-unit.c:355 src/core/dbus-unit.c:356
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Todennus vaaditaan $(unit):n uudelleen käynnistämiseksi."
 
-#: src/core/dbus-unit.c:565
+#: src/core/dbus-unit.c:553
 msgid "Authentication is required to send a UNIX signal to the processes of '$(unit)'."
 msgstr "Todennus vaaditaan UNIX-signaalin lähettämiseen '$(unit)'-prosesseihin."
 
-#: src/core/dbus-unit.c:595
+#: src/core/dbus-unit.c:583
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "Todennus vaaditaan \"epäonnistuneen\" tilan \"$(unit)\" nollaamiseksi."
 
-#: src/core/dbus-unit.c:627
+#: src/core/dbus-unit.c:615
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Todennus vaaditaan, jotta ominaisuudet asetetaan arvoon '$(unit)'."
 
-#: src/core/dbus-unit.c:728
+#: src/core/dbus-unit.c:716
 msgid "Authentication is required to delete files and directories associated with '$(unit)'."
 msgstr "Todennus vaaditaan tiedostojen ja hakemistojen poistamiseen, jotka liittyvät '$(unit)':iin."
 
-#: src/core/dbus-unit.c:776
+#: src/core/dbus-unit.c:764
 msgid "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "Todennus vaaditaan '$(unit)'-yksikön prosessien jäädyttämiseksi tai sulattamiseksi."

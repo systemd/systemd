@@ -349,9 +349,9 @@
         queue that have not been accepted yet. This setting matters only for stream and sequential packet
         sockets. See
         <citerefentry><refentrytitle>listen</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
-        details. Note that this value is silently capped by the <literal>net.core.somaxconn</literal> sysctl,
-        which typically defaults to 4096. By default this is set to 4294967295, so that the sysctl takes full
-        effect.</para></listitem>
+        details. Defaults to 4294967295. Note that this value is silently capped by the
+        <literal>net.core.somaxconn</literal> sysctl, which typically defaults to 4096, so typically
+        the sysctl is the setting that actually matters.</para></listitem>
       </varlistentry>
 
       <varlistentry>

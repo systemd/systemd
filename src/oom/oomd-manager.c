@@ -15,6 +15,7 @@
 #include "oomd-manager.h"
 #include "path-util.h"
 #include "percent-util.h"
+#include "varlink-io.systemd.oom.h"
 
 typedef struct ManagedOOMMessage {
         ManagedOOMMode mode;
@@ -49,10 +50,10 @@ static int process_managed_oom_message(Manager *m, uid_t uid, JsonVariant *param
         int r;
 
         static const JsonDispatch dispatch_table[] = {
-                { "mode",     JSON_VARIANT_STRING,   managed_oom_mode,     offsetof(ManagedOOMMessage, mode),     JSON_MANDATORY },
-                { "path",     JSON_VARIANT_STRING,   json_dispatch_string, offsetof(ManagedOOMMessage, path),     JSON_MANDATORY },
-                { "property", JSON_VARIANT_STRING,   json_dispatch_string, offsetof(ManagedOOMMessage, property), JSON_MANDATORY },
-                { "limit",    JSON_VARIANT_UNSIGNED, json_dispatch_uint32, offsetof(ManagedOOMMessage, limit),    0 },
+                { "mode",     JSON_VARIANT_STRING,        managed_oom_mode,     offsetof(ManagedOOMMessage, mode),     JSON_MANDATORY },
+                { "path",     JSON_VARIANT_STRING,        json_dispatch_string, offsetof(ManagedOOMMessage, path),     JSON_MANDATORY },
+                { "property", JSON_VARIANT_STRING,        json_dispatch_string, offsetof(ManagedOOMMessage, property), JSON_MANDATORY },
+                { "limit",    _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint32, offsetof(ManagedOOMMessage, limit),    0              },
                 {},
         };
 
@@ -73,7 +74,7 @@ static int process_managed_oom_message(Manager *m, uid_t uid, JsonVariant *param
                 if (!json_variant_is_object(c))
                         continue;
 
-                r = json_dispatch(c, dispatch_table, NULL, 0, &message);
+                r = json_dispatch(c, dispatch_table, 0, &message);
                 if (r == -ENOMEM)
                         return r;
                 if (r < 0)
@@ -732,6 +733,10 @@ static int manager_varlink_init(Manager *m, int fd) {
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
 
         varlink_server_set_userdata(s, m);
+
+        r = varlink_server_add_interface(s, &vl_interface_io_systemd_oom);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add oom interface to varlink server: %m");
 
         r = varlink_server_bind_method(s, "io.systemd.oom.ReportManagedOOMCGroups", process_managed_oom_request);
         if (r < 0)

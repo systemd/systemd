@@ -80,10 +80,27 @@ int logind_reboot(enum action a) {
                 return 0;
 
         SET_FLAG(flags, SD_LOGIND_ROOT_CHECK_INHIBITORS, arg_check_inhibitors > 0);
-        SET_FLAG(flags, SD_LOGIND_REBOOT_VIA_KEXEC, a == ACTION_KEXEC);
+        SET_FLAG(flags,
+                 SD_LOGIND_REBOOT_VIA_KEXEC,
+                 a == ACTION_KEXEC || (a == ACTION_REBOOT && getenv_bool("SYSTEMCTL_SKIP_AUTO_KEXEC") <= 0));
+        SET_FLAG(flags,
+                 SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP,
+                 a == ACTION_REBOOT && getenv_bool("SYSTEMCTL_SKIP_AUTO_SOFT_REBOOT") <= 0);
         SET_FLAG(flags, SD_LOGIND_SOFT_REBOOT, a == ACTION_SOFT_REBOOT);
 
         r = bus_call_method(bus, bus_login_mgr, method_with_flags, &error, NULL, "t", flags);
+        if (r < 0 && FLAGS_SET(flags, SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP) &&
+                        sd_bus_error_has_name(&error, SD_BUS_ERROR_INVALID_ARGS)) {
+                sd_bus_error_free(&error);
+                r = bus_call_method(
+                                bus,
+                                bus_login_mgr,
+                                method_with_flags,
+                                &error,
+                                NULL,
+                                "t",
+                                flags & ~SD_LOGIND_SOFT_REBOOT_IF_NEXTROOT_SET_UP);
+        }
         if (r >= 0)
                 return 0;
         if (!sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD))
@@ -168,7 +185,7 @@ int logind_check_inhibitors(enum action a) {
                                           ACTION_KEXEC) ? "shutdown" : "sleep"))
                         continue;
 
-                (void) get_process_comm(pid, &comm);
+                (void) pid_get_comm(pid, &comm);
                 user = uid_to_name(uid);
 
                 log_warning("Operation inhibited by \"%s\" (PID "PID_FMT" \"%s\", user %s), reason is \"%s\".",

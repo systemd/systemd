@@ -18,8 +18,9 @@
 
 #include "alloc-util.h"
 #include "dhcp-identifier.h"
-#include "dhcp-internal.h"
-#include "dhcp-protocol.h"
+#include "dhcp-network.h"
+#include "dhcp-option.h"
+#include "dhcp-packet.h"
 #include "ether-addr-util.h"
 #include "fd-util.h"
 #include "random-util.h"
@@ -168,7 +169,7 @@ static int check_options(uint8_t code, uint8_t len, const void *option, void *us
                 struct duid duid;
                 size_t duid_len;
 
-                assert_se(dhcp_identifier_set_duid_en(/* test_mode = */ true, &duid, &duid_len) >= 0);
+                assert_se(dhcp_identifier_set_duid_en(&duid, &duid_len) >= 0);
                 assert_se(dhcp_identifier_set_iaid(NULL, &hw_addr, /* legacy = */ true, &iaid) >= 0);
 
                 assert_se(len == sizeof(uint8_t) + sizeof(uint32_t) + duid_len);
@@ -291,7 +292,6 @@ static void test_discover_message(sd_event *e) {
 
         assert_se(sd_dhcp_client_set_ifindex(client, 42) >= 0);
         assert_se(sd_dhcp_client_set_mac(client, hw_addr.bytes, bcast_addr.bytes, hw_addr.length, ARPHRD_ETHER) >= 0);
-        dhcp_client_set_test_mode(client, true);
 
         assert_se(sd_dhcp_client_set_request_option(client, 248) >= 0);
 
@@ -509,7 +509,6 @@ static void test_addr_acq(sd_event *e) {
 
         assert_se(sd_dhcp_client_set_ifindex(client, 42) >= 0);
         assert_se(sd_dhcp_client_set_mac(client, hw_addr.bytes, bcast_addr.bytes, hw_addr.length, ARPHRD_ETHER) >= 0);
-        dhcp_client_set_test_mode(client, true);
 
         assert_se(sd_dhcp_client_set_callback(client, test_addr_acq_acquired, e) >= 0);
 
@@ -536,6 +535,8 @@ static void test_addr_acq(sd_event *e) {
 
 int main(int argc, char *argv[]) {
         _cleanup_(sd_event_unrefp) sd_event *e;
+
+        assert_se(setenv("SYSTEMD_NETWORK_TEST_MODE", "1", 1) >= 0);
 
         test_setup_logging(LOG_DEBUG);
 

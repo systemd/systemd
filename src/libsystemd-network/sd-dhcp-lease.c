@@ -13,9 +13,8 @@
 #include "sd-dhcp-lease.h"
 
 #include "alloc-util.h"
-#include "dhcp-internal.h"
 #include "dhcp-lease-internal.h"
-#include "dhcp-protocol.h"
+#include "dhcp-option.h"
 #include "dns-domain.h"
 #include "env-file.h"
 #include "fd-util.h"
@@ -24,6 +23,7 @@
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
+#include "network-common.h"
 #include "network-internal.h"
 #include "parse-util.h"
 #include "stdio-util.h"
@@ -32,6 +32,15 @@
 #include "time-util.h"
 #include "tmpfile-util.h"
 #include "unaligned.h"
+
+void dhcp_lease_set_timestamp(sd_dhcp_lease *lease, const triple_timestamp *timestamp) {
+        assert(lease);
+
+        if (timestamp && triple_timestamp_is_set(timestamp))
+                lease->timestamp = *timestamp;
+        else
+                triple_timestamp_now(&lease->timestamp);
+}
 
 int sd_dhcp_lease_get_timestamp(sd_dhcp_lease *lease, clockid_t clock, uint64_t *ret) {
         assert_return(lease, -EINVAL);
@@ -735,6 +744,12 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                         log_debug_errno(r, "Failed to parse router addresses, ignoring: %m");
                 break;
 
+        case SD_DHCP_OPTION_RAPID_COMMIT:
+                if (len > 0)
+                        log_debug("Invalid DHCP Rapid Commit option, ignoring.");
+                lease->rapid_commit = true;
+                break;
+
         case SD_DHCP_OPTION_DOMAIN_NAME_SERVER:
                 r = lease_parse_in_addrs(option, len, &lease->servers[SD_DHCP_LEASE_DNS].addr, &lease->servers[SD_DHCP_LEASE_DNS].size);
                 if (r < 0)
@@ -884,6 +899,16 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                         log_debug_errno(r, "Failed to parse 6rd option, ignoring: %m");
                 break;
 
+        case SD_DHCP_OPTION_IPV6_ONLY_PREFERRED:
+                r = lease_parse_be32_seconds(option, len, /* max_as_infinity = */ false, &lease->ipv6_only_preferred_usec);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to parse IPv6 only preferred option, ignoring: %m");
+
+                else if (lease->ipv6_only_preferred_usec < MIN_V6ONLY_WAIT_USEC &&
+                         !network_test_mode_enabled())
+                        lease->ipv6_only_preferred_usec = MIN_V6ONLY_WAIT_USEC;
+                break;
+
         case SD_DHCP_OPTION_PRIVATE_BASE ... SD_DHCP_OPTION_PRIVATE_LAST:
                 r = dhcp_lease_insert_private_option(lease, code, option, len);
                 if (r < 0)
@@ -906,7 +931,10 @@ int dhcp_lease_parse_search_domains(const uint8_t *option, size_t len, char ***d
         int r;
 
         assert(domains);
-        assert_return(option && len > 0, -ENODATA);
+        assert(option || len == 0);
+
+        if (len == 0)
+                return -EBADMSG;
 
         while (pos < len) {
                 _cleanup_free_ char *name = NULL;

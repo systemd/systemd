@@ -23,8 +23,12 @@ systemctl start testsuite-23-namespaced.service
 # Ensure that inaccessible paths aren't bypassed by the runtime setup,
 (! systemctl bind --mkdir testsuite-23-namespaced.service /run/testsuite-23-marker-fixed /run/inaccessible/testfile-marker-fixed)
 
+echo "MARKER_WRONG" >/run/testsuite-23-marker-wrong
 echo "MARKER_RUNTIME" >/run/testsuite-23-marker-runtime
 
+# Mount twice to exercise mount-beneath (on kernel 6.5+, on older kernels it will just overmount)
+systemctl bind --mkdir testsuite-23-namespaced.service /run/testsuite-23-marker-wrong /tmp/testfile-marker-runtime
+test "$(systemctl show -P SubState testsuite-23-namespaced.service)" = "running"
 systemctl bind --mkdir testsuite-23-namespaced.service /run/testsuite-23-marker-runtime /tmp/testfile-marker-runtime
 
 timeout 10 bash -xec 'while [[ "$(systemctl show -P SubState testsuite-23-namespaced.service)" == running ]]; do sleep .5; done'

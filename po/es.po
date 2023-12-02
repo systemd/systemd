@@ -9,7 +9,7 @@
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2023-07-14 10:32+0100\n"
+"POT-Creation-Date: 2023-11-14 21:25+0000\n"
 "PO-Revision-Date: 2021-08-26 18:05+0000\n"
 "Last-Translator: Adolfo Jayme Barrientos <fitoschido@gmail.com>\n"
 "Language-Team: Spanish <https://translate.fedoraproject.org/projects/systemd/master/es/>\n"
@@ -946,41 +946,41 @@ msgstr "Activar/desactivar la sincronización de hora por red"
 msgid "Authentication is required to control whether network time synchronization shall be enabled."
 msgstr "Necesita autenticarse para activar/desactivar la sincronización de hora por red."
 
-#: src/core/dbus-unit.c:364
+#: src/core/dbus-unit.c:352
 msgid "Authentication is required to start '$(unit)'."
 msgstr "Necesita autenticarse para iniciar «$(unit)»."
 
-#: src/core/dbus-unit.c:365
+#: src/core/dbus-unit.c:353
 msgid "Authentication is required to stop '$(unit)'."
 msgstr "Necesita autenticarse para detener «$(unit)»."
 
-#: src/core/dbus-unit.c:366
+#: src/core/dbus-unit.c:354
 msgid "Authentication is required to reload '$(unit)'."
 msgstr "Necesita autenticarse para recargar «$(unit)»."
 
-#: src/core/dbus-unit.c:367 src/core/dbus-unit.c:368
+#: src/core/dbus-unit.c:355 src/core/dbus-unit.c:356
 msgid "Authentication is required to restart '$(unit)'."
 msgstr "Necesita autenticarse para reiniciar «$(unit)»."
 
-#: src/core/dbus-unit.c:565
+#: src/core/dbus-unit.c:553
 #, fuzzy
 msgid "Authentication is required to send a UNIX signal to the processes of '$(unit)'."
 msgstr "Se requiere autenticación para establecer las propiedades de '$(unit)'."
 
-#: src/core/dbus-unit.c:595
+#: src/core/dbus-unit.c:583
 msgid "Authentication is required to reset the \"failed\" state of '$(unit)'."
 msgstr "Necesita autenticarse para reiniciar el estado de «fallido» de «$(unit)»."
 
-#: src/core/dbus-unit.c:627
+#: src/core/dbus-unit.c:615
 msgid "Authentication is required to set properties on '$(unit)'."
 msgstr "Necesita autenticarse para establecer las propiedades de «$(unit)»."
 
-#: src/core/dbus-unit.c:728
+#: src/core/dbus-unit.c:716
 #, fuzzy
 msgid "Authentication is required to delete files and directories associated with '$(unit)'."
 msgstr "Se requiere autenticación para reiniciar el estado de «fallido» de '$(unit)'."
 
-#: src/core/dbus-unit.c:776
+#: src/core/dbus-unit.c:764
 #, fuzzy
 msgid "Authentication is required to freeze or thaw the processes of '$(unit)' unit."
 msgstr "Se requiere autenticación para reiniciar el estado de «fallido» de '$(unit)'."

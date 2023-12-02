@@ -51,6 +51,13 @@ void network_adjust_dhcp4(Network *network) {
 
         if (network->dhcp_client_identifier < 0)
                 network->dhcp_client_identifier = network->dhcp_anonymize ? DHCP_CLIENT_ID_MAC : DHCP_CLIENT_ID_DUID;
+
+        /* By default, RapidCommit= is enabled when Anonymize=no and neither AllowList= nor DenyList= is specified. */
+        if (network->dhcp_use_rapid_commit < 0)
+                network->dhcp_use_rapid_commit =
+                        !network->dhcp_anonymize &&
+                        set_isempty(network->dhcp_allow_listed_ip) &&
+                        set_isempty(network->dhcp_deny_listed_ip);
 }
 
 static int dhcp4_prefix_covers(
@@ -1383,15 +1390,15 @@ static int dhcp4_set_client_identifier(Link *link) {
         return 0;
 }
 
-static int dhcp4_set_request_address(Link *link) {
+static int dhcp4_find_dynamic_address(Link *link, struct in_addr *ret) {
         Address *a;
 
         assert(link);
         assert(link->network);
-        assert(link->dhcp_client);
+        assert(ret);
 
         if (!FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP))
-                return 0;
+                return false;
 
         SET_FOREACH(a, link->addresses) {
                 if (a->source != NETWORK_CONFIG_SOURCE_FOREIGN)
@@ -1403,11 +1410,29 @@ static int dhcp4_set_request_address(Link *link) {
         }
 
         if (!a)
+                return false;
+
+        *ret = a->in_addr.in;
+        return true;
+}
+
+static int dhcp4_set_request_address(Link *link) {
+        struct in_addr a;
+
+        assert(link);
+        assert(link->network);
+        assert(link->dhcp_client);
+
+        a = link->network->dhcp_request_address;
+
+        if (in4_addr_is_null(&a))
+                (void) dhcp4_find_dynamic_address(link, &a);
+
+        if (in4_addr_is_null(&a))
                 return 0;
 
-        log_link_debug(link, "DHCPv4 CLIENT: requesting " IPV4_ADDRESS_FMT_STR, IPV4_ADDRESS_FMT_VAL(a->in_addr.in));
-
-        return sd_dhcp_client_set_request_address(link->dhcp_client, &a->in_addr.in);
+        log_link_debug(link, "DHCPv4 CLIENT: requesting %s.", IN4_ADDR_TO_STRING(&a));
+        return sd_dhcp_client_set_request_address(link->dhcp_client, &a);
 }
 
 static bool link_needs_dhcp_broadcast(Link *link) {
@@ -1434,6 +1459,16 @@ static bool link_needs_dhcp_broadcast(Link *link) {
         return r == true;
 }
 
+static bool link_dhcp4_ipv6_only_mode(Link *link) {
+        assert(link);
+        assert(link->network);
+
+        if (link->network->dhcp_ipv6_only_mode >= 0)
+                return link->network->dhcp_ipv6_only_mode;
+
+        return link_dhcp6_enabled(link) || link_ipv6_accept_ra_enabled(link);
+}
+
 static int dhcp4_configure(Link *link) {
         sd_dhcp_option *send_option;
         void *request_options;
@@ -1456,6 +1491,10 @@ static int dhcp4_configure(Link *link) {
         r = sd_dhcp_client_attach_device(link->dhcp_client, link->dev);
         if (r < 0)
                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to attach device: %m");
+
+        r = sd_dhcp_client_set_rapid_commit(link->dhcp_client, link->network->dhcp_use_rapid_commit);
+        if (r < 0)
+                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set rapid commit: %m");
 
         r = sd_dhcp_client_set_mac(link->dhcp_client,
                                    link->hw_addr.bytes,
@@ -1487,6 +1526,10 @@ static int dhcp4_configure(Link *link) {
         }
 
         if (!link->network->dhcp_anonymize) {
+                r = dhcp4_set_request_address(link);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set initial DHCPv4 address: %m");
+
                 if (link->network->dhcp_use_mtu) {
                         r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_MTU_INTERFACE);
                         if (r < 0)
@@ -1536,6 +1579,12 @@ static int dhcp4_configure(Link *link) {
                         r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_6RD);
                         if (r < 0)
                                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set request flag for 6rd: %m");
+                }
+
+                if (link_dhcp4_ipv6_only_mode(link)) {
+                        r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_IPV6_ONLY_PREFERRED);
+                        if (r < 0)
+                                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set request flag for IPv6-only preferred option: %m");
                 }
 
                 SET_FOREACH(request_options, link->network->dhcp_request_options) {
@@ -1616,10 +1665,6 @@ static int dhcp4_configure(Link *link) {
                         return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed set to lease lifetime: %m");
         }
 
-        r = dhcp4_set_request_address(link);
-        if (r < 0)
-                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set initial DHCPv4 address: %m");
-
         return dhcp4_set_client_identifier(link);
 }
 
@@ -1650,7 +1695,7 @@ int dhcp4_update_mac(Link *link) {
                 return r;
 
         if (restart) {
-                r = sd_dhcp_client_start(link->dhcp_client);
+                r = dhcp4_start(link);
                 if (r < 0)
                         return r;
         }
@@ -1658,10 +1703,35 @@ int dhcp4_update_mac(Link *link) {
         return 0;
 }
 
-int dhcp4_start(Link *link) {
+int dhcp4_update_ipv6_connectivity(Link *link) {
+        assert(link);
+
+        if (!link->network)
+                return 0;
+
+        if (!link->network->dhcp_ipv6_only_mode)
+                return 0;
+
+        if (!link->dhcp_client)
+                return 0;
+
+        /* If the client is running, set the current connectivity. */
+        if (sd_dhcp_client_is_running(link->dhcp_client))
+                return sd_dhcp_client_set_ipv6_connectivity(link->dhcp_client, link_has_ipv6_connectivity(link));
+
+        /* If the client has been already stopped or not started yet, let's check the current connectivity
+         * and start the client if necessary. */
+        if (link_has_ipv6_connectivity(link))
+                return 0;
+
+        return dhcp4_start_full(link, /* set_ipv6_connectivity = */ false);
+}
+
+int dhcp4_start_full(Link *link, bool set_ipv6_connectivity) {
         int r;
 
         assert(link);
+        assert(link->network);
 
         if (!link->dhcp_client)
                 return 0;
@@ -1676,7 +1746,32 @@ int dhcp4_start(Link *link) {
         if (r < 0)
                 return r;
 
+        if (set_ipv6_connectivity) {
+                r = dhcp4_update_ipv6_connectivity(link);
+                if (r < 0)
+                        return r;
+        }
+
         return 1;
+}
+
+int dhcp4_renew(Link *link) {
+        assert(link);
+
+        if (!link->dhcp_client)
+                return 0;
+
+        /* The DHCPv4 client may have been stopped by the IPv6 only mode. Let's unconditionally restart the
+         * client if it is not running. */
+        if (!sd_dhcp_client_is_running(link->dhcp_client))
+                return dhcp4_start(link);
+
+        /* The client may be waiting for IPv6 connectivity. Let's restart the client in that case. */
+        if (dhcp_client_get_state(link->dhcp_client) != DHCP_STATE_BOUND)
+                return sd_dhcp_client_interrupt_ipv6_only_mode(link->dhcp_client);
+
+        /* Otherwise, send a RENEW command. */
+        return sd_dhcp_client_send_renew(link->dhcp_client);
 }
 
 static int dhcp4_configure_duid(Link *link) {

@@ -1,0 +1,315 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="varlinkctl"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>varlinkctl</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>varlinkctl</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>varlinkctl</refname>
+    <refpurpose>Introspect with and invoke Varlink services</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>varlinkctl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">info</arg>
+      <arg choice="plain"><replaceable>ADDRESS</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>varlinkctl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">list-interfaces</arg>
+      <arg choice="plain"><replaceable>ADDRESS</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>varlinkctl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">introspect</arg>
+      <arg choice="plain"><replaceable>ADDRESS</replaceable></arg>
+      <arg choice="plain"><replaceable>INTERFACE</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>varlinkctl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">call</arg>
+      <arg choice="plain"><replaceable>ADDRESS</replaceable></arg>
+      <arg choice="plain"><replaceable>METHOD</replaceable></arg>
+      <arg choice="opt"><replaceable>PARAMETERS</replaceable></arg>
+    </cmdsynopsis>
+
+    <cmdsynopsis>
+      <command>varlinkctl</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain">validate-idl</arg>
+      <arg choice="opt"><replaceable>FILE</replaceable></arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>varlinkctl</command> may be used to introspect and invoke <ulink
+    url="https://varlink.org/">Varlink</ulink> services.</para>
+
+    <para>Services are referenced by one of the following:</para>
+
+    <itemizedlist>
+      <listitem><para>A Varlink service reference starting with the <literal>unix:</literal> string, followed
+      by an absolute <constant>AF_UNIX</constant> path, or by <literal>@</literal> and an arbitrary string
+      (the latter for referencing sockets in the abstract namespace).</para></listitem>
+
+      <listitem><para>A Varlink service reference starting with the <literal>exec:</literal> string, followed
+      by an absolute path of a binary to execute.</para></listitem>
+    </itemizedlist>
+
+    <para>For convenience these two simpler (redundant) service address syntaxes are also supported:</para>
+
+    <itemizedlist>
+      <listitem><para>A file system path to an <constant>AF_UNIX</constant> socket, either absolute
+      (i.e. begins with <literal>/</literal>) or relative (in which case it must begin with
+      <literal>./</literal>).</para></listitem>
+
+      <listitem><para>A file system path to an executable, either absolute or relative (as above, must begin
+      with <literal>/</literal>, resp. <literal>./</literal>).</para></listitem>
+    </itemizedlist>
+  </refsect1>
+
+  <refsect1>
+    <title>Commands</title>
+
+    <para>The following commands are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><command>info</command> <replaceable>ADDRESS</replaceable></term>
+
+        <listitem><para>Show brief information about the specified service, including vendor name and list of
+        implemented interfaces. Expects a service address in the formats described above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>list-interfaces</command> <replaceable>ADDRESS</replaceable></term>
+
+        <listitem><para>Show list of interfaces implemented by the specified service. Expects a service
+        address in the formats described above.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>introspect</command> <replaceable>ADDRESS</replaceable> <replaceable>INTERFACE</replaceable></term>
+
+        <listitem><para>Show interface definition of the specified interface provided by the specified
+        service. Expects a service address in the formats described above and a Varlink interface
+        name.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>call</command> <replaceable>ADDRESS</replaceable> <replaceable>METHOD</replaceable> [<replaceable>ARGUMENTS</replaceable>]</term>
+
+        <listitem><para>Call the specified method of the specified service. Expects a service address in the
+        format described above, a fully qualified Varlink method name, and a JSON arguments object. If the
+        arguments object is not specified, it is read from STDIN instead. To pass an empty list of
+        parameters, specify the empty object <literal>{}</literal>.</para>
+
+        <para>The reply parameters are written as JSON object to STDOUT.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>validate-idl</command> [<replaceable>FILE</replaceable>]</term>
+
+        <listitem><para>Reads a Varlink interface definition file, parses and validates it, then outputs it
+        with syntax highlighting. This checks for syntax and internal consistency of the interface. Expects a
+        file name to read the interface definition from. If omitted reads the interface definition from
+        STDIN.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><command>help</command></term>
+
+        <listitem><para>Show command syntax help.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--more</option></term>
+
+        <listitem><para>When used with <command>call</command>: expect multiple method replies. If this flag is
+        set the method call is sent with the <constant>more</constant> flag set, which tells the service to
+        generate multiple replies, if needed. The command remains running until the service sends a reply
+        message that indicates it is the last in the series. This flag should be set only for method calls
+        that support this mechanism.</para>
+
+        <para>If this mode is enabled output is automatically switched to JSON-SEQ mode, so that individual
+        reply objects can be easily discerned.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--oneway</option></term>
+
+        <listitem><para>When used with <command>call</command>: do not expect a method reply. If this flag
+        is set the method call is sent with the <constant>oneway</constant> flag set (the command exits
+        immediately after), which tells the service not to generate a reply.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--json=</option><replaceable>MODE</replaceable></term>
+
+        <listitem>
+          <para>Selects the JSON output formatting, one of <literal>pretty</literal> (for nicely indented,
+          colorized output) or <literal>short</literal> (for terse output with minimal whitespace and no
+          newlines), defaults to <literal>short</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>-j</option></term>
+
+        <listitem>
+          <para>Equivalent to <option>--json=pretty</option> when invoked interactively from a terminal. Otherwise
+          equivalent to <option>--json=short</option>, in particular when the output is piped to some other
+          program.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <xi:include href="standard-options.xml" xpointer="no-pager" />
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+
+    <example>
+      <title>Investigating a Service</title>
+
+      <para>The following three commands inspect the <literal>io.systemd.Resolve</literal> service
+      implemented by
+      <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      listing general service information and implemented interfaces, and then displaying the interface
+      definition of its primary interface:</para>
+
+      <programlisting>$ varlinkctl info /run/systemd/resolve/io.systemd.Resolve
+    Vendor: The systemd Project
+   Product: systemd (systemd-resolved)
+   Version: 254 (254-1522-g4790521^)
+       URL: https://systemd.io/
+Interfaces: io.systemd
+            io.systemd.Resolve
+            org.varlink.service
+$ varlinkctl list-interfaces /run/systemd/resolve/io.systemd.Resolve
+io.systemd
+io.systemd.Resolve
+org.varlink.service
+$ varlinkctl introspect /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve
+interface io.systemd.Resolve
+type ResolvedAddress(
+        ifindex: ?int,
+        …</programlisting>
+
+    <para>(Interface definition has been truncated in the example above, in the interest of brevity.)</para>
+    </example>
+
+    <example>
+      <title>Invoking a Method</title>
+
+      <para>The following command resolves a hostname via <citerefentry><refentrytitle>systemd-resolved.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>'s <function>ResolveHostname</function>  method call.</para>
+
+      <programlisting>$ varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveHostname '{"name":"systemd.io","family":2}' -j
+{
+        "addresses" : [
+                {
+                        "ifindex" : 2,
+                        "family" : 2,
+                        "address" : [
+                                185,
+                                199,
+                                111,
+                                153
+                        ]
+                }
+        ],
+        "name" : "systemd.io",
+        "flags" : 1048577
+}</programlisting>
+    </example>
+
+    <example>
+      <title>Investigating a Service Executable</title>
+
+      <para>The following command inspects the <filename>/usr/lib/systemd/systemd-pcrextend</filename>
+      executable and the IPC APIs it provides. It then invokes a method on it:</para>
+
+      <programlisting># varlinkctl info /usr/lib/systemd/systemd-pcrextend
+    Vendor: The systemd Project
+   Product: systemd (systemd-pcrextend)
+   Version: 254 (254-1536-g97734fb)
+       URL: https://systemd.io/
+Interfaces: io.systemd
+            io.systemd.PCRExtend
+            org.varlink.service
+# varlinkctl introspect /usr/lib/systemd/systemd-pcrextend io.systemd.PCRExtend
+interface io.systemd.PCRExtend
+
+method Extend(
+        pcr: int,
+        text: ?string,
+        data: ?string
+) -> ()
+# varlinkctl call /usr/lib/systemd/systemd-pcrextend io.systemd.PCRExtend.Extend '{"pcr":15,"text":"foobar"}'
+{}</programlisting>
+    </example>
+
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+
+    <para>
+      <citerefentry><refentrytitle>busctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <ulink url="https://varlink.org/">Varlink</ulink>
+    </para>
+  </refsect1>
+</refentry>

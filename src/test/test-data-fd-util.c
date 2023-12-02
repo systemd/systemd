@@ -81,7 +81,7 @@ static void assert_equal_fd(int fd1, int fd2) {
 
 TEST(copy_data_fd) {
         _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF;
-        _cleanup_close_pair_ int sfd[2] = PIPE_EBADF;
+        _cleanup_close_pair_ int sfd[2] = EBADF_PAIR;
         _cleanup_(sigkill_waitp) pid_t pid = -1;
         int r;
 
@@ -115,7 +115,7 @@ TEST(copy_data_fd) {
 
         assert_se(socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0, sfd) >= 0);
 
-        r = safe_fork("(sd-pipe)", FORK_RESET_SIGNALS|FORK_DEATHSIG|FORK_LOG, &pid);
+        r = safe_fork("(sd-pipe)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_LOG, &pid);
         assert_se(r >= 0);
 
         if (r == 0) {

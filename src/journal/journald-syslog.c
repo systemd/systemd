@@ -9,7 +9,7 @@
 #include "alloc-util.h"
 #include "fd-util.h"
 #include "format-util.h"
-#include "io-util.h"
+#include "iovec-util.h"
 #include "journal-internal.h"
 #include "journald-client.h"
 #include "journald-console.h"
@@ -154,7 +154,7 @@ void server_forward_syslog(Server *s, int priority, const char *identifier, cons
         /* Third: identifier and PID */
         if (ucred) {
                 if (!identifier) {
-                        (void) get_process_comm(ucred->pid, &ident_buf);
+                        (void) pid_get_comm(ucred->pid, &ident_buf);
                         identifier = ident_buf;
                 }
 

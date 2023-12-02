@@ -45,7 +45,7 @@ _public_ int cryptsetup_token_open_pin(
 
         r = crypt_normalize_pin(pin, pin_size, &pin_string);
         if (r < 0)
-                return crypt_log_debug_errno(cd, r, "Can not normalize PIN: %m");
+                return crypt_log_debug_errno(cd, r, "Cannot normalize PIN: %m");
 
         return acquire_luks2_key(cd, json, (const char *)usrptr, pin_string, password, password_len);
 }
@@ -104,11 +104,11 @@ _public_ void cryptsetup_token_dump(
 
         r = crypt_dump_buffer_to_hex_string(cid, cid_size, &cid_str);
         if (r < 0)
-                return (void) crypt_log_debug_errno(cd, r, "Can not dump " TOKEN_NAME " content: %m");
+                return (void) crypt_log_debug_errno(cd, r, "Cannot dump " TOKEN_NAME " content: %m");
 
         r = crypt_dump_buffer_to_hex_string(salt, salt_size, &salt_str);
         if (r < 0)
-                return (void) crypt_log_debug_errno(cd, r, "Can not dump " TOKEN_NAME " content: %m");
+                return (void) crypt_log_debug_errno(cd, r, "Cannot dump " TOKEN_NAME " content: %m");
 
         if (required & FIDO2ENROLL_PIN)
                 client_pin_req_str = "true";

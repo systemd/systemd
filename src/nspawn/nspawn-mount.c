@@ -693,7 +693,7 @@ int mount_all(const char *dest,
                 if (FLAGS_SET(mount_table[k].mount_settings, MOUNT_PREFIX_ROOT)) {
                         /* Optionally prefix the mount source with the root dir. This is useful in bind
                          * mounts to be created within the container image before we transition into it. Note
-                         * that MOUNT_IN_USERNS is run after we transitioned hence prefixing is not ncessary
+                         * that MOUNT_IN_USERNS is run after we transitioned hence prefixing is not necessary
                          * for those. */
                         r = chase(mount_table[k].what, dest, CHASE_PREFIX_ROOT, &prefixed, NULL);
                         if (r < 0)
@@ -828,7 +828,7 @@ static int mount_bind(const char *dest, CustomMount *m, uid_t uid_shift, uid_t u
         }
 
         if (idmapping != REMOUNT_IDMAPPING_NONE) {
-                r = remount_idmap(where, uid_shift, uid_range, source_st.st_uid, idmapping);
+                r = remount_idmap(STRV_MAKE(where), uid_shift, uid_range, source_st.st_uid, idmapping);
                 if (r < 0)
                         return log_error_errno(r, "Failed to map ids for bind mount %s: %m", where);
         }

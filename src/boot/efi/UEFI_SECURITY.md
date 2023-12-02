@@ -4,6 +4,13 @@ PE binary, adding various features, `systemd-stub`. These components fully suppo
 this document will describe their security posture and how they comply with industry-standard expectations
 for UEFI SecureBoot workflows.
 
+Note that `systemd-stub` is not the same, or an alternative, to the Linux kernel's own EFI stub. The kernel
+stub's role is that of the fundamental entrypoint to kernel execution from UEFI mode, implementing the
+modern Linux boot protocol. `systemd-stub` on the other hand loads various resources, including the kernel
+image, via the EFI LoadImage/StartImage protocol (although it does support the legacy Linux boot protocol,
+as a fallback for older kernels on x86). The purpose of `systemd-stub` is to provide additional features and
+functionality for either or both `systemd-boot` and `systemd` (userspace).
+
 ## Fundamental Security Design Goals
 The fundamental security design goals for these components are separation of security policy logic from the
 rest of the functionality, achieved by offloading security-critical tasks to the firmware or earlier stages
@@ -24,14 +31,15 @@ Specification)](https://uapi-group.org/specifications/specs/boot_loader_specific
 
 The role of `systemd-stub` is to load and measure in the TPM the post-bootloader stages, such as the kernel,
 initrd and kernel command line, and implement optional features such as augmenting the initrd with
-additional content such as configuration or optional services. These payloads can be augmented, and such
-augmentations are measured too.
+additional content such as configuration or optional services. [Unified Kernel
+Images](https://uapi-group.org/specifications/specs/unified_kernel_image/) embed `systemd-stub`, a kernel
+and other optional components as sections in a PE signed binary, that can thus be executed in UEFI
+environments.
 
-Since it is embedded in a PE signed binary, `systemd-stub` will temporarily disable SecureBoot
-authentication when loading the payload kernel it wraps, in order to avoid redundant duplicate
-authentication of the image, given that that the payload kernel was already authenticated and verified as
-part of the whole image. SecureBoot authentication is re-enabled immediately after the kernel image has been
-loaded.
+Since it is embedded in a PE signed binary, `systemd-stub` will temporarily disable the UEFI authentication
+protocol while loading the payload kernel it wraps, in order to avoid redundant duplicate authentication of
+the image, given that the payload kernel was already authenticated and verified as part of the whole image.
+SecureBoot authentication is re-enabled immediately after the kernel image has been loaded.
 
 Various EFI variables, under the vendor UUID `4a67b082-0a4c-41cf-b6c7-440b29bb8c4f`, are set and read by
 these components, to pass metadata and configuration between different stages of the boot process, as
@@ -55,10 +63,10 @@ only load them after `ExitBootServices()` has been called.
 
 Another mechanism is supported by `systemd-boot` and `systemd-stub` to add additional payloads to the boot
 process: `addons`. Addons are PE signed binaries that can carry kernel command line arguments or Devicetree
-blobs (more might be added in the future). In constrast to the user-specified additions in the Type #1 case
+blobs (more might be added in the future). In contrast to the user-specified additions in the Type #1 case
 described above, these addons are loaded through the UEFI image loading protocol, and thus are subject to
 signature validation, and will be rejected if not signed or if the signature is invalid, following the
-standard SecureBoot model.
+standard SecureBoot model. They are also measured in the TPM.
 
 `systemd-boot` will also load file system drivers that are stored in the ESP, to allow enhancing the
 firmware's capabilities. These are again PE signed binaries and will be verified using the appropriate

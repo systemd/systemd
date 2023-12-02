@@ -12,9 +12,12 @@
 #include "memory-util-fundamental.h"
 
 size_t page_size(void) _pure_;
-#define PAGE_ALIGN(l) ALIGN_TO((l), page_size())
-#define PAGE_ALIGN_DOWN(l) ((l) & ~(page_size() - 1))
-#define PAGE_OFFSET(l) ((l) & (page_size() - 1))
+#define PAGE_ALIGN(l)          ALIGN_TO(l, page_size())
+#define PAGE_ALIGN_U64(l)      ALIGN_TO_U64(l, page_size())
+#define PAGE_ALIGN_DOWN(l)     ALIGN_DOWN(l, page_size())
+#define PAGE_ALIGN_DOWN_U64(l) ALIGN_DOWN_U64(l, page_size())
+#define PAGE_OFFSET(l)         ALIGN_OFFSET(l, page_size())
+#define PAGE_OFFSET_U64(l)     ALIGN_OFFSET_U64(l, page_size())
 
 /* Normal memcpy() requires src to be nonnull. We do nothing if n is 0. */
 static inline void *memcpy_safe(void *dst, const void *src, size_t n) {
@@ -104,37 +107,3 @@ static inline void erase_and_freep(void *p) {
 static inline void erase_char(char *p) {
         explicit_bzero_safe(p, sizeof(char));
 }
-
-/* An automatic _cleanup_-like logic for destroy arrays (i.e. pointers + size) when leaving scope */
-typedef struct ArrayCleanup {
-        void **parray;
-        size_t *pn;
-        free_array_func_t pfunc;
-} ArrayCleanup;
-
-static inline void array_cleanup(const ArrayCleanup *c) {
-        assert(c);
-
-        assert(!c->parray == !c->pn);
-
-        if (!c->parray)
-                return;
-
-        if (*c->parray) {
-                assert(c->pfunc);
-                c->pfunc(*c->parray, *c->pn);
-                *c->parray = NULL;
-        }
-
-        *c->pn = 0;
-}
-
-#define CLEANUP_ARRAY(array, n, func)                                   \
-        _cleanup_(array_cleanup) _unused_ const ArrayCleanup CONCATENATE(_cleanup_array_, UNIQ) = { \
-                .parray = (void**) &(array),                            \
-                .pn = &(n),                                             \
-                .pfunc = (free_array_func_t) ({                         \
-                                void (*_f)(typeof(array[0]) *a, size_t b) = func; \
-                                _f;                                     \
-                        }),                                             \
-        }

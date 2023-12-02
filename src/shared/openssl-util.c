@@ -7,8 +7,8 @@
 #include "string-util.h"
 
 #if HAVE_OPENSSL
-/* For each error in the the Openssl thread error queue, log the provided message and the Openssl error
- * string. If there are no errors in the Openssl thread queue, this logs the message with "No openssl
+/* For each error in the the OpenSSL thread error queue, log the provided message and the OpenSSL error
+ * string. If there are no errors in the OpenSSL thread queue, this logs the message with "No openssl
  * errors." This logs at level debug. Returns -EIO (or -ENOMEM). */
 #define log_openssl_errors(fmt, ...) _log_openssl_errors(UNIQ, fmt, ##__VA_ARGS__)
 #define _log_openssl_errors(u, fmt, ...)                                \
@@ -18,7 +18,7 @@
                 !UNIQ_T(BUF, u)                                         \
                         ? log_oom_debug()                               \
                         : __log_openssl_errors(u, UNIQ_T(BUF, u), UNIQ_T(MAX, u), fmt, ##__VA_ARGS__) \
-                        ?: log_debug_errno(SYNTHETIC_ERRNO(EIO), fmt ": No openssl errors.", ##__VA_ARGS__); \
+                        ?: log_debug_errno(SYNTHETIC_ERRNO(EIO), fmt ": No OpenSSL errors.", ##__VA_ARGS__); \
         })
 #define __log_openssl_errors(u, buf, max, fmt, ...)                     \
         ({                                                              \
@@ -112,7 +112,7 @@ int openssl_digest_many(
                 return log_openssl_errors("Failed to create new EVP_MD_CTX");
 
         if (!EVP_DigestInit_ex(ctx, md, NULL))
-                return log_openssl_errors("Failed to initializate EVP_MD_CTX");
+                return log_openssl_errors("Failed to initialize EVP_MD_CTX");
 
         for (size_t i = 0; i < n_data; i++)
                 if (!EVP_DigestUpdate(ctx, data[i].iov_base, data[i].iov_len))
@@ -188,7 +188,7 @@ int openssl_hmac_many(
                 return log_openssl_errors("Failed to build HMAC OSSL_PARAM");
 
         if (!EVP_MAC_init(ctx, key, key_size, params))
-                return log_openssl_errors("Failed to initializate EVP_MAC_CTX");
+                return log_openssl_errors("Failed to initialize EVP_MAC_CTX");
 #else
         _cleanup_(HMAC_CTX_freep) HMAC_CTX *ctx = HMAC_CTX_new();
         if (!ctx)
@@ -394,18 +394,18 @@ int kdf_ss_derive(
                 return log_openssl_errors("Failed to build KDF-SS OSSL_PARAM");
 
         if (EVP_KDF_derive(ctx, buf, derive_size, params) <= 0)
-                return log_openssl_errors("Openssl KDF-SS derive failed");
+                return log_openssl_errors("OpenSSL KDF-SS derive failed");
 
         *ret = TAKE_PTR(buf);
 
         return 0;
 #else
-        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "KDF-SS requires openssl >= 3.");
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "KDF-SS requires OpenSSL >= 3.");
 #endif
 }
 
 /* Perform Key-Based HMAC KDF. The mode must be "COUNTER" or "FEEDBACK". The parameter naming is from the
- * Openssl api, and maps to SP800-108 naming as "...key, salt, info, and seed correspond to KI, Label,
+ * OpenSSL api, and maps to SP800-108 naming as "...key, salt, info, and seed correspond to KI, Label,
  * Context, and IV (respectively)...". The derive_size parameter specifies how many bytes are derived.
  *
  * For more details see: https://www.openssl.org/docs/manmaster/man7/EVP_KDF-KB.html */
@@ -480,13 +480,13 @@ int kdf_kb_hmac_derive(
                 return log_oom_debug();
 
         if (EVP_KDF_derive(ctx, buf, derive_size, params) <= 0)
-                return log_openssl_errors("Openssl KDF-KB derive failed");
+                return log_openssl_errors("OpenSSL KDF-KB derive failed");
 
         *ret = TAKE_PTR(buf);
 
         return 0;
 #else
-        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "KDF-KB requires openssl >= 3.");
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "KDF-KB requires OpenSSL >= 3.");
 #endif
 }
 
@@ -1144,6 +1144,6 @@ int x509_fingerprint(X509 *cert, uint8_t buffer[static SHA256_DIGEST_SIZE]) {
         sha256_direct(der, dersz, buffer);
         return 0;
 #else
-        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "openssl is not supported, cannot calculate X509 fingerprint: %m");
+        return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "OpenSSL is not supported, cannot calculate X509 fingerprint: %m");
 #endif
 }

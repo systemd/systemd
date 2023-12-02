@@ -47,30 +47,31 @@
 #define DEFAULT_COMPRESS_THRESHOLD (512ULL)
 #define MIN_COMPRESS_THRESHOLD (8ULL)
 
-/* This is the minimum journal file size */
-#define JOURNAL_FILE_SIZE_MIN (512 * 1024ULL)             /* 512 KiB */
-#define JOURNAL_COMPACT_SIZE_MAX UINT32_MAX               /* 4 GiB */
+#define U64_KB UINT64_C(1024)
+#define U64_MB (UINT64_C(1024) * U64_KB)
+#define U64_GB (UINT64_C(1024) * U64_MB)
 
-/* These are the lower and upper bounds if we deduce the max_use value
- * from the file system size */
-#define MAX_USE_LOWER (1 * 1024 * 1024ULL)                /* 1 MiB */
-#define MAX_USE_UPPER (4 * 1024 * 1024 * 1024ULL)         /* 4 GiB */
+/* This is the minimum journal file size */
+#define JOURNAL_FILE_SIZE_MIN (512 * U64_KB)             /* 512 KiB */
+#define JOURNAL_COMPACT_SIZE_MAX ((uint64_t) UINT32_MAX) /* 4 GiB */
+
+/* These are the lower and upper bounds if we deduce the max_use value from the file system size */
+#define MAX_USE_LOWER (1 * U64_MB)                       /* 1 MiB */
+#define MAX_USE_UPPER (4 * U64_GB)                       /* 4 GiB */
 
 /* Those are the lower and upper bounds for the minimal use limit,
  * i.e. how much we'll use even if keep_free suggests otherwise. */
-#define MIN_USE_LOW (1 * 1024 * 1024ULL)                  /* 1 MiB */
-#define MIN_USE_HIGH (16 * 1024 * 1024ULL)                /* 16 MiB */
+#define MIN_USE_LOW  (1  * U64_MB)                       /* 1 MiB */
+#define MIN_USE_HIGH (16 * U64_MB)                       /* 16 MiB */
 
 /* This is the upper bound if we deduce max_size from max_use */
-#define MAX_SIZE_UPPER (128 * 1024 * 1024ULL)             /* 128 MiB */
+#define MAX_SIZE_UPPER (128 * U64_MB)                    /* 128 MiB */
 
-/* This is the upper bound if we deduce the keep_free value from the
- * file system size */
-#define KEEP_FREE_UPPER (4 * 1024 * 1024 * 1024ULL)       /* 4 GiB */
+/* This is the upper bound if we deduce the keep_free value from the file system size */
+#define KEEP_FREE_UPPER (4 * U64_GB)                     /* 4 GiB */
 
-/* This is the keep_free value when we can't determine the system
- * size */
-#define DEFAULT_KEEP_FREE (1024 * 1024ULL)                /* 1 MB */
+/* This is the keep_free value when we can't determine the system size */
+#define DEFAULT_KEEP_FREE (1 * U64_MB)                   /* 1 MB */
 
 /* This is the default maximum number of journal files to keep around. */
 #define DEFAULT_N_MAX_FILES 100
@@ -82,13 +83,10 @@
 #define CHAIN_CACHE_MAX 20
 
 /* How much to increase the journal file size at once each time we allocate something new. */
-#define FILE_SIZE_INCREASE (8 * 1024 * 1024ULL)          /* 8MB */
+#define FILE_SIZE_INCREASE (8 * U64_MB)                  /* 8MB */
 
 /* Reread fstat() of the file for detecting deletions at least this often */
 #define LAST_STAT_REFRESH_USEC (5*USEC_PER_SEC)
-
-/* The mmap context to use for the header we pick as one above the last defined typed */
-#define CONTEXT_HEADER _OBJECT_TYPE_MAX
 
 /* Longest hash chain to rotate after */
 #define HASH_CHAIN_DEPTH_MAX 100
@@ -301,9 +299,11 @@ JournalFile* journal_file_close(JournalFile *f) {
 #endif
 
 #if HAVE_GCRYPT
-        if (f->fss_file)
-                munmap(f->fss_file, PAGE_ALIGN(f->fss_file_size));
-        else
+        if (f->fss_file) {
+                size_t sz = PAGE_ALIGN(f->fss_file_size);
+                assert(sz < SIZE_MAX);
+                munmap(f->fss_file, sz);
+        } else
                 free(f->fsprg_state);
 
         free(f->fsprg_seed);
@@ -414,7 +414,7 @@ static int journal_file_init_header(
                                 keyed_hash_requested() * HEADER_INCOMPATIBLE_KEYED_HASH |
                                 compact_mode_requested() * HEADER_INCOMPATIBLE_COMPACT),
                 .compatible_flags = htole32(
-                                (seal * HEADER_COMPATIBLE_SEALED) |
+                                (seal * (HEADER_COMPATIBLE_SEALED | HEADER_COMPATIBLE_SEALED_CONTINUOUS) ) |
                                 HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID),
         };
 
@@ -487,6 +487,8 @@ static bool warn_wrong_flags(const JournalFile *f, bool compatible) {
                         if (compatible) {
                                 if (flags & HEADER_COMPATIBLE_SEALED)
                                         strv[n++] = "sealed";
+                                if (flags & HEADER_COMPATIBLE_SEALED_CONTINUOUS)
+                                        strv[n++] = "sealed-continuous";
                         } else {
                                 if (flags & HEADER_INCOMPATIBLE_COMPRESSED_XZ)
                                         strv[n++] = "xz-compressed";
@@ -750,7 +752,7 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         /* We assume that this file is not sparse, and we know that for sure, since we always call
          * posix_fallocate() ourselves */
 
-        if (size > PAGE_ALIGN_DOWN(UINT64_MAX) - offset)
+        if (size > PAGE_ALIGN_DOWN_U64(UINT64_MAX) - offset)
                 return -EINVAL;
 
         if (mmap_cache_fd_got_sigbus(f->cache_fd))
@@ -758,12 +760,12 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
 
         old_header_size = le64toh(READ_NOW(f->header->header_size));
         old_arena_size = le64toh(READ_NOW(f->header->arena_size));
-        if (old_arena_size > PAGE_ALIGN_DOWN(UINT64_MAX) - old_header_size)
+        if (old_arena_size > PAGE_ALIGN_DOWN_U64(UINT64_MAX) - old_header_size)
                 return -EBADMSG;
 
         old_size = old_header_size + old_arena_size;
 
-        new_size = MAX(PAGE_ALIGN(offset + size), old_header_size);
+        new_size = MAX(PAGE_ALIGN_U64(offset + size), old_header_size);
 
         if (new_size <= old_size) {
 
@@ -794,7 +796,7 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
                 if (fstatvfs(f->fd, &svfs) >= 0) {
                         uint64_t available;
 
-                        available = LESS_BY((uint64_t) svfs.f_bfree * (uint64_t) svfs.f_bsize, f->metrics.keep_free);
+                        available = LESS_BY(u64_multiply_safe(svfs.f_bfree, svfs.f_bsize), f->metrics.keep_free);
 
                         if (new_size - old_size > available)
                                 return -E2BIG;
@@ -818,13 +820,6 @@ static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size)
         return journal_file_fstat(f);
 }
 
-static unsigned type_to_context(ObjectType type) {
-        /* One context for each type, plus one catch-all for the rest */
-        assert_cc(_OBJECT_TYPE_MAX <= MMAP_CACHE_MAX_CONTEXTS);
-        assert_cc(CONTEXT_HEADER < MMAP_CACHE_MAX_CONTEXTS);
-        return type > OBJECT_UNUSED && type < _OBJECT_TYPE_MAX ? type : 0;
-}
-
 static int journal_file_move_to(
                 JournalFile *f,
                 ObjectType type,
@@ -838,9 +833,9 @@ static int journal_file_move_to(
         assert(f);
         assert(ret);
 
-        /* This function may clear, overwrite, or alter previously cached entries. After this function has
-         * been called, all objects except for one obtained by this function are invalidated and must be
-         * re-read before use. */
+        /* This function may clear, overwrite, or alter previously cached entries with the same type. After
+         * this function has been called, all previously read objects with the same type may be invalidated,
+         * hence must be re-read before use. */
 
         if (size <= 0)
                 return -EINVAL;
@@ -861,7 +856,7 @@ static int journal_file_move_to(
                         return -EADDRNOTAVAIL;
         }
 
-        return mmap_cache_fd_get(f->cache_fd, type_to_context(type), keep_always, offset, size, &f->last_stat, ret);
+        return mmap_cache_fd_get(f->cache_fd, type_to_category(type), keep_always, offset, size, &f->last_stat, ret);
 }
 
 static uint64_t minimum_header_size(JournalFile *f, Object *o) {
@@ -1088,9 +1083,9 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
 
         assert(f);
 
-        /* Even if this function fails, it may clear, overwrite, or alter previously cached entries. After
-         * this function has been called, all objects except for one obtained by this function are
-         * invalidated and must be re-read before use.. */
+        /* Even if this function fails, it may clear, overwrite, or alter previously cached entries with the
+         * same type. After this function has been called, all previously read objects with the same type may
+         * be invalidated, hence must be re-read before use. */
 
         /* Objects may only be located at multiple of 64 bit */
         if (!VALID64(offset))
@@ -1130,6 +1125,16 @@ int journal_file_move_to_object(JournalFile *f, ObjectType type, uint64_t offset
                 *ret = o;
 
         return 0;
+}
+
+int journal_file_pin_object(JournalFile *f, Object *o) {
+        assert(f);
+        assert(o);
+
+        /* This attaches the mmap window that provides the object to the 'pinning' category. So, reading
+         * another object with the same type will not invalidate the object, until this function is called
+         * for another object. */
+        return mmap_cache_fd_pin(f->cache_fd, type_to_category(o->object.type), o, le64toh(o->object.size));
 }
 
 int journal_file_read_object_header(JournalFile *f, ObjectType type, uint64_t offset, Object *ret) {
@@ -2525,7 +2530,7 @@ int journal_file_append_entry(
                                                "Invalid monotomic timestamp %" PRIu64 ", refusing entry.",
                                                ts->monotonic);
         } else {
-                dual_timestamp_get(&_ts);
+                dual_timestamp_now(&_ts);
                 ts = &_ts;
         }
 
@@ -2867,36 +2872,38 @@ static int generic_array_get(
 }
 
 enum {
-        TEST_FOUND,
-        TEST_LEFT,
-        TEST_RIGHT
+        TEST_FOUND,         /* The current object passes the test. */
+        TEST_LEFT,          /* The current object is in an earlier position, and the object we are looking
+                             * for should exist in a later position. */
+        TEST_RIGHT,         /* The current object is in a later position, and the object we are looking for
+                             * should exist in an earlier position. */
+        TEST_GOTO_NEXT,     /* No matching object exists in this array and earlier arrays, go to the next array. */
+        TEST_GOTO_PREVIOUS, /* No matching object exists in this array and later arrays, go to the previous array. */
 };
 
-static int generic_array_bisect_one(
+static int generic_array_bisect_step(
                 JournalFile *f,
-                uint64_t a, /* offset of entry array object. */
-                uint64_t i, /* index of the entry item we will test. */
+                Object *array,     /* entry array object */
+                uint64_t i,        /* index of the entry item in the array we will test. */
                 uint64_t needle,
                 int (*test_object)(JournalFile *f, uint64_t p, uint64_t needle),
                 direction_t direction,
-                uint64_t *left,
-                uint64_t *right,
-                uint64_t *ret_offset) {
+                uint64_t *m,       /* The maximum number of the entries we will check in the array. */
+                uint64_t *left,    /* The index of the left boundary in the array. */
+                uint64_t *right) { /* The index of the right boundary in the array. */
 
-        Object *array;
         uint64_t p;
         int r;
 
         assert(f);
+        assert(array);
         assert(test_object);
+        assert(m);
         assert(left);
         assert(right);
         assert(*left <= i);
         assert(i <= *right);
-
-        r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &array);
-        if (r < 0)
-                return r;
+        assert(*right < *m);
 
         p = journal_file_entry_array_item(f, array, i);
         if (p <= 0)
@@ -2905,58 +2912,99 @@ static int generic_array_bisect_one(
                 r = test_object(f, p, needle);
         if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
                 log_debug_errno(r, "Encountered invalid entry while bisecting, cutting algorithm short.");
-                *right = i;
-                return -ENOANO; /* recognizable error */
+
+                if (i == *left) {
+                        /* This happens on two situations:
+                         *
+                         * a) i == 0 (hence, *left == 0):
+                         *    The first entry in the array is corrupted, let's go back to the previous array.
+                         *
+                         * b) *right == *left or *left + 1, and we are going to downwards:
+                         *    In that case, the (i-1)-th object has been already tested in the previous call,
+                         *    which returned TEST_LEFT. See below. So, there is no matching entry in this
+                         *    array nor in the whole entry array chain. */
+                        assert(i == 0 || (*right - *left <= 1 && direction == DIRECTION_DOWN));
+                        return TEST_GOTO_PREVIOUS;
+                }
+
+                /* Otherwise, cutting the array short. So, here we limit the number of elements we will see
+                 * in this array, and set the right boundary to the last possibly non-corrupted object. */
+                *m = i;
+                *right = i - 1;
+                return TEST_RIGHT;
         }
         if (r < 0)
                 return r;
 
         if (r == TEST_FOUND)
+                /* There may be multiple entries that match with the needle. When the direction is down, we
+                 * need to find the first matching entry, hence the right boundary can be moved, but the left
+                 * one cannot. Similarly, when the direction is up, we need to find the last matching entry,
+                 * hence the left boundary can be moved, but the right one cannot. */
                 r = direction == DIRECTION_DOWN ? TEST_RIGHT : TEST_LEFT;
 
-        if (r == TEST_RIGHT)
-                *right = i;
-        else
-                *left = i + 1;
+        if (r == TEST_RIGHT) {
+                /* Currently, left --- needle --- i --- right, hence we can move the right boundary to i.  */
+                if (direction == DIRECTION_DOWN)
+                        *right = i;
+                else {
+                        if (i == 0)
+                                return TEST_GOTO_PREVIOUS;
+                        *right = i - 1;
+                }
+        } else {
+                /* Currently, left --- i --- needle --- right, hence we can move the left boundary to i. */
+                if (direction == DIRECTION_DOWN) {
+                        /* Note, here *m is always positive, as by the assertions at the beginning, we have
+                         * 0 <= *left <= i <= *right < m */
+                        if (i == *m - 1)
+                                return TEST_GOTO_NEXT;
 
-        if (ret_offset)
-                *ret_offset = p;
+                        *left = i + 1;
+                } else
+                        *left = i;
+        }
 
         return r;
 }
 
 static int generic_array_bisect(
                 JournalFile *f,
-                uint64_t first,
-                uint64_t n,
-                uint64_t needle,
-                int (*test_object)(JournalFile *f, uint64_t p, uint64_t needle),
+                uint64_t first,  /* The offset of the first entry array object in the chain. */
+                uint64_t n,      /* The total number of elements in the chain of the entry array. */
+                uint64_t needle, /* The target value (e.g. seqnum, monotonic, realtime, ...). */
+                int (*test_object)(JournalFile *f,
+                                   uint64_t p, /* the offset of the (data or entry) object that will be tested. */
+                                   uint64_t needle),
                 direction_t direction,
-                Object **ret_object,
-                uint64_t *ret_offset,
-                uint64_t *ret_idx) {
+                Object **ret_object,  /* The found object. */
+                uint64_t *ret_offset, /* The offset of the found object. */
+                uint64_t *ret_idx) {  /* The index of the found object counted from the beginning of the entry array chain. */
 
         /* Given an entry array chain, this function finds the object "closest" to the given needle in the
          * chain, taking into account the provided direction. A function can be provided to determine how
          * an object is matched against the given needle.
          *
          * Given a journal file, the offset of an object and the needle, the test_object() function should
-         * return TEST_LEFT if the needle is located earlier in the entry array chain, TEST_LEFT if the
-         * needle is located later in the entry array chain and TEST_FOUND if the object matches the needle.
+         * return TEST_RIGHT if the needle is located earlier in the entry array chain, TEST_LEFT if the
+         * needle is located later in the entry array chain, and TEST_FOUND if the object matches the needle.
          * If test_object() returns TEST_FOUND for a specific object, that object's information will be used
          * to populate the return values of this function. If test_object() never returns TEST_FOUND, the
          * return values are populated with the details of one of the objects closest to the needle. If the
          * direction is DIRECTION_UP, the earlier object is used. Otherwise, the later object is used.
-         */
+         * If there are multiple objects that test_object() return TEST_FOUND for, then the first matching
+         * object returned when direction is DIRECTION_DOWN. Otherwise the last object is returned. */
 
-        uint64_t a, p, t = 0, i = 0, last_p = 0, last_index = UINT64_MAX;
-        bool subtract_one = false;
+        uint64_t a, p, t = 0, i, last_index = UINT64_MAX;
         ChainCacheItem *ci;
         Object *array;
         int r;
 
         assert(f);
         assert(test_object);
+
+        if (n <= 0)
+                return 0;
 
         /* Start with the first array in the chain */
         a = first;
@@ -2968,10 +3016,11 @@ static int generic_array_bisect(
                  * check that first. */
 
                 r = test_object(f, ci->begin, needle);
-                if (r < 0)
+                if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL))
+                        log_debug_errno(r, "Cached entry is corrupted, ignoring: %m");
+                else if (r < 0)
                         return r;
-
-                if (r == TEST_LEFT) {
+                else if (r == TEST_LEFT) {
                         /* OK, what we are looking for is right of the begin of this EntryArray, so let's
                          * jump straight to previously cached array in the chain */
 
@@ -2983,72 +3032,114 @@ static int generic_array_bisect(
         }
 
         while (a > 0) {
-                uint64_t left = 0, right, k, lp;
+                uint64_t left, right, k, m, m_original;
 
                 r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &array);
                 if (r < 0)
                         return r;
 
                 k = journal_file_entry_array_n_items(f, array);
-                right = MIN(k, n);
-                if (right <= 0)
+                m = m_original = MIN(k, n);
+                if (m <= 0)
                         return 0;
 
-                right--;
-                r = generic_array_bisect_one(f, a, right, needle, test_object, direction, &left, &right, &lp);
-                if (r == -ENOANO) {
-                        n = right;
-                        continue;
+                left = 0;
+                right = m - 1;
+
+                if (direction == DIRECTION_UP) {
+                        /* If we're going upwards, the last entry of the previous array may pass the test,
+                         * and the first entry of the current array may not pass. In that case, the last
+                         * entry of the previous array must be returned. Hence, we need to test the first
+                         * entry of the current array. */
+                        r = generic_array_bisect_step(f, array, 0, needle, test_object, direction, &m, &left, &right);
+                        if (r < 0)
+                                return r;
+                        if (r == TEST_GOTO_PREVIOUS)
+                                goto previous;
                 }
+
+                /* Test the last entry of this array, to determine if we should go to the next array. */
+                r = generic_array_bisect_step(f, array, right, needle, test_object, direction, &m, &left, &right);
                 if (r < 0)
                         return r;
+                if (r == TEST_GOTO_PREVIOUS)
+                        goto previous;
 
+                /* The expected entry should be in this array, (or the last entry of the previous array). */
                 if (r == TEST_RIGHT) {
+
                         /* If we cached the last index we looked at, let's try to not to jump too wildly
                          * around and see if we can limit the range to look at early to the immediate
                          * neighbors of the last index we looked at. */
 
-                        if (last_index > 0 && last_index - 1 < right) {
-                                r = generic_array_bisect_one(f, a, last_index - 1, needle, test_object, direction, &left, &right, NULL);
-                                if (r < 0 && r != -ENOANO)
+                        if (last_index > 0 && left < last_index - 1 && last_index - 1 < right) {
+                                r = generic_array_bisect_step(f, array, last_index - 1, needle, test_object, direction, &m, &left, &right);
+                                if (r < 0)
                                         return r;
+                                if (r == TEST_GOTO_PREVIOUS)
+                                        goto previous;
                         }
 
-                        if (last_index < right) {
-                                r = generic_array_bisect_one(f, a, last_index + 1, needle, test_object, direction, &left, &right, NULL);
-                                if (r < 0 && r != -ENOANO)
+                        if (last_index < UINT64_MAX && left < last_index + 1 && last_index + 1 < right) {
+                                r = generic_array_bisect_step(f, array, last_index + 1, needle, test_object, direction, &m, &left, &right);
+                                if (r < 0)
                                         return r;
+                                if (r == TEST_GOTO_PREVIOUS)
+                                        goto previous;
                         }
 
                         for (;;) {
                                 if (left == right) {
-                                        if (direction == DIRECTION_UP)
-                                                subtract_one = true;
+                                        /* We found one or more corrupted entries in generic_array_bisect_step().
+                                         * In that case, the entry pointed by 'right' may not be tested.
+                                         *
+                                         * When we are going to downwards, the entry object pointed by 'left'
+                                         * has not been tested yet, Hence, even if left == right, we still
+                                         * have to check the final entry to see if it actually matches.
+                                         *
+                                         * On the other hand, when we are going to upwards, the entry pointed
+                                         * by 'left' is always tested, So, it is not necessary to test the
+                                         * final entry again. */
+                                        if (m != m_original && direction == DIRECTION_DOWN) {
+                                                r = generic_array_bisect_step(f, array, left, needle, test_object, direction, &m, &left, &right);
+                                                if (r < 0)
+                                                        return r;
+                                                if (IN_SET(r, TEST_GOTO_PREVIOUS, TEST_GOTO_NEXT))
+                                                        return 0; /* The entry does not pass the test, or is corrupted */
+
+                                                assert(TEST_RIGHT);
+                                                assert(left == right);
+                                        }
 
                                         i = left;
                                         goto found;
                                 }
 
                                 assert(left < right);
-                                i = (left + right) / 2;
+                                i = (left + right + (direction == DIRECTION_UP)) / 2;
 
-                                r = generic_array_bisect_one(f, a, i, needle, test_object, direction, &left, &right, NULL);
-                                if (r < 0 && r != -ENOANO)
+                                r = generic_array_bisect_step(f, array, i, needle, test_object, direction, &m, &left, &right);
+                                if (r < 0)
                                         return r;
+                                if (r == TEST_GOTO_PREVIOUS)
+                                        goto previous;
+                                if (r == TEST_GOTO_NEXT)
+                                        return 0; /* Found a corrupt entry, and the array was cut short. */
                         }
                 }
 
+                /* Not found in this array (or the last entry of this array should be returned), go to the next array. */
+                assert(r == (direction == DIRECTION_DOWN ? TEST_GOTO_NEXT : TEST_LEFT));
+
                 if (k >= n) {
                         if (direction == DIRECTION_UP) {
-                                i = n;
-                                subtract_one = true;
+                                assert(n > 0);
+                                i = n - 1;
                                 goto found;
                         }
 
                         return 0;
                 }
-
-                last_p = lp;
 
                 n -= k;
                 t += k;
@@ -3058,27 +3149,55 @@ static int generic_array_bisect(
 
         return 0;
 
-found:
-        if (subtract_one && t == 0 && i == 0)
+previous:
+        /* Not found in the current array, return the last entry of the previous array. */
+        assert(r == TEST_GOTO_PREVIOUS);
+
+        /* The current array is the first in the chain. no previous array. */
+        if (t == 0)
                 return 0;
 
-        r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &array);
-        if (r < 0)
-                return r;
+        /* When we are going downwards, there is no matching entries in the previous array. */
+        if (direction == DIRECTION_DOWN)
+                return 0;
 
+        /* Indicate to go to the previous array later. Note, do not move to the previous array here,
+         * as that may invalidate the current array object in the mmap cache and
+         * journal_file_entry_array_item() below may read invalid address. */
+        i = UINT64_MAX;
+
+found:
         p = journal_file_entry_array_item(f, array, 0);
         if (p <= 0)
                 return -EBADMSG;
 
         /* Let's cache this item for the next invocation */
-        chain_cache_put(f->chain_cache, ci, first, a, p, t, subtract_one ? (i > 0 ? i-1 : UINT64_MAX) : i);
+        chain_cache_put(f->chain_cache, ci, first, a, p, t, i);
 
-        if (subtract_one && i == 0)
-                p = last_p;
-        else if (subtract_one)
-                p = journal_file_entry_array_item(f, array, i - 1);
-        else
-                p = journal_file_entry_array_item(f, array, i);
+        if (i == UINT64_MAX) {
+                uint64_t m;
+
+                /* Get the last entry of the previous array. */
+
+                r = bump_entry_array(f, NULL, a, first, DIRECTION_UP, &a);
+                if (r <= 0)
+                        return r;
+
+                r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &array);
+                if (r < 0)
+                        return r;
+
+                m = journal_file_entry_array_n_items(f, array);
+                if (m == 0 || t < m)
+                        return -EBADMSG;
+
+                t -= m;
+                i = m - 1;
+        }
+
+        p = journal_file_entry_array_item(f, array, i);
+        if (p == 0)
+                return -EBADMSG;
 
         if (ret_object) {
                 r = journal_file_move_to_object(f, OBJECT_ENTRY, p, ret_object);
@@ -3090,67 +3209,82 @@ found:
                 *ret_offset = p;
 
         if (ret_idx)
-                *ret_idx = t + i + (subtract_one ? -1 : 0);
+                *ret_idx = t + i;
 
         return 1;
 }
 
-static int generic_array_bisect_plus_one(
+static int generic_array_bisect_for_data(
                 JournalFile *f,
-                uint64_t extra,
-                uint64_t first,
-                uint64_t n,
+                Object *d,
                 uint64_t needle,
                 int (*test_object)(JournalFile *f, uint64_t p, uint64_t needle),
                 direction_t direction,
                 Object **ret_object,
-                uint64_t *ret_offset,
-                uint64_t *ret_idx) {
+                uint64_t *ret_offset) {
 
+        uint64_t extra, first, n;
         int r;
-        bool step_back = false;
 
         assert(f);
+        assert(d);
+        assert(d->object.type == OBJECT_DATA);
         assert(test_object);
 
+        n = le64toh(d->data.n_entries);
         if (n <= 0)
                 return 0;
+        n--; /* n_entries is the number of entries linked to the data object, including the 'extra' entry. */
 
-        /* This bisects the array in object 'first', but first checks
-         * an extra  */
+        extra = le64toh(d->data.entry_offset);
+        first = le64toh(d->data.entry_array_offset);
+
+        /* This bisects the array in object 'first', but first checks an extra. */
         r = test_object(f, extra, needle);
         if (r < 0)
                 return r;
 
-        if (r == TEST_FOUND)
-                r = direction == DIRECTION_DOWN ? TEST_RIGHT : TEST_LEFT;
+        if (direction == DIRECTION_DOWN) {
+                /* If we are going downwards, then we need to return the first object that passes the test.
+                 * When there is no object that passes the test, we need to return the first object that
+                 * test_object() returns TEST_RIGHT for. */
+                if (IN_SET(r,
+                           TEST_FOUND,  /* The 'extra' object passes the test. Hence, this is the first
+                                         * object that passes the test. */
+                           TEST_RIGHT)) /* The 'extra' object is the first object that test_object() returns
+                                         * TEST_RIGHT for, and no object exists even in the chained arrays
+                                         * that passes the test. */
+                        goto use_extra; /* The 'extra' object is exactly the one we are looking for. It is
+                                         * not necessary to bisect the chained arrays. */
 
-        /* if we are looking with DIRECTION_UP then we need to first
-           see if in the actual array there is a matching entry, and
-           return the last one of that. But if there isn't any we need
-           to return this one. Hence remember this, and return it
-           below. */
-        if (r == TEST_LEFT)
-                step_back = direction == DIRECTION_UP;
+                /* Otherwise, the 'extra' object is not the one we are looking for. Search in the arrays. */
 
-        if (r == TEST_RIGHT) {
-                if (direction == DIRECTION_DOWN)
-                        goto found;
-                else
-                        return 0;
+        } else {
+                /* If we are going upwards, then we need to return the last object that passes the test.
+                 * When there is no object that passes the test, we need to return the the last object that
+                 * test_object() returns TEST_LEFT for. */
+                if (r == TEST_RIGHT)
+                        return 0; /* Not only the 'extra' object, but also all objects in the chained arrays
+                                   * will never get TEST_FOUND or TEST_LEFT. The object we are looking for
+                                   * does not exist. */
+
+                /* Even if the 'extra' object passes the test, there may be multiple objects in the arrays
+                 * that also pass the test. Hence, we need to bisect the arrays for finding the last matching
+                 * object. */
         }
 
-        r = generic_array_bisect(f, first, n-1, needle, test_object, direction, ret_object, ret_offset, ret_idx);
+        r = generic_array_bisect(f, first, n, needle, test_object, direction, ret_object, ret_offset, NULL);
+        if (r != 0)
+                return r; /* When > 0, the found object is the first (or last, when DIRECTION_UP) object.
+                           * Hence, return the found object now. */
 
-        if (r == 0 && step_back)
-                goto found;
+        /* No matching object found in the chained arrays.
+         * DIRECTION_DOWN : the 'extra' object neither matches the condition. There is no matching object.
+         * DIRECTION_UP   : the 'extra' object matches the condition. So, return it. */
+        if (direction == DIRECTION_DOWN)
+                return 0;
 
-        if (r > 0 && ret_idx)
-                (*ret_idx)++;
-
-        return r;
-
-found:
+use_extra:
         if (ret_object) {
                 r = journal_file_move_to_object(f, OBJECT_ENTRY, extra, ret_object);
                 if (r < 0)
@@ -3159,9 +3293,6 @@ found:
 
         if (ret_offset)
                 *ret_offset = extra;
-
-        if (ret_idx)
-                *ret_idx = 0;
 
         return 1;
 }
@@ -3332,15 +3463,13 @@ int journal_file_move_to_entry_by_monotonic(
         if (r <= 0)
                 return r;
 
-        return generic_array_bisect_plus_one(
+        return generic_array_bisect_for_data(
                         f,
-                        le64toh(o->data.entry_offset),
-                        le64toh(o->data.entry_array_offset),
-                        le64toh(o->data.n_entries),
+                        o,
                         monotonic,
                         test_object_monotonic,
                         direction,
-                        ret_object, ret_offset, NULL);
+                        ret_object, ret_offset);
 }
 
 void journal_file_reset_location(JournalFile *f) {
@@ -3391,7 +3520,8 @@ int journal_file_next_entry(
                 Object **ret_object,
                 uint64_t *ret_offset) {
 
-        uint64_t i, n, ofs;
+        uint64_t i, n, q;
+        Object *o;
         int r;
 
         assert(f);
@@ -3403,38 +3533,53 @@ int journal_file_next_entry(
         if (n <= 0)
                 return 0;
 
+        /* When the input offset 'p' is zero, return the first (or last on DIRECTION_UP) entry. */
         if (p == 0)
-                i = direction == DIRECTION_DOWN ? 0 : n - 1;
-        else {
-                r = generic_array_bisect(f,
+                return generic_array_get(f,
                                          le64toh(f->header->entry_array_offset),
-                                         le64toh(f->header->n_entries),
-                                         p,
-                                         test_object_offset,
-                                         DIRECTION_DOWN,
-                                         NULL, NULL,
-                                         &i);
-                if (r <= 0)
-                        return r;
+                                         direction == DIRECTION_DOWN ? 0 : n - 1,
+                                         direction,
+                                         ret_object, ret_offset);
 
-                r = bump_array_index(&i, direction, n);
-                if (r <= 0)
-                        return r;
-        }
+        /* Otherwise, first find the nearest entry object. */
+        r = generic_array_bisect(f,
+                                 le64toh(f->header->entry_array_offset),
+                                 le64toh(f->header->n_entries),
+                                 p,
+                                 test_object_offset,
+                                 direction,
+                                 ret_object ? &o : NULL, &q, &i);
+        if (r <= 0)
+                return r;
+
+        assert(direction == DIRECTION_DOWN ? p <= q : q <= p);
+
+        /* If the input offset 'p' points to an entry object, generic_array_bisect() should provides
+         * the same offset, and the index needs to be shifted. Otherwise, use the found object as is,
+         * as it is the nearest entry object from the input offset 'p'. */
+
+        if (p != q)
+                goto found;
+
+        r = bump_array_index(&i, direction, n);
+        if (r <= 0)
+                return r;
 
         /* And jump to it */
-        r = generic_array_get(f, le64toh(f->header->entry_array_offset), i, direction, ret_object, &ofs);
+        r = generic_array_get(f, le64toh(f->header->entry_array_offset), i, direction, ret_object ? &o : NULL, &q);
         if (r <= 0)
                 return r;
 
         /* Ensure our array is properly ordered. */
-        if (p > 0 && !check_properly_ordered(ofs, p, direction))
+        if (!check_properly_ordered(q, p, direction))
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                       "%s: entry array not properly ordered at entry %" PRIu64,
+                                       "%s: entry array not properly ordered at entry index %" PRIu64,
                                        f->path, i);
-
+found:
+        if (ret_object)
+                *ret_object = o;
         if (ret_offset)
-                *ret_offset = ofs;
+                *ret_offset = q;
 
         return 1;
 }
@@ -3515,15 +3660,13 @@ int journal_file_move_to_entry_by_offset_for_data(
         assert(d);
         assert(d->object.type == OBJECT_DATA);
 
-        return generic_array_bisect_plus_one(
+        return generic_array_bisect_for_data(
                         f,
-                        le64toh(d->data.entry_offset),
-                        le64toh(d->data.entry_array_offset),
-                        le64toh(d->data.n_entries),
+                        d,
                         p,
                         test_object_offset,
                         direction,
-                        ret, ret_offset, NULL);
+                        ret, ret_offset);
 }
 
 int journal_file_move_to_entry_by_monotonic_for_data(
@@ -3535,83 +3678,66 @@ int journal_file_move_to_entry_by_monotonic_for_data(
                 Object **ret_object,
                 uint64_t *ret_offset) {
 
-        uint64_t b, z, entry_offset, entry_array_offset, n_entries;
-        Object *o;
+        Object *o, *entry;
+        uint64_t z;
         int r;
 
         assert(f);
         assert(d);
         assert(d->object.type == OBJECT_DATA);
 
-        /* Save all the required data before the data object gets invalidated. */
-        entry_offset = le64toh(READ_NOW(d->data.entry_offset));
-        entry_array_offset = le64toh(READ_NOW(d->data.entry_array_offset));
-        n_entries = le64toh(READ_NOW(d->data.n_entries));
-
-        /* First, seek by time */
-        r = find_data_object_by_boot_id(f, boot_id, &o, &b);
-        if (r <= 0)
-                return r;
-
-        r = generic_array_bisect_plus_one(f,
-                                          le64toh(o->data.entry_offset),
-                                          le64toh(o->data.entry_array_offset),
-                                          le64toh(o->data.n_entries),
-                                          monotonic,
-                                          test_object_monotonic,
-                                          direction,
-                                          NULL, &z, NULL);
-        if (r <= 0)
-                return r;
-
-        /* And now, continue seeking until we find an entry that
-         * exists in both bisection arrays */
-
-        r = journal_file_move_to_object(f, OBJECT_DATA, b, &o);
+        /* First, pin the given data object, before reading the _BOOT_ID= data object below. */
+        r = journal_file_pin_object(f, d);
         if (r < 0)
                 return r;
 
+        /* Then, read a data object for _BOOT_ID= and seek by time. */
+        r = find_data_object_by_boot_id(f, boot_id, &o, NULL);
+        if (r <= 0)
+                return r;
+
+        r = generic_array_bisect_for_data(f,
+                                          o,
+                                          monotonic,
+                                          test_object_monotonic,
+                                          direction,
+                                          NULL, &z);
+        if (r <= 0)
+                return r;
+
+        /* And now, continue seeking until we find an entry that exists in both bisection arrays. */
         for (;;) {
-                uint64_t p, q;
+                uint64_t p;
 
-                r = generic_array_bisect_plus_one(f,
-                                                  entry_offset,
-                                                  entry_array_offset,
-                                                  n_entries,
-                                                  z,
-                                                  test_object_offset,
-                                                  direction,
-                                                  NULL, &p, NULL);
+                /* The journal entry found by the above bisect_plus_one() may not have the specified data,
+                 * that is, it may not be linked in the data object. So, we need to check that. */
+
+                r = journal_file_move_to_entry_by_offset_for_data(
+                                f, d, z, direction, ret_object ? &entry : NULL, &p);
                 if (r <= 0)
                         return r;
+                if (p == z)
+                        break; /* The journal entry has the specified data. Yay! */
 
-                r = generic_array_bisect_plus_one(f,
-                                                  le64toh(o->data.entry_offset),
-                                                  le64toh(o->data.entry_array_offset),
-                                                  le64toh(o->data.n_entries),
-                                                  p,
-                                                  test_object_offset,
-                                                  direction,
-                                                  NULL, &q, NULL);
+                /* If the entry does not have the data, then move to the next (or previous, depends on the
+                 * 'direction') entry linked to the data object. But, the next entry may be in another boot.
+                 * So, we need to check that the entry has the matching boot ID. */
 
+                r = journal_file_move_to_entry_by_offset_for_data(
+                                f, o, p, direction, ret_object ? &entry : NULL, &z);
                 if (r <= 0)
                         return r;
+                if (p == z)
+                        break; /* The journal entry has the specified boot ID. Yay! */
 
-                if (p == q) {
-                        if (ret_object) {
-                                r = journal_file_move_to_object(f, OBJECT_ENTRY, q, ret_object);
-                                if (r < 0)
-                                        return r;
-                        }
-
-                        if (ret_offset)
-                                *ret_offset = q;
-
-                        return 1;
-                }
-
-                z = q;
+                /* If not, let's try to the next entry... */
         }
+
+        if (ret_object)
+                *ret_object = entry;
+        if (ret_offset)
+                *ret_offset = z;
+        return 1;
 }
 
 int journal_file_move_to_entry_by_seqnum_for_data(
@@ -3626,15 +3752,13 @@ int journal_file_move_to_entry_by_seqnum_for_data(
         assert(d);
         assert(d->object.type == OBJECT_DATA);
 
-        return generic_array_bisect_plus_one(
+        return generic_array_bisect_for_data(
                         f,
-                        le64toh(d->data.entry_offset),
-                        le64toh(d->data.entry_array_offset),
-                        le64toh(d->data.n_entries),
+                        d,
                         seqnum,
                         test_object_seqnum,
                         direction,
-                        ret_object, ret_offset, NULL);
+                        ret_object, ret_offset);
 }
 
 int journal_file_move_to_entry_by_realtime_for_data(
@@ -3648,15 +3772,13 @@ int journal_file_move_to_entry_by_realtime_for_data(
         assert(d);
         assert(d->object.type == OBJECT_DATA);
 
-        return generic_array_bisect_plus_one(
+        return generic_array_bisect_for_data(
                         f,
-                        le64toh(d->data.entry_offset),
-                        le64toh(d->data.entry_array_offset),
-                        le64toh(d->data.n_entries),
+                        d,
                         realtime,
                         test_object_realtime,
                         direction,
-                        ret, ret_offset, NULL);
+                        ret, ret_offset);
 }
 
 void journal_file_dump(JournalFile *f) {
@@ -3741,7 +3863,7 @@ void journal_file_print_header(JournalFile *f) {
                "Boot ID: %s\n"
                "Sequential number ID: %s\n"
                "State: %s\n"
-               "Compatible flags:%s%s%s\n"
+               "Compatible flags:%s%s%s%s\n"
                "Incompatible flags:%s%s%s%s%s%s\n"
                "Header size: %"PRIu64"\n"
                "Arena size: %"PRIu64"\n"
@@ -3764,6 +3886,7 @@ void journal_file_print_header(JournalFile *f) {
                f->header->state == STATE_ONLINE ? "ONLINE" :
                f->header->state == STATE_ARCHIVED ? "ARCHIVED" : "UNKNOWN",
                JOURNAL_HEADER_SEALED(f->header) ? " SEALED" : "",
+               JOURNAL_HEADER_SEALED_CONTINUOUS(f->header) ? " SEALED_CONTINUOUS" : "",
                JOURNAL_HEADER_TAIL_ENTRY_BOOT_ID(f->header) ? " TAIL_ENTRY_BOOT_ID" : "",
                (le32toh(f->header->compatible_flags) & ~HEADER_COMPATIBLE_ANY) ? " ???" : "",
                JOURNAL_HEADER_COMPRESSED_XZ(f->header) ? " COMPRESSED-XZ" : "",
@@ -3861,19 +3984,19 @@ static void journal_default_metrics(JournalMetrics *m, int fd, bool compact) {
         assert(fd >= 0);
 
         if (fstatvfs(fd, &ss) >= 0)
-                fs_size = ss.f_frsize * ss.f_blocks;
+                fs_size = u64_multiply_safe(ss.f_frsize, ss.f_blocks);
         else
                 log_debug_errno(errno, "Failed to determine disk size: %m");
 
         if (m->max_use == UINT64_MAX) {
 
                 if (fs_size > 0)
-                        m->max_use = CLAMP(PAGE_ALIGN(fs_size / 10), /* 10% of file system size */
+                        m->max_use = CLAMP(PAGE_ALIGN_U64(fs_size / 10), /* 10% of file system size */
                                            MAX_USE_LOWER, MAX_USE_UPPER);
                 else
                         m->max_use = MAX_USE_LOWER;
         } else {
-                m->max_use = PAGE_ALIGN(m->max_use);
+                m->max_use = PAGE_ALIGN_U64(m->max_use);
 
                 if (m->max_use != 0 && m->max_use < JOURNAL_FILE_SIZE_MIN*2)
                         m->max_use = JOURNAL_FILE_SIZE_MIN*2;
@@ -3881,7 +4004,7 @@ static void journal_default_metrics(JournalMetrics *m, int fd, bool compact) {
 
         if (m->min_use == UINT64_MAX) {
                 if (fs_size > 0)
-                        m->min_use = CLAMP(PAGE_ALIGN(fs_size / 50), /* 2% of file system size */
+                        m->min_use = CLAMP(PAGE_ALIGN_U64(fs_size / 50), /* 2% of file system size */
                                            MIN_USE_LOW, MIN_USE_HIGH);
                 else
                         m->min_use = MIN_USE_LOW;
@@ -3891,10 +4014,10 @@ static void journal_default_metrics(JournalMetrics *m, int fd, bool compact) {
                 m->min_use = m->max_use;
 
         if (m->max_size == UINT64_MAX)
-                m->max_size = MIN(PAGE_ALIGN(m->max_use / 8), /* 8 chunks */
+                m->max_size = MIN(PAGE_ALIGN_U64(m->max_use / 8), /* 8 chunks */
                                   MAX_SIZE_UPPER);
         else
-                m->max_size = PAGE_ALIGN(m->max_size);
+                m->max_size = PAGE_ALIGN_U64(m->max_size);
 
         if (compact && m->max_size > JOURNAL_COMPACT_SIZE_MAX)
                 m->max_size = JOURNAL_COMPACT_SIZE_MAX;
@@ -3910,13 +4033,13 @@ static void journal_default_metrics(JournalMetrics *m, int fd, bool compact) {
         if (m->min_size == UINT64_MAX)
                 m->min_size = JOURNAL_FILE_SIZE_MIN;
         else
-                m->min_size = CLAMP(PAGE_ALIGN(m->min_size),
+                m->min_size = CLAMP(PAGE_ALIGN_U64(m->min_size),
                                     JOURNAL_FILE_SIZE_MIN,
                                     m->max_size ?: UINT64_MAX);
 
         if (m->keep_free == UINT64_MAX) {
                 if (fs_size > 0)
-                        m->keep_free = MIN(PAGE_ALIGN(fs_size / 20), /* 5% of file system size */
+                        m->keep_free = MIN(PAGE_ALIGN_U64(fs_size / 20), /* 5% of file system size */
                                            KEEP_FREE_UPPER);
                 else
                         m->keep_free = DEFAULT_KEEP_FREE;
@@ -4036,11 +4159,9 @@ int journal_file_open(
                 newly_created = f->last_stat.st_size == 0 && journal_file_writable(f);
         }
 
-        f->cache_fd = mmap_cache_add_fd(mmap_cache, f->fd, mmap_prot_from_open_flags(open_flags));
-        if (!f->cache_fd) {
-                r = -ENOMEM;
+        r = mmap_cache_add_fd(mmap_cache, f->fd, mmap_prot_from_open_flags(open_flags), &f->cache_fd);
+        if (r < 0)
                 goto fail;
-        }
 
         if (newly_created) {
                 (void) journal_file_warn_btrfs(f);
@@ -4066,7 +4187,7 @@ int journal_file_open(
                 goto fail;
         }
 
-        r = mmap_cache_fd_get(f->cache_fd, CONTEXT_HEADER, true, 0, PAGE_ALIGN(sizeof(Header)), &f->last_stat, &h);
+        r = mmap_cache_fd_get(f->cache_fd, MMAP_CACHE_CATEGORY_HEADER, true, 0, PAGE_ALIGN(sizeof(Header)), &f->last_stat, &h);
         if (r == -EINVAL) {
                 /* Some file systems (jffs2 or p9fs) don't support mmap() properly (or only read-only
                  * mmap()), and return EINVAL in that case. Let's propagate that as a more recognizable error
@@ -4341,7 +4462,7 @@ int journal_file_copy_entry(
                 r = journal_file_data_payload(from, NULL, q, NULL, 0, 0, &data, &l);
                 if (IN_SET(r, -EADDRNOTAVAIL, -EBADMSG)) {
                         log_debug_errno(r, "Entry item %"PRIu64" data object is bad, skipping over it: %m", i);
-                        goto next;
+                        continue;
                 }
                 if (r < 0)
                         return r;
@@ -4363,13 +4484,6 @@ int journal_file_copy_entry(
                         .object_offset = h,
                         .hash = le64toh(u->data.hash),
                 };
-
-        next:
-                /* The above journal_file_data_payload() may clear or overwrite cached object. Hence, we need
-                 * to re-read the object from the cache. */
-                r = journal_file_move_to_object(from, OBJECT_ENTRY, p, &o);
-                if (r < 0)
-                        return r;
         }
 
         if (m == 0)
