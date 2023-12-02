@@ -1514,7 +1514,9 @@ int user_group_record_mangle(
         else
                 *ret_variant = json_variant_ref(v);
 
-        *ret_mask = m;
+        if (ret_mask)
+                *ret_mask = m;
+
         return 0;
 }
 
@@ -2124,6 +2126,81 @@ int user_record_compare_last_change(UserRecord *a, UserRecord *b) {
                 return 1;
 
         return CMP(a->last_change_usec, b->last_change_usec);
+}
+
+static int remove_safe_json_fields(JsonVariant **v) {
+        _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
+        int r;
+
+        /* We remove the fields that are safe to change as an unprivileged
+         * user, and then compare the resulting JSON records. If they are not
+         * equal, that means an unsafe field has been changed and thus it
+         * we should not allow an unprivileged user to apply the changes.
+         *
+         * Here's how we determine which settings are safe to change and
+         * which aren't:
+         * 1. Settings are safe if they are only for display purposes
+         * 2. Settings are safe if they can be achieved by the user another way
+         *    - This means that environment variables are safe, since they can be set in .profile
+         * 3. Settings are safe if they are traditionally change-able by the user
+         */
+
+        w = json_variant_ref(*v);
+
+        r = json_variant_filter(&w, STRV_MAKE(
+                /* Generic user data */
+                "realName", /* Only for display purposes */
+                "iconName", /* Ditto */
+                "emailAddress", /* Corresponds to $EMAIL env var */
+                "location", /* Traditionally stored in GECOS */
+
+                /* Basic user settings */
+                "shell", /* Traditionally allowed by chsh */
+                "umask", // TODO: ?
+                "environment", /* Just defines env vars */ // TODO: Safe?
+                "timeZone", /* Harmless settings? */ // TODO
+                "preferredLanguage", /* Harmless settings that belong to user */ // TODO: Reword
+                "enforcePasswordPolicy", // TODO: ?
+
+                /* Necessary to mutate the record in the first place */
+                "lastChangeUSec"
+        ));
+        if (r < 0)
+                return r;
+
+        // TODO: Strip safe fields from privileged
+        // TODO: Strip safe fields from per-machine
+        //       Fields: MAKE_STRV("iconName", "location", "shell", "umask", "environment", "timeZone", "preferredLanguage")
+        // TODO: Strip empty objects from the JSON record
+
+        JSON_VARIANT_REPLACE(*v, TAKE_PTR(w));
+        return 0;
+}
+
+int user_record_changes_are_safe(UserRecord *a, UserRecord *b) {
+        _cleanup_(json_variant_unrefp) JsonVariant *va = NULL, *vb = NULL;
+        int r;
+
+        assert(a);
+        assert(b);
+
+        r = user_group_record_mangle(a->json, USER_RECORD_EXTRACT_SIGNABLE|USER_RECORD_PERMISSIVE, &va, NULL);
+        if (r < 0)
+                return r;
+
+        r = remove_safe_json_fields(&va);
+        if (r < 0)
+                return r;
+
+        r = user_group_record_mangle(b->json, USER_RECORD_EXTRACT_SIGNABLE|USER_RECORD_PERMISSIVE, &vb, NULL);
+        if (r < 0)
+                return r;
+
+        r = remove_safe_json_fields(&vb);
+        if (r < 0)
+                return r;
+
+        return json_variant_equal(va, vb);
 }
 
 int user_record_clone(UserRecord *h, UserRecordLoadFlags flags, UserRecord **ret) {

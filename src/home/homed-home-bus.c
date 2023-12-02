@@ -383,7 +383,7 @@ int bus_home_method_authenticate(
 }
 
 int bus_home_method_update_record(Home *h, sd_bus_message *message, UserRecord *hr, sd_bus_error *error) {
-        int r;
+        int r, safe;
 
         assert(h);
         assert(message);
@@ -393,13 +393,17 @@ int bus_home_method_update_record(Home *h, sd_bus_message *message, UserRecord *
         if (r < 0)
                 return r;
 
+        safe = user_record_changes_are_safe(h->record, hr);
+        if (safe < 0)
+                return r;
+
         r = bus_verify_polkit_async(
                         message,
                         CAP_SYS_ADMIN,
                         "org.freedesktop.home1.update-home",
                         NULL,
                         true,
-                        UID_INVALID,
+                        safe ? h->uid : UID_INVALID,
                         &h->manager->polkit_registry,
                         error);
         if (r < 0)

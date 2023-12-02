@@ -421,6 +421,7 @@ int user_record_build_image_path(UserStorage storage, const char *user_name_and_
 bool user_record_equal(UserRecord *a, UserRecord *b);
 bool user_record_compatible(UserRecord *a, UserRecord *b);
 int user_record_compare_last_change(UserRecord *a, UserRecord *b);
+int user_record_changes_are_safe(UserRecord *a, UserRecord *b);
 
 usec_t user_record_ratelimit_next_try(UserRecord *h);
 
