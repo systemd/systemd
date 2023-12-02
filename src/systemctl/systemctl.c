@@ -103,6 +103,7 @@ bool arg_kill_value_set = false;
 char *arg_root = NULL;
 char *arg_image = NULL;
 usec_t arg_when = 0;
+bool arg_stdin = false;
 const char *arg_reboot_argument = NULL;
 enum action arg_action = ACTION_SYSTEMCTL;
 BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
@@ -335,6 +336,7 @@ static int systemctl_help(void) {
                "     --drop-in=NAME      Edit unit files using the specified drop-in file name\n"
                "     --when=TIME         Schedule halt/power-off/reboot/kexec action after\n"
                "                         a certain timestamp\n"
+               "     --stdin             Read contents of edited file from stdin\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -461,6 +463,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 ARG_NO_WARN,
                 ARG_DROP_IN,
                 ARG_WHEN,
+                ARG_STDIN,
         };
 
         static const struct option options[] = {
@@ -527,6 +530,7 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
                 { "marked",              no_argument,       NULL, ARG_MARKED              },
                 { "drop-in",             required_argument, NULL, ARG_DROP_IN             },
                 { "when",                required_argument, NULL, ARG_WHEN                },
+                { "stdin",               no_argument,       NULL, ARG_STDIN               },
                 {}
         };
 
@@ -1017,6 +1021,10 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_STDIN:
+                        arg_stdin = true;
+                        break;
+
                 case '.':
                         /* Output an error mimicking getopt, and print a hint afterwards */
                         log_error("%s: invalid option -- '.'", program_invocation_name);
@@ -1067,7 +1075,8 @@ static int systemctl_parse_argv(int argc, char *argv[]) {
         }
 
         if (arg_image && arg_root)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Please specify either --root= or --image=, the combination of both is not supported.");
 
         return 1;
 }

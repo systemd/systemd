@@ -202,13 +202,19 @@ static int create_edit_temp_file(EditFile *e) {
         if (fchmod(fileno(f), 0644) < 0)
                 return log_error_errno(errno, "Failed to change mode of temporary file '%s': %m", temp);
 
-        r = populate_edit_temp_file(e, f, temp);
-        if (r < 0)
-                return r;
+        if (e->context->stdin) {
+                r = copy_bytes(STDIN_FILENO, fileno(f), UINT64_MAX, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to copy input to temporary file '%s': %m", temp);
+        } else {
+                r = populate_edit_temp_file(e, f, temp);
+                if (r < 0)
+                        return r;
 
-        r = fflush_and_check(f);
-        if (r < 0)
-                return log_error_errno(r, "Failed to write to temporary file '%s': %m", temp);
+                r = fflush_and_check(f);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write to temporary file '%s': %m", temp);
+        }
 
         e->temp = TAKE_PTR(temp);
 
@@ -310,7 +316,7 @@ static int strip_edit_temp_file(EditFile *e) {
         if (!tmp)
                 return log_oom();
 
-        if (e->context->marker_start) {
+        if (e->context->marker_start && !e->context->stdin) {
                 /* Trim out the lines between the two markers */
                 char *contents_start, *contents_end;
 
@@ -352,37 +358,40 @@ int do_edit_files_and_install(EditFileContext *context) {
         int r;
 
         assert(context);
+        assert(context->n_files == 1 || !context->stdin);
 
         if (context->n_files == 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "Got no files to edit.");
 
-        FOREACH_ARRAY(i, context->files, context->n_files) {
-                r = create_edit_temp_file(i);
+        FOREACH_ARRAY(editfile, context->files, context->n_files) {
+                r = create_edit_temp_file(editfile);
                 if (r < 0)
                         return r;
         }
 
-        r = run_editor(context);
-        if (r < 0)
-                return r;
+        if (!context->stdin) {
+                r = run_editor(context);
+                if (r < 0)
+                        return r;
+        }
 
-        FOREACH_ARRAY(i, context->files, context->n_files) {
+        FOREACH_ARRAY(editfile, context->files, context->n_files) {
                 /* Always call strip_edit_temp_file which will tell if the temp file has actual changes */
-                r = strip_edit_temp_file(i);
+                r = strip_edit_temp_file(editfile);
                 if (r < 0)
                         return r;
                 if (r == 0) /* temp file doesn't carry actual changes, ignoring */
                         continue;
 
-                r = RET_NERRNO(rename(i->temp, i->path));
+                r = RET_NERRNO(rename(editfile->temp, editfile->path));
                 if (r < 0)
                         return log_error_errno(r,
                                                "Failed to rename temporary file '%s' to target file '%s': %m",
-                                               i->temp,
-                                               i->path);
-                i->temp = mfree(i->temp);
+                                               editfile->temp,
+                                               editfile->path);
+                editfile->temp = mfree(editfile->temp);
 
-                log_info("Successfully installed edited file '%s'.", i->path);
+                log_info("Successfully installed edited file '%s'.", editfile->path);
         }
 
         return 0;
