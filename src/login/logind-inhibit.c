@@ -402,8 +402,6 @@ bool manager_is_inhibited(
                 InhibitMode mm,
                 dual_timestamp *since,
                 bool ignore_inactive,
-                bool ignore_uid,
-                uid_t uid,
                 Inhibitor **offending) {
 
         Inhibitor *i;
@@ -425,9 +423,6 @@ bool manager_is_inhibited(
                         continue;
 
                 if (ignore_inactive && pidref_is_active_session(m, &i->pid) <= 0)
-                        continue;
-
-                if (ignore_uid && i->uid == uid)
                         continue;
 
                 if (!inhibited ||
