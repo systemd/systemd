@@ -1352,12 +1352,15 @@ finish:
         if (s->system_journal)
                 journal_file_post_change(s->system_journal);
 
+        /* First, close all runtime journals opened in the above. */
+        sd_journal_close(j);
+
+        /* Offline and close the 'main' runtime journal file. */
         s->runtime_journal = journal_file_offline_close(s->runtime_journal);
 
+        /* Remove the runtime directory if the all entries are successfully flushed to /var/. */
         if (r >= 0)
                 (void) rm_rf(s->runtime_storage.path, REMOVE_ROOT);
-
-        sd_journal_close(j);
 
         server_driver_message(s, 0, NULL,
                               LOG_MESSAGE("Time spent on flushing to %s is %s for %u entries.",
