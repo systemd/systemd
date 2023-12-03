@@ -921,21 +921,30 @@ static void home_change_finish(Home *h, int ret, UserRecord *hr) {
         }
 
         if (hr) {
-                r = home_set_record(h, hr);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to update home record, ignoring: %m");
-                else {
+                if (!h->worker_host_only) { /* If host_only, we didn't actually authenticate! */
                         r = user_record_good_authentication(h->record);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to increase good authentication counter, ignoring: %m");
+                }
 
+                r = home_set_record(h, hr);
+                if (r >= 0)
                         r = home_save_record(h);
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to write home record to disk, ignoring: %m");
+                if (r < 0) {
+                        log_full_errno(h->worker_host_only ? LOG_ERR : LOG_WARNING, r,
+                                       "Failed to update home record and write it to disk%s: %m",
+                                       h->worker_host_only ? "" : ", ignoring");
+                        if (h->worker_host_only) {
+                                sd_bus_error_set(&error, SD_BUS_ERROR_FAILED, "Failed to cache changes to home record");
+                                goto finish;
+                        }
                 }
         }
 
-        log_debug("Change operation of %s completed.", h->user_name);
+        if (!h->worker_host_only)
+                log_debug("Change operation of %s completed.", h->user_name);
+        else
+                log_debug("Change operation of %s staged. Will apply on next login.", h->user_name);
         (void) manager_schedule_rebalance(h->manager, /* immediately= */ false);
         r = 0;
 
@@ -1253,6 +1262,7 @@ static int home_start_work(Home *h, const char *verb, UserRecord *hr, UserRecord
         h->worker_stdout_fd = TAKE_FD(stdout_fd);
         h->worker_pid = pid;
         h->worker_error_code = 0;
+        h->worker_host_only = false;
 
         return 0;
 }
@@ -2023,7 +2033,6 @@ HomeState home_get_state(Home *h) {
 void home_process_notify(Home *h, char **l, int fd) {
         _cleanup_close_ int taken_fd = TAKE_FD(fd);
         const char *e;
-        int error;
         int r;
 
         assert(h);
@@ -2049,21 +2058,29 @@ void home_process_notify(Home *h, char **l, int fd) {
 
                         h->luks_lock_fd = safe_close(h->luks_lock_fd);
                 }
-
                 return;
         }
 
         e = strv_env_get(l, "ERRNO");
-        if (!e)
-                return (void) log_debug("Got notify message lacking both ERRNO= and SYSTEMD_LUKS_LOCK_FD= field, ignoring.");
+        if (e) {
+                int error;
 
-        r = safe_atoi(e, &error);
-        if (r < 0)
-                return (void) log_debug_errno(r, "Failed to parse received error number, ignoring: %s", e);
-        if (error <= 0)
-                return (void) log_debug("Error number is out of range: %i", error);
+                r = safe_atoi(e, &error);
+                if (r < 0)
+                        return (void) log_debug_errno(r, "Failed to parse received error number, ignoring: %s", e);
+                if (error <= 0)
+                        return (void) log_debug("Error number is out of range: %i", error);
 
-        h->worker_error_code = error;
+                h->worker_error_code = error;
+                return;
+        }
+
+        if (strv_contains(l, "HOMED_HOST_ONLY=1")) {
+                h->worker_host_only = true;
+                return;
+        }
+
+        log_debug("Got unexpected notify message, ignoring.");
 }
 
 int home_killall(Home *h) {
