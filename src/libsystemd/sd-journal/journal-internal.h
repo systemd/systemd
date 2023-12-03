@@ -138,6 +138,7 @@ struct sd_journal {
 
 char *journal_make_match_string(sd_journal *j);
 void journal_print_header(sd_journal *j);
+int journal_get_directories(sd_journal *j, char ***ret);
 
 #define JOURNAL_FOREACH_DATA_RETVAL(j, data, l, retval)                     \
         for (sd_journal_restart_data(j); ((retval) = sd_journal_enumerate_data((j), &(data), &(l))) > 0; )
