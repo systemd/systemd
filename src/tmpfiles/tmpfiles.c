@@ -434,16 +434,13 @@ static bool takes_ownership(ItemType t) {
 static struct Item* find_glob(OrderedHashmap *h, const char *match) {
         ItemArray *j;
 
-        ORDERED_HASHMAP_FOREACH(j, h) {
-                size_t n;
-
-                for (n = 0; n < j->n_items; n++) {
+        ORDERED_HASHMAP_FOREACH(j, h)
+                for (size_t n = 0; n < j->n_items; n++) {
                         Item *item = j->items + n;
 
                         if (fnmatch(item->path, match, FNM_PATHNAME|FNM_PERIOD) == 0)
                                 return item;
                 }
-        }
 
         return NULL;
 }
@@ -3092,7 +3089,6 @@ static int process_item_array(
                 OperationMask operation) {
 
         int r = 0;
-        size_t n;
 
         assert(c);
         assert(array);
@@ -3114,7 +3110,7 @@ static int process_item_array(
                 }
         }
 
-        for (n = 0; n < array->n_items; n++) {
+        for (size_t n = 0; n < array->n_items; n++) {
                 int k;
 
                 k = process_item(c, array->items + n, operation);
@@ -3145,12 +3141,10 @@ static void item_free_contents(Item *i) {
 }
 
 static ItemArray* item_array_free(ItemArray *a) {
-        size_t n;
-
         if (!a)
                 return NULL;
 
-        for (n = 0; n < a->n_items; n++)
+        for (size_t n = 0; n < a->n_items; n++)
                 item_free_contents(a->items + n);
 
         set_free(a->children);
@@ -3449,9 +3443,9 @@ static int parse_line(
         };
         ItemArray *existing;
         OrderedHashmap *h;
-        int r, pos;
         bool append_or_force = false, boot = false, allow_failure = false, try_replace = false,
                 unbase64 = false, from_cred = false, missing_user_or_group = false;
+        int r;
 
         assert(fname);
         assert(line >= 1);
@@ -3513,7 +3507,7 @@ static int parse_line(
                 return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "Command too short '%s'.", action);
         }
 
-        for (pos = 1; action[pos]; pos++) {
+        for (int pos = 1; action[pos]; pos++)
                 if (action[pos] == '!' && !boot)
                         boot = true;
                 else if (action[pos] == '+' && !append_or_force)
@@ -3530,7 +3524,6 @@ static int parse_line(
                         *invalid_config = true;
                         return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "Unknown modifiers in command '%s'", action);
                 }
-        }
 
         if (boot && !arg_boot) {
                 log_syntax(NULL, LOG_DEBUG, fname, line, 0, "Ignoring entry %s \"%s\" because --boot is not specified.", action, path);
@@ -3834,14 +3827,13 @@ static int parse_line(
                 const char *mm;
                 unsigned m;
 
-                for (mm = mode;; mm++) {
+                for (mm = mode;; mm++)
                         if (*mm == '~')
                                 i.mask_perms = true;
                         else if (*mm == ':')
                                 i.mode_only_create = true;
                         else
                                 break;
-                }
 
                 r = parse_mode(mm, &m);
                 if (r < 0) {
