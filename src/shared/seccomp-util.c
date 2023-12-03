@@ -1080,8 +1080,24 @@ static int add_syscall_filter_set(
         return 0;
 }
 
+static uint32_t override_default_action(uint32_t default_action) {
+        /* When the requested filter is an allow-list, and the default action is something critical, we
+         * install ENOSYS as the default action, but it will only apply to syscalls which are not in the
+         * @known set. */
+
+        if (default_action == SCMP_ACT_ALLOW)
+                return default_action;
+
+#ifdef SCMP_ACT_LOG
+        if (default_action == SCMP_ACT_LOG)
+                return default_action;
+#endif
+
+        return SCMP_ACT_ERRNO(ENOSYS);
+}
+
 int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilterSet *set, uint32_t action, bool log_missing) {
-        uint32_t arch;
+        uint32_t arch, default_action_override;
         int r;
 
         assert(set);
@@ -1114,7 +1130,7 @@ int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilter
 }
 
 int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* filter, uint32_t action, bool log_missing) {
-        uint32_t arch;
+        uint32_t arch, default_action_override;
         int r;
 
         /* Similar to seccomp_load_syscall_filter_set(), but takes a raw Hashmap* of syscalls, instead
@@ -1123,15 +1139,15 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* filter
         if (hashmap_isempty(filter) && default_action == SCMP_ACT_ALLOW)
                 return 0;
 
+        default_action_override = override_default_action(default_action);
+
         SECCOMP_FOREACH_LOCAL_ARCH(arch) {
                 _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
                 void *syscall_id, *val;
 
                 log_trace("Operating on architecture: %s", seccomp_arch_to_string(arch));
 
-                /* We install ENOSYS as the default action, but it will only apply to syscalls which are not
-                 * in the @known set. */
-                r = seccomp_init_for_arch(&seccomp, arch, SCMP_ACT_ERRNO(ENOSYS));
+                r = seccomp_init_for_arch(&seccomp, arch, default_action_override);
                 if (r < 0)
                         return r;
 
@@ -1166,22 +1182,23 @@ int seccomp_load_syscall_filter_set_raw(uint32_t default_action, Hashmap* filter
                         }
                 }
 
-                NULSTR_FOREACH(name, syscall_filter_sets[SYSCALL_FILTER_SET_KNOWN].value) {
-                        int id;
+                if (default_action != default_action_override)
+                        NULSTR_FOREACH(name, syscall_filter_sets[SYSCALL_FILTER_SET_KNOWN].value) {
+                                int id;
 
-                        id = seccomp_syscall_resolve_name(name);
-                        if (id < 0)
-                                continue;
+                                id = seccomp_syscall_resolve_name(name);
+                                if (id < 0)
+                                        continue;
 
-                        /* Ignore the syscall if it was already handled above */
-                        if (hashmap_contains(filter, INT_TO_PTR(id + 1)))
-                                continue;
+                                /* Ignore the syscall if it was already handled above */
+                                if (hashmap_contains(filter, INT_TO_PTR(id + 1)))
+                                        continue;
 
-                        r = seccomp_rule_add_exact(seccomp, default_action, id, 0);
-                        if (r < 0 && r != -EDOM)  /* EDOM means that the syscall is not available for arch */
-                                return log_debug_errno(r, "Failed to add rule for system call %s() / %d: %m",
-                                                       name, id);
-                }
+                                r = seccomp_rule_add_exact(seccomp, default_action, id, 0);
+                                if (r < 0 && r != -EDOM)  /* EDOM means that the syscall is not available for arch */
+                                        return log_debug_errno(r, "Failed to add rule for system call %s() / %d: %m",
+                                                               name, id);
+                        }
 
 #if (SCMP_VER_MAJOR == 2 && SCMP_VER_MINOR >= 5) || SCMP_VER_MAJOR > 2
                 /* We have a large filter here, so let's turn on the binary tree mode if possible. */
