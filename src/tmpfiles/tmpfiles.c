@@ -684,9 +684,9 @@ static int dir_cleanup(
                                 continue;
                         }
 
-                        /* Try to detect bind mounts of the same filesystem instance; they do not differ in device
-                         * major/minors. This type of query is not supported on all kernels or filesystem types
-                         * though. */
+                        /* Try to detect bind mounts of the same filesystem instance; they do not differ in
+                         * device major/minors. This type of query is not supported on all kernels or
+                         * filesystem types though. */
                         if (S_ISDIR(sx.stx_mode)) {
                                 int q;
 
@@ -872,8 +872,8 @@ static bool dangerous_hardlinks(void) {
         static int cached = -1;
         int r;
 
-        /* Check whether the fs.protected_hardlinks sysctl is on. If we can't determine it we assume its off, as that's
-         * what the upstream default is. */
+        /* Check whether the fs.protected_hardlinks sysctl is on. If we can't determine it we assume its off,
+         * as that's what the upstream default is. */
 
         if (cached >= 0)
                 return cached;
@@ -2105,7 +2105,8 @@ static int create_device(
         if (r < 0)
                 return log_error_errno(r, "Failed to extract filename from path '%s': %m", i->path);
         if (r == O_DIRECTORY)
-                return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Cannot open path '%s' for creating device node, is a directory.", i->path);
+                return log_error_errno(SYNTHETIC_ERRNO(EISDIR),
+                                       "Cannot open path '%s' for creating device node, is a directory.", i->path);
 
         /* Validate the path and use the returned directory fd for copying the target so we're sure that the
          * path can't be changed behind our back. */
@@ -2172,7 +2173,8 @@ static int create_device(
                                 return log_error_errno(errno, "Failed to fstat(%s): %m", i->path);
 
                         if (((st.st_mode ^ file_type) & S_IFMT) != 0)
-                                return log_error_errno(SYNTHETIC_ERRNO(EBADF), "Device node we just created is not a device node, refusing.");
+                                return log_error_errno(SYNTHETIC_ERRNO(EBADF),
+                                                       "Device node we just created is not a device node, refusing.");
 
                         creation = CREATION_FORCE;
                 } else {
@@ -2210,7 +2212,8 @@ static int create_fifo(Context *c, Item *i) {
         if (r < 0)
                 return log_error_errno(r, "Failed to extract filename from path '%s': %m", i->path);
         if (r == O_DIRECTORY)
-                return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Cannot open path '%s' for creating FIFO, is a directory.", i->path);
+                return log_error_errno(SYNTHETIC_ERRNO(EISDIR),
+                                       "Cannot open path '%s' for creating FIFO, is a directory.", i->path);
 
         pfd = path_open_parent_safe(i->path, i->allow_failure);
         if (pfd < 0)
@@ -2267,7 +2270,8 @@ static int create_fifo(Context *c, Item *i) {
                                 return log_error_errno(errno, "Failed to fstat(%s): %m", i->path);
 
                         if (!S_ISFIFO(st.st_mode))
-                                return log_error_errno(SYNTHETIC_ERRNO(EBADF), "FIFO inode we just created is not a FIFO, refusing.");
+                                return log_error_errno(SYNTHETIC_ERRNO(EBADF),
+                                                       "FIFO inode we just created is not a FIFO, refusing.");
 
                         creation = CREATION_FORCE;
                 } else {
@@ -2296,7 +2300,8 @@ static int create_symlink(Context *c, Item *i) {
         if (r < 0)
                 return log_error_errno(r, "Failed to extract filename from path '%s': %m", i->path);
         if (r == O_DIRECTORY)
-                return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Cannot open path '%s' for creating FIFO, is a directory.", i->path);
+                return log_error_errno(SYNTHETIC_ERRNO(EISDIR),
+                                       "Cannot open path '%s' for creating FIFO, is a directory.", i->path);
 
         pfd = path_open_parent_safe(i->path, i->allow_failure);
         if (pfd < 0)
@@ -3275,27 +3280,30 @@ static int patch_var_run(const char *fname, unsigned line, char **path) {
         assert(path);
         assert(*path);
 
-        /* Optionally rewrites lines referencing /var/run/, to use /run/ instead. Why bother? tmpfiles merges lines in
-         * some cases and detects conflicts in others. If files/directories are specified through two equivalent lines
-         * this is problematic as neither case will be detected. Ideally we'd detect these cases by resolving symlinks
-         * early, but that's precisely not what we can do here as this code very likely is running very early on, at a
-         * time where the paths in question are not available yet, or even more importantly, our own tmpfiles rules
-         * might create the paths that are intermediary to the listed paths. We can't really cover the generic case,
-         * but the least we can do is cover the specific case of /var/run vs. /run, as /var/run is a legacy name for
-         * /run only, and we explicitly document that and require that on systemd systems the former is a symlink to
-         * the latter. Moreover files below this path are by far the primary use case for tmpfiles.d/. */
+        /* Optionally rewrites lines referencing /var/run/, to use /run/ instead. Why bother? tmpfiles merges
+         * lines in some cases and detects conflicts in others. If files/directories are specified through
+         * two equivalent lines this is problematic as neither case will be detected. Ideally we'd detect
+         * these cases by resolving symlinks early, but that's precisely not what we can do here as this code
+         * very likely is running very early on, at a time where the paths in question are not available yet,
+         * or even more importantly, our own tmpfiles rules might create the paths that are intermediary to
+         * the listed paths. We can't really cover the generic case, but the least we can do is cover the
+         * specific case of /var/run vs. /run, as /var/run is a legacy name for /run only, and we explicitly
+         * document that and require that on systemd systems the former is a symlink to the latter. Moreover
+         * files below this path are by far the primary use case for tmpfiles.d/. */
 
         k = path_startswith(*path, "/var/run/");
-        if (isempty(k)) /* Don't complain about other paths than /var/run, and not about /var/run itself either. */
+        if (isempty(k)) /* Don't complain about paths other than under /var/run,
+                         * and not about /var/run itself either. */
                 return 0;
 
         n = path_join("/run", k);
         if (!n)
                 return log_oom();
 
-        /* Also log about this briefly. We do so at LOG_NOTICE level, as we fixed up the situation automatically, hence
-         * there's no immediate need for action by the user. However, in the interest of making things less confusing
-         * to the user, let's still inform the user that these snippets should really be updated. */
+        /* Also log about this briefly. We do so at LOG_NOTICE level, as we fixed up the situation
+         * automatically, hence there's no immediate need for action by the user. However, in the interest of
+         * making things less confusing to the user, let's still inform the user that these snippets should
+         * really be updated. */
         log_syntax(NULL, LOG_NOTICE, fname, line, 0,
                    "Line references path below legacy directory /var/run/, updating %s → %s; please update the tmpfiles.d/ drop-in file accordingly.",
                    *path, n);
@@ -3504,7 +3512,8 @@ static int parse_line(
 
         if (isempty(action)) {
                 *invalid_config = true;
-                return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "Command too short '%s'.", action);
+                return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG),
+                                  "Command too short '%s'.", action);
         }
 
         for (int pos = 1; action[pos]; pos++)
@@ -3522,11 +3531,13 @@ static int parse_line(
                         from_cred = true;
                 else {
                         *invalid_config = true;
-                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "Unknown modifiers in command '%s'", action);
+                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG),
+                                          "Unknown modifiers in command '%s'", action);
                 }
 
         if (boot && !arg_boot) {
-                log_syntax(NULL, LOG_DEBUG, fname, line, 0, "Ignoring entry %s \"%s\" because --boot is not specified.", action, path);
+                log_syntax(NULL, LOG_DEBUG, fname, line, 0,
+                           "Ignoring entry %s \"%s\" because --boot is not specified.", action, path);
                 return 0;
         }
 
@@ -3541,7 +3552,8 @@ static int parse_line(
         if (r < 0) {
                 if (IN_SET(r, -EINVAL, -EBADSLT))
                         *invalid_config = true;
-                return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to replace specifiers in '%s': %m", path);
+                return log_syntax(NULL, LOG_ERR, fname, line, r,
+                                  "Failed to replace specifiers in '%s': %m", path);
         }
 
         r = patch_var_run(fname, line, &i.path);
@@ -3573,14 +3585,8 @@ static int parse_line(
         case RELABEL_PATH:
         case RECURSIVE_RELABEL_PATH:
                 if (i.argument)
-                        log_syntax(NULL,
-                                   LOG_WARNING,
-                                   fname,
-                                   line,
-                                   0,
-                                   "%c lines don't take argument fields, ignoring.",
-                                   (char) i.type);
-
+                        log_syntax(NULL, LOG_WARNING, fname, line, 0,
+                                   "%c lines don't take argument fields, ignoring.", (char) i.type);
                 break;
 
         case CREATE_FILE:
@@ -3590,21 +3596,24 @@ static int parse_line(
         case CREATE_SYMLINK:
                 if (unbase64) {
                         *invalid_config = true;
-                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "base64 decoding not supported for symlink targets.");
+                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG),
+                                          "base64 decoding not supported for symlink targets.");
                 }
                 break;
 
         case WRITE_FILE:
                 if (!i.argument) {
                         *invalid_config = true;
-                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "Write file requires argument.");
+                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG),
+                                          "Write file requires argument.");
                 }
                 break;
 
         case COPY_FILES:
                 if (unbase64) {
                         *invalid_config = true;
-                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "base64 decoding not supported for copy sources.");
+                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG),
+                                          "base64 decoding not supported for copy sources.");
                 }
                 break;
 
@@ -3612,18 +3621,21 @@ static int parse_line(
         case CREATE_BLOCK_DEVICE:
                 if (unbase64) {
                         *invalid_config = true;
-                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "base64 decoding not supported for device node creation.");
+                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG),
+                                          "base64 decoding not supported for device node creation.");
                 }
 
                 if (!i.argument) {
                         *invalid_config = true;
-                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "Device file requires argument.");
+                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG),
+                                          "Device file requires argument.");
                 }
 
                 r = parse_devnum(i.argument, &i.major_minor);
                 if (r < 0) {
                         *invalid_config = true;
-                        return log_syntax(NULL, LOG_ERR, fname, line, r, "Can't parse device file major/minor '%s'.", i.argument);
+                        return log_syntax(NULL, LOG_ERR, fname, line, r,
+                                          "Can't parse device file major/minor '%s'.", i.argument);
                 }
 
                 break;
@@ -3632,7 +3644,8 @@ static int parse_line(
         case RECURSIVE_SET_XATTR:
                 if (unbase64) {
                         *invalid_config = true;
-                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "base64 decoding not supported for extended attributes.");
+                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG),
+                                          "base64 decoding not supported for extended attributes.");
                 }
                 if (!i.argument) {
                         *invalid_config = true;
@@ -3648,7 +3661,8 @@ static int parse_line(
         case RECURSIVE_SET_ACL:
                 if (unbase64) {
                         *invalid_config = true;
-                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "base64 decoding not supported for ACLs.");
+                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG),
+                                          "base64 decoding not supported for ACLs.");
                 }
                 if (!i.argument) {
                         *invalid_config = true;
@@ -3664,7 +3678,8 @@ static int parse_line(
         case RECURSIVE_SET_ATTRIBUTE:
                 if (unbase64) {
                         *invalid_config = true;
-                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "base64 decoding not supported for file attributes.");
+                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG),
+                                          "base64 decoding not supported for file attributes.");
                 }
                 if (!i.argument) {
                         *invalid_config = true;
@@ -3695,7 +3710,8 @@ static int parse_line(
                 if (r < 0) {
                         if (IN_SET(r, -EINVAL, -EBADSLT))
                                 *invalid_config = true;
-                        return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to substitute specifiers in argument: %m");
+                        return log_syntax(NULL, LOG_ERR, fname, line, r,
+                                          "Failed to substitute specifiers in argument: %m");
                 }
         }
 
@@ -3715,7 +3731,8 @@ static int parse_line(
                                 return log_oom();
                 } else if (!path_is_absolute(i.argument)) {
                         *invalid_config = true;
-                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG), "Source path '%s' is not absolute.", i.argument);
+                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EBADMSG),
+                                          "Source path '%s' is not absolute.", i.argument);
 
                 }
 
@@ -3732,7 +3749,8 @@ static int parse_line(
 
                 if (laccess(i.argument, F_OK) == -ENOENT) {
                         /* Silently skip over lines where the source file is missing. */
-                        log_syntax(NULL, LOG_DEBUG, fname, line, 0, "Copy source path '%s' does not exist, skipping line.", i.argument);
+                        log_syntax(NULL, LOG_DEBUG, fname, line, 0,
+                                   "Copy source path '%s' does not exist, skipping line.", i.argument);
                         return 0;
                 }
 
@@ -3744,9 +3762,11 @@ static int parse_line(
 
         if (from_cred) {
                 if (!i.argument)
-                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EINVAL), "Reading from credential requested, but no credential name specified.");
+                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "Reading from credential requested, but no credential name specified.");
                 if (!credential_name_valid(i.argument))
-                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EINVAL), "Credential name not valid: %s", i.argument);
+                        return log_syntax(NULL, LOG_ERR, fname, line, SYNTHETIC_ERRNO(EINVAL),
+                                          "Credential name not valid: %s", i.argument);
 
                 r = read_credential(i.argument, &i.binary_argument, &i.binary_argument_size);
                 if (IN_SET(r, -ENXIO, -ENOENT)) {
@@ -4168,7 +4188,8 @@ static int parse_argv(int argc, char *argv[]) {
                                        "Combination of --user and --root= is not supported.");
 
         if (arg_image && arg_root)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Please specify either --root= or --image=, the combination of both is not supported.");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Please specify either --root= or --image=, the combination of both is not supported.");
 
         return 1;
 }
@@ -4309,9 +4330,10 @@ static int link_parent(Context *c, ItemArray *a) {
         assert(c);
         assert(a);
 
-        /* Finds the closest "parent" item array for the specified item array. Then registers the specified item array
-         * as child of it, and fills the parent in, linking them both ways. This allows us to later create parents
-         * before their children, and clean up/remove children before their parents. */
+        /* Finds the closest "parent" item array for the specified item array. Then registers the specified
+         * item array as child of it, and fills the parent in, linking them both ways. This allows us to
+         * later create parents before their children, and clean up/remove children before their parents.
+         */
 
         if (a->n_items <= 0)
                 return 0;
@@ -4480,8 +4502,8 @@ static int run(int argc, char *argv[]) {
                         return r;
         }
 
-        /* If multiple operations are requested, let's first run the remove/clean operations, and only then the create
-         * operations. i.e. that we first clean out the platform we then build on. */
+        /* If multiple operations are requested, let's first run the remove/clean operations, and only then
+         * the create operations. i.e. that we first clean out the platform we then build on. */
         for (phase = 0; phase < _PHASE_MAX; phase++) {
                 OperationMask op;
 
