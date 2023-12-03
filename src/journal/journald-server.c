@@ -1355,10 +1355,10 @@ finish:
 
         s->runtime_journal = journal_file_offline_close(s->runtime_journal);
 
+        sd_journal_close(j);
+
         if (r >= 0)
                 (void) rm_rf(s->runtime_storage.path, REMOVE_ROOT);
-
-        sd_journal_close(j);
 
         server_driver_message(s, 0, NULL,
                               LOG_MESSAGE("Time spent on flushing to %s is %s for %u entries.",
