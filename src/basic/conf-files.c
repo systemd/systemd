@@ -381,8 +381,10 @@ int conf_files_list_dropins(
  *
  * The <fn> argument may be:
  * - '-', meaning stdin.
- * - a non-absolute path. In this case <config_dirs> are searched.
- * - an absolute path. In this case <fn> is opened directly.
+ * - a file name without a path. In this case <config_dirs> are searched.
+ * - a path, either relative or absolute. In this case <fn> is opened directly.
+ *
+ * This method is only suitable for configuration files which have a flat layout without dropins.
  */
 int conf_file_read(
                 const char *root,
@@ -397,7 +399,7 @@ int conf_file_read(
         _cleanup_free_ char *_fn = NULL;
         unsigned v = 0;
         FILE *f;
-        int r;
+        int r = 0;
 
         assert(fn);
 
@@ -407,19 +409,33 @@ int conf_file_read(
 
                 log_debug("Reading config from stdin%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
 
+        } else if (is_path(fn)) {
+                r = path_make_absolute_cwd(fn, &_fn);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to make path absolute: %m");
+                fn = _fn;
+
+                f = _f = fopen(fn, "re");
+                if (!_f)
+                        r = -errno;
+                else
+                        log_debug("Reading config file \"%s\"%s", fn, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+
         } else {
                 r = search_and_fopen(fn, "re", root, config_dirs, &_f, &_fn);
-                if (r == -ENOENT && ignore_enoent) {
-                        log_debug_errno(r, "Failed to open \"%s\", ignoring: %m", fn);
-                        return 0; /* No error, but nothing happened. */
+                if (r >= 0) {
+                        f = _f;
+                        fn = _fn;
+                        log_debug("Reading config file \"%s\"%s", fn, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
                 }
-                if (r < 0)
-                        return log_error_errno(r, "Failed to read '%s': %m", fn);
-
-                f = _f;
-                fn = _fn;
-                log_debug("Reading config file \"%s\"%s", fn, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
         }
+
+        if (r == -ENOENT && ignore_enoent) {
+                log_debug_errno(r, "Failed to open \"%s\", ignoring: %m", fn);
+                return 0; /* No error, but nothing happened. */
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read '%s': %m", fn);
 
         r = 1;  /* We entered the part where we may modify state. */
 
