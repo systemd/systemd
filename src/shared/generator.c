@@ -754,7 +754,8 @@ int generator_write_cryptsetup_service_section(
                 const char *name,
                 const char *what,
                 const char *key_file,
-                const char *options) {
+                const char *options,
+                const char *credentials) {
 
         _cleanup_free_ char *name_escaped = NULL, *what_escaped = NULL, *key_file_escaped = NULL, *options_escaped = NULL;
 
@@ -794,6 +795,9 @@ int generator_write_cryptsetup_service_section(
                 "ExecStop=" SYSTEMD_CRYPTSETUP_PATH " detach '%s'\n",
                 name_escaped, what_escaped, strempty(key_file_escaped), strempty(options_escaped),
                 name_escaped);
+
+        if (credentials)
+                fprintf(f, "ImportCredential=%s\n", credentials);
 
         return 0;
 }

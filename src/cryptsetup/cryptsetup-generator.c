@@ -519,7 +519,7 @@ static int create_disk(
         if (r < 0)
                 log_warning_errno(r, "Failed to write device timeout drop-in: %m");
 
-        r = generator_write_cryptsetup_service_section(f, name, u, key_file, filtered);
+        r = generator_write_cryptsetup_service_section(f, name, u, key_file, filtered, NULL);
         if (r < 0)
                 return r;
 
