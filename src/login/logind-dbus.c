@@ -1931,7 +1931,7 @@ static int verify_shutdown_creds(
 
         if (blocked) {
                 /* We don't check polkit for root here, because you can't be more privileged than root */
-                if (uid == 0 && (flags & SD_LOGIND_ROOT_CHECK_INHIBITORS))
+                if (uid == 0 && (m->enforce_inhibitors || (flags & SD_LOGIND_ROOT_CHECK_INHIBITORS)))
                         return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED,
                                                  "Access denied to root due to active block inhibitor");
 
@@ -3546,6 +3546,7 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("RuntimeDirectoryInodesMax", "t", NULL, offsetof(Manager, runtime_dir_inodes), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("InhibitorsMax", "t", NULL, offsetof(Manager, inhibitors_max), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NCurrentInhibitors", "t", property_get_hashmap_size, offsetof(Manager, inhibitors), 0),
+        SD_BUS_PROPERTY("EnforceInhibitors", "b", bus_property_get_bool, offsetof(Manager, enforce_inhibitors), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SessionsMax", "t", NULL, offsetof(Manager, sessions_max), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("NCurrentSessions", "t", property_get_hashmap_size, offsetof(Manager, sessions), 0),
         SD_BUS_PROPERTY("UserTasksMax", "t", property_get_compat_user_tasks_max, 0, SD_BUS_VTABLE_PROPERTY_CONST|SD_BUS_VTABLE_HIDDEN),
