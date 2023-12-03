@@ -214,8 +214,11 @@ static ImagePolicy *arg_image_policy = NULL;
 #define MAX_DEPTH 256
 
 typedef struct Context {
-        OrderedHashmap *items, *globs;
+        OrderedHashmap *items;
+        OrderedHashmap *globs;
         Set *unix_sockets;
+        Hashmap *uid_cache;
+        Hashmap *gid_cache;
 } Context;
 
 STATIC_DESTRUCTOR_REGISTER(arg_include_prefixes, strv_freep);
@@ -239,6 +242,9 @@ static void context_done(Context *c) {
         ordered_hashmap_free(c->globs);
 
         set_free(c->unix_sockets);
+
+        hashmap_free(c->uid_cache);
+        hashmap_free(c->gid_cache);
 }
 
 /* Different kinds of errors that mean that information is not available in the environment. */
@@ -3465,9 +3471,7 @@ static int parse_line(
                 const char *fname,
                 unsigned line,
                 const char *buffer,
-                bool *invalid_config,
-                Hashmap **uid_cache,
-                Hashmap **gid_cache) {
+                bool *invalid_config) {
 
         _cleanup_free_ char *action = NULL, *mode = NULL, *user = NULL, *group = NULL, *age = NULL, *path = NULL;
         _cleanup_(item_free_contents) Item i = {
@@ -3826,7 +3830,7 @@ static int parse_line(
                 else
                         u = user;
 
-                r = find_uid(u, &i.uid, uid_cache);
+                r = find_uid(u, &i.uid, &c->uid_cache);
                 if (r == -ESRCH && arg_graceful) {
                         log_syntax(NULL, LOG_DEBUG, fname, line, r,
                                    "%s: user '%s' not found, not adjusting ownership.", i.path, u);
@@ -3847,7 +3851,7 @@ static int parse_line(
                 else
                         g = group;
 
-                r = find_gid(g, &i.gid, gid_cache);
+                r = find_gid(g, &i.gid, &c->gid_cache);
                 if (r == -ESRCH && arg_graceful) {
                         log_syntax(NULL, LOG_DEBUG, fname, line, r,
                                    "%s: group '%s' not found, not adjusting ownership.", i.path, g);
@@ -4224,7 +4228,6 @@ static int read_config_file(
                 bool ignore_enoent,
                 bool *invalid_config) {
 
-        _cleanup_hashmap_free_ Hashmap *uid_cache = NULL, *gid_cache = NULL;
         _cleanup_fclose_ FILE *_f = NULL;
         _cleanup_free_ char *pp = NULL;
         unsigned v = 0;
@@ -4271,7 +4274,7 @@ static int read_config_file(
                 if (IN_SET(line[0], 0, '#'))
                         continue;
 
-                k = parse_line(c, fn, v, line, &invalid_line, &uid_cache, &gid_cache);
+                k = parse_line(c, fn, v, line, &invalid_line);
                 if (k < 0) {
                         if (invalid_line)
                                 /* Allow reporting with a special code if the caller requested this */
