@@ -3434,12 +3434,13 @@ static bool is_duplicated_item(ItemArray *existing, const Item *i) {
 }
 
 static int parse_line(
-                Context *c,
+                void *context,
                 const char *fname,
                 unsigned line,
                 const char *buffer,
                 bool *invalid_config) {
 
+        Context *c = ASSERT_PTR(context);
         _cleanup_free_ char *action = NULL, *mode = NULL, *user = NULL, *group = NULL, *age = NULL, *path = NULL;
         _cleanup_(item_free_contents) Item i = {
                 /* The "age-by" argument considers all file timestamp types by default. */
@@ -3452,7 +3453,6 @@ static int parse_line(
         bool append_or_force = false, boot = false, allow_failure = false, try_replace = false,
                 unbase64 = false, from_cred = false, missing_user_or_group = false;
 
-        assert(c);
         assert(fname);
         assert(line >= 1);
         assert(buffer);
@@ -4188,62 +4188,16 @@ static int read_config_file(
                 bool ignore_enoent,
                 bool *invalid_config) {
 
-        _cleanup_fclose_ FILE *_f = NULL;
-        _cleanup_free_ char *pp = NULL;
-        unsigned v = 0;
-        FILE *f;
         ItemArray *ia;
         int r = 0;
 
         assert(c);
         assert(fn);
 
-        if (streq(fn, "-")) {
-                log_debug("Reading config from stdin%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
-                fn = "<stdin>";
-                f = stdin;
-        } else {
-                r = search_and_fopen(fn, "re", arg_root, (const char**) config_dirs, &_f, &pp);
-                if (r < 0) {
-                        if (ignore_enoent && r == -ENOENT) {
-                                log_debug_errno(r, "Failed to open \"%s\", ignoring: %m", fn);
-                                return 0;
-                        }
-
-                        return log_error_errno(r, "Failed to open '%s': %m", fn);
-                }
-
-                log_debug("Reading config file \"%s\"%s", pp, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
-                fn = pp;
-                f = _f;
-        }
-
-        for (;;) {
-                _cleanup_free_ char *line = NULL;
-                bool invalid_line = false;
-                int k;
-
-                k = read_stripped_line(f, LONG_LINE_MAX, &line);
-                if (k < 0)
-                        return log_error_errno(k, "Failed to read '%s': %m", fn);
-                if (k == 0)
-                        break;
-
-                v++;
-
-                if (IN_SET(line[0], 0, '#'))
-                        continue;
-
-                k = parse_line(c, fn, v, line, &invalid_line);
-                if (k < 0) {
-                        if (invalid_line)
-                                /* Allow reporting with a special code if the caller requested this */
-                                *invalid_config = true;
-                        else if (r == 0)
-                                /* The first error becomes our return value */
-                                r = k;
-                }
-        }
+        r = conf_file_read(arg_root, (const char**) config_dirs, fn,
+                           parse_line, c, ignore_enoent, invalid_config);
+        if (r <= 0)
+                return r;
 
         /* we have to determine age parameter for each entry of type X */
         ORDERED_HASHMAP_FOREACH(ia, c->globs)
@@ -4281,12 +4235,6 @@ static int read_config_file(
                                 i->age_set = true;
                         }
                 }
-
-        if (ferror(f)) {
-                log_error_errno(errno, "Failed to read from file %s: %m", fn);
-                if (r == 0)
-                        r = -EIO;
-        }
 
         return r;
 }
