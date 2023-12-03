@@ -122,9 +122,11 @@ int logind_reboot(enum action a) {
 
 int logind_check_inhibitors(enum action a) {
 #if ENABLE_LOGIND
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_strv_free_ char **sessions = NULL;
         const char *what, *who, *why, *mode;
+        bool enforce_inhibitors = false;
         uint32_t uid, pid;
         sd_bus *bus;
         unsigned c = 0;
@@ -133,19 +135,12 @@ int logind_check_inhibitors(enum action a) {
         assert(a >= 0);
         assert(a < _ACTION_MAX);
 
-        if (arg_check_inhibitors == 0 || arg_force > 0)
+        /* Always skip inhibitors check if we are rebooting directly from systemctl */
+        if (arg_check_inhibitors == 0 || arg_force >= 2)
                 return 0;
 
         if (arg_when > 0)
                 return 0;
-
-        if (arg_check_inhibitors < 0) {
-                if (geteuid() == 0)
-                        return 0;
-
-                if (!on_tty())
-                        return 0;
-        }
 
         if (arg_transport != BUS_TRANSPORT_LOCAL)
                 return 0;
@@ -153,6 +148,23 @@ int logind_check_inhibitors(enum action a) {
         r = acquire_bus(BUS_FULL, &bus);
         if (r < 0)
                 return r;
+
+        r = bus_get_property_trivial(bus, bus_login_mgr, "EnforceInhibitors", &error, 'b', &enforce_inhibitors);
+        if (r < 0)
+                log_warning_errno(r, "Failed to check if inhibitors are enforced, ignoring: %s", bus_error_message(&error, r));
+
+        if (arg_check_inhibitors < 0 && !enforce_inhibitors) {
+                /* If we are rebooting through the system manager and inhibitors are not enforced, skip the
+                 * check. */
+                if (arg_force == 1)
+                        return 0;
+
+                if (geteuid() == 0)
+                        return 0;
+
+                if (!on_tty())
+                        return 0;
+        }
 
         r = bus_call_method(bus, bus_login_mgr, "ListInhibitors", NULL, &reply, NULL);
         if (r < 0)
@@ -225,6 +237,11 @@ int logind_check_inhibitors(enum action a) {
 
         if (c <= 0)
                 return 0;
+
+        if (enforce_inhibitors)
+                return log_error_errno(
+                                SYNTHETIC_ERRNO(EPERM),
+                                "Please retry operation after closing inhibitors and logging out other users.");
 
         return log_error_errno(SYNTHETIC_ERRNO(EPERM),
                                "Please retry operation after closing inhibitors and logging out other users.\n"
