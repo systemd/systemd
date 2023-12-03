@@ -427,7 +427,7 @@ bool manager_is_inhibited(
                 if (ignore_inactive && pidref_is_active_session(m, &i->pid) <= 0)
                         continue;
 
-                if (ignore_uid && i->uid == uid)
+                if (!m->enforce_inhibitors && ignore_uid && i->uid == uid)
                         continue;
 
                 if (!inhibited ||
