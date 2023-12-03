@@ -250,7 +250,13 @@ static bool ERRNO_IS_NOINFO(int r) {
                       ENXIO);     /* env var is unset */
 }
 
-static int specifier_directory(char specifier, const void *data, const char *root, const void *userdata, char **ret) {
+static int specifier_directory(
+                char specifier,
+                const void *data,
+                const char *root,
+                const void *userdata,
+                char **ret) {
+
         struct table_entry {
                 uint64_t type;
                 const char *suffix;
@@ -1456,7 +1462,6 @@ static int path_set_acls(
 }
 
 static int parse_attribute_from_arg(Item *item) {
-
         static const struct {
                 char character;
                 unsigned value;
@@ -4034,7 +4039,6 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-
         enum {
                 ARG_VERSION = 0x100,
                 ARG_CAT_CONFIG,
@@ -4374,7 +4378,6 @@ static int read_config_files(
 }
 
 static int read_credential_lines(Context *c, bool *invalid_config) {
-
         _cleanup_free_ char *j = NULL;
         const char *d;
         int r;
