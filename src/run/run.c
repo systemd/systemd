@@ -43,7 +43,7 @@ static bool arg_remain_after_exit = false;
 static bool arg_no_block = false;
 static bool arg_wait = false;
 static const char *arg_unit = NULL;
-static const char *arg_description = NULL;
+static char *arg_description = NULL;
 static const char *arg_slice = NULL;
 static bool arg_slice_inherit = false;
 static int arg_expand_environment = -1;
@@ -74,6 +74,7 @@ static char *arg_working_directory = NULL;
 static bool arg_shell = false;
 static char **arg_cmdline = NULL;
 
+STATIC_DESTRUCTOR_REGISTER(arg_description, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_environment, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_property, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_path_property, strv_freep);
@@ -281,7 +282,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_DESCRIPTION:
-                        arg_description = optarg;
+                        r = free_and_strdup(&arg_description, optarg);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_SLICE:
@@ -1376,7 +1379,10 @@ static int start_transient_service(sd_bus *bus) {
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = bus_wait_for_jobs_one(w, object, arg_quiet, arg_runtime_scope == RUNTIME_SCOPE_USER ? STRV_MAKE_CONST("--user") : NULL);
+                r = bus_wait_for_jobs_one(w,
+                                          object,
+                                          arg_quiet,
+                                          arg_runtime_scope == RUNTIME_SCOPE_USER ? STRV_MAKE_CONST("--user") : NULL);
                 if (r < 0)
                         return r;
         }
@@ -1908,7 +1914,6 @@ static bool shall_make_executable_absolute(void) {
 
 static int run(int argc, char* argv[]) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_free_ char *description = NULL;
         int r;
 
         log_show_color(true);
@@ -1933,19 +1938,16 @@ static int run(int argc, char* argv[]) {
         }
 
         if (!arg_description) {
+                char *t;
+
                 if (strv_isempty(arg_cmdline))
-                        arg_description = arg_unit;
-                else {
-                        _cleanup_free_ char *joined = strv_join(arg_cmdline, " ");
-                        if (!joined)
-                                return log_oom();
+                        t = strdup(arg_unit);
+                else
+                        t = quote_command_line(arg_cmdline, SHELL_ESCAPE_EMPTY);
+                if (!t)
+                        return log_oom();
 
-                        description = shell_escape(joined, "\"");
-                        if (!description)
-                                return log_oom();
-
-                        arg_description = description;
-                }
+                free_and_replace(arg_description, t);
         }
 
         /* For backward compatibility reasons env var expansion is disabled by default for scopes, and
@@ -1960,9 +1962,11 @@ static int run(int argc, char* argv[]) {
                                     " Use --expand-environment=yes/no to explicitly control it as needed.");
         }
 
-        /* If --wait is used connect via the bus, unconditionally, as ref/unref is not supported via the limited direct
-         * connection */
-        if (arg_wait || arg_stdio != ARG_STDIO_NONE || (arg_runtime_scope == RUNTIME_SCOPE_USER && arg_transport != BUS_TRANSPORT_LOCAL))
+        /* If --wait is used connect via the bus, unconditionally, as ref/unref is not supported via the
+         * limited direct connection */
+        if (arg_wait ||
+            arg_stdio != ARG_STDIO_NONE ||
+            (arg_runtime_scope == RUNTIME_SCOPE_USER && arg_transport != BUS_TRANSPORT_LOCAL))
                 r = bus_connect_transport(arg_transport, arg_host, arg_runtime_scope, &bus);
         else
                 r = bus_connect_transport_systemd(arg_transport, arg_host, arg_runtime_scope, &bus);
