@@ -3976,6 +3976,9 @@ int exec_invoke(
         assert(params);
         assert(exit_status);
 
+        if (context->log_level_max >= 0)
+                log_set_max_level(context->log_level_max);
+
         /* Explicitly test for CVE-2021-4034 inspired invocations */
         if (!command->path || strv_isempty(command->argv)) {
                 *exit_status = EXIT_EXEC;
@@ -4038,8 +4041,6 @@ int exec_invoke(
         log_forget_fds();
         log_set_open_when_needed(true);
         log_settle_target();
-        if (context->log_level_max >= 0)
-                log_set_max_level(context->log_level_max);
 
         /* In case anything used libc syslog(), close this here, too */
         closelog();
