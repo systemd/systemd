@@ -1105,18 +1105,46 @@ int seccomp_load_syscall_filter_set(uint32_t default_action, const SyscallFilter
         /* The one-stop solution: allocate a seccomp object, add the specified filter to it, and apply it. Once for
          * each local arch. */
 
+        default_action_override = override_default_action(default_action);
+
         SECCOMP_FOREACH_LOCAL_ARCH(arch) {
                 _cleanup_(seccomp_releasep) scmp_filter_ctx seccomp = NULL;
+                _cleanup_strv_free_ char **added = NULL;
 
                 log_trace("Operating on architecture: %s", seccomp_arch_to_string(arch));
 
-                r = seccomp_init_for_arch(&seccomp, arch, default_action);
+                r = seccomp_init_for_arch(&seccomp, arch, default_action_override);
                 if (r < 0)
                         return r;
 
-                r = add_syscall_filter_set(seccomp, set, action, NULL, log_missing, NULL);
+                r = add_syscall_filter_set(seccomp, set, action, NULL, log_missing, &added);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to add filter set: %m");
+
+                if (default_action != default_action_override)
+                        NULSTR_FOREACH(name, syscall_filter_sets[SYSCALL_FILTER_SET_KNOWN].value) {
+                                int id;
+
+                                id = seccomp_syscall_resolve_name(name);
+                                if (id < 0)
+                                        continue;
+
+                                /* Ignore the syscall if it was already handled above */
+                                if (strv_contains(added, name))
+                                        continue;
+
+                                r = seccomp_rule_add_exact(seccomp, default_action, id, 0);
+                                if (r < 0 && r != -EDOM)  /* EDOM means that the syscall is not available for arch */
+                                        return log_debug_errno(r, "Failed to add rule for system call %s() / %d: %m",
+                                                               name, id);
+                        }
+
+#if (SCMP_VER_MAJOR == 2 && SCMP_VER_MINOR >= 5) || SCMP_VER_MAJOR > 2
+                /* We have a large filter here, so let's turn on the binary tree mode if possible. */
+                r = seccomp_attr_set(seccomp, SCMP_FLTATR_CTL_OPTIMIZE, 2);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to set SCMP_FLTATR_CTL_OPTIMIZE, ignoring: %m");
+#endif
 
                 r = seccomp_load(seccomp);
                 if (ERRNO_IS_NEG_SECCOMP_FATAL(r))
