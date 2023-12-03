@@ -439,12 +439,11 @@ int conf_file_read(
                 if (IN_SET(line[0], 0, '#'))
                         continue;
 
-                k = parse_line(userdata, fn, v, line, &invalid_line);
-                if (k < 0 && invalid_line) {
+                k = parse_line(userdata, fn, v, line, invalid_config ? &invalid_line : NULL);
+                if (k < 0 && invalid_line)
                         /* Allow reporting with a special code if the caller requested this. */
-                        if (invalid_config)
-                                *invalid_config = true;
-                } else
+                        *invalid_config = true;
+                else
                         /* The first error, if any, becomes our return value. */
                         RET_GATHER(r, k);
         }
