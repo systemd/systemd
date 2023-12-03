@@ -72,11 +72,13 @@ static int mac_selinux_label_post(int dir_fd, const char *path) {
 }
 #endif
 
-bool mac_selinux_use(void) {
+bool mac_selinux_use_full(bool quiet) {
 #if HAVE_SELINUX
         if (_unlikely_(cached_use < 0)) {
                 cached_use = is_selinux_enabled() > 0;
-                log_debug("SELinux enabled state cached to: %s", cached_use ? "enabled" : "disabled");
+                /* Avoid printing on each and every spawned sd-executor */
+                if (!quiet)
+                        log_debug("SELinux enabled state cached to: %s", cached_use ? "enabled" : "disabled");
         }
 
         return cached_use;

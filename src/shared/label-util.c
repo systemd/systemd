@@ -120,7 +120,7 @@ int btrfs_subvol_make_label(const char *path) {
 static int init_internal(bool lazy) {
         int r;
 
-        assert(!(mac_selinux_use() && mac_smack_use()));
+        assert(!(mac_selinux_use_full(lazy) && mac_smack_use()));
 
         if (lazy)
                 r = mac_selinux_init_lazy();
