@@ -54,6 +54,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_root_options, freep);
 static int add_cryptsetup(
                 const char *id,
                 const char *what,
+                const char *credentials,
                 bool rw,
                 bool require,
                 bool measure,
@@ -118,7 +119,7 @@ static int add_cryptsetup(
                         log_debug("Will not measure volume key of volume '%s', not booted via systemd-stub with measurements enabled.", id);
         }
 
-        r = generator_write_cryptsetup_service_section(f, id, what, NULL, options);
+        r = generator_write_cryptsetup_service_section(f, id, what, NULL, options, credentials);
         if (r < 0)
                 return r;
 
@@ -194,7 +195,7 @@ static int add_mount(
         log_debug("Adding %s: %s fstype=%s", where, what, fstype ?: "(any)");
 
         if (streq_ptr(fstype, "crypto_LUKS")) {
-                r = add_cryptsetup(id, what, rw, /* require= */ true, measure, &crypto_what);
+                r = add_cryptsetup(id, what, /* credentials = */ NULL, rw, /* require= */ true, measure, &crypto_what);
                 if (r < 0)
                         return r;
 
@@ -366,7 +367,8 @@ static int add_partition_swap(DissectedPartition *p) {
         }
 
         if (streq_ptr(p->fstype, "crypto_LUKS")) {
-                r = add_cryptsetup("swap", p->node, /* rw= */ true, /* require= */ true, /* measure= */ false, &crypto_what);
+                r = add_cryptsetup("swap", p->node, /* credentials = */ NULL, /* rw= */ true,
+                                   /* require= */ true, /* measure= */ false, &crypto_what);
                 if (r < 0)
                         return r;
                 what = crypto_what;
@@ -702,7 +704,8 @@ static int add_root_cryptsetup(void) {
         /* If a device /dev/gpt-auto-root-luks appears, then make it pull in systemd-cryptsetup-root.service, which
          * sets it up, and causes /dev/gpt-auto-root to appear which is all we are looking for. */
 
-        return add_cryptsetup("root", "/dev/gpt-auto-root-luks", /* rw= */ true, /* require= */ false, /* measure= */ true, NULL);
+        return add_cryptsetup("root", "/dev/gpt-auto-root-luks", "cryptsetup.*", /* rw= */ true,
+                              /* require= */ false, /* measure= */ true, NULL);
 #else
         return 0;
 #endif
