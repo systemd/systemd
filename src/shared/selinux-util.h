@@ -16,7 +16,10 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(char*, freecon, NULL);
 #define _cleanup_freecon_ _cleanup_(freeconp)
 #endif
 
-bool mac_selinux_use(void);
+bool mac_selinux_use_full(bool quiet);
+static inline bool mac_selinux_use(void) {
+        return mac_selinux_use_full(/* quiet= */ false);
+}
 void mac_selinux_retest(void);
 bool mac_selinux_enforcing(void);
 
