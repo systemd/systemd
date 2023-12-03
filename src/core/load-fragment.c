@@ -3798,8 +3798,23 @@ int config_parse_allowed_cpuset(
                 void *userdata) {
 
         CPUSet *c = data;
+        const Unit *u = userdata;
+        _cleanup_free_ char *k = NULL;
+        int r;
 
-        (void) parse_cpu_set_extend(rvalue, c, true, unit, filename, line, lvalue);
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = unit_full_printf(u, rvalue, &k);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to resolve unit specifiers in '%s', ignoring: %m",
+                           rvalue);
+                return 0;
+        }
+
+        (void) parse_cpu_set_extend(k, c, true, unit, filename, line, lvalue);
         return 0;
 }
 
