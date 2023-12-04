@@ -427,6 +427,7 @@ static int loop_configure(
                 .timestamp_not_before = timestamp,
                 .sector_size = c->block_size,
                 .device_size = device_size,
+                .created = true,
         };
 
         *ret = TAKE_PTR(d);
@@ -989,6 +990,7 @@ int loop_device_open(
                 .timestamp_not_before = USEC_INFINITY,
                 .sector_size = sector_size,
                 .device_size = device_size,
+                .created = false,
         };
 
         *ret = d;
