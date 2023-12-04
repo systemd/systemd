@@ -53,21 +53,15 @@ const SmbiosHeader *get_smbios_table(uint8_t type, uint64_t *ret_size_left) {
                 size -= header->length;
                 p += header->length;
 
-                /* Skip over string table. */
-                for (;;) {
-                        const uint8_t *e = memchr(p, 0, size);
-                        if (!e)
-                                return NULL;
-
-                        if (e == p) {/* Double NUL byte means we've reached the end of the string table. */
-                                p++;
-                                size--;
-                                break;
-                        }
-
-                        size -= e + 1 - p;
-                        p = e + 1;
+                /* Skip chars until a double NUL */
+                while (!(p[0] == '\0' && p[1] == '\0')) {
+                        p += 1;
+                        size -= 1;
                 }
+
+                /* Skip double NUL */
+                p += 2;
+                size -= 2;
         }
 
         return NULL;
@@ -84,10 +78,9 @@ bool smbios_in_hypervisor(void) {
 }
 
 const char* smbios_find_oem_string(const char *name) {
-        uint64_t left;
-
         assert(name);
 
+        uint64_t left;
         const SmbiosTableType11 *type11 = (const SmbiosTableType11 *) get_smbios_table(11, &left);
         if (!type11 || type11->header.length < sizeof(SmbiosTableType11))
                 return NULL;
@@ -98,9 +91,15 @@ const char* smbios_find_oem_string(const char *name) {
         left -= type11->header.length;
 
         for (const char *p = s; p < s + left; ) {
-                const char *e = memchr(p, 0, s + left - p);
-                if (!e || e == p) /* Double NUL byte means we've reached the end of the OEM strings. */
+
+                // Found double NUL
+                if (p[0] == '\0' && p[1] == '\0') {
+                        p += 2;
                         break;
+                }
+
+                // Find end of string (should always exist, every string is NUL terminated)
+                const char *e = ASSERT_PTR(memchr(p, 0, s + left - p));
 
                 const char *eq = startswith8(p, name);
                 if (eq && *eq == '=')
@@ -123,9 +122,14 @@ const char* smbios_system_product_name(void) {
         left -= type1->header.length;
 
         for (const char *p = s; p < s + left; ) {
-                const char *e = memchr(p, 0, s + left - p);
-                if (!e || e == p) /* Double NUL byte means we've reached the end of the strings. */
+                // Found double NUL
+                if (p[0] == '\0' && p[1] == '\0') {
+                        p += 2;
                         break;
+                }
+
+                // Find end of string (should always exist, every string is NUL terminated)
+                const char *e = ASSERT_PTR(memchr(p, 0, s + left - p));
 
                 if (str_idx == type1->product_name)
                         return p;
