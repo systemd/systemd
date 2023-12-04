@@ -87,6 +87,7 @@ typedef enum DissectImageFlags {
         DISSECT_IMAGE_DISKSEQ_DEVNODE           = 1 << 23, /* Prefer /dev/disk/by-diskseq/… device nodes */
         DISSECT_IMAGE_ALLOW_EMPTY               = 1 << 24, /* Allow that no usable partitions is present */
         DISSECT_IMAGE_TRY_ATOMIC_MOUNT_EXCHANGE = 1 << 25, /* Try to mount the image beneath the specified mountpoint, rather than on top of it, and then umount the top */
+        DISSECT_IMAGE_ALLOW_INTERACTIVE_AUTH    = 1 << 26, /* Allow interactive authentication when going through mntfsd */
 } DissectImageFlags;
 
 struct DissectedImage {
@@ -240,3 +241,5 @@ static inline const char *dissected_partition_fstype(const DissectedPartition *m
 }
 
 int get_common_dissect_directory(char **ret);
+
+int mntfsd_mount_image(const char *path, int userns_fd, const ImagePolicy *image_policy, DissectImageFlags flags, DissectedImage **ret);
