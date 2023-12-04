@@ -1265,9 +1265,11 @@ int image_read_metadata(Image *i, const ImagePolicy *image_policy) {
                 if (r < 0)
                         return r;
 
-                r = dissected_image_acquire_metadata(m,
-                                                     DISSECT_IMAGE_VALIDATE_OS |
-                                                     DISSECT_IMAGE_VALIDATE_OS_EXT);
+                r = dissected_image_acquire_metadata(
+                                m,
+                                /* userns_fd= */ -EBADF,
+                                DISSECT_IMAGE_VALIDATE_OS |
+                                DISSECT_IMAGE_VALIDATE_OS_EXT);
                 if (r < 0)
                         return r;
 
