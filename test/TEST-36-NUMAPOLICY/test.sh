@@ -14,4 +14,9 @@ else
     QEMU_OPTIONS+=" -numa node,nodeid=0"
 fi
 
+if [[ "$(uname -m)" =~ ^(s390x|ppc)$ ]]; then
+    echo "QEMU doesn't support NUMA nodes on $(uname -m), skipping the test"
+    exit 0
+fi
+
 do_test "$@"
