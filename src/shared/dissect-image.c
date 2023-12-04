@@ -3411,10 +3411,7 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
         assert(m);
 
         for (; n_meta_initialized < _META_MAX; n_meta_initialized ++) {
-                if (!paths[n_meta_initialized]) {
-                        fds[2*n_meta_initialized] = fds[2*n_meta_initialized+1] = -EBADF;
-                        continue;
-                }
+                assert(paths[n_meta_initialized]);
 
                 if (pipe2(fds + 2*n_meta_initialized, O_CLOEXEC) < 0) {
                         r = -errno;
@@ -3456,8 +3453,7 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
                 for (unsigned k = 0; k < _META_MAX; k++) {
                         _cleanup_close_ int fd = -ENOENT;
 
-                        if (!paths[k])
-                                continue;
+                        assert(paths[k]);
 
                         fds[2*k] = safe_close(fds[2*k]);
 
@@ -3556,8 +3552,7 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
         for (unsigned k = 0; k < _META_MAX; k++) {
                 _cleanup_fclose_ FILE *f = NULL;
 
-                if (!paths[k])
-                        continue;
+                assert(paths[k]);
 
                 fds[2*k+1] = safe_close(fds[2*k+1]);
 
