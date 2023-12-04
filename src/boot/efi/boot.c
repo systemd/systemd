@@ -10,6 +10,7 @@
 #include "graphics.h"
 #include "initrd.h"
 #include "linux.h"
+#include "macro-fundamental.h"
 #include "measure.h"
 #include "part-discovery.h"
 #include "pe.h"
@@ -1662,11 +1663,9 @@ static void config_load_type1_entries(
         }
 }
 
-static int boot_entry_compare(const BootEntry *a, const BootEntry *b) {
+static int boot_entry_compare_indirect(const BootEntry **a_ind, const BootEntry **b_ind) {
+        const BootEntry *a = *ASSERT_PTR(a_ind), *b = *ASSERT_PTR(b_ind);
         int r;
-
-        assert(a);
-        assert(b);
 
         /* Order entries that have no tries left to the end of the list */
         r = CMP(a->tries_left == 0, b->tries_left == 0);
@@ -1851,22 +1850,23 @@ static void generate_boot_entry_titles(Config *config) {
 
 static bool is_sd_boot(EFI_FILE *root_dir, const char16_t *loader_path) {
         EFI_STATUS err;
-        static const char * const sections[] = {
-                ".sdmagic",
-                NULL
-        };
-        size_t offset = 0, size = 0, read;
+        size_t read, n_sections;
+        _cleanup_free_ PeSectionDescriptor *sections = NULL;
         _cleanup_free_ char *content = NULL;
 
         assert(root_dir);
         assert(loader_path);
 
-        err = pe_file_locate_sections(root_dir, loader_path, sections, &offset, &size);
-        if (err != EFI_SUCCESS || size != sizeof(SD_MAGIC))
+        err = pe_file_locate_sections(root_dir, loader_path, &sections, &n_sections);
+        if (err != EFI_SUCCESS)
                 return false;
 
-        err = file_read(root_dir, loader_path, offset, size, &content, &read);
-        if (err != EFI_SUCCESS || size != read)
+        PeSectionDescriptor *sdmagic_section = pe_find_section(sections, n_sections, ".sdmagic");
+        if (!sdmagic_section)
+                return false;
+
+        err = file_read(root_dir, loader_path, sdmagic_section->offset, sdmagic_section->size, &content, &read);
+        if (err != EFI_SUCCESS || sdmagic_section->size != read)
                 return false;
 
         return memcmp(content, SD_MAGIC, sizeof(SD_MAGIC)) == 0;
@@ -2093,23 +2093,13 @@ static void config_load_type2_entries(
                 return;
 
         for (;;) {
-                enum {
-                        SECTION_CMDLINE,
-                        SECTION_OSREL,
-                        _SECTION_MAX,
-                };
-
-                static const char * const sections[_SECTION_MAX + 1] = {
-                        [SECTION_CMDLINE] = ".cmdline",
-                        [SECTION_OSREL]   = ".osrel",
-                        NULL,
-                };
-
                 _cleanup_free_ char16_t *os_pretty_name = NULL, *os_image_id = NULL, *os_name = NULL, *os_id = NULL,
                         *os_image_version = NULL, *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL;
                 const char16_t *good_name, *good_version, *good_sort_key;
                 _cleanup_free_ char *content = NULL;
-                size_t offs[_SECTION_MAX] = {}, szs[_SECTION_MAX] = {}, pos = 0;
+                _cleanup_free_ PeSectionDescriptor *sections = NULL;
+                size_t n_sections;
+                size_t pos = 0;
                 char *line, *key, *value;
 
                 err = readdir(linux_dir, &f, &f_size);
@@ -2126,11 +2116,14 @@ static void config_load_type2_entries(
                         continue;
 
                 /* look for .osrel and .cmdline sections in the .efi binary */
-                err = pe_file_locate_sections(linux_dir, f->FileName, sections, offs, szs);
-                if (err != EFI_SUCCESS || szs[SECTION_OSREL] == 0)
+                err = pe_file_locate_sections(linux_dir, f->FileName, &sections, &n_sections);
+                if (err != EFI_SUCCESS)
                         continue;
 
-                err = file_read(linux_dir, f->FileName, offs[SECTION_OSREL], szs[SECTION_OSREL], &content, NULL);
+                PeSectionDescriptor *section_osrel = pe_find_section(sections, n_sections, ".osrel");
+                if (!section_osrel)
+                        continue;
+                err = file_read(linux_dir, f->FileName, section_osrel->offset, section_osrel->size, &content, NULL);
                 if (err != EFI_SUCCESS)
                         continue;
 
@@ -2201,14 +2194,15 @@ static void config_load_type2_entries(
                 config_add_entry(config, entry);
                 boot_entry_parse_tries(entry, u"\\EFI\\Linux", f->FileName, u".efi");
 
-                if (szs[SECTION_CMDLINE] == 0)
+                PeSectionDescriptor *section_cmdline = pe_find_section(sections, n_sections, ".cmdline");
+                if (!section_cmdline)
                         continue;
 
                 content = mfree(content);
 
                 /* read the embedded cmdline file */
                 size_t cmdline_len;
-                err = file_read(linux_dir, f->FileName, offs[SECTION_CMDLINE], szs[SECTION_CMDLINE], &content, &cmdline_len);
+                err = file_read(linux_dir, f->FileName, section_cmdline->offset, section_cmdline->size, &content, &cmdline_len);
                 if (err == EFI_SUCCESS) {
                         entry->options = xstrn8_to_16(content, cmdline_len);
                         mangle_stub_cmdline(entry->options);
@@ -2580,7 +2574,7 @@ static void config_load_all_entries(
         config_load_xbootldr(config, loaded_image->DeviceHandle);
 
         /* Sort entries after version number */
-        sort_pointer_array((void **) config->entries, config->n_entries, (compare_pointer_func_t) boot_entry_compare);
+        sort_array((void *) config->entries, sizeof *config->entries, config->n_entries, (compare_func_t) boot_entry_compare_indirect);
 
         /* If we find some well-known loaders, add them to the end of the list */
         config_add_entry_osx(config);
