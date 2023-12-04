@@ -197,6 +197,14 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DecryptedImage*, decrypted_image_unref);
 int dissected_image_relinquish(DissectedImage *m);
 
 int verity_settings_load(VeritySettings *verity, const char *image, const char *root_hash_path, const char *root_hash_sig_path);
+
+static inline bool verity_settings_set(const VeritySettings *settings) {
+        return settings &&
+                (settings->root_hash_size > 0 ||
+                 (settings->root_hash_sig_size > 0 ||
+                  settings->data_path));
+}
+
 void verity_settings_done(VeritySettings *verity);
 
 static inline bool verity_settings_data_covers(const VeritySettings *verity, PartitionDesignator d) {
