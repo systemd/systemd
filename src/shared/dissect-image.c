@@ -73,6 +73,7 @@
 #include "tmpfile-util.h"
 #include "udev-util.h"
 #include "user-util.h"
+#include "varlink.h"
 #include "xattr-util.h"
 
 /* how many times to wait for the device nodes to appear */
@@ -4117,5 +4118,206 @@ int get_common_dissect_directory(char **ret) {
         if (ret)
                 *ret = TAKE_PTR(t);
 
+        return 0;
+}
+
+static JSON_DISPATCH_ENUM_DEFINE(Architecture, architecture_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(PartitionDesignator, partition_designator_from_string);
+
+typedef struct PartitionFields {
+        PartitionDesignator designator;
+        bool rw;
+        bool growfs;
+        unsigned partno;
+        Architecture architecture;
+        sd_id128_t uuid;
+        char *fstype;
+        char *label;
+        uint64_t size;
+        uint64_t offset;
+        unsigned fsmount_fd_idx;
+} PartitionFields;
+
+static void partition_fields_done(PartitionFields *f) {
+        assert(f);
+
+        free(f->fstype);
+        free(f->label);
+}
+
+int mntfsd_mount_image(
+                const char *path,
+                int userns_fd,
+                const ImagePolicy *image_policy,
+                DissectImageFlags flags,
+                DissectedImage **ret) {
+
+        struct ReplyParameters {
+                JsonVariant *partitions;
+                const char *image_policy;
+                uint64_t image_size;
+                uint32_t sector_size;
+                sd_id128_t image_uuid;
+        } p = {};
+
+        static const JsonDispatch dispatch_table[] = {
+                { "partitions",  JSON_VARIANT_ARRAY,         json_dispatch_variant,      offsetof(struct ReplyParameters, partitions),   JSON_MANDATORY },
+                { "imagePolicy", JSON_VARIANT_STRING,        json_dispatch_const_string, offsetof(struct ReplyParameters, image_policy), 0              },
+                { "imageSize",   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,       offsetof(struct ReplyParameters, image_size),   JSON_MANDATORY },
+                { "sectorSize",  _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint32,       offsetof(struct ReplyParameters, sector_size),  JSON_MANDATORY },
+                { "imageUuid",   JSON_VARIANT_STRING,        json_dispatch_id128,        offsetof(struct ReplyParameters, image_uuid),   0              },
+                {}
+        };
+
+        _cleanup_(dissected_image_unrefp) DissectedImage *di = NULL;
+        _cleanup_close_ int image_fd = -EBADF;
+        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        _cleanup_free_ char *ps = NULL, *image_name = NULL;
+        unsigned max_fd = UINT_MAX;
+        const char *error_id;
+        JsonVariant *i;
+        int r;
+
+        assert(path);
+        assert(ret);
+
+        r = path_extract_filename(path, &image_name);
+        if (r < 0)
+                return r;
+
+        r = varlink_connect_address(&vl, "/run/systemd/mntfs/io.systemd.MountFileSystem");
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to mntfsd: %m");
+
+        r = varlink_set_allow_fd_passing_input(vl, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable varlink fd passing for read: %m");
+
+        r = varlink_set_allow_fd_passing_output(vl, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable varlink fd passing for write: %m");
+
+        image_fd = open(path, O_RDONLY|O_CLOEXEC);
+        if (image_fd < 0)
+                return log_error_errno(errno, "Failed to open '%s': %m", path);
+
+        r = varlink_dup_fd(vl, image_fd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to push image fd into varlink connection: %m");
+
+        if (userns_fd >= 0) {
+                r = varlink_dup_fd(vl, userns_fd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to push image fd into varlink connection: %m");
+        }
+
+        if (image_policy) {
+                r = image_policy_to_string(image_policy, /* simplify= */ false, &ps);
+                if (r < 0)
+                        return log_error_errno(r, "Failed format image policy to string: %m");
+        }
+
+        JsonVariant *reply = NULL;
+        r = varlink_callb(vl,
+                          "io.systemd.MountFileSystem.MountImage",
+                          &reply,
+                          &error_id,
+                          /* ret_flags= */ NULL,
+                          JSON_BUILD_OBJECT(
+                                          JSON_BUILD_PAIR("imageFileDescriptor", JSON_BUILD_UNSIGNED(0)),
+                                          JSON_BUILD_PAIR_CONDITION(userns_fd >= 0, "userNamespaceFileDescriptor", JSON_BUILD_UNSIGNED(1)),
+                                          JSON_BUILD_PAIR("readOnly", JSON_BUILD_BOOLEAN(FLAGS_SET(flags, DISSECT_IMAGE_MOUNT_READ_ONLY))),
+                                          JSON_BUILD_PAIR("growFileSystems", JSON_BUILD_BOOLEAN(FLAGS_SET(flags, DISSECT_IMAGE_GROWFS))),
+                                          JSON_BUILD_PAIR_CONDITION(ps, "imagePolicy", JSON_BUILD_STRING(ps))));
+        if (r < 0)
+                return log_error_errno(r, "Failed to call MountImage() varlink call.");
+        if (!isempty(error_id))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOANO), "Failed to mount image: %s", error_id);
+
+        r = json_dispatch(reply, dispatch_table, JSON_ALLOW_EXTENSIONS, &p);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse MountImage() reply: %m");
+
+        log_debug("Effective image policy: %s", p.image_policy);
+
+        JSON_VARIANT_ARRAY_FOREACH(i, p.partitions) {
+                _cleanup_close_ int fsmount_fd = -EBADF;
+
+                _cleanup_(partition_fields_done) PartitionFields pp = {
+                        .designator = _PARTITION_DESIGNATOR_INVALID,
+                        .architecture = _ARCHITECTURE_INVALID,
+                        .size = UINT64_MAX,
+                        .offset = UINT64_MAX,
+                        .fsmount_fd_idx = UINT_MAX,
+                };
+
+                static const JsonDispatch partition_dispatch_table[] = {
+                        { "designator",          JSON_VARIANT_STRING,        json_dispatch_partition_designator_from_string, offsetof(struct PartitionFields, designator),       JSON_MANDATORY },
+                        { "writable",            JSON_VARIANT_BOOLEAN,       json_dispatch_boolean,                          offsetof(struct PartitionFields, rw),               JSON_MANDATORY },
+                        { "growFileSystem",      JSON_VARIANT_BOOLEAN,       json_dispatch_boolean,                          offsetof(struct PartitionFields, growfs),           JSON_MANDATORY },
+                        { "partitionNumber",     _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint,                             offsetof(struct PartitionFields, partno),           0              },
+                        { "architecture",        JSON_VARIANT_STRING,        json_dispatch_architecture_from_string,         offsetof(struct PartitionFields, architecture),     0              },
+                        { "partitionUuid",       JSON_VARIANT_STRING,        json_dispatch_id128,                            offsetof(struct PartitionFields, uuid),             0              },
+                        { "fileSystemType",      JSON_VARIANT_STRING,        json_dispatch_string,                           offsetof(struct PartitionFields, fstype),           JSON_MANDATORY },
+                        { "partitionLabel",      JSON_VARIANT_STRING,        json_dispatch_string,                           offsetof(struct PartitionFields, label),            0              },
+                        { "size",                _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,                           offsetof(struct PartitionFields, size),             JSON_MANDATORY },
+                        { "offset",              _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,                           offsetof(struct PartitionFields, offset),           JSON_MANDATORY },
+                        { "mountFileDescriptor", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint,                             offsetof(struct PartitionFields, fsmount_fd_idx),   JSON_MANDATORY },
+                        {}
+                };
+
+                r = json_dispatch(i, partition_dispatch_table, JSON_ALLOW_EXTENSIONS, &pp);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse partition data: %m");
+
+                if (pp.fsmount_fd_idx != UINT_MAX) {
+                        if (max_fd == UINT_MAX || pp.fsmount_fd_idx > max_fd)
+                                max_fd = pp.fsmount_fd_idx;
+
+                        fsmount_fd = varlink_take_fd(vl, pp.fsmount_fd_idx);
+                        if (fsmount_fd < 0)
+                                return fsmount_fd;
+                }
+
+                assert(pp.designator >= 0);
+
+                if (!di) {
+                        di = new(DissectedImage, 1);
+                        if (!di)
+                                return log_oom();
+
+                        *di = (DissectedImage) {
+                                .has_init_system = -1,
+                        };
+
+                        for (PartitionDesignator dd = 0; dd < _PARTITION_DESIGNATOR_MAX; dd++)
+                                di->partitions[dd] = DISSECTED_PARTITION_NULL;
+                }
+
+                if (di->partitions[pp.designator].found)
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Duplicate partition data for '%s'.", partition_designator_to_string(pp.designator));
+
+                di->partitions[pp.designator] = (DissectedPartition) {
+                        .found = true,
+                        .rw = pp.rw,
+                        .growfs = pp.growfs,
+                        .partno = pp.partno,
+                        .architecture = pp.architecture,
+                        .uuid = pp.uuid,
+                        .fstype = TAKE_PTR(pp.fstype),
+                        .label = TAKE_PTR(pp.label),
+                        .mount_node_fd = -EBADF,
+                        .size = pp.size,
+                        .offset = pp.offset,
+                        .fsmount_fd = TAKE_FD(fsmount_fd),
+                };
+        }
+
+        di->image_size = p.image_size;
+        di->sector_size = p.sector_size;
+        di->image_uuid = p.image_uuid;
+        di->image_name = TAKE_PTR(image_name);
+
+        *ret = TAKE_PTR(di);
         return 0;
 }
