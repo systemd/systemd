@@ -52,6 +52,7 @@ static char *arg_qemu_kernel = NULL;
 static bool arg_qemu_gui = false;
 static QemuNetworkStack arg_qemu_net = QEMU_NET_USER;
 static int arg_secure_boot = -1;
+static uid_t arg_uid_shift = UID_INVALID, arg_uid_range = 0x10000U;
 static MachineCredential *arg_credentials = NULL;
 static size_t arg_n_credentials = 0;
 static SettingsMask arg_settings_mask = 0;
@@ -98,6 +99,10 @@ static int help(void) {
                "                            Configure QEMU's networking stack\n"
                "     --secure-boot=BOOL     Configure whether to search for firmware which\n"
                "                            supports Secure Boot\n\n"
+               "%3$sUser Namespacing:%4$s\n"
+               "     --private-users=UIDBASE[:NUIDS]\n"
+               "                            Configure the UID/GID range to map into the\n"
+               "                            virtiofsd namespace\n\n"
                "%3$sCredentials:%4$s\n"
                "     --set-credential=ID:VALUE\n"
                "                            Pass a credential with literal value to container.\n"
@@ -129,6 +134,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_QEMU_GUI,
                 ARG_QEMU_NET,
                 ARG_SECURE_BOOT,
+                ARG_PRIVATE_USERS,
                 ARG_SET_CREDENTIAL,
                 ARG_LOAD_CREDENTIAL,
         };
@@ -150,6 +156,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "qemu-gui",        no_argument,       NULL, ARG_QEMU_GUI        },
                 { "qemu-net",        required_argument, NULL, ARG_QEMU_NET        },
                 { "secure-boot",     required_argument, NULL, ARG_SECURE_BOOT     },
+                { "private-users",   required_argument, NULL, ARG_PRIVATE_USERS   },
                 { "set-credential",  required_argument, NULL, ARG_SET_CREDENTIAL  },
                 { "load-credential", required_argument, NULL, ARG_LOAD_CREDENTIAL },
                 {}
@@ -269,6 +276,33 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --secure-boot=%s: %m", optarg);
                         break;
+
+                case ARG_PRIVATE_USERS: {
+                        _cleanup_free_ char *buffer = NULL;
+                        const char *range, *shift;
+
+                        range = strchr(optarg, ':');
+                        if (range) {
+                                buffer = strndup(optarg, range - optarg);
+                                if (!buffer)
+                                        return log_oom();
+                                shift = buffer;
+
+                                range++;
+                                r = safe_atou32(range, &arg_uid_range);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse UID range \"%s\": %m", range);
+                        } else
+                                shift = optarg;
+
+                        r = parse_uid(shift, &arg_uid_shift);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse UID \"%s\": %m", optarg);
+
+                        if (!userns_shift_range_valid(arg_uid_shift, arg_uid_range))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID range cannot be empty or go beyond " UID_FMT ".", UID_INVALID);
+                        break;
+                }
 
                 case ARG_SET_CREDENTIAL: {
                         r = machine_credential_set(&arg_credentials, &arg_n_credentials, optarg);
