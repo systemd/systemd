@@ -102,6 +102,7 @@ struct DissectedImage {
         DecryptedImage *decrypted_image;
 
         uint32_t sector_size;
+        uint64_t image_size;
 
         /* Meta information extracted from /etc/os-release and similar */
         char *image_name;
