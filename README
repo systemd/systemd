@@ -134,6 +134,10 @@ REQUIREMENTS:
           CONFIG_IMA_ARCH_POLICY
           CONFIG_INTEGRITY_MACHINE_KEYRING
 
+        Required for reading credentials from SMBIOS:
+          CONFIG_DMI
+          CONFIG_DMI_SYSFS
+
         Required for RestrictFileSystems= in service units:
           CONFIG_BPF
           CONFIG_BPF_SYSCALL
