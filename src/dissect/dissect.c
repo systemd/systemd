@@ -827,16 +827,15 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
         if (arg_json_format_flags & (JSON_FORMAT_OFF|JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
                 pager_open(arg_pager_flags);
 
-        if (arg_json_format_flags & JSON_FORMAT_OFF)
-                printf("      Name: %s%s%s\n", ansi_highlight(), bn, ansi_normal());
-
-        if (ioctl(d->fd, BLKGETSIZE64, &size) < 0)
-                log_debug_errno(errno, "Failed to query size of loopback device: %m");
-        else if (arg_json_format_flags & JSON_FORMAT_OFF)
-                printf("      Size: %s\n", FORMAT_BYTES(size));
-
         if (arg_json_format_flags & JSON_FORMAT_OFF) {
-                printf(" Sec. Size: %" PRIu32 "\n", m->sector_size);
+                printf("      Name: %s%s%s\n",
+                       ansi_highlight(), bn, ansi_normal());
+
+                printf("      Size: %s\n",
+                       FORMAT_BYTES(m->image_size));
+
+                printf(" Sec. Size: %" PRIu32 "\n",
+                       m->sector_size);
 
                 printf("     Arch.: %s\n",
                        strna(architecture_to_string(dissected_image_architecture(m))));
