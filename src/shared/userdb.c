@@ -9,6 +9,7 @@
 #include "fd-util.h"
 #include "format-util.h"
 #include "missing_syscall.h"
+#include "namespace-util.h"
 #include "parse-util.h"
 #include "set.h"
 #include "socket-util.h"
@@ -1462,4 +1463,47 @@ int userdb_block_nss_systemd(int b) {
                                        "Unable to find symbol _nss_systemd_block in libnss_systemd.so.2: %s", dlerror());
 
         return call(b);
+}
+
+int userdb_allocate_userns_64k(const char *name) {
+        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        _cleanup_close_ int userns_fd = -EBADF;
+        const char *error_id;
+        int r, userns_fd_idx;
+
+        /* Allocate a new dynamic user namespace with 2^16 users via the userb registry logic*/
+
+        assert(name);
+
+        r = varlink_connect_address(&vl, "/run/systemd/userdb/io.systemd.UserRegistry");
+        if (r < 0)
+                return log_debug_errno(r, "Failed to connect to userdb registry: %m");
+
+        r = varlink_set_allow_fd_passing_output(vl, true);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to enable varlink fd passing for read: %m");
+
+        userns_fd = userns_acquire_empty();
+        if (userns_fd < 0)
+                return log_debug_errno(userns_fd, "Failed to acquire empty user namespace: %m");
+
+        userns_fd_idx = varlink_dup_fd(vl, userns_fd);
+        if (userns_fd_idx < 0)
+                return log_debug_errno(userns_fd_idx, "Failed to push userns fd into varlink connection: %m");
+
+        r = varlink_callb(vl,
+                          "io.systemd.UserRegistry.AllocateUserRange",
+                          /* ret_reply= */ NULL,
+                          &error_id,
+                          /* ret_flags= */ NULL,
+                          JSON_BUILD_OBJECT(
+                                          JSON_BUILD_PAIR("name", JSON_BUILD_STRING(name)),
+                                          JSON_BUILD_PAIR("size", JSON_BUILD_UNSIGNED(0x10000U)),
+                                          JSON_BUILD_PAIR("userNamespaceFileDescriptor", JSON_BUILD_UNSIGNED(userns_fd_idx))));
+        if (r < 0)
+                return log_error_errno(r, "Failed to call AllocateUserRange() varlink call.");
+        if (!isempty(error_id))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOANO), "Failed to mount image: %s", error_id);
+
+        return TAKE_FD(userns_fd);
 }
