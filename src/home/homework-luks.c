@@ -1295,9 +1295,6 @@ int home_setup_luks(
                         if (!IN_SET(errno, ENOTTY, EINVAL))
                                 return log_error_errno(errno, "Failed to get block device metrics of %s: %m", n);
 
-                        if (ioctl(setup->loop->fd, BLKGETSIZE64, &size) < 0)
-                                return log_error_errno(r, "Failed to read block device size of %s: %m", n);
-
                         if (fstat(setup->loop->fd, &st) < 0)
                                 return log_error_errno(r, "Failed to stat block device %s: %m", n);
                         assert(S_ISBLK(st.st_mode));
@@ -1329,6 +1326,8 @@ int home_setup_luks(
 
                                 offset *= 512U;
                         }
+
+                        size = setup->loop->device_size;
                 } else {
 #if HAVE_VALGRIND_MEMCHECK_H
                         VALGRIND_MAKE_MEM_DEFINED(&info, sizeof(info));
