@@ -237,3 +237,5 @@ static inline const char *dissected_partition_fstype(const DissectedPartition *m
 
         return m->decrypted_node ? m->decrypted_fstype : m->fstype;
 }
+
+int get_common_dissect_directory(char **ret);
