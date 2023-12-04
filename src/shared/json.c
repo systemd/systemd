@@ -4615,8 +4615,12 @@ int json_dispatch_full(
                                         done++;
 
                         } else  {
-                                json_log(value, flags, 0, "Unexpected object field '%s'.", json_variant_string(key));
+                                if (flags & JSON_ALLOW_EXTENSIONS) {
+                                        json_log(value, flags, 0, "Unrecognized object field '%s', assuming extension.", json_variant_string(key));
+                                        continue;
+                                }
 
+                                json_log(value, flags, 0, "Unexpected object field '%s'.", json_variant_string(key));
                                 if (flags & JSON_PERMISSIVE)
                                         continue;
 
