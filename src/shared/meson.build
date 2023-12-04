@@ -125,6 +125,7 @@ shared_sources = files(
         'netif-sriov.c',
         'netif-util.c',
         'nsflags.c',
+        'nsresource.c',
         'numa-util.c',
         'open-file.c',
         'openssl-util.c',
