@@ -157,6 +157,7 @@ BASICTOOLS=(
     bash
     capsh
     cat
+    chgrp
     chmod
     chown
     chroot
