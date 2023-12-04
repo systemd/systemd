@@ -3515,7 +3515,7 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
                                 if (r < 0)
                                         goto inner_fail;
 
-                                continue;
+                                goto next;
                         }
 
                         default:
@@ -3528,14 +3528,14 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
 
                         if (fd < 0) {
                                 log_debug_errno(fd, "Failed to read %s file of image, ignoring: %m", paths[k]);
-                                fds[2*k+1] = safe_close(fds[2*k+1]);
-                                continue;
+                                goto next;
                         }
 
                         r = copy_bytes(fd, fds[2*k+1], UINT64_MAX, 0);
                         if (r < 0)
                                 goto inner_fail;
 
+                next:
                         fds[2*k+1] = safe_close(fds[2*k+1]);
                 }
 
