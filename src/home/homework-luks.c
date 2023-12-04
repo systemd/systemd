@@ -199,7 +199,7 @@ static int block_get_size_by_fd(int fd, uint64_t *ret) {
         if (!S_ISBLK(st.st_mode))
                 return -ENOTBLK;
 
-        return RET_NERRNO(ioctl(fd, BLKGETSIZE64, ret));
+        return blockdev_get_device_size(fd, ret);
 }
 
 static int block_get_size_by_path(const char *path, uint64_t *ret) {
@@ -2227,8 +2227,9 @@ int home_create_luks(
                 if (flock(setup->image_fd, LOCK_EX) < 0) /* make sure udev doesn't read from it while we operate on the device */
                         return log_error_errno(errno, "Failed to lock block device %s: %m", ip);
 
-                if (ioctl(setup->image_fd, BLKGETSIZE64, &block_device_size) < 0)
-                        return log_error_errno(errno, "Failed to read block device size: %m");
+                r = blockdev_get_device_size(setup->image_fd, &block_device_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read block device size: %m");
 
                 if (h->disk_size == UINT64_MAX) {
 
@@ -3183,8 +3184,9 @@ int home_resize_luks(
                 } else
                         log_info("Operating on whole block device %s.", ip);
 
-                if (ioctl(image_fd, BLKGETSIZE64, &old_image_size) < 0)
-                        return log_error_errno(errno, "Failed to determine size of original block device: %m");
+                r = blockdev_get_device_size(image_fd, &old_image_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine size of original block device: %m");
 
                 if (flock(image_fd, LOCK_EX) < 0) /* make sure udev doesn't read from it while we operate on the device */
                         return log_error_errno(errno, "Failed to lock block device %s: %m", ip);

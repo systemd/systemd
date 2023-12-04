@@ -777,6 +777,21 @@ int blockdev_get_sector_size(int fd, uint32_t *ret) {
         return 0;
 }
 
+int blockdev_get_device_size(int fd, uint64_t *ret) {
+        uint64_t sz = 0;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        /* This is just a type-safe wrapper around BLKGETSIZE64 that gets us around having to include messy linux/fs.h in various clients */
+
+        if (ioctl(fd, BLKGETSIZE64, &sz) < 0)
+                return -errno;
+
+        *ret = sz;
+        return 0;
+}
+
 int blockdev_get_root(int level, dev_t *ret) {
         _cleanup_free_ char *p = NULL;
         dev_t devno;
