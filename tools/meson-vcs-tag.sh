@@ -6,7 +6,7 @@ set -o pipefail
 
 dir="${1:?}"
 fallback="${2:?}"
-version_tag="$3"
+version_tag="${3:-}"
 
 if [ -n "${version_tag}" ]; then
     # If -Dversion_tag= was used, just use that without further changes.
