@@ -961,6 +961,11 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
         table_set_ersatz_string(t, TABLE_ERSATZ_DASH);
         (void) table_set_align_percent(t, table_get_cell(t, 0, 9), 100);
 
+        /* Hide the device path if this is a loopback device that is not relinquished, since that means the
+         * device node is not going to be useful the instant our command exits */
+        if ((!d || d->created) && (arg_json_format_flags & JSON_FORMAT_OFF))
+                table_hide_column_from_display(t, 8);
+
         for (PartitionDesignator i = 0; i < _PARTITION_DESIGNATOR_MAX; i++) {
                 DissectedPartition *p = m->partitions + i;
 
