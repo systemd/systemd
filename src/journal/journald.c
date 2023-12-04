@@ -55,8 +55,8 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        server_vacuum(s, false);
-        server_flush_to_var(s, true);
+        server_vacuum(s, /* verbose = */ false);
+        server_flush_to_var(s, /* require_flag_file = */ true);
         server_flush_dev_kmsg(s);
 
         if (s->namespace)
@@ -91,7 +91,7 @@ static int run(int argc, char *argv[]) {
                         if (s->oldest_file_usec + s->max_retention_usec < n) {
                                 log_info("Retention time reached, rotating.");
                                 server_rotate(s);
-                                server_vacuum(s, false);
+                                server_vacuum(s, /* verbose = */ false);
                                 continue;
                         }
 
