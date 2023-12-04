@@ -67,6 +67,7 @@ static bool arg_qemu_gui = false;
 static QemuNetworkStack arg_network_stack = QEMU_NET_NONE;
 static int arg_secure_boot = -1;
 static MachineCredentialContext arg_credentials = {};
+static uid_t arg_uid_shift = UID_INVALID, arg_uid_range = 0x10000U;
 static SettingsMask arg_settings_mask = 0;
 static char *arg_firmware = NULL;
 static char *arg_runtime_directory = NULL;
@@ -122,6 +123,10 @@ static int help(void) {
                "     --firmware=PATH|list   Select firmware definition file (or list available)\n"
                "\n%3$sSystem Identity:%4$s\n"
                "  -M --machine=NAME         Set the machine name for the virtual machine\n"
+               "\n%3$sUser Namespacing:%4$s\n"
+               "     --private-users=UIDBASE[:NUIDS]\n"
+               "                            Configure the UID/GID range to map into the\n"
+               "                            virtiofsd namespace\n"
                "\n%3$sCredentials:%4$s\n"
                "     --set-credential=ID:VALUE\n"
                "                            Pass a credential with literal value to the\n"
@@ -155,6 +160,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_QEMU_GUI,
                 ARG_NETWORK_USER_MODE,
                 ARG_SECURE_BOOT,
+                ARG_PRIVATE_USERS,
                 ARG_SET_CREDENTIAL,
                 ARG_LOAD_CREDENTIAL,
                 ARG_FIRMWARE,
@@ -180,6 +186,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "network-tap",       no_argument,       NULL, 'n'                   },
                 { "network-user-mode", no_argument,       NULL, ARG_NETWORK_USER_MODE },
                 { "secure-boot",       required_argument, NULL, ARG_SECURE_BOOT       },
+                { "private-users",     required_argument, NULL, ARG_PRIVATE_USERS     },
                 { "set-credential",    required_argument, NULL, ARG_SET_CREDENTIAL    },
                 { "load-credential",   required_argument, NULL, ARG_LOAD_CREDENTIAL   },
                 { "firmware",          required_argument, NULL, ARG_FIRMWARE          },
@@ -313,6 +320,12 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_tristate(optarg, &arg_secure_boot);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --secure-boot=%s: %m", optarg);
+                        break;
+
+                case ARG_PRIVATE_USERS:
+                        r = parse_userns_uid_range(optarg, &arg_uid_shift, &arg_uid_range);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case ARG_SET_CREDENTIAL: {
@@ -723,6 +736,24 @@ static int start_virtiofsd(sd_bus *bus, const char *scope, const char *directory
         ssp.exec_start = strv_new(virtiofsd, "--shared-dir", directory, "--xattr", "--fd", "3", "--no-announce-submounts");
         if (!ssp.exec_start)
                 return log_oom();
+
+        if (arg_uid_shift != UID_INVALID) {
+                r = strv_extend(&ssp.exec_start, "--uid-map");
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extendf(&ssp.exec_start, ":0:" UID_FMT ":" UID_FMT ":", arg_uid_shift, arg_uid_range);
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extend(&ssp.exec_start, "--gid-map");
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extendf(&ssp.exec_start, ":0:" GID_FMT ":" GID_FMT ":", arg_uid_shift, arg_uid_range);
+                if (r < 0)
+                        return log_oom();
+        }
 
         r = start_socket_service_pair(bus, scope, &ssp);
         if (r < 0)
