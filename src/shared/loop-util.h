@@ -28,6 +28,7 @@ struct LoopDevice {
         uint64_t uevent_seqnum_not_before; /* uevent sequm right before we attached the loopback device, or UINT64_MAX if we don't know */
         usec_t timestamp_not_before; /* CLOCK_MONOTONIC timestamp taken immediately before attaching the loopback device, or USEC_INFINITY if we don't know */
         uint32_t sector_size;
+        uint64_t device_size;
 };
 
 /* Returns true if LoopDevice object is not actually a loopback device but some other block device we just wrap */

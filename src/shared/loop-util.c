@@ -149,8 +149,9 @@ static int loop_configure_verify(int fd, const struct loop_config *c) {
                  * effect hence. And if not use classic LOOP_SET_STATUS64. */
                 uint64_t z;
 
-                if (ioctl(fd, BLKGETSIZE64, &z) < 0)
-                        return -errno;
+                r = blockdev_get_device_size(fd, &z);
+                if (r < 0)
+                        return r;
 
                 if (z != c->info.lo_sizelimit) {
                         log_debug("LOOP_CONFIGURE is broken, doesn't honour .info.lo_sizelimit. Falling back to LOOP_SET_STATUS64.");
@@ -404,6 +405,11 @@ static int loop_configure(
                 assert_not_reached();
         }
 
+        uint64_t device_size;
+        r = blockdev_get_device_size(loop_with_fd, &device_size);
+        if (r < 0)
+                return log_device_debug_errno(dev, r, "Failed to get loopback device size: %m");
+
         LoopDevice *d = new(LoopDevice, 1);
         if (!d)
                 return log_oom_debug();
@@ -420,6 +426,7 @@ static int loop_configure(
                 .uevent_seqnum_not_before = seqnum,
                 .timestamp_not_before = timestamp,
                 .sector_size = c->block_size,
+                .device_size = device_size,
         };
 
         *ret = TAKE_PTR(d);
@@ -944,6 +951,11 @@ int loop_device_open(
         if (r < 0)
                 return r;
 
+        uint64_t device_size;
+        r = blockdev_get_device_size(fd, &device_size);
+        if (r < 0)
+                return r;
+
         r = sd_device_get_devnum(dev, &devnum);
         if (r < 0)
                 return r;
@@ -976,6 +988,7 @@ int loop_device_open(
                 .uevent_seqnum_not_before = UINT64_MAX,
                 .timestamp_not_before = USEC_INFINITY,
                 .sector_size = sector_size,
+                .device_size = device_size,
         };
 
         *ret = d;
@@ -1057,8 +1070,9 @@ static int resize_partition(int partition_fd, uint64_t offset, uint64_t size) {
                 return -EINVAL;
         current_offset *= 512U;
 
-        if (ioctl(partition_fd, BLKGETSIZE64, &current_size) < 0)
-                return -EINVAL;
+        r = blockdev_get_device_size(partition_fd, &current_size);
+        if (r < 0)
+                return r;
 
         if (size == UINT64_MAX && offset == UINT64_MAX)
                 return 0;
