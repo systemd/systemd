@@ -75,7 +75,7 @@ static int run(int argc, char *argv[]) {
         server_space_usage_message(s, NULL);
 
         for (;;) {
-                usec_t t = USEC_INFINITY, n;
+                usec_t t, n;
 
                 r = sd_event_get_state(s->event);
                 if (r < 0)
@@ -86,29 +86,25 @@ static int run(int argc, char *argv[]) {
                 n = now(CLOCK_REALTIME);
 
                 if (s->max_retention_usec > 0 && s->oldest_file_usec > 0) {
+                        /* Calculate when to rotate the next time */
+                        t = usec_sub_unsigned(usec_add(s->oldest_file_usec, s->max_retention_usec), n);
 
                         /* The retention time is reached, so let's vacuum! */
-                        if (s->oldest_file_usec + s->max_retention_usec < n) {
+                        if (n <= 0) {
                                 log_info("Retention time reached, rotating.");
                                 server_rotate(s);
                                 server_vacuum(s, /* verbose = */ false);
                                 continue;
                         }
-
-                        /* Calculate when to rotate the next time */
-                        t = s->oldest_file_usec + s->max_retention_usec - n;
-                }
+                } else
+                        t = USEC_INFINITY;
 
 #if HAVE_GCRYPT
                 if (s->system_journal) {
                         usec_t u;
 
-                        if (journal_file_next_evolve_usec(s->system_journal, &u)) {
-                                if (n >= u)
-                                        t = 0;
-                                else
-                                        t = MIN(t, u - n);
-                        }
+                        if (journal_file_next_evolve_usec(s->system_journal, &u))
+                                t = MIN(t, usec_sub_unsigned(u, n));
                 }
 #endif
 
