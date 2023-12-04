@@ -56,3 +56,6 @@ int membershipdb_iterator_get(UserDBIterator *iterator, char **user, char **grou
 int membershipdb_by_group_strv(const char *name, UserDBFlags flags, char ***ret);
 
 int userdb_block_nss_systemd(int b);
+
+int userdb_allocate_userns(const char *name, uint64_t size);
+int userdb_register_userns(const char *name, int userns_fd);
