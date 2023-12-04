@@ -13,6 +13,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "blockdev-util.h"
 #include "btrfs-util.h"
 #include "chase.h"
 #include "chattr-util.h"
@@ -446,8 +447,9 @@ static int image_make(
                                         read_only = true;
                         }
 
-                        if (ioctl(block_fd, BLKGETSIZE64, &size) < 0)
-                                log_debug_errno(errno, "Failed to issue BLKGETSIZE64 on device %s/%s, ignoring: %m", path ?: strnull(parent), filename);
+                        r = blockdev_get_device_size(block_fd, &size);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to issue BLKGETSIZE64 on device %s/%s, ignoring: %m", path ?: strnull(parent), filename);
 
                         block_fd = safe_close(block_fd);
                 }
