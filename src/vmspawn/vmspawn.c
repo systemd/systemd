@@ -28,6 +28,7 @@
 #include "path-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
+#include "random-util.h"
 #include "rm-rf.h"
 #include "sd-daemon.h"
 #include "sd-event.h"
@@ -36,11 +37,13 @@
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
+#include "unit-name.h"
 #include "vmspawn-scope.h"
 #include "vmspawn-settings.h"
 #include "vmspawn-util.h"
 
 static PagerFlags arg_pager_flags = 0;
+static char *arg_directory = NULL;
 static char *arg_image = NULL;
 static char *arg_machine = NULL;
 static char *arg_qemu_smp = NULL;
@@ -58,6 +61,7 @@ static MachineCredentialContext arg_credentials = {};
 static SettingsMask arg_settings_mask = 0;
 static char **arg_kernel_cmdline_extra = NULL;
 
+STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_machine, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_qemu_smp, freep);
@@ -82,6 +86,7 @@ static int help(void) {
                "     --version              Print version string\n"
                "     --no-pager             Do not pipe output into a pager\n\n"
                "%3$sImage:%4$s\n"
+               "  -D --directory=PATH       Root directory for the container\n"
                "  -i --image=PATH           Root file system disk image (or device node) for\n"
                "                            the virtual machine\n\n"
                "%3$sSystem Identity:%4$s\n"
@@ -141,6 +146,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "version",         no_argument,       NULL, ARG_VERSION         },
                 { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
                 { "image",           required_argument, NULL, 'i'                 },
+                { "directory",       required_argument, NULL, 'D'                 },
                 { "machine",         required_argument, NULL, 'M'                 },
                 { "qemu-smp",        required_argument, NULL, ARG_QEMU_SMP        },
                 { "qemu-mem",        required_argument, NULL, ARG_QEMU_MEM        },
@@ -164,13 +170,21 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         optind = 0;
-        while ((c = getopt_long(argc, argv, "+hi:M", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hD:i:M", options, NULL)) >= 0)
                 switch (c) {
                 case 'h':
                         return help();
 
                 case ARG_VERSION:
                         return version();
+
+                case 'D':
+                        r = parse_path_argument(optarg, false, &arg_directory);
+                        if (r < 0)
+                                return r;
+
+                        arg_settings_mask |= SETTING_DIRECTORY;
+                        break;
 
                 case 'i':
                         r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image);
@@ -539,14 +553,14 @@ static int start_vtpm(sd_bus *bus, const char *scope, const char *vtpm, const ch
         return 0;
 }
 
-static int find_initrd(char **ret_initrd) {
+static int find_initrd(char *kernel, char **ret_initrd) {
         _cleanup_free_ char *s = NULL, *initrd = NULL;
         char *c;
 
         assert(ret_initrd);
 
         /* if the kernel is an EFI image we don't need an initrd */
-        if (endswith(arg_kernel, ".efi")) {
+        if (endswith(kernel, ".efi")) {
                 ret_initrd = NULL;
                 return 0;
         }
@@ -556,7 +570,7 @@ static int find_initrd(char **ret_initrd) {
          *   2. kernel stripped of suffix + .initrd
          *   3. image + .initrd
          */
-        initrd = strjoin(arg_kernel, ".initrd");
+        initrd = strjoin(kernel, ".initrd");
         if (!initrd)
                 return log_oom();
 
@@ -569,7 +583,7 @@ static int find_initrd(char **ret_initrd) {
         initrd = mfree(initrd);
 
         /* strip kernel suffix */
-        s = strdup(arg_kernel);
+        s = strdup(kernel);
         if (!s)
                 return log_oom();
 
@@ -588,7 +602,7 @@ static int find_initrd(char **ret_initrd) {
                 return log_error_errno(errno, "Encountered error searching for initrd: %m");
         initrd = mfree(initrd);
 
-        initrd = strjoin(arg_image, ".initrd");
+        initrd = strjoin(arg_image ?: arg_directory, ".initrd");
         if (!initrd)
                 return log_oom();
         if (access(initrd, F_OK) >= 0) {
@@ -601,15 +615,86 @@ static int find_initrd(char **ret_initrd) {
         return -ENOENT;
 }
 
+static int start_virtiofsd(sd_bus *bus, const char *scope, const char *directory, char **ret_state_tempdir, char **ret_sock_name) {
+        _cleanup_(rm_rf_physical_and_freep) char *state = NULL;
+        _cleanup_strv_free_ char **cmdline = NULL, **cleanup = NULL;
+        _cleanup_free_ char *virtiofsd = NULL, *sock_path = NULL, *sock_name = NULL, *rm_path = NULL, *unit_name = NULL;
+        int r;
+
+        assert(bus);
+        assert(scope);
+        assert(directory);
+        assert(ret_state_tempdir);
+        assert(ret_sock_name);
+
+        r = find_executable("virtiofsd", &virtiofsd);
+        if (r < 0 && r != -ENOENT)
+                return log_error_errno(r, "Error while searching for virtiofsd: %m");
+
+        if (!virtiofsd) {
+                FOREACH_STRING(dir, "/usr/libexec/virtiofsd", "/usr/libexec/virtiofsd") {
+                        if (access(dir, X_OK) >= 0) {
+                                virtiofsd = strdup(dir);
+                                if (!virtiofsd)
+                                        return log_oom();
+                                break;
+                        }
+
+                        if (!IN_SET(errno, ENOENT, EACCES))
+                                return log_error_errno(errno, "Error while searching for virtiofsd: %m");
+                }
+        }
+
+        if (!virtiofsd)
+                return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Failed to find virtiofsd binary.");
+
+        r = find_executable("rm", &rm_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to find 'rm' binary: %m");
+
+        r = mkdtemp_malloc("/tmp/vmspawn-virtiofsd-XXXXXX", &state);
+        if (r < 0)
+                return r;
+
+        if (asprintf(&sock_name, "sock-%"PRIx64, random_u64()) < 0)
+                return log_oom();
+
+        sock_path = strjoin(state, "/", sock_name);
+        if (!sock_path)
+                return log_oom();
+
+        cmdline = strv_new(virtiofsd, "--shared-dir", directory, "--xattr", "--posix-acl", "--fd", "3");
+        if (!cmdline)
+                return log_oom();
+
+        cleanup = strv_new(rm_path, "-rf", state);
+        if (!cleanup)
+                return log_oom();
+
+        unit_name = strjoin(scope, "-virtiofsd", directory);
+        if (!unit_name)
+                return log_oom();
+
+        r = attach_command_to_socket_in_scope(bus, scope, unit_name, sock_path, SOCK_STREAM, cmdline, cleanup, NULL);
+        if (r < 0)
+                return r;
+
+        *ret_state_tempdir = TAKE_PTR(state);
+        *ret_sock_name = TAKE_PTR(sock_name);
+
+        return 0;
+}
+
 static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_free_ char *qemu_binary = NULL, *mem = NULL, *trans_scope = NULL;
+        _cleanup_free_ char *machine = NULL, *qemu_binary = NULL, *mem = NULL, *trans_scope = NULL,
+                            *kernel = NULL;
         _cleanup_close_ int notify_sock_fd = -EBADF;
         _cleanup_strv_free_ char **cmdline = NULL;
         _cleanup_free_ int *pass_fds = NULL;
         size_t n_pass_fds = 0;
-        const char *machine, *accel;
+        const char *accel, *shm;
         int r;
 
         if (getuid() == 0)
@@ -640,8 +725,28 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 log_warning("Couldn't find OVMF firmware blob with Secure Boot support, "
                             "falling back to OVMF firmware blobs without Secure Boot support.");
 
-        if (arg_kernel && access(arg_kernel, F_OK) < 0)
-                return log_error_errno(errno, "Kernel not found at %s: %m", arg_kernel);
+        shm = arg_directory ? ",memory-backend=mem" : "";
+        if (IN_SET(native_architecture(), ARCHITECTURE_ARM64, ARCHITECTURE_ARM64_BE))
+                machine = strjoin("type=virt", shm);
+        else
+                machine = strjoin("type=q35,smm=", on_off(ovmf_config->supports_sb), shm);
+        if (!machine)
+                return log_oom();
+
+        if (arg_kernel) {
+                if (access(arg_kernel, F_OK) < 0)
+                        return log_error_errno(errno, "Kernel not found at %s: %m", arg_kernel);
+                kernel = strdup(arg_kernel);
+                if (!kernel)
+                        return log_oom();
+        } else if (arg_directory) {
+                kernel = strjoin(arg_directory, ".vmlinuz");
+                if (!kernel)
+                        return log_oom();
+
+                if (access(kernel, F_OK) < 0)
+                        return log_error_errno(errno, "Kernel not found at %s: %m", kernel);
+        }
 
         STRV_FOREACH(i, arg_initrds)
                 if (access(*i, F_OK) < 0)
@@ -653,12 +758,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to find QEMU binary: %m");
 
-        if (IN_SET(native_architecture(), ARCHITECTURE_ARM64, ARCHITECTURE_ARM64_BE))
-                machine = "type=virt";
-        else
-                machine = ovmf_config->supports_sb ? "type=q35,smm=on" : "type=q35,smm=off";
-
-        if (asprintf(&mem, "%.4fM", (double)arg_qemu_mem / (1024.0 * 1024.0)) < 0)
+        if (asprintf(&mem, "%"PRIu64"M", arg_qemu_mem >> 20) < 0)
                 return log_oom();
 
         cmdline = strv_new(
@@ -688,6 +788,26 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return log_oom();
 
+        /* A shared memory backend might increase ram usage so only add one if actually necessary for virtiofsd. */
+        if (arg_directory) {
+                r = strv_extend(&cmdline, "-object");
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extendf(&cmdline, "memory-backend-memfd,id=mem,size=%s,share=on", mem);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        bool use_vsock = arg_qemu_vsock > 0 && ARCHITECTURE_SUPPORTS_SMBIOS;
+        if (arg_qemu_vsock < 0) {
+                r = qemu_check_vsock_support();
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check for VSock support: %m");
+
+                use_vsock = r;
+        }
+
         if (use_kvm && kvm_device_fd > 0) {
                 accel = "kvm,device=/dev/fdset/1";
 
@@ -711,15 +831,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         r = strv_extend_strv(&cmdline, STRV_MAKE("-accel", accel), /* filter_duplicates= */ false);
         if (r < 0)
                 return log_oom();
-
-        bool use_vsock = arg_qemu_vsock > 0 && ARCHITECTURE_SUPPORTS_SMBIOS;
-        if (arg_qemu_vsock < 0) {
-                r = qemu_check_vsock_support();
-                if (r < 0)
-                        return log_error_errno(r, "Failed to check for VSock support: %m");
-
-                use_vsock = r;
-        }
 
         _cleanup_close_ int child_vsock_fd = -EBADF;
         if (use_vsock) {
@@ -837,26 +948,55 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
         }
 
-        if (arg_kernel) {
-                r = strv_extend_strv(&cmdline, STRV_MAKE("-kernel", arg_kernel), /* filter_duplicates= */ false);
+        if (kernel) {
+                r = strv_extend_strv(&cmdline, STRV_MAKE("-kernel", kernel), /* filter_duplicates= */ false);
                 if (r < 0)
                         return log_oom();
         }
 
-        r = strv_extend(&cmdline, "-drive");
-        if (r < 0)
-                return log_oom();
+        if (arg_image) {
+                assert(!arg_directory);
 
-        r = strv_extendf(&cmdline, "if=none,id=mkosi,file=%s,format=raw", arg_image);
-        if (r < 0)
-                return log_oom();
+                r = strv_extend(&cmdline, "-drive");
+                if (r < 0)
+                        return log_oom();
 
-        r = strv_extend_strv(&cmdline, STRV_MAKE(
-                "-device", "virtio-scsi-pci,id=scsi",
-                "-device", "scsi-hd,drive=mkosi,bootindex=1"
-        ),  /* filter_duplicates= */ false);
-        if (r < 0)
-                return log_oom();
+                r = strv_extendf(&cmdline, "if=none,id=mkosi,file=%s,format=raw", arg_image);
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extend_strv(&cmdline, STRV_MAKE(
+                        "-device", "virtio-scsi-pci,id=scsi",
+                        "-device", "scsi-hd,drive=mkosi,bootindex=1"
+                ),  /* filter_duplicates= */ false);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        if (arg_directory) {
+                _cleanup_free_ char *sock_path = NULL, *sock_name = NULL;
+                r = start_virtiofsd(bus, trans_scope, arg_directory, &sock_path, &sock_name);
+
+                r = strv_extend(&cmdline, "-chardev");
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extendf(&cmdline, "socket,id=%1$s,path=%2$s/%1$s", sock_name, sock_path);
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extend(&cmdline, "-device");
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extendf(&cmdline, "vhost-user-fs-pci,queue-size=1024,chardev=%s,tag=root", sock_name);
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extend(&arg_kernel_cmdline_extra, "root=root rootfstype=virtiofs rw");
+                if (r < 0)
+                        return log_oom();
+        }
 
         _cleanup_free_ char *swtpm = NULL;
         if (arg_vtpm != 0) {
@@ -907,7 +1047,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (!kcl)
                         return log_oom();
 
-                if (arg_kernel) {
+                if (kernel) {
                         r = strv_extend_strv(&cmdline, STRV_MAKE("-append", kcl), /* filter_duplicates= */ false);
                         if (r < 0)
                                 return log_oom();
@@ -925,9 +1065,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 }
         }
 
-        if (strv_isempty(arg_initrds) && arg_kernel) {
+        if (strv_isempty(arg_initrds) && kernel) {
                 _cleanup_free_ char *initrd = NULL;
-                r = find_initrd(&initrd);
+                r = find_initrd(kernel, &initrd);
                 if (r < 0)
                         return log_error_errno(r, "Failed to find initrd: %m");
 
@@ -1026,20 +1166,28 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 static int determine_names(void) {
         int r;
 
-        if (!arg_image)
-                return log_error_errno(SYNTHETIC_ERRNO(-EINVAL), "Missing required argument -i/--image=, quitting");
+        if (!arg_directory && !arg_image)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine path, please use -D or -i.");
 
         if (!arg_machine) {
-                char *e;
+                if (arg_directory && path_equal(arg_directory, "/"))
+                        arg_machine = gethostname_malloc();
+                else if (arg_image) {
+                        char *e;
 
-                r = path_extract_filename(arg_image, &arg_machine);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to extract file name from '%s': %m", arg_image);
+                        r = path_extract_filename(arg_image, &arg_machine);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract file name from '%s': %m", arg_image);
 
-                /* Truncate suffix if there is one */
-                e = endswith(arg_machine, ".raw");
-                if (e)
-                        *e = 0;
+                        /* Truncate suffix if there is one */
+                        e = endswith(arg_machine, ".raw");
+                        if (e)
+                                *e = 0;
+                } else {
+                        r = path_extract_filename(arg_directory, &arg_machine);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract file name from '%s': %m", arg_directory);
+                }
 
                 hostname_cleanup(arg_machine);
                 if (!hostname_is_valid(arg_machine, 0))
