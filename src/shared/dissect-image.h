@@ -103,9 +103,10 @@ struct DissectedImage {
 
         uint32_t sector_size;
 
-        /* Meta information extracted from /etc/os-release and similar */
         char *image_name;
         sd_id128_t image_uuid;
+
+        /* Meta information extracted from /etc/os-release and similar */
         char *hostname;
         sd_id128_t machine_id;
         char **machine_info;
