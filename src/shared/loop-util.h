@@ -22,6 +22,7 @@ struct LoopDevice {
         sd_device *dev;
         char *backing_file;
         bool relinquished;
+        bool created;        /* If we created the device */
         dev_t backing_devno; /* The backing file's dev_t */
         ino_t backing_inode; /* The backing file's ino_t */
         uint64_t diskseq; /* Block device sequence number, monothonically incremented by the kernel on create/attach, or 0 if we don't know */
