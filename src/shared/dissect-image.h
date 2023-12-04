@@ -240,3 +240,5 @@ static inline const char *dissected_partition_fstype(const DissectedPartition *m
 }
 
 int get_common_dissect_directory(char **ret);
+
+int mntfsd_mount_image(const char *path, int userns_fd, const ImagePolicy *image_policy, DissectImageFlags flags, DissectedImage **ret);
