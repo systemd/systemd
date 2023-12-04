@@ -3973,16 +3973,19 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n"
-               "\n%sCreates, deletes and cleans up volatile and temporary files and directories.%s\n\n"
+        printf("%1$s COMMAND [OPTIONS...] [CONFIGURATION FILE...]\n"
+               "\n%2$sCreates, deletes, and cleans up files and directories.%3$s\n\n"
+               "Commands\n"
+               "     %2$s--create%3$s               Create files and directories\n"
+               "     %2$s--clean%3$s                Clean up files and directories\n"
+               "     %2$s--remove%3$s               Remove files and directories\n"
                "  -h --help                 Show this help\n"
-               "     --user                 Execute user configuration\n"
                "     --version              Show package version\n"
+               "\n"
+               "Options\n"
+               "     --user                 Execute user configuration\n"
                "     --cat-config           Show configuration files\n"
                "     --tldr                 Show non-comment parts of configuration\n"
-               "     --create               Create marked files/directories\n"
-               "     --clean                Clean up marked directories\n"
-               "     --remove               Remove marked files/directories\n"
                "     --boot                 Execute actions only safe at boot\n"
                "     --graceful             Quietly ignore unknown users or groups\n"
                "     --prefix=PATH          Only apply rules with the specified prefix\n"
@@ -3993,7 +3996,7 @@ static int help(void) {
                "     --image-policy=POLICY  Specify disk image dissection policy\n"
                "     --replace=PATH         Treat arguments as replacement for PATH\n"
                "     --no-pager             Do not pipe output into a pager\n"
-               "\nSee the %s for details.\n",
+               "\nSee the %4$s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
                ansi_normal(),
