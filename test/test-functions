@@ -157,6 +157,7 @@ BASICTOOLS=(
     bash
     capsh
     cat
+    chgrp
     chmod
     chown
     chroot
@@ -2870,14 +2871,14 @@ inst_binary() {
 
     # Same as above, but we need to wrap certain libraries unconditionally
     #
-    # chown, getent, login, setfacl, su, useradd, userdel
+    # chgrp, chown, getent, login, setfacl, su, useradd, userdel
     #    - dlopen() (not only) systemd's PAM modules
     # ls, mkfs.*, mksquashfs, mkswap, setpriv, stat
     #   - pull in nss_systemd with certain options (like ls -l) when
     #     nsswitch.conf uses [SUCCESS=merge] (like on Arch Linux)
     # delv, dig - pull in nss_resolve if `resolve` is in nsswitch.conf
     # tar - called by machinectl in TEST-25
-    bin_rx='/(agetty|chown|curl|delv|dig|getfacl|getent|id|login|ls|mkfs\.[a-z0-9]+|mksquashfs|mkswap|setfacl|setpriv|stat|su|tar|useradd|userdel)$'
+    bin_rx='/(agetty|chgrp|chown|curl|delv|dig|getfacl|getent|id|login|ls|mkfs\.[a-z0-9]+|mksquashfs|mkswap|setfacl|setpriv|stat|su|tar|useradd|userdel)$'
     if get_bool "$IS_BUILT_WITH_ASAN" && [[ "$bin" =~ $bin_rx ]]; then
         wrap_binary=1
         # Ugh, so we want to disable LSan in most cases for the wrapped binaries, since
