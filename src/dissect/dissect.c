@@ -844,7 +844,7 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                 fflush(stdout);
         }
 
-        r = dissected_image_acquire_metadata(m, 0);
+        r = dissected_image_acquire_metadata(m, /* userns_fd= */ -EBADF, /* extra_flags= */ 0);
         if (r == -ENXIO)
                 return log_error_errno(r, "No root partition discovered.");
         if (r == -EUCLEAN)
