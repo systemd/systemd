@@ -428,6 +428,28 @@ assert_cc(sizeof(uint32_t) == sizeof(unsigned));
 assert_cc(sizeof(int32_t) == sizeof(int));
 #define json_dispatch_int json_dispatch_int32
 
+#define JSON_DISPATCH_ENUM_DEFINE(name, type, func)                     \
+        int name(const char *n, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) { \
+                type *c = ASSERT_PTR(userdata);                         \
+                                                                        \
+                assert(variant);                                        \
+                                                                        \
+                if (json_variant_is_null(variant)) {                    \
+                        *c = (type) -EINVAL;                            \
+                        return 0;                                       \
+                }                                                       \
+                                                                        \
+                if (!json_variant_is_string(variant))                   \
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(n)); \
+                                                                        \
+                type cc = func(json_variant_string(variant));           \
+                if (cc < 0)                                             \
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Value of JSON field '%s' not recognized.", strna(n)); \
+                                                                        \
+                *c = cc;                                                \
+                return 0;                                               \
+        }
+
 static inline int json_dispatch_level(JsonDispatchFlags flags) {
 
         /* Did the user request no logging? If so, then never log higher than LOG_DEBUG. Also, if this is marked as
