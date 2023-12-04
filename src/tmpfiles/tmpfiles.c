@@ -1582,7 +1582,7 @@ static int fd_set_attribute(
 
         procfs_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NOATIME);
         if (procfs_fd < 0)
-                return log_error_errno(procfs_fd, "Failed to re-open '%s': %m", path);
+                return log_error_errno(procfs_fd, "Failed to reopen '%s': %m", path);
 
         unsigned previous, current;
         r = chattr_full(procfs_fd, NULL, f, item->attribute_mask, &previous, &current, CHATTR_FALLBACK_BITWISE);
@@ -1734,7 +1734,7 @@ static int create_file(
                  * fd_set_perms() report the error if the perms need to be modified. */
                 fd = openat(dir_fd, bn, O_NOFOLLOW|O_CLOEXEC|O_PATH, i->mode);
                 if (fd < 0)
-                        return log_error_errno(errno, "Failed to re-open file %s: %m", path);
+                        return log_error_errno(errno, "Failed to reopen file %s: %m", path);
 
                 if (fstat(fd, &stbuf) < 0)
                         return log_error_errno(errno, "stat(%s) failed: %m", path);
@@ -1817,7 +1817,7 @@ static int truncate_file(
                                                        "Cannot create file %s on a read-only file system.",
                                                        path);
 
-                        return log_error_errno(errno, "Failed to re-open file %s: %m", path);
+                        return log_error_errno(errno, "Failed to reopen file %s: %m", path);
                 }
 
                 erofs = true;
