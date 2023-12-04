@@ -3987,16 +3987,18 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] [CONFIGURATION FILE...]\n"
-               "\n%sCreates, deletes and cleans up volatile and temporary files and directories.%s\n\n"
+        printf("%1$s COMMAND [OPTIONS...] [CONFIGURATION FILE...]\n"
+               "\n%2$sCreate, delete, and clean up files and directories.%4$s\n"
+               "\n%3$sCommands:%4$s\n"
+               "     --create               Create files and directories\n"
+               "     --clean                Clean up files and directories\n"
+               "     --remove               Remove files and directories\n"
                "  -h --help                 Show this help\n"
-               "     --user                 Execute user configuration\n"
                "     --version              Show package version\n"
+               "\n%3$sOptions:%4$s\n"
+               "     --user                 Execute user configuration\n"
                "     --cat-config           Show configuration files\n"
                "     --tldr                 Show non-comment parts of configuration\n"
-               "     --create               Create marked files/directories\n"
-               "     --clean                Clean up marked directories\n"
-               "     --remove               Remove marked files/directories\n"
                "     --boot                 Execute actions only safe at boot\n"
                "     --graceful             Quietly ignore unknown users or groups\n"
                "     --purge                Delete all files owned by the configuration files\n"
@@ -4008,9 +4010,10 @@ static int help(void) {
                "     --image-policy=POLICY  Specify disk image dissection policy\n"
                "     --replace=PATH         Treat arguments as replacement for PATH\n"
                "     --no-pager             Do not pipe output into a pager\n"
-               "\nSee the %s for details.\n",
+               "\nSee the %5$s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
+               ansi_underline(),
                ansi_normal(),
                link);
 
