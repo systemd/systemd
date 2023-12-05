@@ -646,6 +646,24 @@ TEST(dir_fd_is_root) {
         assert_se(dir_fd_is_root_or_cwd(fd) == 0);
 }
 
+TEST(fds_are_same_mount) {
+        _cleanup_close_ int fd1 = -EBADF, fd2 = -EBADF, fd3 = -EBADF, fd4 = -EBADF;
+
+        fd1 = open("/sys", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW);
+        fd2 = open("/proc", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW);
+        fd3 = open("/proc", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW);
+        fd4 = open("/", O_CLOEXEC|O_PATH|O_DIRECTORY|O_NOFOLLOW);
+
+        if (fd1 < 0 || fd2 < 0 || fd3 < 0 || fd4 < 0)
+                return (void) log_tests_skipped_errno(errno, "Failed to open /sys or /proc or /");
+
+        if (fds_are_same_mount(fd1, fd4) > 0 && fds_are_same_mount(fd2, fd4) > 0)
+                return (void) log_tests_skipped("Cannot test fds_are_same_mount() as /sys and /proc are not mounted");
+
+        assert_se(fds_are_same_mount(fd1, fd2) == 0);
+        assert_se(fds_are_same_mount(fd2, fd3) > 0);
+}
+
 TEST(fd_get_path) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
