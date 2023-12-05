@@ -8,7 +8,7 @@
 #include <linux/stat.h>
 #endif
 
-/* Thew newest definition we are aware of (fa2fcf4f1df1559a0a4ee0f46915b496cc2ebf60; 5.8) */
+/* The newest definition we are aware of (fa2fcf4f1df1559a0a4ee0f46915b496cc2ebf60; 5.8) */
 #define STATX_DEFINITION {                      \
         __u32 stx_mask;                         \
         __u32 stx_blksize;                      \
