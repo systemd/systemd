@@ -147,8 +147,8 @@ int link_lldp_save(Link *link) {
                         goto finish;
 
                 u = htole64(sz);
-                (void) fwrite(&u, 1, sizeof(u), f);
-                (void) fwrite(p, 1, sz, f);
+                fwrite(&u, 1, sizeof(u), f);
+                fwrite(p, 1, sz, f);
         }
 
         r = fflush_and_check(f);
