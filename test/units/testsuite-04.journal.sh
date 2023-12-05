@@ -241,3 +241,27 @@ diff -u /tmp/lb1 - <<'EOF'
 [{"index":-3,"boot_id":"5ea5fc4f82a14186b5332a788ef9435e","first_entry":1666569600994371,"last_entry":1666584266223608},{"index":-2,"boot_id":"bea6864f21ad4c9594c04a99d89948b0","first_entry":1666569601005945,"last_entry":1666584347230411},{"index":-1,"boot_id":"4c708e1fd0744336be16f3931aa861fb","first_entry":1666569601017222,"last_entry":1666584354649355},{"index":0,"boot_id":"35e8501129134edd9df5267c49f744a4","first_entry":1666569601009823,"last_entry":1666584438086856}]
 EOF
 rm -rf "$JOURNAL_DIR" /tmp/lb1
+
+# Check that using --after-cursor/--cursor-file= together with journal filters doesn't
+# skip over entries matched by the filter
+# See: https://github.com/systemd/systemd/issues/30288
+UNIT_NAME="test-cursor-$RANDOM.service"
+CURSOR_FILE="$(mktemp)"
+# Generate some messages we can match against
+journalctl --cursor-file="$CURSOR_FILE" -n1
+systemd-run --unit="$UNIT_NAME" --wait --service-type=exec bash -xec "echo hello; echo world"
+journalctl --sync
+# --after-cursor= + --unit=
+# The format of the "Starting ..." message depends on StatusUnitFormat=, so match only the beginning
+# which should be enough in this case
+[[ "$(journalctl -n 1 -p info -o cat --unit="$UNIT_NAME" --after-cursor="$(<"$CURSOR_FILE")" _PID=1 )" =~ ^Starting\  ]]
+# There should be no such messages before the cursor
+[[ -z "$(journalctl -n 1 -p info -o cat --unit="$UNIT_NAME" --after-cursor="$(<"$CURSOR_FILE")" --reverse)" ]]
+# --cursor-file= + a journal filter
+diff <(journalctl --cursor-file="$CURSOR_FILE" -p info -o cat _SYSTEMD_UNIT="$UNIT_NAME") - <<EOF
++ echo hello
+hello
++ echo world
+world
+EOF
+rm -f "$CURSOR_FILE"
