@@ -16,6 +16,7 @@
 #include "conf-files.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "fs-util.h"
 #include "hashmap.h"
 #include "log.h"
 #include "memory-util.h"
@@ -382,10 +383,8 @@ static int64_t write_catalog(
                 CatalogItem *items,
                 size_t n) {
 
+        _cleanup_(unlink_and_freep) char *p = NULL;
         _cleanup_fclose_ FILE *w = NULL;
-        _cleanup_free_ char *p = NULL;
-        CatalogHeader header;
-        size_t k;
         int r;
 
         r = mkdir_parents(database, 0755);
@@ -394,54 +393,35 @@ static int64_t write_catalog(
 
         r = fopen_temporary(database, &w, &p);
         if (r < 0)
-                return log_error_errno(r, "Failed to open database for writing: %s: %m",
-                                       database);
+                return log_error_errno(r, "Failed to open database for writing: %s: %m", database);
 
-        header = (CatalogHeader) {
+        CatalogHeader header = {
                 .signature = CATALOG_SIGNATURE,
                 .header_size = htole64(CONST_ALIGN_TO(sizeof(CatalogHeader), 8)),
                 .catalog_item_size = htole64(sizeof(CatalogItem)),
                 .n_items = htole64(n),
         };
 
-        r = -EIO;
+        if (fwrite(&header, sizeof(header), 1, w) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "%s: failed to write header.", p);
 
-        k = fwrite(&header, 1, sizeof(header), w);
-        if (k != sizeof(header)) {
-                log_error("%s: failed to write header.", p);
-                goto error;
-        }
+        if (fwrite(items, sizeof(CatalogItem), n, w) != n)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "%s: failed to write database.", p);
 
-        k = fwrite(items, 1, n * sizeof(CatalogItem), w);
-        if (k != n * sizeof(CatalogItem)) {
-                log_error("%s: failed to write database.", p);
-                goto error;
-        }
-
-        k = fwrite(sb->buf, 1, sb->len, w);
-        if (k != sb->len) {
-                log_error("%s: failed to write strings.", p);
-                goto error;
-        }
+        if (fwrite(sb->buf, sb->len, 1, w) != 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "%s: failed to write strings.", p);
 
         r = fflush_and_check(w);
-        if (r < 0) {
-                log_error_errno(r, "%s: failed to write database: %m", p);
-                goto error;
-        }
+        if (r < 0)
+                return log_error_errno(r, "%s: failed to write database: %m", p);
 
         (void) fchmod(fileno(w), 0644);
 
-        if (rename(p, database) < 0) {
-                r = log_error_errno(errno, "rename (%s -> %s) failed: %m", p, database);
-                goto error;
-        }
+        if (rename(p, database) < 0)
+                return log_error_errno(errno, "rename (%s -> %s) failed: %m", p, database);
 
+        p = mfree(p); /* free without unlinking */
         return ftello(w);
-
-error:
-        (void) unlink(p);
-        return r;
 }
 
 int catalog_update(const char* database, const char* root, const char* const* dirs) {
