@@ -66,10 +66,19 @@ int switch_root(const char *new_root,
         r = inode_same_at(old_root_fd, "", new_root_fd, "", AT_EMPTY_PATH);
         if (r < 0)
                 return log_error_errno(r, "Failed to determine if old and new root directory are the same: %m");
-        if (r > 0) {
+        if (r > 0 && !FLAGS_SET(flags, SWITCH_ROOT_PIVOT_IN_PLACE)) {
                 log_debug("Skipping switch root, as old and new root directory are the same.");
                 return 0;
         }
+
+        if (r == 0 && FLAGS_SET(flags, SWITCH_ROOT_DESTROY_OLD_ROOT)) {
+                istmp = fd_is_temporary_fs(old_root_fd);
+                if (istmp < 0)
+                        return log_error_errno(istmp, "Failed to stat root directory: %m");
+                if (istmp > 0)
+                        log_debug("Root directory is on tmpfs, will do cleanup later.");
+        } else
+                istmp = -1; /* don't know */
 
         /* Make the new root directory a mount point if it isn't */
         r = fd_make_mount_point(new_root_fd);
@@ -87,15 +96,6 @@ int switch_root(const char *new_root,
 
                 close_and_replace(new_root_fd, fd);
         }
-
-        if (FLAGS_SET(flags, SWITCH_ROOT_DESTROY_OLD_ROOT)) {
-                istmp = fd_is_temporary_fs(old_root_fd);
-                if (istmp < 0)
-                        return log_error_errno(istmp, "Failed to stat root directory: %m");
-                if (istmp > 0)
-                        log_debug("Root directory is on tmpfs, will do cleanup later.");
-        } else
-                istmp = -1; /* don't know */
 
         if (old_root_after) {
                 /* Determine where we shall place the old root after the transition */
