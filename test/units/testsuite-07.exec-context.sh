@@ -119,8 +119,9 @@ if ! systemd-detect-virt -cq; then
         -p IODeviceWeight="/foo/bar 999"
     )
 
+    systemctl set-property system.slice IOAccounting=yes
     # io.latency not available by default on Debian stable
-    if [ -e /sys/fs/cgroup/system.slice/io.latency ]; then
+    if [[ -e /sys/fs/cgroup/system.slice/io.latency ]]; then
         systemd-run --wait --pipe --unit "$SERVICE_NAME" "${ARGUMENTS[@]}" \
             bash -xec "diff <(echo $EXPECTED_IO_MAX) $CGROUP_PATH/io.max; diff <(echo $EXPECTED_IO_LATENCY) $CGROUP_PATH/io.latency"
     fi
