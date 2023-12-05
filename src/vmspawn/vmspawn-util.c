@@ -33,6 +33,22 @@ OvmfConfig* ovmf_config_free(OvmfConfig *config) {
         return mfree(config);
 }
 
+int parse_qemu_network_stack(const char *s, QemuNetworkStack *net_stack) {
+        assert(s);
+        assert(net_stack);
+
+        if (streq(optarg, "user"))
+                *net_stack = QEMU_NET_USER;
+        else if (streq(optarg, "tap"))
+                *net_stack = QEMU_NET_TAP;
+        else if (streq(optarg, "none"))
+                *net_stack = QEMU_NET_NONE;
+        else
+                return -EINVAL;
+
+        return 0;
+}
+
 int qemu_check_kvm_support(void) {
         if (access("/dev/kvm", F_OK) >= 0)
                 return true;
@@ -267,7 +283,7 @@ int find_qemu_binary(char **ret_qemu_binary) {
         return find_executable(qemu_arch_specific, ret_qemu_binary);
 }
 
-int vsock_fix_child_cid(unsigned *machine_cid, const char *machine, int *ret_child_sock) {
+int vsock_fix_child_cid(int vsock_fd, unsigned *machine_cid, const char *machine) {
         /* this is an arbitrary value picked from /dev/urandom */
         static const uint8_t sip_key[HASH_KEY_SIZE] = {
                 0x03, 0xad, 0xf0, 0xa4,
@@ -276,14 +292,12 @@ int vsock_fix_child_cid(unsigned *machine_cid, const char *machine, int *ret_chi
                 0xf5, 0x4c, 0x80, 0x52
         };
         struct siphash machine_hash_state, state;
-        _cleanup_close_ int vfd = -EBADF;
         int r;
 
         /* uint64_t is required here for the ioctl call, but valid CIDs are only 32 bits */
         uint64_t cid = *ASSERT_PTR(machine_cid);
 
         assert(machine);
-        assert(ret_child_sock);
 
         /* Fix the CID of the AF_VSOCK socket passed to qemu
          *
@@ -296,16 +310,10 @@ int vsock_fix_child_cid(unsigned *machine_cid, const char *machine, int *ret_chi
          * If after another 64 attempts this hasn't worked then give up and return EADDRNOTAVAIL.
          */
 
-        /* remove O_CLOEXEC before this fd is passed to QEMU */
-        vfd = open("/dev/vhost-vsock", O_RDWR|O_CLOEXEC);
-        if (vfd < 0)
-                return log_debug_errno(errno, "Failed to open /dev/vhost-vsock as read/write: %m");
-
         if (cid != VMADDR_CID_ANY) {
-                r = ioctl(vfd, VHOST_VSOCK_SET_GUEST_CID, &cid);
+                r = ioctl(vsock_fd, VHOST_VSOCK_SET_GUEST_CID, &cid);
                 if (r < 0)
                         return log_debug_errno(errno, "Failed to set CID for child vsock with user provided CID %" PRIu64 ": %m", cid);
-                *ret_child_sock = TAKE_FD(vfd);
                 return 0;
         }
 
@@ -317,10 +325,9 @@ int vsock_fix_child_cid(unsigned *machine_cid, const char *machine, int *ret_chi
                 uint64_t hash = siphash24_finalize(&state);
 
                 cid = 3 + (hash % (UINT_MAX - 4));
-                r = ioctl(vfd, VHOST_VSOCK_SET_GUEST_CID, &cid);
+                r = ioctl(vsock_fd, VHOST_VSOCK_SET_GUEST_CID, &cid);
                 if (r >= 0) {
                         *machine_cid = cid;
-                        *ret_child_sock = TAKE_FD(vfd);
                         return 0;
                 }
                 if (errno != EADDRINUSE)
@@ -329,10 +336,9 @@ int vsock_fix_child_cid(unsigned *machine_cid, const char *machine, int *ret_chi
 
         for (unsigned i = 0; i < 64; i++) {
                 cid = 3 + random_u64_range(UINT_MAX - 4);
-                r = ioctl(vfd, VHOST_VSOCK_SET_GUEST_CID, &cid);
+                r = ioctl(vsock_fd, VHOST_VSOCK_SET_GUEST_CID, &cid);
                 if (r >= 0) {
                         *machine_cid = cid;
-                        *ret_child_sock = TAKE_FD(vfd);
                         return 0;
                 }
 
