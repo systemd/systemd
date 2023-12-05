@@ -396,6 +396,11 @@ static int verify_esp(
         if (relax_checks)
                 goto finish;
 
+        if (devnum_is_zero(devid))
+                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
+                                      SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
+                                      "Could not determine backing block device of directory \"%s\" (btrfs RAID?).", p);
+
         /* If we are unprivileged we ask udev for the metadata about the partition. If we are privileged we
          * use blkid instead. Why? Because this code is called from 'bootctl' which is pretty much an
          * emergency recovery tool that should also work when udev isn't up (i.e. from the emergency shell),
@@ -766,6 +771,15 @@ static int verify_xbootldr(
 
         if (relax_checks)
                 goto finish;
+
+        if (devnum_is_zero(devid))
+                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
+                                      SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
+                                      "Could not determine backing block device of directory \"%s\" (btrfs RAID?).%s",
+                                      p,
+                                      searching ? "" :
+                                      "\nHint: set $SYSTEMD_RELAX_XBOOTLDR_CHECKS=yes environment variable "
+                                      "to bypass this and further verifications for the directory.");
 
         if (unprivileged_mode)
                 r = verify_xbootldr_udev(devid, flags, ret_uuid);
