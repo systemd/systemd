@@ -1632,13 +1632,6 @@ static int parse_argv(int argc, char *argv[]) {
 
         arg_caps_retain |= plus;
         arg_caps_retain |= arg_private_network ? UINT64_C(1) << CAP_NET_ADMIN : 0;
-
-        /* If we're not unsharing the network namespace and are unsharing the user namespace, we won't have
-         * permissions to bind ports in the container, so let's drop the CAP_NET_BIND_SERVICE capability to
-         * indicate that. */
-        if (!arg_private_network && arg_userns_mode != USER_NAMESPACE_NO && arg_uid_shift > 0)
-                arg_caps_retain &= ~(UINT64_C(1) << CAP_NET_BIND_SERVICE);
-
         arg_caps_retain &= ~minus;
 
         /* Make sure to parse environment before we reset the settings mask below */
@@ -5419,6 +5412,12 @@ static int run(int argc, char *argv[]) {
         r = load_settings();
         if (r < 0)
                 goto finish;
+
+        /* If we're not unsharing the network namespace and are unsharing the user namespace, we won't have
+         * permissions to bind ports in the container, so let's drop the CAP_NET_BIND_SERVICE capability to
+         * indicate that. */
+        if (!arg_private_network && arg_userns_mode != USER_NAMESPACE_NO && arg_uid_shift > 0)
+                arg_caps_retain &= ~(UINT64_C(1) << CAP_NET_BIND_SERVICE);
 
         r = cg_unified();
         if (r < 0) {
