@@ -45,12 +45,10 @@ the original executable, debuginfo and sources, to further facilitate debugging.
 
 * Section header
 
-```
-SECTION: `.note.package`
-note type: `0xcafe1a7e`
-Owner: `FDO` (FreeDesktop.org)
+Section: `.note.package`<br/>
+`note type`: `0xcafe1a7e`<br/>
+Owner: `FDO` (FreeDesktop.org)<br/>
 Value: a single JSON object encoded as a zero-terminated UTF-8 string
-```
 
 * JSON payload
 
