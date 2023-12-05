@@ -82,7 +82,9 @@ int main(int argc, char *argv[]) {
                 if (r == SD_EVENT_FINISHED)
                         break;
 
-                n = now(CLOCK_REALTIME);
+                r = sd_event_now(s->event, CLOCK_REALTIME, &n);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get the current time: %m");
 
                 if (server.max_retention_usec > 0 && server.oldest_file_usec > 0) {
 
