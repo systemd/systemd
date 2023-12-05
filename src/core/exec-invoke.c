@@ -3976,6 +3976,9 @@ int exec_invoke(
         assert(params);
         assert(exit_status);
 
+        if (context->log_level_max >= 0)
+                log_set_max_level(context->log_level_max);
+
         /* Explicitly test for CVE-2021-4034 inspired invocations */
         if (!command->path || strv_isempty(command->argv)) {
                 *exit_status = EXIT_EXEC;
@@ -4038,8 +4041,6 @@ int exec_invoke(
         log_forget_fds();
         log_set_open_when_needed(true);
         log_settle_target();
-        if (context->log_level_max >= 0)
-                log_set_max_level(context->log_level_max);
 
         /* In case anything used libc syslog(), close this here, too */
         closelog();
@@ -4918,10 +4919,12 @@ int exec_invoke(
                         }
 
                         if (keep_seccomp_privileges) {
-                                r = drop_capability(CAP_SETUID);
-                                if (r < 0) {
-                                        *exit_status = EXIT_USER;
-                                        return log_exec_error_errno(context, params, r, "Failed to drop CAP_SETUID: %m");
+                                if (!FLAGS_SET(capability_ambient_set, (UINT64_C(1) << CAP_SETUID))) {
+                                        r = drop_capability(CAP_SETUID);
+                                        if (r < 0) {
+                                                *exit_status = EXIT_USER;
+                                                return log_exec_error_errno(context, params, r, "Failed to drop CAP_SETUID: %m");
+                                        }
                                 }
 
                                 r = keep_capability(CAP_SYS_ADMIN);
@@ -5117,7 +5120,7 @@ int exec_invoke(
 #endif
 
 #if HAVE_SECCOMP
-                /* This really should remain as close to the execve() as possible, to make sure our own code is unaffected
+                /* This really should remain as close to the execve() as possible, to make sure our own code is affected
                  * by the filter as little as possible. */
                 r = apply_syscall_filter(context, params, needs_ambient_hack);
                 if (r < 0) {

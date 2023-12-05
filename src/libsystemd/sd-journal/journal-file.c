@@ -2913,9 +2913,19 @@ static int generic_array_bisect_step(
         if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
                 log_debug_errno(r, "Encountered invalid entry while bisecting, cutting algorithm short.");
 
-                /* The first entry in the array is corrupted, let's go back to the previous array. */
-                if (i == 0)
+                if (i == *left) {
+                        /* This happens on two situations:
+                         *
+                         * a) i == 0 (hence, *left == 0):
+                         *    The first entry in the array is corrupted, let's go back to the previous array.
+                         *
+                         * b) *right == *left or *left + 1, and we are going to downwards:
+                         *    In that case, the (i-1)-th object has been already tested in the previous call,
+                         *    which returned TEST_LEFT. See below. So, there is no matching entry in this
+                         *    array nor in the whole entry array chain. */
+                        assert(i == 0 || (*right - *left <= 1 && direction == DIRECTION_DOWN));
                         return TEST_GOTO_PREVIOUS;
+                }
 
                 /* Otherwise, cutting the array short. So, here we limit the number of elements we will see
                  * in this array, and set the right boundary to the last possibly non-corrupted object. */
@@ -3006,10 +3016,11 @@ static int generic_array_bisect(
                  * check that first. */
 
                 r = test_object(f, ci->begin, needle);
-                if (r < 0)
+                if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL))
+                        log_debug_errno(r, "Cached entry is corrupted, ignoring: %m");
+                else if (r < 0)
                         return r;
-
-                if (r == TEST_LEFT) {
+                else if (r == TEST_LEFT) {
                         /* OK, what we are looking for is right of the begin of this EntryArray, so let's
                          * jump straight to previously cached array in the chain */
 
@@ -3021,14 +3032,14 @@ static int generic_array_bisect(
         }
 
         while (a > 0) {
-                uint64_t left, right, k, m;
+                uint64_t left, right, k, m, m_original;
 
                 r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &array);
                 if (r < 0)
                         return r;
 
                 k = journal_file_entry_array_n_items(f, array);
-                m = MIN(k, n);
+                m = m_original = MIN(k, n);
                 if (m <= 0)
                         return 0;
 
@@ -3079,6 +3090,27 @@ static int generic_array_bisect(
 
                         for (;;) {
                                 if (left == right) {
+                                        /* We found one or more corrupted entries in generic_array_bisect_step().
+                                         * In that case, the entry pointed by 'right' may not be tested.
+                                         *
+                                         * When we are going to downwards, the entry object pointed by 'left'
+                                         * has not been tested yet, Hence, even if left == right, we still
+                                         * have to check the final entry to see if it actually matches.
+                                         *
+                                         * On the other hand, when we are going to upwards, the entry pointed
+                                         * by 'left' is always tested, So, it is not necessary to test the
+                                         * final entry again. */
+                                        if (m != m_original && direction == DIRECTION_DOWN) {
+                                                r = generic_array_bisect_step(f, array, left, needle, test_object, direction, &m, &left, &right);
+                                                if (r < 0)
+                                                        return r;
+                                                if (IN_SET(r, TEST_GOTO_PREVIOUS, TEST_GOTO_NEXT))
+                                                        return 0; /* The entry does not pass the test, or is corrupted */
+
+                                                assert(TEST_RIGHT);
+                                                assert(left == right);
+                                        }
+
                                         i = left;
                                         goto found;
                                 }
@@ -3091,6 +3123,8 @@ static int generic_array_bisect(
                                         return r;
                                 if (r == TEST_GOTO_PREVIOUS)
                                         goto previous;
+                                if (r == TEST_GOTO_NEXT)
+                                        return 0; /* Found a corrupt entry, and the array was cut short. */
                         }
                 }
 

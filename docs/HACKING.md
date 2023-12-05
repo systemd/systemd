@@ -35,7 +35,7 @@ possible, however. In order to simplify testing for cases like this we provide
 a set of `mkosi` build files directly in the source tree.
 [mkosi](https://github.com/systemd/mkosi) is a tool for building clean OS images
 from an upstream distribution in combination with a fresh build of the project
-in the local working directory. To make use of this, please install `mkosi` v18
+in the local working directory. To make use of this, please install `mkosi` v19
 or newer using your distribution's package manager or from the
 [GitHub repository](https://github.com/systemd/mkosi). `mkosi` will build an
 image for the host distro by default. First, run `mkosi genkey` to generate a key
@@ -60,8 +60,8 @@ Putting this all together, here's a series of commands for preparing a patch
 for systemd:
 
 ```sh
-$ git clone https://github.com/systemd/mkosi.git  # If mkosi v18 or newer is not packaged by your distribution
-$ ln -s $PWD/mkosi/bin/mkosi /usr/local/bin/mkosi # If mkosi v18 or newer is not packaged by your distribution
+$ git clone https://github.com/systemd/mkosi.git  # If mkosi v19 or newer is not packaged by your distribution
+$ ln -s $PWD/mkosi/bin/mkosi /usr/local/bin/mkosi # If mkosi v19 or newer is not packaged by your distribution
 $ git clone https://github.com/systemd/systemd.git
 $ cd systemd
 $ git checkout -b <BRANCH>        # where BRANCH is the name of the branch
@@ -234,7 +234,7 @@ QEMU.
 To allow VSCode's debugger to attach to systemd running in a mkosi image, we have to make sure it can access
 the virtual machine spawned by mkosi where systemd is running. mkosi makes this possible via a handy SSH
 option that makes the generated image accessible via SSH when booted. Thus you must build the image with
-`mkosi --ssh`. The easiest way to set the option is to create a file `mkosi.conf` in the root of the
+`mkosi --ssh`. The easiest way to set the option is to create a file `mkosi.local.conf` in the root of the
 repository and add the following contents:
 
 ```
@@ -336,24 +336,4 @@ To debug systemd-boot in an IDE such as VSCode we can use a launch configuration
         { "text": "source /tmp/systemd-boot.gdb" },
     ]
 }
-```
-
-## Hacking on the kernel + systemd
-
-If you're hacking on the kernel in tandem with systemd, you can clone a kernel repository in mkosi.kernel/ in
-the systemd repository, and mkosi will automatically build that kernel and install it into the final image.
-To prevent the distribution's kernel from being installed (which isn't necessary since we're building our
-own kernel), you can add the following snippets to mkosi.conf.d/20-local.conf:
-
-(This snippet is for Fedora, the list of packages will need to be changed for other distributions)
-
-```
-[Distribution]
-CacheInitrd=no
-
-[Content]
-BasePackages=conditional
-Packages=systemd
-         util-linux
-         dracut
 ```

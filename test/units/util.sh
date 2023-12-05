@@ -197,3 +197,22 @@ openssl_supports_kdf() {
     # but let's do that when/if the need arises
     openssl kdf -keylen 16 -kdfopt digest:SHA2-256 -kdfopt key:foo -out /dev/null "$kdf"
 }
+
+kernel_supports_lsm() {
+    local lsm="${1:?}"
+    local items item
+
+    if [[ ! -e /sys/kernel/security/lsm ]]; then
+        echo "/sys/kernel/security/lsm doesn't exist, assuming $lsm is not supported"
+        return 1
+    fi
+
+    mapfile -t -d, items </sys/kernel/security/lsm
+    for item in "${items[@]}"; do
+        if [[ "$item" == "$lsm" ]]; then
+            return 0
+        fi
+    done
+
+    return 1
+}

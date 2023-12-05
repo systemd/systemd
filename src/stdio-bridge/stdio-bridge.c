@@ -182,10 +182,14 @@ static int run(int argc, char *argv[]) {
                 assert_cc(sizeof(usec_t) == sizeof(uint64_t));
 
                 r = sd_bus_process(a, &m);
+                if (ERRNO_IS_NEG_DISCONNECT(r)) /* Treat 'connection reset by peer' as clean exit condition */
+                        return 0;
                 if (r < 0)
                         return log_error_errno(r, "Failed to process bus a: %m");
-
                 if (m) {
+                        if (sd_bus_message_is_signal(m, "org.freedesktop.DBus.Local", "Disconnected"))
+                                return 0;
+
                         r = sd_bus_send(b, m, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to send message: %m");
@@ -195,13 +199,14 @@ static int run(int argc, char *argv[]) {
                         continue;
 
                 r = sd_bus_process(b, &m);
-                if (ERRNO_IS_NEG_DISCONNECT(r))
-                        /* Treat 'connection reset by peer' as clean exit condition */
+                if (ERRNO_IS_NEG_DISCONNECT(r)) /* Treat 'connection reset by peer' as clean exit condition */
                         return 0;
                 if (r < 0)
                         return log_error_errno(r, "Failed to process bus: %m");
-
                 if (m) {
+                        if (sd_bus_message_is_signal(m, "org.freedesktop.DBus.Local", "Disconnected"))
+                                return 0;
+
                         r = sd_bus_send(a, m, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to send message: %m");
@@ -242,8 +247,6 @@ static int run(int argc, char *argv[]) {
                 if (r < 0 && !ERRNO_IS_TRANSIENT(r))  /* don't be bothered by signals, i.e. EINTR */
                         return log_error_errno(r, "ppoll() failed: %m");
         }
-
-        return 0;
 }
 
 DEFINE_MAIN_FUNCTION(run);

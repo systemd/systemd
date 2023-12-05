@@ -472,7 +472,8 @@ disk images with `--image=` or similar:
 * `$SYSTEMD_CRYPTSETUP_TOKEN_PATH` – takes a path to a directory in the file
   system. If specified overrides where libcryptsetup will look for token
   modules (.so). This is useful for debugging token modules: set this
-  environment variable to the build directory and you are set.
+  environment variable to the build directory and you are set. This variable
+  is only supported when systemd is compiled in developer mode.
 
 Various tools that read passwords from the TTY, such as `systemd-cryptenroll`
 and `homectl`:

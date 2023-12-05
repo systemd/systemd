@@ -303,6 +303,7 @@ Features:
   - systemd-dissect
   - systemd-sysupdate
   - systemd-analyze
+  - systemd-pcrlock (to allow fwupd to relax policy)
   - kernel-install
 
 * Varlink: add glue code to allow varlink clients to be authenticated via

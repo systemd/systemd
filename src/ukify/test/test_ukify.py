@@ -464,7 +464,7 @@ def test_sections(kernel_initrd, tmpdir):
     dump = subprocess.check_output(['objdump', '-h', output], text=True)
 
     for sect in 'text osrel cmdline linux initrd uname test'.split():
-        assert re.search(fr'^\s*\d+\s+.{sect}\s+0', dump, re.MULTILINE)
+        assert re.search(fr'^\s*\d+\s+\.{sect}\s+[0-9a-f]+', dump, re.MULTILINE)
 
 def test_addon(tmpdir):
     output = f'{tmpdir}/addon.efi'
@@ -499,7 +499,7 @@ baz,3
     dump = subprocess.check_output(['objdump', '-h', output], text=True)
 
     for sect in 'text cmdline test sbat'.split():
-        assert re.search(fr'^\s*\d+\s+.{sect}\s+0', dump, re.MULTILINE)
+        assert re.search(fr'^\s*\d+\s+\.{sect}\s+[0-9a-f]+', dump, re.MULTILINE)
 
     pe = pefile.PE(output, fast_load=True)
     found = False
@@ -694,7 +694,7 @@ def test_pcr_signing(kernel_initrd, tmpdir):
         dump = subprocess.check_output(['objdump', '-h', output], text=True)
 
         for sect in 'text osrel cmdline linux initrd uname pcrsig'.split():
-            assert re.search(fr'^\s*\d+\s+.{sect}\s+0', dump, re.MULTILINE)
+            assert re.search(fr'^\s*\d+\s+\.{sect}\s+[0-9a-f]+', dump, re.MULTILINE)
 
         # objcopy fails when called without an output argument (EPERM).
         # It also fails when called with /dev/null (file truncated).
@@ -767,7 +767,7 @@ def test_pcr_signing2(kernel_initrd, tmpdir):
     dump = subprocess.check_output(['objdump', '-h', output], text=True)
 
     for sect in 'text osrel cmdline linux initrd uname pcrsig'.split():
-        assert re.search(fr'^\s*\d+\s+.{sect}\s+0', dump, re.MULTILINE)
+        assert re.search(fr'^\s*\d+\s+\.{sect}\s+[0-9a-f]+', dump, re.MULTILINE)
 
     subprocess.check_call([
         'objcopy',
