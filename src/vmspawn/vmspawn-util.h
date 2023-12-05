@@ -33,4 +33,4 @@ int qemu_check_kvm_support(void);
 int qemu_check_vsock_support(void);
 int find_ovmf_config(int search_sb, OvmfConfig **ret_ovmf_config);
 int find_qemu_binary(char **ret_qemu_binary);
-int vsock_fix_child_cid(unsigned *machine_cid, const char *machine, int *ret_child_sock);
+int vsock_fix_child_cid(int vsock_fd, unsigned *machine_cid, const char *machine);
