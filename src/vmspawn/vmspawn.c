@@ -29,6 +29,7 @@
 #include "pretty-print.h"
 #include "process-util.h"
 #include "rm-rf.h"
+#include "sd-daemon.h"
 #include "sd-event.h"
 #include "signal-util.h"
 #include "socket-util.h"
@@ -584,12 +585,15 @@ static int find_initrd(char **ret_initrd) {
         return -ESRCH;
 }
 
-static int run_virtual_machine(void) {
+static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        _cleanup_close_ int vsock_fd = -EBADF;
-        _cleanup_free_ char *machine = NULL, *qemu_binary = NULL, *mem = NULL, *trans_scope = NULL, *initrd = NULL;
+        _cleanup_free_ char *qemu_binary = NULL, *mem = NULL, *trans_scope = NULL, *initrd = NULL;
+        _cleanup_close_ int notify_sock_fd = -EBADF;
         _cleanup_strv_free_ char **cmdline = NULL;
+        _cleanup_free_ int *pass_fds = NULL;
+        size_t n_pass_fds = 0;
+        const char *machine, *accel;
         int r;
 
         if (getuid() == 0)
@@ -620,14 +624,6 @@ static int run_virtual_machine(void) {
                 log_warning("Couldn't find OVMF firmware blob with Secure Boot support, "
                             "falling back to OVMF firmware blobs without Secure Boot support.");
 
-        const char *accel = use_kvm ? "kvm" : "tcg";
-        if (IN_SET(native_architecture(), ARCHITECTURE_ARM64, ARCHITECTURE_ARM64_BE))
-                machine = strjoin("type=virt,accel=", accel);
-        else
-                machine = strjoin("type=q35,accel=", accel, ",smm=", on_off(ovmf_config->supports_sb));
-        if (!machine)
-                return log_oom();
-
         if (arg_qemu_kernel && access(arg_qemu_kernel, F_OK) < 0)
                 return log_error_errno(errno, "Kernel not found at %s: %m", arg_qemu_kernel);
 
@@ -639,6 +635,11 @@ static int run_virtual_machine(void) {
                 return log_error_errno(r, "Native architecture is not supported by qemu.");
         if (r < 0)
                 return log_error_errno(r, "Failed to find QEMU binary: %m");
+
+        if (IN_SET(native_architecture(), ARCHITECTURE_ARM64, ARCHITECTURE_ARM64_BE))
+                machine = "type=virt";
+        else
+                machine = ovmf_config->supports_sb ? "type=q35,smm=on" : "type=q35,smm=off";
 
         if (asprintf(&mem, "%.4fM", (double)arg_qemu_mem / (1024.0 * 1024.0)) < 0)
                 return log_oom();
@@ -670,6 +671,30 @@ static int run_virtual_machine(void) {
         if (r < 0)
                 return log_oom();
 
+        if (use_kvm && kvm_device_fd > 0) {
+                accel = "kvm,device=/dev/fdset/1";
+
+                r = strv_extend(&cmdline, "--add-fd");
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extendf(&cmdline, "fd=%d,set=1,opaque=/dev/kvm", kvm_device_fd);
+                if (r < 0)
+                        return log_oom();
+
+                if (!GREEDY_REALLOC(pass_fds, n_pass_fds + 1))
+                        return log_oom();
+
+                pass_fds[n_pass_fds++] = kvm_device_fd;
+        } else if (use_kvm)
+                accel = "kvm";
+        else
+                accel = "tcg";
+
+        r = strv_extend_strv(&cmdline, STRV_MAKE("-accel", accel), /* filter_duplicates= */ false);
+        if (r < 0)
+                return log_oom();
+
         bool use_vsock = arg_qemu_vsock > 0 && ARCHITECTURE_SUPPORTS_SMBIOS;
         if (arg_qemu_vsock < 0) {
                 r = qemu_check_vsock_support();
@@ -679,13 +704,20 @@ static int run_virtual_machine(void) {
                 use_vsock = r;
         }
 
-        unsigned child_cid = VMADDR_CID_ANY;
         _cleanup_close_ int child_vsock_fd = -EBADF;
         if (use_vsock) {
-                if (arg_vsock_cid < UINT_MAX)
-                        child_cid = (unsigned)arg_vsock_cid;
+                int device_fd = vhost_device_fd;
+                unsigned child_cid = (arg_vsock_cid < UINT_MAX) ? arg_vsock_cid : VMADDR_CID_ANY;
 
-                r = vsock_fix_child_cid(&child_cid, arg_machine, &child_vsock_fd);
+                if (device_fd < 0) {
+                        child_vsock_fd = open("/dev/vhost-vsock", O_RDWR|O_CLOEXEC);
+                        if (child_vsock_fd < 0)
+                                return log_error_errno(errno, "Failed to open /dev/vhost-vsock as read/write: %m");
+
+                        device_fd = child_vsock_fd;
+                }
+
+                r = vsock_fix_child_cid(device_fd, &child_cid, arg_machine);
                 if (r < 0)
                         return log_error_errno(r, "Failed to fix CID for the guest vsock socket: %m");
 
@@ -693,9 +725,14 @@ static int run_virtual_machine(void) {
                 if (r < 0)
                         return log_oom();
 
-                r = strv_extendf(&cmdline, "vhost-vsock-pci,guest-cid=%u,vhostfd=%d", child_cid, child_vsock_fd);
+                r = strv_extendf(&cmdline, "vhost-vsock-pci,guest-cid=%u,vhostfd=%d", child_cid, device_fd);
                 if (r < 0)
                         return log_oom();
+
+                if (!GREEDY_REALLOC(pass_fds, n_pass_fds + 1))
+                        return log_oom();
+
+                pass_fds[n_pass_fds++] = device_fd;
         }
 
         r = strv_extend_strv(&cmdline, STRV_MAKE("-cpu", "max"), /* filter_duplicates= */ false);
@@ -889,11 +926,11 @@ static int run_virtual_machine(void) {
         }
 
         if (use_vsock) {
-                vsock_fd = open_vsock();
-                if (vsock_fd < 0)
-                        return log_error_errno(vsock_fd, "Failed to open vsock: %m");
+                notify_sock_fd = open_vsock();
+                if (notify_sock_fd < 0)
+                        return log_error_errno(notify_sock_fd, "Failed to open vsock: %m");
 
-                r = cmdline_add_vsock(&cmdline, vsock_fd);
+                r = cmdline_add_vsock(&cmdline, notify_sock_fd);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
@@ -912,7 +949,7 @@ static int run_virtual_machine(void) {
         r = safe_fork_full(
                         qemu_binary,
                         NULL,
-                        &child_vsock_fd, 1, /* pass the vsock fd to qemu */
+                        pass_fds, n_pass_fds,
                         FORK_CLOEXEC_OFF,
                         &child_pid);
         if (r < 0)
@@ -932,7 +969,7 @@ static int run_virtual_machine(void) {
 
         int exit_status = INT_MAX;
         if (use_vsock) {
-                r = setup_notify_parent(event, vsock_fd, &exit_status, &notify_event_source);
+                r = setup_notify_parent(event, notify_sock_fd, &exit_status, &notify_event_source);
                 if (r < 0)
                         return log_error_errno(r, "Failed to setup event loop to handle vsock notify events: %m");
         }
@@ -990,7 +1027,8 @@ static int determine_names(void) {
 }
 
 static int run(int argc, char *argv[]) {
-        int r, ret = EXIT_SUCCESS;
+        int r, kvm_device_fd = -EBADF, vhost_device_fd = -EBADF, ret = EXIT_SUCCESS;
+        _cleanup_strv_free_ char **names = NULL;
 
         log_setup();
 
@@ -1002,9 +1040,20 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
+        r = sd_listen_fds_with_names(true, &names);
+        if (r < 0)
+                goto finish;
+
+        for (size_t i = 0; i < strv_length(names); i++) {
+                if (streq(names[i], "kvm"))
+                    kvm_device_fd = SD_LISTEN_FDS_START + i;
+                if (streq(names[i], "vhost-vsock"))
+                    vhost_device_fd = SD_LISTEN_FDS_START + i;
+        }
+
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGTERM, SIGINT, SIGRTMIN+18, -1) >= 0);
 
-        r = run_virtual_machine();
+        r = run_virtual_machine(kvm_device_fd, vhost_device_fd);
         if (r > 0)
                 ret = r;
 finish:
