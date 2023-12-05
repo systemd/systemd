@@ -132,7 +132,7 @@ evdev:atkbd:*
  PROPERTY_WITH_SPACES=some string</programlisting>
 
       <para>If the hwdb consists of those two files, a keyboard with the lookup string
-      <literal>evdev:atkbd:dmi:bvnAcer:bdXXXXX:bd08/05/2010:svnAcer:pnX123</literal>
+      <literal>evdev:atkbd:dmi:bvnAcer:bvr:bdXXXXX:bd08/05/2010:svnAcer:pnX123:</literal>
       will match all three records, and end up with the following properties:</para>
 
       <programlisting>KEYBOARD_KEY_a1=help
