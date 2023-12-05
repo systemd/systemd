@@ -35,6 +35,12 @@
     project='man-pages'><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>, but it
     launches a full virtual machine instead of using namespaces.</para>
 
+    <para>File descriptors for <filename>/dev/kvm</filename> and <filename>/dev/vhost-vsock</filename> can be
+    passed to <command>systemd-vmspawn</command> via systemd's native socket passing interface (see
+    <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
+    details about the precise protocol used and the order in which the file descriptors are passed), these
+    fds must be passed with the names <literal>kvm</literal> and <literal>vhost-vsock</literal> respectively.</para>
+
     <para>Note: on Ubuntu/Debian derivatives systemd-vmspawn requires the user to be in the <literal>kvm</literal> group to use the VSock options.</para>
   </refsect1>
 
