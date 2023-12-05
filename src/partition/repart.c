@@ -3640,6 +3640,9 @@ static int partition_target_sync(Context *context, Partition *p, PartitionTarget
         } else if (t->fd >= 0) {
                 struct stat st;
 
+                if (fsync(t->fd) < 0)
+                        return log_error_errno(errno, "Failed to sync changes to '%s': %m", t->path);
+
                 if (lseek(whole_fd, p->offset, SEEK_SET) < 0)
                         return log_error_errno(errno, "Failed to seek to partition offset: %m");
 
