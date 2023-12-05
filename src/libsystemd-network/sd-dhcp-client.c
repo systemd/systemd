@@ -130,6 +130,7 @@ struct sd_dhcp_client {
         int socket_priority;
         bool socket_priority_set;
         bool ipv6_acquired;
+        bool keep_alive;
 };
 
 static const uint8_t default_req_opts[] = {
@@ -177,6 +178,7 @@ static int client_receive_message_udp(
                 uint32_t revents,
                 void *userdata);
 static void client_stop(sd_dhcp_client *client, int error);
+static int client_restart(sd_dhcp_client *client);
 
 int sd_dhcp_client_id_to_string(const void *data, size_t len, char **ret) {
         const sd_dhcp_client_id *client_id = data;
@@ -580,6 +582,13 @@ int sd_dhcp_client_set_rapid_commit(sd_dhcp_client *client, bool rapid_commit) {
         assert_return(client, -EINVAL);
 
         client->rapid_commit = !client->anonymize && rapid_commit;
+        return 0;
+}
+
+int sd_dhcp_client_set_keep_alive(sd_dhcp_client *client, bool keep_alive) {
+        assert_return(client, -EINVAL);
+
+        client->keep_alive = keep_alive;
         return 0;
 }
 
@@ -1401,6 +1410,10 @@ static int client_timeout_resend(
         return 0;
 
 error:
+        if (client->keep_alive) {
+                client_restart(client);
+                return 0;
+        }
         client_stop(client, r);
 
         /* Errors were dealt with when stopping the client, don't spill
@@ -2508,6 +2521,7 @@ int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize) {
                 .anonymize = !!anonymize,
                 .max_attempts = UINT64_MAX,
                 .ip_service_type = -1,
+                .keep_alive = false,
         };
         /* NOTE: this could be moved to a function. */
         if (anonymize) {
