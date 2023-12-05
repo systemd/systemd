@@ -276,6 +276,12 @@ static int verify_fsroot_dir(
 
         assert(S_ISDIR(sxa.sx.stx_mode)); /* We used O_DIRECTORY above, when opening, so this must hold */
 
+        /* The block device may be mapped to /run/systemd/inaccessible/blk. */
+        if (devnum_is_zero(makedev(sxa.sx.stx_dev_major, sxa.sx.stx_dev_minor)))
+                return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
+                                      SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENODEV),
+                                      "Failed to determine block device node of \"%s\": %m", path);
+
         if (FLAGS_SET(sxa.sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT)) {
 
                 /* If we have STATX_ATTR_MOUNT_ROOT, we are happy, that's all we need. We operate under the
