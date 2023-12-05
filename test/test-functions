@@ -1594,6 +1594,9 @@ create_empty_image() {
     # Partition sizes are in MiBs
     local root_size=768
     local data_size=100
+    local esp_size=128
+    local boot_size=128
+    local total=
     if ! get_bool "$NO_BUILD"; then
         if meson configure "${BUILD_DIR:?}" | grep 'static-lib\|standalone-binaries' | awk '{ print $2 }' | grep -q 'true'; then
             root_size=$((root_size + 200))
@@ -1616,28 +1619,44 @@ create_empty_image() {
         data_size=$((data_size + IMAGE_ADDITIONAL_DATA_SIZE))
     fi
 
-    echo "Setting up ${IMAGE_PUBLIC:?} (${root_size} MB)"
+    total=$((root_size + data_size + esp_size + boot_size))
+
+    echo "Setting up ${IMAGE_PUBLIC:?} (${total} MB)"
     rm -f "${IMAGE_PRIVATE:?}" "$IMAGE_PUBLIC"
 
     # Create the blank file to use as a root filesystem
-    truncate -s "${root_size}M" "$IMAGE_PUBLIC"
+    truncate -s "${total}M" "$IMAGE_PUBLIC"
 
     LOOPDEV="$(losetup --show -P -f "$IMAGE_PUBLIC")"
     [[ -b "$LOOPDEV" ]] || return 1
     # Create two partitions - a root one and a data one (utilized by some tests)
     sfdisk "$LOOPDEV" <<EOF
 label: gpt
-type=0FC63DAF-8483-4772-8E79-3D69D8477DE4 name=root size=$((root_size - data_size))M bootable
+type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B name=esp  size=${esp_size}M
+type=0FC63DAF-8483-4772-8E79-3D69D8477DE4 name=root size=${root_size}M bootable
+type=BC13C2FF-59E6-4262-A352-B275FD6F7172 name=boot size=${boot_size}M
 type=0FC63DAF-8483-4772-8E79-3D69D8477DE4 name=data
 EOF
 
     udevadm settle
 
+    if ! mkfs -t vfat "${LOOPDEV}p1"; then
+        dfatal "Failed to mkfs -t vfat ${LOOPDEV}p1"
+        exit 1
+    fi
+
     local label=(-L systemd_boot)
     # mkfs.reiserfs doesn't know -L. so, use --label instead
     [[ "$FSTYPE" == "reiserfs" ]] && label=(--label systemd_boot)
-    if ! mkfs -t "${FSTYPE}" "${label[@]}" "${LOOPDEV}p1" -q; then
-        dfatal "Failed to mkfs -t ${FSTYPE}"
+    if ! mkfs -t "${FSTYPE}" "${label[@]}" "${LOOPDEV}p2" -q; then
+        dfatal "Failed to mkfs -t ${FSTYPE} ${label[*]} ${LOOPDEV}p2 -q"
+        exit 1
+    fi
+
+    local label=(-L xbootldr)
+    [[ "$FSTYPE" == "reiserfs" ]] && label=(--label xbootldr)
+    if ! mkfs -t "${FSTYPE}" "${label[@]}" "${LOOPDEV}p3" -q; then
+        dfatal "Failed to mkfs -t ${FSTYPE} ${label[*]} ${LOOPDEV}p3 -q"
         exit 1
     fi
 }
@@ -1653,7 +1672,7 @@ mount_initdir() {
 
     if ! mountpoint -q "${initdir:?}"; then
         mkdir -p "$initdir"
-        mount "${LOOPDEV}p1" "$initdir"
+        mount "${LOOPDEV}p2" "$initdir"
         TEST_SETUP_CLEANUP_ROOTDIR=1
     fi
 }
