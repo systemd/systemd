@@ -59,7 +59,7 @@ a+ /var/log/journal/%m/system.journal - - - - group:wheel:r--
 {% endif %}
 
 d /var/lib/systemd 0755 root root -
-d /var/lib/systemd/coredump 0755 root root 3d
+d /var/lib/systemd/coredump 0755 root root 2w
 # Files and directories in /var/lib/systemd/ephemeral-trees are locked by pid 1 to prevent tmpfiles from
 # removing them, and tmpfiles is told to clean up anything in /var/lib/systemd/ephemeral-trees that isn't
 # locked unconditionally.
