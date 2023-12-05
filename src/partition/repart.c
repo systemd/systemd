@@ -3640,6 +3640,9 @@ static int partition_target_sync(Context *context, Partition *p, PartitionTarget
         } else if (t->fd >= 0) {
                 struct stat st;
 
+                if (fsync(t->fd) < 0)
+                        return log_error_errno(errno, "Failed to sync changes to '%s': %m", t->path);
+
                 if (lseek(whole_fd, p->offset, SEEK_SET) < 0)
                         return log_error_errno(errno, "Failed to seek to partition offset: %m");
 
@@ -4848,6 +4851,17 @@ static int context_mkfs(Context *context) {
                                     context->fs_sector_size, extra_mkfs_options);
                 if (r < 0)
                         return r;
+
+                /* The mkfs binary we invoked might have removed our temporary file when we're not operating
+                 * on a loop device, so let's make sure we open the file again to make sure our file
+                 * descriptor points to any potential new file. */
+
+                if (t->fd >= 0 && t->path && !t->loop) {
+                        safe_close(t->fd);
+                        t->fd = open(t->path, O_RDWR|O_CLOEXEC);
+                        if (t->fd < 0)
+                                return log_error_errno(errno, "Failed to reopen temporary file: %m");
+                }
 
                 log_info("Successfully formatted future partition %" PRIu64 ".", p->partno);
 
