@@ -308,8 +308,23 @@ success:
         if (!ret_dev)
                 return 0;
 
-        if (sxa.sx.stx_dev_major == 0) /* Hmm, maybe a btrfs device, and the caller asked for the backing device? Then let's try to get it. */
-                return btrfs_get_block_device_at(dir_fd, strempty(f), ret_dev);
+        if (sxa.sx.stx_dev_major == 0) {
+                dev_t devnum;
+
+                /* Hmm, maybe a btrfs device, and the caller asked for the backing device?
+                 * Then let's try to get it. */
+
+                r = btrfs_get_block_device_at(dir_fd, strempty(f), &devnum);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        return log_full_errno(searching ? LOG_DEBUG : LOG_ERR,
+                                              SYNTHETIC_ERRNO(searching ? EADDRNOTAVAIL : ENOTSUP),
+                                              "Directory \"%s\" is on a btrfs RAID, not supported.", path);
+
+                *ret_dev = devnum;
+                return 0;
+        }
 
         *ret_dev = makedev(sxa.sx.stx_dev_major, sxa.sx.stx_dev_minor);
         return 0;
