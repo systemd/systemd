@@ -4849,6 +4849,17 @@ static int context_mkfs(Context *context) {
                 if (r < 0)
                         return r;
 
+                /* The mkfs binary we invoked might have removed our temporary file when we're not operating
+                 * on a loop device, so let's make sure we open the file again to make sure our file
+                 * descriptor points to any potential new file. */
+
+                if (t->fd >= 0 && t->path && !t->loop) {
+                        safe_close(t->fd);
+                        t->fd = open(t->path, O_RDWR|O_CLOEXEC);
+                        if (t->fd < 0)
+                                return log_error_errno(errno, "Failed to reopen temporary file: %m");
+                }
+
                 log_info("Successfully formatted future partition %" PRIu64 ".", p->partno);
 
                 /* If we're writing to a loop device, we can now mount the empty filesystem and populate it. */
