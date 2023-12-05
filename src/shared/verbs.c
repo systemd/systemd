@@ -168,4 +168,4 @@ int dispatch_verb(int argc, char *argv[], const Verb verbs[], void *userdata) {
                 return verb->dispatch(1, STRV_MAKE(verb->verb), userdata);
 
         return verb->dispatch(left, argv, userdata);
-        }
+}
