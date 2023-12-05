@@ -76,7 +76,7 @@ bool mac_selinux_use(void) {
 #if HAVE_SELINUX
         if (_unlikely_(cached_use < 0)) {
                 cached_use = is_selinux_enabled() > 0;
-                log_debug("SELinux enabled state cached to: %s", cached_use ? "enabled" : "disabled");
+                log_trace("SELinux enabled state cached to: %s", enabled_disabled(cached_use));
         }
 
         return cached_use;
