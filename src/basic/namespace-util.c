@@ -427,3 +427,19 @@ int parse_userns_uid_range(const char *s, uid_t *ret_uid_shift, uid_t *ret_uid_r
 
         return 0;
 }
+
+int namespace_open_by_type(NamespaceType type) {
+        const char *p;
+        int fd;
+
+        assert(type >= 0);
+        assert(type < _NAMESPACE_TYPE_MAX);
+
+        p = pid_namespace_path(0, type);
+
+        fd = RET_NERRNO(open(p, O_RDONLY|O_NOCTTY|O_CLOEXEC));
+        if (fd == -ENOENT && proc_mounted() == 0)
+                return -ENOSYS;
+
+        return fd;
+}
