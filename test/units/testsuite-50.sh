@@ -677,11 +677,35 @@ if command -v mksquashfs >/dev/null 2>&1; then
     read -r X < /etc/waldo
     test "$X" = foobar50
 
-    rm /run/verity.d/test-50-cert.crt /run/confexts/waldo.confext.raw /tmp/test-50-cert.crt /tmp/test-50-privkey.key
+    rm /run/confexts/waldo.confext.raw
 
     systemd-confext refresh
 
-    (! test -f /tmp/test-50-confext/etc/waldo )
+    (! test -f /etc/waldo )
+
+    mkdir -p /tmp/test-50-sysext/usr/lib/extension-release.d/
+
+    # Make sure the sysext is big enough to not fit in the minimum partition size of repart so we know the
+    # Minimize= logic is working.
+    truncate --size=50M /tmp/test-50-sysext/usr/waldo
+
+    ( grep -e '^\(ID\|VERSION_ID\)=' /etc/os-release ; echo IMAGE_ID=waldo ; echo IMAGE_VERSION=7 ) > /tmp/test-50-sysext/usr/lib/extension-release.d/extension-release.waldo
+
+    mkdir -p /run/extensions
+
+    SYSTEMD_REPART_OVERRIDE_FSTYPE=squashfs systemd-repart -S -s /tmp/test-50-sysext --certificate=/tmp/test-50-cert.crt --private-key=/tmp/test-50-privkey.key /run/extensions/waldo.sysext.raw
+
+    systemd-dissect --mtree /run/extensions/waldo.sysext.raw
+
+    systemd-sysext refresh
+
+    test -f /usr/waldo
+
+    rm /run/verity.d/test-50-cert.crt /run/extensions/waldo.sysext.raw /tmp/test-50-cert.crt /tmp/test-50-privkey.key
+
+    systemd-sysext refresh
+
+    (! test -f /usr/waldo)
 fi
 
 # Sneak in a couple of expected-to-fail invocations to cover
