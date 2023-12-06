@@ -65,17 +65,18 @@ static int manager_new(Manager **ret) {
                 .reserve_vt_fd = -EBADF,
                 .enable_wall_messages = true,
                 .idle_action_not_before_usec = now(CLOCK_MONOTONIC),
+                .scheduled_shutdown_action = _HANDLE_ACTION_INVALID,
+
+                .devices = hashmap_new(&device_hash_ops),
+                .seats = hashmap_new(&seat_hash_ops),
+                .sessions = hashmap_new(&session_hash_ops),
+                .users = hashmap_new(&user_hash_ops),
+                .inhibitors = hashmap_new(&inhibitor_hash_ops),
+                .buttons = hashmap_new(&button_hash_ops),
+
+                .user_units = hashmap_new(&string_hash_ops),
+                .session_units = hashmap_new(&string_hash_ops),
         };
-
-        m->devices = hashmap_new(&device_hash_ops);
-        m->seats = hashmap_new(&seat_hash_ops);
-        m->sessions = hashmap_new(&session_hash_ops);
-        m->users = hashmap_new(&user_hash_ops);
-        m->inhibitors = hashmap_new(&inhibitor_hash_ops);
-        m->buttons = hashmap_new(&button_hash_ops);
-
-        m->user_units = hashmap_new(&string_hash_ops);
-        m->session_units = hashmap_new(&string_hash_ops);
 
         if (!m->devices || !m->seats || !m->sessions || !m->users || !m->inhibitors || !m->buttons || !m->user_units || !m->session_units)
                 return -ENOMEM;
