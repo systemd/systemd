@@ -74,15 +74,20 @@ static const char* const image_search_path[_IMAGE_CLASS_MAX] = {
                             "/usr/lib/confexts\0",
 };
 
-/* Inside the initrd, use a slightly different set of search path (i.e. include .extra/sysext in extension
- * search dir) */
+/* Inside the initrd, use a slightly different set of search path (i.e. include .extra/sysext/ and
+ * .extra/confext/ in extension search dir) */
 static const char* const image_search_path_initrd[_IMAGE_CLASS_MAX] = {
         /* (entries that aren't listed here will get the same search path as for the non initrd-case) */
 
         [IMAGE_SYSEXT] =    "/etc/extensions\0"            /* only place symlinks here */
                             "/run/extensions\0"            /* and here too */
                             "/var/lib/extensions\0"        /* the main place for images */
-                            "/.extra/sysext\0"             /* put sysext picked up by systemd-stub last, since not trusted */
+                            "/.extra/sysext\0",            /* put sysext picked up by systemd-stub last, since not trusted */
+
+        [IMAGE_CONFEXT] =   "/run/confexts\0"              /* only place symlinks here */
+                            "/var/lib/confexts\0"          /* the main place for images */
+                            "/usr/local/lib/confexts\0"
+                            "/.extra/confext\0",           /* put sysext picked up by systemd-stub last, since not trusted */
 };
 
 static const char* image_class_suffix_table[_IMAGE_CLASS_MAX] = {
