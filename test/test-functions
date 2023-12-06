@@ -1187,6 +1187,11 @@ install_lvm() {
     mkdir -p "${initdir:?}/etc/lvm"
 }
 
+host_has_btrfs() (
+    set -e
+    modprobe -nv btrfs && command -v mkfs.btrfs && command -v btrfs || return $?
+)
+
 install_btrfs() {
     instmods btrfs
     # Not all utilities provided by btrfs-progs are listed here; extend the list
@@ -1253,6 +1258,11 @@ install_iscsi() {
         done < <(perl -- <(cat "$(command -v tgt-admin)" <(echo -e 'use DynaLoader; print map { "$_\n" } values %INC; print join("\n", @DynaLoader::dl_shared_objects)')) -p | awk '/^\// { print $1 }')
     fi
 }
+
+host_has_mdadm() (
+    set -e
+    command -v mdadm || return $?
+)
 
 install_mdadm() {
     local unit
