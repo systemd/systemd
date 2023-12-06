@@ -677,6 +677,14 @@ units = [
           'conditions' : ['ENABLE_USERDB'],
         },
         {
+          'file' : 'systemd-mntfsd.service.in',
+          'conditions' : ['ENABLE_MNTFSD'],
+        },
+        {
+          'file' : 'systemd-mntfsd.socket',
+          'conditions' : ['ENABLE_MNTFSD'],
+        },
+        {
           'file' : 'systemd-vconsole-setup.service.in',
           'conditions' : ['ENABLE_VCONSOLE'],
         },

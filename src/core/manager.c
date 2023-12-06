@@ -4775,7 +4775,7 @@ static int short_uid_range(const char *path) {
         /* Taint systemd if we the UID range assigned to this environment doesn't at least cover 0…65534,
          * i.e. from root to nobody. */
 
-        r = uid_range_load_userns(&p, path);
+        r = uid_range_load_userns(&p, path, UID_RANGE_USERNS_INSIDE);
         if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return false;
         if (r < 0)
