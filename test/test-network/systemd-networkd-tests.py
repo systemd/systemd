@@ -1730,6 +1730,11 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         self.wait_online(['vcan99:carrier'])
 
+        # https://github.com/systemd/systemd/issues/30140
+        output = check_output('ip -d link show vcan99')
+        print(output)
+        self.assertIn('mtu 16 ', output)
+
     @expectedFailureIfModuleIsNotAvailable('vxcan')
     def test_vxcan(self):
         copy_network_unit('25-vxcan.netdev', '26-netdev-link-local-addressing-yes.network')
