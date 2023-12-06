@@ -1839,6 +1839,79 @@ conf.set10('ENABLE_UKIFY', want_ukify)
 #####################################################################
 
 check_efi_alignment_py = find_program('tools/check-efi-alignment.py')
+
+#####################################################################
+
+use_provided_vmlinux_h = false
+use_generated_vmlinux_h = false
+provided_vmlinux_h_path = get_option('vmlinux-h-path')
+
+# For the more complex BPF programs we really want a vmlinux.h (which is arch
+# specific, but only somewhat bound to kernel version). Ideally the kernel
+# development headers would ship that, but right now they don't. Hence address
+# this in two ways:
+#
+# 1. Provide a vmlinux.h at build time
+# 2. Generate the file on the fly where possible (which requires /sys/ to be mounted)
+#
+# We generally prefer the former (to support reproducible builds), but will
+# fallback to the latter.
+
+if conf.get('BPF_FRAMEWORK') == 1
+        enable_vmlinux_h = get_option('vmlinux-h')
+
+        if enable_vmlinux_h == 'auto'
+                if provided_vmlinux_h_path != ''
+                        use_provided_vmlinux_h = true
+                elif fs.exists('/sys/kernel/btf/vmlinux') and \
+                                bpftool.found() and \
+                                (host_machine.cpu_family() == build_machine.cpu_family()) and \
+                                host_machine.cpu_family() in ['x86_64', 'aarch64']
+
+                        # We will only generate a vmlinux.h from the running
+                        # kernel if the host and build machine are of the same
+                        # family. Also for now we focus on x86_64 and aarch64,
+                        # since other archs don't seem to be ready yet.
+
+                        use_generated_vmlinux_h = true
+                endif
+        elif enable_vmlinux_h == 'provided'
+                use_provided_vmlinux_h = true
+        elif enable_vmlinux_h == 'generated'
+                if not fs.exists('/sys/kernel/btf/vmlinux')
+                        error('BTF data from kernel not available (/sys/kernel/btf/vmlinux missing), cannot generate vmlinux.h, but was asked to.')
+                endif
+                if not bpftool.found()
+                        error('bpftool not available, cannot generate vmlinux.h, but was asked to.')
+                endif
+                use_generated_vmlinux_h = true
+        endif
+endif
+
+if use_provided_vmlinux_h
+        if not fs.exists(provided_vmlinux_h_path)
+                error('Path to provided vmlinux.h does not exist.')
+        endif
+        vmlinux_h_dependency = []
+        bpf_o_unstripped_cmd += ['-I' + fs.parent(provided_vmlinux_h_path)]
+        message('Using provided @0@'.format(provided_vmlinux_h_path))
+elif use_generated_vmlinux_h
+        vmlinux_h_dependency = custom_target(
+                'vmlinux.h',
+                output: 'vmlinux.h',
+                command : [ bpftool, 'btf', 'dump', 'file', '/sys/kernel/btf/vmlinux', 'format', 'c' ],
+                capture : true)
+
+        bpf_o_unstripped_cmd += ['-I' + fs.parent(vmlinux_h_dependency.full_path())]
+        message('Using generated @0@'.format(vmlinux_h_dependency.full_path()))
+else
+        message('Using neither provided nor generated vmlinux.h, some features will not be available.')
+endif
+
+conf.set10('HAVE_VMLINUX_H', use_provided_vmlinux_h or use_generated_vmlinux_h)
+
+#####################################################################
+
 check_version_history_py = find_program('tools/check-version-history.py')
 elf2efi_py = find_program('tools/elf2efi.py')
 export_dbus_interfaces_py = find_program('tools/dbus_exporter.py')
