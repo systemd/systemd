@@ -846,8 +846,6 @@ uki,1,UKI,uki,1,https://www.freedesktop.org/software/systemd/man/systemd-stub.ht
     print(f"Wrote {'signed' if sign_args_present else 'unsigned'} {opts.output}")
 
 
-ONE_DAY = datetime.timedelta(1, 0, 0)
-
 
 @contextlib.contextmanager
 def temporary_umask(mask: int):
@@ -888,7 +886,7 @@ def generate_key_cert_pair(
     ).not_valid_before(
         now,
     ).not_valid_after(
-        now + ONE_DAY * valid_days
+        now + datetime.timedelta(days=valid_days)
     ).serial_number(
         x509.random_serial_number()
     ).public_key(
@@ -1335,6 +1333,7 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--secureboot-certificate-validity',
         metavar = 'DAYS',
+        type = int,
         dest = 'sb_cert_validity',
         default = 365 * 10,
         help = "period of validity (in days) for a certificate created by 'genkey'",
