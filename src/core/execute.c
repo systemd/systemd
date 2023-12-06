@@ -161,9 +161,10 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p)
          * systemd-vconsole-setup.service also takes the lock to avoid being interrupted. We open a new fd
          * that will be closed automatically, and operate on it for convenience. */
         lock_fd = lock_dev_console();
-        if (lock_fd < 0)
-                return (void) log_debug_errno(lock_fd,
-                                              "Failed to lock /dev/console: %m");
+        if (!ERRNO_IS_PRIVILEGE(lock_fd))
+                log_debug_errno(lock_fd, "No privileges to lock /dev/console, proceeding without: %m");
+        else if (lock_fd < 0)
+                return (void) log_debug_errno(lock_fd, "Failed to lock /dev/console: %m");
 
         if (context->tty_vhangup)
                 (void) terminal_vhangup_fd(fd);
@@ -1453,7 +1454,7 @@ void exec_context_revert_tty(ExecContext *c) {
         assert(c);
 
         /* First, reset the TTY (possibly kicking everybody else from the TTY) */
-        exec_context_tty_reset(c, NULL);
+        exec_context_tty_reset(c, /* parameters= */ NULL);
 
         /* And then undo what chown_terminal() did earlier. Note that we only do this if we have a path
          * configured. If the TTY was passed to us as file descriptor we assume the TTY is opened and managed
