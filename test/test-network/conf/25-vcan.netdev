@@ -2,3 +2,4 @@
 [NetDev]
 Name=vcan99
 Kind=vcan
+MTUBytes=16
