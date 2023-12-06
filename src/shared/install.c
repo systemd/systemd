@@ -2894,7 +2894,7 @@ static int normalize_linked_files(
                         return log_debug_errno(SYNTHETIC_ERRNO(EISDIR),
                                                "Unexpected path to a directory \"%s\", refusing.", *a);
 
-                if (!is_path(*a)) {
+                if (!is_path(*a) && !unit_name_is_valid(*a, UNIT_NAME_INSTANCE)) {
                         r = install_info_discover(&ctx, lp, n, SEARCH_LOAD|SEARCH_FOLLOW_CONFIG_SYMLINKS, &i, NULL, NULL);
                         if (r < 0)
                                 log_debug_errno(r, "Failed to discover unit \"%s\", operating on name: %m", n);
