@@ -141,6 +141,8 @@ struct Manager {
 
         char *efi_loader_entry_one_shot;
         struct stat efi_loader_entry_one_shot_stat;
+
+        bool enforce_inhibitors;
 };
 
 void manager_reset_config(Manager *m);
