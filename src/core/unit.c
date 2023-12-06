@@ -689,38 +689,39 @@ static void unit_remove_transient(Unit *u) {
         }
 }
 
-static void unit_free_requires_mounts_for(Unit *u) {
+static void unit_free_mounts_for(Unit *u) {
         assert(u);
 
-        for (;;) {
-                _cleanup_free_ char *path = NULL;
+        for (UnitMountDependencyType t = 0; t < _UNIT_MOUNT_DEPENDENCY_TYPE_MAX; ++t) {
+                for (;;) {
+                        _cleanup_free_ char *path = NULL;
 
-                path = hashmap_steal_first_key(u->requires_mounts_for);
-                if (!path)
-                        break;
-                else {
+                        path = hashmap_steal_first_key(u->mounts_for[t]);
+                        if (!path)
+                                break;
+
                         char s[strlen(path) + 1];
 
                         PATH_FOREACH_PREFIX_MORE(s, path) {
                                 char *y;
                                 Set *x;
 
-                                x = hashmap_get2(u->manager->units_requiring_mounts_for, s, (void**) &y);
+                                x = hashmap_get2(u->manager->units_needing_mounts_for[t], s, (void**) &y);
                                 if (!x)
                                         continue;
 
                                 (void) set_remove(x, u);
 
                                 if (set_isempty(x)) {
-                                        (void) hashmap_remove(u->manager->units_requiring_mounts_for, y);
+                                        assert_se(hashmap_remove(u->manager->units_needing_mounts_for[t], y));
                                         free(y);
                                         set_free(x);
                                 }
                         }
                 }
-        }
 
-        u->requires_mounts_for = hashmap_free(u->requires_mounts_for);
+                u->mounts_for[t] = hashmap_free(u->mounts_for[t]);
+        }
 }
 
 static void unit_done(Unit *u) {
@@ -769,7 +770,7 @@ Unit* unit_free(Unit *u) {
         u->deserialized_refs = strv_free(u->deserialized_refs);
         u->pending_freezer_invocation = sd_bus_message_unref(u->pending_freezer_invocation);
 
-        unit_free_requires_mounts_for(u);
+        unit_free_mounts_for(u);
 
         SET_FOREACH(t, u->aliases)
                 hashmap_remove_value(u->manager->units, t, u);
@@ -1277,20 +1278,24 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
 
         /* Unlike unit_add_dependency() or friends, this always returns 0 on success. */
 
-        if (c->working_directory && !c->working_directory_missing_ok) {
-                r = unit_require_mounts_for(u, c->working_directory, UNIT_DEPENDENCY_FILE);
+        if (c->working_directory) {
+                r = unit_add_mounts_for(
+                                u,
+                                c->working_directory,
+                                UNIT_DEPENDENCY_FILE,
+                                c->working_directory_missing_ok ? UNIT_MOUNT_WANTS : UNIT_MOUNT_REQUIRES);
                 if (r < 0)
                         return r;
         }
 
         if (c->root_directory) {
-                r = unit_require_mounts_for(u, c->root_directory, UNIT_DEPENDENCY_FILE);
+                r = unit_add_mounts_for(u, c->root_directory, UNIT_DEPENDENCY_FILE, UNIT_MOUNT_REQUIRES);
                 if (r < 0)
                         return r;
         }
 
         if (c->root_image) {
-                r = unit_require_mounts_for(u, c->root_image, UNIT_DEPENDENCY_FILE);
+                r = unit_add_mounts_for(u, c->root_image, UNIT_DEPENDENCY_FILE, UNIT_MOUNT_REQUIRES);
                 if (r < 0)
                         return r;
         }
@@ -1306,7 +1311,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                         if (!p)
                                 return -ENOMEM;
 
-                        r = unit_require_mounts_for(u, p, UNIT_DEPENDENCY_FILE);
+                        r = unit_add_mounts_for(u, p, UNIT_DEPENDENCY_FILE, UNIT_MOUNT_REQUIRES);
                         if (r < 0)
                                 return r;
                 }
@@ -1326,16 +1331,11 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
         }
 
         if (c->private_tmp) {
-
-                /* FIXME: for now we make a special case for /tmp and add a weak dependency on
-                 * tmp.mount so /tmp being masked is supported. However there's no reason to treat
-                 * /tmp specifically and masking other mount units should be handled more
-                 * gracefully too, see PR#16894. */
-                r = unit_add_two_dependencies_by_name(u, UNIT_AFTER, UNIT_WANTS, "tmp.mount", true, UNIT_DEPENDENCY_FILE);
+                r = unit_add_mounts_for(u, "/tmp", UNIT_DEPENDENCY_FILE, UNIT_MOUNT_WANTS);
                 if (r < 0)
                         return r;
 
-                r = unit_require_mounts_for(u, "/var/tmp", UNIT_DEPENDENCY_FILE);
+                r = unit_add_mounts_for(u, "/var/tmp", UNIT_DEPENDENCY_FILE, UNIT_MOUNT_WANTS);
                 if (r < 0)
                         return r;
 
@@ -1536,51 +1536,72 @@ static int unit_add_slice_dependencies(Unit *u) {
 }
 
 static int unit_add_mount_dependencies(Unit *u) {
-        UnitDependencyInfo di;
-        const char *path;
         bool changed = false;
         int r;
 
         assert(u);
 
-        HASHMAP_FOREACH_KEY(di.data, path, u->requires_mounts_for) {
-                char prefix[strlen(path) + 1];
+        for (UnitMountDependencyType t = 0; t < _UNIT_MOUNT_DEPENDENCY_TYPE_MAX; ++t) {
+                UnitDependencyInfo di;
+                const char *path;
 
-                PATH_FOREACH_PREFIX_MORE(prefix, path) {
-                        _cleanup_free_ char *p = NULL;
-                        Unit *m;
+                HASHMAP_FOREACH_KEY(di.data, path, u->mounts_for[t]) {
 
-                        r = unit_name_from_path(prefix, ".mount", &p);
-                        if (r == -EINVAL)
-                                continue; /* If the path cannot be converted to a mount unit name, then it's
-                                           * not manageable as a unit by systemd, and hence we don't need a
-                                           * dependency on it. Let's thus silently ignore the issue. */
-                        if (r < 0)
-                                return r;
+                        char prefix[strlen(ASSERT_PTR(path)) + 1];
 
-                        m = manager_get_unit(u->manager, p);
-                        if (!m) {
-                                /* Make sure to load the mount unit if it exists. If so the dependencies on
-                                 * this unit will be added later during the loading of the mount unit. */
-                                (void) manager_load_unit_prepare(u->manager, p, NULL, NULL, &m);
-                                continue;
-                        }
-                        if (m == u)
-                                continue;
+                        PATH_FOREACH_PREFIX_MORE(prefix, path) {
+                                _cleanup_free_ char *p = NULL;
+                                Unit *m;
 
-                        if (m->load_state != UNIT_LOADED)
-                                continue;
+                                r = unit_name_from_path(prefix, ".mount", &p);
+                                if (r == -EINVAL)
+                                        continue; /* If the path cannot be converted to a mount unit name,
+                                                   * then it's not manageable as a unit by systemd, and
+                                                   * hence we don't need a dependency on it. Let's thus
+                                                   * silently ignore the issue. */
+                                if (r < 0)
+                                        return r;
 
-                        r = unit_add_dependency(u, UNIT_AFTER, m, true, di.origin_mask);
-                        if (r < 0)
-                                return r;
-                        changed = changed || r > 0;
+                                m = manager_get_unit(u->manager, p);
+                                if (!m) {
+                                        /* Make sure to load the mount unit if it exists. If so the
+                                         * dependencies on this unit will be added later during the loading
+                                         * of the mount unit. */
+                                        (void) manager_load_unit_prepare(
+                                                        u->manager,
+                                                        p,
+                                                        /* path= */NULL,
+                                                        /* e= */NULL,
+                                                        &m);
+                                        continue;
+                                }
+                                if (m == u)
+                                        continue;
 
-                        if (m->fragment_path) {
-                                r = unit_add_dependency(u, UNIT_REQUIRES, m, true, di.origin_mask);
+                                if (m->load_state != UNIT_LOADED)
+                                        continue;
+
+                                r = unit_add_dependency(
+                                                u,
+                                                UNIT_AFTER,
+                                                m,
+                                                /* add_reference= */ true,
+                                                di.origin_mask);
                                 if (r < 0)
                                         return r;
                                 changed = changed || r > 0;
+
+                                if (m->fragment_path) {
+                                        r = unit_add_dependency(
+                                                        u,
+                                                        unit_mount_dependency_type_to_dependency_type(t),
+                                                        m,
+                                                        /* add_reference= */ true,
+                                                        di.origin_mask);
+                                        if (r < 0)
+                                                return r;
+                                        changed = changed || r > 0;
+                                }
                         }
                 }
         }
@@ -4942,11 +4963,16 @@ int unit_kill_context(
         return wait_for_exit;
 }
 
-int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask) {
+int unit_add_mounts_for(Unit *u, const char *path, UnitDependencyMask mask, UnitMountDependencyType type) {
+        Hashmap **unit_map, **manager_map;
         int r;
 
         assert(u);
         assert(path);
+        assert(type >= 0 && type < _UNIT_MOUNT_DEPENDENCY_TYPE_MAX);
+
+        unit_map = &u->mounts_for[type];
+        manager_map = &u->manager->units_needing_mounts_for[type];
 
         /* Registers a unit for requiring a certain path and all its prefixes. We keep a hashtable of these
          * paths in the unit (from the path to the UnitDependencyInfo structure indicating how to the
@@ -4956,7 +4982,7 @@ int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask) 
         if (!path_is_absolute(path))
                 return -EINVAL;
 
-        if (hashmap_contains(u->requires_mounts_for, path)) /* Exit quickly if the path is already covered. */
+        if (hashmap_contains(*unit_map, path)) /* Exit quickly if the path is already covered. */
                 return 0;
 
         /* Use the canonical form of the path as the stored key. We call path_is_normalized()
@@ -4975,7 +5001,7 @@ int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask) 
                 .origin_mask = mask
         };
 
-        r = hashmap_ensure_put(&u->requires_mounts_for, &path_hash_ops, p, di.data);
+        r = hashmap_ensure_put(unit_map, &path_hash_ops, p, di.data);
         if (r < 0)
                 return r;
         assert(r > 0);
@@ -4985,11 +5011,11 @@ int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask) 
         PATH_FOREACH_PREFIX_MORE(prefix, path) {
                 Set *x;
 
-                x = hashmap_get(u->manager->units_requiring_mounts_for, prefix);
+                x = hashmap_get(*manager_map, prefix);
                 if (!x) {
                         _cleanup_free_ char *q = NULL;
 
-                        r = hashmap_ensure_allocated(&u->manager->units_requiring_mounts_for, &path_hash_ops);
+                        r = hashmap_ensure_allocated(manager_map, &path_hash_ops);
                         if (r < 0)
                                 return r;
 
@@ -5001,7 +5027,7 @@ int unit_require_mounts_for(Unit *u, const char *path, UnitDependencyMask mask) 
                         if (!x)
                                 return -ENOMEM;
 
-                        r = hashmap_put(u->manager->units_requiring_mounts_for, q, x);
+                        r = hashmap_put(*manager_map, q, x);
                         if (r < 0) {
                                 set_free(x);
                                 return r;
@@ -6615,3 +6641,24 @@ int activation_details_append_pair(ActivationDetails *details, char ***strv) {
 }
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(ActivationDetails, activation_details, activation_details_free);
+
+static const char* const unit_mount_dependency_type_table[_UNIT_MOUNT_DEPENDENCY_TYPE_MAX] = {
+        [UNIT_MOUNT_WANTS]    = "WantsMountsFor",
+        [UNIT_MOUNT_REQUIRES] = "RequiresMountsFor",
+};
+
+DEFINE_STRING_TABLE_LOOKUP(unit_mount_dependency_type, UnitMountDependencyType);
+
+UnitDependency unit_mount_dependency_type_to_dependency_type(UnitMountDependencyType t) {
+        switch (t) {
+
+        case UNIT_MOUNT_WANTS:
+                return UNIT_WANTS;
+
+        case UNIT_MOUNT_REQUIRES:
+                return UNIT_REQUIRES;
+
+        default:
+                assert_not_reached();
+        }
+}
