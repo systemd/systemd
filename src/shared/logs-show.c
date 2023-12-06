@@ -453,6 +453,29 @@ static int output_timestamp_realtime(
         return (int) strlen(buf);
 }
 
+static void update_display_timestamps_and_bootid(sd_journal *j, dual_timestamp *ret_display_ts, sd_id128_t *ret_boot_id, char *realtime, size_t realtime_len, char *monotonic, size_t monotonic_len) {
+        bool realtime_good = false, monotonic_good = false, boot_id_good = false;
+
+        if (realtime)
+                realtime_good = safe_atou64(realtime, &ret_display_ts->realtime) >= 0;
+        if (!realtime_good || !VALID_REALTIME(ret_display_ts->realtime))
+                realtime_good = sd_journal_get_realtime_usec(j, &ret_display_ts->realtime) >= 0;
+        if (!realtime_good)
+                ret_display_ts->realtime = USEC_INFINITY;
+
+        if (monotonic)
+                monotonic_good = safe_atou64(monotonic, &ret_display_ts->monotonic) >= 0;
+        if (!monotonic_good || !VALID_MONOTONIC(ret_display_ts->monotonic))
+                monotonic_good = boot_id_good = sd_journal_get_monotonic_usec(j, &ret_display_ts->monotonic, ret_boot_id) >= 0;
+        if (!monotonic_good)
+                ret_display_ts->monotonic = USEC_INFINITY;
+
+        if (!boot_id_good)
+                boot_id_good = sd_journal_get_monotonic_usec(j, NULL, ret_boot_id) >= 0;
+        if (!boot_id_good)
+                *ret_boot_id = SD_ID128_NULL;
+}
+
 static int output_short(
                 FILE *f,
                 sd_journal *j,
@@ -469,12 +492,18 @@ static int output_short(
         int r;
         const void *data;
         size_t length, n = 0;
+
         _cleanup_free_ char *hostname = NULL, *identifier = NULL, *comm = NULL, *pid = NULL, *fake_pid = NULL,
                 *message = NULL, *priority = NULL, *transport = NULL,
                 *config_file = NULL, *unit = NULL, *user_unit = NULL, *documentation_url = NULL;
         size_t hostname_len = 0, identifier_len = 0, comm_len = 0, pid_len = 0, fake_pid_len = 0, message_len = 0,
                 priority_len = 0, transport_len = 0, config_file_len = 0,
                 unit_len = 0, user_unit_len = 0, documentation_url_len = 0;
+
+        // for update_display_timestamps_and_bootid()
+        _cleanup_free_ char *realtime = NULL, *monotonic = NULL;
+        size_t realtime_len = 0, monotonic_len = 0;
+
         int p = LOG_INFO;
         bool ellipsized = false, audit;
         const ParseFieldVec fields[] = {
@@ -490,6 +519,10 @@ static int output_short(
                 PARSE_FIELD_VEC_ENTRY("_SYSTEMD_UNIT=", &unit, &unit_len),
                 PARSE_FIELD_VEC_ENTRY("_SYSTEMD_USER_UNIT=", &user_unit, &user_unit_len),
                 PARSE_FIELD_VEC_ENTRY("DOCUMENTATION=", &documentation_url, &documentation_url_len),
+
+                // for update_display_timestamps_and_bootid()
+                PARSE_FIELD_VEC_ENTRY("_SOURCE_REALTIME_TIMESTAMP=", &realtime, &realtime_len),
+                PARSE_FIELD_VEC_ENTRY("_SOURCE_MONOTONIC_TIMESTAMP=", &monotonic, &monotonic_len),
         };
         size_t highlight_shifted[] = {highlight ? highlight[0] : 0, highlight ? highlight[1] : 0};
 
@@ -511,12 +544,17 @@ static int output_short(
                 if (r < 0)
                         return r;
         }
+
         if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
                 log_debug_errno(r, "Skipping message we can't read: %m");
                 return 0;
         }
         if (r < 0)
                 return log_error_errno(r, "Failed to get journal fields: %m");
+
+        // for update_display_timestamps_and_bootid()
+        update_display_timestamps_and_bootid(j, (dual_timestamp *)display_ts, (sd_id128_t *)boot_id,
+                                             realtime, realtime_len, monotonic, monotonic_len);
 
         if (!message) {
                 log_debug("Skipping message without MESSAGE= field.");
@@ -1304,7 +1342,6 @@ static int get_display_timestamp(
                 PARSE_FIELD_VEC_ENTRY("_SOURCE_MONOTONIC_TIMESTAMP=", &monotonic, &monotonic_len),
         };
         int r;
-        bool realtime_good = false, monotonic_good = false, boot_id_good = false;
 
         assert(j);
         assert(ret_display_ts);
@@ -1321,24 +1358,7 @@ static int get_display_timestamp(
         if (r < 0)
                 return r;
 
-        if (realtime)
-                realtime_good = safe_atou64(realtime, &ret_display_ts->realtime) >= 0;
-        if (!realtime_good || !VALID_REALTIME(ret_display_ts->realtime))
-                realtime_good = sd_journal_get_realtime_usec(j, &ret_display_ts->realtime) >= 0;
-        if (!realtime_good)
-                ret_display_ts->realtime = USEC_INFINITY;
-
-        if (monotonic)
-                monotonic_good = safe_atou64(monotonic, &ret_display_ts->monotonic) >= 0;
-        if (!monotonic_good || !VALID_MONOTONIC(ret_display_ts->monotonic))
-                monotonic_good = boot_id_good = sd_journal_get_monotonic_usec(j, &ret_display_ts->monotonic, ret_boot_id) >= 0;
-        if (!monotonic_good)
-                ret_display_ts->monotonic = USEC_INFINITY;
-
-        if (!boot_id_good)
-                boot_id_good = sd_journal_get_monotonic_usec(j, NULL, ret_boot_id) >= 0;
-        if (!boot_id_good)
-                *ret_boot_id = SD_ID128_NULL;
+        update_display_timestamps_and_bootid(j, ret_display_ts, ret_boot_id, realtime, realtime_len, monotonic, monotonic_len);
 
         /* Restart all data before */
         sd_journal_restart_data(j);
@@ -1405,13 +1425,20 @@ int show_journal_entry(
         if (n_columns <= 0)
                 n_columns = columns();
 
-        r = get_display_timestamp(j, &display_ts, &boot_id);
-        if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
-                log_debug_errno(r, "Skipping message we can't read: %m");
-                return 0;
+        if (output_funcs[mode] != output_short) {
+                // output_short will fill display_ts and boot_id for us
+                // for all other output methods, we need this.
+                // However, this is about 40% of the execution time
+                // since it traverses all fields again.
+
+                r = get_display_timestamp(j, &display_ts, &boot_id);
+                if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
+                        log_debug_errno(r, "Skipping message we can't read: %m");
+                        return 0;
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get journal fields: %m");
         }
-        if (r < 0)
-                return log_error_errno(r, "Failed to get journal fields: %m");
 
         r = output_funcs[mode](
                         f,
