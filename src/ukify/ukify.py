@@ -932,6 +932,8 @@ def generate_priv_pub_key_pair(keylength : int = 2048) -> tuple[bytes]:
 
 
 def generate_keys(opts):
+    work = False
+
     # This will generate keys and certificates and write them to the paths that
     # are specified as input paths.
     if opts.sb_key or opts.sb_cert:
@@ -947,6 +949,8 @@ def generate_keys(opts):
         print(f'Writing SecureBoot certificate to {opts.sb_cert}')
         opts.sb_cert.write_bytes(cert_pem)
 
+        work = True
+
     for priv_key, pub_key, _ in key_path_groups(opts):
         priv_key_pem, pub_key_pem = generate_priv_pub_key_pair()
 
@@ -956,6 +960,11 @@ def generate_keys(opts):
         if pub_key:
             print(f'Writing public key for PCR signing to {pub_key}')
             pub_key.write_bytes(pub_key_pem)
+
+        work = True
+
+    if not work:
+        raise ValueError('genkey: --secureboot-private-key=/--secureboot-certificate= or --pcr-private-key/--pcr-public-key must be specified')
 
 
 def inspect_section(opts, section):
