@@ -52,3 +52,5 @@ int userns_acquire(const char *uid_map, const char *gid_map);
 int in_same_namespace(pid_t pid1, pid_t pid2, NamespaceType type);
 
 int namespace_open_by_type(NamespaceType type);
+
+int is_our_namespace(int fd, NamespaceType type);
