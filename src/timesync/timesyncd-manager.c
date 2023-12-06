@@ -962,7 +962,7 @@ Manager* manager_free(Manager *m) {
 
         sd_bus_flush_close_unref(m->bus);
 
-        bus_verify_polkit_async_registry_free(m->polkit_registry);
+        hashmap_free(m->polkit_registry);
 
         return mfree(m);
 }
