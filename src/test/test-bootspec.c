@@ -149,4 +149,63 @@ TEST_RET(bootspec_extract_tries) {
         return 0;
 }
 
+TEST_RET(bootspec_boot_config_find_entry) {
+
+        static const struct {
+                const char *fname;
+                const char *contents;
+        } entries[] = {
+                {
+                        .fname = "a-10.conf",
+                        .contents =
+                        "title A\n"
+                        "version 10\n"
+                        "machine-id dd235d00696545768f6f693bfd23b15f\n",
+                },
+                {
+                        .fname = "a-05.conf",
+                        .contents =
+                        "title A\n"
+                        "version 10\n"
+                        "machine-id dd235d00696545768f6f693bfd23b15f\n",
+                },
+        };
+
+        _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
+        _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
+
+        assert_se(mkdtemp_malloc("/tmp/bootspec-testXXXXXX", &d) >= 0);
+
+        for (size_t i = 0; i < ELEMENTSOF(entries); i++) {
+                _cleanup_free_ char *j = NULL;
+
+                j = path_join(d, "/loader/entries/", entries[i].fname);
+                assert_se(j);
+
+                assert_se(write_string_file(j, entries[i].contents, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MKDIR_0755) >= 0);
+        }
+
+        assert_se(boot_config_load(&config, d, NULL) >= 0);
+        assert_se(config.n_entries == 2);
+
+        // Test finding the first entry
+        BootEntry *entry = boot_config_find_entry(&config, "a-10.conf");
+        assert_se(entry && streq(entry->id, "a-10.conf"));
+
+        // Test finding the second entry
+        entry = boot_config_find_entry(&config, "a-05.conf");
+        assert_se(entry && streq(entry->id, "a-05.conf"));
+
+        // Test finding a non-existent entry
+        entry = boot_config_find_entry(&config, "nonexistent.conf");
+        assert_se(entry == NULL);
+
+        // Test case-insensitivity
+        entry = boot_config_find_entry(&config, "A-10.CONF");
+        assert_se(entry && streq(entry->id, "a-10.conf"));
+
+
+        return 0;
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
