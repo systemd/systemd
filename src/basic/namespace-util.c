@@ -33,6 +33,14 @@ const struct namespace_info namespace_info[] = {
 
 #define pid_namespace_path(pid, type) procfs_file_alloca(pid, namespace_info[type].proc_path)
 
+static NamespaceType clone_flag_to_namespace_type(unsigned long clone_flag) {
+        for (NamespaceType t = 0; t < _NAMESPACE_TYPE_MAX; t++)
+                if (((namespace_info[t].clone_flag ^ clone_flag) & (CLONE_NEWCGROUP|CLONE_NEWIPC|CLONE_NEWNET|CLONE_NEWNS|CLONE_NEWPID|CLONE_NEWUSER|CLONE_NEWUTS|CLONE_NEWTIME)) == 0)
+                        return t;
+
+        return _NAMESPACE_TYPE_INVALID;
+}
+
 int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *userns_fd, int *root_fd) {
         _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, netnsfd = -EBADF, usernsfd = -EBADF;
         int rfd = -EBADF;
@@ -364,4 +372,38 @@ int namespace_open_by_type(NamespaceType type) {
                 return -ENOSYS;
 
         return fd;
+}
+
+int is_our_namespace(int fd, NamespaceType request_type) {
+        int clone_flag;
+
+        assert(fd >= 0);
+
+        clone_flag = ioctl(fd, NS_GET_NSTYPE);
+        if (clone_flag < 0)
+                return -errno;
+
+        NamespaceType found_type = clone_flag_to_namespace_type(clone_flag);
+        if (found_type < 0)
+                return -EBADF; /* Uh? Unknown namespace type? */
+
+        log_notice("%i vs %i", request_type, found_type);
+
+        if (request_type >= 0 && request_type != found_type) /* It's a namespace, but not of the right type? */
+                return -EUCLEAN;
+
+        struct stat st_fd, st_ours;
+        if (fstat(fd, &st_fd) < 0)
+                return -errno;
+
+        const char *p = pid_namespace_path(0, found_type);
+        log_error("ns: %s", strna(p));
+        if (stat(p, &st_ours) < 0) {
+                if (errno == ENOENT)
+                        return proc_mounted() == 0 ? -ENOSYS : -ENOENT;
+
+                return -errno;
+        }
+
+        return stat_inode_same(&st_ours, &st_fd);
 }
