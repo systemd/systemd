@@ -2093,6 +2093,7 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
         _cleanup_(dissected_image_unrefp) DissectedImage *dissected_image = NULL;
         _cleanup_strv_free_ char **hierarchies = NULL;
         _cleanup_(mount_list_done) MountList ml = {};
+        _cleanup_close_ int userns_fd = -EBADF;
         bool require_prefix = false;
         const char *root;
         DissectImageFlags dissect_image_flags =
@@ -2128,40 +2129,57 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
 
                 SET_FLAG(dissect_image_flags, DISSECT_IMAGE_NO_PARTITION_TABLE, p->verity && p->verity->data_path);
 
-                r = loop_device_make_by_path(
-                                p->root_image,
-                                FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : -1 /* < 0 means writable if possible, read-only as fallback */,
-                                /* sector_size= */ UINT32_MAX,
-                                FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
-                                LOCK_SH,
-                                &loop_device);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to create loop device for root image: %m");
+                if (p->runtime_scope == RUNTIME_SCOPE_SYSTEM) {
+                        /* In system mode we mount directly */
 
-                r = dissect_loop_device(
-                                loop_device,
-                                p->verity,
-                                p->root_image_options,
-                                p->root_image_policy,
-                                dissect_image_flags,
-                                &dissected_image);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to dissect image: %m");
+                        r = loop_device_make_by_path(
+                                        p->root_image,
+                                        FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_DEVICE_READ_ONLY) ? O_RDONLY : -1 /* < 0 means writable if possible, read-only as fallback */,
+                                        /* sector_size= */ UINT32_MAX,
+                                        FLAGS_SET(dissect_image_flags, DISSECT_IMAGE_NO_PARTITION_TABLE) ? 0 : LO_FLAGS_PARTSCAN,
+                                        LOCK_SH,
+                                        &loop_device);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to create loop device for root image: %m");
 
-                r = dissected_image_load_verity_sig_partition(
-                                dissected_image,
-                                loop_device->fd,
-                                p->verity);
-                if (r < 0)
-                        return r;
+                        r = dissect_loop_device(
+                                        loop_device,
+                                        p->verity,
+                                        p->root_image_options,
+                                        p->root_image_policy,
+                                        dissect_image_flags,
+                                        &dissected_image);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to dissect image: %m");
 
-                r = dissected_image_decrypt(
-                                dissected_image,
-                                NULL,
-                                p->verity,
-                                dissect_image_flags);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to decrypt dissected image: %m");
+                        r = dissected_image_load_verity_sig_partition(
+                                        dissected_image,
+                                        loop_device->fd,
+                                        p->verity);
+                        if (r < 0)
+                                return r;
+
+                        r = dissected_image_decrypt(
+                                        dissected_image,
+                                        NULL,
+                                        p->verity,
+                                        dissect_image_flags);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to decrypt dissected image: %m");
+                } else {
+                        userns_fd = namespace_open_by_type(NAMESPACE_USER);
+                        if (userns_fd < 0)
+                                return log_debug_errno(userns_fd, "Failed to open our own user namespace: %m");
+
+                        r = mntfsd_mount_image(
+                                        p->root_image,
+                                        userns_fd,
+                                        p->root_image_policy,
+                                        dissect_image_flags,
+                                        &dissected_image);
+                        if (r < 0)
+                                return r;
+                }
         }
 
         if (p->root_directory)
@@ -2525,16 +2543,18 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
                                 root,
                                 /* uid_shift= */ UID_INVALID,
                                 /* uid_range= */ UID_INVALID,
-                                /* userns_fd= */ -EBADF,
+                                userns_fd,
                                 dissect_image_flags);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to mount root image: %m");
 
                 /* Now release the block device lock, so that udevd is free to call BLKRRPART on the device
                  * if it likes. */
-                r = loop_device_flock(loop_device, LOCK_UN);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to release lock on loopback block device: %m");
+                if (loop_device) {
+                        r = loop_device_flock(loop_device, LOCK_UN);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to release lock on loopback block device: %m");
+                }
 
                 r = dissected_image_relinquish(dissected_image);
                 if (r < 0)
