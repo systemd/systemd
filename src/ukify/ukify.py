@@ -846,7 +846,6 @@ uki,1,UKI,uki,1,https://www.freedesktop.org/software/systemd/man/systemd-stub.ht
     print(f"Wrote {'signed' if sign_args_present else 'unsigned'} {opts.output}")
 
 
-
 @contextlib.contextmanager
 def temporary_umask(mask: int):
     # Drop <mask> bits from umask
