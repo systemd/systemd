@@ -513,6 +513,8 @@ option('analyze', type: 'boolean', value: true,
        description : 'install systemd-analyze')
 
 option('bpf-compiler', type : 'combo', choices : ['clang', 'gcc'],
-    description: 'compiler used to build BPF programs')
+       description: 'compiler used to build BPF programs')
 option('bpf-framework', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
-    description: 'build BPF programs from source code in restricted C')
+       description: 'build BPF programs from source code in restricted C')
+option('vmlinux-h', type : 'combo', choices : ['auto', 'shipped', 'generated', 'disabled'],
+       description: 'Which vmlinux.h to use')
