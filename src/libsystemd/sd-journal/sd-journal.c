@@ -470,7 +470,7 @@ static struct boot_id_newest_entry **boot_id_to_newest_realtime_usec_get_slot(sd
 static int compare_boot_ids(sd_journal *j, sd_id128_t a, sd_id128_t b) {
         assert(j);
 
-        if (j->flags & SD_JOURNAL_FAST_QUERY) {
+        if (j->flags & SD_JOURNAL_CACHE_FILES_NEWEST_TIMESTAMPS) {
                 struct boot_id_newest_entry **ae, **be;
 
                 ae = boot_id_to_newest_realtime_usec_get_slot(j, a);
@@ -2115,7 +2115,7 @@ static sd_journal *journal_new(int flags, const char *path, const char *namespac
          SD_JOURNAL_SYSTEM |                            \
          SD_JOURNAL_CURRENT_USER |                      \
          SD_JOURNAL_ALL_NAMESPACES |                    \
-         SD_JOURNAL_FAST_QUERY |                        \
+         SD_JOURNAL_CACHE_FILES_NEWEST_TIMESTAMPS |     \
          SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE)
 
 _public_ int sd_journal_open_namespace(sd_journal **ret, const char *namespace, int flags) {
@@ -2142,7 +2142,7 @@ _public_ int sd_journal_open(sd_journal **ret, int flags) {
 }
 
 #define OPEN_CONTAINER_ALLOWED_FLAGS                    \
-        (SD_JOURNAL_FAST_QUERY |                        \
+        (SD_JOURNAL_CACHE_FILES_NEWEST_TIMESTAMPS |     \
          SD_JOURNAL_LOCAL_ONLY | SD_JOURNAL_SYSTEM)
 
 _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, int flags) {
@@ -2186,7 +2186,7 @@ _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, in
 }
 
 #define OPEN_DIRECTORY_ALLOWED_FLAGS                    \
-        (SD_JOURNAL_FAST_QUERY |                        \
+        (SD_JOURNAL_CACHE_FILES_NEWEST_TIMESTAMPS |     \
          SD_JOURNAL_OS_ROOT |                           \
          SD_JOURNAL_SYSTEM | SD_JOURNAL_CURRENT_USER )
 
@@ -2214,7 +2214,7 @@ _public_ int sd_journal_open_directory(sd_journal **ret, const char *path, int f
 }
 
 #define OPEN_FILES_ALLOWED_FLAGS                        \
-        SD_JOURNAL_FAST_QUERY
+        SD_JOURNAL_CACHE_FILES_NEWEST_TIMESTAMPS
 
 _public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int flags) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
@@ -2241,7 +2241,7 @@ _public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int fla
 
 #define OPEN_DIRECTORY_FD_ALLOWED_FLAGS                 \
         (SD_JOURNAL_OS_ROOT |                           \
-         SD_JOURNAL_FAST_QUERY |                        \
+         SD_JOURNAL_CACHE_FILES_NEWEST_TIMESTAMPS |     \
          SD_JOURNAL_SYSTEM |                            \
          SD_JOURNAL_CURRENT_USER |                      \
          SD_JOURNAL_TAKE_DIRECTORY_FD)
@@ -2283,7 +2283,7 @@ _public_ int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags) {
 }
 
 #define OPEN_FILES_FD_ALLOWED_FLAGS                     \
-        SD_JOURNAL_FAST_QUERY
+        SD_JOURNAL_CACHE_FILES_NEWEST_TIMESTAMPS
 
 _public_ int sd_journal_open_files_fd(sd_journal **ret, int fds[], unsigned n_fds, int flags) {
         JournalFile *f;
@@ -2479,7 +2479,7 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
         assert(f);
         assert(f->header);
 
-        if ((j->flags & SD_JOURNAL_FAST_QUERY) && f->have_tail_timestamp)
+        if ((j->flags & SD_JOURNAL_CACHE_FILES_NEWEST_TIMESTAMPS) && f->have_tail_timestamp)
                 return 0;
 
         /* Tries to read the timestamp of the most recently written entry. */

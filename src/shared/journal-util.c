@@ -179,7 +179,7 @@ int journal_open_machine(sd_journal **ret, const char *machine, int flags) {
                 return log_error_errno(errno, "Failed to duplicate file descriptor: %m");
 
         r = sd_journal_open_directory_fd(&j, machine_fd, SD_JOURNAL_OS_ROOT | SD_JOURNAL_TAKE_DIRECTORY_FD |
-                                                         (flags & SD_JOURNAL_FAST_QUERY));
+                                                         (flags & SD_JOURNAL_CACHE_FILES_NEWEST_TIMESTAMPS));
         if (r < 0)
                 return log_error_errno(r, "Failed to open journal in machine '%s': %m", machine);
 
