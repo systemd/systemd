@@ -463,7 +463,8 @@ CHANGES WITH 255 in spe:
 
         * A new varlinkctl tool has been added to allow interfacing with
           Varlink services, and introspection has been added to all such
-          services.
+          services. This component is experimental and its public interface is
+          subject to change.
 
         * systemd-sysext and systemd-confext now expose a Varlink service
           at io.systemd.sysext.
@@ -520,11 +521,13 @@ CHANGES WITH 255 in spe:
           rd.systemd.unit=storage-target-mode.target on the kernel command
           line. This is intended to be used for installers and debugging to
           quickly get access to the local disk. It's inspired by MacOS "target
-          disk mode".
+          disk mode". This component is experimental and its public interface is
+          subject to change.
 
         * A new component "systemd-bsod" has been added, which can show logged
           error messages full screen, if they have a log level of LOG_EMERG log
-          level.
+          level. This component is experimental and its public interface is
+          subject to change.
 
         * The systemd-dissect tool's --with command will now set the
           $SYSTEMD_DISSECT_DEVICE environment variable to the block device it
