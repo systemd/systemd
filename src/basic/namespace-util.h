@@ -62,3 +62,5 @@ int in_same_namespace(pid_t pid1, pid_t pid2, NamespaceType type);
 int parse_userns_uid_range(const char *s, uid_t *ret_uid_shift, uid_t *ret_uid_range);
 
 int namespace_open_by_type(NamespaceType type);
+
+int is_our_namespace(int fd, NamespaceType type);
