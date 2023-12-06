@@ -149,4 +149,26 @@ TEST_RET(bootspec_extract_tries) {
         return 0;
 }
 
+TEST_RET(bootspec_boot_config_find_entry) {
+    _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
+    BootEntry entry1 = {.id = "entry1", /* other fields as necessary */};
+    BootEntry entry2 = {.id = "entry2", /* other fields as necessary */};
+    BootEntry *found;
+
+    assert_se(boot_config_add_entry(&config, &entry1) >= 0);
+    assert_se(boot_config_add_entry(&config, &entry2) >= 0);
+
+    found = boot_config_find_entry(&config, "entry1");
+    assert_se(found && streq(found->id, "entry1"));
+
+    /* case insensitivity test */
+    found = boot_config_find_entry(&config, "Entry1");
+    assert_se(found && streq(found->id, "entry1"));
+
+    found = boot_config_find_entry(&config, "nonexistent");
+    assert_se(found == NULL);
+
+    return 0;
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
