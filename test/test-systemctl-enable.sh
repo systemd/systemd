@@ -97,7 +97,7 @@ test ! -e "$root/etc/systemd/system/test1-badalias.target"
 test ! -e "$root/etc/systemd/system/test1-badalias.socket"
 test -h "$root/etc/systemd/system/test1-goodalias2.service"
 
-: '-------aliases in reeanble----------------------------------'
+: '-------aliases in reeanable----------------------------------'
 ( ! "$systemctl" --root="$root" reenable test1 )
 test -h "$root/etc/systemd/system/default.target.wants/test1.service"
 test ! -e "$root/etc/systemd/system/test1-goodalias.service"
@@ -246,6 +246,29 @@ islink "$root/etc/systemd/system/paths.target.wants/link1.path" "/link1.path"
 islink "$root/etc/systemd/system/link1.path" "/link1.path"
 islink "$root/etc/systemd/system/paths.target.wants/link1.path" "/link1.path"
 
+: '-------link instance and enable-------------------------------------'
+cat >"$root/link-instance@.service" <<EOF
+[Service]
+ExecStart=true
+[Install]
+WantedBy=services.target
+EOF
+
+"$systemctl" --root="$root" link '/link-instance@.service'
+islink "$root/etc/systemd/system/link-instance@.service" "/link-instance@.service"
+
+"$systemctl" --root="$root" enable 'link-instance@first.service'
+islink "$root/etc/systemd/system/link-instance@first.service" "/link-instance@.service"
+islink "$root/etc/systemd/system/services.target.wants/link-instance@first.service" "/link-instance@.service"
+
+SYSTEMD_LOG_LEVEL=debug "$systemctl" --root="$root" reenable 'link-instance@first.service'
+islink "$root/etc/systemd/system/link-instance@first.service" "/link-instance@.service"
+islink "$root/etc/systemd/system/services.target.wants/link-instance@first.service" "/link-instance@.service"
+
+"$systemctl" --root="$root" disable 'link-instance@first.service'
+test ! -h "$root/etc/systemd/system/link-instance@first.service"
+test ! -h "$root/etc/systemd/system/services.target.wants/link-instance@first.service"
+
 : '-------manual link------------------------------------------'
 cat >"$root/link3.suffix" <<EOF
 [Install]
@@ -310,6 +333,11 @@ test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
 islink "$root/etc/systemd/system/services.target.wants/templ1@one.service" "/etc/systemd/system/templ1@.service"
 
 "$systemctl" --root="$root" enable 'templ1@two.service'
+test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
+islink "$root/etc/systemd/system/services.target.wants/templ1@one.service" "/etc/systemd/system/templ1@.service"
+islink "$root/etc/systemd/system/services.target.wants/templ1@two.service" "/etc/systemd/system/templ1@.service"
+
+"$systemctl" --root="$root" reenable 'templ1@two.service'
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
 islink "$root/etc/systemd/system/services.target.wants/templ1@one.service" "/etc/systemd/system/templ1@.service"
 islink "$root/etc/systemd/system/services.target.wants/templ1@two.service" "/etc/systemd/system/templ1@.service"
