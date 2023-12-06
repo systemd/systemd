@@ -529,7 +529,8 @@ def test_uname_scraping(kernel_initrd):
     uname = ukify.Uname.scrape(kernel_initrd[1])
     assert re.match(r'\d+\.\d+\.\d+', uname)
 
-def test_efi_signing_sbsign(kernel_initrd, tmpdir):
+@pytest.mark.parametrize("days", [365*10, None])
+def test_efi_signing_sbsign(days, kernel_initrd, tmpdir):
     if kernel_initrd is None:
         pytest.skip('linux+initrd not found')
     if not shutil.which('sbsign'):
@@ -540,7 +541,7 @@ def test_efi_signing_sbsign(kernel_initrd, tmpdir):
     key = unbase64(ourdir / 'example.signing.key.base64')
 
     output = f'{tmpdir}/signed.efi'
-    opts = ukify.parse_args([
+    args = [
         'build',
         *kernel_initrd,
         f'--output={output}',
@@ -548,7 +549,11 @@ def test_efi_signing_sbsign(kernel_initrd, tmpdir):
         '--cmdline=ARG1 ARG2 ARG3',
         f'--secureboot-certificate={cert.name}',
         f'--secureboot-private-key={key.name}',
-    ])
+    ]
+    if days is not None:
+        args += [f'--secureboot-certificate-validity={days}']
+
+    opts = ukify.parse_args(args)
 
     try:
         ukify.check_inputs(opts)
