@@ -987,7 +987,7 @@ static int manager_dispatch_idle_action(sd_event_source *s, uint64_t t, void *us
                                 m->event,
                                 &m->idle_action_event_source,
                                 CLOCK_MONOTONIC,
-                                elapse, USEC_PER_SEC*30,
+                                elapse, MIN(USEC_PER_SEC*30, m->idle_action_usec), /* accuracy of 30s, but don't have an accuracy lower than the idle action timeout */
                                 manager_dispatch_idle_action, m);
                 if (r < 0)
                         return log_error_errno(r, "Failed to add idle event source: %m");

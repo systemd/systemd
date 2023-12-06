@@ -1135,6 +1135,7 @@ node /org/freedesktop/login1/session/1 {
       TakeControl(in  b force);
       ReleaseControl();
       SetType(in  s type);
+      SetClass(in  s class);
       SetDisplay(in  s display);
       SetTTY(in  h tty_fd);
       TakeDevice(in  u major,
@@ -1231,6 +1232,8 @@ node /org/freedesktop/login1/session/1 {
     <variablelist class="dbus-method" generated="True" extra-ref="ReleaseControl()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="SetType()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="SetClass()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="SetDisplay()"/>
 
@@ -1331,6 +1334,12 @@ node /org/freedesktop/login1/session/1 {
       control is released, either by calling <function>ReleaseControl()</function> or closing the D-Bus
       connection. This should help prevent a session from entering an inconsistent state, for example if the
       controller crashes. The only argument <varname>type</varname> is the new session type.</para>
+
+      <para><function>SetClass()</function> allows the caller to change the class of the session dynamically.
+      It may only be called by session's owening user. Currently, this call may be exclusively used to change
+      the class from <literal>user-incomplete</literal> to <literal>user</literal>. The call is synchronous,
+      and will return only once the user's service manager has successfully been started, if necessary. The
+      only argument <varname>type</varname> is the new session type.</para>
 
       <para><function>SetDisplay()</function> allows the display name of the graphical session to be changed. This is
       useful if the display server is started as part of the session. It can only be called by session's current
@@ -1567,6 +1576,7 @@ node /org/freedesktop/login1/session/1 {
       <title>Session Objects</title>
       <para><function>SetDisplay()</function> was added in version 252.</para>
       <para><function>SetTTY()</function> was added in version 254.</para>
+      <para><function>SetClass()</function> was added in version 256.</para>
     </refsect2>
   </refsect1>
 </refentry>

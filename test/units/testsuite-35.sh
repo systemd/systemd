@@ -250,7 +250,7 @@ cleanup_session() (
 
     systemctl stop getty@tty2.service
 
-    for s in $(loginctl --no-legend list-sessions | awk '$3 == "logind-test-user" { print $1 }'); do
+    for s in $(loginctl --no-legend list-sessions | grep tty | awk '$3 == "logind-test-user" { print $1 }'); do
         echo "INFO: stopping session $s"
         loginctl terminate-session "$s"
     done
@@ -300,18 +300,18 @@ check_session() (
 
     local seat session leader_pid
 
-    if [[ $(loginctl --no-legend | grep -c "logind-test-user") != 1 ]]; then
+    if [[ $(loginctl --no-legend | grep tty | grep -c "logind-test-user") != 1 ]]; then
         echo "no session or multiple sessions for logind-test-user." >&2
         return 1
     fi
 
-    seat=$(loginctl --no-legend | grep 'logind-test-user *seat' | awk '{ print $4 }')
+    seat=$(loginctl --no-legend | grep tty | grep 'logind-test-user *seat' | awk '{ print $4 }')
     if [[ -z "$seat" ]]; then
         echo "no seat found for user logind-test-user" >&2
         return 1
     fi
 
-    session=$(loginctl --no-legend | awk '$3 == "logind-test-user" { print $1 }')
+    session=$(loginctl --no-legend | grep tty | awk '$3 == "logind-test-user" { print $1 }')
     if [[ -z "$session" ]]; then
         echo "no session found for user logind-test-user" >&2
         return 1
@@ -356,7 +356,7 @@ EOF
         check_session && break
     done
     check_session
-    assert_eq "$(loginctl --no-legend | awk '$3=="logind-test-user" { print $5 }')" "tty2"
+    assert_eq "$(loginctl --no-legend | grep tty | awk '$3=="logind-test-user" { print $5 }')" "tty2"
 }
 
 testcase_sanity_check() {
@@ -447,7 +447,7 @@ EOF
     udevadm info "$dev"
 
     # trigger logind and activate session
-    loginctl activate "$(loginctl --no-legend | awk '$3 == "logind-test-user" { print $1 }')"
+    loginctl activate "$(loginctl --no-legend | grep tty | awk '$3 == "logind-test-user" { print $1 }')"
 
     # check ACL
     sleep 1
@@ -488,7 +488,7 @@ testcase_lock_idle_action() {
         return
     fi
 
-    if loginctl --no-legend | grep -q logind-test-user; then
+    if loginctl --no-legend | grep tty | grep -q logind-test-user; then
         echo >&2 "Session of the 'logind-test-user' is already present."
         exit 1
     fi
@@ -537,7 +537,7 @@ testcase_session_properties() {
     trap cleanup_session RETURN
     create_session
 
-    s=$(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $1 }')
+    s=$(loginctl list-sessions --no-legend | grep tty | awk '$3 == "logind-test-user" { print $1 }')
     /usr/lib/systemd/tests/unit-tests/manual/test-session-properties "/org/freedesktop/login1/session/_3${s?}" /dev/tty2
 }
 
@@ -553,34 +553,40 @@ testcase_list_users_sessions_seats() {
     create_session
 
     # Activate the session
-    loginctl activate "$(loginctl --no-legend | awk '$3 == "logind-test-user" { print $1 }')"
+    loginctl activate "$(loginctl --no-legend | grep tty | awk '$3 == "logind-test-user" { print $1 }')"
 
-    session=$(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $1 }')
+    session=$(loginctl list-sessions --no-legend | grep tty | awk '$3 == "logind-test-user" { print $1 }')
     : check that we got a valid session id
     busctl get-property org.freedesktop.login1 "/org/freedesktop/login1/session/_3${session?}" org.freedesktop.login1.Session Id
-    assert_eq "$(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $2 }')" "$(id -ru logind-test-user)"
-    seat=$(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $4 }')
-    assert_eq "$(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $5 }')" tty2
-    assert_eq "$(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $6 }')" active
-    assert_eq "$(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $7 }')" no
-    assert_eq "$(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $8 }')" '-'
+    assert_eq "$(loginctl list-sessions --no-legend | grep tty | awk '$3 == "logind-test-user" { print $2 }')" "$(id -ru logind-test-user)"
+    seat=$(loginctl list-sessions --no-legend | grep tty | awk '$3 == "logind-test-user" { print $4 }')
+    assert_eq "$(loginctl list-sessions --no-legend | grep tty | awk '$3 == "logind-test-user" { print $5 }')" tty2
+    assert_eq "$(loginctl list-sessions --no-legend | grep tty | awk '$3 == "logind-test-user" { print $6 }')" active
+    assert_eq "$(loginctl list-sessions --no-legend | grep tty | awk '$3 == "logind-test-user" { print $7 }')" no
+    assert_eq "$(loginctl list-sessions --no-legend | grep tty | awk '$3 == "logind-test-user" { print $8 }')" '-'
 
     loginctl list-seats --no-legend | grep -Fwq "${seat?}"
+
+    echo foo1
 
     assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $1 }')" "$(id -ru logind-test-user)"
     assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $3 }')" no
     assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $4 }')" active
 
+    echo foo2
+
     loginctl enable-linger logind-test-user
     assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $3 }')" yes
 
-    for s in $(loginctl list-sessions --no-legend | awk '$3 == "logind-test-user" { print $1 }'); do
+    for s in $(loginctl list-sessions --no-legend | grep tty | awk '$3 == "logind-test-user" { print $1 }'); do
         loginctl terminate-session "$s"
     done
-    if ! timeout 30 bash -c "while loginctl --no-legend | grep -q logind-test-user; do sleep 1; done"; then
+    if ! timeout 30 bash -c "while loginctl --no-legend | grep tty | grep -q logind-test-user; do sleep 1; done"; then
         echo "WARNING: session for logind-test-user still active, ignoring."
         return
     fi
+
+    echo foo3
 
     assert_eq "$(loginctl list-users --no-legend | awk '$2 == "logind-test-user" { print $4 }')" lingering
 }
@@ -605,7 +611,7 @@ testcase_stop_idle_session() {
     create_session
     trap teardown_stop_idle_session RETURN
 
-    id="$(loginctl --no-legend | awk '$3 == "logind-test-user" { print $1; }')"
+    id="$(loginctl --no-legend | grep tty | awk '$3 == "logind-test-user" { print $1; }')"
     ts="$(date '+%H:%M:%S')"
 
     mkdir -p /run/systemd/logind.conf.d
@@ -617,7 +623,7 @@ EOF
     sleep 5
 
     assert_eq "$(journalctl -b -u systemd-logind.service --since="$ts" --grep "Session \"$id\" of user \"logind-test-user\" is idle, stopping." | wc -l)" 1
-    assert_eq "$(loginctl --no-legend | grep -c "logind-test-user")" 0
+    assert_eq "$(loginctl --no-legend | grep tty | grep -c "logind-test-user")" 0
 }
 
 testcase_ambient_caps() {
@@ -670,6 +676,45 @@ EOF
     systemd-run -u "$TRANSIENTUNIT" -p PAMName="$PAMSERVICE" -p Type=oneshot -p User=logind-test-user -p StandardError=tty "$SCRIPT"
 
     rm -f "$SCRIPT" "$PAMSERVICE"
+}
+
+testcase_background() {
+
+    local uid PAMSERVICE TRANSIENTUNIT
+
+    uid=$(id -u logind-test-user)
+
+    systemctl stop user@"$uid".service
+
+    PAMSERVICE="pamserv$RANDOM"
+    TRANSIENTUNIT="bg$RANDOM.service"
+
+    cat > /etc/pam.d/"$PAMSERVICE" <<EOF
+auth sufficient    pam_unix.so
+auth required      pam_deny.so
+account sufficient pam_unix.so
+account required   pam_permit.so
+session optional   pam_systemd.so debug
+session required   pam_unix.so
+EOF
+
+    systemd-run -u "$TRANSIENTUNIT" -p PAMName="$PAMSERVICE" -p "Environment=XDG_SESSION_CLASS=background-light" -p Type=exec -p User=logind-test-user sleep infinity
+
+    # This was a 'light' background service, hence the service manager should not be running
+    (! systemctl is-active user@"$uid".service )
+
+    systemctl stop "$TRANSIENTUNIT"
+
+    systemd-run -u "$TRANSIENTUNIT" -p PAMName="$PAMSERVICE" -p "Environment=XDG_SESSION_CLASS=background" -p Type=exec -p User=logind-test-user sleep infinity
+
+    # This was a regular background service, hence the service manager should be running
+    systemctl is-active user@"$uid".service
+
+    systemctl stop "$TRANSIENTUNIT"
+
+    systemctl stop user@"$uid".service
+
+    rm /etc/pam.d/"$PAMSERVICE"
 }
 
 setup_test_user
