@@ -24,7 +24,7 @@ _host_has_feature() {(
 
     case "${1:?}" in
         btrfs)
-            modprobe -nv btrfs && command -v mkfs.btrfs && command -v btrfs || return $?
+            host_has_btrfs
             ;;
         iscsi)
             # Client/initiator (Open-iSCSI)
@@ -36,7 +36,7 @@ _host_has_feature() {(
             command -v lvm || return $?
             ;;
         mdadm)
-            command -v mdadm || return $?
+            host_has_mdadm
             ;;
         multipath)
             command -v multipath && command -v multipathd || return $?
