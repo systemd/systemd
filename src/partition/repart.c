@@ -6163,10 +6163,10 @@ static int context_minimize(Context *context) {
                 d = loop_device_unref(d);
 
                 /* Erase the previous filesystem first. */
-                if (ftruncate(fd, 0))
+                if (ftruncate(fd, 0) < 0)
                         return log_error_errno(errno, "Failed to erase temporary file: %m");
 
-                if (ftruncate(fd, fsz))
+                if (ftruncate(fd, fsz) < 0)
                         return log_error_errno(errno, "Failed to truncate temporary file to %s: %m", FORMAT_BYTES(fsz));
 
                 if (arg_offline <= 0) {
