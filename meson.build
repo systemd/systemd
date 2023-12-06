@@ -1725,7 +1725,7 @@ if conf.get('BPF_FRAMEWORK') == 1
                 ]
         endif
 
-        bpf_o_unstripped_cmd += ['-I.']
+        bpf_o_unstripped_cmd += ['-I.', '-I' + meson.current_source_dir() + '/src/bpf']
 
         if not meson.is_cross_build() and bpf_compiler == 'clang'
                 target_triplet_cmd = run_command('gcc', '-dumpmachine', check: false)
@@ -1825,6 +1825,7 @@ update_hwdb_autosuspend_sh = find_program('tools/update-hwdb-autosuspend.sh')
 update_hwdb_sh = find_program('tools/update-hwdb.sh')
 update_man_rules_py = find_program('tools/update-man-rules.py')
 update_syscall_tables_sh = find_program('tools/update-syscall-tables.sh')
+update_vmlinux_h_sh = find_program('tools/update-vmlinux-h.sh')
 xml_helper_py = find_program('tools/xml_helper.py')
 
 ############################################################
@@ -1916,6 +1917,7 @@ subdir('src/fundamental')
 subdir('src/basic')
 subdir('src/libsystemd')
 subdir('src/shared')
+subdir('src/bpf')
 subdir('src/libudev')
 
 libsystemd = shared_library(
