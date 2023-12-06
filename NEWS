@@ -1,6 +1,6 @@
 systemd System and Service Manager
 
-CHANGES WITH 255 in spe:
+CHANGES WITH 255:
 
         Announcements of Future Feature Removals and Incompatible Changes:
 
@@ -624,7 +624,7 @@ CHANGES WITH 255 in spe:
         Yu Watanabe, Zbigniew Jędrzejewski-Szmek, zeroskyx,
         Дамјан Георгиевски, наб
 
-        — Edinburgh, 2023-12-02
+        — Edinburgh, 2023-12-06
 
 CHANGES WITH 254:
 
