@@ -93,41 +93,22 @@ int edit_files_add(
                 .path = TAKE_PTR(new_path),
                 .original_path = TAKE_PTR(new_original_path),
                 .comment_paths = TAKE_PTR(new_comment_paths),
+                .line = 1,
         };
         context->n_files++;
 
         return 1;
 }
 
-static int create_edit_temp_file(EditFile *e) {
-        _cleanup_(unlink_and_freep) char *temp = NULL;
-        _cleanup_fclose_ FILE *f = NULL;
-        const char *source;
-        bool has_original, has_target;
-        unsigned line = 1;
-        int r;
-
+static int populate_edit_temp_file(EditFile *e, FILE *f, const char *filename) {
         assert(e);
-        assert(e->context);
-        assert(e->path);
-        assert(!e->comment_paths || (e->context->marker_start && e->context->marker_end));
+        assert(f);
+        assert(filename);
 
-        if (e->temp)
-                return 0;
-
-        r = mkdir_parents_label(e->path, 0755);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create parent directories for '%s': %m", e->path);
-
-        r = fopen_temporary_label(e->path, e->path, &f, &temp);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create temporary file for '%s': %m", e->path);
-
-        if (fchmod(fileno(f), 0644) < 0)
-                return log_error_errno(errno, "Failed to change mode of temporary file '%s': %m", temp);
-
-        has_original = e->original_path && access(e->original_path, F_OK) >= 0;
-        has_target = access(e->path, F_OK) >= 0;
+        bool has_original = e->original_path && access(e->original_path, F_OK) >= 0;
+        bool has_target = access(e->path, F_OK) >= 0;
+        const char *source;
+        int r;
 
         if (has_original && (!has_target || e->context->overwrite_with_origin))
                 /* We are asked to overwrite target with original_path or target doesn't exist. */
@@ -160,7 +141,7 @@ static int create_edit_temp_file(EditFile *e) {
                         source_contents && endswith(source_contents, "\n") ? "" : "\n",
                         e->context->marker_end);
 
-                line = 4; /* Start editing at the contents area */
+                e->line = 4; /* Start editing at the contents area */
 
                 STRV_FOREACH(path, e->comment_paths) {
                         _cleanup_free_ char *comment = NULL;
@@ -189,8 +170,47 @@ static int create_edit_temp_file(EditFile *e) {
                 r = copy_file_fd(source, fileno(f), COPY_REFLINK);
                 if (r < 0) {
                         assert(r != -ENOENT);
-                        return log_error_errno(r, "Failed to copy file '%s' to temporary file '%s': %m", source, temp);
+                        return log_error_errno(r, "Failed to copy file '%s' to temporary file '%s': %m",
+                                               source, filename);
                 }
+        }
+
+        return 0;
+}
+
+static int create_edit_temp_file(EditFile *e, const char *contents, size_t contents_size) {
+        _cleanup_(unlink_and_freep) char *temp = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        int r;
+
+        assert(e);
+        assert(e->context);
+        assert(e->path);
+        assert(!e->comment_paths || (e->context->marker_start && e->context->marker_end));
+        assert(contents || contents_size == 0);
+
+        if (e->temp)
+                return 0;
+
+        r = mkdir_parents_label(e->path, 0755);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create parent directories for '%s': %m", e->path);
+
+        r = fopen_temporary_label(e->path, e->path, &f, &temp);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create temporary file for '%s': %m", e->path);
+
+        if (fchmod(fileno(f), 0644) < 0)
+                return log_error_errno(errno, "Failed to change mode of temporary file '%s': %m", temp);
+
+        if (e->context->stdin) {
+                if (fwrite(contents, 1, contents_size, f) != contents_size)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                               "Failed to copy input to temporary file '%s': %m", temp);
+        } else {
+                r = populate_edit_temp_file(e, f, temp);
+                if (r < 0)
+                        return r;
         }
 
         r = fflush_and_check(f);
@@ -198,7 +218,6 @@ static int create_edit_temp_file(EditFile *e) {
                 return log_error_errno(r, "Failed to write to temporary file '%s': %m", temp);
 
         e->temp = TAKE_PTR(temp);
-        e->line = line;
 
         return 0;
 }
@@ -282,7 +301,7 @@ static int run_editor(const EditFileContext *context) {
 }
 
 static int strip_edit_temp_file(EditFile *e) {
-        _cleanup_free_ char *old_contents = NULL, *new_contents = NULL;
+        _cleanup_free_ char *old_contents = NULL, *tmp = NULL, *new_contents = NULL;
         const char *stripped;
         int r;
 
@@ -294,15 +313,17 @@ static int strip_edit_temp_file(EditFile *e) {
         if (r < 0)
                 return log_error_errno(r, "Failed to read temporary file '%s': %m", e->temp);
 
-        if (e->context->marker_start) {
+        tmp = strdup(old_contents);
+        if (!tmp)
+                return log_oom();
+
+        if (e->context->marker_start && !e->context->stdin) {
                 /* Trim out the lines between the two markers */
                 char *contents_start, *contents_end;
 
                 assert(e->context->marker_end);
 
-                contents_start = strstrafter(old_contents, e->context->marker_start);
-                if (!contents_start)
-                        contents_start = old_contents;
+                contents_start = strstrafter(tmp, e->context->marker_start) ?: tmp;
 
                 contents_end = strstr(contents_start, e->context->marker_end);
                 if (contents_end)
@@ -310,9 +331,13 @@ static int strip_edit_temp_file(EditFile *e) {
 
                 stripped = strstrip(contents_start);
         } else
-                stripped = strstrip(old_contents);
-        if (isempty(stripped))
-                return 0; /* File is empty (has no real changes) */
+                stripped = strstrip(tmp);
+
+        if (isempty(stripped)) {
+                /* File is empty (has no real changes) */
+                log_notice("%s: after editing, new contents are empty, not writing file.", e->path);
+                return 0;
+        }
 
         /* Trim prefix and suffix, but ensure suffixed by single newline */
         new_contents = strjoin(stripped, "\n");
@@ -320,16 +345,19 @@ static int strip_edit_temp_file(EditFile *e) {
                 return log_oom();
 
         if (streq(old_contents, new_contents)) /* Don't touch the file if the above didn't change a thing */
-                return 1; /* Contents unchanged after stripping but has changes */
+                return 1; /* Contents have real changes */
 
-        r = write_string_file(e->temp, new_contents, WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_TRUNCATE | WRITE_STRING_FILE_AVOID_NEWLINE);
+        r = write_string_file(e->temp, new_contents,
+                              WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_TRUNCATE | WRITE_STRING_FILE_AVOID_NEWLINE);
         if (r < 0)
                 return log_error_errno(r, "Failed to strip temporary file '%s': %m", e->temp);
 
-        return 1; /* Contents have real changes and are changed after stripping */
+        return 1; /* Contents have real changes */
 }
 
 int do_edit_files_and_install(EditFileContext *context) {
+        _cleanup_free_ char *data = NULL;
+        size_t data_size = 0;
         int r;
 
         assert(context);
@@ -337,33 +365,41 @@ int do_edit_files_and_install(EditFileContext *context) {
         if (context->n_files == 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "Got no files to edit.");
 
-        FOREACH_ARRAY(i, context->files, context->n_files) {
-                r = create_edit_temp_file(i);
+        if (context->stdin) {
+                r = read_full_stream(stdin, &data, &data_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read stdin: %m");
+        }
+
+        FOREACH_ARRAY(editfile, context->files, context->n_files) {
+                r = create_edit_temp_file(editfile, data, data_size);
                 if (r < 0)
                         return r;
         }
 
-        r = run_editor(context);
-        if (r < 0)
-                return r;
+        if (!context->stdin) {
+                r = run_editor(context);
+                if (r < 0)
+                        return r;
+        }
 
-        FOREACH_ARRAY(i, context->files, context->n_files) {
+        FOREACH_ARRAY(editfile, context->files, context->n_files) {
                 /* Always call strip_edit_temp_file which will tell if the temp file has actual changes */
-                r = strip_edit_temp_file(i);
+                r = strip_edit_temp_file(editfile);
                 if (r < 0)
                         return r;
                 if (r == 0) /* temp file doesn't carry actual changes, ignoring */
                         continue;
 
-                r = RET_NERRNO(rename(i->temp, i->path));
+                r = RET_NERRNO(rename(editfile->temp, editfile->path));
                 if (r < 0)
                         return log_error_errno(r,
                                                "Failed to rename temporary file '%s' to target file '%s': %m",
-                                               i->temp,
-                                               i->path);
-                i->temp = mfree(i->temp);
+                                               editfile->temp,
+                                               editfile->path);
+                editfile->temp = mfree(editfile->temp);
 
-                log_info("Successfully installed edited file '%s'.", i->path);
+                log_info("Successfully installed edited file '%s'.", editfile->path);
         }
 
         return 0;
