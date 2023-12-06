@@ -284,7 +284,8 @@ static int run(int argc, char *argv[]) {
         if (runtime_key.pkey) {
                 if (memcmp_nn(tpm2_key.fingerprint, tpm2_key.fingerprint_size,
                              runtime_key.fingerprint, runtime_key.fingerprint_size) != 0)
-                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Saved runtime SRK differs from TPM SRK, refusing.");
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Saved runtime SRK differs from TPM SRK, refusing.");
 
                 if (arg_early) {
                         log_info("SRK saved in '%s' matches SRK in TPM2.", runtime_key.path);
@@ -351,7 +352,8 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to marshal TPM2_PUBLIC key.");
 
         if (fwrite(marshalled, 1, marshalled_size, f) != marshalled_size)
-                return log_error_errno(errno, "Failed to write SRK public key file '%s'.", tpm2b_public_path);
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Failed to write SRK public key file '%s'.", tpm2b_public_path);
 
         if (fchmod(fileno(f), 0444) < 0)
                 return log_error_errno(errno, "Failed to adjust access mode of SRK public key file '%s' to 0444: %m", tpm2b_public_path);
