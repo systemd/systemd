@@ -1816,6 +1816,68 @@ conf.set10('ENABLE_UKIFY', want_ukify)
 
 #####################################################################
 
+use_shipped_vmlinux_h = false
+use_generated_vmlinux_h = false
+
+# For the more complex BPF programs we really want a vmlinux.h (which is arch
+# specific, but only somewhat bound to kernel version). Ideally the kernel
+# development headers would ship that, but right now they don't. Hence address
+# this in two ways:
+#
+# 1. Ship a vmlinux.h in our git repository for important archs
+# 2. Generate the file on the fly where possible (which requires /sys/ to be mounted)
+#
+# We generally prefer the former (to support reproducible builds), but will
+# fallback to the latter
+
+shipped_vmlinux_h_path = meson.current_source_dir() / 'src/bpf' / target_machine.cpu_family() / 'vmlinux.h'
+
+if conf.get('BPF_FRAMEWORK') == 1
+        enable_vmlinux_h = get_option('vmlinux-h')
+
+        if enable_vmlinux_h == 'auto'
+                if fs.exists(shipped_vmlinux_h_path)
+                        use_shipped_vmlinux_h = true
+                elif fs.exits('/sys/kernel/btf/vmlinux') and bpftool.found()
+                        use_generated_vmlinux_h = true
+                endif
+        elif enable_vmlinux_h == 'shipped'
+                if not fs.exists(shipped_vmlinux_h_path)
+                        error('Shipped vmlinux.h for this architecture not available, but requested nonetheless. (Run ninja -C build update-vmlinux-h on a suitable system.)')
+                endif
+                use_shipped_vmlinux_h = true
+        elif enable_vmlinux_h == 'generated'
+                if not fs.exists('/sys/kernel/btf/vmlinux')
+                        error('BTF data from kernel not available (/sys/kernel/btf/vmlinux missing), cannot generate vmlinux.h, but was asked to.')
+                endif
+                if not bpftool.found()
+                        error('bpftool not available, cannot generate vmlinux.h, but was asked to.')
+                endif
+                use_generated_vmlinux_h = true
+        endif
+endif
+
+if use_shipped_vmlinux_h
+        vmlinux_h_dependency = []
+        bpf_o_unstripped_cmd += ['-I' + fs.parent(shipped_vmlinux_h_path)]
+        message('Using shipped @0@'.format(shipped_vmlinux_h_path))
+elif use_generated_vmlinux_h
+        vmlinux_h_dependency = custom_target(
+                'vmlinux.h',
+                output: 'vmlinux.h',
+                command : [ bpftool, 'btf', 'dump', 'file', '/sys/kernel/btf/vmlinux', 'format', 'c' ],
+                capture : true)
+
+        bpf_o_unstripped_cmd += ['-I' + fs.parent(vmlinux_h_dependency.full_path())]
+        message('Using generated @0@'.format(vmlinux_h_dependency.full_path()))
+else
+        message('Using neither shipped nor generated vmlinux.h, some features will not be available.')
+endif
+
+conf.set10('HAVE_VMLINUX_H', use_shipped_vmlinux_h or use_generated_vmlinux_h)
+
+#####################################################################
+
 check_version_history_py = find_program('tools/check-version-history.py')
 elf2efi_py = find_program('tools/elf2efi.py')
 export_dbus_interfaces_py = find_program('tools/dbus_exporter.py')
@@ -1830,6 +1892,7 @@ update_hwdb_autosuspend_sh = find_program('tools/update-hwdb-autosuspend.sh')
 update_hwdb_sh = find_program('tools/update-hwdb.sh')
 update_man_rules_py = find_program('tools/update-man-rules.py')
 update_syscall_tables_sh = find_program('tools/update-syscall-tables.sh')
+update_vmlinux_h_sh = find_program('tools/update-vmlinux-h.sh')
 xml_helper_py = find_program('tools/xml_helper.py')
 
 #####################################################################
@@ -1921,6 +1984,7 @@ subdir('src/fundamental')
 subdir('src/basic')
 subdir('src/libsystemd')
 subdir('src/shared')
+subdir('src/bpf')
 subdir('src/libudev')
 
 libsystemd = shared_library(
