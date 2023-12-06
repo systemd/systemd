@@ -114,3 +114,4 @@ int inode_compare_func(const struct stat *a, const struct stat *b);
 extern const struct hash_ops inode_hash_ops;
 
 const char* inode_type_to_string(mode_t m);
+mode_t inode_type_from_string(const char *s);
