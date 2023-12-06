@@ -1280,6 +1280,7 @@ install_mdadm() {
         system-shutdown/mdadm.shutdown
     )
 
+    instmods "=md"
     image_install mdadm mdmon
     inst_rules 01-md-raid-creating.rules 63-md-raid-arrays.rules 64-md-raid-assembly.rules 69-md-clustered-confirm-device.rules
     # Fedora/CentOS/RHEL ships this rule file
