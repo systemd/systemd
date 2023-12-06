@@ -57,14 +57,14 @@ static void test_request_basic(sd_event *e) {
         r = sd_dhcp_client_attach_event(client, e, 0);
         assert_se(r >= 0);
 
-        assert_se(sd_dhcp_client_set_request_option(NULL, 0) == -EINVAL);
-        assert_se(sd_dhcp_client_set_request_address(NULL, NULL) == -EINVAL);
-        assert_se(sd_dhcp_client_set_ifindex(NULL, 0) == -EINVAL);
+        ASSERT_RETURN_EXPECTED_SE(sd_dhcp_client_set_request_option(NULL, 0) == -EINVAL);
+        ASSERT_RETURN_EXPECTED_SE(sd_dhcp_client_set_request_address(NULL, NULL) == -EINVAL);
+        ASSERT_RETURN_EXPECTED_SE(sd_dhcp_client_set_ifindex(NULL, 0) == -EINVAL);
 
         assert_se(sd_dhcp_client_set_ifindex(client, 15) == 0);
-        assert_se(sd_dhcp_client_set_ifindex(client, -42) == -EINVAL);
-        assert_se(sd_dhcp_client_set_ifindex(client, -1) == -EINVAL);
-        assert_se(sd_dhcp_client_set_ifindex(client, 0) == -EINVAL);
+        ASSERT_RETURN_EXPECTED_SE(sd_dhcp_client_set_ifindex(client, -42) == -EINVAL);
+        ASSERT_RETURN_EXPECTED_SE(sd_dhcp_client_set_ifindex(client, -1) == -EINVAL);
+        ASSERT_RETURN_EXPECTED_SE(sd_dhcp_client_set_ifindex(client, 0) == -EINVAL);
         assert_se(sd_dhcp_client_set_ifindex(client, 1) == 0);
 
         assert_se(sd_dhcp_client_set_hostname(client, "host") == 1);
