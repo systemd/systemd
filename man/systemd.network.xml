@@ -5866,8 +5866,9 @@ ServerAddress=192.168.0.1/24</programlisting>
         <varlistentry>
           <term><varname>VLAN=</varname></term>
           <listitem>
-            <para>The VLAN ID allowed on the port. This can be either a single ID or a range M-N. Takes
-            an integer in the range 1…4094.</para>
+            <para>The VLAN ID allowed on the port. This can be either a single ID or a range M-N. Takes an
+            integer in the range 1…4094. This setting can be specified multiple times. If an empty string is
+            assigned, then the all previous assignments are cleared.</para>
 
             <xi:include href="version-info.xml" xpointer="v231"/>
           </listitem>
@@ -5876,8 +5877,10 @@ ServerAddress=192.168.0.1/24</programlisting>
           <term><varname>EgressUntagged=</varname></term>
           <listitem>
             <para>The VLAN ID specified here will be used to untag frames on egress. Configuring
-            <varname>EgressUntagged=</varname> implicates the use of <varname>VLAN=</varname> above and will enable the
-            VLAN ID for ingress as well. This can be either a single ID or a range M-N.</para>
+            <varname>EgressUntagged=</varname> implicates the use of <varname>VLAN=</varname> above and will
+            enable the VLAN ID for ingress as well. This can be either a single ID or a range M-N. This
+            setting can be specified multiple times. If an empty string is assigned, then the all previous
+            assignments are cleared.</para>
 
             <xi:include href="version-info.xml" xpointer="v231"/>
           </listitem>
@@ -5885,9 +5888,11 @@ ServerAddress=192.168.0.1/24</programlisting>
         <varlistentry>
           <term><varname>PVID=</varname></term>
           <listitem>
-            <para>The Port VLAN ID specified here is assigned to all untagged frames at ingress.
-            <varname>PVID=</varname> can be used only once. Configuring <varname>PVID=</varname> implicates the use of
-            <varname>VLAN=</varname> above and will enable the VLAN ID for ingress as well.</para>
+            <para>The port VLAN ID specified here is assigned to all untagged frames at ingress. Takes an
+            VLAN ID or negative boolean value (e.g. <literal>no</literal>). When false, the currently
+            assigned port VLAN ID will be dropped. Configuring <varname>PVID=</varname> implicates the use of
+            <varname>VLAN=</varname> setting in the above and will enable the VLAN ID for ingress as well.
+            Defaults to unset, and will keep the assigned port VLAN ID if exists.</para>
 
             <xi:include href="version-info.xml" xpointer="v231"/>
           </listitem>

@@ -4422,23 +4422,116 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
 
     def test_bridge_vlan(self):
         copy_network_unit('11-dummy.netdev', '26-bridge-vlan-slave.network',
-                          '26-bridge.netdev', '26-bridge-vlan-master.network')
+                          '26-bridge.netdev', '26-bridge-vlan-master.network',
+                          copy_dropins=False)
         start_networkd()
         self.wait_online(['test1:enslaved', 'bridge99:degraded'])
 
         output = check_output('bridge vlan show dev test1')
         print(output)
-        self.assertNotRegex(output, '4063')
-        for i in range(4064, 4095):
-            self.assertRegex(output, f'{i}')
-        self.assertNotRegex(output, '4095')
+        # check if the default VID is removed
+        self.assertNotIn('1 Egress Untagged', output)
+        for i in range(1000, 3000):
+            if i == 1010:
+                self.assertIn(f'{i} PVID', output)
+            elif i in range(1012, 1016) or i in range(1103, 1109):
+                self.assertIn(f'{i} Egress Untagged', output)
+            elif i in range(1008, 1014) or i in range(1100, 1111):
+                self.assertIn(f'{i}', output)
+            else:
+                self.assertNotIn(f'{i}', output)
 
         output = check_output('bridge vlan show dev bridge99')
         print(output)
-        self.assertNotRegex(output, '4059')
-        for i in range(4060, 4095):
-            self.assertRegex(output, f'{i}')
-        self.assertNotRegex(output, '4095')
+        # check if the default VID is removed
+        self.assertNotIn('1 Egress Untagged', output)
+        for i in range(1000, 3000):
+            if i == 1020:
+                self.assertIn(f'{i} PVID', output)
+            elif i in range(1022, 1026) or i in range(1203, 1209):
+                self.assertIn(f'{i} Egress Untagged', output)
+            elif i in range(1018, 1024) or i in range(1200, 1211):
+                self.assertIn(f'{i}', output)
+            else:
+                self.assertNotIn(f'{i}', output)
+
+        # Change vlan IDs
+        copy_network_unit('26-bridge-vlan-slave.network.d/10-override.conf',
+                          '26-bridge-vlan-master.network.d/10-override.conf')
+        networkctl_reload()
+        self.wait_online(['test1:enslaved', 'bridge99:degraded'])
+
+        output = check_output('bridge vlan show dev test1')
+        print(output)
+        for i in range(1000, 3000):
+            if i == 2010:
+                self.assertIn(f'{i} PVID', output)
+            elif i in range(2012, 2016) or i in range(2103, 2109):
+                self.assertIn(f'{i} Egress Untagged', output)
+            elif i in range(2008, 2014) or i in range(2100, 2111):
+                self.assertIn(f'{i}', output)
+            else:
+                self.assertNotIn(f'{i}', output)
+
+        output = check_output('bridge vlan show dev bridge99')
+        print(output)
+        for i in range(1000, 3000):
+            if i == 2020:
+                self.assertIn(f'{i} PVID', output)
+            elif i in range(2022, 2026) or i in range(2203, 2209):
+                self.assertIn(f'{i} Egress Untagged', output)
+            elif i in range(2018, 2024) or i in range(2200, 2211):
+                self.assertIn(f'{i}', output)
+            else:
+                self.assertNotIn(f'{i}', output)
+
+        # Remove several vlan IDs
+        copy_network_unit('26-bridge-vlan-slave.network.d/20-override.conf',
+                          '26-bridge-vlan-master.network.d/20-override.conf')
+        networkctl_reload()
+        self.wait_online(['test1:enslaved', 'bridge99:degraded'])
+
+        output = check_output('bridge vlan show dev test1')
+        print(output)
+        for i in range(1000, 3000):
+            if i == 2010:
+                self.assertIn(f'{i} PVID', output)
+            elif i in range(2012, 2016):
+                self.assertIn(f'{i} Egress Untagged', output)
+            elif i in range(2008, 2014):
+                self.assertIn(f'{i}', output)
+            else:
+                self.assertNotIn(f'{i}', output)
+
+        output = check_output('bridge vlan show dev bridge99')
+        print(output)
+        for i in range(1000, 3000):
+            if i == 2020:
+                self.assertIn(f'{i} PVID', output)
+            elif i in range(2022, 2026):
+                self.assertIn(f'{i} Egress Untagged', output)
+            elif i in range(2018, 2024):
+                self.assertIn(f'{i}', output)
+            else:
+                self.assertNotIn(f'{i}', output)
+
+        # Remove all vlan IDs
+        copy_network_unit('26-bridge-vlan-slave.network.d/30-override.conf',
+                          '26-bridge-vlan-master.network.d/30-override.conf')
+        networkctl_reload()
+        self.wait_online(['test1:enslaved', 'bridge99:degraded'])
+
+        output = check_output('bridge vlan show dev test1')
+        print(output)
+        self.assertNotIn('PVID', output)
+        for i in range(1000, 3000):
+            self.assertNotIn(f'{i}', output)
+
+        output = check_output('bridge vlan show dev bridge99')
+        print(output)
+        self.assertNotIn('PVID', output)
+        for i in range(1000, 3000):
+            self.assertNotIn(f'{i}', output)
 
     def test_bridge_vlan_issue_20373(self):
         copy_network_unit('11-dummy.netdev', '26-bridge-vlan-slave-issue-20373.network',

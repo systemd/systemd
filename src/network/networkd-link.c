@@ -35,6 +35,7 @@
 #include "networkd-address.h"
 #include "networkd-bridge-fdb.h"
 #include "networkd-bridge-mdb.h"
+#include "networkd-bridge-vlan.h"
 #include "networkd-can.h"
 #include "networkd-dhcp-prefix-delegation.h"
 #include "networkd-dhcp-server.h"
@@ -2435,6 +2436,10 @@ static int link_update(Link *link, sd_netlink_message *message) {
         if (r < 0)
                 return r;
 
+        r = link_update_bridge_vlan(link, message);
+        if (r < 0)
+                return r;
+
         return needs_reconfigure;
 }
 
@@ -2507,6 +2512,8 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
                 .iftype = iftype,
                 .ifname = TAKE_PTR(ifname),
                 .kind = TAKE_PTR(kind),
+
+                .bridge_vlan_pvid = UINT16_MAX,
 
                 .ipv6ll_address_gen_mode = _IPV6_LINK_LOCAL_ADDRESS_GEN_MODE_INVALID,
 
