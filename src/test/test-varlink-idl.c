@@ -10,10 +10,12 @@
 #include "varlink-io.systemd.h"
 #include "varlink-io.systemd.Journal.h"
 #include "varlink-io.systemd.ManagedOOM.h"
+#include "varlink-io.systemd.MountFileSystem.h"
 #include "varlink-io.systemd.PCRExtend.h"
 #include "varlink-io.systemd.Resolve.Monitor.h"
 #include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.UserDatabase.h"
+#include "varlink-io.systemd.UserRegistry.h"
 #include "varlink-io.systemd.oom.h"
 #include "varlink-io.systemd.service.h"
 #include "varlink-io.systemd.sysext.h"
@@ -125,6 +127,8 @@ TEST(parse_format) {
         print_separator();
         test_parse_format_one(&vl_interface_io_systemd_UserDatabase);
         print_separator();
+        test_parse_format_one(&vl_interface_io_systemd_UserRegistry);
+        print_separator();
         test_parse_format_one(&vl_interface_io_systemd_Journal);
         print_separator();
         test_parse_format_one(&vl_interface_io_systemd_Resolve);
@@ -132,6 +136,8 @@ TEST(parse_format) {
         test_parse_format_one(&vl_interface_io_systemd_Resolve_Monitor);
         print_separator();
         test_parse_format_one(&vl_interface_io_systemd_ManagedOOM);
+        print_separator();
+        test_parse_format_one(&vl_interface_io_systemd_MountFileSystem);
         print_separator();
         test_parse_format_one(&vl_interface_io_systemd_oom);
         print_separator();
