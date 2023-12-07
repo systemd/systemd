@@ -236,6 +236,29 @@ static int cat_file(const char *filename, bool newline, CatFlags flags) {
                         }
                 }
 
+                /* Highlight the left side (directive) of a Foo=bar assignment */
+                if (line_type == LINE_NORMAL) {
+                        const char *p = strchr(line, '=');
+
+                        if (p) {
+                                _cleanup_free_ char *highlighted = NULL, *directive = NULL;
+
+                                directive = strndup(line, p - line);
+                                if (!directive)
+                                        return log_oom();
+
+                                highlighted = strjoin(ansi_highlight_green(),
+                                                      directive,
+                                                      "=",
+                                                      ansi_normal(),
+                                                      p + 1);
+                                if (!highlighted)
+                                        return log_oom();
+
+                                free_and_replace(line, highlighted);
+                        }
+                }
+
                 printf("%s%s%s\n",
                        line_type == LINE_SECTION ? ansi_highlight_cyan() :
                        line_type == LINE_COMMENT ? ansi_highlight_grey() :
