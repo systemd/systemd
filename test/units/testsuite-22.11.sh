@@ -126,16 +126,34 @@ mkdir -p /tmp/x/{1,2}/a
 touch /tmp/x/1/a/{x1,x2} /tmp/x/2/a/{y1,y2}
 
 systemd-tmpfiles --remove - <<EOF
-# X is not supposed to influence R
+# Check that X is honoured below R
 X /tmp/x/1/a
 X /tmp/x/2/a
 R /tmp/x/1
 EOF
 
 find /tmp/x | sort
-test ! -d /tmp/x/1
-test ! -d /tmp/x/1/a
-test ! -f /tmp/x/1/a/x1
-test ! -f /tmp/x/1/a/x2
+test -d /tmp/x/1
+test -d /tmp/x/1/a
+test -f /tmp/x/1/a/x1
+test -f /tmp/x/1/a/x2
 test -f /tmp/x/2/a/y1
 test -f /tmp/x/2/a/y2
+
+#
+# 'r/R/D' and non-directories
+#
+
+touch /tmp/x/{11,22,33}
+
+systemd-tmpfiles --remove - <<EOF
+# Check that X is honoured below R
+r /tmp/x/11
+R /tmp/x/22
+D /tmp/x/33
+EOF
+
+find /tmp/x | sort
+test ! -f /tmp/x/11
+test ! -f /tmp/x/22
+test -f /tmp/x/33
