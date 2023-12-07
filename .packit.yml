@@ -32,8 +32,10 @@ actions:
     # [0] https://github.com/mesonbuild/meson/issues/7360
     # [1] https://github.com/systemd/systemd/pull/18908#issuecomment-792250110
     - 'sed -i "/^CONFIGURE_OPTS=(/a--werror" .packit_rpm/systemd.spec'
-    # Ignore unpackages standalone binaries
+    # Ignore unpackaged standalone binaries
     - "sed -i 's/assert False,.*/pass/' .packit_rpm/split-files.py"
+    # Don't take ownership of /etc/ssh/sshd_config.d/
+    - "sed -i '/\\/usr\\/share\\/dbus-1\\$/a\\/etc\\/ssh\\/sshd_config.d\\$\\|' .packit_rpm/split-files.py"
 
 jobs:
 - job: copr_build
