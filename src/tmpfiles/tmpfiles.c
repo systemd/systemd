@@ -558,6 +558,58 @@ static nsec_t load_statx_timestamp_nsec(const struct statx_timestamp *ts) {
         return ts->tv_sec * NSEC_PER_SEC + ts->tv_nsec;
 }
 
+static int opendir_and_stat(
+                const char *path,
+                DIR **ret,
+                nsec_t *ret_atime_nsec,
+                nsec_t *ret_mtime_nsec,
+                dev_t *ret_rootdev_major,
+                dev_t *ret_rootdev_minor,
+                bool *ret_mountpoint) {
+
+        _cleanup_closedir_ DIR *d = NULL;
+        STRUCT_STATX_DEFINE(sx);
+        int r;
+
+        assert(path);
+        assert(ret);
+        assert(ret_atime_nsec);
+        assert(ret_mtime_nsec);
+        assert(ret_rootdev_major);
+        assert(ret_rootdev_minor);
+        assert(ret_mountpoint);
+
+        d = opendir_nomod(path);
+        if (!d)
+                return log_full_errno(IN_SET(errno, ENOENT, ENOTDIR) ? LOG_DEBUG : LOG_ERR,
+                                      errno, "Failed to open directory %s: %m", path);
+
+        r = statx_fallback(dirfd(d), "", AT_EMPTY_PATH, STATX_MODE|STATX_INO|STATX_ATIME|STATX_MTIME, &sx);
+        if (r < 0)
+                return log_error_errno(r, "statx(%s) failed: %m", path);
+
+        if (FLAGS_SET(sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT))
+                *ret_mountpoint = FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
+        else {
+                struct stat ps;
+
+                if (fstatat(dirfd(d), "..", &ps, AT_SYMLINK_NOFOLLOW) != 0)
+                        return log_error_errno(errno, "stat(%s/..) failed: %m", path);
+
+                *ret_mountpoint =
+                        sx.stx_dev_major != major(ps.st_dev) ||
+                        sx.stx_dev_minor != minor(ps.st_dev) ||
+                        sx.stx_ino != ps.st_ino;
+        }
+
+        *ret = TAKE_PTR(d);
+        *ret_atime_nsec = load_statx_timestamp_nsec(&sx.stx_atime);
+        *ret_mtime_nsec = load_statx_timestamp_nsec(&sx.stx_mtime);
+        *ret_rootdev_major = sx.stx_dev_major;
+        *ret_rootdev_minor = sx.stx_dev_minor;
+        return 0;
+}
+
 static bool needs_cleanup(
                 nsec_t atime,
                 nsec_t btime,
@@ -2938,49 +2990,31 @@ static int clean_item_instance(
                 const char* instance,
                 CreationMode creation) {
 
-        _cleanup_closedir_ DIR *d = NULL;
-        STRUCT_STATX_DEFINE(sx);
-        int mountpoint, r;
-        usec_t cutoff, n;
-
         assert(i);
 
         if (!i->age_set)
                 return 0;
 
-        n = now(CLOCK_REALTIME);
+        usec_t n = now(CLOCK_REALTIME);
         if (n < i->age)
                 return 0;
 
-        cutoff = n - i->age;
+        usec_t cutoff = n - i->age;
 
-        d = opendir_nomod(instance);
-        if (!d) {
-                if (IN_SET(errno, ENOENT, ENOTDIR)) {
-                        log_debug_errno(errno, "Directory \"%s\": %m", instance);
-                        return 0;
-                }
+        _cleanup_closedir_ DIR *d = NULL;
+        nsec_t atime_nsec, mtime_nsec;
+        dev_t rootdev_major, rootdev_minor;
+        bool mountpoint;
+        int r;
 
-                return log_error_errno(errno, "Failed to open directory %s: %m", instance);
-        }
-
-        r = statx_fallback(dirfd(d), "", AT_EMPTY_PATH, STATX_MODE|STATX_INO|STATX_ATIME|STATX_MTIME, &sx);
+        r = opendir_and_stat(instance, &d,
+                             &atime_nsec, &mtime_nsec,
+                             &rootdev_major, &rootdev_minor,
+                             &mountpoint);
+        if (IN_SET(r, -ENOENT, -ENOTDIR))
+                return 0;
         if (r < 0)
-                return log_error_errno(r, "statx(%s) failed: %m", instance);
-
-        if (FLAGS_SET(sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT))
-                mountpoint = FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
-        else {
-                struct stat ps;
-
-                if (fstatat(dirfd(d), "..", &ps, AT_SYMLINK_NOFOLLOW) != 0)
-                        return log_error_errno(errno, "stat(%s/..) failed: %m", i->path);
-
-                mountpoint =
-                        sx.stx_dev_major != major(ps.st_dev) ||
-                        sx.stx_dev_minor != minor(ps.st_dev) ||
-                        sx.stx_ino != ps.st_ino;
-        }
+                return r;
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *ab_f = NULL, *ab_d = NULL;
@@ -3001,10 +3035,9 @@ static int clean_item_instance(
         }
 
         return dir_cleanup(c, i, instance, d,
-                           load_statx_timestamp_nsec(&sx.stx_atime),
-                           load_statx_timestamp_nsec(&sx.stx_mtime),
+                           atime_nsec, mtime_nsec,
                            cutoff * NSEC_PER_USEC,
-                           sx.stx_dev_major, sx.stx_dev_minor, mountpoint,
+                           rootdev_major, rootdev_minor, mountpoint,
                            MAX_DEPTH, i->keep_first_level,
                            i->age_by_file, i->age_by_dir);
 }
