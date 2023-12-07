@@ -718,6 +718,8 @@ def stop_networkd(show_logs=True):
     check_output('systemctl stop systemd-networkd.service')
     if show_logs:
         print(read_networkd_log(invocation_id))
+    # Check if networkd exits cleanly.
+    assert call_quiet('systemctl is-failed -q systemd-networkd.service') == 1
 
 def start_networkd():
     check_output('systemctl start systemd-networkd')
