@@ -1428,6 +1428,14 @@ int dns_scope_announce(DnsScope *scope, bool goodbye) {
         if (scope->protocol != DNS_PROTOCOL_MDNS)
                 return 0;
 
+        r = sd_event_get_state(scope->manager->event);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get event loop state: %m");
+
+        /* If this is called on exit, through manager_free() -> link_free(), then we cannot announce. */
+        if (r == SD_EVENT_FINISHED)
+                return 0;
+
         /* Check if we're done with probing. */
         LIST_FOREACH(transactions_by_scope, t, scope->transactions)
                 if (t->probing && DNS_TRANSACTION_IS_LIVE(t->state))
