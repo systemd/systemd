@@ -866,6 +866,13 @@ systemd-analyze pcrs
 systemd-analyze pcrs --json=pretty
 systemd-analyze pcrs 14 7 0 ima
 
+systemd-analyze architectures
+systemd-analyze architectures --json=pretty
+systemd-analyze architectures x86
+systemd-analyze architectures x86-64
+systemd-analyze architectures native
+systemd-analyze architectures uname
+
 systemd-analyze log-level info
 
 touch /testok
