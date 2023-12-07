@@ -1038,12 +1038,25 @@ static int varlink_dispatch_disconnect(Varlink *v) {
 }
 
 static int varlink_sanitize_parameters(JsonVariant **v) {
+        int r;
+
         assert(v);
 
         /* Varlink always wants a parameters list, hence make one if the caller doesn't want any */
         if (!*v)
                 return json_variant_new_object(v, NULL, 0);
-        else if (!json_variant_is_object(*v))
+        if (json_variant_is_null(*v)) {
+                JsonVariant *empty;
+
+                r = json_variant_new_object(&empty, NULL, 0);
+                if (r < 0)
+                        return r;
+
+                json_variant_unref(*v);
+                *v = empty;
+                return 0;
+        }
+        if (!json_variant_is_object(*v))
                 return -EINVAL;
 
         return 0;
@@ -1083,7 +1096,7 @@ static int varlink_dispatch_reply(Varlink *v) {
                 } else if (streq(k, "parameters")) {
                         if (parameters)
                                 goto invalid;
-                        if (!json_variant_is_object(e))
+                        if (!json_variant_is_object(e) && !json_variant_is_null(e))
                                 goto invalid;
 
                         parameters = json_variant_ref(e);
@@ -1256,7 +1269,7 @@ static int varlink_dispatch_method(Varlink *v) {
                 } else if (streq(k, "parameters")) {
                         if (parameters)
                                 goto invalid;
-                        if (!json_variant_is_object(e))
+                        if (!json_variant_is_object(e) && !json_variant_is_null(e))
                                 goto invalid;
 
                         parameters = json_variant_ref(e);
@@ -2410,6 +2423,13 @@ int varlink_error_invalid_parameter(Varlink *v, JsonVariant *parameters) {
         }
 
         return -EINVAL;
+}
+
+int varlink_error_invalid_parameter_name(Varlink *v, const char *name) {
+        return varlink_errorb(
+                        v,
+                        VARLINK_ERROR_INVALID_PARAMETER,
+                        JSON_BUILD_OBJECT(JSON_BUILD_PAIR("parameter", JSON_BUILD_STRING(name))));
 }
 
 int varlink_error_errno(Varlink *v, int error) {

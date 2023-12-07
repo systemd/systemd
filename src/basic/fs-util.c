@@ -1059,6 +1059,29 @@ int open_mkdir_at(int dirfd, const char *path, int flags, mode_t mode) {
         return TAKE_FD(fd);
 }
 
+int open_mkdirp_at(int dirfd, const char *path, int flags, mode_t mode) {
+        _cleanup_free_ char *parent = NULL, *fname = NULL;
+        _cleanup_close_ int pfd = -EBADF;
+        int r;
+
+        r = path_extract_directory(path, &parent);
+        if (IN_SET(r, -EDESTADDRREQ, -EADDRNOTAVAIL)) /* only a dir specified, or only an fname specified */
+                return open_mkdir_at(dirfd, path, flags, mode);
+        if (r < 0)
+                return r;
+
+        r = path_extract_filename(path, &fname);
+        if (r < 0)
+                return r;
+
+        /* Yeah this is recursive, bounded by the specified path depth */
+        pfd = open_mkdirp_at(dirfd, parent, O_CLOEXEC, 0755);
+        if (pfd < 0)
+                return pfd;
+
+        return open_mkdir_at(pfd, fname, flags, mode);
+}
+
 int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, bool *ret_newly_created) {
         unsigned attempts = 7;
         int fd;

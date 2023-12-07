@@ -132,6 +132,20 @@ Deprecations and removals:
 
 Features:
 
+* mntfsd:
+  - port: nspawn
+  - userdb: make allocated user namespaces show up in NSS
+  - mntfsd: require that calling user is root or only uid in userns
+  - polkit support
+  - make encrypted DDIs work (password…)
+  - docs
+  - add API for creating a new file system from scratch (together with some
+    dm-integrity/HMAC key). Should probably work usin systemd-repart (access
+    via varlink).
+  - add api to make an existing file "trusted" via dm-integry/HMAC key
+  - port: portabled
+  - port: tmpfiles, sysusers and similar
+
 * add a kernel cmdline switch (and cred?) for marking a system to be
   "headless", in which case we never open /dev/console for reading, only for
   writing. This would then mean: systemd-firstboot would process creds but not
