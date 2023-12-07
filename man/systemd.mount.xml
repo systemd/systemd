@@ -104,19 +104,18 @@
         system hierarchy, both a requirement dependency and an ordering
         dependency between both units are created automatically.</para></listitem>
 
-        <listitem><para>Block device backed file systems automatically gain
-        <varname>BindsTo=</varname> and <varname>After=</varname> type
-        dependencies on the device unit encapsulating the block
-        device (see below).</para></listitem>
+        <listitem><para>Block device backed file systems automatically gain <varname>Requires=</varname>,
+        <varname>StopPropagatedFrom=</varname>, and <varname>After=</varname> type dependencies on the
+        device unit encapsulating the block device (see <varname>x-systemd.device-bound=</varname> for details).
+        </para></listitem>
 
-        <listitem><para>If traditional file system quota is enabled for a mount
-        unit, automatic <varname>Wants=</varname> and
-        <varname>Before=</varname> dependencies on
-        <filename>systemd-quotacheck.service</filename> and
-        <filename>quotaon.service</filename> are added.</para></listitem>
+        <listitem><para>If traditional file system quota is enabled for a mount unit, automatic
+        <varname>Wants=</varname> and <varname>Before=</varname> dependencies on
+        <filename>systemd-quotacheck.service</filename> and <filename>quotaon.service</filename>
+        are added.</para></listitem>
 
-        <listitem><para>Additional implicit dependencies may be added as result of
-        execution and resource control parameters as documented in
+        <listitem><para>Additional implicit dependencies may be added as result of execution and
+        resource control parameters as documented in
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         and
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
