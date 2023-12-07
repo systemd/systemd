@@ -46,7 +46,7 @@
 #include "utf8.h"
 #include "xattr-util.h"
 
-static const char* const image_search_path[_IMAGE_CLASS_MAX] = {
+const char* const image_search_path[_IMAGE_CLASS_MAX] = {
         [IMAGE_MACHINE] =   "/etc/machines\0"              /* only place symlinks here */
                             "/run/machines\0"              /* and here too */
                             "/var/lib/machines\0"          /* the main place for images */
@@ -1265,9 +1265,11 @@ int image_read_metadata(Image *i, const ImagePolicy *image_policy) {
                 if (r < 0)
                         return r;
 
-                r = dissected_image_acquire_metadata(m,
-                                                     DISSECT_IMAGE_VALIDATE_OS |
-                                                     DISSECT_IMAGE_VALIDATE_OS_EXT);
+                r = dissected_image_acquire_metadata(
+                                m,
+                                /* userns_fd= */ -EBADF,
+                                DISSECT_IMAGE_VALIDATE_OS |
+                                DISSECT_IMAGE_VALIDATE_OS_EXT);
                 if (r < 0)
                         return r;
 
