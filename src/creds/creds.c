@@ -350,7 +350,7 @@ static int write_blob(FILE *f, const void *data, size_t size) {
         }
 
         if (fwrite(data, 1, size, f) != size)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write credential data: %m");
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write credential data.");
 
         r = print_newline(f, data, size);
         if (r < 0)
