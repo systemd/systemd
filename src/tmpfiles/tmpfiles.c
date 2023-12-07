@@ -560,6 +560,7 @@ static nsec_t load_statx_timestamp_nsec(const struct statx_timestamp *ts) {
 
 static int opendir_and_stat(
                 const char *path,
+                bool nomod,
                 DIR **ret,
                 nsec_t *ret_atime_nsec,
                 nsec_t *ret_mtime_nsec,
@@ -573,13 +574,14 @@ static int opendir_and_stat(
 
         assert(path);
         assert(ret);
-        assert(ret_atime_nsec);
-        assert(ret_mtime_nsec);
         assert(ret_rootdev_major);
         assert(ret_rootdev_minor);
         assert(ret_mountpoint);
 
-        d = opendir_nomod(path);
+        if (nomod)
+                d = opendir_nomod(path);
+        else
+                d = opendir(path);
         if (!d)
                 return log_full_errno(IN_SET(errno, ENOENT, ENOTDIR) ? LOG_DEBUG : LOG_ERR,
                                       errno, "Failed to open directory %s: %m", path);
@@ -603,8 +605,10 @@ static int opendir_and_stat(
         }
 
         *ret = TAKE_PTR(d);
-        *ret_atime_nsec = load_statx_timestamp_nsec(&sx.stx_atime);
-        *ret_mtime_nsec = load_statx_timestamp_nsec(&sx.stx_mtime);
+        if (ret_atime_nsec)
+                *ret_atime_nsec = load_statx_timestamp_nsec(&sx.stx_atime);
+        if (ret_mtime_nsec)
+                *ret_mtime_nsec = load_statx_timestamp_nsec(&sx.stx_mtime);
         *ret_rootdev_major = sx.stx_dev_major;
         *ret_rootdev_minor = sx.stx_dev_minor;
         return 0;
@@ -900,7 +904,7 @@ static int dir_cleanup(
         }
 
 finish:
-        if (deleted) {
+        if (deleted && (self_atime_nsec < NSEC_INFINITY || self_mtime_nsec < NSEC_INFINITY)) {
                 struct timespec ts[2];
 
                 log_debug("Restoring access and modification time on \"%s\": %s, %s",
@@ -2904,13 +2908,59 @@ static int create_item(Context *c, Item *i) {
         return 0;
 }
 
+static int remove_recursive(
+                Context *c,
+                Item *i,
+                const char *instance,
+                bool remove_instance) {
+
+        _cleanup_closedir_ DIR *d = NULL;
+        dev_t rootdev_major, rootdev_minor;
+        bool mountpoint;
+        int r;
+
+        r = opendir_and_stat(instance, /* nomod= */ false, &d,
+                             NULL, NULL,
+                             &rootdev_major, &rootdev_minor, &mountpoint);
+        if (r == -ENOENT)
+                return 0;
+        if (r == -ENOTDIR) {
+                if (remove_instance) {
+                        log_debug("Removing file \"%s\".", instance);
+                        if (remove(instance) < 0 && errno != ENOENT)
+                                return log_error_errno(errno, "rm %s: %m", instance);
+                }
+                return 0;
+        }
+        if (r < 0)
+                return r;
+
+        r = dir_cleanup(c, i, instance, d,
+                        /* self_atime_nsec= */ NSEC_INFINITY,
+                        /* self_mtime_nsec= */ NSEC_INFINITY,
+                        /* cutoff_nsec= */ NSEC_INFINITY,
+                        rootdev_major, rootdev_minor, mountpoint,
+                        MAX_DEPTH,
+                        /* keep_this_level= */ false,
+                        /* age_by_file= */ 0,
+                        /* age_by_dir= */ 0);
+        if (r < 0)
+                return r;
+
+        if (remove_instance) {
+                log_debug("Removing directory \"%s\".", instance);
+                r = RET_NERRNO(rmdir(instance));
+                if (r < 0 && !IN_SET(r, -ENOENT, -ENOTEMPTY))
+                        return log_error_errno(r, "Failed to remove %s: %m", instance);
+        }
+        return 0;
+}
+
 static int remove_item_instance(
                 Context *c,
                 Item *i,
                 const char *instance,
                 CreationMode creation) {
-
-        int r;
 
         assert(c);
         assert(i);
@@ -2919,29 +2969,19 @@ static int remove_item_instance(
 
         case REMOVE_PATH:
                 if (remove(instance) < 0 && errno != ENOENT)
-                        return log_error_errno(errno, "rm(%s): %m", instance);
+                        return log_error_errno(errno, "rm %s: %m", instance);
 
-                break;
+                return 0;
 
         case RECURSIVE_REMOVE_PATH:
-                /* FIXME: we probably should use dir_cleanup() here instead of rm_rf() so that 'x' is honoured. */
-                log_debug("rm -rf \"%s\"", instance);
-                r = rm_rf(instance, REMOVE_ROOT|REMOVE_SUBVOLUME|REMOVE_PHYSICAL);
-                if (r < 0 && r != -ENOENT)
-                        return log_error_errno(r, "rm_rf(%s): %m", instance);
-
-                break;
+                return remove_recursive(c, i, instance, /* remove_instance= */ true);
 
         default:
                 assert_not_reached();
         }
-
-        return 0;
 }
 
 static int remove_item(Context *c, Item *i) {
-        int r;
-
         assert(c);
         assert(i);
 
@@ -2950,13 +2990,7 @@ static int remove_item(Context *c, Item *i) {
         switch (i->type) {
 
         case TRUNCATE_DIRECTORY:
-                /* FIXME: we probably should use dir_cleanup() here instead of rm_rf() so that 'x' is honoured. */
-                log_debug("rm -rf \"%s\"", i->path);
-                r = rm_rf(i->path, REMOVE_PHYSICAL);
-                if (r < 0 && r != -ENOENT)
-                        return log_error_errno(r, "rm_rf(%s): %m", i->path);
-
-                return 0;
+                return remove_recursive(c, i, i->path, /* remove_instance= */ false);
 
         case REMOVE_PATH:
         case RECURSIVE_REMOVE_PATH:
@@ -3007,7 +3041,7 @@ static int clean_item_instance(
         bool mountpoint;
         int r;
 
-        r = opendir_and_stat(instance, &d,
+        r = opendir_and_stat(instance, /* nomod= */ true, &d,
                              &atime_nsec, &mtime_nsec,
                              &rootdev_major, &rootdev_minor,
                              &mountpoint);
