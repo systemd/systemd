@@ -224,11 +224,11 @@ units = [
         { 'file' : 'sysinit.target' },
         { 'file' : 'syslog.socket' },
         {
-          'file' : 'system-systemd\\x2dcryptsetup.slice',
+          'file' : 'system-systemd/x2dcryptsetup.slice',
           'conditions' : ['HAVE_LIBCRYPTSETUP'],
         },
         {
-          'file' : 'system-systemd\\x2dveritysetup.slice',
+          'file' : 'system-systemd/x2dveritysetup.slice',
           'conditions' : ['HAVE_LIBCRYPTSETUP'],
         },
         { 'file' : 'system-update-cleanup.service' },
