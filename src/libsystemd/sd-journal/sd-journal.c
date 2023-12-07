@@ -38,6 +38,7 @@
 #include "prioq.h"
 #include "process-util.h"
 #include "replace-var.h"
+#include "sort-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -413,6 +414,99 @@ _public_ void sd_journal_flush_matches(sd_journal *j) {
         detach_location(j);
 }
 
+static int newest_by_boot_id_compare(const NewestByBootId *a, const NewestByBootId *b) {
+        return id128_compare_func(&a->boot_id, &b->boot_id);
+}
+
+static void journal_file_unlink_newest_by_boot_id(sd_journal *j, JournalFile *f) {
+        NewestByBootId *found;
+
+        assert(j);
+        assert(f);
+
+        if (f->newest_boot_id_prioq_idx == PRIOQ_IDX_NULL) /* not linked currently, hence this is a NOP */
+                return;
+
+        found = typesafe_bsearch(&(NewestByBootId) { .boot_id = f->newest_boot_id },
+                                 j->newest_by_boot_id, j->n_newest_by_boot_id, newest_by_boot_id_compare);
+        assert(found);
+
+        assert_se(prioq_remove(found->prioq, f, &f->newest_boot_id_prioq_idx) > 0);
+        f->newest_boot_id_prioq_idx = PRIOQ_IDX_NULL;
+
+        /* The prioq may be empty, but that should not cause any issue. Let's keep it. */
+}
+
+static void journal_clear_newest_by_boot_id(sd_journal *j) {
+        FOREACH_ARRAY(i, j->newest_by_boot_id, j->n_newest_by_boot_id) {
+                JournalFile *f;
+
+                while ((f = prioq_peek(i->prioq)))
+                        journal_file_unlink_newest_by_boot_id(j, f);
+
+                prioq_free(i->prioq);
+        }
+
+        j->newest_by_boot_id = mfree(j->newest_by_boot_id);
+        j->n_newest_by_boot_id = 0;
+}
+
+static int journal_file_newest_monotonic_compare(const void *a, const void *b) {
+        const JournalFile *x = a, *y = b;
+
+        return -CMP(x->newest_monotonic_usec, y->newest_monotonic_usec); /* Invert order, we want newest first! */
+}
+
+static int journal_file_reshuffle_newest_by_boot_id(sd_journal *j, JournalFile *f) {
+        NewestByBootId *found;
+        int r;
+
+        assert(j);
+        assert(f);
+
+        found = typesafe_bsearch(&(NewestByBootId) { .boot_id = f->newest_boot_id },
+                                 j->newest_by_boot_id, j->n_newest_by_boot_id, newest_by_boot_id_compare);
+        if (found) {
+                /* There's already a priority queue for this boot ID */
+
+                if (f->newest_boot_id_prioq_idx == PRIOQ_IDX_NULL) {
+                        r = prioq_put(found->prioq, f, &f->newest_boot_id_prioq_idx); /* Insert if we aren't in there yet */
+                        if (r < 0)
+                                return r;
+                } else
+                        prioq_reshuffle(found->prioq, f, &f->newest_boot_id_prioq_idx); /* Reshuffle otherwise */
+
+        } else {
+                _cleanup_(prioq_freep) Prioq *q = NULL;
+
+                /* No priority queue yet, then allocate one */
+
+                assert(f->newest_boot_id_prioq_idx == PRIOQ_IDX_NULL); /* we can't be a member either */
+
+                q = prioq_new(journal_file_newest_monotonic_compare);
+                if (!q)
+                        return -ENOMEM;
+
+                r = prioq_put(q, f, &f->newest_boot_id_prioq_idx);
+                if (r < 0)
+                        return r;
+
+                if (!GREEDY_REALLOC(j->newest_by_boot_id, j->n_newest_by_boot_id + 1)) {
+                        f->newest_boot_id_prioq_idx = PRIOQ_IDX_NULL;
+                        return -ENOMEM;
+                }
+
+                j->newest_by_boot_id[j->n_newest_by_boot_id++] = (NewestByBootId) {
+                        .boot_id = f->newest_boot_id,
+                        .prioq = TAKE_PTR(q),
+                };
+
+                typesafe_qsort(j->newest_by_boot_id, j->n_newest_by_boot_id, newest_by_boot_id_compare);
+        }
+
+        return 0;
+}
+
 static int journal_file_find_newest_for_boot_id(
                 sd_journal *j,
                 sd_id128_t id,
@@ -427,17 +521,18 @@ static int journal_file_find_newest_for_boot_id(
         /* Before we use it, let's refresh the timestamp from the header, and reshuffle our prioq
          * accordingly. We do this only a bunch of times, to not be caught in some update loop. */
         for (unsigned n_tries = 0;; n_tries++) {
+                NewestByBootId *found;
                 JournalFile *f;
-                Prioq *q;
 
-                q = hashmap_get(j->newest_by_boot_id, &id);
-                if (!q)
+                found = typesafe_bsearch(&(NewestByBootId) { .boot_id = id },
+                                         j->newest_by_boot_id, j->n_newest_by_boot_id, newest_by_boot_id_compare);
+
+                f = found ? prioq_peek(found->prioq) : NULL;
+                if (!f)
                         return log_debug_errno(SYNTHETIC_ERRNO(ENODATA),
                                                "Requested delta for boot ID %s, but we have no information about that boot ID.", SD_ID128_TO_STRING(id));
 
-                assert_se(f = prioq_peek(q)); /* we delete hashmap entries once the prioq is empty, so this must hold */
-
-                if (f == prev || n_tries >= 5) {
+                if (f == prev || n_tries >= 5 || FLAGS_SET(j->flags, SD_JOURNAL_READ_TAIL_TIMESTAMP_ONCE)) {
                         /* This was already the best answer in the previous run, or we tried too often, use it */
                         *ret = f;
                         return 0;
@@ -449,6 +544,11 @@ static int journal_file_find_newest_for_boot_id(
                 r = journal_file_read_tail_timestamp(j, f);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to read tail timestamp while trying to find newest journal file for boot ID %s.", SD_ID128_TO_STRING(id));
+                if (r == 0) {
+                        /* No new entry found. */
+                        *ret = f;
+                        return 0;
+                }
 
                 /* Refreshing the timestamp we read might have reshuffled the prioq, hence let's check the
                  * prioq again and only use the information once we reached an equilibrium or hit a limit */
@@ -807,7 +907,8 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
         assert(j);
         assert(f);
 
-        (void) journal_file_read_tail_timestamp(j, f);
+        if (!FLAGS_SET(j->flags, SD_JOURNAL_READ_TAIL_TIMESTAMP_ONCE))
+                (void) journal_file_read_tail_timestamp(j, f);
 
         n_entries = le64toh(f->header->n_entries);
 
@@ -2059,7 +2160,8 @@ static sd_journal *journal_new(int flags, const char *path, const char *namespac
          SD_JOURNAL_SYSTEM |                            \
          SD_JOURNAL_CURRENT_USER |                      \
          SD_JOURNAL_ALL_NAMESPACES |                    \
-         SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE)
+         SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE |         \
+         SD_JOURNAL_READ_TAIL_TIMESTAMP_ONCE)
 
 _public_ int sd_journal_open_namespace(sd_journal **ret, const char *namespace, int flags) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
@@ -2085,7 +2187,9 @@ _public_ int sd_journal_open(sd_journal **ret, int flags) {
 }
 
 #define OPEN_CONTAINER_ALLOWED_FLAGS                    \
-        (SD_JOURNAL_LOCAL_ONLY | SD_JOURNAL_SYSTEM)
+        (SD_JOURNAL_LOCAL_ONLY |                        \
+         SD_JOURNAL_SYSTEM |                            \
+         SD_JOURNAL_READ_TAIL_TIMESTAMP_ONCE)
 
 _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, int flags) {
         _cleanup_free_ char *root = NULL, *class = NULL;
@@ -2129,7 +2233,9 @@ _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, in
 
 #define OPEN_DIRECTORY_ALLOWED_FLAGS                    \
         (SD_JOURNAL_OS_ROOT |                           \
-         SD_JOURNAL_SYSTEM | SD_JOURNAL_CURRENT_USER )
+         SD_JOURNAL_SYSTEM |                            \
+         SD_JOURNAL_CURRENT_USER |                      \
+         SD_JOURNAL_READ_TAIL_TIMESTAMP_ONCE)
 
 _public_ int sd_journal_open_directory(sd_journal **ret, const char *path, int flags) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
@@ -2154,12 +2260,15 @@ _public_ int sd_journal_open_directory(sd_journal **ret, const char *path, int f
         return 0;
 }
 
+#define OPEN_FILES_ALLOWED_FLAGS                        \
+        (SD_JOURNAL_READ_TAIL_TIMESTAMP_ONCE)
+
 _public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int flags) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
-        assert_return(flags == 0, -EINVAL);
+        assert_return((flags & ~OPEN_FILES_ALLOWED_FLAGS) == 0, -EINVAL);
 
         j = journal_new(flags, NULL, NULL);
         if (!j)
@@ -2181,7 +2290,8 @@ _public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int fla
         (SD_JOURNAL_OS_ROOT |                           \
          SD_JOURNAL_SYSTEM |                            \
          SD_JOURNAL_CURRENT_USER |                      \
-         SD_JOURNAL_TAKE_DIRECTORY_FD)
+         SD_JOURNAL_TAKE_DIRECTORY_FD |                 \
+         SD_JOURNAL_READ_TAIL_TIMESTAMP_ONCE)
 
 _public_ int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
@@ -2219,6 +2329,9 @@ _public_ int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags) {
         return 0;
 }
 
+#define OPEN_FILES_FD_ALLOWED_FLAGS                        \
+        (SD_JOURNAL_READ_TAIL_TIMESTAMP_ONCE)
+
 _public_ int sd_journal_open_files_fd(sd_journal **ret, int fds[], unsigned n_fds, int flags) {
         JournalFile *f;
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
@@ -2226,7 +2339,7 @@ _public_ int sd_journal_open_files_fd(sd_journal **ret, int fds[], unsigned n_fd
 
         assert_return(ret, -EINVAL);
         assert_return(n_fds > 0, -EBADF);
-        assert_return(flags == 0, -EINVAL);
+        assert_return((flags & ~OPEN_FILES_FD_ALLOWED_FLAGS) == 0, -EINVAL);
 
         j = journal_new(flags, NULL, NULL);
         if (!j)
@@ -2271,14 +2384,11 @@ fail:
 
 _public_ void sd_journal_close(sd_journal *j) {
         Directory *d;
-        Prioq *p;
 
         if (!j || journal_origin_changed(j))
                 return;
 
-        while ((p = hashmap_first(j->newest_by_boot_id)))
-                journal_file_unlink_newest_by_boot_id(j, prioq_peek(p));
-        hashmap_free(j->newest_by_boot_id);
+        journal_clear_newest_by_boot_id(j);
 
         sd_journal_flush_matches(j);
 
@@ -2314,84 +2424,6 @@ _public_ void sd_journal_close(sd_journal *j) {
         free(j);
 }
 
-static void journal_file_unlink_newest_by_boot_id(sd_journal *j, JournalFile *f) {
-        JournalFile *nf;
-        Prioq *p;
-
-        assert(j);
-        assert(f);
-
-        if (f->newest_boot_id_prioq_idx == PRIOQ_IDX_NULL) /* not linked currently, hence this is a NOP */
-                return;
-
-        assert_se(p = hashmap_get(j->newest_by_boot_id, &f->newest_boot_id));
-        assert_se(prioq_remove(p, f, &f->newest_boot_id_prioq_idx) > 0);
-
-        nf = prioq_peek(p);
-        if (nf)
-                /* There's still a member in the prioq? Then make sure the hashmap key now points to its
-                 * .newest_boot_id field (and not ours!). Not we only replace the memory of the key here, the
-                 * value of the key (and the data associated with it) remain the same. */
-                assert_se(hashmap_replace(j->newest_by_boot_id, &nf->newest_boot_id, p) >= 0);
-        else {
-                assert_se(hashmap_remove(j->newest_by_boot_id, &f->newest_boot_id) == p);
-                prioq_free(p);
-        }
-
-        f->newest_boot_id_prioq_idx = PRIOQ_IDX_NULL;
-}
-
-static int journal_file_newest_monotonic_compare(const void *a, const void *b) {
-        const JournalFile *x = a, *y = b;
-
-        return -CMP(x->newest_monotonic_usec, y->newest_monotonic_usec); /* Invert order, we want newest first! */
-}
-
-static int journal_file_reshuffle_newest_by_boot_id(sd_journal *j, JournalFile *f) {
-        Prioq *p;
-        int r;
-
-        assert(j);
-        assert(f);
-
-        p = hashmap_get(j->newest_by_boot_id, &f->newest_boot_id);
-        if (p) {
-                /* There's already a priority queue for this boot ID */
-
-                if (f->newest_boot_id_prioq_idx == PRIOQ_IDX_NULL) {
-                        r = prioq_put(p, f, &f->newest_boot_id_prioq_idx); /* Insert if we aren't in there yet */
-                        if (r < 0)
-                                return r;
-                } else
-                        prioq_reshuffle(p, f, &f->newest_boot_id_prioq_idx); /* Reshuffle otherwise */
-
-        } else {
-                _cleanup_(prioq_freep) Prioq *q = NULL;
-
-                /* No priority queue yet, then allocate one */
-
-                assert(f->newest_boot_id_prioq_idx == PRIOQ_IDX_NULL); /* we can't be a member either */
-
-                q = prioq_new(journal_file_newest_monotonic_compare);
-                if (!q)
-                        return -ENOMEM;
-
-                r = prioq_put(q, f, &f->newest_boot_id_prioq_idx);
-                if (r < 0)
-                        return r;
-
-                r = hashmap_ensure_put(&j->newest_by_boot_id, &id128_hash_ops, &f->newest_boot_id, q);
-                if (r < 0) {
-                        f->newest_boot_id_prioq_idx = PRIOQ_IDX_NULL;
-                        return r;
-                }
-
-                TAKE_PTR(q);
-        }
-
-        return 0;
-}
-
 static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
         uint64_t offset, mo, rt;
         sd_id128_t id;
@@ -2405,11 +2437,10 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
 
         /* Tries to read the timestamp of the most recently written entry. */
 
-        r = journal_file_fstat(f);
-        if (r < 0)
-                return r;
-        if (f->newest_mtime == timespec_load(&f->last_stat.st_mtim))
-                return 0; /* mtime didn't change since last time, don't bother */
+        if (f->header->state == f->newest_state &&
+            f->header->state == STATE_ARCHIVED &&
+            f->newest_entry_offset != 0)
+                return 0; /* We have already read archived file. */
 
         if (JOURNAL_HEADER_CONTAINS(f->header, tail_entry_offset)) {
                 offset = le64toh(READ_NOW(f->header->tail_entry_offset));
@@ -2420,6 +2451,8 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
         }
         if (offset == 0)
                 return -ENODATA; /* not a single object/entry, hence no tail timestamp */
+        if (offset == f->newest_entry_offset)
+                return 0; /* No new entry is added after we read last time. */
 
         /* Move to the last object in the journal file, in the hope it is an entry (which it usually will
          * be). If we lack the "tail_entry_offset" field in the header, we specify the type as OBJECT_UNUSED
@@ -2429,6 +2462,7 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
         if (r < 0) {
                 log_debug_errno(r, "Failed to move to last object in journal file, ignoring: %m");
                 o = NULL;
+                offset = 0;
         }
         if (o && o->object.type == OBJECT_ENTRY) {
                 /* Yay, last object is an entry, let's use the data. */
@@ -2446,10 +2480,11 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
                         mo = le64toh(f->header->tail_entry_monotonic);
                         rt = le64toh(f->header->tail_entry_realtime);
                         id = f->header->tail_entry_boot_id;
+                        offset = UINT64_MAX;
                 } else {
                         /* Otherwise let's find the last entry manually (this possibly means traversing the
                          * chain of entry arrays, till the end */
-                        r = journal_file_next_entry(f, 0, DIRECTION_UP, &o, NULL);
+                        r = journal_file_next_entry(f, 0, DIRECTION_UP, &o, offset == 0 ? &offset : NULL);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -2464,6 +2499,16 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
         if (mo > rt) /* monotonic clock is further ahead than realtime? that's weird, refuse to use the data */
                 return -ENODATA;
 
+        if (offset == f->newest_entry_offset) {
+                /* Cached data and the current one should be equivalent. */
+                assert(sd_id128_equal(f->newest_boot_id, id));
+                assert(f->newest_monotonic_usec == mo);
+                assert(f->newest_realtime_usec == rt);
+                assert(sd_id128_equal(f->newest_machine_id, f->header->machine_id));
+
+                return 0; /* No new entry is added after we read last time. */
+        }
+
         if (!sd_id128_equal(f->newest_boot_id, id))
                 journal_file_unlink_newest_by_boot_id(j, f);
 
@@ -2471,13 +2516,14 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
         f->newest_monotonic_usec = mo;
         f->newest_realtime_usec = rt;
         f->newest_machine_id = f->header->machine_id;
-        f->newest_mtime = timespec_load(&f->last_stat.st_mtim);
+        f->newest_entry_offset = offset;
+        f->newest_state = f->header->state;
 
         r = journal_file_reshuffle_newest_by_boot_id(j, f);
         if (r < 0)
                 return r;
 
-        return 0;
+        return 1; /* Updated. */
 }
 
 _public_ int sd_journal_get_realtime_usec(sd_journal *j, uint64_t *ret) {
