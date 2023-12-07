@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=Test for PrivateDevices=yes with a bind mounted device
+
+[Service]
+ExecStart=/bin/sh -c 'test -c /dev/kmsg'
+ExecStart=/bin/sh -c 'test ! -w /dev/'
+Type=oneshot
+PrivateDevices=yes
+BindPaths=/dev/kmsg
