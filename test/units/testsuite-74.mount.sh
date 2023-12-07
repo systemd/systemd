@@ -149,3 +149,9 @@ touch "$WORK_DIR/mnt/foo/baz"
 systemd-umount "$WORK_DIR/mnt/foo"
 test -d "$WORK_DIR/mnt/foo/bar"
 test ! -e "$WORK_DIR/mnt/foo/baz"
+
+# overlay
+systemd-mount --type=overlay --options="lowerdir=/etc,upperdir=$WORK_DIR/upper,workdir=$WORK_DIR/work" /etc "$WORK_DIR/overlay"
+touch "$WORK_DIR/overlay/foo"
+test -e "$WORK_DIR/upper/foo"
+systemd-umount "$WORK_DIR/overlay"
