@@ -43,6 +43,13 @@ monitor_check_rr() (
     timeout -v 30s journalctl -u resolvectl-monitor.service --since "$since" -f --full | grep -m1 "$match"
 )
 
+restart_resolved() {
+    systemctl stop systemd-resolved.service
+    (! systemctl is-failed systemd-resolved.service)
+    systemctl start systemd-resolved.service
+    systemctl service-log-level systemd-resolved.service debug
+}
+
 # Test for resolvectl, resolvconf
 systemctl unmask systemd-resolved.service
 systemctl enable --now systemd-resolved.service
@@ -89,8 +96,7 @@ mkdir -p /run/systemd/resolved.conf.d
     echo "MulticastDNS=yes"
     echo "LLMNR=yes"
 } >/run/systemd/resolved.conf.d/mdns-llmnr.conf
-systemctl restart systemd-resolved.service
-systemctl service-log-level systemd-resolved.service debug
+restart_resolved
 # make sure networkd is not running.
 systemctl stop systemd-networkd.service
 # defaults to yes (both the global and per-link settings are yes)
@@ -115,8 +121,7 @@ assert_in 'no' "$(resolvectl llmnr hoge)"
     echo "MulticastDNS=resolve"
     echo "LLMNR=resolve"
 } >/run/systemd/resolved.conf.d/mdns-llmnr.conf
-systemctl restart systemd-resolved.service
-systemctl service-log-level systemd-resolved.service debug
+restart_resolved
 # set per-link setting
 resolvectl mdns hoge yes
 resolvectl llmnr hoge yes
@@ -136,8 +141,7 @@ assert_in 'no' "$(resolvectl llmnr hoge)"
     echo "MulticastDNS=no"
     echo "LLMNR=no"
 } >/run/systemd/resolved.conf.d/mdns-llmnr.conf
-systemctl restart systemd-resolved.service
-systemctl service-log-level systemd-resolved.service debug
+restart_resolved
 # set per-link setting
 resolvectl mdns hoge yes
 resolvectl llmnr hoge yes
@@ -222,7 +226,7 @@ ln -svf /etc/bind.keys /etc/bind/bind.keys
 # Start the services
 systemctl unmask systemd-networkd
 systemctl start systemd-networkd
-systemctl restart systemd-resolved
+restart_resolved
 # Create knot's runtime dir, since from certain version it's provided only by
 # the package and not created by tmpfiles/systemd
 if [[ ! -d /run/knot ]]; then
@@ -587,8 +591,7 @@ if command -v nft >/dev/null; then
         echo "StaleRetentionSec=1d"
     } >/run/systemd/resolved.conf.d/test.conf
     ln -svf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
-    systemctl restart systemd-resolved.service
-    systemctl service-log-level systemd-resolved.service debug
+    restart_resolved
 
     run dig stale1.unsigned.test -t A
     grep -qE "NOERROR" "$RUN_OUT"
@@ -710,5 +713,8 @@ run resolvectl reset-statistics
 run resolvectl reset-statistics --json=pretty
 
 run resolvectl reset-statistics --json=short
+
+# Check if resolved exits cleanly.
+restart_resolved
 
 touch /testok
