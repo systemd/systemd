@@ -1070,11 +1070,6 @@ static int mount_private_dev(MountEntry *m, RuntimeScope scope) {
         if (r < 0)
                 log_debug_errno(r, "Failed to set up basic device tree at '%s', ignoring: %m", temporary_mount);
 
-        /* Make the bind mount read-only. */
-        r = mount_nofollow_verbose(LOG_DEBUG, NULL, dev, NULL, MS_REMOUNT|MS_BIND|MS_RDONLY, NULL);
-        if (r < 0)
-                return r;
-
         /* Create the /dev directory if missing. It is more likely to be missing when the service is started
          * with RootDirectory. This is consistent with mount units creating the mount points when missing. */
         (void) mkdir_p_label(mount_entry_path(m), 0755);
