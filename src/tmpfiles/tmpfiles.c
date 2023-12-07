@@ -887,7 +887,7 @@ static int dir_cleanup(
         }
 
 finish:
-        if (deleted) {
+        if (deleted && (self_atime_nsec < NSEC_INFINITY || self_mtime_nsec < NSEC_INFINITY)) {
                 struct timespec ts[2];
 
                 log_debug("Restoring access and modification time on \"%s\": %s, %s",
@@ -2890,13 +2890,58 @@ static int create_item(Context *c, Item *i) {
         return 0;
 }
 
+static int remove_recursive(
+                Context *c,
+                Item *i,
+                const char *instance,
+                bool remove_instance) {
+
+        _cleanup_closedir_ DIR *d = NULL;
+        STRUCT_STATX_DEFINE(sx);
+        bool mountpoint;
+        int r;
+
+        r = opendir_and_stat(instance, &d, &sx, &mountpoint);
+        if (r == -ENOENT)
+                return 0;
+        if (r == -ENOTDIR) {
+                if (remove_instance) {
+                        log_debug("Removing file \"%s\".", instance);
+                        if (remove(instance) < 0 && errno != ENOENT)
+                                return log_error_errno(errno, "rm %s: %m", instance);
+                }
+                return 0;
+        }
+        if (r < 0)
+                return r;
+
+        r = dir_cleanup(c, i, instance, d,
+                        /* self_atime_nsec= */ NSEC_INFINITY,
+                        /* self_mtime_nsec= */ NSEC_INFINITY,
+                        /* cutoff_nsec= */ NSEC_INFINITY,
+                        sx.stx_dev_major, sx.stx_dev_minor,
+                        mountpoint,
+                        MAX_DEPTH,
+                        /* keep_this_level= */ false,
+                        /* age_by_file= */ 0,
+                        /* age_by_dir= */ 0);
+        if (r < 0)
+                return r;
+
+        if (remove_instance) {
+                log_debug("Removing directory \"%s\".", instance);
+                r = RET_NERRNO(rmdir(instance));
+                if (r < 0 && !IN_SET(r, -ENOENT, -ENOTEMPTY))
+                        return log_error_errno(r, "Failed to remove %s: %m", instance);
+        }
+        return 0;
+}
+
 static int remove_item_instance(
                 Context *c,
                 Item *i,
                 const char *instance,
                 CreationMode creation) {
-
-        int r;
 
         assert(c);
         assert(i);
@@ -2905,29 +2950,19 @@ static int remove_item_instance(
 
         case REMOVE_PATH:
                 if (remove(instance) < 0 && errno != ENOENT)
-                        return log_error_errno(errno, "rm(%s): %m", instance);
+                        return log_error_errno(errno, "rm %s: %m", instance);
 
-                break;
+                return 0;
 
         case RECURSIVE_REMOVE_PATH:
-                /* FIXME: we probably should use dir_cleanup() here instead of rm_rf() so that 'x' is honoured. */
-                log_debug("rm -rf \"%s\"", instance);
-                r = rm_rf(instance, REMOVE_ROOT|REMOVE_SUBVOLUME|REMOVE_PHYSICAL);
-                if (r < 0 && r != -ENOENT)
-                        return log_error_errno(r, "rm_rf(%s): %m", instance);
-
-                break;
+                return remove_recursive(c, i, instance, /* remove_instance= */ true);
 
         default:
                 assert_not_reached();
         }
-
-        return 0;
 }
 
 static int remove_item(Context *c, Item *i) {
-        int r;
-
         assert(c);
         assert(i);
 
@@ -2936,13 +2971,7 @@ static int remove_item(Context *c, Item *i) {
         switch (i->type) {
 
         case TRUNCATE_DIRECTORY:
-                /* FIXME: we probably should use dir_cleanup() here instead of rm_rf() so that 'x' is honoured. */
-                log_debug("rm -rf \"%s\"", i->path);
-                r = rm_rf(i->path, REMOVE_PHYSICAL);
-                if (r < 0 && r != -ENOENT)
-                        return log_error_errno(r, "rm_rf(%s): %m", i->path);
-
-                return 0;
+                return remove_recursive(c, i, i->path, /* remove_instance= */ false);
 
         case REMOVE_PATH:
         case RECURSIVE_REMOVE_PATH:
