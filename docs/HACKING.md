@@ -56,6 +56,23 @@ $ mkosi qemu
 Every time you rerun the `mkosi` command a fresh image is built, incorporating
 all current changes you made to the project tree.
 
+By default a directory image is built. This requires `virtiofsd` to be installed
+on the host. To build a disk image instead which does not require `virtiofsd`,
+add the following to `mkosi.local.conf`:
+
+```conf
+[Output]
+Format=disk
+```
+
+To boot in UEFI mode instead of using QEMU's direct kernel boot, add the following
+to `mkosi.local.conf`:
+
+```conf
+[Host]
+QemuFirmware=uefi
+```
+
 Putting this all together, here's a series of commands for preparing a patch
 for systemd:
 
