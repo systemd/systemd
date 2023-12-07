@@ -35,7 +35,7 @@ int verb_cat_config(int argc, char *argv[], void *userdata) {
                 } else
                         t = *arg;
 
-                r = conf_files_cat(arg_root, t, arg_cat_flags);
+                r = conf_files_cat(arg_root, t, arg_cat_flags | CAT_FORMAT_HAS_SECTIONS);
                 if (r < 0)
                         return r;
         }
