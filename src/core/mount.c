@@ -1200,6 +1200,34 @@ static void mount_enter_mounting(Mount *m) {
         if (r < 0 && r != -EEXIST)
                 log_unit_warning_errno(UNIT(m), r, "Failed to create mount point '%s', ignoring: %m", m->where);
 
+        /* If we are asked to create an OverlayFS, create the upper/work directories if they are missing */
+        if (streq_ptr(p->fstype, "overlay")) {
+                _cleanup_strv_free_ char **dirs = NULL;
+
+                r = fstab_filter_options(
+                                p->options,
+                                "upperdir\0workdir\0",
+                                /* ret_namefound= */ NULL,
+                                /* ret_value= */ NULL,
+                                &dirs,
+                                /* ret_filtered= */ NULL);
+                if (r < 0)
+                        log_unit_warning_errno(
+                                        UNIT(m),
+                                        r,
+                                        "Failed to determine upper directory for OverlayFS, ignoring: %m");
+                else
+                        STRV_FOREACH(d, dirs) {
+                                r = mkdir_p_label(*d, m->directory_mode);
+                                if (r < 0 && r != -EEXIST)
+                                        log_unit_warning_errno(
+                                                        UNIT(m),
+                                                        r,
+                                                        "Failed to create overlay directory '%s', ignoring: %m",
+                                                        *d);
+                        }
+        }
+
         if (source_is_dir)
                 unit_warn_if_dir_nonempty(UNIT(m), m->where);
         unit_warn_leftover_processes(UNIT(m), unit_log_leftover_process_start);

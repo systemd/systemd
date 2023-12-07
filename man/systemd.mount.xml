@@ -538,7 +538,11 @@
         <term><varname>Type=</varname></term>
         <listitem><para>Takes a string for the file system type. See
         <citerefentry project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-        for details. This setting is optional.</para></listitem>
+        for details. This setting is optional.</para>
+
+        <para>If the type is <literal>overlay</literal>, and <literal>upperdir=</literal> or
+        <literal>workdir=</literal> are specified as options and they don't exist, they will be created.
+        </para></listitem>
       </varlistentry>
 
       <varlistentry>
