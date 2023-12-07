@@ -106,6 +106,38 @@ int pidref_set_pidfd_consume(PidRef *pidref, int fd) {
         return r;
 }
 
+int pidref_set_parent(PidRef *pidref) {
+        _cleanup_(pidref_done) PidRef parent = PIDREF_NULL;
+        pid_t ppid;
+        int r;
+
+        assert(pidref);
+
+        /* Acquires a pidref to our parent process. Deals with the fact that parent processes might exit, and
+         * we get reparented to other processes, with our old parent's PID already being recycled. */
+
+        ppid = getppid();
+        for (;;) {
+                r = pidref_set_pid(&parent, ppid);
+                if (r < 0)
+                        return r;
+
+                if (pidref->fd < 0) /* If pidfds are not available, then we are done */
+                        break;
+
+                pid_t now_ppid = getppid();
+                if (now_ppid == ppid) /* If our ppid is still the same, then we are done */
+                        break;
+
+                /* Otherwise let's try again with the new ppid */
+                ppid = now_ppid;
+                pidref_done(&parent);
+        }
+
+        *pidref = TAKE_PIDREF(parent);
+        return 0;
+}
+
 void pidref_done(PidRef *pidref) {
         assert(pidref);
 

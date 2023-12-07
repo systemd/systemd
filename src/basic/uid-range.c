@@ -14,6 +14,7 @@
 #include "stat-util.h"
 #include "uid-range.h"
 #include "user-util.h"
+#include "process-util.h"
 
 UidRange *uid_range_free(UidRange *range) {
         if (!range)
@@ -180,7 +181,24 @@ bool uid_range_covers(const UidRange *range, uid_t start, uid_t nr) {
         return false;
 }
 
-int uid_range_load_userns(UidRange **ret, const char *path) {
+bool uid_range_overlaps(const UidRange *range, uid_t start, uid_t nr) {
+
+        /* Avoid overflow */
+        if (start > UINT32_MAX - nr)
+                nr = UINT32_MAX - start;
+
+        if (nr == 0)
+                return false;
+
+        for (size_t i = 0; i < range->n_entries; i++)
+                if (start < range->entries[i].start + range->entries[i].nr &&
+                    start + nr >= range->entries[i].start)
+                        return true;
+
+        return false;
+}
+
+int uid_range_load_userns(UidRange **ret, const char *path, UidRangeUsernsMode mode) {
         _cleanup_(uid_range_freep) UidRange *range = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
@@ -192,6 +210,8 @@ int uid_range_load_userns(UidRange **ret, const char *path) {
          * To simplify things this will modify the passed array in case of later failure. */
 
         assert(ret);
+        assert(mode >= 0);
+        assert(mode < _UID_RANGE_USERNS_MODE_MAX);
 
         if (!path)
                 path = "/proc/self/uid_map";
@@ -225,7 +245,11 @@ int uid_range_load_userns(UidRange **ret, const char *path) {
                 if (k != 3)
                         return -EBADMSG;
 
-                r = uid_range_add_internal(&range, uid_base, uid_range, /* coalesce = */ false);
+                r = uid_range_add_internal(
+                                &range,
+                                mode == UID_RANGE_USERNS_INSIDE ? uid_base : uid_shift,
+                                uid_range,
+                                /* coalesce = */ false);
                 if (r < 0)
                         return r;
         }
@@ -234,4 +258,63 @@ int uid_range_load_userns(UidRange **ret, const char *path) {
 
         *ret = TAKE_PTR(range);
         return 0;
+}
+
+int uid_range_load_userns_by_fd(UidRange **ret, int userns_fd, UidRangeUsernsMode mode) {
+        _cleanup_(close_pairp) int pfd[2] = EBADF_PAIR;
+        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        ssize_t n;
+        char x;
+        int r;
+
+        assert(ret);
+        assert(mode >= 0);
+        assert(mode < _UID_RANGE_USERNS_MODE_MAX);
+
+        assert(userns_fd >= 0);
+
+        if (pipe2(pfd, O_CLOEXEC) < 0)
+                return -errno;
+
+        r = safe_fork_full(
+                        "(sd-mkuserns)",
+                        /* stdio_fds= */ NULL,
+                        (const int[]) { pfd[1], userns_fd }, 2,
+                        FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL,
+                        &pid);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                /* Child. */
+
+                if (setns(userns_fd, CLONE_NEWUSER) < 0) {
+                        log_debug_errno(errno, "Failed to join userns: %m");
+                        _exit(EXIT_FAILURE);
+                }
+
+                userns_fd = safe_close(userns_fd);
+
+                n = write(pfd[1], &(const char) { 'x' }, 1);
+                if (n < 0) {
+                        log_debug_errno(errno, "Failed to write to fifo: %m");
+                        _exit(EXIT_FAILURE);
+                }
+                assert(n == 1);
+
+                freeze();
+        }
+
+        pfd[1] = safe_close(pfd[1]);
+
+        n = read(pfd[0], &x, 1);
+        if (n < 0)
+                return -errno;
+        if (n == 0)
+                return -EPROTO;
+        assert(n == 1);
+        assert(x == 'x');
+
+        const char *p = procfs_file_alloca(pid, "uid_map");
+
+        return uid_range_load_userns(ret, p, mode);
 }
