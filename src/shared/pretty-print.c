@@ -236,6 +236,29 @@ static int cat_file(const char *filename, bool newline, CatFlags flags) {
                         }
                 }
 
+                /* Highlight the left side (directive) part of Foo=bar assignment */
+                if (line_type == LINE_NORMAL) {
+                        _cleanup_free_ char *highlighted = NULL, *directive = NULL;
+                        const char *p;
+
+                        p = strchr(line, '=');
+                        if (p) {
+                                directive = strndup(line, p - line);
+                                if (!directive)
+                                        return log_oom();
+
+                                r = asprintf(&highlighted, "%s%s=%s%s",
+                                             ansi_highlight_green(),
+                                             directive,
+                                             ansi_normal(),
+                                             p + 1);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to format string: %m");
+
+                                free_and_replace(line, highlighted);
+                        }
+                }
+
                 printf("%s%s%s\n",
                        line_type == LINE_SECTION ? ansi_highlight_cyan() :
                        line_type == LINE_COMMENT ? ansi_highlight_grey() :
