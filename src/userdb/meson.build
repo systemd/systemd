@@ -15,18 +15,18 @@ systemd_userdbd_sources = files(
         'userns-util.c',
 )
 
+userns_restrict_include = include_directories('.')
+
 if conf.get('BPF_FRAMEWORK') == 1
         systemd_userwork_sources += userns_restrict_skel_h
         systemd_userdbd_sources += userns_restrict_skel_h
+
+        test_template += {
+                'sources' : files('test-userns-restrict.c', 'userns-restrict.c') + userns_restrict_skel_h,
+                'conditions' : ['ENABLE_USERDB', 'BPF_FRAMEWORK'],
+                'include_directories' : [ includes, userns_restrict_include ],
+        }
 endif
-
-userns_restrict_include = include_directories('.')
-
-test_template += {
-        'sources' : files('test-userns-restrict.c', 'userns-restrict.c') + userns_restrict_skel_h,
-        'conditions' : ['ENABLE_USERDB', 'BPF_FRAMEWORK'],
-        'include_directories' : [ includes, userns_restrict_include ],
-}
 
 executables += [
         libexec_template + {
