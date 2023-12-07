@@ -291,19 +291,19 @@ static void test_oomd_pressure_above(void) {
 
 static void test_oomd_mem_and_swap_free_below(void) {
         OomdSystemContext ctx = (OomdSystemContext) {
-                .mem_total = 20971512 * 1024U,
-                .mem_used = 3310136 * 1024U,
-                .swap_total = 20971512 * 1024U,
-                .swap_used = 20971440 * 1024U,
+                .mem_total = 20971512ULL * 1024U,
+                .mem_used = 3310136ULL * 1024U,
+                .swap_total = 20971512ULL * 1024U,
+                .swap_used = 20971440ULL * 1024U,
         };
         assert_se(oomd_mem_available_below(&ctx, 2000) == false);
         assert_se(oomd_swap_free_below(&ctx, 2000) == true);
 
         ctx = (OomdSystemContext) {
-                .mem_total = 20971512 * 1024U,
-                .mem_used = 20971440 * 1024U,
-                .swap_total = 20971512 * 1024U,
-                .swap_used = 3310136 * 1024U,
+                .mem_total = 20971512ULL * 1024U,
+                .mem_used = 20971440ULL * 1024U,
+                .swap_total = 20971512ULL * 1024U,
+                .swap_used = 3310136ULL * 1024U,
         };
         assert_se(oomd_mem_available_below(&ctx, 2000) == true);
         assert_se(oomd_swap_free_below(&ctx, 2000) == false);
