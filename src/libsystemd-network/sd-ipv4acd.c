@@ -585,6 +585,12 @@ int sd_ipv4acd_start(sd_ipv4acd *acd, bool reset_conflicts) {
         assert_return(!ether_addr_is_null(&acd->mac_addr), -EINVAL);
         assert_return(acd->state == IPV4ACD_STATE_INIT, -EBUSY);
 
+        r = sd_event_get_state(acd->event);
+        if (r < 0)
+                return r;
+        if (r == SD_EVENT_FINISHED)
+                return -ESTALE;
+
         r = arp_network_bind_raw_socket(acd->ifindex, &acd->address, &acd->mac_addr);
         if (r < 0)
                 return r;
