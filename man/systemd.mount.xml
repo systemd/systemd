@@ -136,8 +136,11 @@
         an <varname>After=</varname> dependency on <filename>local-fs-pre.target</filename>, and a
         <varname>Before=</varname> dependency on <filename>local-fs.target</filename> unless one or more
         mount options among <option>nofail</option>, <option>x-systemd.wanted-by=</option>,
-        and <option>x-systemd.required-by=</option> is set. See below for detailed information.
-        </para></listitem>
+        and <option>x-systemd.required-by=</option> is set. See below for detailed information.</para>
+
+        <para>Additionally, an <varname>After=</varname> dependency on <filename>swap.target</filename>
+        is added when the file system type is <literal>tmpfs</literal>.</para>
+        </listitem>
 
         <listitem><para>Network mount units automatically acquire <varname>After=</varname> dependencies on
         <filename>remote-fs-pre.target</filename>, <filename>network.target</filename>,
