@@ -10,19 +10,18 @@
 #include "journald-kmsg.h"
 #include "journald-server.h"
 #include "journald-syslog.h"
+#include "main-func.h"
 #include "process-util.h"
 #include "sigbus.h"
 
-int main(int argc, char *argv[]) {
+static int run(int argc, char *argv[]) {
+        _cleanup_(server_freep) Server *s = NULL;
         const char *namespace;
         LogTarget log_target;
-        Server server;
         int r;
 
-        if (argc > 2) {
-                log_error("This program takes one or no arguments.");
-                return EXIT_FAILURE;
-        }
+        if (argc > 2)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program takes one or no arguments.");
 
         namespace = argc > 1 ? empty_to_null(argv[1]) : NULL;
 
@@ -48,20 +47,24 @@ int main(int argc, char *argv[]) {
 
         sigbus_install();
 
-        r = server_init(&server, namespace);
+        r = server_new(&s);
         if (r < 0)
-                goto finish;
+                return log_oom();
 
-        server_vacuum(&server, false);
-        server_flush_to_var(&server, true);
-        server_flush_dev_kmsg(&server);
+        r = server_init(s, namespace);
+        if (r < 0)
+                return r;
 
-        if (server.namespace)
-                log_debug("systemd-journald running as PID "PID_FMT" for namespace '%s'.", getpid_cached(), server.namespace);
+        server_vacuum(s, /* verbose = */ false);
+        server_flush_to_var(s, /* require_flag_file = */ true);
+        server_flush_dev_kmsg(s);
+
+        if (s->namespace)
+                log_debug("systemd-journald running as PID "PID_FMT" for namespace '%s'.", getpid_cached(), s->namespace);
         else
                 log_debug("systemd-journald running as PID "PID_FMT" for the system.", getpid_cached());
 
-        server_driver_message(&server, 0,
+        server_driver_message(s, 0,
                               "MESSAGE_ID=" SD_MESSAGE_JOURNAL_START_STR,
                               LOG_MESSAGE("Journal started"),
                               NULL);
@@ -69,70 +72,63 @@ int main(int argc, char *argv[]) {
         /* Make sure to send the usage message *after* flushing the
          * journal so entries from the runtime journals are ordered
          * before this message. See #4190 for some details. */
-        server_space_usage_message(&server, NULL);
+        server_space_usage_message(s, NULL);
 
         for (;;) {
-                usec_t t = USEC_INFINITY, n;
+                usec_t t, n;
 
-                r = sd_event_get_state(server.event);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to get event loop state: %m");
-                        goto finish;
-                }
+                r = sd_event_get_state(s->event);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get event loop state: %m");
                 if (r == SD_EVENT_FINISHED)
                         break;
 
-                n = now(CLOCK_REALTIME);
+                r = sd_event_now(s->event, CLOCK_REALTIME, &n);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get the current time: %m");
 
-                if (server.max_retention_usec > 0 && server.oldest_file_usec > 0) {
+                if (s->max_retention_usec > 0 && s->oldest_file_usec > 0) {
+                        /* Calculate when to rotate the next time */
+                        t = usec_sub_unsigned(usec_add(s->oldest_file_usec, s->max_retention_usec), n);
 
                         /* The retention time is reached, so let's vacuum! */
-                        if (server.oldest_file_usec + server.max_retention_usec < n) {
+                        if (t <= 0) {
                                 log_info("Retention time reached, rotating.");
-                                server_rotate(&server);
-                                server_vacuum(&server, false);
+                                server_rotate(s);
+                                server_vacuum(s, /* verbose = */ false);
                                 continue;
                         }
-
-                        /* Calculate when to rotate the next time */
-                        t = server.oldest_file_usec + server.max_retention_usec - n;
-                }
+                } else
+                        t = USEC_INFINITY;
 
 #if HAVE_GCRYPT
-                if (server.system_journal) {
+                if (s->system_journal) {
                         usec_t u;
 
-                        if (journal_file_next_evolve_usec(server.system_journal, &u)) {
-                                if (n >= u)
-                                        t = 0;
-                                else
-                                        t = MIN(t, u - n);
-                        }
+                        if (journal_file_next_evolve_usec(s->system_journal, &u))
+                                t = MIN(t, usec_sub_unsigned(u, n));
                 }
 #endif
 
-                r = sd_event_run(server.event, t);
-                if (r < 0) {
-                        log_error_errno(r, "Failed to run event loop: %m");
-                        goto finish;
-                }
+                r = sd_event_run(s->event, t);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to run event loop: %m");
 
-                server_maybe_append_tags(&server);
-                server_maybe_warn_forward_syslog_missed(&server);
+                server_maybe_append_tags(s);
+                server_maybe_warn_forward_syslog_missed(s);
         }
 
-        if (server.namespace)
-                log_debug("systemd-journald stopped as PID "PID_FMT" for namespace '%s'.", getpid_cached(), server.namespace);
+        if (s->namespace)
+                log_debug("systemd-journald stopped as PID "PID_FMT" for namespace '%s'.", getpid_cached(), s->namespace);
         else
                 log_debug("systemd-journald stopped as PID "PID_FMT" for the system.", getpid_cached());
 
-        server_driver_message(&server, 0,
+        server_driver_message(s, 0,
                               "MESSAGE_ID=" SD_MESSAGE_JOURNAL_STOP_STR,
                               LOG_MESSAGE("Journal stopped"),
                               NULL);
 
-finish:
-        server_done(&server);
-
-        return r < 0 ? EXIT_FAILURE : EXIT_SUCCESS;
+        return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);
