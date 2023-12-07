@@ -561,6 +561,63 @@ static DIR* opendir_nomod(const char *path) {
         return xopendirat_nomod(AT_FDCWD, path);
 }
 
+static int opendir_and_stat(
+                const char *path,
+                DIR **ret,
+                struct statx *ret_sx,
+                bool *ret_mountpoint) {
+
+        _cleanup_closedir_ DIR *d = NULL;
+        STRUCT_STATX_DEFINE(sx);
+        int r;
+
+        assert(path);
+        assert(ret);
+        assert(ret_sx);
+        assert(ret_mountpoint);
+
+        /* Do opendir() and statx() on the directory.
+         * Return 1 if successful, 0 if file doesn't exist or is not a directory,
+         * negative errno otherwise.
+         */
+
+        d = opendir_nomod(path);
+        if (!d) {
+                bool ignore = IN_SET(errno, ENOENT, ENOTDIR);
+                r = log_full_errno(ignore ? LOG_DEBUG : LOG_ERR,
+                                   errno, "Failed to open directory %s: %m", path);
+                if (!ignore)
+                        return r;
+
+                *ret = NULL;
+                *ret_sx = (struct statx) {};
+                *ret_mountpoint = NULL;
+                return 0;
+        }
+
+        r = statx_fallback(dirfd(d), "", AT_EMPTY_PATH, STATX_MODE|STATX_INO|STATX_ATIME|STATX_MTIME, &sx);
+        if (r < 0)
+                return log_error_errno(r, "statx(%s) failed: %m", path);
+
+        if (FLAGS_SET(sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT))
+                *ret_mountpoint = FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
+        else {
+                struct stat ps;
+
+                if (fstatat(dirfd(d), "..", &ps, AT_SYMLINK_NOFOLLOW) != 0)
+                        return log_error_errno(errno, "stat(%s/..) failed: %m", path);
+
+                *ret_mountpoint =
+                        sx.stx_dev_major != major(ps.st_dev) ||
+                        sx.stx_dev_minor != minor(ps.st_dev) ||
+                        sx.stx_ino != ps.st_ino;
+        }
+
+        *ret = TAKE_PTR(d);
+        *ret_sx = sx;
+        return 1;
+}
+
 static bool needs_cleanup(
                 nsec_t atime,
                 nsec_t btime,
@@ -2963,49 +3020,25 @@ static int clean_item_instance(
                 const char* instance,
                 CreationMode creation) {
 
-        _cleanup_closedir_ DIR *d = NULL;
-        STRUCT_STATX_DEFINE(sx);
-        int mountpoint, r;
-        usec_t cutoff, n;
-
         assert(i);
 
         if (!i->age_set)
                 return 0;
 
-        n = now(CLOCK_REALTIME);
+        usec_t n = now(CLOCK_REALTIME);
         if (n < i->age)
                 return 0;
 
-        cutoff = n - i->age;
+        usec_t cutoff = n - i->age;
 
-        d = opendir_nomod(instance);
-        if (!d) {
-                if (IN_SET(errno, ENOENT, ENOTDIR)) {
-                        log_debug_errno(errno, "Directory \"%s\": %m", instance);
-                        return 0;
-                }
+        _cleanup_closedir_ DIR *d = NULL;
+        STRUCT_STATX_DEFINE(sx);
+        bool mountpoint;
+        int r;
 
-                return log_error_errno(errno, "Failed to open directory %s: %m", instance);
-        }
-
-        r = statx_fallback(dirfd(d), "", AT_EMPTY_PATH, STATX_MODE|STATX_INO|STATX_ATIME|STATX_MTIME, &sx);
-        if (r < 0)
-                return log_error_errno(r, "statx(%s) failed: %m", instance);
-
-        if (FLAGS_SET(sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT))
-                mountpoint = FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
-        else {
-                struct stat ps;
-
-                if (fstatat(dirfd(d), "..", &ps, AT_SYMLINK_NOFOLLOW) != 0)
-                        return log_error_errno(errno, "stat(%s/..) failed: %m", i->path);
-
-                mountpoint =
-                        sx.stx_dev_major != major(ps.st_dev) ||
-                        sx.stx_dev_minor != minor(ps.st_dev) ||
-                        sx.stx_ino != ps.st_ino;
-        }
+        r = opendir_and_stat(instance, &d, &sx, &mountpoint);
+        if (r <= 0)
+                return r;
 
         if (DEBUG_LOGGING) {
                 _cleanup_free_ char *ab_f = NULL, *ab_d = NULL;
@@ -3029,7 +3062,8 @@ static int clean_item_instance(
                            statx_timestamp_load_nsec(&sx.stx_atime),
                            statx_timestamp_load_nsec(&sx.stx_mtime),
                            cutoff * NSEC_PER_USEC,
-                           sx.stx_dev_major, sx.stx_dev_minor, mountpoint,
+                           sx.stx_dev_major, sx.stx_dev_minor,
+                           mountpoint,
                            MAX_DEPTH, i->keep_first_level,
                            i->age_by_file, i->age_by_dir);
 }
