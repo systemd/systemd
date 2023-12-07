@@ -206,7 +206,7 @@ static int create_edit_temp_file(EditFile *e, const char *contents, size_t conte
         if (e->context->stdin) {
                 if (fwrite(contents, 1, contents_size, f) != contents_size)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                                               "Failed to copy input to temporary file '%s': %m", temp);
+                                               "Failed to copy input to temporary file '%s'.", temp);
         } else {
                 r = populate_edit_temp_file(e, f, temp);
                 if (r < 0)
