@@ -27,8 +27,28 @@
 typedef enum VerifyESPFlags {
         VERIFY_ESP_SEARCHING         = 1 << 0, /* Downgrade various "not found" logs to debug level */
         VERIFY_ESP_UNPRIVILEGED_MODE = 1 << 1, /* Call into udev rather than blkid */
-        VERIFY_ESP_RELAX_CHECKS      = 1 << 2, /* Do not validate ESP partition */
+        VERIFY_ESP_SKIP_FSTYPE_CHECK = 1 << 2, /* Skip filesystem check */
+        VERIFY_ESP_SKIP_DEVICE_CHECK = 1 << 3, /* Skip device node check  */
 } VerifyESPFlags;
+
+static VerifyESPFlags verify_esp_flags_init(int unprivileged_mode, const char *env_name_for_relaxing) {
+        VerifyESPFlags flags = 0;
+
+        assert(env_name_for_relaxing);
+
+        if (unprivileged_mode < 0)
+                unprivileged_mode = geteuid() != 0;
+        if (unprivileged_mode)
+                flags |= VERIFY_ESP_UNPRIVILEGED_MODE;
+
+        if (getenv_bool(env_name_for_relaxing) > 0)
+                flags |= VERIFY_ESP_SKIP_FSTYPE_CHECK | VERIFY_ESP_SKIP_DEVICE_CHECK;
+
+        if (detect_container() > 0)
+                flags |= VERIFY_ESP_SKIP_DEVICE_CHECK;
+
+        return flags;
+}
 
 static int verify_esp_blkid(
                 dev_t devid,
@@ -326,8 +346,8 @@ static int verify_esp(
                 dev_t *ret_devid,
                 VerifyESPFlags flags) {
 
-        bool relax_checks, searching = FLAGS_SET(flags, VERIFY_ESP_SEARCHING),
-             unprivileged_mode = FLAGS_SET(flags, VERIFY_ESP_UNPRIVILEGED_MODE);
+        bool searching = FLAGS_SET(flags, VERIFY_ESP_SEARCHING),
+                unprivileged_mode = FLAGS_SET(flags, VERIFY_ESP_UNPRIVILEGED_MODE);
         _cleanup_free_ char *p = NULL;
         _cleanup_close_ int pfd = -EBADF;
         dev_t devid = 0;
@@ -343,10 +363,6 @@ static int verify_esp(
          *  -EACESS        → if 'unprivileged_mode' is set, and we have trouble accessing the thing
          */
 
-        relax_checks =
-                getenv_bool("SYSTEMD_RELAX_ESP_CHECKS") > 0 ||
-                FLAGS_SET(flags, VERIFY_ESP_RELAX_CHECKS);
-
         /* Non-root user can only check the status, so if an error occurred in the following, it does not cause any
          * issues. Let's also, silence the error messages. */
 
@@ -356,7 +372,7 @@ static int verify_esp(
                                       (unprivileged_mode && ERRNO_IS_PRIVILEGE(r)) ? LOG_DEBUG : LOG_ERR,
                                       r, "Failed to open parent directory of \"%s\": %m", path);
 
-        if (!relax_checks) {
+        if (!FLAGS_SET(flags, VERIFY_ESP_SKIP_FSTYPE_CHECK)) {
                 _cleanup_free_ char *f = NULL;
                 struct statfs sfs;
 
@@ -383,17 +399,13 @@ static int verify_esp(
                                               "File system \"%s\" is not a FAT EFI System Partition (ESP) file system.", p);
         }
 
-        relax_checks =
-                relax_checks ||
-                detect_container() > 0;
-
-        r = verify_fsroot_dir(pfd, p, flags, relax_checks ? NULL : &devid);
+        r = verify_fsroot_dir(pfd, p, flags, FLAGS_SET(flags, VERIFY_ESP_SKIP_DEVICE_CHECK) ? NULL : &devid);
         if (r < 0)
                 return r;
 
         /* In a container we don't have access to block devices, skip this part of the verification, we trust
          * the container manager set everything up correctly on its own. */
-        if (relax_checks)
+        if (FLAGS_SET(flags, VERIFY_ESP_SKIP_DEVICE_CHECK))
                 goto finish;
 
         if (devnum_is_zero(devid))
@@ -459,15 +471,13 @@ int find_esp_and_warn_at(
 
         assert(rfd >= 0 || rfd == AT_FDCWD);
 
-        if (unprivileged_mode < 0)
-                unprivileged_mode = geteuid() != 0;
-        flags = unprivileged_mode > 0 ? VERIFY_ESP_UNPRIVILEGED_MODE : 0;
+        flags = verify_esp_flags_init(unprivileged_mode, "SYSTEMD_RELAX_ESP_CHECKS");
 
         r = dir_fd_is_root_or_cwd(rfd);
         if (r < 0)
                 return log_error_errno(r, "Failed to check if directory file descriptor is root: %m");
         if (r == 0)
-                flags |= VERIFY_ESP_RELAX_CHECKS;
+                flags |= VERIFY_ESP_SKIP_FSTYPE_CHECK | VERIFY_ESP_SKIP_DEVICE_CHECK;
 
         if (path)
                 return verify_esp(rfd, path, ret_path, ret_part, ret_pstart, ret_psize, ret_uuid, ret_devid, flags);
@@ -747,8 +757,7 @@ static int verify_xbootldr(
         _cleanup_free_ char *p = NULL;
         _cleanup_close_ int pfd = -EBADF;
         bool searching = FLAGS_SET(flags, VERIFY_ESP_SEARCHING),
-                unprivileged_mode = FLAGS_SET(flags, VERIFY_ESP_UNPRIVILEGED_MODE),
-                relax_checks;
+                unprivileged_mode = FLAGS_SET(flags, VERIFY_ESP_UNPRIVILEGED_MODE);
         dev_t devid = 0;
         int r;
 
@@ -761,15 +770,11 @@ static int verify_xbootldr(
                                       (unprivileged_mode && ERRNO_IS_PRIVILEGE(r)) ? LOG_DEBUG : LOG_ERR,
                                       r, "Failed to open parent directory of \"%s\": %m", path);
 
-        relax_checks =
-                getenv_bool("SYSTEMD_RELAX_XBOOTLDR_CHECKS") > 0 ||
-                detect_container() > 0;
-
-        r = verify_fsroot_dir(pfd, p, flags, relax_checks ? NULL : &devid);
+        r = verify_fsroot_dir(pfd, p, flags, FLAGS_SET(flags, VERIFY_ESP_SKIP_DEVICE_CHECK) ? NULL : &devid);
         if (r < 0)
                 return r;
 
-        if (relax_checks)
+        if (FLAGS_SET(flags, VERIFY_ESP_SKIP_DEVICE_CHECK))
                 goto finish;
 
         if (devnum_is_zero(devid))
@@ -814,17 +819,14 @@ int find_xbootldr_and_warn_at(
                 sd_id128_t *ret_uuid,
                 dev_t *ret_devid) {
 
-        VerifyESPFlags flags = 0;
+        VerifyESPFlags flags;
         int r;
 
         /* Similar to find_esp_and_warn(), but finds the XBOOTLDR partition. Returns the same errors. */
 
         assert(rfd >= 0 || rfd == AT_FDCWD);
 
-        if (unprivileged_mode < 0)
-                unprivileged_mode = geteuid() != 0;
-        if (unprivileged_mode)
-                flags |= VERIFY_ESP_UNPRIVILEGED_MODE;
+        flags = verify_esp_flags_init(unprivileged_mode, "SYSTEMD_RELAX_XBOOTLDR_CHECKS");
 
         if (path)
                 return verify_xbootldr(rfd, path, flags, ret_path, ret_uuid, ret_devid);
