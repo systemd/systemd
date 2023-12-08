@@ -1204,7 +1204,7 @@ static int setup_pam(
         if (r < 0)
                 goto fail;
         if (r == 0) {
-                int sig, ret = EXIT_PAM;
+                int ret = EXIT_PAM;
 
                 /* The child's job is to reset the PAM session on termination */
                 barrier_set_role(&barrier, BARRIER_CHILD);
@@ -1238,21 +1238,13 @@ static int setup_pam(
                 /* Check if our parent process might already have died? */
                 if (getppid() == parent_pid) {
                         sigset_t ss;
+                        int sig;
 
                         assert_se(sigemptyset(&ss) >= 0);
                         assert_se(sigaddset(&ss, SIGTERM) >= 0);
 
-                        for (;;) {
-                                if (sigwait(&ss, &sig) < 0) {
-                                        if (errno == EINTR)
-                                                continue;
-
-                                        goto child_finish;
-                                }
-
-                                assert(sig == SIGTERM);
-                                break;
-                        }
+                        assert_se(sigwait(&ss, &sig) == 0);
+                        assert(sig == SIGTERM);
                 }
 
                 pam_code = pam_setcred(handle, PAM_DELETE_CRED | flags);
