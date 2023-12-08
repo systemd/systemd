@@ -1684,6 +1684,100 @@ static int directory_open(sd_journal *j, const char *path, DIR **ret) {
         return 0;
 }
 
+static Directory* directory_free(Directory *d) {
+        if (!d)
+                return NULL;
+
+        if (d->journal) {
+                if (d->wd > 0 &&
+                    hashmap_remove_value(d->journal->directories_by_wd, INT_TO_PTR(d->wd), d) &&
+                    d->journal->inotify_fd >= 0)
+                        (void) inotify_rm_watch(d->journal->inotify_fd, d->wd);
+
+                if (d->path)
+                        hashmap_remove_value(d->journal->directories_by_path, d->path, d);
+        }
+
+        if (d->path) {
+                if (d->is_root)
+                        log_debug("Root directory %s removed.", d->path);
+                else
+                        log_debug("Directory %s removed.", d->path);
+
+                free(d->path);
+        }
+
+        return mfree(d);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(Directory*, directory_free);
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        directories_by_path_hash_ops,
+        char,
+        path_hash_func,
+        path_compare,
+        Directory,
+        directory_free);
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+        directories_by_wd_hash_ops,
+        void,
+        trivial_hash_func,
+        trivial_compare_func,
+        Directory,
+        directory_free);
+
+static int add_directory_impl(sd_journal *j, const char *path, bool is_root, Directory **ret) {
+        _cleanup_(directory_freep) Directory *m = NULL;
+        Directory *existing;
+        int r;
+
+        assert(j);
+        assert(path);
+        assert(ret);
+
+        existing = hashmap_get(j->directories_by_path, path);
+        if (existing) {
+                if (existing->is_root != is_root) {
+                        /* Don't 'downgrade' from root directory */
+                        *ret = NULL;
+                        return 0;
+                }
+
+                *ret = existing;
+                return 1;
+        }
+
+        m = new(Directory, 1);
+        if (!m)
+                return -ENOMEM;
+
+        *m = (Directory) {
+                .journal = j,
+                .is_root = is_root,
+                .path = strdup(path),
+                .wd = -1,
+        };
+
+        if (!m->path)
+                return -ENOMEM;
+
+        r = hashmap_ensure_put(&j->directories_by_path, &directories_by_path_hash_ops, m->path, m);
+        if (r < 0)
+                return r;
+
+        j->current_invalidate_counter++;
+
+        if (is_root)
+                log_debug("Root directory %s added.", m->path);
+        else
+                log_debug("Directory %s added.", m->path);
+
+        *ret = TAKE_PTR(m);
+        return 1;
+}
+
 static int add_directory(sd_journal *j, const char *prefix, const char *dirname);
 
 static void directory_enumerate(sd_journal *j, Directory *m, DIR *d) {
@@ -1724,12 +1818,14 @@ static void directory_watch(sd_journal *j, Directory *m, int fd, uint32_t mask) 
                 return;
         }
 
-        r = hashmap_put(j->directories_by_wd, INT_TO_PTR(m->wd), m);
-        if (r == -EEXIST)
-                log_debug_errno(r, "Directory '%s' already being watched under a different path, ignoring: %m", m->path);
+        r = hashmap_ensure_put(&j->directories_by_wd, &directories_by_wd_hash_ops, INT_TO_PTR(m->wd), m);
         if (r < 0) {
-                log_debug_errno(r, "Failed to add watch for journal directory '%s' to hashmap, ignoring: %m", m->path);
-                (void) inotify_rm_watch(j->inotify_fd, m->wd);
+                if (r == -EEXIST)
+                        log_debug_errno(r, "Directory '%s' already being watched under a different path, ignoring: %m", m->path);
+                else {
+                        log_debug_errno(r, "Failed to add watch for journal directory '%s' to hashmap, ignoring: %m", m->path);
+                        (void) inotify_rm_watch(j->inotify_fd, m->wd);
+                }
                 m->wd = -1;
         }
 }
@@ -1775,32 +1871,11 @@ static int add_directory(
                 goto fail;
         }
 
-        m = hashmap_get(j->directories_by_path, path);
-        if (!m) {
-                m = new(Directory, 1);
-                if (!m) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-                *m = (Directory) {
-                        .is_root = false,
-                        .path = path,
-                };
-
-                if (hashmap_put(j->directories_by_path, m->path, m) < 0) {
-                        free(m);
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-                path = NULL; /* avoid freeing in cleanup */
-                j->current_invalidate_counter++;
-
-                log_debug("Directory %s added.", m->path);
-
-        } else if (m->is_root)
-                return 0; /* Don't 'downgrade' from root directory */
+        r = add_directory_impl(j, path, /* is_root = */ false, &m);
+        if (r < 0)
+                goto fail;
+        if (r == 0)
+                return 0;
 
         m->last_seen_generation = j->generation;
 
@@ -1878,35 +1953,10 @@ static int add_root_directory(sd_journal *j, const char *p, bool missing_ok) {
                 rewinddir(d);
         }
 
-        m = hashmap_get(j->directories_by_path, p);
-        if (!m) {
-                m = new0(Directory, 1);
-                if (!m) {
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-                m->is_root = true;
-
-                m->path = strdup(p);
-                if (!m->path) {
-                        free(m);
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-                if (hashmap_put(j->directories_by_path, m->path, m) < 0) {
-                        free(m->path);
-                        free(m);
-                        r = -ENOMEM;
-                        goto fail;
-                }
-
-                j->current_invalidate_counter++;
-
-                log_debug("Root directory %s added.", m->path);
-
-        } else if (!m->is_root)
+        r = add_directory_impl(j, p, /* is_root = */ true, &m);
+        if (r < 0)
+                goto fail;
+        if (r == 0)
                 return 0;
 
         directory_watch(j, m, dirfd(d),
@@ -1926,27 +1976,6 @@ fail:
                 return k;
 
         return r;
-}
-
-static void remove_directory(sd_journal *j, Directory *d) {
-        assert(j);
-
-        if (d->wd > 0) {
-                hashmap_remove(j->directories_by_wd, INT_TO_PTR(d->wd));
-
-                if (j->inotify_fd >= 0)
-                        (void) inotify_rm_watch(j->inotify_fd, d->wd);
-        }
-
-        hashmap_remove(j->directories_by_path, d->path);
-
-        if (d->is_root)
-                log_debug("Root directory %s removed.", d->path);
-        else
-                log_debug("Directory %s removed.", d->path);
-
-        free(d->path);
-        free(d);
 }
 
 static int add_search_paths(sd_journal *j) {
@@ -2003,7 +2032,7 @@ static int allocate_inotify(sd_journal *j) {
                         return -errno;
         }
 
-        return hashmap_ensure_allocated(&j->directories_by_wd, NULL);
+        return 0;
 }
 
 static sd_journal *journal_new(int flags, const char *path, const char *namespace) {
@@ -2045,9 +2074,8 @@ static sd_journal *journal_new(int flags, const char *path, const char *namespac
                 return NULL;
 
         j->files_cache = ordered_hashmap_iterated_cache_new(j->files);
-        j->directories_by_path = hashmap_new(&path_hash_ops);
         j->mmap = mmap_cache_new();
-        if (!j->files_cache || !j->directories_by_path || !j->mmap)
+        if (!j->files_cache || !j->mmap)
                 return NULL;
 
         return TAKE_PTR(j);
@@ -2270,7 +2298,6 @@ fail:
 }
 
 _public_ void sd_journal_close(sd_journal *j) {
-        Directory *d;
         Prioq *p;
 
         if (!j || journal_origin_changed(j))
@@ -2284,12 +2311,6 @@ _public_ void sd_journal_close(sd_journal *j) {
 
         ordered_hashmap_free_with_destructor(j->files, journal_file_close);
         iterated_cache_free(j->files_cache);
-
-        while ((d = hashmap_first(j->directories_by_path)))
-                remove_directory(j, d);
-
-        while ((d = hashmap_first(j->directories_by_wd)))
-                remove_directory(j, d);
 
         hashmap_free(j->directories_by_path);
         hashmap_free(j->directories_by_wd);
@@ -2839,7 +2860,7 @@ static void process_q_overflow(sd_journal *j) {
                         continue;
 
                 log_debug("Directory '%s' hasn't been seen in this enumeration, removing.", f->path);
-                remove_directory(j, m);
+                directory_free(m);
         }
 
         log_debug("Reiteration complete.");
@@ -2875,7 +2896,7 @@ static void process_inotify_event(sd_journal *j, const struct inotify_event *e) 
                         /* Event for a subdirectory */
 
                         if (e->mask & (IN_DELETE_SELF|IN_MOVE_SELF|IN_UNMOUNT))
-                                remove_directory(j, d);
+                                directory_free(d);
 
                 } else if (d->is_root && (e->mask & IN_ISDIR) && e->len > 0 && id128_is_valid(e->name)) {
 

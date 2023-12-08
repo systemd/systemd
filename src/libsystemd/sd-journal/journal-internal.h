@@ -62,6 +62,7 @@ struct Location {
 };
 
 struct Directory {
+        sd_journal *journal;
         char *path;
         int wd;
         bool is_root;
