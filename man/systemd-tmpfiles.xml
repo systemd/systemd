@@ -182,6 +182,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--dry-run</option></term>
+        <listitem><para>Process the configuration and print what operations would be performed, but don't
+        actually change anything in the file system.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--prefix=<replaceable>path</replaceable></option></term>
         <listitem><para>Only apply rules with paths that start with
         the specified prefix. This option can be specified multiple
