@@ -190,11 +190,13 @@ int rename_process(const char name[]) {
         if (l >= TASK_COMM_LEN) /* Linux userspace process names can be 15 chars at max */
                 truncated = true;
 
+        bool invocation_name_is_argv0 = false;
+
         /* Second step, change glibc's ID of the process name. */
         if (program_invocation_name) {
-                size_t k;
+                invocation_name_is_argv0 = program_invocation_name == argv[0];
 
-                k = strlen(program_invocation_name);
+                size_t k = strlen(program_invocation_name);
                 strncpy(program_invocation_name, name, k);
                 if (l > k)
                         truncated = true;
@@ -212,7 +214,7 @@ int rename_process(const char name[]) {
         /* Fourth step: in all cases we'll also update the original argv[], so that our own code gets it right too if
          * it still looks here */
         if (saved_argc > 0) {
-                if (saved_argv[0]) {
+                if (!invocation_name_is_argv0 && saved_argv[0]) {
                         size_t k;
 
                         k = strlen(saved_argv[0]);
