@@ -12,10 +12,13 @@ at_exit() {
         rm -fvr "/usr/lib/systemd/system/$UNIT_NAME" "/etc/systemd/system/$UNIT_NAME.d" "+4"
     fi
 
+    maybe_umount_usr_overlay
+
     rm -f /etc/init.d/issue-24990
     return 0
 }
 
+maybe_mount_usr_overlay
 trap at_exit EXIT
 
 # Create a simple unit file for testing
