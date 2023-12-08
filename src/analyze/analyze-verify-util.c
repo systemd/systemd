@@ -72,6 +72,54 @@ int verify_prepare_filename(const char *filename, char **ret) {
         return 0;
 }
 
+static int find_unit_directory(const char *p, char **ret) {
+        _cleanup_free_ char *a = NULL, *u = NULL, *t = NULL, *d = NULL;
+        int r;
+
+        assert(p);
+        assert(ret);
+
+        r = path_make_absolute_cwd(p, &a);
+        if (r < 0)
+                return r;
+
+        if (access(a, F_OK) >= 0) {
+                r = path_extract_directory(a, &d);
+                if (r < 0)
+                        return r;
+
+                *ret = TAKE_PTR(d);
+                return 0;
+        }
+
+        r = path_extract_filename(a, &u);
+        if (r < 0)
+                return r;
+
+        if (!unit_name_is_valid(u, UNIT_NAME_INSTANCE))
+                return -ENOENT;
+
+        /* If the specified unit is an instance of a template unit, then let's try to find the template unit. */
+        r = unit_name_template(u, &t);
+        if (r < 0)
+                return r;
+
+        r = path_extract_directory(a, &d);
+        if (r < 0)
+                return r;
+
+        a = mfree(a);
+        a = path_join(d, t);
+        if (!a)
+                return -ENOMEM;
+
+        if (access(a, F_OK) < 0)
+                return -errno;
+
+        *ret = TAKE_PTR(d);
+        return 0;
+}
+
 int verify_set_unit_path(char **filenames) {
         _cleanup_strv_free_ char **ans = NULL;
         _cleanup_free_ char *joined = NULL;
@@ -79,19 +127,13 @@ int verify_set_unit_path(char **filenames) {
         int r;
 
         STRV_FOREACH(filename, filenames) {
-                _cleanup_free_ char *a = NULL;
                 char *t;
 
-                r = path_make_absolute_cwd(*filename, &a);
-                if (r < 0)
+                r = find_unit_directory(*filename, &t);
+                if (r == -ENOMEM)
                         return r;
-
-                if (access(a, F_OK) < 0)
+                if (r < 0)
                         continue;
-
-                r = path_extract_directory(a, &t);
-                if (r < 0)
-                        return r;
 
                 r = strv_consume(&ans, t);
                 if (r < 0)
