@@ -250,5 +250,8 @@ int main(int argc, char *argv[]) {
         } else
                 assert(exit_status == EXIT_SUCCESS); /* When 'skip' is chosen in the confirm spawn prompt */
 
+        mac_selinux_finish();
+        static_destruct();
+
         return exit_status;
 }
