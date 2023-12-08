@@ -3,6 +3,7 @@
 #include <getopt.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -19,6 +20,7 @@
 #include "hostname-util.h"
 #include "log.h"
 #include "machine-credential.h"
+#include "macro-fundamental.h"
 #include "main-func.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -30,6 +32,7 @@
 #include "sd-event.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "string-util-fundamental.h"
 #include "strv.h"
 #include "tmpfile-util.h"
 #include "vmspawn-scope.h"
@@ -46,6 +49,7 @@ static int arg_qemu_vsock = -1;
 static uint64_t arg_vsock_cid = UINT64_MAX;
 static int arg_vtpm = -1;
 static char *arg_kernel = NULL;
+static char **arg_initrds = NULL;
 static bool arg_qemu_gui = false;
 static int arg_secure_boot = -1;
 static MachineCredentialContext arg_credentials = {};
@@ -57,6 +61,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_machine, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_qemu_smp, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_credentials, machine_credential_context_done);
 STATIC_DESTRUCTOR_REGISTER(arg_kernel, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_initrds, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline_extra, strv_freep);
 
 static int help(void) {
@@ -87,6 +92,7 @@ static int help(void) {
                "     --vsock-cid=           Specify the CID to use for the qemu guest's vsock\n"
                "     --vtpm=BOOL            Configure whether to use a virtual TPM or not\n"
                "     --kernel=PATH          Specify the kernel for direct kernel boot\n"
+               "     --initrd=PATH          Specify the initrd for direct kernel boot\n"
                "     --qemu-gui             Start QEMU in graphical mode\n"
                "     --secure-boot=BOOL     Configure whether to search for firmware which\n"
                "                            supports Secure Boot\n\n"
@@ -118,6 +124,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VSOCK_CID,
                 ARG_VTPM,
                 ARG_KERNEL,
+                ARG_INITRD,
                 ARG_QEMU_GUI,
                 ARG_SECURE_BOOT,
                 ARG_SET_CREDENTIAL,
@@ -137,6 +144,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "vsock-cid",       required_argument, NULL, ARG_VSOCK_CID       },
                 { "vtpm",            required_argument, NULL, ARG_VTPM            },
                 { "kernel",          required_argument, NULL, ARG_KERNEL          },
+                { "initrd",          required_argument, NULL, ARG_INITRD          },
                 { "qemu-gui",        no_argument,       NULL, ARG_QEMU_GUI        },
                 { "secure-boot",     required_argument, NULL, ARG_SECURE_BOOT     },
                 { "set-credential",  required_argument, NULL, ARG_SET_CREDENTIAL  },
@@ -234,6 +242,18 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
                         break;
+
+                case ARG_INITRD: {
+                        _cleanup_free_ char *initrd = NULL;
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &initrd);
+                        if (r < 0)
+                                return r;
+
+                        r = strv_push(&arg_initrds, TAKE_PTR(initrd));
+                        if (r < 0)
+                                return log_oom();
+                        break;
+                }
 
                 case ARG_QEMU_GUI:
                         arg_qemu_gui = true;
@@ -507,6 +527,68 @@ static int start_vtpm(sd_bus *bus, const char *scope, const char *vtpm, const ch
         return 0;
 }
 
+static int find_initrd(char **ret_initrd) {
+        _cleanup_free_ char *s = NULL, *initrd = NULL;
+        char *c;
+
+        assert(ret_initrd);
+
+        /* if the kernel is an EFI image we don't need an initrd */
+        if (endswith(arg_kernel, ".efi")) {
+                ret_initrd = NULL;
+                return 0;
+        }
+
+        /* try in order:
+         *   1. kernel + .initrd
+         *   2. kernel stripped of suffix + .initrd
+         *   3. image + .initrd
+         */
+        initrd = strjoin(arg_kernel, ".initrd");
+        if (!initrd)
+                return log_oom();
+
+        if (access(initrd, F_OK) >= 0) {
+                *ret_initrd = TAKE_PTR(initrd);
+                return 0;
+        }
+        if (errno != ENOENT)
+                return log_error_errno(errno, "Encountered error searching for initrd: %m");
+        initrd = mfree(initrd);
+
+        /* strip kernel suffix */
+        s = strdup(arg_kernel);
+        if (!s)
+                return log_oom();
+
+        c = strrchr(s, '.');
+        if (c)
+                *c = '\0';
+
+        initrd = strjoin(s, ".initrd");
+        if (!initrd)
+                return log_oom();
+        if (access(initrd, F_OK) >= 0) {
+                *ret_initrd = TAKE_PTR(initrd);
+                return 0;
+        }
+        if (errno != ENOENT)
+                return log_error_errno(errno, "Encountered error searching for initrd: %m");
+        initrd = mfree(initrd);
+
+        initrd = strjoin(arg_image, ".initrd");
+        if (!initrd)
+                return log_oom();
+        if (access(initrd, F_OK) >= 0) {
+                *ret_initrd = TAKE_PTR(initrd);
+                return 0;
+        }
+        if (errno != ENOENT)
+                return log_error_errno(errno, "Encountered error searching for initrd: %m");
+
+        return -ENOENT;
+}
+
 static int run_virtual_machine(void) {
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -551,9 +633,12 @@ static int run_virtual_machine(void) {
         if (!machine)
                 return log_oom();
 
-
         if (arg_kernel && access(arg_kernel, F_OK) < 0)
                 return log_error_errno(errno, "Kernel not found at %s: %m", arg_kernel);
+
+        STRV_FOREACH(i, arg_initrds)
+                if (access(*i, F_OK) < 0)
+                        return log_error_errno(errno, "Initrd not found at %s: %m", *i);
 
         r = find_qemu_binary(&qemu_binary);
         if (r == -EOPNOTSUPP)
@@ -775,6 +860,29 @@ static int run_virtual_machine(void) {
                         } else
                                 log_warning("Cannot append extra args to kernel cmdline, native architecture doesn't support SMBIOS, ignoring");
                 }
+        }
+
+        if (strv_isempty(arg_initrds) && arg_kernel) {
+                _cleanup_free_ char *initrd = NULL;
+                r = find_initrd(&initrd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to find initrd: %m");
+
+                if (initrd) {
+                        r = strv_extend(&arg_initrds, initrd);
+                        if (r < 0)
+                                return log_oom();
+                }
+        }
+
+        if (!strv_isempty(arg_initrds)) {
+                r = strv_extend(&cmdline, "-initrd");
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extend_strv(&cmdline, arg_initrds, /* filter_duplicates= */ false);
+                if (r < 0)
+                        return log_oom();
         }
 
         if (use_vsock) {
