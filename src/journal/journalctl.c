@@ -104,6 +104,7 @@ static bool arg_boot = false;
 static sd_id128_t arg_boot_id = {};
 static int arg_boot_offset = 0;
 static bool arg_dmesg = false;
+static bool arg_audit = false;
 static bool arg_no_hostname = false;
 static const char *arg_cursor = NULL;
 static const char *arg_cursor_file = NULL;
@@ -385,6 +386,7 @@ static int help(void) {
                "  -g --grep=PATTERN          Show entries with MESSAGE matching PATTERN\n"
                "     --case-sensitive[=BOOL] Force case sensitive or insensitive matching\n"
                "  -k --dmesg                 Show kernel message log from the current boot\n"
+               "     --audit                 Show audit messages\n"
                "\n%3$sOutput Control Options:%4$s\n"
                "  -o --output=STRING         Change journal output mode (short, short-precise,\n"
                "                               short-iso, short-iso-precise, short-full,\n"
@@ -487,6 +489,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_HOSTNAME,
                 ARG_OUTPUT_FIELDS,
                 ARG_NAMESPACE,
+                ARG_AUDIT,
         };
 
         static const struct option options[] = {
@@ -510,6 +513,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "boot",                 optional_argument, NULL, 'b'                      },
                 { "list-boots",           no_argument,       NULL, ARG_LIST_BOOTS           },
                 { "dmesg",                no_argument,       NULL, 'k'                      },
+                { "audit",                no_argument,       NULL, ARG_AUDIT                },
                 { "system",               no_argument,       NULL, ARG_SYSTEM               },
                 { "user",                 no_argument,       NULL, ARG_USER                 },
                 { "directory",            required_argument, NULL, 'D'                      },
@@ -691,6 +695,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'k':
                         arg_boot = arg_dmesg = true;
+                        break;
+
+                case ARG_AUDIT:
+                        arg_audit = true;
                         break;
 
                 case ARG_SYSTEM:
@@ -1319,6 +1327,25 @@ static int add_dmesg(sd_journal *j) {
 
         r = sd_journal_add_match(j, "_TRANSPORT=kernel",
                                  STRLEN("_TRANSPORT=kernel"));
+        if (r < 0)
+                return log_error_errno(r, "Failed to add match: %m");
+
+        r = sd_journal_add_conjunction(j);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add conjunction: %m");
+
+        return 0;
+}
+
+static int add_audit(sd_journal *j) {
+        int r;
+        assert(j);
+
+        if (!arg_audit)
+                return 0;
+
+        r = sd_journal_add_match(j, "_TRANSPORT=audit",
+                                 STRLEN("_TRANSPORT=audit"));
         if (r < 0)
                 return log_error_errno(r, "Failed to add match: %m");
 
@@ -2399,6 +2426,10 @@ static int run(int argc, char *argv[]) {
         r = add_dmesg(j);
         if (r < 0)
                 return r;
+
+        r = add_audit(j);
+        if (r < 0)
+                goto finish;
 
         r = add_units(j);
         if (r < 0)

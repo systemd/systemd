@@ -431,6 +431,14 @@
 
         <xi:include href="version-info.xml" xpointer="v205"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><option>--audit</option></term>
+
+        <listitem><para>Show only audit messages. This adds the match
+        <literal>_TRANSPORT=audit</literal>.</para></listitem>
+      </varlistentry>
+
     </variablelist>
   </refsect1>
 
