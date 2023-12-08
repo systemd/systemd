@@ -3972,49 +3972,6 @@ int manager_notify_cgroup_empty(Manager *m, const char *cgroup) {
         return 1;
 }
 
-int unit_get_memory_available(Unit *u, uint64_t *ret) {
-        uint64_t available = UINT64_MAX, current = 0;
-
-        assert(u);
-        assert(ret);
-
-        /* If data from cgroups can be accessed, try to find out how much more memory a unit can
-         * claim before hitting the configured cgroup limits (if any). Consider both MemoryHigh
-         * and MemoryMax, and also any slice the unit might be nested below. */
-
-        do {
-                uint64_t unit_available, unit_limit = UINT64_MAX;
-                CGroupContext *unit_context;
-
-                /* No point in continuing if we can't go any lower */
-                if (available == 0)
-                        break;
-
-                unit_context = unit_get_cgroup_context(u);
-                if (!unit_context)
-                        return -ENODATA;
-
-                if (!u->cgroup_path)
-                        continue;
-
-                (void) unit_get_memory_current(u, &current);
-                /* in case of error, previous current propagates as lower bound */
-
-                if (unit_has_name(u, SPECIAL_ROOT_SLICE))
-                        unit_limit = physical_memory();
-                else if (unit_context->memory_max == UINT64_MAX && unit_context->memory_high == UINT64_MAX)
-                        continue;
-                unit_limit = MIN3(unit_limit, unit_context->memory_max, unit_context->memory_high);
-
-                unit_available = LESS_BY(unit_limit, current);
-                available = MIN(unit_available, available);
-        } while ((u = UNIT_GET_SLICE(u)));
-
-        *ret = available;
-
-        return 0;
-}
-
 int unit_get_memory_current(Unit *u, uint64_t *ret) {
         int r;
 
@@ -4241,6 +4198,96 @@ int unit_get_ip_accounting(
         *ret = value + u->ip_accounting_extra[metric];
 
         return r;
+}
+
+static uint64_t unit_get_effective_limit_one(Unit *u, CGroupLimitType type) {
+        CGroupContext *cc;
+        size_t member;
+
+        assert(u);
+        assert(UNIT_HAS_CGROUP_CONTEXT(u));
+
+        static const size_t members[_CGROUP_LIMIT_TYPE_MAX] = {
+                [CGROUP_LIMIT_MEMORY_MAX]  = offsetof(CGroupContext, memory_max),
+                [CGROUP_LIMIT_MEMORY_HIGH] = offsetof(CGroupContext, memory_high),
+                [CGROUP_LIMIT_TASKS_MAX]   = offsetof(CGroupContext, tasks_max),
+        };
+
+        /* These callbacks return system global or container's root cgroup attributes */
+        static uint64_t (*const callbacks[_CGROUP_LIMIT_TYPE_MAX])(void) = {
+                [CGROUP_LIMIT_MEMORY_MAX]  = physical_memory,
+                [CGROUP_LIMIT_MEMORY_HIGH] = physical_memory,
+                [CGROUP_LIMIT_TASKS_MAX]   = system_tasks_max,
+        };
+
+        member = members[type];
+        if (type == CGROUP_LIMIT_MEMORY_MAX && !unit_has_unified_memory_config(u))
+                member = offsetof(CGroupContext, memory_limit);
+
+        if (unit_has_name(u, SPECIAL_ROOT_SLICE))
+                return callbacks[type]();
+
+        cc = unit_get_cgroup_context(u);
+        return *(uint64_t *)((uint8_t *)cc + member);
+}
+
+int unit_get_effective_limit(Unit *u, CGroupLimitType type, uint64_t *ret) {
+        uint64_t infimum;
+
+        assert(u);
+        assert(ret);
+
+        if (!UNIT_HAS_CGROUP_CONTEXT(u))
+                return -EINVAL;
+
+        infimum = unit_get_effective_limit_one(u, type);
+        for (Unit *slice = UNIT_GET_SLICE(u); slice; slice = UNIT_GET_SLICE(slice))
+                infimum = MIN(infimum, unit_get_effective_limit_one(slice, type));
+
+        *ret = infimum;
+        return 0;
+}
+
+int unit_get_memory_available(Unit *u, uint64_t *ret) {
+        uint64_t available = UINT64_MAX, current = 0;
+
+        assert(u);
+        assert(ret);
+
+        /* If data from cgroups can be accessed, try to find out how much more memory a unit can
+         * claim before hitting the configured cgroup limits (if any). Consider both MemoryHigh
+         * and MemoryMax, and also any slice the unit might be nested below. */
+
+        do {
+                uint64_t unit_available, unit_limit;
+                CGroupContext *unit_context;
+
+                /* No point in continuing if we can't go any lower */
+                if (available == 0)
+                        break;
+
+                unit_context = unit_get_cgroup_context(u);
+                if (!unit_context)
+                        return -ENODATA;
+
+                if (!u->cgroup_path)
+                        continue;
+
+                (void) unit_get_memory_current(u, &current);
+                /* in case of error, previous current propagates as lower bound */
+
+                unit_limit = MIN(unit_get_effective_limit_one(u, CGROUP_LIMIT_MEMORY_MAX),
+                                 unit_get_effective_limit_one(u, CGROUP_LIMIT_MEMORY_HIGH));
+                if (unit_limit == UINT64_MAX)
+                        continue;
+
+                unit_available = LESS_BY(unit_limit, current);
+                available = MIN(unit_available, available);
+        } while ((u = UNIT_GET_SLICE(u)));
+
+        *ret = available;
+
+        return 0;
 }
 
 static int unit_get_io_accounting_raw(Unit *u, uint64_t ret[static _CGROUP_IO_ACCOUNTING_METRIC_MAX]) {
