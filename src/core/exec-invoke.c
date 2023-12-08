@@ -1345,7 +1345,7 @@ static void rename_process_from_path(const char *path) {
         process_name[1+l] = ')';
         process_name[1+l+1] = 0;
 
-        rename_process(process_name);
+        (void) rename_process(process_name);
 }
 
 static bool context_has_address_families(const ExecContext *c) {
