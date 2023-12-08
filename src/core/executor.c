@@ -18,6 +18,7 @@
 #include "label-util.h"
 #include "parse-util.h"
 #include "pretty-print.h"
+#include "selinux-util.h"
 #include "static-destruct.h"
 
 static FILE* arg_serialization = NULL;
@@ -249,6 +250,9 @@ int main(int argc, char *argv[]) {
                                       "EXECUTABLE=%s", command.path);
         } else
                 assert(exit_status == EXIT_SUCCESS); /* When 'skip' is chosen in the confirm spawn prompt */
+
+        mac_selinux_finish();
+        static_destruct();
 
         return exit_status;
 }
