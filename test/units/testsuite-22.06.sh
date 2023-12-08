@@ -6,7 +6,14 @@ set -eux
 set -o pipefail
 
 test_snippet() {
-        systemd-tmpfiles "$@" - <<EOF
+    # First call with --dry-run to test the code paths
+    systemd-tmpfiles --dry-run "$@" - <<EOF
+d /var/tmp/foobar-test-06
+d /var/tmp/foobar-test-06/important
+R /var/tmp/foobar-test-06
+EOF
+
+    systemd-tmpfiles "$@" - <<EOF
 d /var/tmp/foobar-test-06
 d /var/tmp/foobar-test-06/important
 R /var/tmp/foobar-test-06

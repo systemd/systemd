@@ -13,9 +13,15 @@ home='/somewhere'
 dst='/tmp/L/1'
 src="$home"
 HOME="$home" \
+systemd-tmpfiles --dry-run --create - <<EOF
+L     $dst    - - - - %h
+EOF
+test ! -h "$dst"
+
 systemd-tmpfiles --create - <<EOF
 L     $dst    - - - - %h
 EOF
+
 test "$(readlink "$dst")" = "$src"
 
 # Check that %h in the path is expanded, but
@@ -26,7 +32,13 @@ src="/usr/share/factory$home"
 mkdir -p "$root$src"
 dst="$root$home"
 HOME="$home" \
+systemd-tmpfiles --create --dry-run --root="$root" - <<EOF
+L     %h    - - - -
+EOF
+test ! -h "$dst"
+
 systemd-tmpfiles --create --root="$root" - <<EOF
 L     %h    - - - -
 EOF
+
 test "$(readlink "$dst")" = "$src"
