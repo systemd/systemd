@@ -517,13 +517,11 @@ baz,3
 
     assert found is True
 
-
 def unbase64(filename):
     tmp = tempfile.NamedTemporaryFile()
     base64.decode(filename.open('rb'), tmp)
     tmp.flush()
     return tmp
-
 
 def test_uname_scraping(kernel_initrd):
     if kernel_initrd is None:
@@ -692,8 +690,9 @@ def test_pcr_signing(kernel_initrd, tmp_path):
         f'--pcr-private-key={priv.name}',
     ] + arg_tools
 
-    # If the public key is not explicitly specified, it is derived automatically. Let's make sure everything
-    # works as expected both when the public keys is specified explicitly and when it is derived from the
+    # If the public key is not explicitly specified, it is derived
+    # automatically. Let's make sure everything works as expected both when the
+    # public keys is specified explicitly and when it is derived from the
     # private key.
     for extra in ([f'--pcrpkey={pub.name}', f'--pcr-public-key={pub.name}'], []):
         opts = ukify.parse_args(args + extra)
