@@ -12,6 +12,15 @@ mkdir  /tmp/{z,Z}
 mkdir /tmp/z/d{1,2}
 touch /tmp/z/f1 /tmp/z/d1/f11 /tmp/z/d2/f21
 
+systemd-tmpfiles --dry-run --create - <<EOF
+z     /tmp/z/f1    0755 daemon daemon - -
+z     /tmp/z/d1    0755 daemon daemon - -
+EOF
+
+test "$(stat -c %U /tmp/z/f1)" = "$USER"
+test "$(stat -c %U /tmp/z/d1)" = "$USER"
+test "$(stat -c %U /tmp/z/d1/f11)" = "$USER"
+
 systemd-tmpfiles --create - <<EOF
 z     /tmp/z/f1    0755 daemon daemon - -
 z     /tmp/z/d1    0755 daemon daemon - -
