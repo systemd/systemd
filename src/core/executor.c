@@ -18,6 +18,7 @@
 #include "label-util.h"
 #include "parse-util.h"
 #include "pretty-print.h"
+#include "process-util.h"
 #include "static-destruct.h"
 
 static FILE* arg_serialization = NULL;
@@ -190,6 +191,11 @@ int main(int argc, char *argv[]) {
 
         exec_context_init(&context);
         cgroup_context_init(&cgroup_context);
+
+        /* We use safe_fork() for spawning sd-pam helper process, which internally calls rename_process().
+         * As the last step of renaming, all saved argvs are memzero()-ed. Hence, we need to save the argv
+         * first to prevent showing "intense" cmdline. See #30352. */
+        save_argc_argv(argc, argv);
 
         /* We might be starting the journal itself, we'll be told by the caller what to do */
         log_set_always_reopen_console(true);
