@@ -16,6 +16,12 @@ test_append_files() {
         # the QEMU test, as nspawn refuses the invalid machine ID with -EUCLEAN
         printf "556f48e837bc4424a710fa2e2c9d3e3c\ne3d\n" >"$workspace/etc/machine-id"
     fi
+
+    if host_has_btrfs && host_has_mdadm; then
+        install_btrfs
+        install_mdadm
+        generate_module_dependencies
+    fi
 }
 
 do_test "$@"
