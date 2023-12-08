@@ -64,5 +64,6 @@ rm /run/udev/rules.d/00-debug.rules
 rm /run/udev/rules.d/50-testsuite.rules
 
 udevadm control --reload
+systemctl reset-failed systemd-udevd.service
 
 exit 0
