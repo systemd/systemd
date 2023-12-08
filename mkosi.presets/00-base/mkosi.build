@@ -42,7 +42,7 @@ EOF
 fi
 
 if [ ! -f "$BUILDDIR"/build.ninja ]; then
-    sysvinit_path=$(realpath /etc/init.d)
+    [[ -d /etc/rc.d/init.d ]] && sysvinit_path="/etc/rc.d/init.d" || sysvinit_path="/etc/init.d"
 
     init_path=$(realpath /sbin/init 2>/dev/null)
     if [ -z "$init_path" ]; then
