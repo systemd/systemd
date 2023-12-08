@@ -14,6 +14,14 @@ mkdir  /tmp/{C,d,D,e}
 mkdir /tmp/d/2
 chmod 777 /tmp/d/2
 
+systemd-tmpfiles --dry-run --create - <<EOF
+d     /tmp/d/1    0755 daemon daemon - -
+d     /tmp/d/2    0755 daemon daemon - -
+EOF
+
+test ! -d /tmp/d/1
+test -d /tmp/d/2
+
 systemd-tmpfiles --create - <<EOF
 d     /tmp/d/1    0755 daemon daemon - -
 d     /tmp/d/2    0755 daemon daemon - -
@@ -103,6 +111,14 @@ chmod 755 /tmp/C/{1,2,3}-origin/f1
 
 mkdir /tmp/C/{2,3}
 touch /tmp/C/3/f1
+
+systemd-tmpfiles --dry-run --create - <<EOF
+C     /tmp/C/1    0755 daemon daemon - /tmp/C/1-origin
+C     /tmp/C/2    0755 daemon daemon - /tmp/C/2-origin
+EOF
+
+test ! -d /tmp/C/1
+test -d /tmp/C/2
 
 systemd-tmpfiles --create - <<EOF
 C     /tmp/C/1    0755 daemon daemon - /tmp/C/1-origin
