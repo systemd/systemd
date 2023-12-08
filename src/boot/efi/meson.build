@@ -264,6 +264,7 @@ libefi_sources = files(
         'random-seed.c',
         'secure-boot.c',
         'shim.c',
+        'smbios.c',
         'ticks.c',
         'util.c',
         'vmm.c',

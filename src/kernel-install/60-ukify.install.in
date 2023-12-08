@@ -235,7 +235,7 @@ def call_ukify(opts):
     opts2.output = opts.staging_area / 'uki.efi'
 
     if devicetree := devicetree_file_location(opts):
-        opts2.devicetree = devicetree
+        opts2.devicetree = [devicetree]
 
     opts2.cmdline = kernel_cmdline(opts)
     if BOOT_STUB:
