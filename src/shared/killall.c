@@ -101,7 +101,7 @@ static bool ignore_proc(const PidRef *pid, bool warn_rootfs) {
                 return false;
 
         if (warn_rootfs &&
-            pid_from_same_root_fs(pid->pid) == 0) {
+            pid_from_same_root_fs(pid->pid) > 0) {
 
                 _cleanup_free_ char *comm = NULL;
 

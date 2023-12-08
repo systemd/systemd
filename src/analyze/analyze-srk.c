@@ -2,6 +2,7 @@
 
 #include "analyze.h"
 #include "analyze-srk.h"
+#include "fileio.h"
 #include "tpm2-util.h"
 
 int verb_srk(int argc, char *argv[], void *userdata) {
@@ -33,12 +34,15 @@ int verb_srk(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to marshal SRK: %m");
 
         if (isatty(STDOUT_FILENO))
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Refusing to write binary data to TTY, please redirect output to file.");
+                return log_error_errno(SYNTHETIC_ERRNO(EIO),
+                                       "Refusing to write binary data to TTY, please redirect output to file.");
 
         if (fwrite(marshalled, 1, marshalled_size, stdout) != marshalled_size)
-                return log_error_errno(errno, "Failed to write SRK to stdout: %m");
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write SRK to stdout: %m");
 
-        fflush(stdout);
+        r = fflush_and_check(stdout);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write SRK to stdout: %m");
 
         return EXIT_SUCCESS;
 #else

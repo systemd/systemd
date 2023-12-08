@@ -218,7 +218,6 @@ static int execute(
                 NULL
         };
 
-        _cleanup_(hibernation_device_done) HibernationDevice hibernation_device = {};
         _cleanup_close_ int state_fd = -EBADF;
         int r;
 
@@ -238,6 +237,7 @@ static int execute(
 
         /* Configure hibernation settings if we are supposed to hibernate */
         if (sleep_operation_is_hibernation(operation)) {
+                _cleanup_(hibernation_device_done) HibernationDevice hibernation_device = {};
                 bool resume_set;
 
                 r = find_suitable_hibernation_device(&hibernation_device);

@@ -39,6 +39,7 @@
 #WatchdogDevice=
 #CapabilityBoundingSet=
 #NoNewPrivileges=no
+#ProtectSystem=auto
 #SystemCallArchitectures=
 #TimerSlackNSec=
 #StatusUnitFormat={{STATUS_UNIT_FORMAT_DEFAULT_STR}}

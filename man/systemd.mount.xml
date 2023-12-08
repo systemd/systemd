@@ -255,13 +255,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>x-systemd.wants-mounts-for=</option></term>
         <term><option>x-systemd.requires-mounts-for=</option></term>
 
         <listitem><para>Configures a
-        <varname>RequiresMountsFor=</varname> dependency between the
-        created mount unit and other mount units. The argument must be
-        an absolute path. This option may be specified more than once.
-        See <varname>RequiresMountsFor=</varname> in
+        <varname>RequiresMountsFor=</varname> or <varname>WantsMountsFor=</varname>
+        dependency between the created mount unit and other mount units. The
+        argument must be an absolute path. This option may be specified more than
+        once. See <varname>RequiresMountsFor=</varname> or <varname>WantsMountsFor=</varname> in
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details.</para>
 

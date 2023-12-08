@@ -645,7 +645,7 @@ static void address_modify_nft_set_context(Address *address, bool add, NFTSetCon
         assert(nft_set_context);
 
         if (!address->link->manager->fw_ctx) {
-                r = fw_ctx_new(&address->link->manager->fw_ctx);
+                r = fw_ctx_new_full(&address->link->manager->fw_ctx, /* init_tables= */ false);
                 if (r < 0)
                         return;
         }

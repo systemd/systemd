@@ -831,21 +831,26 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 }
         }
 
-        if (!hashmap_isempty(u->requires_mounts_for)) {
-                UnitDependencyInfo di;
-                const char *path;
+        for (UnitMountDependencyType type = 0; type < _UNIT_MOUNT_DEPENDENCY_TYPE_MAX; type++)
+                if (!hashmap_isempty(u->mounts_for[type])) {
+                        UnitDependencyInfo di;
+                        const char *path;
 
-                HASHMAP_FOREACH_KEY(di.data, path, u->requires_mounts_for) {
-                        bool space = false;
+                        HASHMAP_FOREACH_KEY(di.data, path, u->mounts_for[type]) {
+                                bool space = false;
 
-                        fprintf(f, "%s\tRequiresMountsFor: %s (", prefix, path);
+                                fprintf(f,
+                                        "%s\t%s: %s (",
+                                        prefix,
+                                        unit_mount_dependency_type_to_string(type),
+                                        path);
 
-                        print_unit_dependency_mask(f, "origin", di.origin_mask, &space);
-                        print_unit_dependency_mask(f, "destination", di.destination_mask, &space);
+                                print_unit_dependency_mask(f, "origin", di.origin_mask, &space);
+                                print_unit_dependency_mask(f, "destination", di.destination_mask, &space);
 
-                        fputs(")\n", f);
+                                fputs(")\n", f);
+                        }
                 }
-        }
 
         if (u->load_state == UNIT_LOADED) {
 

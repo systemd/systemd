@@ -71,7 +71,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_unit_condition_string);
 CONFIG_PARSER_PROTOTYPE(config_parse_kill_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_notify_access);
 CONFIG_PARSER_PROTOTYPE(config_parse_emergency_action);
-CONFIG_PARSER_PROTOTYPE(config_parse_unit_requires_mounts_for);
+CONFIG_PARSER_PROTOTYPE(config_parse_unit_mounts_for);
 CONFIG_PARSER_PROTOTYPE(config_parse_syscall_filter);
 CONFIG_PARSER_PROTOTYPE(config_parse_syscall_archs);
 CONFIG_PARSER_PROTOTYPE(config_parse_syscall_errno);

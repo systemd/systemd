@@ -13,6 +13,7 @@
 
 #include "alloc-util.h"
 #include "analyze.h"
+#include "analyze-architectures.h"
 #include "analyze-blame.h"
 #include "analyze-calendar.h"
 #include "analyze-capability.h"
@@ -25,6 +26,7 @@
 #include "analyze-exit-status.h"
 #include "analyze-fdstore.h"
 #include "analyze-filesystems.h"
+#include "analyze-image-policy.h"
 #include "analyze-inspect-elf.h"
 #include "analyze-log-control.h"
 #include "analyze-malloc.h"
@@ -41,7 +43,6 @@
 #include "analyze-unit-files.h"
 #include "analyze-unit-paths.h"
 #include "analyze-verify.h"
-#include "analyze-image-policy.h"
 #include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
@@ -224,6 +225,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  capability [CAP...]        List capability definitions\n"
                "  syscall-filter [NAME...]   List syscalls in seccomp filters\n"
                "  filesystems [NAME...]      List known filesystems\n"
+               "  architectures [NAME...]    List known architectures\n"
                "  condition CONDITION...     Evaluate conditions and asserts\n"
                "  compare-versions VERSION1 [OP] VERSION2\n"
                "                             Compare two version strings\n"
@@ -556,9 +558,9 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --offline= is only supported for security right now.");
 
-        if (arg_json_format_flags != JSON_FORMAT_OFF && !STRPTR_IN_SET(argv[optind], "security", "inspect-elf", "plot", "fdstore", "pcrs"))
+        if (arg_json_format_flags != JSON_FORMAT_OFF && !STRPTR_IN_SET(argv[optind], "security", "inspect-elf", "plot", "fdstore", "pcrs", "architectures", "capability", "exit-status"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "Option --json= is only supported for security, inspect-elf, plot, fdstore, pcrs right now.");
+                                       "Option --json= is only supported for security, inspect-elf, plot, fdstore, pcrs, architectures, capability, exit-status right now.");
 
         if (arg_threshold != 100 && !streq_ptr(argv[optind], "security"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -649,6 +651,7 @@ static int run(int argc, char *argv[]) {
                 { "image-policy",      2,        2,        0,            verb_image_policy      },
                 { "pcrs",              VERB_ANY, VERB_ANY, 0,            verb_pcrs              },
                 { "srk",               VERB_ANY, 1,        0,            verb_srk               },
+                { "architectures",     VERB_ANY, VERB_ANY, 0,            verb_architectures     },
                 {}
         };
 

@@ -992,11 +992,17 @@ static int show_session(int argc, char *argv[], void *userdata) {
         pager_open(arg_pager_flags);
 
         if (argc <= 1) {
+                _cleanup_free_ char *path = NULL;
+
                 /* If no argument is specified inspect the manager itself */
                 if (properties)
                         return show_properties(bus, "/org/freedesktop/login1");
 
-                return print_session_status_info(bus, "/org/freedesktop/login1/session/auto");
+                r = get_bus_path_by_id(bus, "session", "GetSession", "auto", &path);
+                if (r < 0)
+                        return r;
+
+                return print_session_status_info(bus, path);
         }
 
         for (int i = 1, first = true; i < argc; i++, first = false) {
@@ -1083,11 +1089,17 @@ static int show_seat(int argc, char *argv[], void *userdata) {
         pager_open(arg_pager_flags);
 
         if (argc <= 1) {
+                _cleanup_free_ char *path = NULL;
+
                 /* If no argument is specified inspect the manager itself */
                 if (properties)
                         return show_properties(bus, "/org/freedesktop/login1");
 
-                return print_seat_status_info(bus, "/org/freedesktop/login1/seat/auto");
+                r = get_bus_path_by_id(bus, "seat", "GetSeat", "auto", &path);
+                if (r < 0)
+                        return r;
+
+                return print_seat_status_info(bus, path);
         }
 
         for (int i = 1, first = true; i < argc; i++, first = false) {

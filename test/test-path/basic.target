@@ -12,4 +12,4 @@ After=sysinit.target sockets.target paths.target slices.target tmp.mount
 # require /var and /var/tmp, but only add a Wants= type dependency on /tmp, as
 # we support that unit being masked, and this should not be considered an error.
 RequiresMountsFor=/var /var/tmp
-Wants=tmp.mount
+WantsMountsFor=/tmp

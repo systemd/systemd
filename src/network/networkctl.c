@@ -87,6 +87,7 @@ static bool arg_no_reload = false;
 static bool arg_all = false;
 static bool arg_stats = false;
 static bool arg_full = false;
+static bool arg_runtime = false;
 static unsigned arg_lines = 10;
 static char *arg_drop_in = NULL;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
@@ -2741,23 +2742,25 @@ static int link_renew_one(sd_bus *bus, int index, const char *name) {
 static int link_renew(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
-        int index, k = 0, r;
+        int r;
 
         r = acquire_bus(&bus);
         if (r < 0)
                 return r;
 
+        r = 0;
+
         for (int i = 1; i < argc; i++) {
+                int index;
+
                 index = rtnl_resolve_interface_or_warn(&rtnl, argv[i]);
                 if (index < 0)
                         return index;
 
-                r = link_renew_one(bus, index, argv[i]);
-                if (r < 0 && k >= 0)
-                        k = r;
+                RET_GATHER(r, link_renew_one(bus, index, argv[i]));
         }
 
-        return k;
+        return r;
 }
 
 static int link_force_renew_one(sd_bus *bus, int index, const char *name) {
@@ -2907,7 +2910,6 @@ static int get_dropin_by_name(
                 char **ret) {
 
         assert(name);
-        assert(dropins);
         assert(ret);
 
         STRV_FOREACH(i, dropins)
@@ -3074,16 +3076,21 @@ static int add_config_to_edit(
 
         assert(context);
         assert(path);
-        assert(!arg_drop_in || dropins);
 
-        if (path_startswith(path, "/usr")) {
+        /* If we're supposed to edit main config file in /run/, but a config with the same name is present
+         * under /etc/, we bail out since the one in /etc/ always overrides that in /run/. */
+        if (arg_runtime && !arg_drop_in && path_startswith(path, "/etc"))
+                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                       "Cannot edit runtime config file: overriden by %s", path);
+
+        if (path_startswith(path, "/usr") || arg_runtime != !!path_startswith(path, "/run")) {
                 _cleanup_free_ char *name = NULL;
 
                 r = path_extract_filename(path, &name);
                 if (r < 0)
                         return log_error_errno(r, "Failed to extract filename from '%s': %m", path);
 
-                new_path = path_join(NETWORK_DIRS[0], name);
+                new_path = path_join(NETWORK_DIRS[arg_runtime ? 1 : 0], name);
                 if (!new_path)
                         return log_oom();
         }
@@ -3091,16 +3098,27 @@ static int add_config_to_edit(
         if (!arg_drop_in)
                 return edit_files_add(context, new_path ?: path, path, NULL);
 
+        bool need_new_dropin;
+
         r = get_dropin_by_name(arg_drop_in, dropins, &old_dropin);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire drop-in '%s': %m", arg_drop_in);
+        if (r > 0) {
+                /* See the explanation above */
+                if (arg_runtime && path_startswith(old_dropin, "/etc"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                               "Cannot edit runtime config file: overriden by %s", old_dropin);
 
-        if (r > 0 && !path_startswith(old_dropin, "/usr"))
-                /* An existing drop-in is found and not in /usr/. Let's edit it directly. */
+                need_new_dropin = path_startswith(old_dropin, "/usr") || arg_runtime != !!path_startswith(old_dropin, "/run");
+        } else
+                need_new_dropin = true;
+
+        if (!need_new_dropin)
+                /* An existing drop-in is found in the correct scope. Let's edit it directly. */
                 dropin_path = TAKE_PTR(old_dropin);
         else {
-                /* No drop-in was found or an existing drop-in resides in /usr/. Let's create
-                 * a new drop-in file. */
+                /* No drop-in was found or an existing drop-in is in a different scope. Let's create a new
+                 * drop-in file. */
                 dropin_path = strjoin(new_path ?: path, ".d/", arg_drop_in);
                 if (!dropin_path)
                         return log_oom();
@@ -3209,7 +3227,7 @@ static int verb_edit(int argc, char *argv[], void *userdata) {
 
                         log_debug("No existing network config '%s' found, creating a new file.", *name);
 
-                        path = path_join(NETWORK_DIRS[0], *name);
+                        path = path_join(NETWORK_DIRS[arg_runtime ? 1 : 0], *name);
                         if (!path)
                                 return log_oom();
 
@@ -3281,23 +3299,22 @@ static int verb_cat(int argc, char *argv[], void *userdata) {
                 if (link_config) {
                         r = get_config_files_by_link_config(link_config, &rtnl, &path, &dropins, /* ret_reload = */ NULL);
                         if (r < 0)
-                                return ret < 0 ? ret : r;
+                                return RET_GATHER(ret, r);
                 } else {
                         r = get_config_files_by_name(*name, &path, &dropins);
                         if (r == -ENOENT) {
-                                log_error_errno(r, "Cannot find network config file '%s'.", *name);
-                                ret = ret < 0 ? ret : r;
+                                RET_GATHER(ret, log_error_errno(r, "Cannot find network config file '%s'.", *name));
                                 continue;
                         }
                         if (r < 0) {
                                 log_error_errno(r, "Failed to get the path of network config '%s': %m", *name);
-                                return ret < 0 ? ret : r;
+                                return RET_GATHER(ret, r);
                         }
                 }
 
                 r = cat_files(path, dropins, /* flags = */ CAT_FORMAT_HAS_SECTIONS);
                 if (r < 0)
-                        return ret < 0 ? ret : r;
+                        return RET_GATHER(ret, r);
         }
 
         return ret;
@@ -3341,6 +3358,7 @@ static int help(void) {
                "     --no-reload         Do not reload systemd-networkd or systemd-udevd\n"
                "                         after editing network config\n"
                "     --drop-in=NAME      Edit specified drop-in instead of main config file\n"
+               "     --runtime           Edit runtime config files\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -3358,6 +3376,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_JSON,
                 ARG_NO_RELOAD,
                 ARG_DROP_IN,
+                ARG_RUNTIME,
         };
 
         static const struct option options[] = {
@@ -3372,6 +3391,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "json",      required_argument, NULL, ARG_JSON      },
                 { "no-reload", no_argument,       NULL, ARG_NO_RELOAD },
                 { "drop-in",   required_argument, NULL, ARG_DROP_IN   },
+                { "runtime",   no_argument,       NULL, ARG_RUNTIME   },
                 {}
         };
 
@@ -3400,6 +3420,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_RELOAD:
                         arg_no_reload = true;
+                        break;
+
+                case ARG_RUNTIME:
+                        arg_runtime = true;
                         break;
 
                 case ARG_DROP_IN:

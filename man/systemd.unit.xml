@@ -920,6 +920,16 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>WantsMountsFor=</varname></term>
+
+        <listitem><para>Same as <varname>RequiresMountsFor=</varname>,
+        but adds dependencies of type <varname>Wants=</varname> instead
+        of <varname>Requires=</varname>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>OnSuccessJobMode=</varname></term>
         <term><varname>OnFailureJobMode=</varname></term>
 
@@ -1310,6 +1320,10 @@
           <literal>arc</literal>,
           <literal>arc-be</literal>, or
           <literal>native</literal>.</para>
+
+          <para>Use
+          <citerefentry><refentrytitle>systemd-analyze</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          for the complete list of known architectures.</para>
 
           <para>The architecture is determined from the information returned by
           <citerefentry project='man-pages'><refentrytitle>uname</refentrytitle><manvolnum>2</manvolnum></citerefentry>

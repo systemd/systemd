@@ -59,6 +59,8 @@
 
 /* Other ANSI codes */
 #define ANSI_UNDERLINE "\x1B[0;4m"
+#define ANSI_ADD_UNDERLINE "\x1B[4m"
+#define ANSI_ADD_UNDERLINE_GREY ANSI_ADD_UNDERLINE "\x1B[58;5;245m"
 #define ANSI_HIGHLIGHT "\x1B[0;1;39m"
 #define ANSI_HIGHLIGHT_UNDERLINE "\x1B[0;1;4m"
 
@@ -187,6 +189,15 @@ static inline bool colors_enabled(void) {
 
 static inline const char *ansi_underline(void) {
         return underline_enabled() ? ANSI_UNDERLINE : ANSI_NORMAL;
+}
+
+static inline const char *ansi_add_underline(void) {
+        return underline_enabled() ? ANSI_ADD_UNDERLINE : "";
+}
+
+static inline const char *ansi_add_underline_grey(void) {
+        return underline_enabled() ?
+                (colors_enabled() ? ANSI_ADD_UNDERLINE_GREY : ANSI_ADD_UNDERLINE) : "";
 }
 
 #define DEFINE_ANSI_FUNC_UNDERLINE(name, NAME)                          \

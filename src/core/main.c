@@ -68,6 +68,7 @@
 #include "manager-serialize.h"
 #include "mkdir-label.h"
 #include "mount-setup.h"
+#include "mount-util.h"
 #include "os-util.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -140,6 +141,7 @@ static char **arg_default_environment;
 static char **arg_manager_environment;
 static uint64_t arg_capability_bounding_set;
 static bool arg_no_new_privs;
+static int arg_protect_system;
 static nsec_t arg_timer_slack_nsec;
 static Set* arg_syscall_archs;
 static FILE* arg_serialization;
@@ -610,6 +612,43 @@ static int config_parse_oom_score_adjust(
         return 0;
 }
 
+static int config_parse_protect_system_pid1(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        int *v = ASSERT_PTR(data), r;
+
+        /* This is modelled after the per-service ProtectSystem= setting, but a bit more restricted on one
+         * hand, and more automatic in another. i.e. we currently only support yes/no (not "strict" or
+         * "full"). And we will enable this automatically for the initrd unless configured otherwise.
+         *
+         * We might extend this later to match more closely what the per-service ProtectSystem= can do, but
+         * this is not trivial, due to ordering constraints: besides /usr/ we don't really have much mounted
+         * at the moment we enable this logic. */
+
+        if (isempty(rvalue) || streq(rvalue, "auto")) {
+                *v = -1;
+                return 0;
+        }
+
+        r = parse_boolean(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse ProtectSystem= argument '%s', ignoring: %m", rvalue);
+                return 0;
+        }
+
+        *v = r;
+        return 0;
+}
+
 static int parse_config_file(void) {
         const ConfigTableItem items[] = {
                 { "Manager", "LogLevel",                     config_parse_level2,                0,                        NULL                              },
@@ -637,6 +676,7 @@ static int parse_config_file(void) {
                 { "Manager", "RuntimeWatchdogPreGovernor",   config_parse_string,                CONFIG_PARSE_STRING_SAFE, &arg_watchdog_pretimeout_governor },
                 { "Manager", "CapabilityBoundingSet",        config_parse_capability_set,        0,                        &arg_capability_bounding_set      },
                 { "Manager", "NoNewPrivileges",              config_parse_bool,                  0,                        &arg_no_new_privs                 },
+                { "Manager", "ProtectSystem",                config_parse_protect_system_pid1,   0,                        &arg_protect_system               },
 #if HAVE_SECCOMP
                 { "Manager", "SystemCallArchitectures",      config_parse_syscall_archs,         0,                        &arg_syscall_archs                },
 #else
@@ -1684,6 +1724,35 @@ static void initialize_core_pattern(bool skip_setup) {
                                   arg_early_core_pattern);
 }
 
+static void apply_protect_system(bool skip_setup) {
+        int r;
+
+        if (skip_setup || getpid_cached() != 1 || arg_protect_system == 0)
+                return;
+
+        if (arg_protect_system < 0 && !in_initrd()) {
+                log_debug("ProtectSystem=auto selected, but not running in an initrd, skipping.");
+                return;
+        }
+
+        r = make_mount_point("/usr");
+        if (r < 0) {
+                log_warning_errno(r, "Failed to make /usr/ a mount point, ignoring: %m");
+                return;
+        }
+
+        if (mount_nofollow_verbose(
+                        LOG_WARNING,
+                        /* what= */ NULL,
+                        "/usr",
+                        /* fstype= */ NULL,
+                        MS_BIND|MS_REMOUNT|MS_RDONLY,
+                        /* options= */ NULL) < 0)
+                return;
+
+        log_info("Successfully made /usr/ read-only.");
+}
+
 static void update_cpu_affinity(bool skip_setup) {
         _cleanup_free_ char *mask = NULL;
 
@@ -2531,6 +2600,7 @@ static void reset_arguments(void) {
 
         arg_capability_bounding_set = CAP_MASK_UNSET;
         arg_no_new_privs = false;
+        arg_protect_system = -1;
         arg_timer_slack_nsec = NSEC_INFINITY;
 
         arg_syscall_archs = set_free(arg_syscall_archs);
@@ -2738,8 +2808,6 @@ static int collect_fds(FDSet **ret_fds, const char **ret_error_message) {
                                         LOG_MESSAGE("Failed to allocate fd set: %m"),
                                         "MESSAGE_ID=" SD_MESSAGE_CORE_FD_SET_FAILED_STR);
         }
-
-        (void) fdset_cloexec(*ret_fds, true);
 
         /* The serialization fd should have O_CLOEXEC turned on already, let's verify that we didn't pick it up here */
         assert_se(!arg_serialization || !fdset_contains(*ret_fds, fileno(arg_serialization)));
@@ -3040,8 +3108,11 @@ int main(int argc, char *argv[]) {
                         cmdline_take_random_seed();
                 }
 
-                /* A core pattern might have been specified via the cmdline.  */
+                /* A core pattern might have been specified via the cmdline. */
                 initialize_core_pattern(skip_setup);
+
+                /* Make /usr/ read-only */
+                apply_protect_system(skip_setup);
 
                 /* Close logging fds, in order not to confuse collecting passed fds and terminal logic below */
                 log_close();

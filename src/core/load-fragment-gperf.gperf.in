@@ -309,7 +309,8 @@ Unit.PartOf,                             config_parse_unit_deps,                
 Unit.JoinsNamespaceOf,                   config_parse_unit_deps,                      UNIT_JOINS_NAMESPACE_OF,            0
 Unit.RequiresOverridable,                config_parse_obsolete_unit_deps,             UNIT_REQUIRES,                      0
 Unit.RequisiteOverridable,               config_parse_obsolete_unit_deps,             UNIT_REQUISITE,                     0
-Unit.RequiresMountsFor,                  config_parse_unit_requires_mounts_for,       0,                                  0
+Unit.RequiresMountsFor,                  config_parse_unit_mounts_for,                0,                                  0
+Unit.WantsMountsFor,                     config_parse_unit_mounts_for,                0,                                  0
 Unit.StopWhenUnneeded,                   config_parse_bool,                           0,                                  offsetof(Unit, stop_when_unneeded)
 Unit.RefuseManualStart,                  config_parse_bool,                           0,                                  offsetof(Unit, refuse_manual_start)
 Unit.RefuseManualStop,                   config_parse_bool,                           0,                                  offsetof(Unit, refuse_manual_stop)

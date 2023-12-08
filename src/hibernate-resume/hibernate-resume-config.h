@@ -27,7 +27,6 @@ typedef struct EFIHibernateLocation {
 typedef struct HibernateInfo {
         const char *device;
         uint64_t offset; /* in memory pages */
-        bool from_efi;
 
         KernelHibernateLocation *cmdline;
         EFIHibernateLocation *efi;

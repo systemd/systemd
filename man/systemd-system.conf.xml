@@ -290,6 +290,20 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>ProtectSystem=</varname></term>
+
+        <listitem><para>Takes a boolean argument or the string <literal>auto</literal>. If set to true this
+        will remount <filename>/usr/</filename> read-only. If set to <literal>auto</literal> (the default)
+        and running in an initrd equivalent to true, otherwise false. This implements a restricted subset of
+        the per-unit setting of the same name, see
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        details: currently, the <literal>full</literal> or <literal>struct</literal> values are not
+        supported.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>SystemCallArchitectures=</varname></term>
 
         <listitem><para>Takes a space-separated list of architecture

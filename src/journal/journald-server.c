@@ -2444,13 +2444,14 @@ static int server_setup_memory_pressure(Server *s) {
         return 0;
 }
 
-int server_init(Server *s, const char *namespace) {
-        const char *native_socket, *syslog_socket, *stdout_socket, *varlink_socket, *e;
-        _cleanup_fdset_free_ FDSet *fds = NULL;
-        int n, r, fd, varlink_fd = -EBADF;
-        bool no_sockets;
+int server_new(Server **ret) {
+        _cleanup_(server_freep) Server *s = NULL;
 
-        assert(s);
+        assert(ret);
+
+        s = new(Server, 1);
+        if (!s)
+                return -ENOMEM;
 
         *s = (Server) {
                 .syslog_fd = -EBADF,
@@ -2498,6 +2499,18 @@ int server_init(Server *s, const char *namespace) {
                 .sigrtmin18_info.memory_pressure_handler = server_memory_pressure,
                 .sigrtmin18_info.memory_pressure_userdata = s,
         };
+
+        *ret = TAKE_PTR(s);
+        return 0;
+}
+
+int server_init(Server *s, const char *namespace) {
+        const char *native_socket, *syslog_socket, *stdout_socket, *varlink_socket, *e;
+        _cleanup_fdset_free_ FDSet *fds = NULL;
+        int n, r, fd, varlink_fd = -EBADF;
+        bool no_sockets;
+
+        assert(s);
 
         r = server_set_namespace(s, namespace);
         if (r < 0)
@@ -2721,6 +2734,7 @@ int server_init(Server *s, const char *namespace) {
                 return r;
 
         server_start_or_stop_idle_timer(s);
+
         return 0;
 }
 
@@ -2739,8 +2753,9 @@ void server_maybe_append_tags(Server *s) {
 #endif
 }
 
-void server_done(Server *s) {
-        assert(s);
+Server* server_free(Server *s) {
+        if (!s)
+                return NULL;
 
         free(s->namespace);
         free(s->namespace_field);
@@ -2799,6 +2814,8 @@ void server_done(Server *s) {
         free(s->runtime_directory);
 
         mmap_cache_unref(s->mmap);
+
+        return mfree(s);
 }
 
 static const char* const storage_table[_STORAGE_MAX] = {

@@ -417,7 +417,8 @@
         file, refer to
         <citerefentry project='man-pages'><refentrytitle>systemd.nspawn</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
         If an existing settings file of the given machine can't be found, <command>edit</command>
-        automatically create a new settings file from scratch under <filename>/etc/</filename>.
+        automatically create a new settings file from scratch under
+        <filename>/etc/systemd/nspawn/</filename>.
         </para>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>

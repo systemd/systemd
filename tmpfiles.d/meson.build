@@ -34,6 +34,7 @@ in_files = [['etc.conf',                      ''],
             ['static-nodes-permissions.conf', ''],
             ['systemd.conf',                  ''],
             ['var.conf',                      ''],
+            ['20-systemd-userdb.conf',        'ENABLE_USERDB'],
            ]
 
 foreach pair : in_files

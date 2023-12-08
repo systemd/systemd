@@ -368,9 +368,9 @@ BridgeFDB.AssociatedWith,                    config_parse_fdb_ntf_flags,        
 BridgeFDB.OutgoingInterface,                 config_parse_fdb_interface,                               0,                             0
 BridgeMDB.MulticastGroupAddress,             config_parse_mdb_group_address,                           0,                             0
 BridgeMDB.VLANId,                            config_parse_mdb_vlan_id,                                 0,                             0
-BridgeVLAN.PVID,                             config_parse_brvlan_pvid,                                 0,                             0
-BridgeVLAN.VLAN,                             config_parse_brvlan_vlan,                                 0,                             0
-BridgeVLAN.EgressUntagged,                   config_parse_brvlan_untagged,                             0,                             0
+BridgeVLAN.PVID,                             config_parse_bridge_vlan_id,                              0,                             offsetof(Network, bridge_vlan_pvid)
+BridgeVLAN.VLAN,                             config_parse_bridge_vlan_id_range,                        0,                             offsetof(Network, bridge_vlan_bitmap)
+BridgeVLAN.EgressUntagged,                   config_parse_bridge_vlan_id_range,                        0,                             offsetof(Network, bridge_vlan_untagged_bitmap)
 DHCPPrefixDelegation.UplinkInterface,        config_parse_uplink,                                      0,                             0
 DHCPPrefixDelegation.SubnetId,               config_parse_dhcp_pd_subnet_id,                           0,                             offsetof(Network, dhcp_pd_subnet_id)
 DHCPPrefixDelegation.Announce,               config_parse_bool,                                        0,                             offsetof(Network, dhcp_pd_announce)

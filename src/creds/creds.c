@@ -350,14 +350,15 @@ static int write_blob(FILE *f, const void *data, size_t size) {
         }
 
         if (fwrite(data, 1, size, f) != size)
-                return log_error_errno(errno, "Failed to write credential data: %m");
+                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to write credential data: %m");
 
         r = print_newline(f, data, size);
         if (r < 0)
                 return r;
 
-        if (fflush(f) != 0)
-                return log_error_errno(errno, "Failed to flush output: %m");
+        r = fflush_and_check(f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to flush output: %m");
 
         return 0;
 }

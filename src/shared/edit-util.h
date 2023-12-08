@@ -24,7 +24,8 @@ struct EditFileContext {
         const char *marker_start;
         const char *marker_end;
         bool remove_parent;
-        bool overwrite_with_origin; /* whether to always overwrite target with original file */
+        bool overwrite_with_origin; /* Always overwrite target with original file. */
+        bool stdin;                 /* Read contents from stdin instead of launching an editor. */
 };
 
 void edit_file_context_done(EditFileContext *context);

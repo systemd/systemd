@@ -28,7 +28,9 @@ systemctl log-level info
 # FIXME: systemd-run doesn't play well with daemon-reexec
 # See: https://github.com/systemd/systemd/issues/27204
 sed -i '/\[org.freedesktop.systemd1\]/aorg.freedesktop.systemd1.Manager:Reexecute FIXME' /etc/dfuzzer.conf
+
 sed -i '/\[org.freedesktop.systemd1\]/aorg.freedesktop.systemd1.Manager:SoftReboot destructive' /etc/dfuzzer.conf
+sed -i '/\[org.freedesktop.login1\]/aSleep destructive' /etc/dfuzzer.conf
 
 # TODO
 #   * check for possibly newly introduced buses?

@@ -446,7 +446,7 @@ int hibernation_is_safe(void) {
                                        "Not running on EFI and resume= is not set. Hibernation is not safe.");
 
         if (bypass_space_check)
-                return true;
+                return 0;
 
         r = get_proc_meminfo_active(&active);
         if (r < 0)

@@ -5,16 +5,16 @@
 #include "journald-kmsg.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
-        Server s;
+        _cleanup_(server_freep) Server *s = NULL;
 
         if (size == 0)
                 return 0;
 
         fuzz_setup_logging();
 
-        dummy_server_init(&s, data, size);
-        dev_kmsg_record(&s, s.buffer, size);
-        server_done(&s);
+        assert_se(server_new(&s) >= 0);
+        dummy_server_init(s, data, size);
+        dev_kmsg_record(s, s->buffer, size);
 
         return 0;
 }

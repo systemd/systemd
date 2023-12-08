@@ -1979,6 +1979,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as RequiresMountsFor = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly as WantsMountsFor = ['...', ...];
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly as Documentation = ['...', ...];
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s Description = '...';
@@ -2134,6 +2136,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property JoinsNamespaceOf is not documented!-->
 
     <!--property SliceOf is not documented!-->
+
+    <!--property WantsMountsFor is not documented!-->
 
     <!--property FreezerState is not documented!-->
 
@@ -2294,6 +2298,8 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="SliceOf"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="RequiresMountsFor"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="WantsMountsFor"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Documentation"/>
 
@@ -11829,6 +11835,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>ActivationDetails</varname> were added in version 252.</para>
       <para><function>QueueSignal()</function> was added in version 254.</para>
       <para><varname>SurviveFinalKillSignal</varname> was added in version 255.</para>
+      <para><varname>WantsMountsFor</varname> was added in version 256.</para>
     </refsect2>
     <refsect2>
       <title>Service Unit Objects</title>

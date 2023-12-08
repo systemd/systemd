@@ -373,8 +373,7 @@ static int exec_cgroup_context_serialize(const CGroupContext *c, FILE *f) {
                         if (il->limits[type] == cgroup_io_limit_defaults[type])
                                 continue;
 
-                        key = strjoin("exec-cgroup-context-io-device-limit-",
-                                        cgroup_io_limit_type_to_string(type));
+                        key = strjoin("exec-cgroup-context-io-device-limit-", cgroup_io_limit_type_to_string(type));
                         if (!key)
                                 return -ENOMEM;
 
@@ -1479,8 +1478,8 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                                 return log_oom_debug();
 
                         /* Ensure we don't leave any FD uninitialized on error, it makes the fuzzer sad */
-                        for (size_t i = 0; i < p->n_socket_fds + p->n_storage_fds; ++i)
-                                p->fds[i] = -EBADF;
+                        FOREACH_ARRAY(i, p->fds, p->n_socket_fds + p->n_storage_fds)
+                                *i = -EBADF;
 
                         r = deserialize_fd_many(fds, val, p->n_socket_fds + p->n_storage_fds, p->fds);
                         if (r < 0)
@@ -1611,12 +1610,6 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                         if (fd < 0)
                                 continue;
 
-                        /* This is special and relies on close-on-exec semantics, make sure it's
-                         * there */
-                        r = fd_cloexec(fd, true);
-                        if (r < 0)
-                                return r;
-
                         p->exec_fd = fd;
                 } else if ((val = startswith(l, "exec-parameters-bpf-outer-map-fd="))) {
                         int fd;
@@ -1624,12 +1617,6 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                         fd = deserialize_fd(fds, val);
                         if (fd < 0)
                                 continue;
-
-                        /* This is special and relies on close-on-exec semantics, make sure it's
-                         * there */
-                        r = fd_cloexec(fd, true);
-                        if (r < 0)
-                                return r;
 
                         p->bpf_outer_map_fd = fd;
                 } else if ((val = startswith(l, "exec-parameters-notify-socket="))) {

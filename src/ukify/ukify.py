@@ -852,9 +852,6 @@ uki,1,UKI,uki,1,https://www.freedesktop.org/software/systemd/man/systemd-stub.ht
     print(f"Wrote {'signed' if sign_args_present else 'unsigned'} {opts.output}")
 
 
-ONE_DAY = datetime.timedelta(1, 0, 0)
-
-
 @contextlib.contextmanager
 def temporary_umask(mask: int):
     # Drop <mask> bits from umask
@@ -894,7 +891,7 @@ def generate_key_cert_pair(
     ).not_valid_before(
         now,
     ).not_valid_after(
-        now + ONE_DAY * valid_days
+        now + datetime.timedelta(days=valid_days)
     ).serial_number(
         x509.random_serial_number()
     ).public_key(
@@ -941,6 +938,8 @@ def generate_priv_pub_key_pair(keylength : int = 2048) -> tuple[bytes]:
 
 
 def generate_keys(opts):
+    work = False
+
     # This will generate keys and certificates and write them to the paths that
     # are specified as input paths.
     if opts.sb_key or opts.sb_cert:
@@ -956,6 +955,8 @@ def generate_keys(opts):
         print(f'Writing SecureBoot certificate to {opts.sb_cert}')
         opts.sb_cert.write_bytes(cert_pem)
 
+        work = True
+
     for priv_key, pub_key, _ in key_path_groups(opts):
         priv_key_pem, pub_key_pem = generate_priv_pub_key_pair()
 
@@ -965,6 +966,11 @@ def generate_keys(opts):
         if pub_key:
             print(f'Writing public key for PCR signing to {pub_key}')
             pub_key.write_bytes(pub_key_pem)
+
+        work = True
+
+    if not work:
+        raise ValueError('genkey: --secureboot-private-key=/--secureboot-certificate= or --pcr-private-key/--pcr-public-key must be specified')
 
 
 def inspect_section(opts, section):
@@ -1341,6 +1347,7 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--secureboot-certificate-validity',
         metavar = 'DAYS',
+        type = int,
         dest = 'sb_cert_validity',
         default = 365 * 10,
         help = "period of validity (in days) for a certificate created by 'genkey'",

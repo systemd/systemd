@@ -187,14 +187,12 @@ int inode_same_at(int fda, const char *filea, int fdb, const char *fileb, int fl
         struct stat a, b;
 
         assert(fda >= 0 || fda == AT_FDCWD);
-        assert(filea);
         assert(fdb >= 0 || fdb == AT_FDCWD);
-        assert(fileb);
 
-        if (fstatat(fda, filea, &a, flags) < 0)
+        if (fstatat(fda, strempty(filea), &a, flags) < 0)
                 return log_debug_errno(errno, "Cannot stat %s: %m", filea);
 
-        if (fstatat(fdb, fileb, &b, flags) < 0)
+        if (fstatat(fdb, strempty(fileb), &b, flags) < 0)
                 return log_debug_errno(errno, "Cannot stat %s: %m", fileb);
 
         return stat_inode_same(&a, &b);

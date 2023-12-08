@@ -365,7 +365,7 @@ static int help(void) {
                "  -M --machine=CONTAINER     Operate on local container\n"
                "  -m --merge                 Show entries from all available journals\n"
                "  -D --directory=PATH        Show journal files from directory\n"
-               "     --file=PATH             Show journal file\n"
+               "  -i --file=PATH             Show journal file\n"
                "     --root=PATH             Operate on an alternate filesystem root\n"
                "     --image=PATH            Operate on disk image as filesystem root\n"
                "     --image-policy=POLICY   Specify disk image dissection policy\n"
@@ -461,7 +461,6 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_HEADER,
                 ARG_FACILITY,
                 ARG_SETUP_KEYS,
-                ARG_FILE,
                 ARG_INTERVAL,
                 ARG_VERIFY,
                 ARG_VERIFY_KEY,
@@ -514,7 +513,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "system",               no_argument,       NULL, ARG_SYSTEM               },
                 { "user",                 no_argument,       NULL, ARG_USER                 },
                 { "directory",            required_argument, NULL, 'D'                      },
-                { "file",                 required_argument, NULL, ARG_FILE                 },
+                { "file",                 required_argument, NULL, 'i'                      },
                 { "root",                 required_argument, NULL, ARG_ROOT                 },
                 { "image",                required_argument, NULL, ARG_IMAGE                },
                 { "image-policy",         required_argument, NULL, ARG_IMAGE_POLICY         },
@@ -565,7 +564,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:g:c:S:U:t:u:NF:xrM:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:g:c:S:U:t:u:NF:xrM:i:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -727,7 +726,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_directory = optarg;
                         break;
 
-                case ARG_FILE:
+                case 'i':
                         if (streq(optarg, "-"))
                                 /* An undocumented feature: we can read journal files from STDIN. We don't document
                                  * this though, since after all we only support this for mmap-able, seekable files, and
@@ -2165,10 +2164,12 @@ static int setup_event(Context *c, int fd, sd_event **ret) {
 }
 
 static int run(int argc, char *argv[]) {
-        bool need_seek = false, since_seeked = false, use_cursor = false, after_cursor = false;
+        bool need_seek = false, since_seeked = false, after_cursor = false;
         _cleanup_(loop_device_unrefp) LoopDevice *loop_device = NULL;
         _cleanup_(umount_and_freep) char *mounted_dir = NULL;
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
+        _cleanup_free_ char *cursor_from_file = NULL;
+        const char *cursor = NULL;
         int n_shown, r, poll_fd = -EBADF;
 
         setlocale(LC_ALL, "");
@@ -2445,8 +2446,7 @@ static int run(int argc, char *argv[]) {
         }
 
         if (arg_cursor || arg_after_cursor || arg_cursor_file) {
-                _cleanup_free_ char *cursor_from_file = NULL;
-                const char *cursor = arg_cursor ?: arg_after_cursor;
+                cursor = arg_cursor ?: arg_after_cursor;
 
                 if (arg_cursor_file) {
                         r = read_one_line_file(arg_cursor_file, &cursor_from_file);
@@ -2459,30 +2459,40 @@ static int run(int argc, char *argv[]) {
                         }
                 } else
                         after_cursor = arg_after_cursor;
-
-                if (cursor) {
-                        r = sd_journal_seek_cursor(j, cursor);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to seek to cursor: %m");
-
-                        use_cursor = true;
-                }
         }
 
-        if (use_cursor) {
-                if (!arg_reverse)
-                        r = sd_journal_next_skip(j, 1 + after_cursor);
-                else
-                        r = sd_journal_previous_skip(j, 1 + after_cursor);
+        if (cursor) {
+                r = sd_journal_seek_cursor(j, cursor);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to seek to cursor: %m");
 
-                if (after_cursor && r < 2) {
+                r = sd_journal_step_one(j, !arg_reverse);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to iterate through journal: %m");
+
+                if (after_cursor && r > 0) {
+                        /* With --after-cursor=/--cursor-file= we want to skip the first entry only if it's
+                         * the entry the cursor is pointing at, otherwise, if some journal filters are used,
+                         * we might skip the first entry of the filter match, which leads to unexpectedly
+                         * missing journal entries. */
+                        int k;
+
+                        k = sd_journal_test_cursor(j, cursor);
+                        if (k < 0)
+                                return log_error_errno(k, "Failed to test cursor against current entry: %m");
+                        if (k > 0)
+                                /* Current entry matches the one our cursor is pointing at, so let's try
+                                 * to advance the next entry. */
+                                r = sd_journal_step_one(j, !arg_reverse);
+                }
+
+                if (r == 0) {
                         /* We couldn't find the next entry after the cursor. */
                         if (arg_follow)
                                 need_seek = true;
                         else
                                 arg_lines = 0;
                 }
-
         } else if (arg_until_set && (arg_reverse || arg_lines_needs_seek_end())) {
                 /* If both --until and any of --reverse and --lines=N is specified, things get
                  * a little tricky. We seek to the place of --until first. If only --reverse or

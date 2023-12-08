@@ -126,7 +126,7 @@ static int automount_add_mount_dependencies(Automount *a) {
         if (r < 0)
                 return r;
 
-        return unit_require_mounts_for(UNIT(a), parent, UNIT_DEPENDENCY_IMPLICIT);
+        return unit_add_mounts_for(UNIT(a), parent, UNIT_DEPENDENCY_IMPLICIT, UNIT_MOUNT_REQUIRES);
 }
 
 static int automount_add_default_dependencies(Automount *a) {

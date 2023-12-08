@@ -223,8 +223,10 @@ CONFIG_PARSER_PROTOTYPE(config_parse_split_mode);
 const char *split_mode_to_string(SplitMode s) _const_;
 SplitMode split_mode_from_string(const char *s) _pure_;
 
+int server_new(Server **ret);
 int server_init(Server *s, const char *namespace);
-void server_done(Server *s);
+Server* server_free(Server *s);
+DEFINE_TRIVIAL_CLEANUP_FUNC(Server*, server_free);
 void server_sync(Server *s);
 void server_vacuum(Server *s, bool verbose);
 void server_rotate(Server *s);

@@ -276,6 +276,7 @@ User=
 WakeSystem=
 WantedBy=
 Wants=
+WantsMountsFor=
 WatchdogSec=
 What=
 Where=

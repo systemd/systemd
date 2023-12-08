@@ -59,7 +59,7 @@ static int run(int argc, char *argv[]) {
                 if (r <= 0)
                         return r;
 
-                if (arg_info.from_efi)
+                if (arg_info.efi)
                         clear_efi_hibernate_location();
         }
 

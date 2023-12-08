@@ -281,8 +281,6 @@ static int update_parameters_proc_self_mountinfo(
 
 static int mount_add_mount_dependencies(Mount *m) {
         MountParameters *pm;
-        Unit *other;
-        Set *s;
         int r;
 
         assert(m);
@@ -296,7 +294,7 @@ static int mount_add_mount_dependencies(Mount *m) {
                 if (r < 0)
                         return r;
 
-                r = unit_require_mounts_for(UNIT(m), parent, UNIT_DEPENDENCY_IMPLICIT);
+                r = unit_add_mounts_for(UNIT(m), parent, UNIT_DEPENDENCY_IMPLICIT, UNIT_MOUNT_REQUIRES);
                 if (r < 0)
                         return r;
         }
@@ -308,30 +306,43 @@ static int mount_add_mount_dependencies(Mount *m) {
             path_is_absolute(pm->what) &&
             (mount_is_bind(pm) || mount_is_loop(pm) || !mount_is_network(pm))) {
 
-                r = unit_require_mounts_for(UNIT(m), pm->what, UNIT_DEPENDENCY_FILE);
+                r = unit_add_mounts_for(UNIT(m), pm->what, UNIT_DEPENDENCY_FILE, UNIT_MOUNT_REQUIRES);
                 if (r < 0)
                         return r;
         }
 
         /* Adds in dependencies to other units that use this path or paths further down in the hierarchy */
-        s = manager_get_units_requiring_mounts_for(UNIT(m)->manager, m->where);
-        SET_FOREACH(other, s) {
+        for (UnitMountDependencyType t = 0; t < _UNIT_MOUNT_DEPENDENCY_TYPE_MAX; ++t) {
+                Unit *other;
+                Set *s = manager_get_units_needing_mounts_for(UNIT(m)->manager, m->where, t);
 
-                if (other->load_state != UNIT_LOADED)
-                        continue;
+                SET_FOREACH(other, s) {
+                        if (other->load_state != UNIT_LOADED)
+                                continue;
 
-                if (other == UNIT(m))
-                        continue;
+                        if (other == UNIT(m))
+                                continue;
 
-                r = unit_add_dependency(other, UNIT_AFTER, UNIT(m), true, UNIT_DEPENDENCY_PATH);
-                if (r < 0)
-                        return r;
-
-                if (UNIT(m)->fragment_path) {
-                        /* If we have fragment configuration, then make this dependency required */
-                        r = unit_add_dependency(other, UNIT_REQUIRES, UNIT(m), true, UNIT_DEPENDENCY_PATH);
+                        r = unit_add_dependency(
+                                        other,
+                                        UNIT_AFTER,
+                                        UNIT(m),
+                                        /* add_reference= */ true,
+                                        UNIT_DEPENDENCY_PATH);
                         if (r < 0)
                                 return r;
+
+                        if (UNIT(m)->fragment_path) {
+                                /* If we have fragment configuration, then make this dependency required/wanted */
+                                r = unit_add_dependency(
+                                                other,
+                                                unit_mount_dependency_type_to_dependency_type(t),
+                                                UNIT(m),
+                                                /* add_reference= */ true,
+                                                UNIT_DEPENDENCY_PATH);
+                                if (r < 0)
+                                        return r;
+                        }
                 }
         }
 

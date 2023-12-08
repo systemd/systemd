@@ -2205,8 +2205,8 @@ static int context_read_definitions(Context *context) {
                         if (q) {
                                 if (q->priority != p->priority)
                                         return log_syntax(NULL, LOG_ERR, p->definition_path, 1, SYNTHETIC_ERRNO(EINVAL),
-                                                        "Priority mismatch (%i != %i) for verity sibling partitions with VerityMatchKey=%s",
-                                                        p->priority, q->priority, p->verity_match_key);
+                                                          "Priority mismatch (%i != %i) for verity sibling partitions with VerityMatchKey=%s",
+                                                          p->priority, q->priority, p->verity_match_key);
 
                                 p->siblings[mode] = q;
                         }
@@ -2331,7 +2331,7 @@ static int context_load_partition_table(Context *context) {
                         return r;
 
                 if (fstat(context->backing_fd, &st) < 0)
-                        return log_error_errno(r, "Failed to stat %s: %m", context->node);
+                        return log_error_errno(errno, "Failed to stat %s: %m", context->node);
 
                 /* Auto-detect sector size if not specified. */
                 r = probe_sector_size_prefer_ioctl(context->backing_fd, &ssz);
@@ -3194,13 +3194,13 @@ static int context_wipe_range(Context *context, uint64_t offset, uint64_t size) 
                 errno = 0;
                 r = blkid_do_probe(probe);
                 if (r < 0)
-                        return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to probe for file systems.");
+                        return log_error_errno(errno_or_else(EIO), "Failed to probe for file systems.");
                 if (r > 0)
                         break;
 
                 errno = 0;
                 if (blkid_do_wipe(probe, false) < 0)
-                        return log_error_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to wipe file system signature.");
+                        return log_error_errno(errno_or_else(EIO), "Failed to wipe file system signature.");
         }
 
         return 0;
@@ -3530,7 +3530,7 @@ static int prepare_temporary_file(PartitionTarget *t, uint64_t size) {
 
         if (ftruncate(fd, size) < 0)
                 return log_error_errno(errno, "Failed to truncate temporary file to %s: %m",
-                                        FORMAT_BYTES(size));
+                                       FORMAT_BYTES(size));
 
         t->fd = TAKE_FD(fd);
         t->path = TAKE_PTR(temp);
@@ -3711,9 +3711,8 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
 
                 /* Weird cryptsetup requirement which requires the header file to be the size of at least one
                  * sector. */
-                r = ftruncate(fileno(h), luks_params.sector_size);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to grow temporary LUKS header file: %m");
+                if (ftruncate(fileno(h), luks_params.sector_size) < 0)
+                        return log_error_errno(errno, "Failed to grow temporary LUKS header file: %m");
         } else {
                 if (asprintf(&dm_name, "luks-repart-%08" PRIx64, random_u64()) < 0)
                         return log_oom();
@@ -3746,14 +3745,15 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                         return log_error_errno(r, "Failed to set data offset: %m");
         }
 
-        r = sym_crypt_format(cd,
-                         CRYPT_LUKS2,
-                         "aes",
-                         "xts-plain64",
-                         SD_ID128_TO_UUID_STRING(p->luks_uuid),
-                         NULL,
-                         VOLUME_KEY_SIZE,
-                         &luks_params);
+        r = sym_crypt_format(
+                        cd,
+                        CRYPT_LUKS2,
+                        "aes",
+                        "xts-plain64",
+                        SD_ID128_TO_UUID_STRING(p->luks_uuid),
+                        NULL,
+                        VOLUME_KEY_SIZE,
+                        &luks_params);
         if (r < 0)
                 return log_error_errno(r, "Failed to LUKS2 format future partition: %m");
 
@@ -4547,7 +4547,7 @@ static int do_copy_files(Context *context, Partition *p, const char *root) {
 
                 rfd = open(root, O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
                 if (rfd < 0)
-                        return rfd;
+                        return -errno;
 
                 sfd = chase_and_open(*source, arg_copy_source, CHASE_PREFIX_ROOT, O_PATH|O_DIRECTORY|O_CLOEXEC|O_NOCTTY, NULL);
                 if (sfd < 0)
@@ -6264,10 +6264,10 @@ static int context_minimize(Context *context) {
                 d = loop_device_unref(d);
 
                 /* Erase the previous filesystem first. */
-                if (ftruncate(fd, 0))
+                if (ftruncate(fd, 0) < 0)
                         return log_error_errno(errno, "Failed to erase temporary file: %m");
 
-                if (ftruncate(fd, fsz))
+                if (ftruncate(fd, fsz) < 0)
                         return log_error_errno(errno, "Failed to truncate temporary file to %s: %m", FORMAT_BYTES(fsz));
 
                 if (arg_offline <= 0) {
@@ -6359,7 +6359,7 @@ static int context_minimize(Context *context) {
                         return log_error_errno(errno, "Failed to open temporary file %s: %m", temp);
 
                 if (fstat(fd, &st) < 0)
-                        return log_error_errno(r, "Failed to stat temporary file: %m");
+                        return log_error_errno(errno, "Failed to stat temporary file: %m");
 
                 log_info("Minimal partition size of verity hash partition %s is %s",
                          strna(hint), FORMAT_BYTES(st.st_size));
@@ -7569,7 +7569,7 @@ static int run(int argc, char *argv[]) {
 
                 r = search_and_access(d, F_OK, arg_root, CONF_PATHS_USR_STRV("systemd/repart/definitions"), &dp);
                 if (r < 0)
-                        return log_error_errno(errno, "DDI type '%s' is not defined: %m", arg_make_ddi);
+                        return log_error_errno(r, "DDI type '%s' is not defined: %m", arg_make_ddi);
 
                 if (strv_consume(&arg_definitions, TAKE_PTR(dp)) < 0)
                         return log_oom();

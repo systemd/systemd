@@ -233,13 +233,6 @@ Features:
   dir. Similar for $XDG_RUNTIME_DIR. Start project@%i.target. Use LogField= to
   add a field identifying the project.
 
-* logind: add a new dbus call Sleep() which automatically redirects to one of
-  Suspend(), Hibernate(), SuspendThenHibernate() depending on what is
-  available, and also subject to some local configuration in
-  logind.conf. Should default to SuspendThenHibernate() if available, and then
-  fallback to Suspend() and finally Hibernate() if not. Then expose this as
-  "systemctl sleep", and tell DEs to default to this.
-
 * in sd-boot and sd-stub measure the SMBIOS vendor strings to some PCR (at
   least some subset of them that look like systemd stuff), because apparently
   some firmware does not, but systemd honours it. avoid duplicate measurement
@@ -1003,9 +996,6 @@ Features:
   container managers find it. the ~/.identity file is also a candidate for a
   file to move there, since it is managed by privileged code (i.e. homed) and
   not unprivileged code.
-
-* given that /etc/ssh/ssh_config.d/ is a thing now, ship a drop-in for that
-  that hooks up userdbctl ssh-key stuff.
 
 * maybe add support for binding and connecting AF_UNIX sockets in the file
   system outside of the 108ch limit. When connecting, open O_PATH fd to socket
@@ -1880,8 +1870,6 @@ Features:
   - generate better errors when people try to set transient properties
     that are not supported...
     https://lists.freedesktop.org/archives/systemd-devel/2015-February/028076.html
-  - maybe introduce WantsMountsFor=? Use case:
-    https://lists.freedesktop.org/archives/systemd-devel/2015-January/027729.html
   - recreate systemd's D-Bus private socket file on SIGUSR2
   - move PAM code into its own binary
   - when we automatically restart a service, ensure we restart its rdeps, too.

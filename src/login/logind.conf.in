@@ -24,6 +24,7 @@
 #KillExcludeUsers=root
 #InhibitDelayMaxSec=5
 #UserStopDelaySec=10
+#SleepOperation=suspend-then-hibernate suspend
 #HandlePowerKey=poweroff
 #HandlePowerKeyLongPress=ignore
 #HandleRebootKey=reboot

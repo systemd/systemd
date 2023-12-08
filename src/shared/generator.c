@@ -790,6 +790,7 @@ int generator_write_cryptsetup_service_section(
                 "TimeoutSec=infinity\n"   /* The binary handles timeouts on its own */
                 "KeyringMode=shared\n"    /* Make sure we can share cached keys among instances */
                 "OOMScoreAdjust=500\n"    /* Unlocking can allocate a lot of memory if Argon2 is used */
+                "ImportCredential=cryptsetup.*\n"
                 "ExecStart=" SYSTEMD_CRYPTSETUP_PATH " attach '%s' '%s' '%s' '%s'\n"
                 "ExecStop=" SYSTEMD_CRYPTSETUP_PATH " detach '%s'\n",
                 name_escaped, what_escaped, strempty(key_file_escaped), strempty(options_escaped),

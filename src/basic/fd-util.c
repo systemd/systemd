@@ -900,10 +900,7 @@ int fd_get_diskseq(int fd, uint64_t *ret) {
 }
 
 int path_is_root_at(int dir_fd, const char *path) {
-        STRUCT_NEW_STATX_DEFINE(st);
-        STRUCT_NEW_STATX_DEFINE(pst);
-        _cleanup_close_ int fd = -EBADF;
-        int r;
+        _cleanup_close_ int fd = -EBADF, pfd = -EBADF;
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
@@ -915,19 +912,9 @@ int path_is_root_at(int dir_fd, const char *path) {
                 dir_fd = fd;
         }
 
-        r = statx_fallback(dir_fd, ".", 0, STATX_TYPE|STATX_INO|STATX_MNT_ID, &st.sx);
-        if (r == -ENOTDIR)
-                return false;
-        if (r < 0)
-                return r;
-
-        r = statx_fallback(dir_fd, "..", 0, STATX_TYPE|STATX_INO|STATX_MNT_ID, &pst.sx);
-        if (r < 0)
-                return r;
-
-        /* First, compare inode. If these are different, the fd does not point to the root directory "/". */
-        if (!statx_inode_same(&st.sx, &pst.sx))
-                return false;
+        pfd = openat(dir_fd, "..", O_PATH|O_DIRECTORY|O_CLOEXEC);
+        if (pfd < 0)
+                return errno == ENOTDIR ? false : -errno;
 
         /* Even if the parent directory has the same inode, the fd may not point to the root directory "/",
          * and we also need to check that the mount ids are the same. Otherwise, a construct like the
@@ -935,40 +922,64 @@ int path_is_root_at(int dir_fd, const char *path) {
          *
          * $ mkdir /tmp/x /tmp/x/y
          * $ mount --bind /tmp/x /tmp/x/y
-         *
-         * Note, statx() does not provide the mount ID and path_get_mnt_id_at() does not work when an old
+         */
+
+        return fds_are_same_mount(dir_fd, pfd);
+}
+
+int fds_are_same_mount(int fd1, int fd2) {
+        STRUCT_NEW_STATX_DEFINE(st1);
+        STRUCT_NEW_STATX_DEFINE(st2);
+        int r;
+
+        assert(fd1 >= 0);
+        assert(fd2 >= 0);
+
+        r = statx_fallback(fd1, "", AT_EMPTY_PATH, STATX_TYPE|STATX_INO|STATX_MNT_ID, &st1.sx);
+        if (r < 0)
+                return r;
+
+        r = statx_fallback(fd2, "", AT_EMPTY_PATH, STATX_TYPE|STATX_INO|STATX_MNT_ID, &st2.sx);
+        if (r < 0)
+                return r;
+
+        /* First, compare inode. If these are different, the fd does not point to the root directory "/". */
+        if (!statx_inode_same(&st1.sx, &st2.sx))
+                return false;
+
+        /* Note, statx() does not provide the mount ID and path_get_mnt_id_at() does not work when an old
          * kernel is used. In that case, let's assume that we do not have such spurious mount points in an
          * early boot stage, and silently skip the following check. */
 
-        if (!FLAGS_SET(st.nsx.stx_mask, STATX_MNT_ID)) {
+        if (!FLAGS_SET(st1.nsx.stx_mask, STATX_MNT_ID)) {
                 int mntid;
 
-                r = path_get_mnt_id_at_fallback(dir_fd, "", &mntid);
+                r = path_get_mnt_id_at_fallback(fd1, "", &mntid);
                 if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                         return true; /* skip the mount ID check */
                 if (r < 0)
                         return r;
                 assert(mntid >= 0);
 
-                st.nsx.stx_mnt_id = mntid;
-                st.nsx.stx_mask |= STATX_MNT_ID;
+                st1.nsx.stx_mnt_id = mntid;
+                st1.nsx.stx_mask |= STATX_MNT_ID;
         }
 
-        if (!FLAGS_SET(pst.nsx.stx_mask, STATX_MNT_ID)) {
+        if (!FLAGS_SET(st2.nsx.stx_mask, STATX_MNT_ID)) {
                 int mntid;
 
-                r = path_get_mnt_id_at_fallback(dir_fd, "..", &mntid);
+                r = path_get_mnt_id_at_fallback(fd2, "", &mntid);
                 if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                         return true; /* skip the mount ID check */
                 if (r < 0)
                         return r;
                 assert(mntid >= 0);
 
-                pst.nsx.stx_mnt_id = mntid;
-                pst.nsx.stx_mask |= STATX_MNT_ID;
+                st2.nsx.stx_mnt_id = mntid;
+                st2.nsx.stx_mask |= STATX_MNT_ID;
         }
 
-        return statx_mount_same(&st.nsx, &pst.nsx);
+        return statx_mount_same(&st1.nsx, &st2.nsx);
 }
 
 const char *accmode_to_string(int flags) {

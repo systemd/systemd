@@ -77,7 +77,7 @@
     <emphasis>are</emphasis> being shown.</para>
 
     <para>The set of journal files which will be used can be modified using the <option>--user</option>,
-    <option>--system</option>, <option>--directory</option>, and <option>--file</option> options, see
+    <option>--system</option>, <option>--directory=</option>, and <option>--file=</option> options, see
     below.</para>
 
     <para>All users are granted access to their private per-user journals. However, by default, only root and
@@ -160,6 +160,7 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>-i <replaceable>GLOB</replaceable></option></term>
         <term><option>--file=<replaceable>GLOB</replaceable></option></term>
 
         <listitem><para>Takes a file glob as an argument. If specified, journalctl will operate on the
@@ -295,7 +296,7 @@
         <constant>2</constant> the second and so on; while <constant>-0</constant> is the last boot,
         <constant>-1</constant> the boot before last, and so on. An empty <replaceable>offset</replaceable>
         is equivalent to specifying <constant>-0</constant>, except when the current boot is not the last
-        boot (e.g. because <option>--directory</option> was specified to look at logs from a different
+        boot (e.g. because <option>--directory=</option> was specified to look at logs from a different
         machine).</para>
 
         <para>If the 32-character <replaceable>ID</replaceable> is specified, it may optionally be followed
