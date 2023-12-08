@@ -473,12 +473,6 @@ int find_esp_and_warn_at(
 
         flags = verify_esp_flags_init(unprivileged_mode, "SYSTEMD_RELAX_ESP_CHECKS");
 
-        r = dir_fd_is_root_or_cwd(rfd);
-        if (r < 0)
-                return log_error_errno(r, "Failed to check if directory file descriptor is root: %m");
-        if (r == 0)
-                flags |= VERIFY_ESP_SKIP_FSTYPE_CHECK | VERIFY_ESP_SKIP_DEVICE_CHECK;
-
         if (path)
                 return verify_esp(rfd, path, ret_path, ret_part, ret_pstart, ret_psize, ret_uuid, ret_devid, flags);
 
