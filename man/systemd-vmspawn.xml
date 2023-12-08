@@ -85,52 +85,52 @@
           </listitem>
         </varlistentry>
 
-      <varlistentry>
-        <term><option>--qemu-kvm=</option><replaceable>BOOL</replaceable></term>
+        <varlistentry>
+          <term><option>--qemu-kvm=</option><replaceable>BOOL</replaceable></term>
 
-        <listitem><para>Configures whether to use KVM. If the option is not specified KVM support will be
-        detected automatically. If true, KVM is always used, and if false, KVM is never used.</para>
+          <listitem><para>Configures whether to use KVM. If the option is not specified KVM support will be
+          detected automatically. If true, KVM is always used, and if false, KVM is never used.</para>
 
-        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
-      </varlistentry>
+          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><option>--qemu-vsock=</option><replaceable>BOOL</replaceable></term>
+        <varlistentry>
+          <term><option>--qemu-vsock=</option><replaceable>BOOL</replaceable></term>
 
-        <listitem>
-          <para>Configure whether to use VSock networking.</para>
-          <para>If the option is not specified VSock support will be detected automatically.
-          If yes is specified VSocks are always used, and vice versa if no is set VSocks are never used.</para>
-          <xi:include href="version-info.xml" xpointer="v255"/>
-        </listitem>
-      </varlistentry>
+          <listitem>
+            <para>Configure whether to use VSock networking.</para>
+            <para>If the option is not specified VSock support will be detected automatically.
+            If yes is specified VSocks are always used, and vice versa if no is set VSocks are never used.</para>
+            <xi:include href="version-info.xml" xpointer="v255"/>
+          </listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><option>--vsock-cid=</option><replaceable>CID</replaceable></term>
+        <varlistentry>
+          <term><option>--vsock-cid=</option><replaceable>CID</replaceable></term>
 
-        <listitem>
-          <para>Configure vmspawn to use a specific CID for the guest.</para>
-          <para>If the option is not specified or an empty argument is supplied the guest will be assigned a random CID.</para>
-          <para>Valid CIDs are in the range <constant>3</constant> to <constant>4294967294</constant> (<constant>0xFFFF_FFFE</constant>).
-          CIDs outside of this range are reserved.</para>
-          <xi:include href="version-info.xml" xpointer="v255"/>
-        </listitem>
-      </varlistentry>
+          <listitem>
+            <para>Configure vmspawn to use a specific CID for the guest.</para>
+            <para>If the option is not specified or an empty argument is supplied the guest will be assigned a random CID.</para>
+            <para>Valid CIDs are in the range <constant>3</constant> to <constant>4294967294</constant> (<constant>0xFFFF_FFFE</constant>).
+            CIDs outside of this range are reserved.</para>
+            <xi:include href="version-info.xml" xpointer="v255"/>
+          </listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><option>--vtpm=</option><replaceable>BOOL</replaceable></term>
+        <varlistentry>
+          <term><option>--vtpm=</option><replaceable>BOOL</replaceable></term>
 
-        <listitem>
-          <para>Configure whether to use qemu with a virtual TPM or not.</para>
-          <para>If the option is not specified vmspawn will detect the presence of <citerefentry project='man-pages'>
-          <refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry> and use it if available.
-          If yes is specified <citerefentry project='man-pages'><refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-          is always used, and vice versa if no is set <citerefentry project='man-pages'><refentrytitle>swtpm</refentrytitle>
-          <manvolnum>8</manvolnum></citerefentry> is never used.</para>
-          <para>Note: the virtual TPM used may change in future.</para>
-          <xi:include href="version-info.xml" xpointer="v256"/>
-        </listitem>
-      </varlistentry>
+          <listitem>
+            <para>Configure whether to use qemu with a virtual TPM or not.</para>
+            <para>If the option is not specified vmspawn will detect the presence of <citerefentry project='man-pages'>
+            <refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry> and use it if available.
+            If yes is specified <citerefentry project='man-pages'><refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            is always used, and vice versa if no is set <citerefentry project='man-pages'><refentrytitle>swtpm</refentrytitle>
+            <manvolnum>8</manvolnum></citerefentry> is never used.</para>
+            <para>Note: the virtual TPM used may change in future.</para>
+            <xi:include href="version-info.xml" xpointer="v256"/>
+          </listitem>
+        </varlistentry>
 
         <varlistentry>
           <term><option>--kernel=</option><replaceable>PATH</replaceable></term>
@@ -142,27 +142,43 @@
           </listitem>
         </varlistentry>
 
-      <varlistentry>
-        <term><option>--qemu-gui</option></term>
+        <varlistentry>
+          <term><option>--initrd=</option><replaceable>PATH</replaceable></term>
 
-        <listitem><para>Start QEMU in graphical mode.</para>
+          <listitem>
+            <para>Set the kernel initrd to use for direct kernel boot.</para>
+            <para>This option can be specified multiple times to use multiple initrds.</para>
+            <para>If not specified, attempt to search for the initrd. The argument of <option>--kernel</option>
+              will be suffixed with <literal>.initrd</literal>, then one suffix will be removed from the kernel
+              and <literal>.initrd</literal> added, finally the image name suffixed with <literal>.initrd</literal> will be tried.
+              If any of these files exist they will be used as the initrd.</para>
+            <para>If no initrd was installed into the image then the image will fail to boot.</para>
+            <xi:include href="version-info.xml" xpointer="v256"/>
+          </listitem>
+        </varlistentry>
 
-        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
-      </varlistentry>
+        <varlistentry>
+          <term><option>--qemu-gui</option></term>
 
-      <varlistentry>
-        <term><option>--secure-boot=</option><replaceable>BOOL</replaceable></term>
+          <listitem><para>Start QEMU in graphical mode.</para>
 
-        <listitem><para>Configure whether to search for firmware which supports Secure Boot.</para>
-        <para>If the option is not specified the first firmware which is detected will be used.
-        If the option is set to yes then the first firmware with Secure Boot support will be selected.
-        If no is specified then the first firmware without Secure Boot will be selected.</para>
+          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+        </varlistentry>
 
-        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
-      </varlistentry>
-    </variablelist>
+        <varlistentry>
+          <term><option>--secure-boot=</option><replaceable>BOOL</replaceable></term>
 
-    </refsect2><refsect2>
+          <listitem><para>Configure whether to search for firmware which supports Secure Boot.</para>
+          <para>If the option is not specified the first firmware which is detected will be used.
+          If the option is set to yes then the first firmware with Secure Boot support will be selected.
+          If no is specified then the first firmware without Secure Boot will be selected.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
       <title>System Identity Options</title>
 
       <variablelist>
