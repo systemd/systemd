@@ -3,6 +3,7 @@
 #include <getopt.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "sd-event.h"
@@ -23,8 +24,10 @@
 #include "gpt.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
+#include "kernel-image.h"
 #include "log.h"
 #include "machine-credential.h"
+#include "macro.h"
 #include "main-func.h"
 #include "mkdir.h"
 #include "pager.h"
@@ -37,6 +40,7 @@
 #include "rm-rf.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
 #include "unit-name.h"
@@ -55,6 +59,7 @@ static int arg_qemu_vsock = -1;
 static unsigned arg_vsock_cid = VMADDR_CID_ANY;
 static int arg_tpm = -1;
 static char *arg_linux = NULL;
+static char *arg_initrd = NULL;
 static bool arg_qemu_gui = false;
 static int arg_secure_boot = -1;
 static MachineCredentialContext arg_credentials = {};
@@ -72,6 +77,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_runtime_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_credentials, machine_credential_context_done);
 STATIC_DESTRUCTOR_REGISTER(arg_firmware, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_linux, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_initrd, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline_extra, strv_freep);
 
 static int help(void) {
@@ -101,6 +107,7 @@ static int help(void) {
                "     --vsock-cid=           Specify the CID to use for the qemu guest's vsock\n"
                "     --tpm=BOOL             Configure whether to use a virtual TPM or not\n"
                "     --linux=PATH           Specify the linux kernel for direct kernel boot\n"
+               "     --initrd=PATH          Specify the initrd for direct kernel boot\n"
                "     --qemu-gui             Start QEMU in graphical mode\n"
                "     --secure-boot=BOOL     Configure whether to search for firmware which\n"
                "                            supports Secure Boot\n"
@@ -136,6 +143,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VSOCK_CID,
                 ARG_TPM,
                 ARG_LINUX,
+                ARG_INITRD,
                 ARG_QEMU_GUI,
                 ARG_SECURE_BOOT,
                 ARG_SET_CREDENTIAL,
@@ -157,6 +165,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "vsock-cid",       required_argument, NULL, ARG_VSOCK_CID       },
                 { "tpm",             required_argument, NULL, ARG_TPM             },
                 { "linux",           required_argument, NULL, ARG_LINUX           },
+                { "initrd",          required_argument, NULL, ARG_INITRD          },
                 { "qemu-gui",        no_argument,       NULL, ARG_QEMU_GUI        },
                 { "secure-boot",     required_argument, NULL, ARG_SECURE_BOOT     },
                 { "set-credential",  required_argument, NULL, ARG_SET_CREDENTIAL  },
@@ -260,6 +269,13 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r < 0)
                                 return r;
                         break;
+
+                case ARG_INITRD: {
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_initrd);
+                        if (r < 0)
+                                return r;
+                        break;
+                }
 
                 case ARG_QEMU_GUI:
                         arg_qemu_gui = true;
@@ -923,6 +939,28 @@ static int run_virtual_machine(void) {
                         r = strv_extend_many(&cmdline, "-device", "tpm-tis,tpmdev=tpm0");
                 else if (IN_SET(native_architecture(), ARCHITECTURE_ARM64, ARCHITECTURE_ARM64_BE))
                         r = strv_extend_many(&cmdline, "-device", "tpm-tis-device,tpmdev=tpm0");
+                if (r < 0)
+                        return log_oom();
+        }
+
+        if (arg_linux && !arg_initrd) {
+                KernelImageType kt;
+                r = inspect_kernel(
+                                AT_FDCWD,
+                                arg_linux,
+                                &kt,
+                                /* ret_cmdline= */ NULL,
+                                /* ret_uname= */ NULL,
+                                /* ret_pretty_name= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to inspect the type of the kernel: %m");
+
+                if (kt != KERNEL_IMAGE_TYPE_UKI)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Detected non-UKI type kernel, please supply an initrd with --initrd=.");
+        }
+
+        if (arg_initrd) {
+                r = strv_extend_many(&cmdline, "-initrd", arg_initrd);
                 if (r < 0)
                         return log_oom();
         }
