@@ -137,9 +137,21 @@
 
         <listitem>
           <para>Set the kernel image to use for qemu direct kernel boot.</para>
-          <para>If not specified, use the kernel provided via the kernel command line (<literal>-kernel</literal> option)
-          or latest the kernel that was installed into the image.</para>
           <para>If no kernel was installed into the image then the image will fail to boot.</para>
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--qemu-initrd=</option><replaceable>PATH</replaceable></term>
+
+        <listitem>
+          <para>Set the kernel initrd to use for qemu direct kernel boot.</para>
+          <para>If not specified, attempt to search for the initrd. The argument of <option>--qemu-kernel</option>
+            will be suffixed with <literal>.initrd</literal>, then one suffix will be removed from the kernel
+            and <literal>.initrd</literal> added, finally the image name suffixed with <literal>.initrd</literal> will be tried.
+            If any of these files exist they will be used as the initrd.</para>
+          <para>If no initrd was installed into the image then the image will fail to boot.</para>
           <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
       </varlistentry>
