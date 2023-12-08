@@ -34,8 +34,6 @@ actions:
     - 'sed -i "/^CONFIGURE_OPTS=(/a--werror" .packit_rpm/systemd.spec'
     # Ignore unpackaged standalone binaries
     - "sed -i 's/assert False,.*/pass/' .packit_rpm/split-files.py"
-    # Don't take ownership of /etc/ssh/sshd_config.d/
-    - "sed -i '/\\/usr\\/share\\/dbus-1\\$/a\\/etc\\/ssh\\/sshd_config.d\\$\\|' .packit_rpm/split-files.py"
 
 jobs:
 - job: copr_build
