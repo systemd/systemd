@@ -3,7 +3,7 @@
 #include <getopt.h>
 #include <stdint.h>
 #include <stdlib.h>
-#include <sys/wait.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "alloc-util.h"
@@ -20,6 +20,7 @@
 #include "hostname-util.h"
 #include "log.h"
 #include "machine-credential.h"
+#include "macro-fundamental.h"
 #include "main-func.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -27,11 +28,15 @@
 #include "path-util.h"
 #include "pretty-print.h"
 #include "process-util.h"
+#include "rm-rf.h"
+#include "sd-daemon.h"
 #include "sd-event.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "string-util-fundamental.h"
 #include "strv.h"
 #include "tmpfile-util.h"
+#include "vmspawn-scope.h"
 #include "vmspawn-settings.h"
 #include "vmspawn-util.h"
 
@@ -43,17 +48,23 @@ static uint64_t arg_qemu_mem = 2ULL * 1024ULL * 1024ULL * 1024ULL;
 static int arg_qemu_kvm = -1;
 static int arg_qemu_vsock = -1;
 static uint64_t arg_vsock_cid = UINT64_MAX;
+static int arg_qemu_swtpm = -1;
+static char *arg_qemu_kernel = NULL;
+static char *arg_qemu_initrd = NULL;
 static bool arg_qemu_gui = false;
+static QemuNetworkStack arg_qemu_net = QEMU_NET_USER;
 static int arg_secure_boot = -1;
 static MachineCredential *arg_credentials = NULL;
 static size_t arg_n_credentials = 0;
 static SettingsMask arg_settings_mask = 0;
-static char **arg_parameters = NULL;
+static char **arg_kernel_cmdline_extra = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_machine, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_qemu_smp, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_parameters, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_qemu_kernel, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_qemu_initrd, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline_extra, strv_freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -73,17 +84,22 @@ static int help(void) {
                "%3$sImage:%4$s\n"
                "  -i --image=PATH           Root file system disk image (or device node) for\n"
                "                            the virtual machine\n\n"
+               "%3$sSystem Identity:%4$s\n"
+               "  -M --machine=NAME         Set the machine name for the container\n\n"
                "%3$sHost Configuration:%4$s\n"
                "     --qemu-smp=SMP         Configure guest's SMP settings\n"
                "     --qemu-mem=MEM         Configure guest's RAM size\n"
                "     --qemu-kvm=BOOL        Configure whether to use KVM or not\n"
                "     --qemu-vsock=BOOL      Configure whether to use qemu with a vsock or not\n"
                "     --vsock-cid=           Specify the CID to use for the qemu guest's vsock\n"
+               "     --qemu-swtpm=BOOL      Configure whether to use qemu with swtpm or not\n"
+               "     --qemu-kernel=PATH     Specify the kernel for qemu direct kernel boot\n"
+               "     --qemu-initrd=PATH     Specify the initrd for qemu direct kernel boot\n"
                "     --qemu-gui             Start QEMU in graphical mode\n"
+               "     --qemu-net=user|tap|none\n"
+               "                            Configure QEMU's networking stack\n"
                "     --secure-boot=BOOL     Configure whether to search for firmware which\n"
                "                            supports Secure Boot\n\n"
-               "%3$sSystem Identity:%4$s\n"
-               "  -M --machine=NAME         Set the machine name for the container\n"
                "%3$sCredentials:%4$s\n"
                "     --set-credential=ID:VALUE\n"
                "                            Pass a credential with literal value to container.\n"
@@ -110,7 +126,11 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_QEMU_KVM,
                 ARG_QEMU_VSOCK,
                 ARG_VSOCK_CID,
+                ARG_QEMU_SWTPM,
+                ARG_QEMU_KERNEL,
+                ARG_QEMU_INITRD,
                 ARG_QEMU_GUI,
+                ARG_QEMU_NET,
                 ARG_SECURE_BOOT,
                 ARG_SET_CREDENTIAL,
                 ARG_LOAD_CREDENTIAL,
@@ -127,7 +147,11 @@ static int parse_argv(int argc, char *argv[]) {
                 { "qemu-kvm",        required_argument, NULL, ARG_QEMU_KVM        },
                 { "qemu-vsock",      required_argument, NULL, ARG_QEMU_VSOCK      },
                 { "vsock-cid",       required_argument, NULL, ARG_VSOCK_CID       },
+                { "qemu-swtpm",      required_argument, NULL, ARG_QEMU_SWTPM      },
+                { "qemu-kernel",     required_argument, NULL, ARG_QEMU_KERNEL     },
+                { "qemu-initrd",     required_argument, NULL, ARG_QEMU_INITRD     },
                 { "qemu-gui",        no_argument,       NULL, ARG_QEMU_GUI        },
+                { "qemu-net",        required_argument, NULL, ARG_QEMU_NET        },
                 { "secure-boot",     required_argument, NULL, ARG_SECURE_BOOT     },
                 { "set-credential",  required_argument, NULL, ARG_SET_CREDENTIAL  },
                 { "load-credential", required_argument, NULL, ARG_LOAD_CREDENTIAL },
@@ -213,8 +237,32 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
+                case ARG_QEMU_SWTPM:
+                        r = parse_tristate(optarg, &arg_qemu_swtpm);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --qemu-swtpm=%s: %m", optarg);
+                        break;
+
+                case ARG_QEMU_KERNEL:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_qemu_kernel);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_QEMU_INITRD:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_qemu_initrd);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case ARG_QEMU_GUI:
                         arg_qemu_gui = true;
+                        break;
+
+                case ARG_QEMU_NET:
+                        r = parse_qemu_network_stack(optarg, &arg_qemu_net);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --qemu-net=%s: %m", optarg);
                         break;
 
                 case ARG_SECURE_BOOT:
@@ -248,9 +296,9 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
         if (argc > optind) {
-                strv_free(arg_parameters);
-                arg_parameters = strv_copy(argv + optind);
-                if (!arg_parameters)
+                strv_free(arg_kernel_cmdline_extra);
+                arg_kernel_cmdline_extra = strv_copy(argv + optind);
+                if (!arg_kernel_cmdline_extra)
                         return log_oom();
 
                 arg_settings_mask |= SETTING_START_MODE;
@@ -426,7 +474,6 @@ static int cmdline_add_vsock(char ***cmdline, int vsock_fd) {
         assert(addr_len >= sizeof addr.vm);
         assert(addr.vm.svm_family == AF_VSOCK);
 
-        log_info("Using vsock-stream:%u:%u", (unsigned) VMADDR_CID_HOST, addr.vm.svm_port);
         r = strv_extendf(cmdline, "type=11,value=io.systemd.credential:vmm.notify_socket=vsock-stream:%u:%u", (unsigned) VMADDR_CID_HOST, addr.vm.svm_port);
         if (r < 0)
                 return r;
@@ -434,12 +481,131 @@ static int cmdline_add_vsock(char ***cmdline, int vsock_fd) {
         return 0;
 }
 
-static int run_virtual_machine(void) {
-        _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
-        _cleanup_strv_free_ char **cmdline = NULL;
-        _cleanup_free_ char *machine = NULL, *qemu_binary = NULL, *mem = NULL;
+static int start_swtpm(sd_bus *bus, const char *scope, const char *swtpm, const char **ret_state_tempdir) {
+        _cleanup_(rm_rf_physical_and_freep) char *state = NULL;
+        _cleanup_strv_free_ char **cmdline = NULL, **cleanup = NULL;
+        _cleanup_free_ char *sock_path = NULL, *rm_path = NULL, *unit_name = NULL;
         int r;
-        _cleanup_close_ int vsock_fd = -EBADF;
+
+        assert(bus);
+        assert(scope);
+        assert(swtpm);
+        assert(ret_state_tempdir);
+
+        r = mkdtemp_malloc("/tmp/vmspawn-swtpm-XXXXXX", &state);
+        if (r < 0)
+                return r;
+
+        sock_path = strjoin(state, "/sock");
+        if (!sock_path)
+                return log_oom();
+
+        cmdline = strv_new(swtpm, "socket", "--tpm2", "--tpmstate");
+        if (!cmdline)
+                return log_oom();
+
+        r = strv_extendf(&cmdline, "dir=%s", state);
+        if (r < 0)
+                return log_oom();
+
+        r = strv_extend_strv(&cmdline, STRV_MAKE("--ctrl", "type=unixio,fd=3"), /* filter_duplicates= */ false);
+        if (r < 0)
+                return log_oom();
+
+        r = find_executable("rm", &rm_path);
+        if (r < 0)
+                return log_error_errno(r, "Failed to find 'rm' binary: %m");
+
+        cleanup = strv_new(rm_path, "-rf", state);
+        if (!cleanup)
+                return log_oom();
+
+        unit_name = strjoin(scope, "-swtpm");
+        if (!unit_name)
+                return log_oom();
+
+        r = attach_command_to_socket_in_scope(bus, scope, unit_name, sock_path, SOCK_STREAM, cmdline, cleanup, NULL);
+        if (r < 0)
+                return r;
+
+        *ret_state_tempdir = TAKE_PTR(state);
+
+        return 0;
+}
+
+static int find_initrd(char **ret_initrd) {
+        _cleanup_free_ char *s = NULL, *initrd = NULL;
+        char *c;
+
+        assert(ret_initrd);
+
+        /* try in order:
+         *   1. kernel + .initrd
+         *   2. kernel stripped of suffix + .initrd
+         *   3. image + .initrd
+         */
+        initrd = strjoin(arg_qemu_kernel, ".initrd");
+        if (access(initrd, F_OK) >= 0) {
+                *ret_initrd = TAKE_PTR(initrd);
+                return 0;
+        }
+        if (errno != ENOENT)
+                return log_error_errno(errno, "Encountered error searching for initrd: %m");
+        initrd = mfree(initrd);
+
+        /* strip kernel suffix */
+        s = strdup(arg_qemu_kernel);
+        if (!s)
+                return log_oom();
+
+        c = strrchr(s, '.');
+        if (c)
+                *c = '\0';
+
+        initrd = strjoin(s, ".initrd");
+        if (access(initrd, F_OK) >= 0) {
+                *ret_initrd = TAKE_PTR(initrd);
+                return 0;
+        }
+        if (errno != ENOENT)
+                return log_error_errno(errno, "Encountered error searching for initrd: %m");
+        initrd = mfree(initrd);
+
+        initrd = strjoin(arg_image, ".initrd");
+        if (!initrd)
+                return log_oom();
+        if (access(initrd, F_OK) >= 0) {
+                *ret_initrd = TAKE_PTR(initrd);
+                return 0;
+        }
+        if (errno != ENOENT)
+                return log_error_errno(errno, "Encountered error searching for initrd: %m");
+        initrd = mfree(initrd);
+
+        return -ESRCH;
+}
+
+static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
+        _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_free_ char *qemu_binary = NULL, *mem = NULL, *trans_scope = NULL, *initrd = NULL;
+        _cleanup_close_ int notify_sock_fd = -EBADF;
+        _cleanup_strv_free_ char **cmdline = NULL;
+        _cleanup_free_ int *pass_fds = NULL;
+        size_t n_pass_fds = 0;
+        const char *machine, *accel;
+        int r;
+
+        if (getuid() == 0)
+                r = sd_bus_open_system(&bus);
+        else
+                r = sd_bus_open_user(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to systemd bus: %m");
+
+        r = start_transient_scope(bus, arg_machine, &trans_scope);
+        if (r < 0)
+                return r;
 
         bool use_kvm = arg_qemu_kvm > 0;
         if (arg_qemu_kvm < 0) {
@@ -458,19 +624,22 @@ static int run_virtual_machine(void) {
                 log_warning("Couldn't find OVMF firmware blob with Secure Boot support, "
                             "falling back to OVMF firmware blobs without Secure Boot support.");
 
-        const char *accel = use_kvm ? "kvm" : "tcg";
-        if (IN_SET(native_architecture(), ARCHITECTURE_ARM64, ARCHITECTURE_ARM64_BE))
-                machine = strjoin("type=virt,accel=", accel);
-        else
-                machine = strjoin("type=q35,accel=", accel, ",smm=", on_off(ovmf_config->supports_sb));
-        if (!machine)
-                return log_oom();
+        if (arg_qemu_kernel && access(arg_qemu_kernel, F_OK) < 0)
+                return log_error_errno(errno, "Kernel not found at %s: %m", arg_qemu_kernel);
+
+        if (arg_qemu_initrd && access(arg_qemu_initrd, F_OK) < 0)
+                return log_error_errno(errno, "Initrd not found at %s: %m", arg_qemu_initrd);
 
         r = find_qemu_binary(&qemu_binary);
         if (r == -EOPNOTSUPP)
                 return log_error_errno(r, "Native architecture is not supported by qemu.");
         if (r < 0)
                 return log_error_errno(r, "Failed to find QEMU binary: %m");
+
+        if (IN_SET(native_architecture(), ARCHITECTURE_ARM64, ARCHITECTURE_ARM64_BE))
+                machine = "type=virt";
+        else
+                machine = ovmf_config->supports_sb ? "type=q35,smm=on" : "type=q35,smm=off";
 
         if (asprintf(&mem, "%.4fM", (double)arg_qemu_mem / (1024.0 * 1024.0)) < 0)
                 return log_oom();
@@ -481,10 +650,49 @@ static int run_virtual_machine(void) {
                 "-smp", arg_qemu_smp ?: "1",
                 "-m", mem,
                 "-object", "rng-random,filename=/dev/urandom,id=rng0",
-                "-device", "virtio-rng-pci,rng=rng0,id=rng-device0",
-                "-nic", "user,model=virtio-net-pci"
+                "-device", "virtio-rng-pci,rng=rng0,id=rng-device0"
         );
         if (!cmdline)
+                return log_oom();
+
+        switch (arg_qemu_net) {
+        case QEMU_NET_NONE:
+                r = strv_extend_strv(&cmdline, STRV_MAKE("-nic", "none"), /* filter_duplicates= */ false);
+                break;
+        case QEMU_NET_USER:
+                r = strv_extend_strv(&cmdline, STRV_MAKE("-nic", "user,model=virtio-net-pci"), /* filter_duplicates= */ false);
+                break;
+        case QEMU_NET_TAP:
+                r = strv_extend_strv(&cmdline, STRV_MAKE("-nic", "tap,script=no,model=virtio-net-pci"), /* filter_duplicates= */ false);
+                break;
+        default:
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid state for arg_qemu_net (%d), aborting.", arg_qemu_net);
+        }
+        if (r < 0)
+                return log_oom();
+
+        if (use_kvm && kvm_device_fd > 0) {
+                accel = "kvm,device=/dev/fdset/1";
+
+                r = strv_extend(&cmdline, "--add-fd");
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extendf(&cmdline, "fd=%d,set=1,opaque=/dev/kvm", kvm_device_fd);
+                if (r < 0)
+                        return log_oom();
+
+                if (!GREEDY_REALLOC(pass_fds, n_pass_fds + 1))
+                        return log_oom();
+
+                pass_fds[n_pass_fds++] = kvm_device_fd;
+        } else if (use_kvm)
+                accel = "kvm";
+        else
+                accel = "tcg";
+
+        r = strv_extend_strv(&cmdline, STRV_MAKE("-accel", accel), /* filter_duplicates= */ false);
+        if (r < 0)
                 return log_oom();
 
         bool use_vsock = arg_qemu_vsock > 0 && ARCHITECTURE_SUPPORTS_SMBIOS;
@@ -496,13 +704,20 @@ static int run_virtual_machine(void) {
                 use_vsock = r;
         }
 
-        unsigned child_cid = VMADDR_CID_ANY;
         _cleanup_close_ int child_vsock_fd = -EBADF;
         if (use_vsock) {
-                if (arg_vsock_cid < UINT_MAX)
-                        child_cid = (unsigned)arg_vsock_cid;
+                int device_fd = vhost_device_fd;
+                unsigned child_cid = (arg_vsock_cid < UINT_MAX) ? arg_vsock_cid : VMADDR_CID_ANY;
 
-                r = vsock_fix_child_cid(&child_cid, arg_machine, &child_vsock_fd);
+                if (device_fd < 0) {
+                        child_vsock_fd = open("/dev/vhost-vsock", O_RDWR|O_CLOEXEC);
+                        if (child_vsock_fd < 0)
+                                return log_error_errno(errno, "Failed to open /dev/vhost-vsock as read/write: %m");
+
+                        device_fd = child_vsock_fd;
+                }
+
+                r = vsock_fix_child_cid(device_fd, &child_cid, arg_machine);
                 if (r < 0)
                         return log_error_errno(r, "Failed to fix CID for the guest vsock socket: %m");
 
@@ -510,10 +725,14 @@ static int run_virtual_machine(void) {
                 if (r < 0)
                         return log_oom();
 
-                log_debug("vhost-vsock-pci,guest-cid=%u,vhostfd=%d", child_cid, child_vsock_fd);
-                r = strv_extendf(&cmdline, "vhost-vsock-pci,guest-cid=%u,vhostfd=%d", child_cid, child_vsock_fd);
+                r = strv_extendf(&cmdline, "vhost-vsock-pci,guest-cid=%u,vhostfd=%d", child_cid, device_fd);
                 if (r < 0)
                         return log_oom();
+
+                if (!GREEDY_REALLOC(pass_fds, n_pass_fds + 1))
+                        return log_oom();
+
+                pass_fds[n_pass_fds++] = device_fd;
         }
 
         r = strv_extend_strv(&cmdline, STRV_MAKE("-cpu", "max"), /* filter_duplicates= */ false);
@@ -602,6 +821,12 @@ static int run_virtual_machine(void) {
                         return log_oom();
         }
 
+        if (arg_qemu_kernel) {
+                r = strv_extend_strv(&cmdline, STRV_MAKE("-kernel", arg_qemu_kernel), /* filter_duplicates= */ false);
+                if (r < 0)
+                        return log_oom();
+        }
+
         r = strv_extend(&cmdline, "-drive");
         if (r < 0)
                 return log_oom();
@@ -617,29 +842,95 @@ static int run_virtual_machine(void) {
         if (r < 0)
                 return log_oom();
 
-        if (!strv_isempty(arg_parameters)) {
-                if (ARCHITECTURE_SUPPORTS_SMBIOS) {
-                        _cleanup_free_ char *kcl = strv_join(arg_parameters, " ");
-                        if (!kcl)
-                                return log_oom();
+        _cleanup_free_ char *swtpm = NULL;
+        if (arg_qemu_swtpm != 0) {
+                r = find_executable("swtpm", &swtpm);
+                if (r < 0) {
+                        /* log if the user asked for swtpm and we cannot find it */
+                        if (arg_qemu_swtpm > 0)
+                                return log_error_errno(r, "Failed to find swtpm binary: %m");
+                        /* also log if we got an error other than ENOENT from find_executable */
+                        else if (r != -ENOENT && arg_qemu_swtpm < 0)
+                                return log_error_errno(r, "Error detecting swtpm: %m");
+                }
+        }
 
-                        r = strv_extend(&cmdline, "-smbios");
+        _cleanup_free_ const char *swtpm_state_tempdir = NULL;
+        if (swtpm) {
+                r = start_swtpm(bus, trans_scope, swtpm, &swtpm_state_tempdir);
+                if (r < 0) {
+                        /* only bail if the user asked for a swtpm */
+                        if (arg_qemu_swtpm > 0)
+                                return log_error_errno(r, "Failed to start swtpm: %m");
+                        log_debug_errno(r, "Failed to start swtpm, ignoring: %m");
+                }
+
+                r = strv_extend(&cmdline, "-chardev");
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extendf(&cmdline, "socket,id=chrtpm,path=%s/sock", swtpm_state_tempdir);
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extend_strv(&cmdline, STRV_MAKE("-tpmdev", "emulator,id=tpm0,chardev=chrtpm"),
+                                /* filter_duplicates= */ false);
+                if (r < 0)
+                        return log_oom();
+
+                if (native_architecture() == ARCHITECTURE_X86_64)
+                        r = strv_extend_strv(&cmdline, STRV_MAKE("-device", "tpm-tis,tpmdev=tpm0"), /* filter_duplicates= */ false);
+                else if (IN_SET(native_architecture(), ARCHITECTURE_ARM64, ARCHITECTURE_ARM64_BE))
+                        r = strv_extend_strv(&cmdline, STRV_MAKE("-device", "tpm-tis-device,tpmdev=tpm0"), /* filter_duplicates= */ false);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        if (!strv_isempty(arg_kernel_cmdline_extra)) {
+                _cleanup_free_ char *kcl = strv_join(arg_kernel_cmdline_extra, " ");
+                if (!kcl)
+                        return log_oom();
+
+                if (arg_qemu_kernel) {
+                        r = strv_extend_strv(&cmdline, STRV_MAKE("-append", kcl), /* filter_duplicates= */ false);
                         if (r < 0)
                                 return log_oom();
+                } else {
+                        if (ARCHITECTURE_SUPPORTS_SMBIOS) {
+                                r = strv_extend(&cmdline, "-smbios");
+                                if (r < 0)
+                                        return log_oom();
 
-                        r = strv_extendf(&cmdline, "type=11,value=io.systemd.stub.kernel-cmdline-extra=%s", kcl);
-                        if (r < 0)
-                                return log_oom();
-                } else
-                        log_warning("Cannot append extra args to kernel cmdline, native architecture doesn't support SMBIOS");
+                                r = strv_extendf(&cmdline, "type=11,value=io.systemd.stub.kernel-cmdline-extra=%s", kcl);
+                                if (r < 0)
+                                        return log_oom();
+                        } else
+                                log_warning("Cannot append extra args to kernel cmdline, native architecture doesn't support SMBIOS, ignoring");
+                }
+        }
+
+        if (arg_qemu_initrd) {
+                initrd = strdup(arg_qemu_initrd);
+                if (!initrd)
+                        return log_oom();
+        } else if (arg_qemu_kernel && !endswith(arg_qemu_kernel, ".efi")) {
+                r = find_initrd(&initrd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to find initrd: %m");
+        }
+
+        if (initrd) {
+                r = strv_extend_strv(&cmdline, STRV_MAKE("-initrd", initrd), /* filter_duplicates= */ false);
+                if (r < 0)
+                        return log_oom();
         }
 
         if (use_vsock) {
-                vsock_fd = open_vsock();
-                if (vsock_fd < 0)
-                        return log_error_errno(vsock_fd, "Failed to open vsock: %m");
+                notify_sock_fd = open_vsock();
+                if (notify_sock_fd < 0)
+                        return log_error_errno(notify_sock_fd, "Failed to open vsock: %m");
 
-                r = cmdline_add_vsock(&cmdline, vsock_fd);
+                r = cmdline_add_vsock(&cmdline, notify_sock_fd);
                 if (r == -ENOMEM)
                         return log_oom();
                 if (r < 0)
@@ -658,7 +949,7 @@ static int run_virtual_machine(void) {
         r = safe_fork_full(
                         qemu_binary,
                         NULL,
-                        &child_vsock_fd, 1, /* pass the vsock fd to qemu */
+                        pass_fds, n_pass_fds,
                         FORK_CLOEXEC_OFF,
                         &child_pid);
         if (r < 0)
@@ -676,10 +967,9 @@ static int run_virtual_machine(void) {
                 _exit(EXIT_FAILURE);
         }
 
-
         int exit_status = INT_MAX;
         if (use_vsock) {
-                r = setup_notify_parent(event, vsock_fd, &exit_status, &notify_event_source);
+                r = setup_notify_parent(event, notify_sock_fd, &exit_status, &notify_event_source);
                 if (r < 0)
                         return log_error_errno(r, "Failed to setup event loop to handle vsock notify events: %m");
         }
@@ -737,7 +1027,8 @@ static int determine_names(void) {
 }
 
 static int run(int argc, char *argv[]) {
-        int r, ret = EXIT_SUCCESS;
+        int r, kvm_device_fd = -EBADF, vhost_device_fd = -EBADF, ret = EXIT_SUCCESS;
+        _cleanup_strv_free_ char **names = NULL;
 
         log_setup();
 
@@ -749,9 +1040,20 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
+        r = sd_listen_fds_with_names(true, &names);
+        if (r < 0)
+                goto finish;
+
+        for (size_t i = 0; i < strv_length(names); i++) {
+                if (streq(names[i], "kvm"))
+                    kvm_device_fd = SD_LISTEN_FDS_START + i;
+                if (streq(names[i], "vhost-vsock"))
+                    vhost_device_fd = SD_LISTEN_FDS_START + i;
+        }
+
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGTERM, SIGINT, SIGRTMIN+18, -1) >= 0);
 
-        r = run_virtual_machine();
+        r = run_virtual_machine(kvm_device_fd, vhost_device_fd);
         if (r > 0)
                 ret = r;
 finish:

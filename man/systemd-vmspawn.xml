@@ -35,6 +35,12 @@
     project='man-pages'><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>, but it
     launches a full virtual machine instead of using namespaces.</para>
 
+    <para>File descriptors for <filename>/dev/kvm</filename> and <filename>/dev/vhost-vsock</filename> can be
+    passed to <command>systemd-vmspawn</command> via systemd's native socket passing interface (see
+    <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
+    details about the precise protocol used and the order in which the file descriptors are passed), these
+    fds must be passed with the names <literal>kvm</literal> and <literal>vhost-vsock</literal> respectively.</para>
+
     <para>Note: on Ubuntu/Debian derivatives systemd-vmspawn requires the user to be in the <literal>kvm</literal> group to use the VSock options.</para>
   </refsect1>
 
@@ -118,11 +124,62 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--qemu-swtpm=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem>
+          <para>Configure whether to use qemu with <citerefentry project='man-pages'><refentrytitle>swtpm</refentrytitle>
+          <manvolnum>8</manvolnum></citerefentry> or not.</para>
+          <para>If the option is not specified vmspawn will detect the presence of <citerefentry project='man-pages'>
+          <refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry> and use it if available.
+          If yes is specified <citerefentry project='man-pages'><refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          is always used, and vice versa if no is set <citerefentry project='man-pages'><refentrytitle>swtpm</refentrytitle>
+          <manvolnum>8</manvolnum></citerefentry> is never used.</para>
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--qemu-kernel=</option><replaceable>PATH</replaceable></term>
+
+        <listitem>
+          <para>Set the kernel image to use for qemu direct kernel boot.</para>
+          <para>If no kernel was installed into the image then the image will fail to boot.</para>
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--qemu-initrd=</option><replaceable>PATH</replaceable></term>
+
+        <listitem>
+          <para>Set the kernel initrd to use for qemu direct kernel boot.</para>
+          <para>If not specified, attempt to search for the initrd. The argument of <option>--qemu-kernel</option>
+            will be suffixed with <literal>.initrd</literal>, then one suffix will be removed from the kernel
+            and <literal>.initrd</literal> added, finally the image name suffixed with <literal>.initrd</literal> will be tried.
+            If any of these files exist they will be used as the initrd.</para>
+          <para>If no initrd was installed into the image then the image will fail to boot.</para>
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--qemu-gui</option></term>
 
         <listitem><para>Start QEMU in graphical mode.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--qemu-net=</option><replaceable>user|tap|none</replaceable></term>
+
+        <listitem><para>Configure QEMU's networking stack</para>
+        <para></para>
+        <para>By default <literal>user</literal> networking is used.
+        If <literal>tap</literal> networking is selected a TAP device will be setup for the VM to use.
+        If <literal>none</literal> is selected this disables the default networking QEMU sets up.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
       <varlistentry>
