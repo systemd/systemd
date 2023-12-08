@@ -197,6 +197,7 @@ typedef enum {
 } CreationMode;
 
 static CatFlags arg_cat_flags = CAT_CONFIG_OFF;
+static bool arg_dry_run = false;
 static RuntimeScope arg_runtime_scope = RUNTIME_SCOPE_SYSTEM;
 static OperationMask arg_operation = 0;
 static bool arg_boot = false;
@@ -339,6 +340,12 @@ static int log_unresolvable_specifier(const char *filename, unsigned line) {
         notified = true;
         return 0;
 }
+
+#define log_action(would, doing, fmt, ...)              \
+        log_full(arg_dry_run ? LOG_INFO : LOG_DEBUG,    \
+                 fmt,                                   \
+                 arg_dry_run ? (would) : (doing),       \
+                 __VA_ARGS__)
 
 static int user_config_paths(char*** ret) {
         _cleanup_strv_free_ char **config_dirs = NULL, **data_dirs = NULL;
@@ -801,7 +808,8 @@ static int dir_cleanup(
                                         continue;
                                 }
 
-                                if (flock(dirfd(sub_dir), LOCK_EX|LOCK_NB) < 0) {
+                                if (!arg_dry_run &&
+                                    flock(dirfd(sub_dir), LOCK_EX|LOCK_NB) < 0) {
                                         log_debug_errno(errno, "Couldn't acquire shared BSD lock on directory \"%s\", skipping: %m", sub_path);
                                         continue;
                                 }
@@ -834,10 +842,12 @@ static int dir_cleanup(
                                            cutoff_nsec, sub_path, age_by_dir, true))
                                 continue;
 
-                        log_debug("Removing directory \"%s\".", sub_path);
-                        if (unlinkat(dirfd(d), de->d_name, AT_REMOVEDIR) < 0)
-                                if (!IN_SET(errno, ENOENT, ENOTEMPTY))
-                                        r = log_warning_errno(errno, "Failed to remove directory \"%s\", ignoring: %m", sub_path);
+                        log_action("Would remove", "removing", "%s directory \"%s\"", sub_path);
+                        if (!arg_dry_run &&
+                            unlinkat(dirfd(d), de->d_name, AT_REMOVEDIR) < 0 &&
+                            !IN_SET(errno, ENOENT, ENOTEMPTY))
+
+                                r = log_warning_errno(errno, "Failed to remove directory \"%s\", ignoring: %m", sub_path);
 
                 } else {
                         _cleanup_close_ int fd = -EBADF;
@@ -872,7 +882,7 @@ static int dir_cleanup(
                                 continue;
                         }
 
-                        /* Keep files on this level around if this is requested */
+                        /* Keep files on this level if this was requested */
                         if (keep_this_level) {
                                 log_debug("Keeping \"%s\".", sub_path);
                                 continue;
@@ -882,22 +892,27 @@ static int dir_cleanup(
                                            cutoff_nsec, sub_path, age_by_file, false))
                                 continue;
 
-                        fd = xopenat(dirfd(d),
-                                     de->d_name,
-                                     O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME,
-                                     /* xopen_flags = */ 0,
-                                     /* mode = */ 0);
-                        if (fd < 0 && !IN_SET(fd, -ENOENT, -ELOOP))
-                                log_warning_errno(fd, "Opening file \"%s\" failed, ignoring: %m", sub_path);
-                        if (fd >= 0 && flock(fd, LOCK_EX|LOCK_NB) < 0 && errno == EAGAIN) {
-                                log_debug_errno(errno, "Couldn't acquire shared BSD lock on file \"%s\", skipping: %m", sub_path);
-                                continue;
+                        if (!arg_dry_run) {
+                                fd = xopenat(dirfd(d),
+                                             de->d_name,
+                                             O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME,
+                                             /* xopen_flags = */ 0,
+                                             /* mode = */ 0);
+                                if (fd < 0 && !IN_SET(fd, -ENOENT, -ELOOP))
+                                        log_warning_errno(fd, "Opening file \"%s\" failed, ignoring: %m", sub_path);
+                                if (fd >= 0 &&
+                                    flock(fd, LOCK_EX|LOCK_NB) < 0 &&
+                                    errno == EAGAIN) {
+                                        log_debug_errno(errno, "Couldn't acquire shared BSD lock on file \"%s\", skipping: %m", sub_path);
+                                        continue;
+                                }
                         }
 
-                        log_debug("Removing \"%s\".", sub_path);
-                        if (unlinkat(dirfd(d), de->d_name, 0) < 0)
-                                if (errno != ENOENT)
-                                        r = log_warning_errno(errno, "Failed to remove \"%s\", ignoring: %m", sub_path);
+                        log_action("Would remove", "Removing", "%s \"%s\"", sub_path);
+                        if (!arg_dry_run &&
+                            unlinkat(dirfd(d), de->d_name, 0) < 0 &&
+                            errno != ENOENT)
+                                r = log_warning_errno(errno, "Failed to remove \"%s\", ignoring: %m", sub_path);
 
                         deleted = true;
                 }
@@ -907,16 +922,18 @@ finish:
         if (deleted && (self_atime_nsec < NSEC_INFINITY || self_mtime_nsec < NSEC_INFINITY)) {
                 struct timespec ts[2];
 
-                log_debug("Restoring access and modification time on \"%s\": %s, %s",
-                          p,
-                          FORMAT_TIMESTAMP_STYLE(self_atime_nsec / NSEC_PER_USEC, TIMESTAMP_US),
-                          FORMAT_TIMESTAMP_STYLE(self_mtime_nsec / NSEC_PER_USEC, TIMESTAMP_US));
+                log_action("Would restore", "Restoring",
+                           "%s access and modification time on \"%s\": %s, %s",
+                           p,
+                           FORMAT_TIMESTAMP_STYLE(self_atime_nsec / NSEC_PER_USEC, TIMESTAMP_US),
+                           FORMAT_TIMESTAMP_STYLE(self_mtime_nsec / NSEC_PER_USEC, TIMESTAMP_US));
 
                 timespec_store_nsec(ts + 0, self_atime_nsec);
                 timespec_store_nsec(ts + 1, self_mtime_nsec);
 
                 /* Restore original directory timestamps */
-                if (futimens(dirfd(d), ts) < 0)
+                if (!arg_dry_run &&
+                    futimens(dirfd(d), ts) < 0)
                         log_warning_errno(errno, "Failed to revert timestamps of '%s', ignoring: %m", p);
         }
 
@@ -1030,18 +1047,23 @@ static int fd_set_perms(
                         if (((m ^ st->st_mode) & 07777) == 0)
                                 log_debug("\"%s\" matches temporary mode %o already.", path, m);
                         else {
-                                log_debug("Temporarily changing \"%s\" to mode %o.", path, m);
-                                r = fchmod_opath(fd, m);
-                                if (r < 0)
-                                        return log_error_errno(r, "fchmod() of %s failed: %m", path);
+                                log_action("Would temporarily change", "Temporarily changing",
+                                           "%s \"%s\" to mode %o", path, m);
+                                if (!arg_dry_run) {
+                                        r = fchmod_opath(fd, m);
+                                        if (r < 0)
+                                                return log_error_errno(r, "fchmod() of %s failed: %m", path);
+                                }
                         }
                 }
         }
 
         if (do_chown) {
-                log_debug("Changing \"%s\" to owner "UID_FMT":"GID_FMT, path, new_uid, new_gid);
+                log_action("Would change", "Changing",
+                           "%s \"%s\" to owner "UID_FMT":"GID_FMT, path, new_uid, new_gid);
 
-                if (fchownat(fd, "",
+                if (!arg_dry_run &&
+                    fchownat(fd, "",
                              new_uid != st->st_uid ? new_uid : UID_INVALID,
                              new_gid != st->st_gid ? new_gid : GID_INVALID,
                              AT_EMPTY_PATH) < 0)
@@ -1054,10 +1076,12 @@ static int fd_set_perms(
                 if (S_ISLNK(st->st_mode))
                         log_debug("Skipping mode fix for symlink %s.", path);
                 else {
-                        log_debug("Changing \"%s\" to mode %o.", path, new_mode);
-                        r = fchmod_opath(fd, new_mode);
-                        if (r < 0)
-                                return log_error_errno(r, "fchmod() of %s failed: %m", path);
+                        log_action("Would change", "Changing", "%s \"%s\" to mode %o", path, new_mode);
+                        if (!arg_dry_run) {
+                                r = fchmod_opath(fd, new_mode);
+                                if (r < 0)
+                                        return log_error_errno(r, "fchmod() of %s failed: %m", path);
+                        }
                 }
         }
 
@@ -1187,8 +1211,11 @@ static int fd_set_xattrs(
         assert(path);
 
         STRV_FOREACH_PAIR(name, value, i->xattrs) {
-                log_debug("Setting extended attribute '%s=%s' on %s.", *name, *value, path);
-                if (setxattr(FORMAT_PROC_FD_PATH(fd), *name, *value, strlen(*value), 0) < 0)
+                log_action("Would set", "Setting",
+                           "%s extended attribute '%s=%s' on %s", *name, *value, path);
+
+                if (!arg_dry_run &&
+                    setxattr(FORMAT_PROC_FD_PATH(fd), *name, *value, strlen(*value), 0) < 0)
                         return log_error_errno(errno, "Setting extended attribute %s=%s on %s failed: %m",
                                                *name, *value, path);
         }
@@ -1400,21 +1427,24 @@ static int path_set_acl(
                 return r;
 
         t = acl_to_any_text(dup, NULL, ',', TEXT_ABBREVIATE);
-        log_debug("Setting %s ACL %s on %s.",
-                  type == ACL_TYPE_ACCESS ? "access" : "default",
-                  strna(t), pretty);
+        log_action("Would set", "Setting",
+                   "%s %s ACL %s on %s",
+                   type == ACL_TYPE_ACCESS ? "access" : "default",
+                   strna(t), pretty);
 
-        r = acl_set_file(path, type, dup);
-        if (r < 0) {
-                if (ERRNO_IS_NOT_SUPPORTED(errno))
-                        /* No error if filesystem doesn't support ACLs. Return negative. */
-                        return -errno;
-                else
-                        /* Return positive to indicate we already warned */
-                        return -log_error_errno(errno,
-                                                "Setting %s ACL \"%s\" on %s failed: %m",
-                                                type == ACL_TYPE_ACCESS ? "access" : "default",
-                                                strna(t), pretty);
+        if (!arg_dry_run) {
+                r = acl_set_file(path, type, dup);
+                if (r < 0) {
+                        if (ERRNO_IS_NOT_SUPPORTED(errno))
+                                /* No error if filesystem doesn't support ACLs. Return negative. */
+                                return -errno;
+                        else
+                                /* Return positive to indicate we already warned */
+                                return -log_error_errno(errno,
+                                                        "Setting %s ACL \"%s\" on %s failed: %m",
+                                                        type == ACL_TYPE_ACCESS ? "access" : "default",
+                                                        strna(t), pretty);
+                }
         }
         return 0;
 }
@@ -1636,20 +1666,27 @@ static int fd_set_attribute(
         if (!S_ISDIR(st->st_mode))
                 f &= ~FS_DIRSYNC_FL;
 
-        procfs_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NOATIME);
-        if (procfs_fd < 0)
-                return log_error_errno(procfs_fd, "Failed to reopen '%s': %m", path);
+        log_action("Would set", "Setting",
+                   "%s file attributes 0x%08x on %s",
+                   f & item->attribute_mask,
+                   path);
 
-        unsigned previous, current;
-        r = chattr_full(procfs_fd, NULL, f, item->attribute_mask, &previous, &current, CHATTR_FALLBACK_BITWISE);
-        if (r == -ENOANO)
-                log_warning("Cannot set file attributes for '%s', maybe due to incompatibility in specified attributes, "
-                            "previous=0x%08x, current=0x%08x, expected=0x%08x, ignoring.",
-                            path, previous, current, (previous & ~item->attribute_mask) | (f & item->attribute_mask));
-        else if (r < 0)
-                log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
-                               "Cannot set file attributes for '%s', value=0x%08x, mask=0x%08x, ignoring: %m",
-                               path, item->attribute_value, item->attribute_mask);
+        if (!arg_dry_run) {
+                procfs_fd = fd_reopen(fd, O_RDONLY|O_CLOEXEC|O_NOATIME);
+                if (procfs_fd < 0)
+                        return log_error_errno(procfs_fd, "Failed to reopen '%s': %m", path);
+
+                unsigned previous, current;
+                r = chattr_full(procfs_fd, NULL, f, item->attribute_mask, &previous, &current, CHATTR_FALLBACK_BITWISE);
+                if (r == -ENOANO)
+                        log_warning("Cannot set file attributes for '%s', maybe due to incompatibility in specified attributes, "
+                                    "previous=0x%08x, current=0x%08x, expected=0x%08x, ignoring.",
+                                    path, previous, current, (previous & ~item->attribute_mask) | (f & item->attribute_mask));
+                else if (r < 0)
+                        log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) ? LOG_DEBUG : LOG_WARNING, r,
+                                       "Cannot set file attributes for '%s', value=0x%08x, mask=0x%08x, ignoring: %m",
+                                       path, item->attribute_value, item->attribute_mask);
+        }
 
         return 0;
 }
@@ -1687,11 +1724,13 @@ static int write_argument_data(Item *i, int fd, const char *path) {
 
         assert(item_binary_argument(i));
 
-        log_debug("Writing to \"%s\".", path);
+        log_action("Would write", "Writing", "%s to \"%s\"", path);
 
-        r = loop_write(fd, item_binary_argument(i), item_binary_argument_size(i));
-        if (r < 0)
-                return log_error_errno(r, "Failed to write file \"%s\": %m", path);
+        if (!arg_dry_run) {
+                r = loop_write(fd, item_binary_argument(i), item_binary_argument_size(i));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to write file \"%s\": %m", path);
+        }
 
         return 0;
 }
@@ -1718,10 +1757,9 @@ static int write_one_file(Context *c, Item *i, const char *path, CreationMode cr
         if (dir_fd < 0)
                 return dir_fd;
 
-        /* Follows symlinks */
-        fd = openat(dir_fd, bn,
-                    O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY|(i->append_or_force ? O_APPEND : 0),
-                    i->mode);
+        /* Follow symlinks. Open with O_PATH in dry-run mode to make sure we don't use the path inadvertently. */
+        int flags = O_NONBLOCK | O_CLOEXEC | O_WRONLY | O_NOCTTY | i->append_or_force * O_APPEND | arg_dry_run * O_PATH;
+        fd = openat(dir_fd, bn, flags, i->mode);
         if (fd < 0) {
                 if (errno == ENOENT) {
                         log_debug_errno(errno, "Not writing missing file \"%s\": %m", path);
@@ -1772,6 +1810,11 @@ static int create_file(
         dir_fd = path_open_parent_safe(path, i->allow_failure);
         if (dir_fd < 0)
                 return dir_fd;
+
+        if (arg_dry_run) {
+                log_info("Would create file %s", path);
+                return 0;
+        }
 
         WITH_UMASK(0000) {
                 mac_selinux_create_file_prepare(path, S_IFREG);
@@ -1846,6 +1889,11 @@ static int truncate_file(
         if (dir_fd < 0)
                 return dir_fd;
 
+        if (arg_dry_run) {
+                log_info("Would truncate %s", path);
+                return 0;
+        }
+
         creation = CREATION_EXISTING;
         fd = RET_NERRNO(openat(dir_fd, bn, O_NOFOLLOW|O_NONBLOCK|O_CLOEXEC|O_WRONLY|O_NOCTTY, i->mode));
         if (fd == -ENOENT) {
@@ -1913,7 +1961,9 @@ static int copy_files(Context *c, Item *i) {
         struct stat st, a;
         int r;
 
-        log_debug("Copying tree \"%s\" to \"%s\".", i->argument, i->path);
+        log_action("Would copy", "Copying", "%s tree \"%s\" to \"%s\"", i->argument, i->path);
+        if (arg_dry_run)
+                return 0;
 
         r = path_extract_filename(i->path, &bn);
         if (r < 0)
@@ -1995,15 +2045,23 @@ static int create_directory_or_subvolume(
 
                         subvol = false;
                 else {
-                        WITH_UMASK((~mode) & 0777)
-                                r = btrfs_subvol_make(pfd, bn);
+                        log_action("Would create", "Creating", "%s btrfs subvolume %s", path);
+                        if (!arg_dry_run)
+                                WITH_UMASK((~mode) & 0777)
+                                        r = btrfs_subvol_make(pfd, bn);
                 }
         } else
                 r = 0;
 
-        if (!subvol || ERRNO_IS_NEG_NOT_SUPPORTED(r))
-                WITH_UMASK(0000)
-                        r = mkdirat_label(pfd, bn, mode);
+        if (!subvol || ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
+                log_action("Would create", "Creating", "%s directory \"%s\"", path);
+                if (!arg_dry_run)
+                        WITH_UMASK(0000)
+                                r = mkdirat_label(pfd, bn, mode);
+        }
+
+        if (arg_dry_run)
+                return 0;
 
         creation = r >= 0 ? CREATION_NORMAL : CREATION_EXISTING;
 
@@ -2052,6 +2110,11 @@ static int create_directory(
         assert(i);
         assert(IN_SET(i->type, CREATE_DIRECTORY, TRUNCATE_DIRECTORY));
 
+        if (arg_dry_run) {
+                log_info("Would create directory %s", path);
+                return 0;
+        }
+
         fd = create_directory_or_subvolume(path, i->mode, /* subvol= */ false, i->allow_failure, &st, &creation);
         if (fd == -EEXIST)
                 return 0;
@@ -2074,6 +2137,11 @@ static int create_subvolume(
         assert(c);
         assert(i);
         assert(IN_SET(i->type, CREATE_SUBVOLUME, CREATE_SUBVOLUME_NEW_QUOTA, CREATE_SUBVOLUME_INHERIT_QUOTA));
+
+        if (arg_dry_run) {
+                log_info("Would create subvolume %s", path);
+                return 0;
+        }
 
         fd = create_directory_or_subvolume(path, i->mode, /* subvol = */ true, i->allow_failure, &st, &creation);
         if (fd == -EEXIST)
@@ -2163,6 +2231,11 @@ static int create_device(
         if (r == O_DIRECTORY)
                 return log_error_errno(SYNTHETIC_ERRNO(EISDIR),
                                        "Cannot open path '%s' for creating device node, is a directory.", i->path);
+
+        if (arg_dry_run) {
+                log_info("Would create device node %s", i->path);
+                return 0;
+        }
 
         /* Validate the path and use the returned directory fd for copying the target so we're sure that the
          * path can't be changed behind our back. */
@@ -2271,6 +2344,11 @@ static int create_fifo(Context *c, Item *i) {
                 return log_error_errno(SYNTHETIC_ERRNO(EISDIR),
                                        "Cannot open path '%s' for creating FIFO, is a directory.", i->path);
 
+        if (arg_dry_run) {
+                log_info("Would create fifo %s", i->path);
+                return 0;
+        }
+
         pfd = path_open_parent_safe(i->path, i->allow_failure);
         if (pfd < 0)
                 return pfd;
@@ -2358,6 +2436,11 @@ static int create_symlink(Context *c, Item *i) {
         if (r == O_DIRECTORY)
                 return log_error_errno(SYNTHETIC_ERRNO(EISDIR),
                                        "Cannot open path '%s' for creating FIFO, is a directory.", i->path);
+
+        if (arg_dry_run) {
+                log_info("Would create symlink %s -> %s", i->path, i->argument);
+                return 0;
+        }
 
         pfd = path_open_parent_safe(i->path, i->allow_failure);
         if (pfd < 0)
@@ -2588,58 +2671,61 @@ static int rm_if_wrong_type_safe(
         if (r < 0) {
                 (void) fd_get_path(parent_fd, &parent_name);
                 return log_full_errno(r == -ENOENT? LOG_DEBUG : LOG_ERR, r,
-                              "Failed to stat \"%s\" at \"%s\": %m", name, strna(parent_name));
+                                      "Failed to stat \"%s/%s\": %m", parent_name ?: "...", name);
         }
 
         /* Fail before removing anything if this is an unsafe transition. */
         if (follow_links && unsafe_transition(parent_st, &st)) {
                 (void) fd_get_path(parent_fd, &parent_name);
                 return log_error_errno(SYNTHETIC_ERRNO(ENOLINK),
-                                "Unsafe transition from \"%s\" to \"%s\".", parent_name, name);
+                                       "Unsafe transition from \"%s\" to \"%s\".", parent_name ?: "...", name);
         }
 
         if ((st.st_mode & S_IFMT) == mode)
                 return 0;
 
         (void) fd_get_path(parent_fd, &parent_name);
-        log_notice("Wrong file type 0o%o; rm -rf \"%s/%s\"", st.st_mode & S_IFMT, strna(parent_name), name);
+        log_notice("Wrong file type 0o%o; rm -rf \"%s/%s\"", st.st_mode & S_IFMT, parent_name ?: "...", name);
 
         /* If the target of the symlink was the wrong type, the link needs to be removed instead of the
          * target, so make sure it is identified as a link and not a directory. */
         if (follow_links) {
                 r = fstatat_harder(parent_fd, name, &st, AT_SYMLINK_NOFOLLOW, REMOVE_CHMOD | REMOVE_CHMOD_RESTORE);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to stat \"%s\" at \"%s\": %m", name, strna(parent_name));
+                        return log_error_errno(r, "Failed to stat \"%s/%s\": %m", parent_name ?: "...", name);
         }
 
         /* Do not remove mount points. */
         r = fd_is_mount_point(parent_fd, name, follow_links ? AT_SYMLINK_FOLLOW : 0);
         if (r < 0)
-                (void) log_warning_errno(r, "Failed to check if  \"%s/%s\" is a mount point: %m; Continuing",
-                                strna(parent_name), name);
+                (void) log_warning_errno(r, "Failed to check if  \"%s/%s\" is a mount point: %m; continuing.",
+                                         parent_name ?: "...", name);
         else if (r > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EBUSY),
-                                "Not removing  \"%s/%s\" because it is a mount point.", strna(parent_name), name);
+                                "Not removing  \"%s/%s\" because it is a mount point.", parent_name ?: "...", name);
 
-        if ((st.st_mode & S_IFMT) == S_IFDIR) {
-                _cleanup_close_ int child_fd = -EBADF;
+        log_action("Would remove", "Removing", "%s %s/%s", parent_name ?: "...", name);
+        if (!arg_dry_run) {
+                if ((st.st_mode & S_IFMT) == S_IFDIR) {
+                        _cleanup_close_ int child_fd = -EBADF;
 
-                child_fd = openat(parent_fd, name, O_NOCTTY | O_CLOEXEC | O_DIRECTORY);
-                if (child_fd < 0)
-                        return log_error_errno(errno, "Failed to open \"%s\" at \"%s\": %m", name, strna(parent_name));
+                        child_fd = openat(parent_fd, name, O_NOCTTY | O_CLOEXEC | O_DIRECTORY);
+                        if (child_fd < 0)
+                                return log_error_errno(errno, "Failed to open \"%s/%s\": %m", parent_name ?: "...", name);
 
-                r = rm_rf_children(TAKE_FD(child_fd), REMOVE_ROOT|REMOVE_SUBVOLUME|REMOVE_PHYSICAL, &st);
+                        r = rm_rf_children(TAKE_FD(child_fd), REMOVE_ROOT|REMOVE_SUBVOLUME|REMOVE_PHYSICAL, &st);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to remove contents of \"%s/%s\": %m", parent_name ?: "...", name);
+
+                        r = unlinkat_harder(parent_fd, name, AT_REMOVEDIR, REMOVE_CHMOD | REMOVE_CHMOD_RESTORE);
+                } else
+                        r = unlinkat_harder(parent_fd, name, 0, REMOVE_CHMOD | REMOVE_CHMOD_RESTORE);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to remove contents of \"%s\" at \"%s\": %m", name, strna(parent_name));
+                        return log_error_errno(r, "Failed to remove \"%s/%s\": %m", parent_name ?: "...", name);
+        }
 
-                r = unlinkat_harder(parent_fd, name, AT_REMOVEDIR, REMOVE_CHMOD | REMOVE_CHMOD_RESTORE);
-        } else
-                r = unlinkat_harder(parent_fd, name, 0, REMOVE_CHMOD | REMOVE_CHMOD_RESTORE);
-        if (r < 0)
-                return log_error_errno(r, "Failed to remove \"%s\" at \"%s\": %m", name, strna(parent_name));
-
-        /* This is covered by the log_notice "Wrong file type..." It is logged earlier because it gives
-         * context to other error messages that might follow. */
+        /* This is covered by the log_notice "Wrong file type...".
+         * It is logged earlier because it gives context to other error messages that might follow. */
         return -ENOENT;
 }
 
@@ -2926,8 +3012,10 @@ static int remove_recursive(
                 return 0;
         if (r == -ENOTDIR) {
                 if (remove_instance) {
-                        log_debug("Removing file \"%s\".", instance);
-                        if (remove(instance) < 0 && errno != ENOENT)
+                        log_action("Would remove", "Removing", "%s file \"%s\".", instance);
+                        if (!arg_dry_run &&
+                            remove(instance) < 0 &&
+                            errno != ENOENT)
                                 return log_error_errno(errno, "rm %s: %m", instance);
                 }
                 return 0;
@@ -2968,7 +3056,10 @@ static int remove_item_instance(
         switch (i->type) {
 
         case REMOVE_PATH:
-                if (remove(instance) < 0 && errno != ENOENT)
+                log_action("Would remove", "Removing", "%s \"%s\".", instance);
+                if (!arg_dry_run &&
+                    remove(instance) < 0 &&
+                    errno != ENOENT)
                         return log_error_errno(errno, "rm %s: %m", instance);
 
                 return 0;
@@ -4077,6 +4168,7 @@ static int help(void) {
                "     --image=PATH           Operate on disk image as filesystem root\n"
                "     --image-policy=POLICY  Specify disk image dissection policy\n"
                "     --replace=PATH         Treat arguments as replacement for PATH\n"
+               "     --dry-run              Just print what would be done\n"
                "     --no-pager             Do not pipe output into a pager\n"
                "\nSee the %4$s for details.\n",
                program_invocation_short_name,
@@ -4104,6 +4196,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_IMAGE,
                 ARG_IMAGE_POLICY,
                 ARG_REPLACE,
+                ARG_DRY_RUN,
                 ARG_NO_PAGER,
         };
 
@@ -4124,6 +4217,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "image",          required_argument,   NULL, ARG_IMAGE          },
                 { "image-policy",   required_argument,   NULL, ARG_IMAGE_POLICY   },
                 { "replace",        required_argument,   NULL, ARG_REPLACE        },
+                { "dry-run",        no_argument,         NULL, ARG_DRY_RUN        },
                 { "no-pager",       no_argument,         NULL, ARG_NO_PAGER       },
                 {}
         };
@@ -4225,6 +4319,10 @@ static int parse_argv(int argc, char *argv[]) {
                                                        "The argument to --replace= must have the extension '.conf'.");
 
                         arg_replace = optarg;
+                        break;
+
+                case ARG_DRY_RUN:
+                        arg_dry_run = true;
                         break;
 
                 case ARG_NO_PAGER:
