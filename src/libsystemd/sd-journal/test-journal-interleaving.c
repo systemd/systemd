@@ -502,7 +502,7 @@ static void test_sequence_numbers_one(void) {
         test_close(one);
 
         /* If the machine-id is not initialized, the header file verification
-         * (which happens when re-opening a journal file) will fail. */
+         * (which happens when reopening a journal file) will fail. */
         if (sd_id128_get_machine(NULL) >= 0) {
                 /* restart server */
                 seqnum = 0;
