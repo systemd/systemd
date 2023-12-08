@@ -296,6 +296,44 @@ EOF
 # Verifies that the --offline= option works with --root=
 systemd-analyze security --threshold=90 --offline=true --root=/tmp/img/ testfile.service
 
+cat <<EOF >/tmp/foo@.service
+[Service]
+ExecStart=ls
+EOF
+
+cat <<EOF >/tmp/hoge@test.service
+[Service]
+ExecStart=ls
+EOF
+
+# issue #30357
+pushd /tmp
+systemd-analyze verify foo@bar.service
+systemd-analyze verify foo@.service
+systemd-analyze verify hoge@test.service
+(! systemd-analyze verify hoge@nonexist.service)
+(! systemd-analyze verify hoge@.service)
+popd
+pushd /
+systemd-analyze verify tmp/foo@bar.service
+systemd-analyze verify tmp/foo@.service
+systemd-analyze verify tmp/hoge@test.service
+(! systemd-analyze verify tmp/hoge@nonexist.service)
+(! systemd-analyze verify tmp/hoge@.service)
+popd
+pushd /usr
+systemd-analyze verify ../tmp/foo@bar.service
+systemd-analyze verify ../tmp/foo@.service
+systemd-analyze verify ../tmp/hoge@test.service
+(! systemd-analyze verify ../tmp/hoge@nonexist.service)
+(! systemd-analyze verify ../tmp/hoge@.service)
+popd
+systemd-analyze verify /tmp/foo@bar.service
+systemd-analyze verify /tmp/foo@.service
+systemd-analyze verify /tmp/hoge@test.service
+(! systemd-analyze verify /tmp/hoge@nonexist.service)
+(! systemd-analyze verify /tmp/hoge@.service)
+
 # Added an additional "INVALID_ID" id to the .json to verify that nothing breaks when input is malformed
 # The PrivateNetwork id description and weight was changed to verify that 'security' is actually reading in
 # values from the .json file when required. The default weight for "PrivateNetwork" is 2500, and the new weight
