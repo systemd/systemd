@@ -22,6 +22,7 @@
 #include "fileio.h"
 #include "glob-util.h"
 #include "hostname-util.h"
+#include "journal-remote.h"
 #include "log.h"
 #include "logs-show.h"
 #include "main-func.h"
@@ -430,6 +431,11 @@ static int request_parse_range(
         range = MHD_lookup_connection_value(connection, MHD_HEADER_KIND, "Range");
         if (!range)
                 return 0;
+
+        /* Safety upper bound to make Coverity happy. Apache2 has a default limit of 8KB:
+         * https://httpd.apache.org/docs/2.2/mod/core.html#limitrequestfieldsize */
+        if (strlen(range) > JOURNAL_SERVER_MEMORY_MAX)
+                return -EINVAL;
 
         m->n_skip = 0;
         range_after_eq = startswith(range, "entries=");

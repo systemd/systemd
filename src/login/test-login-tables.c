@@ -11,9 +11,6 @@ static void test_sleep_handle_action(void) {
                 const HandleActionData *data;
                 const char *sleep_operation_str, *handle_action_str;
 
-                if (action == HANDLE_SLEEP)
-                        continue;
-
                 assert_se(data = handle_action_lookup(action));
 
                 assert_se(handle_action_str = handle_action_to_string(action));
