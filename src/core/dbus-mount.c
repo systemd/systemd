@@ -55,6 +55,25 @@ static int property_get_options(
         return sd_bus_message_append_basic(reply, 's', escaped);
 }
 
+static int bus_mount_method_remount(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+
+        Mount *m = ASSERT_PTR(userdata);
+        Unit *u = UNIT(m);
+        int r;
+
+        assert(message);
+
+        r = bus_set_transient_string(u, "Options", &m->parameters_fragment.options, message, UNIT_PRIVATE|UNIT_RUNTIME, error);
+        if (r < 0)
+                return r;
+
+        r = unit_reload(u);
+        if (r < 0)
+                return r;
+
+        return sd_bus_reply_method_return(message, NULL);
+}
+
 static BUS_DEFINE_PROPERTY_GET(property_get_type, "s", Mount, mount_get_fstype);
 static BUS_DEFINE_PROPERTY_GET_ENUM(property_get_result, mount_result, MountResult);
 
@@ -77,6 +96,11 @@ const sd_bus_vtable bus_mount_vtable[] = {
         BUS_EXEC_COMMAND_VTABLE("ExecMount", offsetof(Mount, exec_command[MOUNT_EXEC_MOUNT]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         BUS_EXEC_COMMAND_VTABLE("ExecUnmount", offsetof(Mount, exec_command[MOUNT_EXEC_UNMOUNT]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
         BUS_EXEC_COMMAND_VTABLE("ExecRemount", offsetof(Mount, exec_command[MOUNT_EXEC_REMOUNT]), SD_BUS_VTABLE_PROPERTY_EMITS_INVALIDATION),
+        SD_BUS_METHOD_WITH_ARGS("Remount",
+                                SD_BUS_ARGS("s", options),
+                                SD_BUS_NO_RESULT,
+                                bus_mount_method_remount,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_VTABLE_END
 };
 
