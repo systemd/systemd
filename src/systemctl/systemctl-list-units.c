@@ -135,7 +135,6 @@ static int output_units_list(const UnitInfo *unit_infos, size_t c) {
 
                 if (streq(u->load_state, "not-found")) {
                         on_circle = on_loaded = ansi_highlight_yellow();
-                        on_circle = ansi_highlight_yellow();
                         circle = true;
                 } else if (STR_IN_SET(u->load_state, "bad-setting", "error", "masked")) {
                         on_loaded = ansi_highlight_red();
