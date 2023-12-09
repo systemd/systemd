@@ -3131,7 +3131,11 @@ void unit_prune_cgroup(Unit *u) {
         if (!u->cgroup_path)
                 return;
 
-        (void) unit_get_cpu_usage(u, NULL); /* Cache the last CPU usage value before we destroy the cgroup */
+        /* Cache the last CPU and memory usage values before we destroy the cgroup */
+        (void) unit_get_cpu_usage(u, /* ret = */ NULL);
+
+        for (CGroupMemoryAccountingMetric metric = 0; metric <= _CGROUP_MEMORY_ACCOUNTING_METRIC_CACHED_LAST; metric++)
+                (void) unit_get_memory_accounting(u, metric, /* ret = */ NULL);
 
 #if BPF_FRAMEWORK
         (void) lsm_bpf_cleanup(u); /* Remove cgroup from the global LSM BPF map */
