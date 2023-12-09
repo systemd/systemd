@@ -22,5 +22,7 @@ int hibernation_is_safe(void);
 
 int write_resume_config(dev_t devno, uint64_t offset, const char *device);
 
+void clear_efi_hibernate_location_and_warn(void);
+
 /* Only for test-fiemap */
 int read_fiemap(int fd, struct fiemap **ret);

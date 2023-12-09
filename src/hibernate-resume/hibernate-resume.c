@@ -60,7 +60,7 @@ static int run(int argc, char *argv[]) {
                         return r;
 
                 if (arg_info.efi)
-                        clear_efi_hibernate_location();
+                        clear_efi_hibernate_location_and_warn();
         }
 
         if (stat(arg_info.device, &st) < 0)
