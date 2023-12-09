@@ -6766,6 +6766,7 @@ node /org/freedesktop/systemd1/unit/dev_2dttyS0_2edevice {
 node /org/freedesktop/systemd1/unit/home_2emount {
   interface org.freedesktop.systemd1.Mount {
     methods:
+      Remount(in  s options);
       GetProcesses(out a(sus) processes);
       AttachProcesses(in  s subcgroup,
                       in  au pids);
@@ -7341,6 +7342,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
 };
     </programlisting>
 
+    <!--method Remount is not documented!-->
+
     <!--method GetProcesses is not documented!-->
 
     <!--method AttachProcesses is not documented!-->
@@ -7868,6 +7871,8 @@ node /org/freedesktop/systemd1/unit/home_2emount {
     <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.systemd1.Unit"/>
 
     <variablelist class="dbus-interface" generated="True" extra-ref="org.freedesktop.systemd1.Mount"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="Remount()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="GetProcesses()"/>
 
@@ -11933,6 +11938,7 @@ $ gdbus introspect --system --dest org.freedesktop.systemd1 \
       <varname>MemorySwapCurrent</varname>,
       <varname>MemorySwapPeak</varname>, and
       <varname>MemoryZSwapCurrent</varname> were added in version 255.</para>
+      <para><function>Remount()</function> was added in version 256.</para>
     </refsect2>
     <refsect2>
       <title>Swap Unit Objects</title>
