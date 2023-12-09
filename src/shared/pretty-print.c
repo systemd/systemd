@@ -213,7 +213,7 @@ static int cat_file(const char *filename, bool newline, CatFlags flags) {
                         break;
 
                 LineType line_type = classify_line_type(line, flags);
-                if (flags & CAT_TLDR) {
+                if (FLAGS_SET(flags, CAT_TLDR)) {
                         if (line_type == LINE_SECTION) {
                                 /* The start of a section, let's not print it yet. */
                                 free_and_replace(section, line);
@@ -233,6 +233,28 @@ static int cat_file(const char *filename, bool newline, CatFlags flags) {
                                                ansi_normal());
 
                                 free_and_replace(old_section, section);
+                        }
+                }
+
+                /* Highlight the left side (directive) of a Foo=bar assignment */
+                if (FLAGS_SET(flags, CAT_FORMAT_HAS_SECTIONS) && line_type == LINE_NORMAL) {
+                        const char *p = strchr(line, '=');
+                        if (p) {
+                                _cleanup_free_ char *highlighted = NULL, *directive = NULL;
+
+                                directive = strndup(line, p - line);
+                                if (!directive)
+                                        return log_oom();
+
+                                highlighted = strjoin(ansi_highlight_green(),
+                                                      directive,
+                                                      "=",
+                                                      ansi_normal(),
+                                                      p + 1);
+                                if (!highlighted)
+                                        return log_oom();
+
+                                free_and_replace(line, highlighted);
                         }
                 }
 
