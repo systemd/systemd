@@ -428,7 +428,7 @@ int pty_forward_new(
         else {
                 /* If we shall be invoked in interactive mode, let's switch on non-blocking mode, so that we
                  * never end up staving one direction while we block on the other. However, let's be careful
-                 * here and not turn on O_NONBLOCK for stdin/stdout directly, but of re-opened copies of
+                 * here and not turn on O_NONBLOCK for stdin/stdout directly, but of reopened copies of
                  * them. This has two advantages: when we are killed abruptly the stdin/stdout fds won't be
                  * left in O_NONBLOCK state for the next process using them. In addition, if some process
                  * running in the background wants to continue writing to our stdout it can do so without
