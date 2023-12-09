@@ -506,3 +506,14 @@ int write_resume_config(dev_t devno, uint64_t offset, const char *device) {
 
         return 0;
 }
+
+void clear_efi_hibernate_location_and_warn(void) {
+        int r;
+
+        if (!is_efi_boot())
+                return;
+
+        r = efi_set_variable(EFI_SYSTEMD_VARIABLE(HibernateLocation), NULL, 0);
+        if (r < 0)
+                log_warning_errno(r, "Failed to clear EFI variable HibernateLocation, ignoring: %m");
+}
