@@ -1201,7 +1201,7 @@ static void mount_enter_mounting(Mount *m) {
                 log_unit_warning_errno(UNIT(m), r, "Failed to create mount point '%s', ignoring: %m", m->where);
 
         /* If we are asked to create an OverlayFS, create the upper/work directories if they are missing */
-        if (streq_ptr(p->fstype, "overlay")) {
+        if (p && streq_ptr(p->fstype, "overlay")) {
                 _cleanup_strv_free_ char **dirs = NULL;
 
                 r = fstab_filter_options(
