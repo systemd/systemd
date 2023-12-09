@@ -141,7 +141,7 @@ CHANGES WITH 255:
         * Units now have MemoryPeak, MemorySwapPeak, MemorySwapCurrent and
           MemoryZSwapCurrent properties, which respectively contain the values
           of the cgroup v2's memory.peak, memory.swap.peak, memory.swap.current
-          and memory.zswap.current properties. This information is also show in
+          and memory.zswap.current properties. This information is also shown in
           "systemctl status" output, if available.
 
         TPM2 Support + Disk Encryption & Authentication:
