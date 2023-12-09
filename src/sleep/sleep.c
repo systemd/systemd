@@ -301,8 +301,8 @@ static int execute(
                 return 0;
 
 fail:
-        if (sleep_operation_is_hibernation(operation) && is_efi_boot())
-                (void) efi_set_variable(EFI_SYSTEMD_VARIABLE(HibernateLocation), NULL, 0);
+        if (sleep_operation_is_hibernation(operation))
+                clear_efi_hibernate_location_and_warn();
 
         return r;
 }
