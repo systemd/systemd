@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
+#include "sd-device.h"
 #include <stdbool.h>
 
 #include "macro.h"
@@ -95,3 +96,8 @@ NamePolicy name_policy_from_string(const char *p) _pure_;
 
 const char *alternative_names_policy_to_string(NamePolicy p) _const_;
 NamePolicy alternative_names_policy_from_string(const char *p) _pure_;
+
+int device_get_sysattr_int_filtered(sd_device *device, const char *sysattr, int *ret_value);
+int device_get_sysattr_unsigned_filtered(sd_device *device, const char *sysattr, unsigned *ret_value);
+int device_get_sysattr_bool_filtered(sd_device *device, const char *sysattr);
+int sd_device_get_sysattr_value_filtered(sd_device *device, const char *sysattr, const char **ret_value);
