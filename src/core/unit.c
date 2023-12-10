@@ -67,14 +67,16 @@
 #endif
 
 /* Thresholds for logging at INFO level about resource consumption */
-#define MENTIONWORTHY_CPU_NSEC (1 * NSEC_PER_SEC)
-#define MENTIONWORTHY_IO_BYTES (1024 * 1024ULL)
-#define MENTIONWORTHY_IP_BYTES (0ULL)
+#define MENTIONWORTHY_CPU_NSEC     (1 * NSEC_PER_SEC)
+#define MENTIONWORTHY_MEMORY_BYTES (64 * U64_MB)
+#define MENTIONWORTHY_IO_BYTES     (1 * U64_MB)
+#define MENTIONWORTHY_IP_BYTES     UINT64_C(0)
 
-/* Thresholds for logging at INFO level about resource consumption */
-#define NOTICEWORTHY_CPU_NSEC (10*60 * NSEC_PER_SEC) /* 10 minutes */
-#define NOTICEWORTHY_IO_BYTES (10 * 1024 * 1024ULL)  /* 10 MB */
-#define NOTICEWORTHY_IP_BYTES (128 * 1024 * 1024ULL) /* 128 MB */
+/* Thresholds for logging at NOTICE level about resource consumption */
+#define NOTICEWORTHY_CPU_NSEC     (10 * NSEC_PER_MINUTE)
+#define NOTICEWORTHY_MEMORY_BYTES (512 * U64_MB)
+#define NOTICEWORTHY_IO_BYTES     (10 * U64_MB)
+#define NOTICEWORTHY_IP_BYTES     (128 * U64_MB)
 
 const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = &service_vtable,
@@ -2406,6 +2408,10 @@ static int unit_log_resources(Unit *u) {
                         goto finish;
                 }
                 message_parts[n_message_parts++] = t;
+
+                log_level = raise_level(log_level,
+                                        memory_peak > MENTIONWORTHY_MEMORY_BYTES,
+                                        memory_peak > NOTICEWORTHY_MEMORY_BYTES);
         }
 
         (void) unit_get_memory_accounting(u, CGROUP_MEMORY_SWAP_PEAK, &memory_swap_peak);
@@ -2424,6 +2430,10 @@ static int unit_log_resources(Unit *u) {
                         goto finish;
                 }
                 message_parts[n_message_parts++] = t;
+
+                log_level = raise_level(log_level,
+                                        memory_swap_peak > MENTIONWORTHY_MEMORY_BYTES,
+                                        memory_swap_peak > NOTICEWORTHY_MEMORY_BYTES);
         }
 
         for (CGroupIOAccountingMetric k = 0; k < _CGROUP_IO_ACCOUNTING_METRIC_MAX; k++) {
