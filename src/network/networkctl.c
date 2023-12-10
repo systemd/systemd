@@ -3081,7 +3081,7 @@ static int add_config_to_edit(
          * under /etc/, we bail out since the one in /etc/ always overrides that in /run/. */
         if (arg_runtime && !arg_drop_in && path_startswith(path, "/etc"))
                 return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
-                                       "Cannot edit runtime config file: overriden by %s", path);
+                                       "Cannot edit runtime config file: overridden by %s", path);
 
         if (path_startswith(path, "/usr") || arg_runtime != !!path_startswith(path, "/run")) {
                 _cleanup_free_ char *name = NULL;
@@ -3107,7 +3107,7 @@ static int add_config_to_edit(
                 /* See the explanation above */
                 if (arg_runtime && path_startswith(old_dropin, "/etc"))
                         return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
-                                               "Cannot edit runtime config file: overriden by %s", old_dropin);
+                                               "Cannot edit runtime config file: overridden by %s", old_dropin);
 
                 need_new_dropin = path_startswith(old_dropin, "/usr") || arg_runtime != !!path_startswith(old_dropin, "/run");
         } else
