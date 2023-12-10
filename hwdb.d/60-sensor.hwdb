@@ -1076,7 +1076,7 @@ sensor:modalias:acpi:KIOX010A*:dmi:*:svnTREKSTOR:pnYOURBOOKC11B:*
 
 sensor:modalias:acpi:KIOX020A*:dmi:*:svnTREKSTOR:pnPrimebookC11B:*
 sensor:modalias:acpi:KIOX020A*:dmi:*:svnTREKSTOR:pnPRIMEBOOKC11B:*
-sensor:modalias:acpi:KIOX010A*:dmi:*:svnTREKSTOR:pnPrimebookC13:*
+sensor:modalias:acpi:KIOX020A*:dmi:*:svnTREKSTOR:pnPrimebookC13:*
 sensor:modalias:acpi:KIOX020A*:dmi:*:svnTREKSTOR:pnYourbookC11B:*
 sensor:modalias:acpi:KIOX020A*:dmi:*:svnTREKSTOR:pnYOURBOOKC11B:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
