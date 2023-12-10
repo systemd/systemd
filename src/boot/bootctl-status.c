@@ -187,7 +187,6 @@ static int status_variables(void) {
 static int enumerate_binaries(
                 const char *esp_path,
                 const char *path,
-                const char *prefix,
                 char **previous,
                 bool *is_first) {
 
@@ -211,9 +210,6 @@ static int enumerate_binaries(
                 _cleanup_close_ int fd = -EBADF;
 
                 if (!endswith_no_case(de->d_name, ".efi"))
-                        continue;
-
-                if (prefix && !startswith_no_case(de->d_name, prefix))
                         continue;
 
                 filename = path_join(p, de->d_name);
@@ -272,11 +268,11 @@ static int status_binaries(const char *esp_path, sd_id128_t partition) {
                 printf(" (/dev/disk/by-partuuid/" SD_ID128_UUID_FORMAT_STR ")", SD_ID128_FORMAT_VAL(partition));
         printf("\n");
 
-        r = enumerate_binaries(esp_path, "EFI/systemd", NULL, &last, &is_first);
+        r = enumerate_binaries(esp_path, "EFI/systemd", &last, &is_first);
         if (r < 0)
                 goto fail;
 
-        k = enumerate_binaries(esp_path, "EFI/BOOT", "boot", &last, &is_first);
+        k = enumerate_binaries(esp_path, "EFI/BOOT", &last, &is_first);
         if (k < 0) {
                 r = k;
                 goto fail;
