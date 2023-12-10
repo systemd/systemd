@@ -2611,11 +2611,10 @@ static int unit_log_resources(Unit *u) {
 finish:
         free_many_charp(message_parts, n_message_parts);
 
-        for (size_t i = 0; i < n_iovec; i++)
-                free(iovec[i].iov_base);
+        FOREACH_ARRAY(i, iovec, n_iovec)
+                free(i->iov_base);
 
         return r;
-
 }
 
 static void unit_update_on_console(Unit *u) {
