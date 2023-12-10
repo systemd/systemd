@@ -3095,6 +3095,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertIn('default via 149.10.125.65 proto static onlink', output)
         self.assertIn('default via 149.10.124.64 proto static', output)
         self.assertIn('default proto static', output)
+        self.assertIn('default via 1.1.8.104 proto static', output)
 
         print('### ip -4 route show table local dev dummy98')
         output = check_output('ip -4 route show table local dev dummy98')
