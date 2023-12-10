@@ -775,7 +775,7 @@ static void dns_stub_query_complete(DnsQuery *query) {
 
                         cname_result = dns_query_process_cname_one(q);
                         if (cname_result == -ELOOP) { /* CNAME loop, let's send what we already have */
-                                log_debug_errno(r, "Detected CNAME loop, returning what we already have.");
+                                log_debug("Detected CNAME loop, returning what we already have.");
                                 (void) dns_stub_send_reply(q, q->answer_rcode);
                                 break;
                         }
