@@ -306,7 +306,7 @@ static int context_set_uki_generator(Context *c, const char *s, const char *sour
 static int context_set_version(Context *c, const char *s) {
         assert(c);
 
-        if (!filename_is_valid(s))
+        if (s && !filename_is_valid(s))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid version specified: %s", s);
 
         return context_set_string(s, "command line", "kernel version", &c->version);
@@ -1355,12 +1355,12 @@ static int verb_inspect(int argc, char *argv[], void *userdata) {
                 (argc > 1 ? empty_or_dash_to_null(argv[1]) : NULL);
         initrds = strv_skip(argv, 3);
 
-        if (!version) {
+        if (!version && !arg_root) {
                 assert_se(uname(&un) >= 0);
                 version = un.release;
         }
 
-        if (!kernel) {
+        if (!kernel && version) {
                 r = kernel_from_version(version, &vmlinuz);
                 if (r < 0)
                         return r;
