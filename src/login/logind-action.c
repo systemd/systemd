@@ -169,7 +169,7 @@ HandleAction handle_action_sleep_select(HandleActionSleepMask mask) {
                 if (!FLAGS_SET(mask, a))
                         continue;
 
-                if (sleep_supported(handle_action_lookup(*i)->sleep_operation) > 0)
+                if (sleep_supported(ASSERT_PTR(handle_action_lookup(*i))->sleep_operation) > 0)
                         return *i;
         }
 
@@ -213,7 +213,7 @@ static int handle_action_execute(
                                        inhibit_what_to_string(m->delayed_action->inhibit_what),
                                        handle_action_to_string(handle));
 
-        inhibit_operation = handle_action_lookup(handle)->inhibit_what;
+        inhibit_operation = ASSERT_PTR(handle_action_lookup(handle))->inhibit_what;
 
         /* If the actual operation is inhibited, warn and fail */
         if (inhibit_what_is_valid(inhibit_operation) &&

@@ -48,6 +48,9 @@ struct RemoteServer {
 };
 extern RemoteServer *journal_remote_server_global;
 
+/* Used for MHD_OPTION_CONNECTION_MEMORY_LIMIT and header parsing cap */
+#define JOURNAL_SERVER_MEMORY_MAX 128U * 1024U
+
 int journal_remote_server_init(
                 RemoteServer *s,
                 const char *output,
