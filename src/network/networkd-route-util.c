@@ -162,9 +162,9 @@ bool gateway_is_ready(Link *link, bool onlink, int family, const union in_addr_u
                         continue;
                 if (FLAGS_SET(a->flags, IFA_F_NOPREFIXROUTE))
                         continue;
-                if (in_addr_is_set(a->family, &a->in_addr_peer))
-                        continue;
-                if (in_addr_prefix_covers(family, &a->in_addr, a->prefixlen, gw) > 0)
+                if (in_addr_prefix_covers(a->family,
+                                          in_addr_is_set(a->family, &a->in_addr_peer) ? &a->in_addr_peer : &a->in_addr,
+                                          a->prefixlen, gw) > 0)
                         return true;
         }
 
