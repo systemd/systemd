@@ -552,7 +552,6 @@ def write_pe(
     offset = opt.SizeOfHeaders
     for pe_s in sorted(sections, key=lambda s: s.VirtualAddress):
         if pe_s.VirtualAddress < opt.SizeOfHeaders:
-            # Linker script should make sure this does not happen.
             raise RuntimeError(f"Section {pe_s.Name} overlapping PE headers.")
 
         pe_s.PointerToRawData = offset
