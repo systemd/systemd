@@ -1199,7 +1199,7 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
 
             <para>The unit must exist, i.e. its main unit file must be present. If <option>--force</option>
             is specified, this requirement is ignored and a new unit may be created (with
-            <option>--full</option>), or a drop-in for a nonexistent unit may be crated.</para>
+            <option>--full</option>), or a drop-in for a nonexistent unit may be created.</para>
 
             <para>If <option>--runtime</option> is specified, the changes will
             be made temporarily in <filename>/run/</filename> and they will be
