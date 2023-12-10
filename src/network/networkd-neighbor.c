@@ -530,6 +530,8 @@ int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message,
                 return 0;
 
         tmp = new0(Neighbor, 1);
+        if (!tmp)
+                return log_oom();
 
         /* First, retrieve the fundamental information about the neighbor. */
         r = sd_rtnl_message_neigh_get_family(message, &tmp->family);
