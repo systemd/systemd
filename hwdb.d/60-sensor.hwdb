@@ -1067,6 +1067,7 @@ sensor:modalias:acpi:BOSC0200*:dmi:*:bvrTP15-VT5.2.1.3:*:svnTrekStor*:pnSurfTabt
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, -1
 
 sensor:modalias:acpi:KIOX010A*:dmi:*:svnTREKSTOR:pnPrimebookC11B:*
+sensor:modalias:acpi:KIOX010A*:dmi:*:svnTREKSTOR:pnPrimebookC13:*
 sensor:modalias:acpi:KIOX010A*:dmi:*:svnTREKSTOR:pnPRIMEBOOKC11B:*
 sensor:modalias:acpi:KIOX010A*:dmi:*:svnTREKSTOR:pnYourbookC11B:*
 sensor:modalias:acpi:KIOX010A*:dmi:*:svnTREKSTOR:pnYOURBOOKC11B:*
@@ -1075,6 +1076,7 @@ sensor:modalias:acpi:KIOX010A*:dmi:*:svnTREKSTOR:pnYOURBOOKC11B:*
 
 sensor:modalias:acpi:KIOX020A*:dmi:*:svnTREKSTOR:pnPrimebookC11B:*
 sensor:modalias:acpi:KIOX020A*:dmi:*:svnTREKSTOR:pnPRIMEBOOKC11B:*
+sensor:modalias:acpi:KIOX020A*:dmi:*:svnTREKSTOR:pnPrimebookC13:*
 sensor:modalias:acpi:KIOX020A*:dmi:*:svnTREKSTOR:pnYourbookC11B:*
 sensor:modalias:acpi:KIOX020A*:dmi:*:svnTREKSTOR:pnYOURBOOKC11B:*
  ACCEL_MOUNT_MATRIX=0, 1, 0; 1, 0, 0; 0, 0, 1
