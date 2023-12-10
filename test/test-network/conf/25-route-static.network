@@ -108,3 +108,10 @@ MultiPathRoute=2001:1234:5:6fff:ff:ff:ff:ff@test1 20
 MultiPathRoute=2001:1234:5:7fff:ff:ff:ff:ff@test1 30
 MultiPathRoute=2001:1234:5:8fff:ff:ff:ff:ff@dummy98 10
 MultiPathRoute=2001:1234:5:9fff:ff:ff:ff:ff@dummy98 5
+
+[Address]
+Address=1.1.8.105/31
+Peer=1.1.8.104/31
+
+[Route]
+Gateway=1.1.8.104
