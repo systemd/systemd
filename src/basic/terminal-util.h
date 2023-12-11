@@ -71,7 +71,7 @@
 #define ANSI_HIGHLIGHT_YELLOW_FALLBACK_UNDERLINE "\x1B[0;1;4;33m"
 
 /* Background colors */
-#define ANSI_BACKGROUND_BLUE "\x1B[44m"
+#define ANSI_BACKGROUND_BLACK "\x1B[44m"
 
 /* Reset/clear ANSI styles */
 #define ANSI_NORMAL "\x1B[0m"
