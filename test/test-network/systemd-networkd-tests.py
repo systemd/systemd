@@ -3232,8 +3232,6 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertEqual(output, '')
 
-        self.tearDown()
-
     def test_route_static(self):
         first = True
         for manage_foreign_routes in [True, False]:
