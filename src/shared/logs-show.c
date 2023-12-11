@@ -523,6 +523,11 @@ static int output_short(
                 return 0;
         }
 
+        if (identifier && set_contains(j->exclude, identifier)) {
+                log_debug("Skipping manually excluded message.");
+                return 0;
+        }
+
         if (!(flags & OUTPUT_SHOW_ALL))
                 strip_tab_ansi(&message, &message_len, highlight_shifted);
 
