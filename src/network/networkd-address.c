@@ -1802,7 +1802,7 @@ int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, 
                 /* If we did not know the address, then save it. */
                 r = address_add(link, tmp);
                 if (r < 0) {
-                        log_link_warning_errno(link, r, "Failed to remember foreign address %s, ignoring: %m",
+                        log_link_warning_errno(link, r, "Failed to save address %s, ignoring: %m",
                                                IN_ADDR_PREFIX_TO_STRING(tmp->family, &tmp->in_addr, tmp->prefixlen));
                         return 0;
                 }
