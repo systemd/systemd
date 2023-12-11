@@ -650,7 +650,6 @@ Manager* manager_free(Manager *m) {
         m->routes = set_free(m->routes);
 
         m->nexthops = set_free(m->nexthops);
-        m->nexthops_by_id = hashmap_free(m->nexthops_by_id);
 
         sd_event_source_unref(m->speed_meter_event_source);
         sd_event_unref(m->event);

@@ -20,14 +20,13 @@ typedef struct Network Network;
 typedef struct NextHop {
         Network *network;
         Manager *manager;
-        Link *link;
         ConfigSection *section;
         NetworkConfigSource source;
         NetworkConfigState state;
 
-        uint8_t protocol;
-
         uint32_t id;
+        uint8_t protocol;
+        int ifindex;
         bool blackhole;
         int family;
         union in_addr_union gw;
@@ -38,15 +37,21 @@ typedef struct NextHop {
 
 NextHop *nexthop_free(NextHop *nexthop);
 
+int nexthop_get(Manager *manager, uint32_t id, NextHop **ret);
+
 void network_drop_invalid_nexthops(Network *network);
 
-int link_drop_managed_nexthops(Link *link);
-int link_drop_foreign_nexthops(Link *link);
+int link_drop_nexthops(Link *link, bool foreign);
+static inline int link_drop_foreign_nexthops(Link *link) {
+        return link_drop_nexthops(link, /* foreign = */ true);
+}
+static inline int link_drop_managed_nexthops(Link *link) {
+        return link_drop_nexthops(link, /* foreign = */ false);
+}
 void link_foreignize_nexthops(Link *link);
 
 int link_request_static_nexthops(Link *link, bool only_ipv4);
 
-int manager_get_nexthop_by_id(Manager *manager, uint32_t id, NextHop **ret);
 int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
 
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(NextHop, nexthop);
