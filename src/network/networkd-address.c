@@ -1350,7 +1350,7 @@ static bool address_is_ready_to_configure(Link *link, const Address *address) {
 }
 
 static int address_process_request(Request *req, Link *link, Address *address) {
-        struct Address *existing;
+        Address *existing;
         struct ifa_cacheinfo c;
         int r;
 
