@@ -2306,6 +2306,8 @@ _public_ void sd_journal_close(sd_journal *j) {
 
         hashmap_free_free(j->errors);
 
+        set_free_free(j->exclude);
+
         free(j->path);
         free(j->prefix);
         free(j->namespace);
