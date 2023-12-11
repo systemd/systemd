@@ -38,6 +38,7 @@ struct Manager {
         bool restarting;
         bool manage_foreign_routes;
         bool manage_foreign_rules;
+        bool manage_foreign_nexthops;
 
         Set *dirty_links;
         Set *new_wlan_ifindices;

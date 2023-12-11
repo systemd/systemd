@@ -340,6 +340,10 @@ static int nexthop_acquire_id(Manager *manager, NextHop *nexthop) {
         if (nexthop->id > 0)
                 return 0;
 
+        /* If ManageForeignNextHops=no, nexthop with id == 0 should be already filtered by
+         * nexthop_section_verify(). */
+        assert(manager->manage_foreign_nexthops);
+
         /* Find the lowest unused ID. */
 
         ORDERED_HASHMAP_FOREACH(network, manager->networks) {
@@ -953,6 +957,13 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
 static int nexthop_section_verify(NextHop *nh) {
         if (section_is_invalid(nh->section))
                 return -EINVAL;
+
+        if (!nh->network->manager->manage_foreign_nexthops && nh->id == 0)
+                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                         "%s: [NextHop] section without specifying Id= is not supported "
+                                         "if ManageForeignNextHops=no is set in networkd.conf. "
+                                         "Ignoring [NextHop] section from line %u.",
+                                         nh->section->filename, nh->section->line);
 
         if (!hashmap_isempty(nh->group)) {
                 if (in_addr_is_set(nh->family, &nh->gw))
