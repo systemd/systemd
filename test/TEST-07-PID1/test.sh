@@ -36,7 +36,7 @@ EOF
     "${SYSTEMCTL:?}" enable --root="$workspace" issue2730.mount
     ln -svrf "$workspace/etc/systemd/system/issue2730.mount" "$workspace/etc/systemd/system/issue2730-alias.mount"
 
-    image_install logger
+    image_install logger socat
 }
 
 do_test "$@"
