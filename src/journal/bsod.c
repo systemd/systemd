@@ -168,7 +168,7 @@ static int display_emergency_message_fullscreen(const char *message) {
         if (ioctl(fd, VT_ACTIVATE, free_vt + 1) < 0)
                 return log_error_errno(errno, "Failed to activate tty: %m");
 
-        r = loop_write(fd, ANSI_BACKGROUND_BLUE ANSI_HOME_CLEAR, SIZE_MAX);
+        r = loop_write(fd, ANSI_BACKGROUND_BLACK ANSI_HOME_CLEAR, SIZE_MAX);
         if (r < 0)
                 log_warning_errno(r, "Failed to clear terminal, ignoring: %m");
 

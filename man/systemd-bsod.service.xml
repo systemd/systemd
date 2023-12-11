@@ -32,7 +32,7 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-bsod.service</filename> is used to display a blue screen which contains a message
+    <para><filename>systemd-bsod.service</filename> is used to display a black screen which contains a message
     relating to a boot failure, including a QR code which can be scanned to get helpful information about the
     failure.</para>
   </refsect1>
