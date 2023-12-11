@@ -2327,6 +2327,8 @@ _public_ void sd_journal_close(sd_journal *j) {
 
         hashmap_free_free(j->errors);
 
+        set_free(j->exclude_syslog_identifiers);
+
         free(j->path);
         free(j->prefix);
         free(j->namespace);
