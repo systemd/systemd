@@ -309,7 +309,6 @@ static int nexthop_add(Manager *manager, Link *link, NextHop *nexthop) {
 static int nexthop_acquire_id(Manager *manager, NextHop *nexthop) {
         _cleanup_set_free_ Set *ids = NULL;
         Network *network;
-        uint32_t id;
         int r;
 
         assert(manager);
@@ -333,16 +332,17 @@ static int nexthop_acquire_id(Manager *manager, NextHop *nexthop) {
                 }
         }
 
-        for (id = 1; id < UINT32_MAX; id++) {
+        for (uint32_t id = 1; id < UINT32_MAX; id++) {
                 if (manager_get_nexthop_by_id(manager, id, NULL) >= 0)
                         continue;
                 if (set_contains(ids, UINT32_TO_PTR(id)))
                         continue;
-                break;
+
+                nexthop->id = id;
+                return 0;
         }
 
-        nexthop->id = id;
-        return 0;
+        return -EBUSY;
 }
 
 static void log_nexthop_debug(const NextHop *nexthop, const char *str, const Link *link) {
