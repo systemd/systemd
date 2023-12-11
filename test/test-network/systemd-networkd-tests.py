@@ -3842,74 +3842,74 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'inet 10.1.2.3/16 scope global dummy98')
         self.assertNotRegex(output, 'inet 10.2.3.4/16 scope global dynamic dummy98')
 
+    def check_nexthop(self):
+        self.wait_online(['veth99:routable', 'veth-peer:routable', 'dummy98:routable'])
+
+        output = check_output('ip nexthop list dev veth99')
+        print(output)
+        self.assertIn('id 1 via 192.168.5.1 dev veth99', output)
+        self.assertIn('id 2 via 2001:1234:5:8f63::2 dev veth99', output)
+        self.assertIn('id 3 dev veth99', output)
+        self.assertIn('id 4 dev veth99', output)
+        self.assertRegex(output, 'id 5 via 192.168.10.1 dev veth99 .*onlink')
+        self.assertIn('id 8 via fe80:0:222:4dff:ff:ff:ff:ff dev veth99', output)
+        self.assertRegex(output, r'id [0-9]* via 192.168.5.2 dev veth99')
+
+        output = check_output('ip nexthop list dev dummy98')
+        print(output)
+        self.assertIn('id 20 via 192.168.20.1 dev dummy98', output)
+
+        # kernel manages blackhole nexthops on lo
+        output = check_output('ip nexthop list dev lo')
+        print(output)
+        self.assertIn('id 6 blackhole', output)
+        self.assertIn('id 7 blackhole', output)
+
+        # group nexthops are shown with -0 option
+        output = check_output('ip -0 nexthop list id 21')
+        print(output)
+        self.assertRegex(output, r'id 21 group (1,3/20|20/1,3)')
+
+        output = check_output('ip route show dev veth99 10.10.10.10')
+        print(output)
+        self.assertEqual('10.10.10.10 nhid 1 via 192.168.5.1 proto static', output)
+
+        output = check_output('ip route show dev veth99 10.10.10.11')
+        print(output)
+        self.assertEqual('10.10.10.11 nhid 2 via inet6 2001:1234:5:8f63::2 proto static', output)
+
+        output = check_output('ip route show dev veth99 10.10.10.12')
+        print(output)
+        self.assertEqual('10.10.10.12 nhid 5 via 192.168.10.1 proto static onlink', output)
+
+        output = check_output('ip -6 route show dev veth99 2001:1234:5:8f62::1')
+        print(output)
+        self.assertEqual('2001:1234:5:8f62::1 nhid 2 via 2001:1234:5:8f63::2 proto static metric 1024 pref medium', output)
+
+        output = check_output('ip route show 10.10.10.13')
+        print(output)
+        self.assertEqual('blackhole 10.10.10.13 nhid 6 dev lo proto static', output)
+
+        output = check_output('ip -6 route show 2001:1234:5:8f62::2')
+        print(output)
+        self.assertEqual('blackhole 2001:1234:5:8f62::2 nhid 7 dev lo proto static metric 1024 pref medium', output)
+
+        output = check_output('ip route show 10.10.10.14')
+        print(output)
+        self.assertIn('10.10.10.14 nhid 21 proto static', output)
+        self.assertIn('nexthop via 192.168.20.1 dev dummy98 weight 1', output)
+        self.assertIn('nexthop via 192.168.5.1 dev veth99 weight 3', output)
+
+        output = check_output(*networkctl_cmd, '--json=short', 'status', env=env)
+        check_json(output)
+
     @expectedFailureIfNexthopIsNotAvailable()
     def test_nexthop(self):
-        def check_nexthop(self):
-            self.wait_online(['veth99:routable', 'veth-peer:routable', 'dummy98:routable'])
-
-            output = check_output('ip nexthop list dev veth99')
-            print(output)
-            self.assertIn('id 1 via 192.168.5.1 dev veth99', output)
-            self.assertIn('id 2 via 2001:1234:5:8f63::2 dev veth99', output)
-            self.assertIn('id 3 dev veth99', output)
-            self.assertIn('id 4 dev veth99', output)
-            self.assertRegex(output, 'id 5 via 192.168.10.1 dev veth99 .*onlink')
-            self.assertIn('id 8 via fe80:0:222:4dff:ff:ff:ff:ff dev veth99', output)
-            self.assertRegex(output, r'id [0-9]* via 192.168.5.2 dev veth99')
-
-            output = check_output('ip nexthop list dev dummy98')
-            print(output)
-            self.assertIn('id 20 via 192.168.20.1 dev dummy98', output)
-
-            # kernel manages blackhole nexthops on lo
-            output = check_output('ip nexthop list dev lo')
-            print(output)
-            self.assertIn('id 6 blackhole', output)
-            self.assertIn('id 7 blackhole', output)
-
-            # group nexthops are shown with -0 option
-            output = check_output('ip -0 nexthop list id 21')
-            print(output)
-            self.assertRegex(output, r'id 21 group (1,3/20|20/1,3)')
-
-            output = check_output('ip route show dev veth99 10.10.10.10')
-            print(output)
-            self.assertEqual('10.10.10.10 nhid 1 via 192.168.5.1 proto static', output)
-
-            output = check_output('ip route show dev veth99 10.10.10.11')
-            print(output)
-            self.assertEqual('10.10.10.11 nhid 2 via inet6 2001:1234:5:8f63::2 proto static', output)
-
-            output = check_output('ip route show dev veth99 10.10.10.12')
-            print(output)
-            self.assertEqual('10.10.10.12 nhid 5 via 192.168.10.1 proto static onlink', output)
-
-            output = check_output('ip -6 route show dev veth99 2001:1234:5:8f62::1')
-            print(output)
-            self.assertEqual('2001:1234:5:8f62::1 nhid 2 via 2001:1234:5:8f63::2 proto static metric 1024 pref medium', output)
-
-            output = check_output('ip route show 10.10.10.13')
-            print(output)
-            self.assertEqual('blackhole 10.10.10.13 nhid 6 dev lo proto static', output)
-
-            output = check_output('ip -6 route show 2001:1234:5:8f62::2')
-            print(output)
-            self.assertEqual('blackhole 2001:1234:5:8f62::2 nhid 7 dev lo proto static metric 1024 pref medium', output)
-
-            output = check_output('ip route show 10.10.10.14')
-            print(output)
-            self.assertIn('10.10.10.14 nhid 21 proto static', output)
-            self.assertIn('nexthop via 192.168.20.1 dev dummy98 weight 1', output)
-            self.assertIn('nexthop via 192.168.5.1 dev veth99 weight 3', output)
-
-            output = check_output(*networkctl_cmd, '--json=short', 'status', env=env)
-            check_json(output)
-
         copy_network_unit('25-nexthop.network', '25-veth.netdev', '25-veth-peer.network',
                           '12-dummy.netdev', '25-nexthop-dummy.network')
         start_networkd()
 
-        check_nexthop(self)
+        self.check_nexthop()
 
         remove_network_unit('25-nexthop.network')
         copy_network_unit('25-nexthop-nothing.network')
@@ -3928,7 +3928,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         networkctl_reconfigure('dummy98')
         networkctl_reload()
 
-        check_nexthop(self)
+        self.check_nexthop()
 
         remove_link('veth99')
         time.sleep(2)
