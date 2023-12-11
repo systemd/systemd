@@ -574,7 +574,7 @@ int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message,
         if (!neighbor) {
                 r = neighbor_add(link, tmp);
                 if (r < 0) {
-                        log_link_warning_errno(link, r, "Failed to remember foreign neighbor, ignoring: %m");
+                        log_link_warning_errno(link, r, "Failed to save received neighbor, ignoring: %m");
                         return 0;
                 }
                 neighbor = TAKE_PTR(tmp);
