@@ -530,6 +530,8 @@ int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message,
                 return 0;
 
         tmp = new0(Neighbor, 1);
+        if (!tmp)
+                return log_oom();
 
         /* First, retrieve the fundamental information about the neighbor. */
         r = sd_rtnl_message_neigh_get_family(message, &tmp->family);
@@ -572,7 +574,7 @@ int manager_rtnl_process_neighbor(sd_netlink *rtnl, sd_netlink_message *message,
         if (!neighbor) {
                 r = neighbor_add(link, tmp);
                 if (r < 0) {
-                        log_link_warning_errno(link, r, "Failed to remember foreign neighbor, ignoring: %m");
+                        log_link_warning_errno(link, r, "Failed to save neighbor, ignoring: %m");
                         return 0;
                 }
                 neighbor = TAKE_PTR(tmp);
