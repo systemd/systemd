@@ -79,7 +79,6 @@ struct Manager {
         /* Manager stores routes without RTA_OIF attribute. */
         unsigned route_remove_messages;
         Set *routes;
-        Set *routes_foreign;
 
         /* Route table name */
         Hashmap *route_table_numbers_by_name;
