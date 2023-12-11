@@ -252,7 +252,9 @@ int link_get_by_index(Manager *m, int ifindex, Link **ret) {
         Link *link;
 
         assert(m);
-        assert(ifindex > 0);
+
+        if (ifindex <= 0)
+                return -EINVAL;
 
         link = hashmap_get(m->links_by_index, INT_TO_PTR(ifindex));
         if (!link)
