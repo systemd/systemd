@@ -647,7 +647,6 @@ Manager* manager_free(Manager *m) {
          * by the upstream link. And the links may be referenced by netlink slots. Hence, two
          * set_free() must be called after the above sd_netlink_unref(). */
         m->routes = set_free(m->routes);
-        m->routes_foreign = set_free(m->routes_foreign);
 
         m->nexthops = set_free(m->nexthops);
         m->nexthops_by_id = hashmap_free(m->nexthops_by_id);
