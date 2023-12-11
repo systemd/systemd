@@ -793,6 +793,56 @@ void link_foreignize_nexthops(Link *link) {
         }
 }
 
+static int nexthop_update_group(NextHop *nexthop, const struct nexthop_grp *group, size_t size) {
+        _cleanup_hashmap_free_free_ Hashmap *h = NULL;
+        size_t n_group;
+        int r;
+
+        assert(nexthop);
+        assert(group || size == 0);
+
+        if (size == 0 || size % sizeof(struct nexthop_grp) != 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "rtnl: received nexthop message with invalid nexthop group size, ignoring.");
+
+        if ((uintptr_t) group % alignof(struct nexthop_grp) != 0)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "rtnl: received nexthop message with invalid alignment, ignoring.");
+
+        n_group = size / sizeof(struct nexthop_grp);
+        for (size_t i = 0; i < n_group; i++) {
+                _cleanup_free_ struct nexthop_grp *nhg = NULL;
+
+                if (group[i].id == 0) {
+                        log_debug("rtnl: received nexthop message with invalid ID in group, ignoring.");
+                        continue;
+                }
+
+                if (group[i].weight > 254) {
+                        log_debug("rtnl: received nexthop message with invalid weight in group, ignoring.");
+                        continue;
+                }
+
+                nhg = newdup(struct nexthop_grp, group + i, 1);
+                if (!nhg)
+                        return log_oom();
+
+                r = hashmap_ensure_put(&h, NULL, UINT32_TO_PTR(nhg->id), nhg);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to store nexthop group, ignoring: %m");
+                        continue;
+                }
+                if (r > 0)
+                        TAKE_PTR(nhg);
+        }
+
+        hashmap_free_free(nexthop->group);
+        nexthop->group = TAKE_PTR(h);
+        return 0;
+}
+
 int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
         _cleanup_(nexthop_freep) NextHop *tmp = NULL;
         _cleanup_free_ void *raw_group = NULL;
@@ -872,43 +922,9 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
                 log_link_warning_errno(link, r, "rtnl: could not get NHA_GROUP attribute, ignoring: %m");
                 return 0;
         } else if (r >= 0) {
-                struct nexthop_grp *group = raw_group;
-                size_t n_group;
-
-                if (raw_group_size == 0 || raw_group_size % sizeof(struct nexthop_grp) != 0) {
-                        log_link_warning(link, "rtnl: received nexthop message with invalid nexthop group size, ignoring.");
+                r = nexthop_update_group(tmp, raw_group, raw_group_size);
+                if (r < 0)
                         return 0;
-                }
-
-                assert((uintptr_t) group % alignof(struct nexthop_grp) == 0);
-
-                n_group = raw_group_size / sizeof(struct nexthop_grp);
-                for (size_t i = 0; i < n_group; i++) {
-                        _cleanup_free_ struct nexthop_grp *nhg = NULL;
-
-                        if (group[i].id == 0) {
-                                log_link_warning(link, "rtnl: received nexthop message with invalid ID in group, ignoring.");
-                                return 0;
-                        }
-                        if (group[i].weight > 254) {
-                                log_link_warning(link, "rtnl: received nexthop message with invalid weight in group, ignoring.");
-                                return 0;
-                        }
-
-                        nhg = newdup(struct nexthop_grp, group + i, 1);
-                        if (!nhg)
-                                return log_oom();
-
-                        r = hashmap_ensure_put(&tmp->group, NULL, UINT32_TO_PTR(nhg->id), nhg);
-                        if (r == -ENOMEM)
-                                return log_oom();
-                        if (r < 0) {
-                                log_link_warning_errno(link, r, "Failed to store nexthop group, ignoring: %m");
-                                return 0;
-                        }
-                        if (r > 0)
-                                TAKE_PTR(nhg);
-                }
         }
 
         if (tmp->family != AF_UNSPEC) {
