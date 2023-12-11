@@ -3830,7 +3830,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'inet 10.1.2.3/16 scope global dummy98')
         self.assertNotRegex(output, 'inet 10.2.3.4/16 scope global dynamic dummy98')
 
-    def check_nexthop(self):
+    def check_nexthop(self, manage_foreign_nexthops):
         self.wait_online(['veth99:routable', 'veth-peer:routable', 'dummy98:routable'])
 
         output = check_output('ip nexthop list dev veth99')
@@ -3841,7 +3841,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertIn('id 4 dev veth99', output)
         self.assertRegex(output, 'id 5 via 192.168.10.1 dev veth99 .*onlink')
         self.assertIn('id 8 via fe80:0:222:4dff:ff:ff:ff:ff dev veth99', output)
-        self.assertRegex(output, r'id [0-9]* via 192.168.5.2 dev veth99')
+        if manage_foreign_nexthops:
+            self.assertRegex(output, r'id [0-9]* via 192.168.5.2 dev veth99')
 
         output = check_output('ip nexthop list dev dummy98')
         print(output)
@@ -3852,6 +3853,11 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertIn('id 6 blackhole', output)
         self.assertIn('id 7 blackhole', output)
+
+        if manage_foreign_nexthops:
+            self.assertNotIn('id 42 blackhole', output)
+        else:
+            self.assertIn('id 42 blackhole', output)
 
         # group nexthops are shown with -0 option
         output = check_output('ip -0 nexthop list id 21')
@@ -3891,13 +3897,17 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output(*networkctl_cmd, '--json=short', 'status', env=env)
         check_json(output)
 
-    @expectedFailureIfNexthopIsNotAvailable()
-    def test_nexthop(self):
+    def _test_nexthop(self, manage_foreign_nexthops):
+        if not manage_foreign_nexthops:
+            copy_networkd_conf_dropin('networkd-manage-foreign-nexthops-no.conf')
+
+        check_output('ip nexthop add id 42 blackhole proto static')
+
         copy_network_unit('25-nexthop.network', '25-veth.netdev', '25-veth-peer.network',
                           '12-dummy.netdev', '25-nexthop-dummy.network')
         start_networkd()
 
-        self.check_nexthop()
+        self.check_nexthop(manage_foreign_nexthops)
 
         remove_network_unit('25-nexthop.network')
         copy_network_unit('25-nexthop-nothing.network')
@@ -3909,21 +3919,40 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertEqual(output, '')
         output = check_output('ip nexthop list dev lo')
         print(output)
-        self.assertEqual(output, '')
+        if manage_foreign_nexthops:
+            self.assertEqual(output, '')
+        else:
+            self.assertEqual(output, 'id 42 blackhole proto static')
 
         remove_network_unit('25-nexthop-nothing.network')
         copy_network_unit('25-nexthop.network')
         networkctl_reconfigure('dummy98')
         networkctl_reload()
 
-        self.check_nexthop()
+        self.check_nexthop(manage_foreign_nexthops)
 
         remove_link('veth99')
         time.sleep(2)
 
         output = check_output('ip nexthop list dev lo')
         print(output)
-        self.assertEqual(output, '')
+        if manage_foreign_nexthops:
+            self.assertEqual(output, '')
+        else:
+            self.assertEqual(output, 'id 42 blackhole proto static')
+
+    @expectedFailureIfNexthopIsNotAvailable()
+    def test_nexthop(self):
+        first = True
+        for manage_foreign_nexthops in [True, False]:
+            if first:
+                first = False
+            else:
+                self.tearDown()
+
+            print(f'### test_nexthop(manage_foreign_nexthops={manage_foreign_nexthops})')
+            with self.subTest(manage_foreign_nexthops=manage_foreign_nexthops):
+                self._test_nexthop(manage_foreign_nexthops)
 
 class NetworkdTCTests(unittest.TestCase, Utilities):
 
