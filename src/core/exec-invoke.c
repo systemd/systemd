@@ -3947,11 +3947,9 @@ int exec_invoke(
         int secure_bits;
         _cleanup_free_ gid_t *gids_after_pam = NULL;
         int ngids_after_pam = 0;
-        _cleanup_free_ int *fds = NULL;
-        _cleanup_strv_free_ char **fdnames = NULL;
 
-        int socket_fd = -EBADF, named_iofds[3] = EBADF_TRIPLET, *params_fds = NULL;
-        size_t n_storage_fds = 0, n_socket_fds = 0;
+        int socket_fd = -EBADF, named_iofds[3] = EBADF_TRIPLET;
+        size_t n_storage_fds, n_socket_fds;
 
         assert(command);
         assert(context);
@@ -3984,8 +3982,8 @@ int exec_invoke(
                         return log_exec_error_errno(context, params, SYNTHETIC_ERRNO(EINVAL), "Got no socket.");
 
                 socket_fd = params->fds[0];
+                n_storage_fds = n_socket_fds = 0;
         } else {
-                params_fds = params->fds;
                 n_socket_fds = params->n_socket_fds;
                 n_storage_fds = params->n_storage_fds;
         }
@@ -4027,26 +4025,14 @@ int exec_invoke(
         /* In case anything used libc syslog(), close this here, too */
         closelog();
 
-        fds = newdup(int, params_fds, n_fds);
-        if (!fds) {
-                *exit_status = EXIT_MEMORY;
-                return log_oom();
-        }
-
-        fdnames = strv_copy((char**) params->fd_names);
-        if (!fdnames) {
-                *exit_status = EXIT_MEMORY;
-                return log_oom();
-        }
-
-        r = collect_open_file_fds(context, params, &fds, &fdnames, &n_fds);
+        r = collect_open_file_fds(context, params, &params->fds, &params->fd_names, &n_fds);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
                 return log_exec_error_errno(context, params, r, "Failed to get OpenFile= file descriptors: %m");
         }
 
         int keep_fds[n_fds + 3];
-        memcpy_safe(keep_fds, fds, n_fds * sizeof(int));
+        memcpy_safe(keep_fds, params->fds, n_fds * sizeof(int));
         n_keep_fds = n_fds;
 
         r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, &params->exec_fd);
@@ -4444,7 +4430,7 @@ int exec_invoke(
                         params,
                         cgroup_context,
                         n_fds,
-                        fdnames,
+                        params->fd_names,
                         home,
                         username,
                         shell,
@@ -4554,7 +4540,7 @@ int exec_invoke(
                  * wins here. (See above.) */
 
                 /* All fds passed in the fds array will be closed in the pam child process. */
-                r = setup_pam(context->pam_name, username, uid, gid, context->tty_path, &accum_env, fds, n_fds);
+                r = setup_pam(context->pam_name, username, uid, gid, context->tty_path, &accum_env, params->fds, n_fds);
                 if (r < 0) {
                         *exit_status = EXIT_PAM;
                         return log_exec_error_errno(context, params, r, "Failed to set up PAM session: %m");
@@ -4786,9 +4772,9 @@ int exec_invoke(
 
         r = close_all_fds(keep_fds, n_keep_fds);
         if (r >= 0)
-                r = shift_fds(fds, n_fds);
+                r = shift_fds(params->fds, n_fds);
         if (r >= 0)
-                r = flag_fds(fds, n_socket_fds, n_fds, context->non_blocking);
+                r = flag_fds(params->fds, n_socket_fds, n_fds, context->non_blocking);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
                 return log_exec_error_errno(context, params, r, "Failed to adjust passed file descriptors: %m");
