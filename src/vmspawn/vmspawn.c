@@ -45,8 +45,7 @@ static int arg_qemu_vsock = -1;
 static uint64_t arg_vsock_cid = UINT64_MAX;
 static bool arg_qemu_gui = false;
 static int arg_secure_boot = -1;
-static MachineCredential *arg_credentials = NULL;
-static size_t arg_n_credentials = 0;
+static MachineCredentialContext arg_credentials = {};
 static SettingsMask arg_settings_mask = 0;
 static char **arg_parameters = NULL;
 
@@ -54,6 +53,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_machine, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_qemu_smp, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_parameters, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_credentials, machine_credential_context_done);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -224,7 +224,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_SET_CREDENTIAL: {
-                        r = machine_credential_set(&arg_credentials, &arg_n_credentials, optarg);
+                        r = machine_credential_set(&arg_credentials, optarg);
                         if (r < 0)
                                 return r;
                         arg_settings_mask |= SETTING_CREDENTIALS;
@@ -232,7 +232,7 @@ static int parse_argv(int argc, char *argv[]) {
                 }
 
                 case ARG_LOAD_CREDENTIAL: {
-                        r = machine_credential_load(&arg_credentials, &arg_n_credentials, optarg);
+                        r = machine_credential_load(&arg_credentials, optarg);
                         if (r < 0)
                                 return r;
 
@@ -536,10 +536,10 @@ static int run_virtual_machine(void) {
                         return log_oom();
         }
 
-        if (ARCHITECTURE_SUPPORTS_SMBIOS) {
-                ssize_t n;
-                FOREACH_ARRAY(cred, arg_credentials, arg_n_credentials) {
+        if (ARCHITECTURE_SUPPORTS_SMBIOS)
+                FOREACH_ARRAY(cred, arg_credentials.credentials, arg_credentials.n_credentials) {
                         _cleanup_free_ char *cred_data_b64 = NULL;
+                        ssize_t n;
 
                         n = base64mem(cred->data, cred->size, &cred_data_b64);
                         if (n < 0)
@@ -553,7 +553,6 @@ static int run_virtual_machine(void) {
                         if (r < 0)
                                 return log_oom();
                 }
-        }
 
         r = strv_extend(&cmdline, "-drive");
         if (r < 0)
@@ -737,30 +736,21 @@ static int determine_names(void) {
 }
 
 static int run(int argc, char *argv[]) {
-        int r, ret = EXIT_SUCCESS;
+        int r;
 
         log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
-                goto finish;
+                return r;
 
         r = determine_names();
         if (r < 0)
-                goto finish;
+                return r;
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGTERM, SIGINT, SIGRTMIN+18, -1) >= 0);
 
-        r = run_virtual_machine();
-        if (r > 0)
-                ret = r;
-finish:
-        machine_credential_free_all(arg_credentials, arg_n_credentials);
-
-        if (r < 0)
-                return r;
-
-        return ret;
+        return run_virtual_machine();
 }
 
 DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);

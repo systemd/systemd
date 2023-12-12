@@ -9,6 +9,14 @@ typedef struct MachineCredential {
         size_t size;
 } MachineCredential;
 
-void machine_credential_free_all(MachineCredential *creds, size_t n);
-int machine_credential_set(MachineCredential **credentials, size_t *n_credentials, const char *cred_string);
-int machine_credential_load(MachineCredential **credentials, size_t *n_credentials, const char *cred_path);
+typedef struct MachineCredentialContext {
+        MachineCredential *credentials;
+        size_t n_credentials;
+} MachineCredentialContext;
+
+void machine_credential_context_done(MachineCredentialContext *ctx);
+
+bool machine_credentials_contains(const MachineCredentialContext *ctx, const char *id);
+
+int machine_credential_set(MachineCredentialContext *ctx, const char *cred_str);
+int machine_credential_load(MachineCredentialContext *ctx, const char *cred_path);
