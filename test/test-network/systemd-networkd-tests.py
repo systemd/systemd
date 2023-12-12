@@ -2621,9 +2621,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             ip6_null_74=ip6_null_74,
         )
         # nft set
-        self.check_nftset('addr4', r'10\.10\.1\.1')
-        self.check_nftset('network4', r'10\.10\.1\.0/24')
-        self.check_nftset('ifindex', 'dummy98')
+        # FIXME: re-enable once https://github.com/systemd/systemd/issues/30427 is resolved
+        #self.check_nftset('addr4', r'10\.10\.1\.1')
+        #self.check_nftset('network4', r'10\.10\.1\.0/24')
+        #self.check_nftset('ifindex', 'dummy98')
 
         self.teardown_nftset('addr4', 'network4', 'ifindex')
 
@@ -3564,6 +3565,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'inet6 .* scope link')
 
+    @unittest.skip("Re-enable once https://github.com/systemd/systemd/issues/30056 is resolved")
     def test_sysctl(self):
         copy_networkd_conf_dropin('25-global-ipv6-privacy-extensions.conf')
         copy_network_unit('25-sysctl.network', '12-dummy.netdev', copy_dropins=False)
