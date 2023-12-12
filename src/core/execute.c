@@ -1484,7 +1484,7 @@ void exec_context_revert_tty(ExecContext *c) {
 
         r = fchmod_and_chown(fd, TTY_MODE, 0, TTY_GID);
         if (r < 0)
-                log_warning_errno(r, "Failed to reset TTY ownership/access mode of %s to " UID_FMT " : " GID_FMT ", ignoring: %m", path, (uid_t) 0, (gid_t) TTY_GID);
+                log_warning_errno(r, "Failed to reset TTY ownership/access mode of %s to " UID_FMT ":" GID_FMT ", ignoring: %m", path, (uid_t) 0, (gid_t) TTY_GID);
 }
 
 int exec_context_get_clean_directories(
