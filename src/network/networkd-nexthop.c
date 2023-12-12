@@ -207,7 +207,7 @@ static bool nexthop_bound_to_link(const NextHop *nexthop) {
         return !nexthop->blackhole && hashmap_isempty(nexthop->group);
 }
 
-int manager_get_nexthop_by_id(Manager *manager, uint32_t id, NextHop **ret) {
+int nexthop_get_by_id(Manager *manager, uint32_t id, NextHop **ret) {
         NextHop *nh;
 
         assert(manager);
@@ -337,7 +337,7 @@ static int nexthop_acquire_id(Manager *manager, NextHop *nexthop) {
         }
 
         for (uint32_t id = 1; id < UINT32_MAX; id++) {
-                if (manager_get_nexthop_by_id(manager, id, NULL) >= 0)
+                if (nexthop_get_by_id(manager, id, NULL) >= 0)
                         continue;
                 if (set_contains(ids, UINT32_TO_PTR(id)))
                         continue;
@@ -537,7 +537,7 @@ static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
         HASHMAP_FOREACH(nhg, nexthop->group) {
                 NextHop *g;
 
-                if (manager_get_nexthop_by_id(link->manager, nhg->id, &g) < 0)
+                if (nexthop_get_by_id(link->manager, nhg->id, &g) < 0)
                         return false;
 
                 if (!nexthop_exists(g))
