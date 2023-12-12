@@ -55,6 +55,17 @@
 
          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><option>-t</option></term>
+        <term><option>--terminal-color</option></term>
+
+        <listitem><para>When specified, Users can change the background color of <command>systemd-bsod</command>
+        from the deafult blue. The available colors are currently: black, red, green, yellow, blue, magenta,
+        cyan, gray, light-red, light-green, light-yellow, light-blue, light-magenta, light-cyan, teal, purple,
+        pink, and orange</para>
+
+         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
     </variablelist>
 
   </refsect1>
