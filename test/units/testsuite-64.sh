@@ -1148,6 +1148,7 @@ testcase_mdadm_lvm() {
     helper_check_device_units
     # Reassemble it and check if all required symlinks exist
     mdadm --assemble "$raid_dev" --name "$raid_name" -v
+    lvm vgchange -ay "$vgroup"
     udevadm wait --settle --timeout=30 "${expected_symlinks[@]}"
     helper_check_device_symlinks
     helper_check_device_units
