@@ -371,6 +371,20 @@ int cg_attach(const char *controller, const char *path, pid_t pid) {
         return 0;
 }
 
+int cg_fd_attach(int fd, pid_t pid) {
+        char c[DECIMAL_STR_MAX(pid_t) + 2];
+
+        assert(fd >= 0);
+        assert(pid >= 0);
+
+        if (pid == 0)
+                pid = getpid_cached();
+
+        xsprintf(c, PID_FMT "\n", pid);
+
+        return write_string_file_at(fd, "cgroup.procs", c, WRITE_STRING_FILE_DISABLE_BUFFER);
+}
+
 int cg_attach_fallback(const char *controller, const char *path, pid_t pid) {
         int r;
 
