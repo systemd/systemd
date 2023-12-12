@@ -475,7 +475,7 @@ static int route_convert(Manager *manager, const Route *route, ConvertedRoutes *
                                 return r;
 
                         route_apply_nexthop(c->routes[0], nh, UINT8_MAX);
-                        c->links[0] = nh->link;
+                        (void) link_get_by_index(manager, nh->ifindex, c->links);
 
                         *ret = TAKE_PTR(c);
                         return 1;
@@ -498,7 +498,7 @@ static int route_convert(Manager *manager, const Route *route, ConvertedRoutes *
                                 return r;
 
                         route_apply_nexthop(c->routes[i], h, nhg->weight);
-                        c->links[i] = h->link;
+                        (void) link_get_by_index(manager, h->ifindex, c->links + i);
 
                         i++;
                 }

@@ -649,7 +649,6 @@ Manager* manager_free(Manager *m) {
          * set_free() must be called after the above sd_netlink_unref(). */
         m->routes = set_free(m->routes);
 
-        m->nexthops = set_free(m->nexthops);
         m->nexthops_by_id = hashmap_free(m->nexthops_by_id);
 
         sd_event_source_unref(m->speed_meter_event_source);
