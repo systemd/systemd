@@ -38,6 +38,7 @@ struct Manager {
         bool restarting;
         bool manage_foreign_routes;
         bool manage_foreign_rules;
+        bool manage_foreign_nexthops;
 
         Set *dirty_links;
         Set *new_wlan_ifindices;
@@ -72,9 +73,6 @@ struct Manager {
 
         /* Manage nexthops by id. */
         Hashmap *nexthops_by_id;
-
-        /* Manager stores nexthops without RTA_OIF attribute. */
-        Set *nexthops;
 
         /* Manager stores routes without RTA_OIF attribute. */
         unsigned route_remove_messages;

@@ -1715,8 +1715,10 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
       <varlistentry>
         <term><varname>Id=</varname></term>
         <listitem>
-          <para>The id of the next hop. Takes an integer in the range 1…4294967295. If unspecified,
-          then automatically chosen by kernel.</para>
+          <para>The id of the next hop. Takes an integer in the range 1…4294967295.
+          This is mandatory if <varname>ManageForeignNextHops=no</varname> is specified in
+          <citerefentry><refentrytitle>networkd.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+          Otherwise, if unspecified, an unused ID will be automatically picked.</para>
 
           <xi:include href="version-info.xml" xpointer="v244"/>
         </listitem>
