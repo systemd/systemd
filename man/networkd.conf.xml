@@ -91,6 +91,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>ManageForeignNextHops=</varname></term>
+        <listitem><para>A boolean. When true, <command>systemd-networkd</command> will remove nexthops
+        that are not configured in .network files (except for routes with protocol
+        <literal>kernel</literal>). When false, it will
+        not remove any foreign nexthops, keeping them even if they are not configured in a .network file.
+        Defaults to yes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>RouteTable=</varname></term>
         <listitem><para>Defines the route table name. Takes a whitespace-separated list of the pairs of
         route table name and number. The route table name and number in each pair are separated with a
