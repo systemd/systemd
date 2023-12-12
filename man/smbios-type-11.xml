@@ -37,7 +37,7 @@
   </refsect1>
 
   <refsect1>
-    <title>Core OS Command Line Arguments</title>
+    <title>Strings</title>
 
     <para>The following strings are supported:</para>
 
@@ -52,7 +52,7 @@
         <ulink url="https://systemd.io/CREDENTIALS">System and Service Credentials</ulink> for
         details.</para>
 
-        <xi:include href="version-info.xml" xpointer="v254"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
 
       <varlistentry>
