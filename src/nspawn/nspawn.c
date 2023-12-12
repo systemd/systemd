@@ -2182,7 +2182,7 @@ static int copy_devnodes(const char *dest) {
                         if (mknod(to, st.st_mode, st.st_rdev) < 0) {
                                 /* Explicitly warn the user when /dev is already populated. */
                                 if (errno == EEXIST)
-                                        log_notice("%s/dev is pre-mounted and pre-populated. If a pre-mounted /dev is provided it needs to be an unpopulated file system.", dest);
+                                        log_notice("%s/dev/ is pre-mounted and pre-populated. If a pre-mounted /dev/ is provided it needs to be an unpopulated file system.", dest);
                                 if (errno != EPERM)
                                         return log_error_errno(errno, "mknod(%s) failed: %m", to);
 
@@ -5643,7 +5643,7 @@ static int run(int argc, char *argv[]) {
                         /* Always take an exclusive lock on our own ephemeral copy. */
                         r = image_path_lock(np, LOCK_EX|LOCK_NB, &tree_global_lock, &tree_local_lock);
                         if (r < 0) {
-                                r = log_error_errno(r, "Failed to create image lock: %m");
+                                log_error_errno(r, "Failed to create image lock: %m");
                                 goto finish;
                         }
 
@@ -5668,11 +5668,11 @@ static int run(int argc, char *argv[]) {
                 } else {
                         r = image_path_lock(arg_image, (arg_read_only ? LOCK_SH : LOCK_EX) | LOCK_NB, &tree_global_lock, &tree_local_lock);
                         if (r == -EBUSY) {
-                                r = log_error_errno(r, "Disk image %s is currently busy.", arg_image);
+                                log_error_errno(r, "Disk image %s is currently busy.", arg_image);
                                 goto finish;
                         }
                         if (r < 0) {
-                                r = log_error_errno(r, "Failed to create image lock: %m");
+                                log_error_errno(r, "Failed to create image lock: %m");
                                 goto finish;
                         }
 
