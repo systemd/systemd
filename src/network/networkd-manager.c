@@ -591,6 +591,7 @@ int manager_new(Manager **ret, bool test_mode) {
                 .online_state = _LINK_ONLINE_STATE_INVALID,
                 .manage_foreign_routes = true,
                 .manage_foreign_rules = true,
+                .manage_foreign_nexthops = true,
                 .ethtool_fd = -EBADF,
                 .dhcp_duid.type = DUID_TYPE_EN,
                 .dhcp6_duid.type = DUID_TYPE_EN,
@@ -649,7 +650,6 @@ Manager* manager_free(Manager *m) {
         m->routes = set_free(m->routes);
 
         m->nexthops = set_free(m->nexthops);
-        m->nexthops_by_id = hashmap_free(m->nexthops_by_id);
 
         sd_event_source_unref(m->speed_meter_event_source);
         sd_event_unref(m->event);
@@ -866,6 +866,9 @@ static int manager_enumerate_nexthop(Manager *m) {
 
         assert(m);
         assert(m->rtnl);
+
+        if (!m->manage_foreign_nexthops)
+                return 0;
 
         r = sd_rtnl_message_new_nexthop(m->rtnl, &req, RTM_GETNEXTHOP, 0, 0);
         if (r < 0)
