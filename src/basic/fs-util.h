@@ -148,3 +148,5 @@ static inline int xopenat_lock(int dir_fd, const char *path, int open_flags, Loc
 }
 
 int link_fd(int fd, int newdirfd, const char *newpath);
+
+int linkat_replace(int olddirfd, const char *oldpath, int newdirfd, const char *newpath);
