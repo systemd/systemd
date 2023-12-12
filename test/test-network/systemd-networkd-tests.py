@@ -3565,7 +3565,6 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'inet6 .* scope link')
 
-    @unittest.skip("Re-enable once https://github.com/systemd/systemd/issues/30056 is resolved")
     def test_sysctl(self):
         copy_networkd_conf_dropin('25-global-ipv6-privacy-extensions.conf')
         copy_network_unit('25-sysctl.network', '12-dummy.netdev', copy_dropins=False)
