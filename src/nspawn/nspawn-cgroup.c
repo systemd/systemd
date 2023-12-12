@@ -35,6 +35,8 @@ static int chown_cgroup_path(const char *path, uid_t uid_shift) {
                        "cgroup.stat",
                        "cgroup.subtree_control",
                        "cgroup.threads",
+                       "memory.oom.group",
+                       "memory.reclaim",
                        "notify_on_release",
                        "tasks")
                 if (fchownat(fd, fn, uid_shift, uid_shift, 0) < 0)
