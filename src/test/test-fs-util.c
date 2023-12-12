@@ -753,6 +753,36 @@ TEST(xopenat_lock) {
         assert_se(xopenat_lock(tfd, "def", O_DIRECTORY, 0, 0755, LOCK_POSIX, LOCK_EX) == -EBADF);
 }
 
+TEST(linkat_replace) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF;
+
+        assert_se((tfd = mkdtemp_open(NULL, 0, &t)) >= 0);
+
+        _cleanup_close_ int fd1 = openat(tfd, "foo", O_CREAT|O_RDWR|O_CLOEXEC, 0600);
+        assert_se(fd1 >= 0);
+
+        assert_se(linkat_replace(tfd, "foo", tfd, "bar") >= 0);
+        assert_se(linkat_replace(tfd, "foo", tfd, "bar") >= 0);
+
+        _cleanup_close_ int fd1_check = openat(tfd, "bar", O_RDWR|O_CLOEXEC);
+        assert_se(fd1_check >= 0);
+
+        assert_se(inode_same_at(fd1, NULL, fd1_check, NULL, AT_EMPTY_PATH) > 0);
+
+        _cleanup_close_ int fd2 = openat(tfd, "baz", O_CREAT|O_RDWR|O_CLOEXEC, 0600);
+        assert_se(fd2 >= 0);
+
+        assert_se(inode_same_at(fd1, NULL, fd2, NULL, AT_EMPTY_PATH) == 0);
+
+        assert_se(linkat_replace(tfd, "foo", tfd, "baz") >= 0);
+
+        _cleanup_close_ int fd2_check = openat(tfd, "baz", O_RDWR|O_CLOEXEC);
+
+        assert_se(inode_same_at(fd2, NULL, fd2_check, NULL, AT_EMPTY_PATH) == 0);
+        assert_se(inode_same_at(fd1, NULL, fd2_check, NULL, AT_EMPTY_PATH) > 0);
+}
+
 static int intro(void) {
         arg_test_dir = saved_argv[1];
         return EXIT_SUCCESS;
