@@ -14,7 +14,7 @@ chmod 744 /tmp/badbin
 cat >/run/systemd/system/badbin_assert.service <<EOF
 [Service]
 ExecStart=/tmp/badbin
-Restart=never
+Restart=no
 EOF
 
 cat >/run/systemd/system/badbin_assert.socket <<EOF
