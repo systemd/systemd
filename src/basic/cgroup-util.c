@@ -10,6 +10,8 @@
 #include <sys/xattr.h>
 #include <unistd.h>
 
+#include "missing_fs.h"
+
 #include "alloc-util.h"
 #include "cgroup-util.h"
 #include "constants.h"
@@ -38,6 +40,39 @@
 #include "unit-name.h"
 #include "user-util.h"
 #include "xattr-util.h"
+
+int cg_path_open(const char *controller, const char *path) {
+        _cleanup_free_ char *fs = NULL;
+        int r;
+
+        r = cg_get_path(controller, path, /* item=*/ NULL, &fs);
+        if (r < 0)
+                return r;
+
+        return RET_NERRNO(open(fs, O_DIRECTORY|O_CLOEXEC));
+}
+
+int cg_cgroupid_open(int cgroupfs_fd, uint64_t id) {
+        _cleanup_close_ int fsfd = -EBADF;
+
+        if (cgroupfs_fd < 0) {
+                fsfd = open("/sys/fs/cgroup", O_CLOEXEC|O_DIRECTORY);
+                if (fsfd < 0)
+                        return -errno;
+
+                cgroupfs_fd = fsfd;
+        }
+
+        cg_file_handle fh = CG_FILE_HANDLE_INIT;
+        CG_FILE_HANDLE_CGROUPID(fh) = id;
+
+        int fd;
+        fd = open_by_handle_at(cgroupfs_fd, &fh.file_handle, O_DIRECTORY|O_CLOEXEC);
+        if (fd < 0)
+                return -errno;
+
+        return fd;
+}
 
 static int cg_enumerate_items(const char *controller, const char *path, FILE **ret, const char *item) {
         _cleanup_free_ char *fs = NULL;
@@ -1439,6 +1474,20 @@ int cg_path_get_cgroupid(const char *path, uint64_t *ret) {
         /* This is cgroupfs so we know the size of the handle, thus no need to loop around like
          * name_to_handle_at_loop() does in mountpoint-util.c */
         if (name_to_handle_at(AT_FDCWD, path, &fh.file_handle, &mnt_id, 0) < 0)
+                return -errno;
+
+        *ret = CG_FILE_HANDLE_CGROUPID(fh);
+        return 0;
+}
+
+int cg_fd_get_cgroupid(int fd, uint64_t *ret) {
+        cg_file_handle fh = CG_FILE_HANDLE_INIT;
+        int mnt_id = -1;
+
+        assert(fd >= 0);
+        assert(ret);
+
+        if (name_to_handle_at(fd, "", &fh.file_handle, &mnt_id, AT_EMPTY_PATH) < 0)
                 return -errno;
 
         *ret = CG_FILE_HANDLE_CGROUPID(fh);
