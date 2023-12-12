@@ -378,7 +378,8 @@
 
         <listitem><para>Specifies a timeout in seconds, or a time span value after which
         <filename>systemd-logind</filename> checks the idle state of all sessions. Every session that is idle for
-        longer then the timeout will be stopped. Defaults to <literal>infinity</literal>
+        longer then the timeout will be stopped. Note that this option doesn't apply to graphical sessions and you
+        should configure screen lock in your desktop environment instead. Defaults to <literal>infinity</literal>
         (<filename>systemd-logind</filename> is not checking the idle state of sessions). For details about the syntax
         of time spans, see
         <citerefentry><refentrytitle>systemd.time</refentrytitle><manvolnum>7</manvolnum></citerefentry>.
