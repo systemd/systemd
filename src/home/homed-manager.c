@@ -2123,7 +2123,7 @@ int manager_schedule_rebalance(Manager *m, bool immediately) {
         }
 
         if (immediately) {
-                /* If we are told to rebalance immediately, then mark a rebalance as pending (even if we area
+                /* If we are told to rebalance immediately, then mark a rebalance as pending (even if we are
                  * already running one) */
 
                 if (m->rebalance_event_source) {
@@ -2211,7 +2211,7 @@ int manager_reschedule_rebalance(Manager *m) {
 
         assert(m);
 
-        /* If a rebalance is pending reschedules it so it gets executed immediately */
+        /* If a rebalance is pending, reschedule it so it gets executed immediately */
 
         if (!IN_SET(m->rebalance_state, REBALANCE_PENDING, REBALANCE_SHRINKING, REBALANCE_GROWING))
                 return 0;
