@@ -1466,7 +1466,7 @@ void exec_context_revert_tty(ExecContext *c) {
         if (!path)
                 return;
 
-        fd = open(path, O_PATH|O_CLOEXEC);
+        fd = open(path, O_PATH|O_CLOEXEC); /* Pin the inode */
         if (fd < 0)
                 return (void) log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_WARNING, errno,
                                              "Failed to open TTY inode of '%s' to adjust ownership/access mode, ignoring: %m",
@@ -1485,7 +1485,7 @@ void exec_context_revert_tty(ExecContext *c) {
 
         r = fchmod_and_chown(fd, TTY_MODE, 0, TTY_GID);
         if (r < 0)
-                log_warning_errno(r, "Failed to reset TTY ownership/access mode of %s, ignoring: %m", path);
+                log_warning_errno(r, "Failed to reset TTY ownership/access mode of %s to " UID_FMT ":" GID_FMT ", ignoring: %m", path, (uid_t) 0, (gid_t) TTY_GID);
 }
 
 int exec_context_get_clean_directories(
