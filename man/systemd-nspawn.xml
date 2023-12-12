@@ -119,6 +119,28 @@
   </refsect1>
 
   <refsect1>
+    <title>Unprivileged Operation</title>
+
+    <para><command>systemd-nspawn</command> may be invoked with or without privileges. The full functionality
+    is currently only available when invoked with privileges. When invoked without privileges, various
+    limitations apply, including, but not limited to:</para>
+
+    <itemizedlist>
+      <listitem><para>Only disk image based containers are supported (i.e. <option>--image=</option>).
+      Directory based ones (i.e. <option>--directory=</option>) are not supported.</para></listitem>
+
+      <listitem><para>Machine registration via <option>--machine=</option> is not supported.</para></listitem>
+
+      <listitem><para>Only <option>--private-network</option> and <option>--network-veth</option> networking modes are supported.</para></listitem>
+    </itemizedlist>
+
+    <para>When running in unprivileged mode, some needed functionality is provided via
+    <citerefentry><refentrytitle>systemd-mountfsd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    and
+    <citerefentry><refentrytitle>systemd-nsresourced.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></para>
+  </refsect1>
+
+  <refsect1>
     <title>Options</title>
 
     <para>If option <option>--boot</option> is specified, the arguments
@@ -1910,6 +1932,8 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
       <member><citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>importctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-mountfsd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-nsresourced.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry project='url'><refentrytitle url='https://btrfs.readthedocs.io/en/latest/btrfs.html'>btrfs</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
