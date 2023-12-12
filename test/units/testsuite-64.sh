@@ -1159,6 +1159,10 @@ testcase_mdadm_lvm() {
     helper_check_device_units
 }
 
+# Disable the mdmonitor service, since it fails if there's no valid email address
+# configured in /etc/mdadm.conf, which just unnecessarily pollutes the logs
+systemctl list-unit-files mdmonitor.service >/dev/null && systemctl mask --runtime mdmonitor.service
+
 udevadm settle
 udevadm control --log-level debug
 lsblk -a
