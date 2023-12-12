@@ -209,7 +209,6 @@ static Link *link_free(Link *link) {
         link_dns_settings_clear(link);
 
         link->routes = set_free(link->routes);
-        link->nexthops = set_free(link->nexthops);
         link->neighbors = set_free(link->neighbors);
         link->addresses = set_free(link->addresses);
         link->qdiscs = set_free(link->qdiscs);
