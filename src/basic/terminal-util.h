@@ -278,6 +278,31 @@ int vt_reset_keyboard(int fd);
 int vt_restore(int fd);
 int vt_release(int fd, bool restore_vt);
 
+typedef enum ttyColorIndex {
+        TTY_BACKGROUND_BLACK,
+        TTY_BACKGROUND_RED,
+        TTY_BACKGROUND_GREEN,
+        TTY_BACKGROUND_YELLOW,
+        TTY_BACKGROUND_BLUE,
+        TTY_BACKGROUND_MAGENTA,
+        TTY_BACKGROUND_CYAN,
+        TTY_BACKGROUND_GRAY,
+        TTY_BACKGROUND_LIGHT_RED,
+        TTY_BACKGROUND_LIGHT_GREEN,
+        TTY_BACKGROUND_LIGHT_YELLOW,
+        TTY_BACKGROUND_LIGHT_BLUE,
+        TTY_BACKGROUND_LIGHT_MAGENTA,
+        TTY_BACKGROUND_LIGHT_CYAN,
+        TTY_BACKGROUND_TEAL,
+        TTY_BACKGROUND_PURPLE,
+        TTY_BACKGROUND_PINK,
+        TTY_BACKGROUND_ORANGE,
+        _TTY_COLOR_MAX_DEFINED
+} ttyColorIndex;
+
+int tty_color_index_from_string(const char *s);
+const char* tty_background_color_to_string(int i);
+
 void get_log_colors(int priority, const char **on, const char **off, const char **highlight);
 
 static inline const char* ansi_highlight_green_red(bool b) {
