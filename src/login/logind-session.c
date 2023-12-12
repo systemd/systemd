@@ -744,7 +744,7 @@ static int session_setup_stop_on_idle_timer(Session *s) {
 
         assert(s);
 
-        if (s->manager->stop_idle_session_usec == USEC_INFINITY)
+        if (s->manager->stop_idle_session_usec == USEC_INFINITY || SESSION_TYPE_IS_GRAPHICAL(s->type))
                 return 0;
 
         r = sd_event_add_time_relative(
