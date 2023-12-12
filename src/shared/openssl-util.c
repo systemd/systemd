@@ -1109,7 +1109,7 @@ int string_hashsum(
 
         _cleanup_free_ void *hash = NULL;
         size_t hash_size;
-        _cleanup_free_ char *enc;
+        _cleanup_free_ char *enc = NULL;
         int r;
 
         assert(s || len == 0);
