@@ -39,6 +39,7 @@
 #include "socket-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
+#include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
@@ -1551,3 +1552,49 @@ int set_terminal_cursor_position(int fd, unsigned int row, unsigned int column) 
 
         return 0;
 }
+
+static const char* const tty_background_color_table[_TTY_COLOR_MAX_DEFINED] = {
+        [TTY_BACKGROUND_BLACK]           = "\x1B[40m",
+        [TTY_BACKGROUND_RED]             = "\x1B[41m",
+        [TTY_BACKGROUND_GREEN]           = "\x1B[42m",
+        [TTY_BACKGROUND_YELLOW]          = "\x1B[43m",
+        [TTY_BACKGROUND_BLUE]            = "\x1B[44m",
+        [TTY_BACKGROUND_MAGENTA]         = "\x1B[45m",
+        [TTY_BACKGROUND_CYAN]            = "\x1B[46m",
+        [TTY_BACKGROUND_GRAY]            = "\x1B[100m",
+        [TTY_BACKGROUND_LIGHT_RED]       = "\x1B[101m",
+        [TTY_BACKGROUND_LIGHT_GREEN]     = "\x1B[102m",
+        [TTY_BACKGROUND_LIGHT_YELLOW]    = "\x1B[103m",
+        [TTY_BACKGROUND_LIGHT_BLUE]      = "\x1B[104m",
+        [TTY_BACKGROUND_LIGHT_MAGENTA]   = "\x1B[105m",
+        [TTY_BACKGROUND_LIGHT_CYAN]      = "\x1B[106m",
+        [TTY_BACKGROUND_TEAL]            = "\x1B[48;5;24m",
+        [TTY_BACKGROUND_PURPLE]          = "\x1B[48;5;129m",
+        [TTY_BACKGROUND_PINK]            = "\x1B[48;5;198m",
+        [TTY_BACKGROUND_ORANGE]          = "\x1B[48;5;202m",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(tty_background_color, int);
+
+static const char* const tty_color_index_table[_TTY_COLOR_MAX_DEFINED] = {
+        [TTY_BACKGROUND_BLACK]           = "black",
+        [TTY_BACKGROUND_RED]             = "red",
+        [TTY_BACKGROUND_GREEN]           = "green",
+        [TTY_BACKGROUND_YELLOW]          = "yellow",
+        [TTY_BACKGROUND_BLUE]            = "blue",
+        [TTY_BACKGROUND_MAGENTA]         = "magenta",
+        [TTY_BACKGROUND_CYAN]            = "cyan",
+        [TTY_BACKGROUND_GRAY]            = "gray",
+        [TTY_BACKGROUND_LIGHT_RED]       = "light-red",
+        [TTY_BACKGROUND_LIGHT_GREEN]     = "light-green",
+        [TTY_BACKGROUND_LIGHT_YELLOW]    = "light-yellow",
+        [TTY_BACKGROUND_LIGHT_BLUE]      = "light-blue",
+        [TTY_BACKGROUND_LIGHT_MAGENTA]   = "light-magenta",
+        [TTY_BACKGROUND_LIGHT_CYAN]      = "light-cyan",
+        [TTY_BACKGROUND_TEAL]            = "teal",
+        [TTY_BACKGROUND_PURPLE]          = "purple",
+        [TTY_BACKGROUND_PINK]            = "pink",
+        [TTY_BACKGROUND_ORANGE]          = "orange",
+};
+
+DEFINE_STRING_TABLE_LOOKUP_FROM_STRING(tty_color_index, int);
