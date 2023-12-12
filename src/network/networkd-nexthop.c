@@ -435,6 +435,7 @@ static int nexthop_configure(NextHop *nexthop, Link *link, Request *req) {
         int r;
 
         assert(nexthop);
+        assert(nexthop->id > 0);
         assert(IN_SET(nexthop->family, AF_UNSPEC, AF_INET, AF_INET6));
         assert(link);
         assert(link->manager);
@@ -448,11 +449,9 @@ static int nexthop_configure(NextHop *nexthop, Link *link, Request *req) {
         if (r < 0)
                 return r;
 
-        if (nexthop->id > 0) {
-                r = sd_netlink_message_append_u32(m, NHA_ID, nexthop->id);
-                if (r < 0)
-                        return r;
-        }
+        r = sd_netlink_message_append_u32(m, NHA_ID, nexthop->id);
+        if (r < 0)
+                return r;
 
         if (!hashmap_isempty(nexthop->group)) {
                 _cleanup_free_ struct nexthop_grp *group = NULL;
