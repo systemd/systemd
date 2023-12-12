@@ -25,6 +25,7 @@
 #include "terminal-util.h"
 
 static bool arg_continuous = false;
+static const char * arg_tty_color = NULL;
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -42,6 +43,7 @@ static int help(void) {
                "      --version         Show package version\n"
                "   -c --continuous      Make systemd-bsod wait continuously\n"
                "                        for changes in the journal\n"
+               "   -t --terminal-color  set the terminal color\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -132,7 +134,7 @@ static int find_next_free_vt(int fd, int *ret_free_vt, int *ret_original_vt) {
         return log_error_errno(SYNTHETIC_ERRNO(ENOTTY), "No free VT found: %m");
 }
 
-static int display_emergency_message_fullscreen(const char *message) {
+static int display_emergency_message_fullscreen(const char *message, const char *tty_color) {
         int r, ret = 0, free_vt = 0, original_vt = 0;
         unsigned qr_code_start_row = 1, qr_code_start_column = 1;
         char tty[STRLEN("/dev/tty") + DECIMAL_STR_MAX(int) + 1];
@@ -168,9 +170,20 @@ static int display_emergency_message_fullscreen(const char *message) {
         if (ioctl(fd, VT_ACTIVATE, free_vt + 1) < 0)
                 return log_error_errno(errno, "Failed to activate tty: %m");
 
-        r = loop_write(fd, ANSI_BACKGROUND_BLUE ANSI_HOME_CLEAR, SIZE_MAX);
-        if (r < 0)
-                log_warning_errno(r, "Failed to clear terminal, ignoring: %m");
+        if (tty_color) {
+                r = loop_write(fd, tty_color, SIZE_MAX);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to clear terminal, ignoring: %m");
+
+                r = loop_write(fd, ANSI_HOME_CLEAR, SIZE_MAX);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to clear terminal, ignoring: %m");
+        } else {
+
+                r = loop_write(fd, ANSI_BACKGROUND_BLUE ANSI_HOME_CLEAR, SIZE_MAX);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to clear terminal, ignoring: %m");
+        }
 
         r = set_terminal_cursor_position(fd, 2, 4);
         if (r < 0)
@@ -232,9 +245,10 @@ static int parse_argv(int argc, char * argv[]) {
         };
 
         static const struct option options[] = {
-                { "help",       no_argument, NULL, 'h'         },
-                { "version",    no_argument, NULL, ARG_VERSION },
-                { "continuous", no_argument, NULL, 'c'         },
+                { "help",               no_argument,            NULL, 'h'         },
+                { "version",            no_argument,            NULL, ARG_VERSION },
+                { "continuous",         no_argument,            NULL, 'c'         },
+                { "terminal-color",     required_argument,      NULL, 't'         },
                 {}
         };
 
@@ -243,7 +257,7 @@ static int parse_argv(int argc, char * argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hc", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "ht:c", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -255,6 +269,11 @@ static int parse_argv(int argc, char * argv[]) {
 
                 case 'c':
                         arg_continuous = true;
+                        break;
+
+                case 't':
+                        int tty_color_index = tty_color_index_from_string(optarg);
+                        arg_tty_color = tty_background_color_to_string(tty_color_index);
                         break;
 
                 case '?':
@@ -301,7 +320,7 @@ static int run(int argc, char *argv[]) {
 
         assert_se(sigaction_many(&nop_sigaction, SIGTERM, SIGINT) >= 0);
 
-        r = display_emergency_message_fullscreen((const char*) message);
+        r = display_emergency_message_fullscreen((const char*) message, arg_tty_color);
         if (r < 0)
                 return log_error_errno(r, "Failed to display emergency message on terminal: %m");
 
