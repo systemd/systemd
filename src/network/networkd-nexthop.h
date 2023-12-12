@@ -20,13 +20,12 @@ typedef struct Network Network;
 typedef struct NextHop {
         Network *network;
         Manager *manager;
-        Link *link;
         ConfigSection *section;
         NetworkConfigSource source;
         NetworkConfigState state;
 
         uint8_t protocol;
-
+        int ifindex;
         uint32_t id;
         bool blackhole;
         int family;
@@ -40,8 +39,13 @@ NextHop *nexthop_free(NextHop *nexthop);
 
 void network_drop_invalid_nexthops(Network *network);
 
-int link_drop_managed_nexthops(Link *link);
-int link_drop_foreign_nexthops(Link *link);
+int link_drop_nexthops(Link *link, bool foreign);
+static inline int link_drop_foreign_nexthops(Link *link) {
+        return link_drop_nexthops(link, /* foreign = */ true);
+}
+static inline int link_drop_managed_nexthops(Link *link) {
+        return link_drop_nexthops(link, /* foreign = */ false);
+}
 void link_foreignize_nexthops(Link *link);
 
 int link_request_static_nexthops(Link *link, bool only_ipv4);
