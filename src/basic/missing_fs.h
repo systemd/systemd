@@ -85,3 +85,8 @@ struct file_clone_range {
 #ifndef FS_KEY_DESCRIPTOR_SIZE
 #define FS_KEY_DESCRIPTOR_SIZE 8
 #endif
+
+/* linux/exportfs.h */
+#ifndef FILEID_KERNFS
+#define FILEID_KERNFS 0xfe
+#endif
