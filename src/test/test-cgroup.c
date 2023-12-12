@@ -5,6 +5,7 @@
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "errno-util.h"
+#include "fd-util.h"
 #include "path-util.h"
 #include "process-util.h"
 #include "string-util.h"
@@ -127,6 +128,37 @@ TEST(cg_create) {
         assert_se(cg_rmdir(SYSTEMD_CGROUP_CONTROLLER, test_a) < 0);
         assert_se(cg_migrate_recursive(SYSTEMD_CGROUP_CONTROLLER, test_a, SYSTEMD_CGROUP_CONTROLLER, here, 0) > 0);
         assert_se(cg_rmdir(SYSTEMD_CGROUP_CONTROLLER, test_a) == 0);
+}
+
+TEST(id) {
+        _cleanup_free_ char *p = NULL, *p2 = NULL;
+        _cleanup_close_ int fd = -EBADF, fd2 = -EBADF;
+        uint64_t id, id2;
+
+        fd = cg_path_open(SYSTEMD_CGROUP_CONTROLLER, "/");
+        assert_se(fd >= 0);
+
+        assert_se(fd_get_path(fd, &p) >= 0);
+        assert_se(path_equal(p, "/sys/fs/cgroup"));
+
+        assert_se(cg_fd_get_cgroupid(fd, &id) >= 0);
+
+        fd2 = cg_cgroupid_open(fd, id);
+
+        if (ERRNO_IS_NEG_PRIVILEGE(fd2))
+                log_notice("Skipping open-by-cgroup-id test because lacking privs.");
+        else {
+                assert_se(fd2 >= 0);
+
+                assert_se(fd_get_path(fd2, &p2) >= 0);
+                assert_se(path_equal(p2, "/sys/fs/cgroup"));
+
+                assert_se(cg_fd_get_cgroupid(fd2, &id2) >= 0);
+
+                assert_se(id == id2);
+
+                assert_se(inode_same_at(fd, NULL, fd2, NULL, AT_EMPTY_PATH) > 0);
+        }
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
