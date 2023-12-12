@@ -2179,7 +2179,7 @@ int dissected_image_mount(
                         if (r > 0)
                                 ok = true;
                 }
-                if (!ok && FLAGS_SET(flags, DISSECT_IMAGE_VALIDATE_OS_EXT)) {
+                if (!ok && FLAGS_SET(flags, DISSECT_IMAGE_VALIDATE_OS_EXT) && m->image_name) {
                         r = extension_has_forbidden_content(where);
                         if (r < 0)
                                 return r;
@@ -3390,10 +3390,7 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
         assert(m);
 
         for (; n_meta_initialized < _META_MAX; n_meta_initialized ++) {
-                if (!paths[n_meta_initialized]) {
-                        fds[2*n_meta_initialized] = fds[2*n_meta_initialized+1] = -EBADF;
-                        continue;
-                }
+                assert(paths[n_meta_initialized]);
 
                 if (pipe2(fds + 2*n_meta_initialized, O_CLOEXEC) < 0) {
                         r = -errno;
@@ -3435,14 +3432,16 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
                 for (unsigned k = 0; k < _META_MAX; k++) {
                         _cleanup_close_ int fd = -ENOENT;
 
-                        if (!paths[k])
-                                continue;
+                        assert(paths[k]);
 
                         fds[2*k] = safe_close(fds[2*k]);
 
                         switch (k) {
 
                         case META_SYSEXT_RELEASE:
+                                if (!m->image_name)
+                                        goto next;
+
                                 /* As per the os-release spec, if the image is an extension it will have a
                                  * file named after the image name in extension-release.d/ - we use the image
                                  * name and try to resolve it with the extension-release helpers, as
@@ -3463,6 +3462,9 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
                                 break;
 
                         case META_CONFEXT_RELEASE:
+                                if (!m->image_name)
+                                        goto next;
+
                                 /* As above */
                                 r = open_extension_release(
                                                 t,
@@ -3498,7 +3500,7 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
                                 if (r < 0)
                                         goto inner_fail;
 
-                                continue;
+                                goto next;
                         }
 
                         default:
@@ -3511,14 +3513,14 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
 
                         if (fd < 0) {
                                 log_debug_errno(fd, "Failed to read %s file of image, ignoring: %m", paths[k]);
-                                fds[2*k+1] = safe_close(fds[2*k+1]);
-                                continue;
+                                goto next;
                         }
 
                         r = copy_bytes(fd, fds[2*k+1], UINT64_MAX, 0);
                         if (r < 0)
                                 goto inner_fail;
 
+                next:
                         fds[2*k+1] = safe_close(fds[2*k+1]);
                 }
 
@@ -3535,8 +3537,7 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
         for (unsigned k = 0; k < _META_MAX; k++) {
                 _cleanup_fclose_ FILE *f = NULL;
 
-                if (!paths[k])
-                        continue;
+                assert(paths[k]);
 
                 fds[2*k+1] = safe_close(fds[2*k+1]);
 
@@ -3628,18 +3629,25 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
         r = wait_for_terminate_and_check("(sd-dissect)", child, 0);
         child = 0;
         if (r < 0)
-                return r;
+                goto finish;
 
         n = read(error_pipe[0], &v, sizeof(v));
-        if (n < 0)
-                return -errno;
-        if (n == sizeof(v))
-                return v; /* propagate error sent to us from child */
-        if (n != 0)
-                return -EIO;
-
-        if (r != EXIT_SUCCESS)
-                return -EPROTO;
+        if (n < 0) {
+                r = -errno;
+                goto finish;
+        }
+        if (n == sizeof(v)) {
+                r = v; /* propagate error sent to us from child */
+                goto finish;
+        }
+        if (n != 0) {
+                r = -EIO;
+                goto finish;
+        }
+        if (r != EXIT_SUCCESS) {
+                r = -EPROTO;
+                goto finish;
+        }
 
         free_and_replace(m->hostname, hostname);
         m->machine_id = machine_id;
