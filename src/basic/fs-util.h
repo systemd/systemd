@@ -140,3 +140,5 @@ typedef enum XOpenFlags {
 int xopenat(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode);
 
 int xopenat_lock(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode, LockType locktype, int operation);
+
+int linkat_replace(int olddirfd, const char *oldpath, int newdirfd, const char *newpath);
