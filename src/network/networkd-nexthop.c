@@ -203,6 +203,10 @@ static int nexthop_dup(const NextHop *src, NextHop **ret) {
         return 0;
 }
 
+static bool nexthop_bound_to_link(const NextHop *nexthop) {
+        return !nexthop->blackhole && hashmap_isempty(nexthop->group);
+}
+
 int manager_get_nexthop_by_id(Manager *manager, uint32_t id, NextHop **ret) {
         NextHop *nh;
 
@@ -220,17 +224,13 @@ int manager_get_nexthop_by_id(Manager *manager, uint32_t id, NextHop **ret) {
         return 0;
 }
 
-static bool nexthop_owned_by_link(const NextHop *nexthop) {
-        return !nexthop->blackhole && hashmap_isempty(nexthop->group);
-}
-
 static int nexthop_get(Manager *manager, Link *link, NextHop *in, NextHop **ret) {
         NextHop *nexthop;
         Set *nexthops;
 
         assert(in);
 
-        if (nexthop_owned_by_link(in)) {
+        if (nexthop_bound_to_link(in)) {
                 if (!link)
                         return -ENOENT;
 
@@ -279,7 +279,7 @@ static int nexthop_add(Manager *manager, Link *link, NextHop *nexthop) {
         assert(nexthop);
         assert(nexthop->id > 0);
 
-        if (nexthop_owned_by_link(nexthop)) {
+        if (nexthop_bound_to_link(nexthop)) {
                 assert(link);
 
                 r = set_ensure_put(&link->nexthops, &nexthop_hash_ops, nexthop);
@@ -523,7 +523,7 @@ static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
         if (!link_is_ready_to_configure(link, false))
                 return false;
 
-        if (nexthop_owned_by_link(nexthop)) {
+        if (nexthop_bound_to_link(nexthop)) {
                 /* TODO: fdb nexthop does not require IFF_UP. The conditions below needs to be updated
                  * when fdb nexthop support is added. See rtm_to_nh_config() in net/ipv4/nexthop.c of
                  * kernel. */
@@ -959,7 +959,7 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
 
         /* All blackhole or group nexthops are managed by Manager. Note that the linux kernel does not
          * set NHA_OID attribute when NHA_BLACKHOLE or NHA_GROUP is set. Just for safety. */
-        if (!nexthop_owned_by_link(tmp))
+        if (!nexthop_bound_to_link(tmp))
                 link = NULL;
 
         (void) nexthop_get(m, link, tmp, &nexthop);
