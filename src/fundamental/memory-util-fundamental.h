@@ -78,6 +78,7 @@ typedef struct ArrayCleanup {
         void **parray;
         size_t *pn;
         free_array_func_t pfunc;
+        bool clear;
 } ArrayCleanup;
 
 static inline void array_cleanup(const ArrayCleanup *c) {
@@ -91,10 +92,12 @@ static inline void array_cleanup(const ArrayCleanup *c) {
         if (*c->parray) {
                 assert(c->pfunc);
                 c->pfunc(*c->parray, *c->pn);
-                *c->parray = NULL;
         }
 
-        *c->pn = 0;
+        if (c->clear) {
+                *c->parray = NULL;
+                *c->pn = 0;
+        }
 }
 
 #define CLEANUP_ARRAY(array, n, func)                                   \
@@ -105,4 +108,16 @@ static inline void array_cleanup(const ArrayCleanup *c) {
                                 void (*_f)(typeof(array[0]) *a, size_t b) = func; \
                                 _f;                                     \
                         }),                                             \
+                .clear = true                                           \
+        }
+
+#define CLEANUP_ARRAY_STACK(array, n, func)                                   \
+        _cleanup_(array_cleanup) _unused_ const ArrayCleanup CONCATENATE(_cleanup_array_, UNIQ) = { \
+                .parray = (void**) &(array),                            \
+                .pn = &(n),                                             \
+                .pfunc = (free_array_func_t) ({                         \
+                                void (*_f)(typeof(array[0]) *a, size_t b) = func; \
+                                _f;                                     \
+                        }),                                             \
+                .clear = false                                          \
         }
