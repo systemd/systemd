@@ -702,6 +702,31 @@ int link_request_static_nexthops(Link *link, bool only_ipv4) {
         return 0;
 }
 
+static bool nexthop_can_update(const NextHop *assigned_nexthop, const NextHop *requested_nexthop) {
+        assert(assigned_nexthop);
+        assert(assigned_nexthop->manager);
+        assert(requested_nexthop);
+        assert(requested_nexthop->network);
+
+        /* A group nexthop cannot be replaced with a non-group nexthop, and vice versa.
+         * See replace_nexthop_grp() and replace_nexthop_single() in net/ipv4/nexthop.c of the kernel. */
+        if (hashmap_isempty(assigned_nexthop->group) != hashmap_isempty(requested_nexthop->group))
+                return false;
+
+        /* There are several more conditions if we can replace a group nexthop, e.g. hash threshold and
+         * resilience. But, currently we do not support to modify that. Let's add checks for them in the
+         * future when we support to configure them.*/
+
+        /* When a nexthop is replaced with a blackhole nexthop, and a group nexthop has multiple nexthops
+         * including this nexthop, then the kernel refuses to replace the existing nexthop.
+         * So, here, for simplicity, let's unconditionally refuse to replace a non-blackhole nexthop with
+         * a blackhole nexthop. See replace_nexthop() in net/ipv4/nexthop.c of the kernel. */
+        if (!assigned_nexthop->blackhole && requested_nexthop->blackhole)
+                return false;
+
+        return true;
+}
+
 static void link_mark_nexthops(Link *link, bool foreign) {
         NextHop *nexthop;
         Link *other;
@@ -741,8 +766,14 @@ static void link_mark_nexthops(Link *link, bool foreign) {
                 HASHMAP_FOREACH(nexthop, other->network->nexthops_by_section) {
                         NextHop *existing;
 
-                        if (nexthop_get(other, nexthop, &existing) >= 0)
-                                nexthop_unmark(existing);
+                        if (nexthop_get(other, nexthop, &existing) < 0)
+                                continue;
+
+                        if (!nexthop_can_update(existing, nexthop))
+                                continue;
+
+                        /* Found matching static configuration. Keep the existing nexthop. */
+                        nexthop_unmark(existing);
                 }
         }
 }
