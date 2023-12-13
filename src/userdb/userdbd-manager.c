@@ -185,7 +185,6 @@ static int start_one_worker(Manager *m) {
                         _exit(EXIT_FAILURE);
                 }
 
-
                 if (setenv("USERDB_FIXED_WORKER", one_zero(fixed), 1) < 0) {
                         log_error_errno(errno, "Failed to set $USERDB_FIXED_WORKER: %m");
                         _exit(EXIT_FAILURE);
