@@ -47,10 +47,6 @@
 #define DEFAULT_COMPRESS_THRESHOLD (512ULL)
 #define MIN_COMPRESS_THRESHOLD (8ULL)
 
-#define U64_KB UINT64_C(1024)
-#define U64_MB (UINT64_C(1024) * U64_KB)
-#define U64_GB (UINT64_C(1024) * U64_MB)
-
 /* This is the minimum journal file size */
 #define JOURNAL_FILE_SIZE_MIN (512 * U64_KB)             /* 512 KiB */
 #define JOURNAL_COMPACT_SIZE_MAX ((uint64_t) UINT32_MAX) /* 4 GiB */

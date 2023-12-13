@@ -158,6 +158,10 @@
                 __atomic_exchange_n(&(o), true, __ATOMIC_SEQ_CST); \
         })
 
+#define U64_KB UINT64_C(1024)
+#define U64_MB (UINT64_C(1024) * U64_KB)
+#define U64_GB (UINT64_C(1024) * U64_MB)
+
 #undef MAX
 #define MAX(a, b) __MAX(UNIQ, (a), UNIQ, (b))
 #define __MAX(aq, a, bq, b)                             \
