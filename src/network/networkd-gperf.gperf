@@ -25,6 +25,7 @@ Network.SpeedMeter,                      config_parse_bool,                     
 Network.SpeedMeterIntervalSec,           config_parse_sec,                       0,          offsetof(Manager, speed_meter_interval_usec)
 Network.ManageForeignRoutingPolicyRules, config_parse_bool,                      0,          offsetof(Manager, manage_foreign_rules)
 Network.ManageForeignRoutes,             config_parse_bool,                      0,          offsetof(Manager, manage_foreign_routes)
+Network.ManageForeignNextHops,           config_parse_bool,                      0,          offsetof(Manager, manage_foreign_nexthops)
 Network.RouteTable,                      config_parse_route_table_names,         0,          0
 Network.IPv6PrivacyExtensions,           config_parse_ipv6_privacy_extensions,   0,          offsetof(Manager, ipv6_privacy_extensions)
 DHCPv4.DUIDType,                         config_parse_duid_type,                 0,          offsetof(Manager, dhcp_duid)
