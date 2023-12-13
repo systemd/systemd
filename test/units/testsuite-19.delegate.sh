@@ -26,6 +26,19 @@ systemd-run --wait \
                  -w /sys/fs/cgroup/system.slice/test-0.service/cgroup.procs -a \
                  -w /sys/fs/cgroup/system.slice/test-0.service/cgroup.subtree_control
 
+# Test if this also works for some of the more recent attrs the kernel might or might not support
+for attr in cgroup.threads memory.oom.group memory.reclaim ; do
+
+    if grep -q "$attr" /sys/kernel/cgroup/delegate ; then
+        systemd-run --wait \
+                    --unit=test-0.service \
+                    --property="DynamicUser=1" \
+                    --property="Delegate=" \
+                    test -w /sys/fs/cgroup/system.slice/test-0.service/ -a \
+                    -w /sys/fs/cgroup/system.slice/test-0.service/"$attr"
+    fi
+done
+
 systemd-run --wait \
             --unit=test-1.service \
             --property="DynamicUser=1" \
