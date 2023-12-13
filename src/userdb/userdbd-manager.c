@@ -13,6 +13,7 @@
 #include "signal-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
+#include "strv.h"
 #include "umask-util.h"
 #include "userdbd-manager.h"
 
@@ -264,57 +265,85 @@ static int start_workers(Manager *m, bool explicit_request) {
         return 0;
 }
 
-int manager_startup(Manager *m) {
-        int n, r;
+static int manager_make_listen_socket(Manager *m) {
+        static const union sockaddr_union sockaddr = {
+                .un.sun_family = AF_UNIX,
+                .un.sun_path = "/run/systemd/userdb/io.systemd.Multiplexer",
+        };
+        int r;
 
         assert(m);
-        assert(m->listen_fd < 0);
 
-        n = sd_listen_fds(false);
+        if (m->listen_fd >= 0)
+                return 0;
+
+        r = mkdir_p("/run/systemd/userdb", 0755);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create /run/systemd/userdb: %m");
+
+        m->listen_fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
+        if (m->listen_fd < 0)
+                return log_error_errno(errno, "Failed to bind on socket: %m");
+
+        (void) sockaddr_un_unlink(&sockaddr.un);
+
+        WITH_UMASK(0000)
+                if (bind(m->listen_fd, &sockaddr.sa, SOCKADDR_UN_LEN(sockaddr.un)) < 0)
+                        return log_error_errno(errno, "Failed to bind socket: %m");
+
+        FOREACH_STRING(alias,
+                       "/run/systemd/userdb/io.systemd.NameServiceSwitch",
+                       "/run/systemd/userdb/io.systemd.DropIn") {
+
+                r = symlink_idempotent("io.systemd.Multiplexer", alias, /* make_relative= */ false);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to symlink '%s': %m", alias);
+        }
+
+        if (listen(m->listen_fd, SOMAXCONN_DELUXE) < 0)
+                return log_error_errno(errno, "Failed to listen on socket: %m");
+
+        return 1;
+}
+
+static int manager_scan_listen_fds(Manager *m) {
+        int n;
+
+        assert(m);
+
+        n = sd_listen_fds(/* unset_environment= */ true);
         if (n < 0)
                 return log_error_errno(n, "Failed to determine number of passed file descriptors: %m");
         if (n > 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Expected one listening fd, got %i.", n);
         if (n == 1)
                 m->listen_fd = SD_LISTEN_FDS_START;
-        else {
-                static const union sockaddr_union sockaddr = {
-                        .un.sun_family = AF_UNIX,
-                        .un.sun_path = "/run/systemd/userdb/io.systemd.Multiplexer",
-                };
 
-                r = mkdir_p("/run/systemd/userdb", 0755);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create /run/systemd/userdb: %m");
+        return 0;
+}
 
-                m->listen_fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
-                if (m->listen_fd < 0)
-                        return log_error_errno(errno, "Failed to bind on socket: %m");
+int manager_startup(Manager *m) {
+        int r;
 
-                (void) sockaddr_un_unlink(&sockaddr.un);
+        assert(m);
+        assert(m->listen_fd < 0);
 
-                WITH_UMASK(0000)
-                        if (bind(m->listen_fd, &sockaddr.sa, SOCKADDR_UN_LEN(sockaddr.un)) < 0)
-                                return log_error_errno(errno, "Failed to bind socket: %m");
+        r = manager_scan_listen_fds(m);
+        if (r < 0)
+                return r;
 
-                r = symlink_idempotent("io.systemd.Multiplexer",
-                                       "/run/systemd/userdb/io.systemd.NameServiceSwitch", false);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to bind io.systemd.Multiplexer: %m");
-
-                r = symlink_idempotent("io.systemd.Multiplexer",
-                                       "/run/systemd/userdb/io.systemd.DropIn", false);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to bind io.systemd.Multiplexer: %m");
-
-                if (listen(m->listen_fd, SOMAXCONN_DELUXE) < 0)
-                        return log_error_errno(errno, "Failed to listen on socket: %m");
-        }
+        r = manager_make_listen_socket(m);
+        if (r < 0)
+                return r;
 
         /* Let's make sure every accept() call on this socket times out after 25s. This allows workers to be
          * GC'ed on idle */
         if (setsockopt(m->listen_fd, SOL_SOCKET, SO_RCVTIMEO, TIMEVAL_STORE(LISTEN_TIMEOUT_USEC), sizeof(struct timeval)) < 0)
                 return log_error_errno(errno, "Failed to se SO_RCVTIMEO: %m");
 
-        return start_workers(m, /* explicit_request= */ false);
+        r = start_workers(m, /* explicit_request= */ false);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
