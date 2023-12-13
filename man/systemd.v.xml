@@ -1,0 +1,163 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd.v">
+
+  <refentryinfo>
+    <title>systemd.v</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd.v</refentrytitle>
+    <manvolnum>7</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd.v</refname>
+    <refpurpose>Directory with Versioned Resources</refpurpose>
+  </refnamediv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>In various places systemd components accept paths whose trailing components have the
+    <literal>.v/</literal> suffix, pointing to a directory. These components will then automatically look for
+    suitable files inside the directory, do a version comparison and open the newest file found (by
+    version). Specifically, two expressions are supported:</para>
+
+    <itemizedlist>
+
+      <listitem><para>When looking for files with a suffix <replaceable>.SUFFIX</replaceable>, and a path
+      <filename>…<replaceable>PATH</replaceable>/<replaceable>NAME</replaceable><replaceable>.SUFFIX</replaceable>.v/</filename>
+      is specified, then all files
+      <filename>…<replaceable>PATH</replaceable>/<replaceable>NAME</replaceable><replaceable>.SUFFIX</replaceable>.v/<replaceable>NAME</replaceable>_*<replaceable>.SUFFIX</replaceable></filename>
+      are enumerated, filtered, sorted and the newest file used. The primary sorting key is the
+      <emphasis>variable part</emphasis>, here indicated by the wildcard
+      <literal>*</literal>.</para></listitem>
+
+      <listitem><para>When a path
+      <filename>…<replaceable>PATH</replaceable>.v/<replaceable>NAME</replaceable>___<replaceable>.SUFFIX</replaceable></filename>
+      is specified (i.e. the penultimate component of the path ends in <literal>.v</literal> and the final
+      component contains a triple underscore), then all files
+      <filename>…<replaceable>PATH</replaceable>.v/<replaceable>NAME</replaceable>_*<replaceable>.SUFFIX</replaceable></filename>
+      are enumerated, filtered, sorted and the newest file used (again, by the <emphasis>variable
+      part</emphasis>, here indicated by the wildcard <literal>*</literal>).</para></listitem>
+    </itemizedlist>
+
+    <para>To illustrate this in an example, consider a directory <filename>/var/lib/machines/mymachine.raw.v/</filename>, which is populated with three files:</para>
+
+    <itemizedlist>
+      <listitem><para><filename>mymachine_7.5.13.raw</filename></para></listitem>
+      <listitem><para><filename>mymachine_7.5.14.raw</filename></para></listitem>
+      <listitem><para><filename>mymachine_7.6.0.raw</filename></para></listitem>
+    </itemizedlist>
+
+    <para>Invoke a tool such as <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry> with a command line like the following:</para>
+
+    <programlisting># systemd-nspawn --image=/var/lib/machines/mymachine.raw.v --boot</programlisting>
+
+    <para>Then this would automatically be resolved to the equivalent of:</para>
+
+    <programlisting># systemd-nspawn --image=/var/lib/machines/mymachine.raw.v/mymachine_7.6.0.raw --boot</programlisting>
+
+    <para>Much of systemd's functionality that expects a path to a disk image or OS directory hierarchy
+    support the <literal>.v/</literal> versioned directory mechanism, for example
+    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>systemd-dissect</refentrytitle><manvolnum>1</manvolnum></citerefentry> or
+    the <varname>RootDirectory=</varname>/<varname>RootImage=</varname> settings of service files (see
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>).</para>
+
+    <para>Use the
+    <citerefentry><refentrytitle>systemd-vpick</refentrytitle><manvolnum>1</manvolnum></citerefentry> tool to
+    resolve <literal>.v/</literal> paths from the command line, for example for usage in shell
+    scripts.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Filtering and Sorting</title>
+
+    <para>The variable part of the filenames in the <literal>.v/</literal> directories are filtered and
+    compared primarily with a version comparison, implementing <ulink
+    url="https://uapi-group.org/specifications/specs/version_format_specification/">Version Format
+    Specification</ulink>. However, additional rules apply:</para>
+
+    <itemizedlist>
+      <listitem><para>If the variable part is suffixed by one or two integer values ("tries left" and "tries
+      done") in the formats <filename>+<replaceable>LEFT</replaceable></filename> or
+      <filename>+<replaceable>LEFT</replaceable>-<replaceable>DONE</replaceable></filename>, then these
+      indicate usage attempt counters. The idea is that each time before a file is attempted to be used, its
+      "tries left" counter is decreased, and the "tries done" counter increased (simply by renaming the
+      file). When the file is successfully used (which for example could mean for an OS image: successfully
+      booted) the counters are removed from the file name, indicating that the file has been validated to
+      work correctly. This mechanism mirrors the boot assessment counters defined by <ulink
+      url="https://systemd.io/AUTOMATIC_BOOT_ASSESSMENT/">Automatic Boot Assessment</ulink>. Any filenames
+      with no boot counters or with a non-zero "tries left" counter are sorted before filenames with a zero
+      "tries left" counter.</para></listitem>
+
+      <listitem><para>Preceeding the use counters (if they are specified), an optional CPU architecture
+      identifier may be specified in the filename (separated from the version with an underscore), as defined
+      in the architecture vocabulary of the <varname>ConditionArchitecture=</varname> unit file setting, as
+      documented in
+      <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Files
+      whose name indicates an architecture not supported locally are filtered and not considered for the
+      version comparison.</para></listitem>
+
+      <listitem><para>The rest of the variable part is the version string.</para></listitem>
+    </itemizedlist>
+
+    <para>Or in other words, the files in the <literal>.v/</literal> directories should follow one of these
+    naming structures:</para>
+
+    <itemizedlist>
+      <listitem><para><filename><replaceable>NAME</replaceable>_<replaceable>VERSION</replaceable><replaceable>.SUFFIX</replaceable></filename></para></listitem>
+      <listitem><para><filename><replaceable>NAME</replaceable>_<replaceable>VERSION</replaceable>_<replaceable>ARCHITECTURE</replaceable><replaceable>.SUFFIX</replaceable></filename></para></listitem>
+      <listitem><para><filename><replaceable>NAME</replaceable>_<replaceable>VERSION</replaceable>+<replaceable>LEFT</replaceable><replaceable>.SUFFIX</replaceable></filename></para></listitem>
+      <listitem><para><filename><replaceable>NAME</replaceable>_<replaceable>VERSION</replaceable>+<replaceable>LEFT</replaceable>-<replaceable>DONE</replaceable><replaceable>.SUFFIX</replaceable></filename></para></listitem>
+      <listitem><para><filename><replaceable>NAME</replaceable>_<replaceable>VERSION</replaceable>_<replaceable>ARCHITECTURE</replaceable>+<replaceable>LEFT</replaceable><replaceable>.SUFFIX</replaceable></filename></para></listitem>
+      <listitem><para><filename><replaceable>NAME</replaceable>_<replaceable>VERSION</replaceable>_<replaceable>ARCHITECTURE</replaceable>+<replaceable>LEFT</replaceable>-<replaceable>DONE</replaceable><replaceable>.SUFFIX</replaceable></filename></para></listitem>
+    </itemizedlist>
+  </refsect1>
+
+  <refsect1>
+    <title>Example</title>
+
+    <para>Here's a more comprehensive example, further extending the one described above. Consider a
+    directory <filename>/var/lib/machines/mymachine.raw.v/</filename>, which is populated with the following
+    files:</para>
+
+    <itemizedlist>
+      <listitem><para><filename>mymachine_7.5.13.raw</filename></para></listitem>
+      <listitem><para><filename>mymachine_7.5.14_x86-64.raw</filename></para></listitem>
+      <listitem><para><filename>mymachine_7.6.0_arm64.raw</filename></para></listitem>
+      <listitem><para><filename>mymachine_7.7.0_x86-64+0-5.raw</filename></para></listitem>
+    </itemizedlist>
+
+    <para>Now invoke the following command on an x86-64 machine:</para>
+
+    <programlisting>$ systemd-vpick --suffix=.raw /var/lib/machines/mymachine.raw.v/</programlisting>
+
+    <para>This would resolve the specified path to
+    <filename>/var/lib/machines/mymachine.raw.v/mymachine_7.5.14_x86-64.raw</filename>. Explanation: even
+    though <filename>mymachine_7.7.0_x86-64+0-5.raw</filename> has the newest version, it is not preferred
+    because its tries left counter is zero. And even though <filename>mymachine_7.6.0_arm64.raw</filename>
+    has the second newest version it is also not considered, in this case because we operate on an x86_64
+    system and the image is intended for arm64 CPUs. Finally, the <filename>mymachine_7.5.13.raw</filename>
+    image is not considered because it is older than <filename>mymachine_7.5.14_x86-64.raw</filename>.</para>
+  </refsect1>
+
+  <refsect1>
+      <title>See Also</title>
+      <para>
+        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-vpick</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-dissect</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd-sysupdate</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      </para>
+  </refsect1>
+
+</refentry>
