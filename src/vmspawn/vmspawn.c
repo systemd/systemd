@@ -13,6 +13,7 @@
 #include "copy.h"
 #include "creds-util.h"
 #include "escape.h"
+#include "extract-word.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -20,7 +21,7 @@
 #include "hostname-util.h"
 #include "log.h"
 #include "machine-credential.h"
-#include "macro-fundamental.h"
+#include "macro.h"
 #include "main-func.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -34,7 +35,8 @@
 #include "sd-event.h"
 #include "signal-util.h"
 #include "socket-util.h"
-#include "string-util-fundamental.h"
+#include "vmspawn-mount.h"
+#include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
 #include "unit-name.h"
@@ -60,6 +62,8 @@ static int arg_secure_boot = -1;
 static uid_t arg_uid_shift = UID_INVALID, arg_uid_range = 0x10000U;
 static MachineCredential *arg_credentials = NULL;
 static size_t arg_n_credentials = 0;
+static RuntimeMount *arg_runtime_mounts = NULL;
+static size_t arg_n_runtime_mounts = 0;
 static SettingsMask arg_settings_mask = 0;
 static char **arg_kernel_cmdline_extra = NULL;
 
@@ -110,6 +114,12 @@ static int help(void) {
                "     --private-users=UIDBASE[:NUIDS]\n"
                "                            Configure the UID/GID range to map into the\n"
                "                            virtiofsd namespace\n\n"
+               "%3$sMounts:%4$s\n"
+               "     --bind=SOURCE[:TARGET]\n"
+               "                            Mount a file or directory from the host into\n"
+               "                            the VM.\n"
+               "     --bind-ro=SOURCE[:TARGET]\n"
+               "                            Similar, but creates a read-only mount\n"
                "%3$sCredentials:%4$s\n"
                "     --set-credential=ID:VALUE\n"
                "                            Pass a credential with literal value to container.\n"
@@ -141,6 +151,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_QEMU_INITRD,
                 ARG_QEMU_GUI,
                 ARG_QEMU_NET,
+                ARG_BIND,
+                ARG_BIND_RO,
                 ARG_SECURE_BOOT,
                 ARG_PRIVATE_USERS,
                 ARG_SET_CREDENTIAL,
@@ -164,6 +176,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "qemu-initrd",     required_argument, NULL, ARG_QEMU_INITRD     },
                 { "qemu-gui",        no_argument,       NULL, ARG_QEMU_GUI        },
                 { "qemu-net",        required_argument, NULL, ARG_QEMU_NET        },
+                { "bind",            required_argument, NULL, ARG_BIND            },
+                { "bind-ro",         required_argument, NULL, ARG_BIND_RO         },
                 { "secure-boot",     required_argument, NULL, ARG_SECURE_BOOT     },
                 { "private-users",   required_argument, NULL, ARG_PRIVATE_USERS   },
                 { "set-credential",  required_argument, NULL, ARG_SET_CREDENTIAL  },
@@ -186,7 +200,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return version();
 
                 case 'D':
-                        r = parse_path_argument(optarg, false, &arg_directory);
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_directory);
                         if (r < 0)
                                 return r;
 
@@ -284,6 +298,15 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_qemu_network_stack(optarg, &arg_qemu_net);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse --qemu-net=%s: %m", optarg);
+                        break;
+
+                case ARG_BIND:
+                case ARG_BIND_RO:
+                        r = runtime_mount_parse(&arg_runtime_mounts, &arg_n_runtime_mounts, optarg, c == ARG_BIND_RO);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --bind(-ro)= argument %s: %m", optarg);
+
+                        arg_settings_mask |= SETTING_BIND_MOUNTS;
                         break;
 
                 case ARG_SECURE_BOOT:
@@ -633,7 +656,7 @@ static int find_initrd(char *kernel, char **ret_initrd) {
         return -ESRCH;
 }
 
-static int start_virtiofsd(sd_bus *bus, const char *scope, const char *directory, char **ret_state_tempdir, char **ret_sock_name) {
+static int start_virtiofsd(sd_bus *bus, const char *scope, const char *directory, bool uidmap, char **ret_state_tempdir, char **ret_sock_name) {
         _cleanup_(rm_rf_physical_and_freep) char *state = NULL;
         _cleanup_strv_free_ char **cmdline = NULL, **cleanup = NULL;
         _cleanup_free_ char *virtiofsd = NULL, *sock_path = NULL, *sock_name = NULL, *rm_path = NULL, *unit_name = NULL;
@@ -685,7 +708,7 @@ static int start_virtiofsd(sd_bus *bus, const char *scope, const char *directory
         if (!cmdline)
                 return log_oom();
 
-        if (arg_uid_shift != UID_INVALID) {
+        if (uidmap && arg_uid_shift != UID_INVALID) {
                 r = strv_extend(&cmdline, "--uid-map");
                 if (r < 0)
                         return log_oom();
@@ -824,7 +847,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 return log_oom();
 
         /* A shared memory backend might increase ram usage so only add one if actually necessary for virtiofsd. */
-        if (arg_directory) {
+        if (arg_directory || arg_n_runtime_mounts != 0) {
                 r = strv_extend(&cmdline, "-object");
                 if (r < 0)
                         return log_oom();
@@ -1011,7 +1034,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         if (arg_directory) {
                 _cleanup_free_ char *sock_path = NULL, *sock_name = NULL;
-                r = start_virtiofsd(bus, trans_scope, arg_directory, &sock_path, &sock_name);
+                r = start_virtiofsd(bus, trans_scope, arg_directory, /* uidmap= */ true, &sock_path, &sock_name);
+                if (r < 0)
+                        return r;
 
                 r = strv_extend(&cmdline, "-chardev");
                 if (r < 0)
@@ -1078,6 +1103,34 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
         }
 
+        FOREACH_ARRAY(mount, arg_runtime_mounts, arg_n_runtime_mounts) {
+                _cleanup_free_ char *sock_path = NULL, *sock_name = NULL;
+                r = start_virtiofsd(bus, trans_scope, mount->source, /* uidmap= */ false, &sock_path, &sock_name);
+                if (r < 0)
+                        return r;
+
+                r = strv_extend(&cmdline, "-chardev");
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extendf(&cmdline, "socket,id=%1$s,path=%2$s/%1$s", sock_name, sock_path);
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extend(&cmdline, "-device");
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extendf(&cmdline, "vhost-user-fs-pci,queue-size=1024,chardev=%1$s,tag=%1$s", sock_name);
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extendf(&arg_kernel_cmdline_extra, "systemd.mount-extra=%s:%s:virtiofs:%s",
+                                 sock_name, mount->target, mount->read_only ? "ro" : "rw");
+                if (r < 0)
+                        return log_oom();
+        }
+
         if (!strv_isempty(arg_kernel_cmdline_extra)) {
                 _cleanup_free_ char *kcl = strv_join(arg_kernel_cmdline_extra, " ");
                 if (!kcl)
@@ -1129,14 +1182,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_error_errno(r, "Failed to call getsockname on vsock: %m");
         }
 
-        _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        r = sd_event_new(&event);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get default event source: %m");
-
-        (void) sd_event_set_watchdog(event, true);
-
         pid_t child_pid;
         r = safe_fork_full(
                         qemu_binary,
@@ -1158,6 +1203,16 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 log_error_errno(errno, "Failed to execve %s: %m", qemu_binary);
                 _exit(EXIT_FAILURE);
         }
+
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGTERM, SIGINT, SIGRTMIN+18, -1) >= 0);
+
+        _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
+        r = sd_event_new(&event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get default event source: %m");
+
+        (void) sd_event_set_watchdog(event, true);
 
         int exit_status = INT_MAX;
         if (use_vsock) {
@@ -1251,13 +1306,12 @@ static int run(int argc, char *argv[]) {
                     vhost_device_fd = SD_LISTEN_FDS_START + i;
         }
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGTERM, SIGINT, SIGRTMIN+18, -1) >= 0);
-
         r = run_virtual_machine(kvm_device_fd, vhost_device_fd);
         if (r > 0)
                 ret = r;
 finish:
         machine_credential_free_all(arg_credentials, arg_n_credentials);
+        runtime_mount_free_all(arg_runtime_mounts, arg_n_runtime_mounts);
 
         if (r < 0)
                 return r;

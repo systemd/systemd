@@ -82,26 +82,20 @@
     </refsect2>
 
     <refsect2>
-      <title>User Namespacing Options</title>
+      <title>System Identity Options</title>
 
       <variablelist>
         <varlistentry>
-          <term><option>--private-users=</option><replaceable>UID_SHIFT[:UID_RANGE]</replaceable></term>
+          <term><option>-M</option></term>
+          <term><option>--machine=</option></term>
 
-          <listitem><para>Controls user namespacing under <option>--directory=</option>.
-          If enabled, <citerefentry project='man-pages'><refentrytitle>virtiofsd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-          is instructed to map user and group ids (UIDs and GIDs). This involves mapping the private UIDs/GIDs used in the virtual machine
-          (starting with the virtual machine's root user 0 and up) to a range of UIDs/GIDs on the host that are not used for other
-          purposes (usually in the range beyond the host's UID/GID 65536).</para>
-
-          <para>If one or two colon-separated numbers are specified, user namespacing is turned on. <replaceable>UID_SHIFT</replaceable>
-          specifies the first host UID/GID to map, <replaceable>UID_RANGE</replaceable> is optional and specifies number of host
-          UIDs/GIDs to assign to the virtual machine. If <replaceable>UID_RANGE</replaceable> is omitted, 65536 UIDs/GIDs are assigned.</para>
-
-          <para>When user namespaces are used, the GID range assigned to each virtual machine is always chosen identical to the
-          UID range.</para>
-
-          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+          <listitem><para>Sets the machine name for this virtual machine. This
+          name may be used to identify this virtual machine during its runtime
+          (for example in tools like
+          <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          and similar).</para>
+          <xi:include href="version-info.xml" xpointer="v255"/>
+          </listitem>
         </varlistentry>
       </variablelist>
     </refsect2>
@@ -130,128 +124,158 @@
           </listitem>
         </varlistentry>
 
-      <varlistentry>
-        <term><option>--qemu-kvm=</option><replaceable>BOOL</replaceable></term>
+        <varlistentry>
+          <term><option>--qemu-kvm=</option><replaceable>BOOL</replaceable></term>
 
-        <listitem><para>Configures whether to use KVM. If the option is not specified KVM support will be
-        detected automatically. If true, KVM is always used, and if false, KVM is never used.</para>
+          <listitem><para>Configures whether to use KVM. If the option is not specified KVM support will be
+          detected automatically. If true, KVM is always used, and if false, KVM is never used.</para>
 
-        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
-      </varlistentry>
+          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><option>--qemu-vsock=</option><replaceable>BOOL</replaceable></term>
+        <varlistentry>
+          <term><option>--qemu-vsock=</option><replaceable>BOOL</replaceable></term>
 
-        <listitem>
-          <para>Configure whether to use VSock networking.</para>
-          <para>If the option is not specified VSock support will be detected automatically.
-          If yes is specified VSocks are always used, and vice versa if no is set VSocks are never used.</para>
-          <xi:include href="version-info.xml" xpointer="v255"/>
-        </listitem>
-      </varlistentry>
+          <listitem>
+            <para>Configure whether to use VSock networking.</para>
+            <para>If the option is not specified VSock support will be detected automatically.
+            If yes is specified VSocks are always used, and vice versa if no is set VSocks are never used.</para>
+            <xi:include href="version-info.xml" xpointer="v255"/>
+          </listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><option>--vsock-cid=</option><replaceable>CID</replaceable></term>
+        <varlistentry>
+          <term><option>--vsock-cid=</option><replaceable>CID</replaceable></term>
 
-        <listitem>
-          <para>Configure vmspawn to use a specific CID for the guest.</para>
-          <para>If the option is not specified or an empty argument is supplied the guest will be assigned a random CID.</para>
-          <para>Valid CIDs are in the range <constant>3</constant> to <constant>4294967294</constant> (<constant>0xFFFF_FFFE</constant>).
-          CIDs outside of this range are reserved.</para>
-          <xi:include href="version-info.xml" xpointer="v255"/>
-        </listitem>
-      </varlistentry>
+          <listitem>
+            <para>Configure vmspawn to use a specific CID for the guest.</para>
+            <para>If the option is not specified or an empty argument is supplied the guest will be assigned a random CID.</para>
+            <para>Valid CIDs are in the range <constant>3</constant> to <constant>4294967294</constant> (<constant>0xFFFF_FFFE</constant>).
+            CIDs outside of this range are reserved.</para>
+            <xi:include href="version-info.xml" xpointer="v255"/>
+          </listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><option>--qemu-swtpm=</option><replaceable>BOOL</replaceable></term>
+        <varlistentry>
+          <term><option>--qemu-swtpm=</option><replaceable>BOOL</replaceable></term>
 
-        <listitem>
-          <para>Configure whether to use qemu with <citerefentry project='man-pages'><refentrytitle>swtpm</refentrytitle>
-          <manvolnum>8</manvolnum></citerefentry> or not.</para>
-          <para>If the option is not specified vmspawn will detect the presence of <citerefentry project='man-pages'>
-          <refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry> and use it if available.
-          If yes is specified <citerefentry project='man-pages'><refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-          is always used, and vice versa if no is set <citerefentry project='man-pages'><refentrytitle>swtpm</refentrytitle>
-          <manvolnum>8</manvolnum></citerefentry> is never used.</para>
-          <xi:include href="version-info.xml" xpointer="v256"/>
-        </listitem>
-      </varlistentry>
+          <listitem>
+            <para>Configure whether to use qemu with <citerefentry project='man-pages'><refentrytitle>swtpm</refentrytitle>
+            <manvolnum>8</manvolnum></citerefentry> or not.</para>
+            <para>If the option is not specified vmspawn will detect the presence of <citerefentry project='man-pages'>
+            <refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry> and use it if available.
+            If yes is specified <citerefentry project='man-pages'><refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            is always used, and vice versa if no is set <citerefentry project='man-pages'><refentrytitle>swtpm</refentrytitle>
+            <manvolnum>8</manvolnum></citerefentry> is never used.</para>
+            <xi:include href="version-info.xml" xpointer="v256"/>
+          </listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><option>--qemu-kernel=</option><replaceable>PATH</replaceable></term>
+        <varlistentry>
+          <term><option>--qemu-kernel=</option><replaceable>PATH</replaceable></term>
 
-        <listitem>
-          <para>Set the kernel image to use for qemu direct kernel boot.</para>
-          <para>If no kernel was installed into the image then the image will fail to boot.</para>
-          <xi:include href="version-info.xml" xpointer="v256"/>
-        </listitem>
-      </varlistentry>
+          <listitem>
+            <para>Set the kernel image to use for qemu direct kernel boot.</para>
+            <para>If no kernel was installed into the image then the image will fail to boot.</para>
+            <xi:include href="version-info.xml" xpointer="v256"/>
+          </listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><option>--qemu-initrd=</option><replaceable>PATH</replaceable></term>
+        <varlistentry>
+          <term><option>--qemu-initrd=</option><replaceable>PATH</replaceable></term>
 
-        <listitem>
-          <para>Set the kernel initrd to use for qemu direct kernel boot.</para>
-          <para>If not specified, attempt to search for the initrd. The argument of <option>--qemu-kernel</option>
-            will be suffixed with <literal>.initrd</literal>, then one suffix will be removed from the kernel
-            and <literal>.initrd</literal> added, finally the image name suffixed with <literal>.initrd</literal> will be tried.
-            If any of these files exist they will be used as the initrd.</para>
-          <para>If no initrd was installed into the image then the image will fail to boot.</para>
-          <xi:include href="version-info.xml" xpointer="v256"/>
-        </listitem>
-      </varlistentry>
+          <listitem>
+            <para>Set the kernel initrd to use for qemu direct kernel boot.</para>
+            <para>If not specified, attempt to search for the initrd. The argument of <option>--qemu-kernel</option>
+              will be suffixed with <literal>.initrd</literal>, then one suffix will be removed from the kernel
+              and <literal>.initrd</literal> added, finally the image name suffixed with <literal>.initrd</literal> will be tried.
+              If any of these files exist they will be used as the initrd.</para>
+            <para>If no initrd was installed into the image then the image will fail to boot.</para>
+            <xi:include href="version-info.xml" xpointer="v256"/>
+          </listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><option>--qemu-gui</option></term>
+        <varlistentry>
+          <term><option>--qemu-gui</option></term>
 
-        <listitem><para>Start QEMU in graphical mode.</para>
+          <listitem><para>Start QEMU in graphical mode.</para>
 
-        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
-      </varlistentry>
+          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><option>--qemu-net=</option><replaceable>user|tap|none</replaceable></term>
+        <varlistentry>
+          <term><option>--qemu-net=</option><replaceable>user|tap|none</replaceable></term>
 
-        <listitem><para>Configure QEMU's networking stack</para>
-        <para></para>
-        <para>By default <literal>user</literal> networking is used.
-        If <literal>tap</literal> networking is selected a TAP device will be setup for the VM to use.
-        If <literal>none</literal> is selected this disables the default networking QEMU sets up.</para>
+          <listitem><para>Configure QEMU's networking stack</para>
+          <para></para>
+          <para>By default <literal>user</literal> networking is used.
+          If <literal>tap</literal> networking is selected a TAP device will be setup for the VM to use.
+          If <literal>none</literal> is selected this disables the default networking QEMU sets up.</para>
 
-        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
-      </varlistentry>
+          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><option>--secure-boot=</option><replaceable>BOOL</replaceable></term>
+        <varlistentry>
+          <term><option>--secure-boot=</option><replaceable>BOOL</replaceable></term>
 
-        <listitem><para>Configure whether to search for firmware which supports Secure Boot.</para>
-        <para>If the option is not specified the first firmware which is detected will be used.
-        If the option is set to yes then the first firmware with Secure Boot support will be selected.
-        If no is specified then the first firmware without Secure Boot will be selected.</para>
+          <listitem><para>Configure whether to search for firmware which supports Secure Boot.</para>
+          <para>If the option is not specified the first firmware which is detected will be used.
+          If the option is set to yes then the first firmware with Secure Boot support will be selected.
+          If no is specified then the first firmware without Secure Boot will be selected.</para>
 
-        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
-      </varlistentry>
-    </variablelist>
+          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
 
-    </refsect2><refsect2>
-      <title>System Identity Options</title>
+    <refsect2>
+      <title>User Namespacing Options</title>
 
       <variablelist>
         <varlistentry>
-          <term><option>-M</option></term>
-          <term><option>--machine=</option></term>
+          <term><option>--private-users=</option><replaceable>UID_SHIFT[:UID_RANGE]</replaceable></term>
 
-          <listitem><para>Sets the machine name for this container. This
-          name may be used to identify this container during its runtime
-          (for example in tools like
-          <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-          and similar).</para>
-          <xi:include href="version-info.xml" xpointer="v255"/>
-          </listitem>
+          <listitem><para>Controls user namespacing under <option>--directory=</option>.
+          If enabled, <citerefentry project='man-pages'><refentrytitle>virtiofsd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+          is instructed to map user and group ids (UIDs and GIDs). This involves mapping the private UIDs/GIDs used in the virtual machine
+          (starting with the virtual machine's root user 0 and up) to a range of UIDs/GIDs on the host that are not used for other
+          purposes (usually in the range beyond the host's UID/GID 65536).</para>
+
+          <para>If one or two colon-separated numbers are specified, user namespacing is turned on. <replaceable>UID_SHIFT</replaceable>
+          specifies the first host UID/GID to map, <replaceable>UID_RANGE</replaceable> is optional and specifies number of host
+          UIDs/GIDs to assign to the virtual machine. If <replaceable>UID_RANGE</replaceable> is omitted, 65536 UIDs/GIDs are assigned.</para>
+
+          <para>When user namespaces are used, the GID range assigned to each virtual machine is always chosen identical to the
+          UID range.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
         </varlistentry>
       </variablelist>
+    </refsect2>
 
-    </refsect2><refsect2>
+    <refsect2>
+      <title>Mount Options</title>
+
+      <variablelist>
+
+        <varlistentry>
+          <term><option>--bind=</option><replaceable>PATH</replaceable></term>
+          <term><option>--bind-ro=</option><replaceable>PATH</replaceable></term>
+
+          <listitem><para>Mount a directory from the host into the virtual machine. Takes one of: a path
+          argument — in which case the specified path will be mounted from the host to the same path in the virtual machine, or
+          a colon-separated pair of paths — in which case the first specified path is the source in the host, and the
+          second path is the destination in the virtual machine. If the source path is not absolute, it is resolved
+          relative to the current working directory. The <option>--bind-ro=</option> option creates read-only bind mounts.
+          Backslash escapes are interpreted, so <literal>\:</literal> may be used to embed colons in either path.
+          This option may be specified multiple times for creating multiple independent bind mount points.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
       <title>Credentials</title>
 
       <variablelist>
@@ -259,7 +283,7 @@
           <term><option>--load-credential=</option><replaceable>ID</replaceable>:<replaceable>PATH</replaceable></term>
           <term><option>--set-credential=</option><replaceable>ID</replaceable>:<replaceable>VALUE</replaceable></term>
 
-          <listitem><para>Pass a credential to the container. These two options correspond to the
+          <listitem><para>Pass a credential to the virtual machine. These two options correspond to the
           <varname>LoadCredential=</varname> and <varname>SetCredential=</varname> settings in unit files. See
           <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
           details about these concepts, as well as the syntax of the option's arguments.</para>
