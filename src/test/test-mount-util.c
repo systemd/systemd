@@ -276,7 +276,17 @@ TEST(make_mount_switch_root) {
         assert_se(s);
         assert_se(touch(s) >= 0);
 
-        for (int force_ms_move = 0; force_ms_move < 2; force_ms_move++) {
+        struct {
+                const char *path;
+                bool force_ms_move;
+        } table[] = {
+                { t,   false },
+                { t,   true  },
+                { "/", false },
+                { "/", true  },
+        };
+
+        FOREACH_ARRAY(i, table, ELEMENTSOF(table)) {
                 r = safe_fork("(switch-root)",
                               FORK_RESET_SIGNALS |
                               FORK_CLOSE_ALL_FDS |
@@ -290,12 +300,14 @@ TEST(make_mount_switch_root) {
                 assert_se(r >= 0);
 
                 if (r == 0) {
-                        assert_se(make_mount_point(t) >= 0);
-                        assert_se(mount_switch_root_full(t, /* mount_propagation_flag= */ 0, force_ms_move) >= 0);
+                        assert_se(make_mount_point(i->path) >= 0);
+                        assert_se(mount_switch_root_full(i->path, /* mount_propagation_flag= */ 0, i->force_ms_move) >= 0);
 
-                        assert_se(access(ASSERT_PTR(strrchr(s, '/')), F_OK) >= 0);       /* absolute */
-                        assert_se(access(ASSERT_PTR(strrchr(s, '/')) + 1, F_OK) >= 0);   /* relative */
-                        assert_se(access(s, F_OK) < 0 && errno == ENOENT);               /* doesn't exist in our new environment */
+                        if (!path_equal(i->path, "/")) {
+                                assert_se(access(ASSERT_PTR(strrchr(s, '/')), F_OK) >= 0);       /* absolute */
+                                assert_se(access(ASSERT_PTR(strrchr(s, '/')) + 1, F_OK) >= 0);   /* relative */
+                                assert_se(access(s, F_OK) < 0 && errno == ENOENT);               /* doesn't exist in our new environment */
+                        }
 
                         _exit(EXIT_SUCCESS);
                 }
