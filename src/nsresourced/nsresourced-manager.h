@@ -9,7 +9,7 @@ typedef struct Manager Manager;
 #include "hashmap.h"
 #include "ratelimit.h"
 
-#define NSRESOURCE_WORKERS_MIN 3
+#define NSRESOURCE_WORKERS_MIN 4
 #define NSRESOURCE_WORKERS_MAX 4096
 
 struct Manager {
