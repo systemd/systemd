@@ -67,14 +67,16 @@
 #endif
 
 /* Thresholds for logging at INFO level about resource consumption */
-#define MENTIONWORTHY_CPU_NSEC (1 * NSEC_PER_SEC)
-#define MENTIONWORTHY_IO_BYTES (1024 * 1024ULL)
-#define MENTIONWORTHY_IP_BYTES (0ULL)
+#define MENTIONWORTHY_CPU_NSEC     (1 * NSEC_PER_SEC)
+#define MENTIONWORTHY_MEMORY_BYTES UINT64_C(64 * 1024 * 1024) /* 64 MiB */
+#define MENTIONWORTHY_IO_BYTES     UINT64_C(1024 * 1024)      /* 1 MiB */
+#define MENTIONWORTHY_IP_BYTES     UINT64_C(0)
 
-/* Thresholds for logging at INFO level about resource consumption */
-#define NOTICEWORTHY_CPU_NSEC (10*60 * NSEC_PER_SEC) /* 10 minutes */
-#define NOTICEWORTHY_IO_BYTES (10 * 1024 * 1024ULL)  /* 10 MB */
-#define NOTICEWORTHY_IP_BYTES (128 * 1024 * 1024ULL) /* 128 MB */
+/* Thresholds for logging at NOTICE level about resource consumption */
+#define NOTICEWORTHY_CPU_NSEC     (10 * NSEC_PER_MINUTE)      /* 10 minutes */
+#define NOTICEWORTHY_MEMORY_BYTES UINT64_C(512 * 1024 * 1024) /* 512 MiB */
+#define NOTICEWORTHY_IO_BYTES     UINT64_C(10 * 1024 * 1024)  /* 10 MiB */
+#define NOTICEWORTHY_IP_BYTES     UINT64_C(128 * 1024 * 1024) /* 128 MiB */
 
 const UnitVTable * const unit_vtable[_UNIT_TYPE_MAX] = {
         [UNIT_SERVICE] = &service_vtable,
@@ -2339,273 +2341,165 @@ static int raise_level(int log_level, bool condition_info, bool condition_notice
 }
 
 static int unit_log_resources(Unit *u) {
-        struct iovec iovec[1 + 2 + _CGROUP_IP_ACCOUNTING_METRIC_MAX + _CGROUP_IO_ACCOUNTING_METRIC_MAX + 4];
-        bool any_traffic = false, have_ip_accounting = false, any_io = false, have_io_accounting = false;
-        _cleanup_free_ char *igress = NULL, *egress = NULL, *rr = NULL, *wr = NULL;
-        int log_level = LOG_DEBUG; /* May be raised if resources consumed over a threshold */
-        size_t n_message_parts = 0, n_iovec = 0;
-        char* message_parts[1 + 2 + 2 + 2 + 1], *t;
-        nsec_t nsec = NSEC_INFINITY;
-        uint64_t memory_peak = UINT64_MAX, memory_swap_peak = UINT64_MAX;
-        int r;
-        const char* const ip_fields[_CGROUP_IP_ACCOUNTING_METRIC_MAX] = {
-                [CGROUP_IP_INGRESS_BYTES]   = "IP_METRIC_INGRESS_BYTES",
-                [CGROUP_IP_INGRESS_PACKETS] = "IP_METRIC_INGRESS_PACKETS",
-                [CGROUP_IP_EGRESS_BYTES]    = "IP_METRIC_EGRESS_BYTES",
-                [CGROUP_IP_EGRESS_PACKETS]  = "IP_METRIC_EGRESS_PACKETS",
-        };
-        const char* const io_fields[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
-                [CGROUP_IO_READ_BYTES]       = "IO_METRIC_READ_BYTES",
-                [CGROUP_IO_WRITE_BYTES]      = "IO_METRIC_WRITE_BYTES",
-                [CGROUP_IO_READ_OPERATIONS]  = "IO_METRIC_READ_OPERATIONS",
-                [CGROUP_IO_WRITE_OPERATIONS] = "IO_METRIC_WRITE_OPERATIONS",
+
+        static const struct {
+                const char *journal_field;
+                const char *message_suffix;
+        } memory_fields[_CGROUP_MEMORY_ACCOUNTING_METRIC_CACHED_LAST + 1] = {
+                [CGROUP_MEMORY_PEAK]         = { "MEMORY_PEAK",                "memory peak"         },
+                [CGROUP_MEMORY_SWAP_PEAK]    = { "MEMORY_SWAP_PEAK",           "memory swap peak"    },
+        }, ip_fields[_CGROUP_IP_ACCOUNTING_METRIC_MAX] = {
+                [CGROUP_IP_INGRESS_BYTES]    = { "IP_METRIC_INGRESS_BYTES",    "incoming IP traffic" },
+                [CGROUP_IP_EGRESS_BYTES]     = { "IP_METRIC_EGRESS_BYTES",     "outgoing IP traffic" },
+                [CGROUP_IP_INGRESS_PACKETS]  = { "IP_METRIC_INGRESS_PACKETS",  NULL                  },
+                [CGROUP_IP_EGRESS_PACKETS]   = { "IP_METRIC_EGRESS_PACKETS",   NULL                  },
+        }, io_fields[_CGROUP_IO_ACCOUNTING_METRIC_MAX] = {
+                [CGROUP_IO_READ_BYTES]       = { "IO_METRIC_READ_BYTES",       "read from disk"      },
+                [CGROUP_IO_WRITE_BYTES]      = { "IO_METRIC_WRITE_BYTES",      "written to disk"     },
+                [CGROUP_IO_READ_OPERATIONS]  = { "IO_METRIC_READ_OPERATIONS",  NULL                  },
+                [CGROUP_IO_WRITE_OPERATIONS] = { "IO_METRIC_WRITE_OPERATIONS", NULL                  },
         };
 
+        struct iovec iovec[1 + (_CGROUP_MEMORY_ACCOUNTING_METRIC_CACHED_LAST + 1) +
+                           _CGROUP_IP_ACCOUNTING_METRIC_MAX + _CGROUP_IO_ACCOUNTING_METRIC_MAX + 4];
+        size_t n_iovec = 0;
+        _cleanup_free_ char *message = NULL, *t = NULL;
+        nsec_t cpu_nsec = NSEC_INFINITY;
+        int log_level = LOG_DEBUG; /* May be raised if resources consumed over a threshold */
+
         assert(u);
+
+        CLEANUP_ARRAY(iovec, n_iovec, iovec_array_done);
 
         /* Invoked whenever a unit enters failed or dead state. Logs information about consumed resources if resource
          * accounting was enabled for a unit. It does this in two ways: a friendly human readable string with reduced
          * information and the complete data in structured fields. */
 
-        (void) unit_get_cpu_usage(u, &nsec);
-        if (nsec != NSEC_INFINITY) {
+        (void) unit_get_cpu_usage(u, &cpu_nsec);
+        if (cpu_nsec != NSEC_INFINITY) {
                 /* Format the CPU time for inclusion in the structured log message */
-                if (asprintf(&t, "CPU_USAGE_NSEC=%" PRIu64, nsec) < 0) {
-                        r = log_oom();
-                        goto finish;
-                }
-                iovec[n_iovec++] = IOVEC_MAKE_STRING(t);
+                if (asprintf(&t, "CPU_USAGE_NSEC=%" PRIu64, cpu_nsec) < 0)
+                        return log_oom();
+                iovec[n_iovec++] = IOVEC_MAKE_STRING(TAKE_PTR(t));
 
                 /* Format the CPU time for inclusion in the human language message string */
-                t = strjoin("consumed ", FORMAT_TIMESPAN(nsec / NSEC_PER_USEC, USEC_PER_MSEC), " CPU time");
-                if (!t) {
-                        r = log_oom();
-                        goto finish;
-                }
-
-                message_parts[n_message_parts++] = t;
+                if (!strextendf_with_separator(&message, ", ",
+                                               "consumed %s CPU time",
+                                               FORMAT_TIMESPAN(cpu_nsec / NSEC_PER_USEC, USEC_PER_MSEC)))
+                        return log_oom();
 
                 log_level = raise_level(log_level,
-                                        nsec > MENTIONWORTHY_CPU_NSEC,
-                                        nsec > NOTICEWORTHY_CPU_NSEC);
+                                        cpu_nsec > MENTIONWORTHY_CPU_NSEC,
+                                        cpu_nsec > NOTICEWORTHY_CPU_NSEC);
         }
 
-        (void) unit_get_memory_accounting(u, CGROUP_MEMORY_PEAK, &memory_peak);
-        if (memory_peak != UINT64_MAX) {
-                /* Format peak memory for inclusion in the structured log message */
-                if (asprintf(&t, "MEMORY_PEAK=%" PRIu64, memory_peak) < 0) {
-                        r = log_oom();
-                        goto finish;
-                }
-                iovec[n_iovec++] = IOVEC_MAKE_STRING(t);
+        for (CGroupMemoryAccountingMetric metric = 0; metric <= _CGROUP_MEMORY_ACCOUNTING_METRIC_CACHED_LAST; metric++) {
+                uint64_t v = UINT64_MAX;
 
-                /* Format peak memory for inclusion in the human language message string */
-                t = strjoin(FORMAT_BYTES(memory_peak), " memory peak");
-                if (!t) {
-                        r = log_oom();
-                        goto finish;
-                }
-                message_parts[n_message_parts++] = t;
-        }
+                assert(memory_fields[metric].journal_field);
+                assert(memory_fields[metric].message_suffix);
 
-        (void) unit_get_memory_accounting(u, CGROUP_MEMORY_SWAP_PEAK, &memory_swap_peak);
-        if (memory_swap_peak != UINT64_MAX) {
-                /* Format peak swap memory for inclusion in the structured log message */
-                if (asprintf(&t, "MEMORY_SWAP_PEAK=%" PRIu64, memory_swap_peak) < 0) {
-                        r = log_oom();
-                        goto finish;
-                }
-                iovec[n_iovec++] = IOVEC_MAKE_STRING(t);
+                (void) unit_get_memory_accounting(u, metric, &v);
+                if (v == UINT64_MAX)
+                        continue;
 
-                /* Format peak swap memory for inclusion in the human language message string */
-                t = strjoin(FORMAT_BYTES(memory_swap_peak), " memory swap peak");
-                if (!t) {
-                        r = log_oom();
-                        goto finish;
-                }
-                message_parts[n_message_parts++] = t;
+                if (asprintf(&t, "%s=%" PRIu64, memory_fields[metric].journal_field, v) < 0)
+                        return log_oom();
+                iovec[n_iovec++] = IOVEC_MAKE_STRING(TAKE_PTR(t));
+
+                if (!strextendf_with_separator(&message, ", ", "%s %s",
+                                               FORMAT_BYTES(v), memory_fields[metric].message_suffix))
+                        return log_oom();
+
+                log_level = raise_level(log_level,
+                                        v > MENTIONWORTHY_MEMORY_BYTES,
+                                        v > NOTICEWORTHY_MEMORY_BYTES);
         }
 
         for (CGroupIOAccountingMetric k = 0; k < _CGROUP_IO_ACCOUNTING_METRIC_MAX; k++) {
                 uint64_t value = UINT64_MAX;
 
-                assert(io_fields[k]);
+                assert(io_fields[k].journal_field);
 
                 (void) unit_get_io_accounting(u, k, k > 0, &value);
                 if (value == UINT64_MAX)
                         continue;
 
-                have_io_accounting = true;
-                if (value > 0)
-                        any_io = true;
-
                 /* Format IO accounting data for inclusion in the structured log message */
-                if (asprintf(&t, "%s=%" PRIu64, io_fields[k], value) < 0) {
-                        r = log_oom();
-                        goto finish;
-                }
-                iovec[n_iovec++] = IOVEC_MAKE_STRING(t);
+                if (asprintf(&t, "%s=%" PRIu64, io_fields[k].journal_field, value) < 0)
+                        return log_oom();
+                iovec[n_iovec++] = IOVEC_MAKE_STRING(TAKE_PTR(t));
 
                 /* Format the IO accounting data for inclusion in the human language message string, but only
                  * for the bytes counters (and not for the operations counters) */
-                if (k == CGROUP_IO_READ_BYTES) {
-                        assert(!rr);
-                        rr = strjoin("read ", strna(FORMAT_BYTES(value)), " from disk");
-                        if (!rr) {
-                                r = log_oom();
-                                goto finish;
-                        }
-                } else if (k == CGROUP_IO_WRITE_BYTES) {
-                        assert(!wr);
-                        wr = strjoin("written ", strna(FORMAT_BYTES(value)), " to disk");
-                        if (!wr) {
-                                r = log_oom();
-                                goto finish;
-                        }
-                }
+                if (io_fields[k].message_suffix) {
+                        if (!strextendf_with_separator(&message, ", ", "%s %s",
+                                                       FORMAT_BYTES(value), io_fields[k].message_suffix))
+                                return log_oom();
 
-                if (IN_SET(k, CGROUP_IO_READ_BYTES, CGROUP_IO_WRITE_BYTES))
                         log_level = raise_level(log_level,
                                                 value > MENTIONWORTHY_IO_BYTES,
                                                 value > NOTICEWORTHY_IO_BYTES);
-        }
-
-        if (have_io_accounting) {
-                if (any_io) {
-                        if (rr)
-                                message_parts[n_message_parts++] = TAKE_PTR(rr);
-                        if (wr)
-                                message_parts[n_message_parts++] = TAKE_PTR(wr);
-
-                } else {
-                        char *k;
-
-                        k = strdup("no IO");
-                        if (!k) {
-                                r = log_oom();
-                                goto finish;
-                        }
-
-                        message_parts[n_message_parts++] = k;
                 }
         }
 
         for (CGroupIPAccountingMetric m = 0; m < _CGROUP_IP_ACCOUNTING_METRIC_MAX; m++) {
                 uint64_t value = UINT64_MAX;
 
-                assert(ip_fields[m]);
+                assert(ip_fields[m].journal_field);
 
                 (void) unit_get_ip_accounting(u, m, &value);
                 if (value == UINT64_MAX)
                         continue;
 
-                have_ip_accounting = true;
-                if (value > 0)
-                        any_traffic = true;
-
                 /* Format IP accounting data for inclusion in the structured log message */
-                if (asprintf(&t, "%s=%" PRIu64, ip_fields[m], value) < 0) {
-                        r = log_oom();
-                        goto finish;
-                }
-                iovec[n_iovec++] = IOVEC_MAKE_STRING(t);
+                if (asprintf(&t, "%s=%" PRIu64, ip_fields[m].journal_field, value) < 0)
+                        return log_oom();
+                iovec[n_iovec++] = IOVEC_MAKE_STRING(TAKE_PTR(t));
 
-                /* Format the IP accounting data for inclusion in the human language message string, but only for the
-                 * bytes counters (and not for the packets counters) */
-                if (m == CGROUP_IP_INGRESS_BYTES) {
-                        assert(!igress);
-                        igress = strjoin("received ", strna(FORMAT_BYTES(value)), " IP traffic");
-                        if (!igress) {
-                                r = log_oom();
-                                goto finish;
-                        }
-                } else if (m == CGROUP_IP_EGRESS_BYTES) {
-                        assert(!egress);
-                        egress = strjoin("sent ", strna(FORMAT_BYTES(value)), " IP traffic");
-                        if (!egress) {
-                                r = log_oom();
-                                goto finish;
-                        }
-                }
+                /* Format the IP accounting data for inclusion in the human language message string, but only
+                 * for the bytes counters (and not for the packets counters) */
+                if (ip_fields[m].message_suffix) {
+                        if (!strextendf_with_separator(&message, ", ", "%s %s",
+                                                       FORMAT_BYTES(value), ip_fields[m].message_suffix))
+                                return log_oom();
 
-                if (IN_SET(m, CGROUP_IP_INGRESS_BYTES, CGROUP_IP_EGRESS_BYTES))
+
                         log_level = raise_level(log_level,
                                                 value > MENTIONWORTHY_IP_BYTES,
                                                 value > NOTICEWORTHY_IP_BYTES);
-        }
-
-        /* This check is here because it is the earliest point following all possible log_level assignments. If
-         * log_level is assigned anywhere after this point, move this check. */
-        if (!unit_log_level_test(u, log_level)) {
-                r = 0;
-                goto finish;
-        }
-
-        if (have_ip_accounting) {
-                if (any_traffic) {
-                        if (igress)
-                                message_parts[n_message_parts++] = TAKE_PTR(igress);
-                        if (egress)
-                                message_parts[n_message_parts++] = TAKE_PTR(egress);
-
-                } else {
-                        char *k;
-
-                        k = strdup("no IP traffic");
-                        if (!k) {
-                                r = log_oom();
-                                goto finish;
-                        }
-
-                        message_parts[n_message_parts++] = k;
                 }
         }
+
+        /* This check is here because it is the earliest point following all possible log_level assignments.
+         * (If log_level is assigned anywhere after this point, move this check.) */
+        if (!unit_log_level_test(u, log_level))
+                return 0;
 
         /* Is there any accounting data available at all? */
         if (n_iovec == 0) {
-                r = 0;
-                goto finish;
+                assert(!message);
+                return 0;
         }
 
-        if (n_message_parts == 0)
-                t = strjoina("MESSAGE=", u->id, ": Completed.");
-        else {
-                _cleanup_free_ char *joined = NULL;
+        if (message)
+                message[0] = ascii_toupper(message[0]);
 
-                message_parts[n_message_parts] = NULL;
+        t = strjoin("MESSAGE=", u->id, ": ", message ?: "Completed");
+        iovec[n_iovec++] = IOVEC_MAKE_STRING(TAKE_PTR(t));
 
-                joined = strv_join(message_parts, ", ");
-                if (!joined) {
-                        r = log_oom();
-                        goto finish;
-                }
+        if (!set_iovec_string_field(iovec, &n_iovec, "MESSAGE_ID=", SD_MESSAGE_UNIT_RESOURCES_STR))
+                return log_oom();
 
-                joined[0] = ascii_toupper(joined[0]);
-                t = strjoina("MESSAGE=", u->id, ": ", joined, ".");
-        }
+        if (!set_iovec_string_field(iovec, &n_iovec, u->manager->unit_log_field, u->id))
+                return log_oom();
 
-        /* The following four fields we allocate on the stack or are static strings, we hence don't want to free them,
-         * and hence don't increase n_iovec for them */
-        iovec[n_iovec] = IOVEC_MAKE_STRING(t);
-        iovec[n_iovec + 1] = IOVEC_MAKE_STRING("MESSAGE_ID=" SD_MESSAGE_UNIT_RESOURCES_STR);
+        if (!set_iovec_string_field(iovec, &n_iovec, u->manager->invocation_log_field, u->invocation_id_string))
+                return log_oom();
 
-        t = strjoina(u->manager->unit_log_field, u->id);
-        iovec[n_iovec + 2] = IOVEC_MAKE_STRING(t);
+        log_unit_struct_iovec(u, log_level, iovec, n_iovec);
 
-        t = strjoina(u->manager->invocation_log_field, u->invocation_id_string);
-        iovec[n_iovec + 3] = IOVEC_MAKE_STRING(t);
-
-        log_unit_struct_iovec(u, log_level, iovec, n_iovec + 4);
-        r = 0;
-
-finish:
-        free_many_charp(message_parts, n_message_parts);
-
-        for (size_t i = 0; i < n_iovec; i++)
-                free(iovec[i].iov_base);
-
-        return r;
-
+        return 0;
 }
 
 static void unit_update_on_console(Unit *u) {
