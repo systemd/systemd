@@ -175,7 +175,7 @@ static int start_one_worker(Manager *m) {
                         _exit(EXIT_FAILURE);
                 }
 
-                /* execl("/home/lennart/projects/systemd/build/systemd-mntwork", "systemd-mntwork", "xxxxxxxxxxxxxxxx", NULL); /\* With some extra space rename_process() can make use of *\/ */
+                execl("/home/lennart/projects/systemd/build/systemd-mntwork", "systemd-mntwork", "xxxxxxxxxxxxxxxx", NULL); /* With some extra space rename_process() can make use of */
                 /* execl("/usr/bin/valgrind", "valgrind", "/home/lennart/projects/systemd/build/systemd-mntwork", "systemd-mntwork", "xxxxxxxxxxxxxxxx", NULL); /\* With some extra space rename_process() can make use of *\/ */
 
                 execl(SYSTEMD_MNTWORK_PATH, "systemd-mntwork", "xxxxxxxxxxxxxxxx", NULL); /* With some extra space rename_process() can make use of */
