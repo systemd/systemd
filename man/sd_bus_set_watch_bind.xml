@@ -101,6 +101,21 @@
   <xi:include href="libsystemd-pkgconfig.xml" />
 
   <refsect1>
+    <title>Example</title>
+
+    <example>
+      <title>Create a simple system service that publishes a property on the system bus and can reconnect
+      when D-Bus disconnects and reconnects</title>
+
+      <programlisting><xi:include href="sd_bus_service_reconnect.c" parse="text"/></programlisting>
+
+      <para>This is particularly useful for services that are configured to survive a soft-reboot, see
+      <citerefentry><refentrytitle>systemd-soft-reboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+      for more details.</para>
+    </example>
+  </refsect1>
+
+  <refsect1>
     <title>History</title>
     <para><function>sd_bus_set_watch_bind()</function> and
     <function>sd_bus_get_watch_bind()</function> were added in version 237.</para>

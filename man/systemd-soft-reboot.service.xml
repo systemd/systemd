@@ -3,7 +3,8 @@
   "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="systemd-soft-reboot.service">
+<refentry id="systemd-soft-reboot.service"
+    xmlns:xi="http://www.w3.org/2001/XInclude">
 
   <refentryinfo>
     <title>systemd-soft-reboot.service</title>
@@ -136,6 +137,12 @@ ExecStart=sleep infinity
       attached, if configured to remain until the very end of the shutdown process. (Also achieved via
       <varname>DefaultDependencies=no</varname>, and by avoiding
       <varname>Conflicts=umount.target</varname>)</para></listitem>
+
+      <listitem><para>If the unit publishes a service over D-Bus, the connection needs to be re-established
+      after soft-reboot as the D-Bus broker will be stopped and then started again. When using the sd-bus
+      library this can be achieved by adapting the following example.
+      <programlisting><xi:include href="sd_bus_service_reconnect.c" parse="text"/></programlisting>
+      </para></listitem>
     </itemizedlist>
 
     <para>Even though passing resources from one soft reboot cycle to the next is possible this way, we
