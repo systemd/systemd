@@ -216,3 +216,19 @@ kernel_supports_lsm() {
 
     return 1
 }
+
+MOUNTED_USR_OVERLAY=false
+
+maybe_mount_usr_overlay() {
+    if [ ! -w /usr ]; then
+        mkdir -p /var/usr-overlay/{upperdir,workdir}
+        mount -t overlay -o lowerdir=/usr,upperdir=/var/usr-overlay/upperdir,workdir=/var/usr-overlay/workdir overlay /usr
+	MOUNTED_USR_OVERLAY=true
+    fi
+}
+
+maybe_umount_usr_overlay() {
+    if "$MOUNTED_USR_OVERLAY"; then
+        umount -l /usr
+    fi
+}
