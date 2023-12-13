@@ -124,6 +124,8 @@ Manager* manager_free(Manager *m) {
 
         m->deferred_start_worker_event_source = sd_event_source_unref(m->deferred_start_worker_event_source);
 
+        safe_close(m->listen_fd);
+
         sd_event_unref(m->event);
 
         return mfree(m);
