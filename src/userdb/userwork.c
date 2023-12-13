@@ -353,9 +353,9 @@ static int vl_method_get_group_record(Varlink *link, JsonVariant *parameters, Va
 
 static int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
         static const JsonDispatch dispatch_table[] = {
-                { "userName",  JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(LookupParameters, user_name), 0 },
+                { "userName",  JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(LookupParameters, user_name),  0 },
                 { "groupName", JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(LookupParameters, group_name), 0 },
-                { "service",   JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(LookupParameters, service),   0 },
+                { "service",   JSON_VARIANT_STRING, json_dispatch_const_string, offsetof(LookupParameters, service),    0 },
                 {}
         };
 
@@ -425,16 +425,16 @@ static int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, Var
                                               JSON_BUILD_PAIR("groupName", JSON_BUILD_STRING(last_group_name))));
 }
 
-static int process_connection(VarlinkServer *server, int fd) {
+static int process_connection(VarlinkServer *server, int _fd) {
+        _cleanup_close_ int fd = TAKE_FD(_fd); /* always take possesion */
         _cleanup_(varlink_close_unrefp) Varlink *vl = NULL;
         int r;
 
         r = varlink_server_add_connection(server, fd, &vl);
-        if (r < 0) {
-                fd = safe_close(fd);
+        if (r < 0)
                 return log_error_errno(r, "Failed to add connection: %m");
-        }
 
+        TAKE_FD(fd);
         vl = varlink_ref(vl);
 
         for (;;) {
