@@ -222,7 +222,7 @@ static int start_one_worker(Manager *m) {
                         _exit(EXIT_FAILURE);
                 }
 
-                /* execl("/home/lennart/projects/systemd/build/systemd-nsresourcework", "systemd-nsresourcework", "xxxxxxxxxxxxxxxx", NULL); */
+                execl("/home/lennart/projects/systemd/build/systemd-nsresourcework", "systemd-nsresourcework", "xxxxxxxxxxxxxxxx", NULL);
                 /* execl("/usr/bin/valgrind", "valgrind", "/home/lennart/projects/systemd/build/systemd-nsresourcework", "systemd-nsresourcework", "xxxxxxxxxxxxxxxx", NULL); */
 
                 execl(SYSTEMD_NSRESOURCEWORK_PATH, "systemd-nsresourcework", "xxxxxxxxxxxxxxxx", NULL); /* With some extra space rename_process() can make use of */
