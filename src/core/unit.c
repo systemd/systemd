@@ -2369,7 +2369,7 @@ static int unit_log_resources(Unit *u) {
 
         assert(u);
 
-        CLEANUP_ARRAY(iovec, n_iovec, iovec_array_done);
+        CLEANUP_ARRAY_STACK(iovec, n_iovec, iovec_array_done);
 
         /* Invoked whenever a unit enters failed or dead state. Logs information about consumed resources if resource
          * accounting was enabled for a unit. It does this in two ways: a friendly human readable string with reduced
