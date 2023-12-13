@@ -14,6 +14,7 @@
 #include "creds-util.h"
 #include "escape.h"
 #include "event-util.h"
+#include "extract-word.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -41,6 +42,7 @@
 #include "strv.h"
 #include "tmpfile-util.h"
 #include "unit-name.h"
+#include "vmspawn-mount.h"
 #include "vmspawn-scope.h"
 #include "vmspawn-settings.h"
 #include "vmspawn-util.h"
@@ -63,6 +65,7 @@ static QemuNetworkStack arg_qemu_net = QEMU_NET_NONE;
 static int arg_secure_boot = -1;
 static MachineCredentialContext arg_credentials = {};
 static uid_t arg_uid_shift = UID_INVALID, arg_uid_range = 0x10000U;
+static RuntimeMountContext arg_runtime_mounts = {};
 static SettingsMask arg_settings_mask = 0;
 static char *arg_firmware = NULL;
 static char **arg_kernel_cmdline_extra = NULL;
@@ -75,6 +78,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_credentials, machine_credential_context_done);
 STATIC_DESTRUCTOR_REGISTER(arg_firmware, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_kernel, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_initrds, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_runtime_mounts, runtime_mount_context_done);
 STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline_extra, strv_freep);
 
 static int help(void) {
@@ -118,6 +122,12 @@ static int help(void) {
                "     --private-users=UIDBASE[:NUIDS]\n"
                "                            Configure the UID/GID range to map into the\n"
                "                            virtiofsd namespace\n"
+               "\n%3$sMounts:%4$s\n"
+               "     --bind=SOURCE[:TARGET]\n"
+               "                            Mount a file or directory from the host into\n"
+               "                            the VM.\n"
+               "     --bind-ro=SOURCE[:TARGET]\n"
+               "                            Similar, but creates a read-only mount\n"
                "\n%3$sCredentials:%4$s\n"
                "     --set-credential=ID:VALUE\n"
                "                            Pass a credential with literal value to container.\n"
@@ -149,6 +159,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_INITRD,
                 ARG_QEMU_GUI,
                 ARG_QEMU_NET,
+                ARG_BIND,
+                ARG_BIND_RO,
                 ARG_SECURE_BOOT,
                 ARG_PRIVATE_USERS,
                 ARG_SET_CREDENTIAL,
@@ -174,6 +186,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "initrd",          required_argument, NULL, ARG_INITRD          },
                 { "qemu-gui",        no_argument,       NULL, ARG_QEMU_GUI        },
                 { "qemu-net",        required_argument, NULL, ARG_QEMU_NET        },
+                { "bind",            required_argument, NULL, ARG_BIND            },
+                { "bind-ro",         required_argument, NULL, ARG_BIND_RO         },
                 { "secure-boot",     required_argument, NULL, ARG_SECURE_BOOT     },
                 { "private-users",   required_argument, NULL, ARG_PRIVATE_USERS   },
                 { "set-credential",  required_argument, NULL, ARG_SET_CREDENTIAL  },
@@ -201,7 +215,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'D':
-                        r = parse_path_argument(optarg, false, &arg_directory);
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_directory);
                         if (r < 0)
                                 return r;
 
@@ -306,6 +320,15 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_qemu_net = qemu_network_stack_from_string(optarg);
                         if (arg_qemu_net < 0)
                                 return log_error_errno(arg_qemu_net, "Failed to parse --qemu-net=%s: %m", optarg);
+                        break;
+
+                case ARG_BIND:
+                case ARG_BIND_RO:
+                        r = runtime_mount_parse(&arg_runtime_mounts, optarg, c == ARG_BIND_RO);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --bind(-ro)= argument %s: %m", optarg);
+
+                        arg_settings_mask |= SETTING_BIND_MOUNTS;
                         break;
 
                 case ARG_SECURE_BOOT:
@@ -737,7 +760,7 @@ static int find_initrd(char *kernel, char **ret_initrd) {
         return -ENOENT;
 }
 
-static int start_virtiofsd(sd_bus *bus, const char *scope, const char *our_runtime_dir, const char *directory, char **ret_state_tempdir, char **ret_sock_name) {
+static int start_virtiofsd(sd_bus *bus, const char *scope, const char *our_runtime_dir, const char *directory, bool uidmap, char **ret_state_tempdir, char **ret_sock_name) {
         _cleanup_(rm_rf_physical_and_freep) char *state_dir = NULL;
         _cleanup_strv_free_ char **cmdline = NULL;
         char **extra_properties;
@@ -791,7 +814,7 @@ static int start_virtiofsd(sd_bus *bus, const char *scope, const char *our_runti
         if (!cmdline)
                 return log_oom();
 
-        if (arg_uid_shift != UID_INVALID) {
+        if (uidmap && arg_uid_shift != UID_INVALID) {
                 r = strv_extend(&cmdline, "--uid-map");
                 if (r < 0)
                         return log_oom();
@@ -911,7 +934,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 return log_oom();
 
         /* if we are going to be starting any units with state then create our runtime dir */
-        if (arg_tpm != 0 || arg_directory) {
+        if (arg_tpm != 0 || arg_directory || arg_runtime_mounts.n_mounts != 0) {
                 _cleanup_free_ char *runtime_directory = NULL;
                 const char *e = getenv("RUNTIME_DIRECTORY");
                 if (e)
@@ -953,7 +976,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 return log_oom();
 
         /* A shared memory backend might increase ram usage so only add one if actually necessary for virtiofsd. */
-        if (arg_directory) {
+        if (arg_directory || arg_runtime_mounts.n_mounts != 0) {
                 r = strv_extend(&cmdline, "-object");
                 if (r < 0)
                         return log_oom();
@@ -1141,7 +1164,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         if (arg_directory) {
                 _cleanup_free_ char *sock_path = NULL, *sock_name = NULL;
-                r = start_virtiofsd(bus, trans_scope, our_runtime_dir, arg_directory, &sock_path, &sock_name);
+                r = start_virtiofsd(bus, trans_scope, our_runtime_dir, arg_directory, /* uidmap= */ true, &sock_path, &sock_name);
                 if (r < 0)
                         return r;
 
@@ -1169,6 +1192,34 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         r = strv_prepend(&arg_kernel_cmdline_extra, "console=" DEFAULT_SERIAL_TTY);
         if (r < 0)
                 return log_oom();
+
+        FOREACH_ARRAY(mount, arg_runtime_mounts.mounts, arg_runtime_mounts.n_mounts) {
+                _cleanup_free_ char *sock_path = NULL, *sock_name = NULL;
+                r = start_virtiofsd(bus, trans_scope, our_runtime_dir, mount->source, /* uidmap= */ false, &sock_path, &sock_name);
+                if (r < 0)
+                        return r;
+
+                r = strv_extend(&cmdline, "-chardev");
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extendf(&cmdline, "socket,id=%1$s,path=%2$s/%1$s", sock_name, sock_path);
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extend(&cmdline, "-device");
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extendf(&cmdline, "vhost-user-fs-pci,queue-size=1024,chardev=%1$s,tag=%1$s", sock_name);
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extendf(&arg_kernel_cmdline_extra, "systemd.mount-extra=%s:%s:virtiofs:%s",
+                                 sock_name, mount->target, mount->read_only ? "ro" : "rw");
+                if (r < 0)
+                        return log_oom();
+        }
 
         if (ARCHITECTURE_SUPPORTS_SMBIOS) {
                 _cleanup_free_ char *kcl = strv_join(arg_kernel_cmdline_extra, " ");
@@ -1280,6 +1331,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
                 log_debug("Executing: %s", joined);
         }
+
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
 
         _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
@@ -1422,8 +1475,6 @@ static int run(int argc, char *argv[]) {
                         safe_close(fd);
                 }
         }
-
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
 
         return run_virtual_machine(kvm_device_fd, vhost_device_fd);
 }
