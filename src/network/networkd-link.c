@@ -209,7 +209,6 @@ static Link *link_free(Link *link) {
         link_dns_settings_clear(link);
 
         link->routes = set_free(link->routes);
-        link->nexthops = set_free(link->nexthops);
         link->neighbors = set_free(link->neighbors);
         link->addresses = set_free(link->addresses);
         link->qdiscs = set_free(link->qdiscs);
@@ -252,7 +251,9 @@ int link_get_by_index(Manager *m, int ifindex, Link **ret) {
         Link *link;
 
         assert(m);
-        assert(ifindex > 0);
+
+        if (ifindex <= 0)
+                return -EINVAL;
 
         link = hashmap_get(m->links_by_index, INT_TO_PTR(ifindex));
         if (!link)
