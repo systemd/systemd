@@ -6042,8 +6042,9 @@ static int context_open_copy_block_paths(
                 if (S_ISREG(st.st_mode))
                         size = st.st_size;
                 else if (S_ISBLK(st.st_mode)) {
-                        if (ioctl(source_fd, BLKGETSIZE64, &size) != 0)
-                                return log_error_errno(errno, "Failed to determine size of block device to copy from: %m");
+                        r = blockdev_get_device_size(source_fd, &size);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine size of block device to copy from: %m");
                 } else
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specified path to copy blocks from '%s' is not a regular file, block device or directory, refusing: %m", opened);
 
@@ -7365,8 +7366,9 @@ static int resize_backing_fd(
 
                 assert(loop_device);
 
-                if (ioctl(*fd, BLKGETSIZE64, &current_size) < 0)
-                        return log_error_errno(errno, "Failed to determine size of block device %s: %m", node);
+                r = blockdev_get_device_size(*fd, &current_size);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to determine size of block device %s: %m", node);
         } else {
                 r = stat_verify_regular(&st);
                 if (r < 0)

@@ -55,8 +55,9 @@ static int resize_crypt_luks_device(dev_t devno, const char *fstype, dev_t main_
                 return log_error_errno(r, "Failed to open main block device " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(main_devno));
 
-        if (ioctl(main_devfd, BLKGETSIZE64, &size) != 0)
-                return log_error_errno(errno, "Failed to query size of \"%s\" (before resize): %m",
+        r = blockdev_get_device_size(main_devfd, &size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to query size of \"%s\" (before resize): %m",
                                        main_devpath);
 
         log_debug("%s is %"PRIu64" bytes", main_devpath, size);
@@ -83,9 +84,9 @@ static int resize_crypt_luks_device(dev_t devno, const char *fstype, dev_t main_
         if (r < 0)
                 return log_error_errno(r, "crypt_resize() of %s failed: %m", devpath);
 
-        if (ioctl(main_devfd, BLKGETSIZE64, &size) != 0)
-                log_warning_errno(errno, "Failed to query size of \"%s\" (after resize): %m",
-                                  devpath);
+        r = blockdev_get_device_size(main_devfd, &size);
+        if (r < 0)
+                log_warning_errno(r, "Failed to query size of \"%s\" (after resize): %m", devpath);
         else
                 log_debug("%s is now %"PRIu64" bytes", main_devpath, size);
 
@@ -250,8 +251,9 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(r, "Failed to open block device " DEVNUM_FORMAT_STR ": %m",
                                        DEVNUM_FORMAT_VAL(devno));
 
-        if (ioctl(devfd, BLKGETSIZE64, &size) != 0)
-                return log_error_errno(errno, "Failed to query size of \"%s\": %m", devpath);
+        r = blockdev_get_device_size(devfd, &size);
+        if (r < 0)
+                return log_error_errno(r, "Failed to query size of \"%s\": %m", devpath);
 
         log_debug("Resizing \"%s\" to %"PRIu64" bytes...", arg_target, size);
 
