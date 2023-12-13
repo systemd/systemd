@@ -41,5 +41,7 @@ NotifyAccess=all
 FileDescriptorStoreMax=4096
 {{SERVICE_WATCHDOG}}
 
+Environment=SYSTEMD_IMAGE_POLICY_UNTRUSTED=*
+
 [Install]
 Also=systemd-mntfsd.socket
