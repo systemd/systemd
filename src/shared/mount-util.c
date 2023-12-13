@@ -457,10 +457,6 @@ static int mount_switch_root_pivot(int fd_newroot, const char *path) {
         assert(fd_newroot >= 0);
         assert(path);
 
-        /* Change into the new rootfs. */
-        if (fchdir(fd_newroot) < 0)
-                return log_debug_errno(errno, "Failed to chdir into new rootfs '%s': %m", path);
-
         /* Let the kernel tuck the new root under the old one. */
         if (pivot_root(".", ".") < 0)
                 return log_debug_errno(errno, "Failed to pivot root to new rootfs '%s': %m", path);
@@ -477,10 +473,6 @@ static int mount_switch_root_move(int fd_newroot, const char *path) {
         assert(fd_newroot >= 0);
         assert(path);
 
-        /* Change into the new rootfs. */
-        if (fchdir(fd_newroot) < 0)
-                return log_debug_errno(errno, "Failed to chdir into new rootfs '%s': %m", path);
-
         /* Move the new root fs */
         if (mount(".", "/", NULL, MS_MOVE, NULL) < 0)
                 return log_debug_errno(errno, "Failed to move new rootfs '%s': %m", path);
@@ -494,7 +486,7 @@ static int mount_switch_root_move(int fd_newroot, const char *path) {
 
 int mount_switch_root_full(const char *path, unsigned long mount_propagation_flag, bool force_ms_move) {
         _cleanup_close_ int fd_newroot = -EBADF;
-        int r;
+        int r, is_current_root;
 
         assert(path);
         assert(mount_propagation_flag_is_valid(mount_propagation_flag));
@@ -503,19 +495,31 @@ int mount_switch_root_full(const char *path, unsigned long mount_propagation_fla
         if (fd_newroot < 0)
                 return log_debug_errno(errno, "Failed to open new rootfs '%s': %m", path);
 
-        if (!force_ms_move) {
-                r = mount_switch_root_pivot(fd_newroot, path);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to pivot into new rootfs '%s', will try to use MS_MOVE instead: %m", path);
-                        force_ms_move = true;
+        is_current_root = path_is_root_at(fd_newroot, NULL);
+        if (is_current_root < 0)
+                return log_debug_errno(is_current_root, "Failed to determine if target dir is our root already: %m");
+
+        /* Change into the new rootfs. */
+        if (fchdir(fd_newroot) < 0)
+                return log_debug_errno(errno, "Failed to chdir into new rootfs '%s': %m", path);
+
+        /* Make this a NOP if we are supposed to switch to our current root fs. After all, both pivot_root()
+         * and MS_MOVE don't like that. */
+        if (!is_current_root) {
+                if (!force_ms_move) {
+                        r = mount_switch_root_pivot(fd_newroot, path);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to pivot into new rootfs '%s', will try to use MS_MOVE instead: %m", path);
+                                force_ms_move = true;
+                        }
                 }
-        }
-        if (force_ms_move) {
-                /* Failed to pivot_root() fallback to MS_MOVE. For example, this may happen if the rootfs is
-                 * an initramfs in which case pivot_root() isn't supported. */
-                r = mount_switch_root_move(fd_newroot, path);
-                if (r < 0)
-                        return log_debug_errno(r, "Failed to switch to new rootfs '%s' with MS_MOVE: %m", path);
+                if (force_ms_move) {
+                        /* Failed to pivot_root() fallback to MS_MOVE. For example, this may happen if the rootfs is
+                         * an initramfs in which case pivot_root() isn't supported. */
+                        r = mount_switch_root_move(fd_newroot, path);
+                        if (r < 0)
+                                return log_debug_errno(r, "Failed to switch to new rootfs '%s' with MS_MOVE: %m", path);
+                }
         }
 
         /* Finally, let's establish the requested propagation flags. */
