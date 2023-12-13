@@ -8,7 +8,6 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "format-util.h"
-#include "missing_syscall.h"
 #include "parse-util.h"
 #include "set.h"
 #include "socket-util.h"

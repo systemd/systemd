@@ -260,6 +260,8 @@ conf.set_quoted('SYSTEMD_TEST_DATA',                          testdata_dir)
 conf.set_quoted('SYSTEMD_TTY_ASK_PASSWORD_AGENT_BINARY_PATH', bindir / 'systemd-tty-ask-password-agent')
 conf.set_quoted('SYSTEMD_UPDATE_HELPER_PATH',                 libexecdir / 'systemd-update-helper')
 conf.set_quoted('SYSTEMD_USERWORK_PATH',                      libexecdir / 'systemd-userwork')
+conf.set_quoted('SYSTEMD_NSRESOURCEWORK_PATH',                libexecdir / 'systemd-nsresourcework')
+conf.set_quoted('SYSTEMD_MNTWORK_PATH',                       libexecdir / 'systemd-mntwork')
 conf.set_quoted('SYSTEMD_VERITYSETUP_PATH',                   libexecdir / 'systemd-veritysetup')
 conf.set_quoted('SYSTEM_CONFIG_UNIT_DIR',                     pkgsysconfdir / 'system')
 conf.set_quoted('SYSTEM_DATA_UNIT_DIR',                       systemunitdir)
@@ -1600,8 +1602,10 @@ foreach term : ['analyze',
                 'localed',
                 'logind',
                 'machined',
+                'mntfsd',
                 'networkd',
                 'nscd',
+                'nsresourced',
                 'nss-myhostname',
                 'nss-systemd',
                 'oomd',
@@ -1730,7 +1734,7 @@ if conf.get('BPF_FRAMEWORK') == 1
                 ]
         endif
 
-        bpf_o_unstripped_cmd += ['-I.']
+        bpf_o_unstripped_cmd += ['-I.', '-I' + meson.current_source_dir() + '/src/bpf']
 
         if not meson.is_cross_build() and bpf_compiler == 'clang'
                 target_triplet_cmd = run_command('gcc', '-dumpmachine', check: false)
@@ -1830,6 +1834,7 @@ update_hwdb_autosuspend_sh = find_program('tools/update-hwdb-autosuspend.sh')
 update_hwdb_sh = find_program('tools/update-hwdb.sh')
 update_man_rules_py = find_program('tools/update-man-rules.py')
 update_syscall_tables_sh = find_program('tools/update-syscall-tables.sh')
+update_vmlinux_h_sh = find_program('tools/update-vmlinux-h.sh')
 xml_helper_py = find_program('tools/xml_helper.py')
 
 ############################################################
@@ -1921,6 +1926,7 @@ subdir('src/fundamental')
 subdir('src/basic')
 subdir('src/libsystemd')
 subdir('src/shared')
+subdir('src/bpf')
 subdir('src/libudev')
 
 libsystemd = shared_library(
@@ -2174,11 +2180,13 @@ subdir('src/locale')
 subdir('src/login')
 subdir('src/machine')
 subdir('src/machine-id-setup')
+subdir('src/mntfsd')
 subdir('src/modules-load')
 subdir('src/mount')
 subdir('src/network')
 subdir('src/notify')
 subdir('src/nspawn')
+subdir('src/nsresourced')
 subdir('src/nss-myhostname')
 subdir('src/nss-mymachines')
 subdir('src/nss-resolve')

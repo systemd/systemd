@@ -129,6 +129,7 @@ int posix_fallocate_loop(int fd, uint64_t offset, uint64_t size);
 int parse_cifs_service(const char *s, char **ret_host, char **ret_service, char **ret_path);
 
 int open_mkdir_at(int dirfd, const char *path, int flags, mode_t mode);
+int open_mkdirp_at(int dirfd, const char *path, int flags, mode_t mode);
 
 int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, bool *ret_newly_created);
 
@@ -140,3 +141,5 @@ typedef enum XOpenFlags {
 int xopenat(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode);
 
 int xopenat_lock(int dir_fd, const char *path, int open_flags, XOpenFlags xopen_flags, mode_t mode, LockType locktype, int operation);
+
+int linkat_replace(int olddirfd, const char *oldpath, int newdirfd, const char *newpath);
