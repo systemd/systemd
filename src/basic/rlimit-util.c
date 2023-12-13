@@ -6,11 +6,14 @@
 #include "errno-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
+#include "fileio.h"
 #include "format-util.h"
 #include "macro.h"
 #include "missing_resource.h"
+#include "process-util.h"
 #include "rlimit-util.h"
 #include "string-table.h"
+#include "strv.h"
 #include "time-util.h"
 
 int setrlimit_closest(int resource, const struct rlimit *rlim) {
@@ -425,4 +428,117 @@ int rlimit_nofile_safe(void) {
                 return log_debug_errno(errno, "Failed to lower RLIMIT_NOFILE's soft limit to " RLIM_FMT ": %m", rl.rlim_cur);
 
         return 1;
+}
+
+int pid_getrlimit(pid_t pid, int resource, struct rlimit *ret) {
+
+        static const char * const prefix_table[_RLIMIT_MAX] = {
+                [RLIMIT_CPU]        = "Max cpu time",
+                [RLIMIT_FSIZE]      = "Max file size",
+                [RLIMIT_DATA]       = "Max data size",
+                [RLIMIT_STACK]      = "Max stack size",
+                [RLIMIT_CORE]       = "Max core file size",
+                [RLIMIT_RSS]        = "Max resident set",
+                [RLIMIT_NPROC]      = "Max processes",
+                [RLIMIT_NOFILE]     = "Max open files",
+                [RLIMIT_MEMLOCK]    = "Max locked memory",
+                [RLIMIT_AS]         = "Max address space",
+                [RLIMIT_LOCKS]      = "Max file locks",
+                [RLIMIT_SIGPENDING] = "Max pending signals",
+                [RLIMIT_MSGQUEUE]   = "Max msgqueue size",
+                [RLIMIT_NICE]       = "Max nice priority",
+                [RLIMIT_RTPRIO]     = "Max realtime priority",
+                [RLIMIT_RTTIME]     = "Max realtime timeout",
+        };
+
+        int r;
+
+        assert(resource >= 0);
+        assert(resource < _RLIMIT_MAX);
+        assert(pid >= 0);
+        assert(ret);
+
+        if (pid == 0 || pid == getpid_cached())
+                return RET_NERRNO(getrlimit(resource, ret));
+
+        r = RET_NERRNO(prlimit(pid, resource, /* new_limit= */ NULL, ret));
+        if (!ERRNO_IS_NEG_PRIVILEGE(r))
+                return r;
+
+        /* We don't have access? Then try to go via /proc/$PID/limits. Weirdly that's world readable in
+         * contrast to querying the data via prlimit() */
+
+        const char *p = procfs_file_alloca(pid, "limits");
+        _cleanup_free_ char *limits = NULL;
+
+        r = read_full_virtual_file(p, &limits, NULL);
+        if (r < 0)
+                return -EPERM; /* propagate original permission error if we can't access the limits file */
+
+        _cleanup_strv_free_ char **l = NULL;
+        l = strv_split(limits, "\n");
+        if (!l)
+                return -ENOMEM;
+
+        STRV_FOREACH(i, strv_skip(l, 1)) {
+                _cleanup_free_ char *soft = NULL, *hard = NULL;
+                uint64_t sv, hv;
+                const char *e;
+
+                e = startswith(*i, prefix_table[resource]);
+                if (!e)
+                        continue;
+
+                if (*e != ' ')
+                        continue;
+
+                e += strspn(e, WHITESPACE);
+
+                size_t n;
+                n = strcspn(e, WHITESPACE);
+                if (n == 0)
+                        continue;
+
+                soft = strndup(e, n);
+                if (!soft)
+                        return -ENOMEM;
+
+                e += n;
+                if (*e != ' ')
+                        continue;
+
+                e += strspn(e, WHITESPACE);
+                n = strcspn(e, WHITESPACE);
+                if (n == 0)
+                        continue;
+
+                hard = strndup(e, n);
+                if (!hard)
+                        return -ENOMEM;
+
+                if (streq(soft, "unlimited"))
+                        sv = RLIM_INFINITY;
+                else {
+                        r = safe_atou64(soft, &sv);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (streq(hard, "unlimited"))
+                        hv = RLIM_INFINITY;
+                else {
+                        r = safe_atou64(hard, &hv);
+                        if (r < 0)
+                                return r;
+                }
+
+                *ret = (struct rlimit) {
+                        .rlim_cur = sv,
+                        .rlim_max = hv,
+                };
+
+                return 0;
+        }
+
+        return -ENOTRECOVERABLE;
 }

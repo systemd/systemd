@@ -1,15 +1,20 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <sys/resource.h>
+#if HAVE_VALGRIND_VALGRIND_H
+#include <valgrind/valgrind.h>
+#endif
 
 #include "alloc-util.h"
 #include "capability-util.h"
 #include "macro.h"
 #include "missing_resource.h"
+#include "process-util.h"
 #include "rlimit-util.h"
 #include "string-util.h"
 #include "tests.h"
 #include "time-util.h"
+#include "user-util.h"
 
 static void test_rlimit_parse_format_one(int resource, const char *string, rlim_t soft, rlim_t hard, int ret, const char *formatted) {
         _cleanup_free_ char *f = NULL;
@@ -134,6 +139,47 @@ TEST(setrlimit) {
         assert_se(getrlimit(RLIMIT_NOFILE, &new) == 0);
         assert_se(old.rlim_cur == new.rlim_cur);
         assert_se(old.rlim_max == new.rlim_max);
+}
+
+TEST(pid_getrlimit) {
+        int r;
+
+        /* We fork off a child and read the parent's resource limit from there (i.e. our own), and compare
+         * with what getrlimit() gives us */
+
+        for (int resource = 0; resource < _RLIMIT_MAX; resource++) {
+                struct rlimit direct;
+
+                assert_se(getrlimit(resource, &direct) >= 0);
+
+                /* We fork off a child so that getrlimit() doesn't work anymore */
+                r = safe_fork("(getrlimit)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGKILL|FORK_LOG|FORK_WAIT, /* ret_pid= */ NULL);
+                assert_se(r >= 0);
+
+                if (r == 0) {
+                        struct rlimit indirect;
+                        /* child */
+
+                        /* Drop privs, so that prlimit() doesn't work anymore */
+                        (void) setresgid(GID_NOBODY, GID_NOBODY, GID_NOBODY);
+                        (void) setresuid(UID_NOBODY, UID_NOBODY, UID_NOBODY);
+
+                        assert_se(pid_getrlimit(getppid(), resource, &indirect) >= 0);
+
+#ifdef HAVE_VALGRIND_VALGRIND_H
+                        /* Valgrind fakes some changes in RLIMIT_NOFILE getrlimit() returns, work around that */
+                        if (RUNNING_ON_VALGRIND && resource == RLIMIT_NOFILE) {
+                                log_info("Skipping pid_getrlimit() check for RLIMIT_NOFILE, running in valgrind");
+                                _exit(EXIT_SUCCESS);
+                        }
+#endif
+
+                        assert_se(direct.rlim_cur == indirect.rlim_cur);
+                        assert_se(direct.rlim_max == indirect.rlim_max);
+
+                        _exit(EXIT_SUCCESS);
+                }
+        }
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
