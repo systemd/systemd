@@ -21,8 +21,8 @@
 
 import argparse
 import os
-import runpy
 import shlex
+import types
 from shutil import which
 from pathlib import Path
 from typing import Optional
@@ -209,22 +209,20 @@ def initrd_list(opts) -> list[Path]:
     return [*microcode, *opts.initrd, *initrd]
 
 
-def call_ukify(opts):
-    # Punish me harder.
-    # We want this:
-    #   ukify = importlib.machinery.SourceFileLoader('ukify', UKIFY).load_module()
-    # but it throws a DeprecationWarning.
-    # https://stackoverflow.com/questions/67631/how-can-i-import-a-module-dynamically-given-the-full-path
-    # https://github.com/python/cpython/issues/65635
-    # offer "explanations", but to actually load a python file without a .py extension,
-    # the "solution" is 4+ incomprehensible lines.
-    # The solution with runpy gives a dictionary, which isn't great, but will do.
-    ukify = runpy.run_path(UKIFY, run_name='ukify')
+def load_module(name: str, path: str) -> types.ModuleType:
+    module = types.ModuleType(name)
+    text = open(path).read()
+    exec(compile(text, path, 'exec'), module.__dict__)
+    return module
+
+
+def call_ukify(opts) -> None:
+    ukify = load_module('ukify', UKIFY)
 
     # Create "empty" namespace. We want to override just a few settings, so it
     # doesn't make sense to configure everything. We pretend to parse an empty
     # argument set to prepopulate the namespace with the defaults.
-    opts2 = ukify['create_parser']().parse_args(['build'])
+    opts2 = ukify.create_parser().parse_args(['build'])
 
     opts2.config = uki_conf_location()
     opts2.uname = opts.kernel_version
@@ -240,12 +238,10 @@ def call_ukify(opts):
     if BOOT_STUB:
         opts2.stub = BOOT_STUB
 
-    # opts2.summary = True
-
-    ukify['apply_config'](opts2)
-    ukify['finalize_options'](opts2)
-    ukify['check_inputs'](opts2)
-    ukify['make_uki'](opts2)
+    ukify.apply_config(opts2)
+    ukify.finalize_options(opts2)
+    ukify.check_inputs(opts2)
+    ukify.make_uki(opts2)
 
     log(f'{opts2.output} has been created')
 
