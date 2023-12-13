@@ -262,7 +262,6 @@
           </listitem>
         </varlistentry>
       </variablelist>
-
     </refsect2>
 
     <refsect2>
@@ -284,6 +283,28 @@
 
           <para>When user namespaces are used, the GID range assigned to each virtual machine is always chosen identical to the
           UID range.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
+      <title>Mount Options</title>
+
+      <variablelist>
+
+        <varlistentry>
+          <term><option>--bind=</option><replaceable>PATH</replaceable></term>
+          <term><option>--bind-ro=</option><replaceable>PATH</replaceable></term>
+
+          <listitem><para>Mount a directory from the host into the virtual machine. Takes one of: a path
+          argument — in which case the specified path will be mounted from the host to the same path in the virtual machine, or
+          a colon-separated pair of paths — in which case the first specified path is the source in the host, and the
+          second path is the destination in the virtual machine. If the source path is not absolute, it is resolved
+          relative to the current working directory. The <option>--bind-ro=</option> option creates read-only bind mounts.
+          Backslash escapes are interpreted, so <literal>\:</literal> may be used to embed colons in either path.
+          This option may be specified multiple times for creating multiple independent bind mount points.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/></listitem>
         </varlistentry>
