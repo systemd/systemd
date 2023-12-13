@@ -41,4 +41,4 @@ static inline bool iovec_is_set(const struct iovec *iovec) {
 char* set_iovec_string_field(struct iovec *iovec, size_t *n_iovec, const char *field, const char *value);
 char* set_iovec_string_field_free(struct iovec *iovec, size_t *n_iovec, const char *field, char *value);
 
-void iovec_array_free(struct iovec *iovec, size_t n);
+void iovec_array_free(struct iovec *iovec, size_t n_iovec);
