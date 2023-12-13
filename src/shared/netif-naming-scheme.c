@@ -1,6 +1,9 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "sd-device.h"
+
 #include "alloc-util.h"
+#include "device-private.h"
 #include "netif-naming-scheme.h"
 #include "proc-cmdline.h"
 #include "string-util.h"
@@ -101,3 +104,76 @@ static const char* const alternative_names_policy_table[_NAMEPOLICY_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP(alternative_names_policy, NamePolicy);
+
+static int naming_sysattr_allowed_by_default(sd_device *dev) {
+        int r;
+
+        assert(dev);
+
+        r = device_get_property_bool(dev, "ID_NET_NAME_ALLOW");
+        if (r == -ENOENT)
+                return true;
+
+        return r;
+}
+
+static int naming_sysattr_allowed(sd_device *dev, const char *sysattr) {
+        char *sysattr_property;
+        int r;
+
+        assert(dev);
+        assert(sysattr);
+
+        sysattr_property = strjoina("ID_NET_NAME_ALLOW_", sysattr);
+        ascii_strupper(sysattr_property);
+
+        r = device_get_property_bool(dev, sysattr_property);
+        if (r < 0 && r != -ENOENT)
+                return r;
+
+        if (r == -ENOENT)
+                /* If ID_NET_NAME_ALLOW is not set or set to 1 default is to allow */
+                return naming_sysattr_allowed_by_default(dev);
+
+        return r;
+}
+
+int device_get_sysattr_int_filtered(sd_device *device, const char *sysattr, int *ret_value) {
+        int r = naming_sysattr_allowed(device, sysattr);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ENOENT;
+
+        return device_get_sysattr_int(device, sysattr, ret_value);
+}
+
+int device_get_sysattr_unsigned_filtered(sd_device *device, const char *sysattr, unsigned *ret_value) {
+        int r = naming_sysattr_allowed(device, sysattr);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ENOENT;
+
+        return device_get_sysattr_unsigned(device, sysattr, ret_value);
+}
+
+int device_get_sysattr_bool_filtered(sd_device *device, const char *sysattr) {
+        int r = naming_sysattr_allowed(device, sysattr);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ENOENT;
+
+        return device_get_sysattr_bool(device, sysattr);
+}
+
+int device_get_sysattr_value_filtered(sd_device *device, const char *sysattr, const char **ret_value) {
+        int r = naming_sysattr_allowed(device, sysattr);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ENOENT;
+
+        return sd_device_get_sysattr_value(device, sysattr, ret_value);
+}
