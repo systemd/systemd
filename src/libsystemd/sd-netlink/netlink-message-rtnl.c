@@ -336,7 +336,7 @@ int sd_rtnl_message_new_nexthop(sd_netlink *rtnl, sd_netlink_message **ret,
                 return r;
 
         if (nlmsg_type == RTM_NEWNEXTHOP)
-                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_APPEND;
+                (*ret)->hdr->nlmsg_flags |= NLM_F_CREATE | NLM_F_REPLACE;
 
         nhm = NLMSG_DATA((*ret)->hdr);
 
