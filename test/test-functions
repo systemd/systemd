@@ -1167,26 +1167,34 @@ install_multipath() {
 }
 
 install_lvm() {
+    local lvm_rules rule_prefix
+
     image_install lvm
     image_install "${ROOTLIBDIR:?}"/system/lvm2-lvmpolld.{service,socket}
     image_install "${ROOTLIBDIR:?}"/system/{blk-availability,lvm2-monitor}.service
     image_install -o "/lib/tmpfiles.d/lvm2.conf"
+
     if get_bool "$LOOKS_LIKE_DEBIAN"; then
-        inst_rules 56-lvm.rules 69-lvm-metad.rules
+        lvm_rules="56-lvm.rules"
+        rule_prefix=""
     else
-        # Support the new udev autoactivation introduced in lvm 2.03.14
-        # https://sourceware.org/git/?p=lvm2.git;a=commit;h=67722b312390cdab29c076c912e14bd739c5c0f6
-        # Static autoactivation (via lvm2-activation-generator) was dropped
-        # in lvm 2.03.15
-        # https://sourceware.org/git/?p=lvm2.git;a=commit;h=ee8fb0310c53ed003a43b324c99cdfd891dd1a7c
-        if [[ -f /lib/udev/rules.d/69-dm-lvm.rules ]]; then
-            inst_rules 11-dm-lvm.rules 69-dm-lvm.rules
-        else
-            image_install "${ROOTLIBDIR:?}"/system-generators/lvm2-activation-generator
-            image_install "${ROOTLIBDIR:?}"/system/lvm2-pvscan@.service
-            inst_rules 11-dm-lvm.rules 69-dm-lvm-metad.rules
-        fi
+        lvm_rules="11-dm-lvm.rules"
+        rule_prefix="dm-"
     fi
+
+    # Support the new udev autoactivation introduced in lvm 2.03.14
+    # https://sourceware.org/git/?p=lvm2.git;a=commit;h=67722b312390cdab29c076c912e14bd739c5c0f6
+    # Static autoactivation (via lvm2-activation-generator) was dropped
+    # in lvm 2.03.15
+    # https://sourceware.org/git/?p=lvm2.git;a=commit;h=ee8fb0310c53ed003a43b324c99cdfd891dd1a7c
+    if [[ -f "/lib/udev/rules.d/69-${rule_prefix}lvm.rules" ]]; then
+        inst_rules "$lvm_rules" "69-${rule_prefix}lvm.rules"
+    else
+        image_install "${ROOTLIBDIR:?}"/system-generators/lvm2-activation-generator
+        image_install "${ROOTLIBDIR:?}"/system/lvm2-pvscan@.service
+        inst_rules "$lvm_rules" "69-${rule_prefix}lvm-metad.rules"
+    fi
+
     mkdir -p "${initdir:?}/etc/lvm"
 }
 
