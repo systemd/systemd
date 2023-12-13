@@ -1289,6 +1289,10 @@ install_mdadm() {
     for unit in "${mdadm_units[@]}"; do
         image_install "${ROOTLIBDIR:?}/$unit"
     done
+
+    # Disable the mdmonitor service, since it fails if there's no valid email address
+    # configured in /etc/mdadm.conf, which just unnecessarily pollutes the logs
+    "${SYSTEMCTL:?}" mask --root "${initdir:?}" mdmonitor.service || :
 }
 
 install_compiled_systemd() {
