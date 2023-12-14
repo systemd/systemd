@@ -17,7 +17,7 @@ static int environment_dirs(char ***ret) {
         _cleanup_free_ char *c = NULL;
         int r;
 
-        dirs = strv_new(CONF_PATHS_USR("environment.d"));
+        dirs = strv_new(CONF_PATHS("environment.d"));
         if (!dirs)
                 return -ENOMEM;
 

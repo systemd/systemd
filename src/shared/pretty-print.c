@@ -317,11 +317,10 @@ static int guess_type(const char **name, char ***prefixes, bool *is_collection, 
          */
 
         _cleanup_free_ char *n = NULL;
-        bool usr = false, run = false, coll = false;
+        bool run = false, coll = false;
         const char *ext = ".conf";
         /* This is static so that the array doesn't get deallocated when we exit the function */
         static const char* const std_prefixes[] = { CONF_PATHS(""), NULL };
-        static const char* const usr_prefixes[] = { CONF_PATHS_USR(""), NULL };
         static const char* const run_prefixes[] = { "/run/", NULL };
 
         if (path_equal(*name, "environment.d"))
@@ -333,19 +332,12 @@ static int guess_type(const char **name, char ***prefixes, bool *is_collection, 
         if (!n)
                 return log_oom();
 
-        /* All systemd-style config files should support the /usr-/etc-/run split and
-         * dropins. Let's add a blanket rule that allows us to support them without keeping
-         * an explicit list. */
-        if (path_startswith(n, "systemd") && endswith(n, ".conf"))
-                usr = true;
-
         delete_trailing_chars(n, "/");
+
+        /* We assume systemd-style config files support the /usr-/run-/etc split and dropins. */
 
         if (endswith(n, ".d"))
                 coll = true;
-
-        if (path_equal(n, "environment"))
-                usr = true;
 
         if (path_equal(n, "udev/hwdb.d"))
                 ext = ".hwdb";
@@ -371,10 +363,7 @@ static int guess_type(const char **name, char ***prefixes, bool *is_collection, 
                 ext = ".preset";
         }
 
-        if (path_equal(n, "systemd/user-preset"))
-                usr = true;
-
-        *prefixes = (char**) (usr ? usr_prefixes : run ? run_prefixes : std_prefixes);
+        *prefixes = (char**) (run ? run_prefixes : std_prefixes);
         *is_collection = coll;
         *extension = ext;
         return 0;
