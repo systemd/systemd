@@ -477,8 +477,8 @@ static int context_load_install_conf(Context *c) {
         if (c->conf_root)
                 return context_load_install_conf_one(c, c->conf_root);
 
-        STRV_FOREACH(p, STRV_MAKE("/etc/kernel", "/usr/lib/kernel")) {
-                r = context_load_install_conf_one(c, *p);
+        FOREACH_STRING(p, "/etc/kernel", "/usr/lib/kernel") {
+                r = context_load_install_conf_one(c, p);
                 if (r != 0)
                         return r;
         }
