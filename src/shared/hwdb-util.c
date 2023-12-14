@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "conf-files.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -709,4 +710,17 @@ bool hwdb_should_reload(sd_hwdb *hwdb) {
         if (timespec_load(&hwdb->st.st_mtim) != timespec_load(&st.st_mtim))
                 return true;
         return false;
+}
+
+int hwdb_bypass(void) {
+        int r;
+
+        r = getenv_bool("SYSTEMD_HWDB_UPDATE_BYPASS");
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_HWDB_UPDATE_BYPASS, assuming no.");
+        if (r <= 0)
+                return false;
+
+        log_debug("$SYSTEMD_HWDB_UPDATE_BYPASS is enabled, skipping execution.");
+        return true;
 }

@@ -22,6 +22,9 @@ static int verb_query(int argc, char *argv[], void *userdata) {
 }
 
 static int verb_update(int argc, char *argv[], void *userdata) {
+        if (hwdb_bypass())
+                return 0;
+
         return hwdb_update(arg_root, arg_hwdb_bin_dir, arg_strict, false);
 }
 
