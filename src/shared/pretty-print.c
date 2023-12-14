@@ -293,14 +293,12 @@ void print_separator(void) {
          * one line filled with spaces with ANSI underline set, followed by a second (empty) line. */
 
         if (underline_enabled()) {
-                size_t i, c;
-
-                c = columns();
+                size_t c = columns();
 
                 flockfile(stdout);
                 fputs_unlocked(ANSI_UNDERLINE, stdout);
 
-                for (i = 0; i < c; i++)
+                for (size_t i = 0; i < c; i++)
                         fputc_unlocked(' ', stdout);
 
                 fputs_unlocked(ANSI_NORMAL "\n\n", stdout);
