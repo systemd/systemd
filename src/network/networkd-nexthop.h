@@ -24,6 +24,8 @@ typedef struct NextHop {
         NetworkConfigSource source;
         NetworkConfigState state;
 
+        unsigned n_ref;
+
         uint8_t protocol;
         int ifindex;
         uint32_t id;
@@ -35,7 +37,8 @@ typedef struct NextHop {
         Hashmap *group;
 } NextHop;
 
-NextHop *nexthop_free(NextHop *nexthop);
+NextHop* nexthop_ref(NextHop *nexthop);
+NextHop* nexthop_unref(NextHop *nexthop);
 
 int network_drop_invalid_nexthops(Network *network);
 
