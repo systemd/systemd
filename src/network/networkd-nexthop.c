@@ -239,6 +239,10 @@ static int nexthop_get(Link *link, const NextHop *in, NextHop **ret) {
         if (in->id > 0)
                 return nexthop_get_by_id(link->manager, in->id, ret);
 
+        /* If ManageForeignNextHops=no, nexthop with id == 0 should be already filtered by
+         * nexthop_section_verify(). */
+        assert(link->manager->manage_foreign_nexthops);
+
         ifindex = nexthop_bound_to_link(in) ? link->ifindex : 0;
 
         HASHMAP_FOREACH(nexthop, link->manager->nexthops_by_id) {
@@ -286,6 +290,10 @@ static int nexthop_get_request(Link *link, const NextHop *in, Request **ret) {
 
         if (in->id > 0)
                 return nexthop_get_request_by_id(link->manager, in->id, ret);
+
+        /* If ManageForeignNextHops=no, nexthop with id == 0 should be already filtered by
+         * nexthop_section_verify(). */
+        assert(link->manager->manage_foreign_nexthops);
 
         ifindex = nexthop_bound_to_link(in) ? link->ifindex : 0;
 
@@ -430,15 +438,13 @@ static int nexthop_remove(NextHop *nexthop) {
         Request *req;
         int r;
 
-        manager = ASSERT_PTR(ASSERT_PTR(nexthop)->manager);
+        assert(nexthop);
+        assert(nexthop->id > 0);
+
+        manager = ASSERT_PTR(nexthop->manager);
 
         /* link may be NULL. */
         (void) link_get_by_index(manager, nexthop->ifindex, &link);
-
-        if (nexthop->id == 0) {
-                log_link_debug(link, "Cannot remove nexthop without valid ID, ignoring.");
-                return 0;
-        }
 
         log_nexthop_debug(nexthop, "Removing", manager);
 
