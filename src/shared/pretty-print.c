@@ -341,24 +341,17 @@ static int guess_type(const char **name, char ***prefixes, bool *is_collection, 
 
         if (path_equal(n, "udev/hwdb.d"))
                 ext = ".hwdb";
-
-        if (path_equal(n, "udev/rules.d"))
+        else if (path_equal(n, "udev/rules.d"))
                 ext = ".rules";
-
-        if (path_equal(n, "kernel/install.d"))
+        else if (path_equal(n, "kernel/install.d"))
                 ext = ".install";
-
-        if (path_equal(n, "systemd/ntp-units.d")) {
+        else if (path_equal(n, "systemd/ntp-units.d")) {
                 coll = true;
                 ext = ".list";
-        }
-
-        if (path_equal(n, "systemd/relabel-extra.d")) {
+        } else if (path_equal(n, "systemd/relabel-extra.d")) {
                 coll = run = true;
                 ext = ".relabel";
-        }
-
-        if (PATH_IN_SET(n, "systemd/system-preset", "systemd/user-preset")) {
+        } else if (PATH_IN_SET(n, "systemd/system-preset", "systemd/user-preset")) {
                 coll = true;
                 ext = ".preset";
         }
