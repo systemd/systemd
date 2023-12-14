@@ -315,11 +315,12 @@ static int guess_type(const char **name, char ***prefixes, bool *is_collection, 
          */
 
         _cleanup_free_ char *n = NULL;
-        bool run = false, coll = false;
+        bool run_only = false, run_first = false, coll = false;
         const char *ext = ".conf";
         /* This is static so that the array doesn't get deallocated when we exit the function */
         static const char* const std_prefixes[] = { CONF_PATHS(""), NULL };
-        static const char* const run_prefixes[] = { "/run/", NULL };
+        static const char* const run_first_prefixes[] = { CONF_PATHS_RUN_FIRST(""), NULL };
+        static const char* const run_only_prefixes[] = { "/run/", NULL };
 
         if (path_equal(*name, "environment.d"))
                 /* Special case: we need to include /etc/environment in the search path, even
@@ -341,20 +342,22 @@ static int guess_type(const char **name, char ***prefixes, bool *is_collection, 
                 ext = ".hwdb";
         else if (path_equal(n, "udev/rules.d"))
                 ext = ".rules";
-        else if (path_equal(n, "kernel/install.d"))
-                ext = ".install";
-        else if (path_equal(n, "systemd/ntp-units.d")) {
+        else if (path_startswith(n, "kernel/")) {
+                run_first = true;
+                if (path_equal(n, "kernel/install.d"))
+                        ext = ".install";
+        } else if (path_equal(n, "systemd/ntp-units.d")) {
                 coll = true;
                 ext = ".list";
         } else if (path_equal(n, "systemd/relabel-extra.d")) {
-                coll = run = true;
+                coll = run_only = true;
                 ext = ".relabel";
         } else if (PATH_IN_SET(n, "systemd/system-preset", "systemd/user-preset")) {
                 coll = true;
                 ext = ".preset";
         }
 
-        *prefixes = (char**) (run ? run_prefixes : std_prefixes);
+        *prefixes = (char**) (run_only ? run_only_prefixes : run_first ? run_first_prefixes : std_prefixes);
         *is_collection = coll;
         *extension = ext;
         return 0;
