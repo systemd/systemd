@@ -21,8 +21,7 @@
 
   <refnamediv>
     <refname>tmpfiles.d</refname>
-    <refpurpose>Configuration for creation, deletion and cleaning of
-    volatile and temporary files</refpurpose>
+    <refpurpose>Configuration for creation, deletion, and cleaning of files and directories</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>

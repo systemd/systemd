@@ -21,12 +21,13 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>/etc/systemd/system-preset/*.preset</filename></para>
-    <para><filename>/run/systemd/system-preset/*.preset</filename></para>
-    <para><filename>/usr/lib/systemd/system-preset/*.preset</filename></para>
-    <para><filename>/etc/systemd/user-preset/*.preset</filename></para>
-    <para><filename>/run/systemd/user-preset/*.preset</filename></para>
-    <para><filename>/usr/lib/systemd/user-preset/*.preset</filename></para>
+    <para><literallayout><filename>/etc/systemd/system-preset/*.preset</filename>
+<filename>/run/systemd/system-preset/*.preset</filename>
+<filename>/usr/lib/systemd/system-preset/*.preset</filename>
+<filename>/etc/systemd/user-preset/*.preset</filename>
+<filename>/run/systemd/user-preset/*.preset</filename>
+<filename>/usr/lib/systemd/user-preset/*.preset</filename>
+    </literallayout></para>
   </refsynopsisdiv>
 
   <refsect1>

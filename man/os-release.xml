@@ -22,10 +22,11 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>/etc/os-release</filename></para>
-    <para><filename>/usr/lib/os-release</filename></para>
-    <para><filename>/etc/initrd-release</filename></para>
-    <para><filename>/usr/lib/extension-release.d/extension-release.<replaceable>IMAGE</replaceable></filename></para>
+    <para><literallayout><filename>/etc/os-release</filename>
+<filename>/usr/lib/os-release</filename>
+<filename>/etc/initrd-release</filename>
+<filename>/usr/lib/extension-release.d/extension-release.<replaceable>IMAGE</replaceable></filename>
+    </literallayout></para>
   </refsynopsisdiv>
 
   <refsect1>

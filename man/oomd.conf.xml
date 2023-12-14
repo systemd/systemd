@@ -22,9 +22,10 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>/etc/systemd/oomd.conf</filename></para>
-    <para><filename>/etc/systemd/oomd.conf.d/*.conf</filename></para>
-    <para><filename>/usr/lib/systemd/oomd.conf.d/*.conf</filename></para>
+    <para><literallayout><filename>/etc/systemd/oomd.conf</filename>
+<filename>/etc/systemd/oomd.conf.d/*.conf</filename>
+<filename>/usr/lib/systemd/oomd.conf.d/*.conf</filename>
+    </literallayout></para>
   </refsynopsisdiv>
 
   <refsect1>

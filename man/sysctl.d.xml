@@ -21,9 +21,10 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>/etc/sysctl.d/*.conf</filename></para>
-    <para><filename>/run/sysctl.d/*.conf</filename></para>
-    <para><filename>/usr/lib/sysctl.d/*.conf</filename></para>
+    <para><literallayout><filename>/etc/sysctl.d/*.conf</filename>
+<filename>/run/sysctl.d/*.conf</filename>
+<filename>/usr/lib/sysctl.d/*.conf</filename>
+    </literallayout></para>
 
     <programlisting>key.name.under.proc.sys = some value
 key/name/under/proc/sys = some value
