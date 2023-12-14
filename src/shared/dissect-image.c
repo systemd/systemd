@@ -1547,6 +1547,7 @@ int dissect_image_file(
 #if HAVE_BLKID
         _cleanup_(dissected_image_unrefp) DissectedImage *m = NULL;
         _cleanup_close_ int fd = -EBADF;
+        struct stat st;
         int r;
 
         assert(path);
@@ -1555,13 +1556,18 @@ int dissect_image_file(
         if (fd < 0)
                 return -errno;
 
-        r = fd_verify_regular(fd);
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        r = stat_verify_regular(&st);
         if (r < 0)
                 return r;
 
         r = dissected_image_new(path, &m);
         if (r < 0)
                 return r;
+
+        m->image_size = st.st_size;
 
         r = probe_sector_size(fd, &m->sector_size);
         if (r < 0)
@@ -1759,8 +1765,9 @@ static int fs_grow(const char *node_path, int mount_fd, const char *mount_path) 
         if (node_fd < 0)
                 return log_debug_errno(errno, "Failed to open node device %s: %m", node_path);
 
-        if (ioctl(node_fd, BLKGETSIZE64, &size) != 0)
-                return log_debug_errno(errno, "Failed to get block device size of %s: %m", node_path);
+        r = blockdev_get_device_size(node_fd, &size);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to get block device size of %s: %m", node_path);
 
         if (mount_fd < 0) {
                 assert(mount_path);
@@ -3698,6 +3705,7 @@ int dissect_loop_device(
                 return r;
 
         m->loop = loop_device_ref(loop);
+        m->image_size = m->loop->device_size;
         m->sector_size = m->loop->sector_size;
 
         r = dissect_image(m, loop->fd, loop->node, verity, mount_options, image_policy, flags);

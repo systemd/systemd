@@ -102,6 +102,7 @@ struct DissectedImage {
         DecryptedImage *decrypted_image;
 
         uint32_t sector_size;
+        uint64_t image_size;
 
         char *image_name;
         sd_id128_t image_uuid;
