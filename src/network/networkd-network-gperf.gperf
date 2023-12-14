@@ -131,6 +131,7 @@ Network.IPv6AcceptRA,                        config_parse_tristate,             
 Network.IPv6AcceptRouterAdvertisements,      config_parse_tristate,                                    0,                             offsetof(Network, ipv6_accept_ra)
 Network.IPv6DuplicateAddressDetection,       config_parse_int,                                         0,                             offsetof(Network, ipv6_dad_transmits)
 Network.IPv6HopLimit,                        config_parse_uint8,                                       0,                             offsetof(Network, ipv6_hop_limit)
+Network.IPv6RetransTime,                     config_parse_uint32,                                      0,                             offsetof(Network, ipv6_retrans_time)
 Network.IPv6ProxyNDP,                        config_parse_tristate,                                    0,                             offsetof(Network, ipv6_proxy_ndp)
 Network.IPv6MTUBytes,                        config_parse_mtu,                                         AF_INET6,                      offsetof(Network, ipv6_mtu)
 Network.IPv4AcceptLocal,                     config_parse_tristate,                                    0,                             offsetof(Network, ipv4_accept_local)

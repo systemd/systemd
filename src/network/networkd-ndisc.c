@@ -371,9 +371,6 @@ static int ndisc_router_process_icmp6_ratelimit(Link *link, sd_ndisc_router *rt)
         assert(link->network);
         assert(rt);
 
-        log_link_debug(link, "MJM %s: link_network_ratelimit:%d",
-                        __func__, link->network->ipv6_accept_ra_use_icmp6_ratelimit);
-
         if (!link->network->ipv6_accept_ra_use_icmp6_ratelimit)
                 return 0;
 
@@ -382,9 +379,6 @@ static int ndisc_router_process_icmp6_ratelimit(Link *link, sd_ndisc_router *rt)
                 log_link_debug(link, "Failed to get ICMP6 ratelimit from RA, ignoring: %m");
                 return 0;
         }
-
-        log_link_debug(link, "MJM %s: router_ratelimit:%lu timestamp:%d", __func__, icmp6_ratelimit,
-                timestamp_is_set(icmp6_ratelimit));
 
         if (!timestamp_is_set(icmp6_ratelimit))
                 return 0;
@@ -409,9 +403,6 @@ static int ndisc_router_process_retrans_time(Link *link, sd_ndisc_router *rt) {
         assert(link->network);
         assert(rt);
 
-        log_link_debug(link, "MJM %s: use_retrans_time:%d",
-                        __func__, link->network->ipv6_accept_ra_use_retrans_time);
-
         if (!link->network->ipv6_accept_ra_use_retrans_time)
                 return 0;
 
@@ -423,8 +414,6 @@ static int ndisc_router_process_retrans_time(Link *link, sd_ndisc_router *rt) {
 
         /* Set the retransmission time for Neigbor Solicitations.
          * 0 is the unspecified value and must not be set (see RFC4861, 6.3.4) */
-        log_link_debug(link, "%s: ra_retrans_time:%lu", __func__, retrans_time);
-
         if (retrans_time != 0) {
                 xsprintf(buf, USEC_FMT, DIV_ROUND_UP(retrans_time, USEC_PER_MSEC));
                 r = sysctl_write_ip_neigh_property(AF_INET6, link->ifname, "retrans_time_ms", buf);

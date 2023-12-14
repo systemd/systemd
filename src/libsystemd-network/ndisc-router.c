@@ -145,7 +145,6 @@ int ndisc_router_parse(sd_ndisc *nd, sd_ndisc_router *rt) {
         rt->lifetime_usec = be16_sec_to_usec(a->nd_ra_router_lifetime, /* max_as_infinity = */ false);
         rt->icmp6_ratelimit_usec = be32_msec_to_usec(a->nd_ra_retransmit, /* max_as_infinity = */ false);
         rt->retrans_time_usec = be32_msec_to_usec(a->nd_ra_retransmit, /* max_as_infinity = */ false);
-        log_ndisc(nd, "%s: ra_retransmit:%u ms, retrans_time_usec:%lu us", __func__, a->nd_ra_retransmit, rt->retrans_time_usec);
 
         rt->preference = (rt->flags >> 3) & 3;
         if (!IN_SET(rt->preference, SD_NDISC_PREFERENCE_LOW, SD_NDISC_PREFERENCE_HIGH))

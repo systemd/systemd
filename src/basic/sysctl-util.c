@@ -106,7 +106,12 @@ int sysctl_write_ip_neigh_property(int af, const char *ifname, const char *prope
         if (!IN_SET(af, AF_INET, AF_INET6))
                 return -EAFNOSUPPORT;
 
-        p = strjoina("net/", af_to_ipv4_ipv6(af), "/neigh/", ifname, "/", property);
+        if (ifname) {
+                if (!ifname_valid_full(ifname, IFNAME_VALID_SPECIAL))
+                        return -EINVAL;
+                p = strjoina("net/", af_to_ipv4_ipv6(af), "/neigh/", ifname, "/", property);
+        } else
+                p = strjoina("net/", af_to_ipv4_ipv6(af), "/neigh/default/", property);
 
         return sysctl_write(p, value);
 }
