@@ -50,7 +50,6 @@
 #include "mkdir-label.h"
 #include "mount-util.h"
 #include "mountpoint-util.h"
-#include "nulstr-util.h"
 #include "offline-passwd.h"
 #include "pager.h"
 #include "parse-argument.h"
@@ -4436,7 +4435,7 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case RUNTIME_SCOPE_SYSTEM:
-                config_dirs = strv_split_nulstr(CONF_PATHS_NULSTR("tmpfiles.d"));
+                config_dirs = strv_new(CONF_PATHS("tmpfiles.d"));
                 if (!config_dirs)
                         return log_oom();
                 break;

@@ -293,14 +293,12 @@ void print_separator(void) {
          * one line filled with spaces with ANSI underline set, followed by a second (empty) line. */
 
         if (underline_enabled()) {
-                size_t i, c;
-
-                c = columns();
+                size_t c = columns();
 
                 flockfile(stdout);
                 fputs_unlocked(ANSI_UNDERLINE, stdout);
 
-                for (i = 0; i < c; i++)
+                for (size_t i = 0; i < c; i++)
                         fputc_unlocked(' ', stdout);
 
                 fputs_unlocked(ANSI_NORMAL "\n\n", stdout);
@@ -317,12 +315,12 @@ static int guess_type(const char **name, char ***prefixes, bool *is_collection, 
          */
 
         _cleanup_free_ char *n = NULL;
-        bool usr = false, run = false, coll = false;
+        bool run_only = false, run_first = false, coll = false;
         const char *ext = ".conf";
         /* This is static so that the array doesn't get deallocated when we exit the function */
         static const char* const std_prefixes[] = { CONF_PATHS(""), NULL };
-        static const char* const usr_prefixes[] = { CONF_PATHS_USR(""), NULL };
-        static const char* const run_prefixes[] = { "/run/", NULL };
+        static const char* const run_first_prefixes[] = { CONF_PATHS_RUN_FIRST(""), NULL };
+        static const char* const run_only_prefixes[] = { "/run/", NULL };
 
         if (path_equal(*name, "environment.d"))
                 /* Special case: we need to include /etc/environment in the search path, even
@@ -333,48 +331,33 @@ static int guess_type(const char **name, char ***prefixes, bool *is_collection, 
         if (!n)
                 return log_oom();
 
-        /* All systemd-style config files should support the /usr-/etc-/run split and
-         * dropins. Let's add a blanket rule that allows us to support them without keeping
-         * an explicit list. */
-        if (path_startswith(n, "systemd") && endswith(n, ".conf"))
-                usr = true;
-
         delete_trailing_chars(n, "/");
+
+        /* We assume systemd-style config files support the /usr-/run-/etc split and dropins. */
 
         if (endswith(n, ".d"))
                 coll = true;
 
-        if (path_equal(n, "environment"))
-                usr = true;
-
         if (path_equal(n, "udev/hwdb.d"))
                 ext = ".hwdb";
-
-        if (path_equal(n, "udev/rules.d"))
+        else if (path_equal(n, "udev/rules.d"))
                 ext = ".rules";
-
-        if (path_equal(n, "kernel/install.d"))
-                ext = ".install";
-
-        if (path_equal(n, "systemd/ntp-units.d")) {
+        else if (path_startswith(n, "kernel/")) {
+                run_first = true;
+                if (path_equal(n, "kernel/install.d"))
+                        ext = ".install";
+        } else if (path_equal(n, "systemd/ntp-units.d")) {
                 coll = true;
                 ext = ".list";
-        }
-
-        if (path_equal(n, "systemd/relabel-extra.d")) {
-                coll = run = true;
+        } else if (path_equal(n, "systemd/relabel-extra.d")) {
+                coll = run_only = true;
                 ext = ".relabel";
-        }
-
-        if (PATH_IN_SET(n, "systemd/system-preset", "systemd/user-preset")) {
+        } else if (PATH_IN_SET(n, "systemd/system-preset", "systemd/user-preset")) {
                 coll = true;
                 ext = ".preset";
         }
 
-        if (path_equal(n, "systemd/user-preset"))
-                usr = true;
-
-        *prefixes = (char**) (usr ? usr_prefixes : run ? run_prefixes : std_prefixes);
+        *prefixes = (char**) (run_only ? run_only_prefixes : run_first ? run_first_prefixes : std_prefixes);
         *is_collection = coll;
         *extension = ext;
         return 0;

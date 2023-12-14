@@ -150,12 +150,12 @@ fi
 
 # Test bootctl
 if [ -x "$bootctl" ]; then
-    echo "Testing bootctl"
+    echo "Testing bootctl ($bootctl)"
     e2="${entry%+*}_2.conf"
     cp "$entry" "$e2"
     export SYSTEMD_ESP_PATH=/boot
     # We use --root so strip the root prefix from KERNEL_INSTALL_CONF_ROOT
-    export KERNEL_INSTALL_CONF_ROOT="sources"
+    export KERNEL_INSTALL_CONF_ROOT="$D/sources"
 
     # create file that is not referenced. Check if cleanup removes
     # it but leaves the rest alone

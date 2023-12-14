@@ -7507,7 +7507,7 @@ int tpm2_load_pcr_signature(const char *path, JsonVariant **ret) {
         /* Tries to load a JSON PCR signature file. Takes an absolute path, a simple file name or NULL. In
          * the latter two cases searches in /etc/, /usr/lib/, /run/, as usual. */
 
-        search = strv_split_nulstr(CONF_PATHS_NULSTR("systemd"));
+        search = strv_new(CONF_PATHS("systemd"));
         if (!search)
                 return log_oom_debug();
 
