@@ -1584,8 +1584,19 @@ static int home_update(UserRecord *h, UserRecord **ret) {
         assert(ret);
 
         r = user_record_authenticate(h, h, &cache, /* strict_verify= */ true);
-        if (r < 0)
-                return r;
+        if (r < 0) {
+                if (FLAGS_SET(h->mask, USER_RECORD_SECRET))
+                        return r;
+
+                /* If authentication wasn't attempted, we will allow the update operation to continue
+                 * on the host side of things, but we will not update any embedded records. This allows
+                 * an administrator to update the user record without the user's password. homed's
+                 * reconciliation logic will propogate the changes through into the embedded records when
+                 * the user next logs in. */
+                log_info("No secret section provided. Not touching embedded records.");
+                sd_notify(false, "HOMED_HOST_ONLY=1");
+                return user_record_clone(h, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_PERMISSIVE, ret);
+        }
         assert(r > 0); /* Insist that a password was verified */
 
         r = home_validate_update(h, &setup, &flags);
