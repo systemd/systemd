@@ -21,6 +21,7 @@
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "uid-range.h"
 #include "virt.h"
 
 enum {
@@ -814,7 +815,7 @@ Virtualization detect_virtualization(void) {
 
 static int userns_has_mapping(const char *name) {
         _cleanup_fclose_ FILE *f = NULL;
-        uid_t a, b, c;
+        uid_t base, shift, range;
         int r;
 
         f = fopen(name, "re");
@@ -823,26 +824,22 @@ static int userns_has_mapping(const char *name) {
                 return errno == ENOENT ? false : -errno;
         }
 
-        errno = 0;
-        r = fscanf(f, UID_FMT " " UID_FMT " " UID_FMT "\n", &a, &b, &c);
-        if (r == EOF) {
-                if (ferror(f))
-                        return log_debug_errno(errno_or_else(EIO), "Failed to read %s: %m", name);
-
-                log_debug("%s is empty, we're in an uninitialized user namespace", name);
+        r = uid_map_read_one(f, &base, &shift, &range);
+        if (r == -ENOMSG) {
+                log_debug("%s is empty, we're in an uninitialized user namespace.", name);
                 return true;
         }
-        if (r != 3)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Failed to parse %s: %m", name);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to read %s: %m", name);
 
-        if (a == 0 && b == 0 && c == UINT32_MAX) {
+        if (base == 0 && shift == 0 && range == UINT32_MAX) {
                 /* The kernel calls mappings_overlap() and does not allow overlaps */
                 log_debug("%s has a full 1:1 mapping", name);
                 return false;
         }
 
         /* Anything else implies that we are in a user namespace */
-        log_debug("Mapping found in %s, we're in a user namespace", name);
+        log_debug("Mapping found in %s, we're in a user namespace.", name);
         return true;
 }
 
