@@ -132,9 +132,10 @@ def input_file_location(
     if root := os.getenv('KERNEL_INSTALL_CONF_ROOT'):
         search_directories = (root,)
     elif not search_directories:
-        # This is the default search path.
-        search_directories = ('/etc/kernel',
-                              '/usr/lib/kernel')
+        search_directories = ('/run/kernel',
+                              '/etc/kernel',
+                              '/usr/lib/kernel',
+                              '/usr/local/lib/kernel')
 
     for dir in search_directories:
         p = Path(dir) / filename

@@ -28,6 +28,12 @@
     <!-- /usr/local/lib not documented on purpose -->
     </literallayout></para>
 
+    <para><literallayout><filename>/run/kernel/uki.conf</filename>
+<filename>/etc/kernel/uki.conf</filename>
+<filename>/usr/lib/kernel/uki.conf</filename>
+    <!-- /usr/local/lib not documented on purpose -->
+    </literallayout></para>
+
     <para><literallayout><filename>/run/kernel/install.d/*.install</filename>
 <filename>/etc/kernel/install.d/*.install</filename>
 <filename>/usr/lib/kernel/install.d/*.install</filename>
@@ -685,7 +691,10 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><filename>/run/kernel/uki.conf</filename></term>
         <term><filename>/etc/kernel/uki.conf</filename></term>
+        <!-- /usr/local/lib not documented on purpose -->
+        <term><filename>/usr/lib/kernel/uki.conf</filename></term>
         <listitem>
           <para>Ini-style configuration file for
           <citerefentry><refentrytitle>ukify</refentrytitle><manvolnum>1</manvolnum></citerefentry> which is
