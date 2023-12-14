@@ -58,11 +58,13 @@ static void request_hash_func(const Request *req, struct siphash *state) {
         assert(req);
         assert(state);
 
-        siphash24_compress_boolean(req->link, state);
-        if (req->link)
-                siphash24_compress(&req->link->ifindex, sizeof(req->link->ifindex), state);
-
         siphash24_compress(&req->type, sizeof(req->type), state);
+
+        if (req->type != REQUEST_TYPE_NEXTHOP) {
+                siphash24_compress_boolean(req->link, state);
+                if (req->link)
+                        siphash24_compress(&req->link->ifindex, sizeof(req->link->ifindex), state);
+        }
 
         siphash24_compress(&req->hash_func, sizeof(req->hash_func), state);
         siphash24_compress(&req->compare_func, sizeof(req->compare_func), state);
@@ -77,19 +79,21 @@ static int request_compare_func(const struct Request *a, const struct Request *b
         assert(a);
         assert(b);
 
-        r = CMP(!!a->link, !!b->link);
-        if (r != 0)
-                return r;
-
-        if (a->link) {
-                r = CMP(a->link->ifindex, b->link->ifindex);
-                if (r != 0)
-                        return r;
-        }
-
         r = CMP(a->type, b->type);
         if (r != 0)
                 return r;
+
+        if (a->type != REQUEST_TYPE_NEXTHOP) {
+                r = CMP(!!a->link, !!b->link);
+                if (r != 0)
+                        return r;
+
+                if (a->link) {
+                        r = CMP(a->link->ifindex, b->link->ifindex);
+                        if (r != 0)
+                                return r;
+                }
+        }
 
         r = CMP(PTR_TO_UINT64(a->hash_func), PTR_TO_UINT64(b->hash_func));
         if (r != 0)

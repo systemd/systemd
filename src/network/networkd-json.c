@@ -185,15 +185,19 @@ static int nexthop_build_json(NextHop *n, JsonVariant **ret) {
                                 JSON_BUILD_PAIR_STRING("ConfigState", state)));
 }
 
-static int nexthops_append_json(Set *nexthops, JsonVariant **v) {
+static int nexthops_append_json(Manager *manager, int ifindex, JsonVariant **v) {
         _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
         NextHop *nexthop;
         int r;
 
+        assert(manager);
         assert(v);
 
-        SET_FOREACH(nexthop, nexthops) {
+        HASHMAP_FOREACH(nexthop, manager->nexthops_by_id) {
                 _cleanup_(json_variant_unrefp) JsonVariant *e = NULL;
+
+                if (nexthop->ifindex != ifindex)
+                        continue;
 
                 r = nexthop_build_json(nexthop, &e);
                 if (r < 0)
@@ -1354,7 +1358,7 @@ int link_build_json(Link *link, JsonVariant **ret) {
         if (r < 0)
                 return r;
 
-        r = nexthops_append_json(link->nexthops, &v);
+        r = nexthops_append_json(link->manager, link->ifindex, &v);
         if (r < 0)
                 return r;
 
@@ -1417,7 +1421,7 @@ int manager_build_json(Manager *manager, JsonVariant **ret) {
         if (r < 0)
                 return r;
 
-        r = nexthops_append_json(manager->nexthops, &v);
+        r = nexthops_append_json(manager, /* ifindex = */ 0, &v);
         if (r < 0)
                 return r;
 
