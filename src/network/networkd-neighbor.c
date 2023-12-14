@@ -396,19 +396,36 @@ int link_request_static_neighbors(Link *link) {
         return 0;
 }
 
-static int neighbor_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int neighbor_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, RemoveRequest *rreq) {
         int r;
 
         assert(m);
-        assert(link);
+        assert(rreq);
 
-        if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
+        Link *link = ASSERT_PTR(rreq->link);
+        Neighbor *neighbor = ASSERT_PTR(rreq->userdata);
+
+        if (link->state == LINK_STATE_LINGER)
+                return 0;
 
         r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -ESRCH)
+        if (r < 0) {
                 /* Neighbor may not exist because it already got deleted, ignore that. */
-                log_link_message_warning_errno(link, m, r, "Could not remove neighbor");
+                log_link_message_full_errno(link, m,
+                                            (r == -ESRCH || !neighbor->link) ? LOG_DEBUG : LOG_WARNING,
+                                            r, "Could not remove neighbor");
+
+                if (neighbor->link) {
+                        /* If the neighbor cannot be removed, then assume the neighbor is already removed. */
+                        log_neighbor_debug(neighbor, "Forgetting", link);
+
+                        Request *req;
+                        if (neighbor_get_request(link, neighbor, &req) >= 0)
+                                neighbor_enter_removed(req->userdata);
+
+                        neighbor_detach(neighbor);
+                }
+        }
 
         return 1;
 }
@@ -437,12 +454,9 @@ static int neighbor_remove(Neighbor *neighbor) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append NDA_DST attribute: %m");
 
-        r = netlink_call_async(link->manager->rtnl, NULL, m, neighbor_remove_handler,
-                               link_netlink_destroy_callback, link);
+        r = link_remove_request_add(link, neighbor, neighbor, link->manager->rtnl, m, neighbor_remove_handler);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
-
-        link_ref(link);
+                return log_link_error_errno(link, r, "Could not queue rtnetlink message: %m");
 
         neighbor_enter_removing(neighbor);
         if (neighbor_get_request(neighbor->link, neighbor, &req) >= 0)
