@@ -96,6 +96,21 @@ int sysctl_write_ip_property(int af, const char *ifname, const char *property, c
         return sysctl_write(p, value);
 }
 
+int sysctl_write_ip_neigh_property(int af, const char *ifname, const char *property, const char *value) {
+        const char *p;
+
+        assert(property);
+        assert(value);
+        assert(ifname);
+
+        if (!IN_SET(af, AF_INET, AF_INET6))
+                return -EAFNOSUPPORT;
+
+        p = strjoina("net/", af_to_ipv4_ipv6(af), "/neigh/", ifname, "/", property);
+
+        return sysctl_write(p, value);
+}
+
 int sysctl_read(const char *property, char **ret) {
         char *p;
         int r;

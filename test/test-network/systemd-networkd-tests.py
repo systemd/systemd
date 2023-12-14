@@ -565,8 +565,15 @@ def read_ip_sysctl_attr(link, attribute, ipv):
     with open(os.path.join('/proc/sys/net', ipv, 'conf', link, attribute), encoding='utf-8') as f:
         return f.readline().strip()
 
+def read_ip_neigh_sysctl_attr(link, attribute, ipv):
+    with open(os.path.join('/proc/sys/net', ipv, 'neigh', link, attribute), encoding='utf-8') as f:
+        return f.readline().strip()
+
 def read_ipv6_sysctl_attr(link, attribute):
     return read_ip_sysctl_attr(link, attribute, 'ipv6')
+
+def read_ipv6_neigh_sysctl_attr(link, attribute):
+    return read_ip_neigh_sysctl_attr(link, attribute, 'ipv6')
 
 def read_ipv4_sysctl_attr(link, attribute):
     return read_ip_sysctl_attr(link, attribute, 'ipv4')
@@ -873,6 +880,9 @@ class Utilities():
 
     def check_ipv6_sysctl_attr(self, link, attribute, expected):
         self.assertEqual(read_ipv6_sysctl_attr(link, attribute), expected)
+
+    def check_ipv6_neigh_sysctl_attr(self, link, attribute, expected):
+        self.assertEqual(read_ipv6_neigh_sysctl_attr(link, attribute), expected)
 
     def wait_links(self, *links, timeout=20, fail_assert=True):
         def links_exist(*links):
@@ -3579,6 +3589,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.check_ipv4_sysctl_attr('dummy98', 'proxy_arp', '1')
         self.check_ipv4_sysctl_attr('dummy98', 'accept_local', '1')
         self.check_ipv4_sysctl_attr('dummy98', 'rp_filter', '0')
+
+        self.check_ipv6_neigh_sysctl_attr('dummy98', 'retrans_timer_ms', '1')
 
         copy_network_unit('25-sysctl.network.d/25-ipv6-privacy-extensions.conf')
         networkctl_reload()

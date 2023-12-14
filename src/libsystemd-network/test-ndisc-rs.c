@@ -28,7 +28,7 @@ static sd_ndisc *test_timeout_nd;
 static void router_dump(sd_ndisc_router *rt) {
         struct in6_addr addr;
         uint8_t hop_limit;
-        usec_t t, lifetime;
+        usec_t t, lifetime, retrans_timer;
         uint64_t flags;
         uint32_t mtu;
         unsigned preference;
@@ -64,6 +64,9 @@ static void router_dump(sd_ndisc_router *rt) {
         assert_se(sd_ndisc_router_get_lifetime(rt, &lifetime) >= 0);
         assert_se(sd_ndisc_router_get_lifetime_timestamp(rt, CLOCK_REALTIME, &t) >= 0);
         log_info("Lifetime: %s (%s)", FORMAT_TIMESPAN(lifetime, USEC_PER_SEC), FORMAT_TIMESTAMP(t));
+
+        assert_se(sd_ndisc_router_get_retrans_time(rt, &retrans_time) >= 0);
+        log_info("Retransmission Time: %s", FORMAT_TIMESPAN(retrans_time, USEC_PER_SEC));
 
         if (sd_ndisc_router_get_mtu(rt, &mtu) < 0)
                 log_info("No MTU set");

@@ -3278,6 +3278,18 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>UseRetransTime=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, the retransmission time received in the Router Advertisement will be set
+          on the interface receiving the advertisement. It is used as the time between retransmissions of Neighbor
+          Solicitation messages to a neighbor when resolving the address or when probing the reachability of a neighbor.
+          Defaults to true.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>UseICMP6RateLimit=</varname></term>
         <listitem>
           <para>Takes a boolean. When true, the ICMP6 rate limit received in the Router Advertisement will be set to ICMP6
