@@ -2480,6 +2480,7 @@ Features:
   - teach tmpfiles.d m/M to move / atomic move + symlink old -> new
   - add new line type for setting btrfs subvolume attributes (i.e. rw/ro)
   - tmpfiles: add new line type for setting fcaps
+  - add -n for --dry-run in tmpfiles & sysusers & possibly other places
 
 * udev-link-config:
    - Make sure ID_PATH is always exported and complete for
