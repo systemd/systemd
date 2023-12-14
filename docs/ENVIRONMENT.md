@@ -249,6 +249,14 @@ All tools:
   devices sysfs path are actually backed by sysfs. Relaxing this verification
   is useful for testing purposes.
 
+`udevadm` and `systemd-hwdb`:
+
+* `SYSTEMD_HWDB_UPDATE_BYPASS=` — If set to "1", execution of hwdb updates is skipped
+  when `udevadm hwdb --update` or `systemd-hwdb update` are invoked. This can
+  be useful if either of these tools are invoked unconditionally as a child
+  process by another tool, such as package managers running either of these
+  tools in a postinstall script.
+
 `nss-systemd`:
 
 * `$SYSTEMD_NSS_BYPASS_SYNTHETIC=1` — if set, `nss-systemd` won't synthesize
