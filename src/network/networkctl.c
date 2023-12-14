@@ -3163,7 +3163,7 @@ static int udevd_reload(sd_bus *bus) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        r = bus_wait_for_jobs_one(w, job_path, /* quiet = */ true, NULL);
+        r = bus_wait_for_jobs_one(w, job_path, /* flags = */ 0, NULL);
         if (r == -ENOEXEC) {
                 log_debug("systemd-udevd is not running, skipping reload.");
                 return 0;
