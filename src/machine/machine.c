@@ -690,14 +690,9 @@ int machine_get_uid_shift(Machine *m, uid_t *ret) {
         }
 
         /* Read the first line. There's at least one. */
-        errno = 0;
-        k = fscanf(f, UID_FMT " " UID_FMT " " UID_FMT "\n", &uid_base, &uid_shift, &uid_range);
-        if (k != 3) {
-                if (ferror(f))
-                        return errno_or_else(EIO);
-
-                return -EBADMSG;
-        }
+        r = uid_read_map_one(f, &uid_base, &uid_shift, &uid_range);
+        if (r < 0)
+                return r;
 
         /* Not a mapping starting at 0? Then it's a complex mapping we can't expose here. */
         if (uid_base != 0)
@@ -780,16 +775,11 @@ static int machine_owns_uid_internal(
                 uid_t uid_base, uid_shift, uid_range, converted;
                 int k;
 
-                errno = 0;
-                k = fscanf(f, UID_FMT " " UID_FMT " " UID_FMT, &uid_base, &uid_shift, &uid_range);
-                if (k < 0 && feof(f))
+                r = uid_read_map_one(f, &uid_base, &uid_shift, &uid_range);
+                if (r == -ENOMSG)
                         break;
-                if (k != 3) {
-                        if (ferror(f))
-                                return errno_or_else(EIO);
-
-                        return -EIO;
-                }
+                if (r < 0)
+                        return r;
 
                 /* The private user namespace is disabled, ignoring. */
                 if (uid_shift == 0)
@@ -852,16 +842,11 @@ static int machine_translate_uid_internal(
                 uid_t uid_base, uid_shift, uid_range, converted;
                 int k;
 
-                errno = 0;
-                k = fscanf(f, UID_FMT " " UID_FMT " " UID_FMT, &uid_base, &uid_shift, &uid_range);
-                if (k < 0 && feof(f))
+                r = uid_read_map_one(f, &uid_base, &uid_shift, &uid_range);
+                if (r == -ENOMSG)
                         break;
-                if (k != 3) {
-                        if (ferror(f))
-                                return errno_or_else(EIO);
-
-                        return -EIO;
-                }
+                if (r < 0)
+                        return r;
 
                 if (uid < uid_base || uid >= uid_base + uid_range)
                         continue;
@@ -872,6 +857,7 @@ static int machine_translate_uid_internal(
 
                 if (ret_host_uid)
                         *ret_host_uid = converted;
+
                 return 0;
         }
 
