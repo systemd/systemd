@@ -22,9 +22,11 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>/etc/sysusers.d/*.conf</filename></para>
-    <para><filename>/run/sysusers.d/*.conf</filename></para>
-    <para><filename>/usr/lib/sysusers.d/*.conf</filename></para>
+    <para><simplelist>
+      <member><filename>/etc/sysusers.d/*.conf</filename></member>
+      <member><filename>/run/sysusers.d/*.conf</filename></member>
+      <member><filename>/usr/lib/sysusers.d/*.conf</filename></member>
+    </simplelist></para>
 
     <programlisting>
 #Type Name       ID                  GECOS              Home directory Shell

@@ -26,11 +26,13 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>~/.config/environment.d/*.conf</filename></para>
-    <para><filename>/etc/environment.d/*.conf</filename></para>
-    <para><filename>/run/environment.d/*.conf</filename></para>
-    <para><filename>/usr/lib/environment.d/*.conf</filename></para>
-    <para><filename>/etc/environment</filename></para>
+    <para><simplelist>
+      <member><filename>~/.config/environment.d/*.conf</filename></member>
+      <member><filename>/etc/environment.d/*.conf</filename></member>
+      <member><filename>/run/environment.d/*.conf</filename></member>
+      <member><filename>/usr/lib/environment.d/*.conf</filename></member>
+      <member><filename>/etc/environment</filename></member>
+    </simplelist></para>
   </refsynopsisdiv>
 
   <refsect1>

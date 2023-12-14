@@ -25,17 +25,19 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><literallayout><filename>/etc/tmpfiles.d/*.conf</filename>
-<filename>/run/tmpfiles.d/*.conf</filename>
-<filename>/usr/lib/tmpfiles.d/*.conf</filename>
-    </literallayout></para>
+    <para><simplelist>
+      <member><filename>/etc/tmpfiles.d/*.conf</filename></member>
+      <member><filename>/run/tmpfiles.d/*.conf</filename></member>
+      <member><filename>/usr/lib/tmpfiles.d/*.conf</filename></member>
+    </simplelist></para>
 
-    <para><literallayout><filename>~/.config/user-tmpfiles.d/*.conf</filename>
-<filename>$XDG_RUNTIME_DIR/user-tmpfiles.d/*.conf</filename>
-<filename>~/.local/share/user-tmpfiles.d/*.conf</filename>
-<filename index='false'>…</filename>
-<filename>/usr/share/user-tmpfiles.d/*.conf</filename>
-    </literallayout></para>
+    <para><simplelist>
+      <member><filename>~/.config/user-tmpfiles.d/*.conf</filename></member>
+      <member><filename>$XDG_RUNTIME_DIR/user-tmpfiles.d/*.conf</filename></member>
+      <member><filename>~/.local/share/user-tmpfiles.d/*.conf</filename></member>
+      <member><filename index='false'>…</filename></member>
+      <member><filename>/usr/share/user-tmpfiles.d/*.conf</filename></member>
+    </simplelist></para>
 
     <programlisting>#Type Path                                     Mode User Group Age         Argument
 f     /file/to/create                          mode user group -           content
