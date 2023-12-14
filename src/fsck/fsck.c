@@ -177,7 +177,7 @@ static int process_progress(int fd, FILE* console) {
                         else if (feof(f))
                                 r = 0;
                         else
-                                r = log_warning_errno(SYNTHETIC_ERRNO(errno), "Failed to parse progress pipe data");
+                                r = log_warning_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse progress pipe data.");
 
                         break;
                 }
