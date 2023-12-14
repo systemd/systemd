@@ -24,9 +24,10 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>/etc/systemd/nspawn/<replaceable>machine</replaceable>.nspawn</filename></para>
-    <para><filename>/run/systemd/nspawn/<replaceable>machine</replaceable>.nspawn</filename></para>
-    <para><filename>/var/lib/machines/<replaceable>machine</replaceable>.nspawn</filename></para>
+    <para><literallayout><filename>/etc/systemd/nspawn/<replaceable>machine</replaceable>.nspawn</filename>
+<filename>/run/systemd/nspawn/<replaceable>machine</replaceable>.nspawn</filename>
+<filename>/var/lib/machines/<replaceable>machine</replaceable>.nspawn</filename>
+    </literallayout></para>
   </refsynopsisdiv>
 
   <refsect1>

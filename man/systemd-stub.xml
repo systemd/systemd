@@ -25,14 +25,15 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>/usr/lib/systemd/boot/efi/linuxx64.efi.stub</filename></para>
-    <para><filename>/usr/lib/systemd/boot/efi/linuxia32.efi.stub</filename></para>
-    <para><filename>/usr/lib/systemd/boot/efi/linuxaa64.efi.stub</filename></para>
-    <para><filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.addon.efi</filename></para>
-    <para><filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.cred</filename></para>
-    <para><filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.raw</filename></para>
-    <para><filename><replaceable>ESP</replaceable>/loader/addons/*.addon.efi</filename></para>
-    <para><filename><replaceable>ESP</replaceable>/loader/credentials/*.cred</filename></para>
+    <para><literallayout><filename>/usr/lib/systemd/boot/efi/linuxx64.efi.stub</filename>
+<filename>/usr/lib/systemd/boot/efi/linuxia32.efi.stub</filename>
+<filename>/usr/lib/systemd/boot/efi/linuxaa64.efi.stub</filename>
+<filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.addon.efi</filename>
+<filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.cred</filename>
+<filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.raw</filename>
+<filename><replaceable>ESP</replaceable>/loader/addons/*.addon.efi</filename>
+<filename><replaceable>ESP</replaceable>/loader/credentials/*.cred</filename>
+    </literallayout></para>
   </refsynopsisdiv>
 
   <refsect1>

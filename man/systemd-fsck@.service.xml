@@ -24,10 +24,11 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>systemd-fsck@.service</filename></para>
-    <para><filename>systemd-fsck-root.service</filename></para>
-    <para><filename>systemd-fsck-usr.service</filename></para>
-    <para><filename>/usr/lib/systemd/systemd-fsck</filename></para>
+    <para><literallayout><filename>systemd-fsck@.service</filename>
+<filename>systemd-fsck-root.service</filename>
+<filename>systemd-fsck-usr.service</filename>
+<filename>/usr/lib/systemd/systemd-fsck</filename>
+    </literallayout></para>
   </refsynopsisdiv>
 
   <refsect1>

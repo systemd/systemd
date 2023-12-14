@@ -22,10 +22,11 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>/etc/systemd/sleep.conf</filename></para>
-    <para><filename>/etc/systemd/sleep.conf.d/*.conf</filename></para>
-    <para><filename>/run/systemd/sleep.conf.d/*.conf</filename></para>
-    <para><filename>/usr/lib/systemd/sleep.conf.d/*.conf</filename></para>
+    <para><literallayout><filename>/etc/systemd/sleep.conf</filename>
+<filename>/etc/systemd/sleep.conf.d/*.conf</filename>
+<filename>/run/systemd/sleep.conf.d/*.conf</filename>
+<filename>/usr/lib/systemd/sleep.conf.d/*.conf</filename>
+    </literallayout></para>
   </refsynopsisdiv>
 
   <refsect1>

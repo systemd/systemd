@@ -22,10 +22,11 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>/etc/systemd/homed.conf</filename></para>
-    <para><filename>/etc/systemd/homed.conf.d/*.conf</filename></para>
-    <para><filename>/run/systemd/homed.conf.d/*.conf</filename></para>
-    <para><filename>/usr/lib/systemd/homed.conf.d/*.conf</filename></para>
+    <para><literallayout><filename>/etc/systemd/homed.conf</filename>
+<filename>/etc/systemd/homed.conf.d/*.conf</filename>
+<filename>/run/systemd/homed.conf.d/*.conf</filename>
+<filename>/usr/lib/systemd/homed.conf.d/*.conf</filename>
+    </literallayout></para>
   </refsynopsisdiv>
 
   <refsect1>

@@ -22,9 +22,10 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>/etc/modules-load.d/*.conf</filename></para>
-    <para><filename>/run/modules-load.d/*.conf</filename></para>
-    <para><filename>/usr/lib/modules-load.d/*.conf</filename></para>
+    <para><literallayout><filename>/etc/modules-load.d/*.conf</filename>
+<filename>/run/modules-load.d/*.conf</filename>
+<filename>/usr/lib/modules-load.d/*.conf</filename>
+    </literallayout></para>
   </refsynopsisdiv>
 
   <refsect1>

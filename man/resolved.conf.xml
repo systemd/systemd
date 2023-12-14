@@ -25,10 +25,11 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>/etc/systemd/resolved.conf</filename></para>
-    <para><filename>/etc/systemd/resolved.conf.d/*.conf</filename></para>
-    <para><filename>/run/systemd/resolved.conf.d/*.conf</filename></para>
-    <para><filename>/usr/lib/systemd/resolved.conf.d/*.conf</filename></para>
+    <para><literallayout><filename>/etc/systemd/resolved.conf</filename>
+<filename>/etc/systemd/resolved.conf.d/*.conf</filename>
+<filename>/run/systemd/resolved.conf.d/*.conf</filename>
+<filename>/usr/lib/systemd/resolved.conf.d/*.conf</filename>
+    </literallayout></para>
   </refsynopsisdiv>
 
   <refsect1>

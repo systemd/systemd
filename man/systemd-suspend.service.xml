@@ -26,11 +26,12 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>systemd-suspend.service</filename></para>
-    <para><filename>systemd-hibernate.service</filename></para>
-    <para><filename>systemd-hybrid-sleep.service</filename></para>
-    <para><filename>systemd-suspend-then-hibernate.service</filename></para>
-    <para><filename>/usr/lib/systemd/system-sleep</filename></para>
+    <para><literallayout><filename>systemd-suspend.service</filename>
+<filename>systemd-hibernate.service</filename>
+<filename>systemd-hybrid-sleep.service</filename>
+<filename>systemd-suspend-then-hibernate.service</filename>
+<filename>/usr/lib/systemd/system-sleep</filename>
+    </literallayout></para>
   </refsynopsisdiv>
 
   <refsect1>

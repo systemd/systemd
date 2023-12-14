@@ -27,9 +27,10 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>/etc/systemd/networkd.conf</filename></para>
-    <para><filename>/etc/systemd/networkd.conf.d/*.conf</filename></para>
-    <para><filename>/usr/lib/systemd/networkd.conf.d/*.conf</filename></para>
+    <para><literallayout><filename>/etc/systemd/networkd.conf</filename>
+<filename>/etc/systemd/networkd.conf.d/*.conf</filename>
+<filename>/usr/lib/systemd/networkd.conf.d/*.conf</filename>
+    </literallayout></para>
   </refsynopsisdiv>
 
   <refsect1>
