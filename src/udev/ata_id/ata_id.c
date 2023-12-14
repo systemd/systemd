@@ -298,7 +298,8 @@ static void disk_identify_fixup_uint16(uint8_t identify[512], unsigned offset_wo
  * non-zero with errno set.
  */
 static int disk_identify(int fd,
-                         uint8_t out_identify[512]) {
+                         uint8_t out_identify[512],
+                         int *ret_peripheral_device_type) {
         uint8_t inquiry_buf[36];
         int peripheral_device_type, r;
 
@@ -358,6 +359,10 @@ static int disk_identify(int fd,
         if (all_nul_bytes)
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO), "IDENTIFY data is all zeroes.");
 
+        if (ret_peripheral_device_type) {
+            *ret_peripheral_device_type = peripheral_device_type;
+        }
+
         return 0;
 }
 
@@ -408,6 +413,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_close_ int fd = -EBADF;
         uint16_t word;
         int r;
+        int peripheral_device_type = -1;
 
         log_set_target(LOG_TARGET_AUTO);
         udev_parse_config();
@@ -422,7 +428,7 @@ static int run(int argc, char *argv[]) {
         if (fd < 0)
                 return log_error_errno(errno, "Cannot open %s: %m", arg_device);
 
-        if (disk_identify(fd, identify.byte) >= 0) {
+        if (disk_identify(fd, identify.byte, &peripheral_device_type) >= 0) {
                 /*
                  * fix up only the fields from the IDENTIFY data that we are going to
                  * use and copy it into the hd_driveid struct for convenience
@@ -615,6 +621,10 @@ static int run(int argc, char *argv[]) {
                 if (IN_SET(identify.wyde[0], 0x848a, 0x844a) ||
                     (identify.wyde[83] & 0xc004) == 0x4004)
                         printf("ID_ATA_CFA=1\n");
+
+                if (peripheral_device_type >= 0) {
+                        printf("ID_ATA_PERIPHERAL_DEVICE_TYPE=%d\n", peripheral_device_type);
+                }
         } else {
                 if (serial[0] != '\0')
                         printf("%s_%s\n", model, serial);
