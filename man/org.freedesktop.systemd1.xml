@@ -1356,7 +1356,7 @@ node /org/freedesktop/systemd1 {
       <para><function>ResetFailed()</function> resets the "failed" state of all units.</para>
 
       <para><function>ListUnits()</function> returns an array of all currently loaded units. Note that
-      units may be known by multiple names at the same name, and hence there might be more unit names loaded
+      units may be known by multiple names at the same time, and hence there might be more unit names loaded
       than actual units behind them. The array consists of structures with the following elements:
       <itemizedlist>
         <listitem><para>The primary unit name as string</para></listitem>
