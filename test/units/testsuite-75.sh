@@ -20,6 +20,12 @@ run() {
     "$@" |& tee "$RUN_OUT"
 }
 
+run_delv() {
+    # Since [0] delv no longer loads /etc/(bind/)bind.keys by default, so we
+    # have to do that explicitly for each invocation
+    run delv -a /etc/bind.keys "$@"
+}
+
 disable_ipv6() {
     sysctl -w net.ipv6.conf.all.disable_ipv6=1
 }
@@ -356,15 +362,15 @@ grep -qF "unsigned.test IN MX 15 mail.unsigned.test" "$RUN_OUT"
 # Check the trust chain (with and without systemd-resolved in between
 # Issue: https://github.com/systemd/systemd/issues/22002
 # PR: https://github.com/systemd/systemd/pull/23289
-run delv @ns1.unsigned.test signed.test
+run_delv @ns1.unsigned.test signed.test
 grep -qF "; fully validated" "$RUN_OUT"
-run delv signed.test
+run_delv signed.test
 grep -qF "; fully validated" "$RUN_OUT"
 
 for addr in "${DNS_ADDRESSES[@]}"; do
-    run delv "@$addr" -t A mail.signed.test
+    run_delv "@$addr" -t A mail.signed.test
     grep -qF "; fully validated" "$RUN_OUT"
-    run delv "@$addr" -t AAAA mail.signed.test
+    run_delv "@$addr" -t AAAA mail.signed.test
     grep -qF "; fully validated" "$RUN_OUT"
 done
 run resolvectl query mail.signed.test
@@ -402,7 +408,7 @@ grep -qF "10.0.0.123" "$RUN_OUT"
 grep -qF "fd00:dead:beef:cafe::123" "$RUN_OUT"
 grep -qF "authenticated: yes" "$RUN_OUT"
 # Check OPENPGPKEY support
-run delv -t OPENPGPKEY 5a786cdc59c161cdafd818143705026636962198c66ed4c5b3da321e._openpgpkey.signed.test
+run_delv -t OPENPGPKEY 5a786cdc59c161cdafd818143705026636962198c66ed4c5b3da321e._openpgpkey.signed.test
 grep -qF "; fully validated" "$RUN_OUT"
 run resolvectl openpgp mr.smith@signed.test
 grep -qF "5a786cdc59c161cdafd818143705026636962198c66ed4c5b3da321e._openpgpkey.signed.test" "$RUN_OUT"
@@ -418,11 +424,11 @@ check_domain() {
     local addr
 
     for addr in "${DNS_ADDRESSES[@]}"; do
-        run delv "@$addr" -t "$record" "$domain"
+        run_delv "@$addr" -t "$record" "$domain"
         grep -qF "$message" "$RUN_OUT"
     done
 
-    run delv -t "$record" "$domain"
+    run_delv -t "$record" "$domain"
     grep -qF "$message" "$RUN_OUT"
 
     run resolvectl query "$domain"
@@ -458,9 +464,9 @@ grep -qE "^follow14\.final\.signed\.test\..+IN\s+NSEC\s+" "$RUN_OUT"
 # Check the trust chain (with and without systemd-resolved in between
 # Issue: https://github.com/systemd/systemd/issues/22002
 # PR: https://github.com/systemd/systemd/pull/23289
-run delv @ns1.unsigned.test sub.onlinesign.test
+run_delv @ns1.unsigned.test sub.onlinesign.test
 grep -qF "; fully validated" "$RUN_OUT"
-run delv sub.onlinesign.test
+run_delv sub.onlinesign.test
 grep -qF "; fully validated" "$RUN_OUT"
 
 run dig +short sub.onlinesign.test
@@ -474,11 +480,11 @@ run resolvectl query --legend=no -t TXT onlinesign.test
 grep -qF 'onlinesign.test IN TXT "hello from onlinesign"' "$RUN_OUT"
 
 for addr in "${DNS_ADDRESSES[@]}"; do
-    run delv "@$addr" -t A dual.onlinesign.test
+    run_delv "@$addr" -t A dual.onlinesign.test
     grep -qF "10.0.0.135" "$RUN_OUT"
-    run delv "@$addr" -t AAAA dual.onlinesign.test
+    run_delv "@$addr" -t AAAA dual.onlinesign.test
     grep -qF "fd00:dead:beef:cafe::135" "$RUN_OUT"
-    run delv "@$addr" -t ANY ipv6.onlinesign.test
+    run_delv "@$addr" -t ANY ipv6.onlinesign.test
     grep -qF "fd00:dead:beef:cafe::136" "$RUN_OUT"
 done
 run resolvectl query dual.onlinesign.test
