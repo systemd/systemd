@@ -73,6 +73,12 @@
         "/usr/local/lib/" n,                    \
         "/usr/lib/" n
 
+#define CONF_PATHS_RUN_FIRST(n)                 \
+        "/run/" n,                              \
+        "/etc/" n,                              \
+        "/usr/local/lib/" n,                    \
+        "/usr/lib/" n
+
 #define CONF_PATHS_STRV(n)                      \
         STRV_MAKE(CONF_PATHS(n))
 

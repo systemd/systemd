@@ -22,6 +22,18 @@
   </refnamediv>
 
   <refsynopsisdiv>
+    <para><literallayout><filename>/run/kernel/install.conf</filename>
+<filename>/etc/kernel/install.conf</filename>
+<filename>/usr/lib/kernel/install.conf</filename>
+    <!-- /usr/local/lib not documented on purpose -->
+    </literallayout></para>
+
+    <para><literallayout><filename>/run/kernel/install.d/*.install</filename>
+<filename>/etc/kernel/install.d/*.install</filename>
+<filename>/usr/lib/kernel/install.d/*.install</filename>
+    <!-- /usr/local/lib not documented on purpose -->
+    </literallayout></para>
+
     <cmdsynopsis>
       <command>kernel-install</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
@@ -64,16 +76,19 @@
     below.</para>
 
     <para><command>kernel-install</command> will run the executable files ("plugins") located in the
-    directory <filename>/usr/lib/kernel/install.d/</filename> and the local administration directory
-    <filename>/etc/kernel/install.d/</filename>.  All files are collectively sorted and executed in lexical
-    order, regardless of the directory in which they live. However, files with identical filenames replace
-    each other.  Files in <filename>/etc/kernel/install.d/</filename> take precedence over files with the
-    same name in <filename>/usr/lib/kernel/install.d/</filename>. This can be used to override a
-    system-supplied executables with a local file if needed; a symbolic link in
-    <filename>/etc/kernel/install.d/</filename> with the same name as an executable in
-    <filename>/usr/lib/kernel/install.d/</filename>, pointing to <filename>/dev/null</filename>, disables the
-    executable entirely. Executables must have the extension <literal>.install</literal>; other extensions
-    are ignored.</para>
+    <filename>install.d</filename> directories listed in the SYNOPIS. Per the usual rules, the directory
+    under <filename>/usr/lib/</filename> should be used by packages, the directory under
+    <filename>/etc/</filename> can be used for local configuration, and the directory under
+    <filename>/run/</filename> can be used for temporary overrides. Note that
+    <filename>/run/kernel/install.d/</filename> has the highest priority. All files are collectively sorted
+    and executed in lexical order, regardless of the directory in which they live. However, files with
+    identical filenames replace each other. Files in <filename>/run/kernel/install.d/</filename> take
+    precedence over files with the same name in <filename>/etc/kernel/install.d/</filename>, which take
+    precedence over files with the same name in <filename>/usr/lib/kernel/install.d/</filename>. This can be
+    used to override a system-supplied executables with a local file if needed; a symbolic link in a
+    directory with a higher priority with the same name as an executable in directory with a lower priority,
+    pointing to <filename>/dev/null</filename>, disables the executable entirely. Executables must have the
+    extension <literal>.install</literal>; other extensions are ignored.</para>
 
     <para>An executable placed in these directories should return <constant>0</constant> on success. It may
     also return <constant>77</constant> to cause the whole operation to terminate (executables later in
@@ -98,9 +113,8 @@
           one or more initrd images may be specified as well (note that plugins might generate additional
           ones).</para>
 
-          <para>The executable files from <filename>/usr/lib/kernel/install.d/*.install</filename> and
-          <filename>/etc/kernel/install.d/*.install</filename> (i.e. the plugins) are called with the
-          following arguments:</para>
+          <para>The executable files from the <filename>install.d</filename> (i.e. the plugins) are called
+          with the following arguments:</para>
 
           <programlisting>add <replaceable>KERNEL-VERSION</replaceable> <filename>$BOOT/<replaceable>ENTRY-TOKEN</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename> <replaceable>KERNEL-IMAGE</replaceable> \
           [<replaceable>INITRD-FILE</replaceable> ...]</programlisting>
@@ -170,9 +184,8 @@
         <listitem>
           <para>This command expects a kernel version string as single argument.</para>
 
-          <para>The executable files from <filename>/usr/lib/kernel/install.d/*.install</filename> and
-          <filename>/etc/kernel/install.d/*.install</filename> (i.e. the plugins) are called with the
-          following arguments:</para>
+          <para>The executable files from the <filename>install.d</filename> (i.e. the plugins) are called
+          with the following arguments:</para>
 
           <programlisting>remove <replaceable>KERNEL-VERSION</replaceable> <filename>$BOOT/<replaceable>ENTRY-TOKEN</replaceable>/<replaceable>KERNEL-VERSION</replaceable>/</filename></programlisting>
 
@@ -542,6 +555,7 @@
     <title>Files</title>
     <variablelist>
       <varlistentry>
+        <term><filename>/run/kernel/install.d/*.install</filename></term>
         <term><filename>/etc/kernel/install.d/*.install</filename></term>
         <term><filename>/usr/lib/kernel/install.d/*.install</filename></term>
         <listitem>
@@ -552,6 +566,7 @@
       </varlistentry>
 
       <varlistentry>
+        <term><filename>/run/kernel/cmdline</filename></term>
         <term><filename>/etc/kernel/cmdline</filename></term>
         <term><filename>/usr/lib/kernel/cmdline</filename></term>
         <term><filename>/proc/cmdline</filename></term>
@@ -565,6 +580,7 @@
       </varlistentry>
 
       <varlistentry>
+        <term><filename>/run/kernel/devicetree</filename></term>
         <term><filename>/etc/kernel/devicetree</filename></term>
         <term><filename>/usr/lib/kernel/devicetree</filename></term>
         <listitem>
@@ -587,7 +603,9 @@
       </varlistentry>
 
       <varlistentry>
+        <term><filename>/run/kernel/tries</filename></term>
         <term><filename>/etc/kernel/tries</filename></term>
+        <term><filename>/usr/lib/kernel/tries</filename></term>
         <listitem>
           <para>Read by <filename>90-loaderentry.install</filename> and
           <filename>90-uki-copy.install</filename>. If this file exists, a numeric value is read from it and
@@ -606,12 +624,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><filename>/run/kernel/entry-token</filename></term>
         <term><filename>/etc/kernel/entry-token</filename></term>
+        <term><filename>/usr/lib/kernel/entry-token</filename></term>
         <listitem>
-          <para>If this file exists it is read and used as "entry token" for this system, i.e. is used for
-          naming Boot Loader Specification entries. See <varname>$KERNEL_INSTALL_ENTRY_TOKEN</varname> above
-          for details. <varname>$KERNEL_INSTALL_CONF_ROOT</varname> may be used to override the search path; see
-          below for details.</para>
+          <para>If found, the contents are used as "entry token" for this system to name Boot Loader
+          Specification entries. See <varname>$KERNEL_INSTALL_ENTRY_TOKEN</varname> above for details.
+          <varname>$KERNEL_INSTALL_CONF_ROOT</varname> may be used to override the search path; see below for
+          details.</para>
 
           <xi:include href="version-info.xml" xpointer="v251"/>
         </listitem>
@@ -642,6 +662,7 @@
           </listitem>
       </varlistentry>
       <varlistentry>
+        <term><filename>/run/kernel/install.conf</filename></term>
         <term><filename>/etc/kernel/install.conf</filename></term>
         <term><filename>/usr/lib/kernel/install.conf</filename></term>
         <listitem>
