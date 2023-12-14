@@ -31,19 +31,19 @@
       <command>&USER_ENV_GENERATOR_DIR;/some-generator</command>
     </cmdsynopsis>
 
-    <para>
-      <literallayout><filename>/run/systemd/system-environment-generators/*</filename>
-<filename>/etc/systemd/system-environment-generators/*</filename>
-<filename>/usr/local/lib/systemd/system-environment-generators/*</filename>
-<filename>&SYSTEM_ENV_GENERATOR_DIR;/*</filename></literallayout>
-    </para>
+    <para><simplelist>
+      <member><filename>/run/systemd/system-environment-generators/*</filename></member>
+      <member><filename>/etc/systemd/system-environment-generators/*</filename></member>
+      <member><filename>/usr/local/lib/systemd/system-environment-generators/*</filename></member>
+      <member><filename>&SYSTEM_ENV_GENERATOR_DIR;/*</filename></member>
+    </simplelist></para>
 
-    <para>
-      <literallayout><filename>/run/systemd/user-environment-generators/*</filename>
-<filename>/etc/systemd/user-environment-generators/*</filename>
-<filename>/usr/local/lib/systemd/user-environment-generators/*</filename>
-<filename>&USER_ENV_GENERATOR_DIR;/*</filename></literallayout>
-    </para>
+    <para><simplelist>
+      <member><filename>/run/systemd/user-environment-generators/*</filename></member>
+      <member><filename>/etc/systemd/user-environment-generators/*</filename></member>
+      <member><filename>/usr/local/lib/systemd/user-environment-generators/*</filename></member>
+      <member><filename>&USER_ENV_GENERATOR_DIR;/*</filename></member>
+    </simplelist></para>
   </refsynopsisdiv>
 
   <refsect1>

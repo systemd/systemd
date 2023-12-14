@@ -30,19 +30,19 @@
       <arg choice="option"><replaceable>late-dir</replaceable></arg>
     </cmdsynopsis>
 
-    <para>
-      <literallayout><filename>/run/systemd/system-generators/*</filename>
-<filename>/etc/systemd/system-generators/*</filename>
-<filename>/usr/local/lib/systemd/system-generators/*</filename>
-<filename>&SYSTEM_GENERATOR_DIR;/*</filename></literallayout>
-    </para>
+    <para><simplelist>
+      <member><filename>/run/systemd/system-generators/*</filename></member>
+      <member><filename>/etc/systemd/system-generators/*</filename></member>
+      <member><filename>/usr/local/lib/systemd/system-generators/*</filename></member>
+      <member><filename>&SYSTEM_GENERATOR_DIR;/*</filename></member>
+    </simplelist></para>
 
-    <para>
-      <literallayout><filename>/run/systemd/user-generators/*</filename>
-<filename>/etc/systemd/user-generators/*</filename>
-<filename>/usr/local/lib/systemd/user-generators/*</filename>
-<filename>&USER_GENERATOR_DIR;/*</filename></literallayout>
-    </para>
+    <para><simplelist>
+      <member><filename>/run/systemd/user-generators/*</filename></member>
+      <member><filename>/etc/systemd/user-generators/*</filename></member>
+      <member><filename>/usr/local/lib/systemd/user-generators/*</filename></member>
+      <member><filename>&USER_GENERATOR_DIR;/*</filename></member>
+    </simplelist></para>
   </refsynopsisdiv>
 
   <refsect1>

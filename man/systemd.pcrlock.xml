@@ -21,17 +21,18 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><literallayout>
-<filename>/etc/pcrlock.d/*.pcrlock</filename>
-<filename>/etc/pcrlock.d/*.pcrlock.d/*.pcrlock</filename>
-<filename>/run/pcrlock.d/*.pcrlock</filename>
-<filename>/run/pcrlock.d/*.pcrlock.d/*.pcrlock</filename>
-<filename>/var/lib/pcrlock.d/*.pcrlock</filename>
-<filename>/var/lib/pcrlock.d/*.pcrlock.d/*.pcrlock</filename>
-<filename>/usr/local/pcrlock.d/*.pcrlock</filename>
-<filename>/usr/local/pcrlock.d/*.pcrlock.d/*.pcrlock</filename>
-<filename>/usr/lib/pcrlock.d/*.pcrlock</filename>
-<filename>/usr/lib/pcrlock.d/*.pcrlock.d/*.pcrlock</filename></literallayout></para>
+    <para><simplelist>
+      <member><filename>/etc/pcrlock.d/*.pcrlock</filename></member>
+      <member><filename>/etc/pcrlock.d/*.pcrlock.d/*.pcrlock</filename></member>
+      <member><filename>/run/pcrlock.d/*.pcrlock</filename></member>
+      <member><filename>/run/pcrlock.d/*.pcrlock.d/*.pcrlock</filename></member>
+      <member><filename>/var/lib/pcrlock.d/*.pcrlock</filename></member>
+      <member><filename>/var/lib/pcrlock.d/*.pcrlock.d/*.pcrlock</filename></member>
+      <member><filename>/usr/local/pcrlock.d/*.pcrlock</filename></member>
+      <member><filename>/usr/local/pcrlock.d/*.pcrlock.d/*.pcrlock</filename></member>
+      <member><filename>/usr/lib/pcrlock.d/*.pcrlock</filename></member>
+      <member><filename>/usr/lib/pcrlock.d/*.pcrlock.d/*.pcrlock</filename></member>
+    </simplelist></para>
   </refsynopsisdiv>
 
   <refsect1>

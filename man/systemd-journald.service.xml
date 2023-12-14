@@ -29,14 +29,16 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>systemd-journald.service</filename></para>
-    <para><filename>systemd-journald.socket</filename></para>
-    <para><filename>systemd-journald-dev-log.socket</filename></para>
-    <para><filename>systemd-journald-audit.socket</filename></para>
-    <para><filename>systemd-journald@.service</filename></para>
-    <para><filename>systemd-journald@.socket</filename></para>
-    <para><filename>systemd-journald-varlink@.socket</filename></para>
-    <para><filename>/usr/lib/systemd/systemd-journald</filename></para>
+    <para><simplelist>
+      <member><filename>systemd-journald.service</filename></member>
+      <member><filename>systemd-journald.socket</filename></member>
+      <member><filename>systemd-journald-dev-log.socket</filename></member>
+      <member><filename>systemd-journald-audit.socket</filename></member>
+      <member><filename>systemd-journald@.service</filename></member>
+      <member><filename>systemd-journald@.socket</filename></member>
+      <member><filename>systemd-journald-varlink@.socket</filename></member>
+      <member><filename>/usr/lib/systemd/systemd-journald</filename></member>
+    </simplelist></para>
   </refsynopsisdiv>
 
   <refsect1>

@@ -22,10 +22,11 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><literallayout><filename>/etc/sysupdate.d/*.conf</filename>
-<filename>/run/sysupdate.d/*.conf</filename>
-<filename>/usr/lib/sysupdate.d/*.conf</filename>
-    </literallayout></para>
+    <para><simplelist>
+      <member><filename>/etc/sysupdate.d/*.conf</filename></member>
+      <member><filename>/run/sysupdate.d/*.conf</filename></member>
+      <member><filename>/usr/lib/sysupdate.d/*.conf</filename></member>
+    </simplelist></para>
   </refsynopsisdiv>
 
   <refsect1>

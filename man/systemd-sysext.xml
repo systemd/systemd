@@ -31,7 +31,7 @@
       <arg choice="plain">COMMAND</arg>
     </cmdsynopsis>
 
-    <para><literallayout><filename>systemd-sysext.service</filename></literallayout></para>
+    <para><filename>systemd-sysext.service</filename></para>
 
     <cmdsynopsis>
       <command>systemd-confext</command>
@@ -39,8 +39,7 @@
       <arg choice="plain">COMMAND</arg>
     </cmdsynopsis>
 
-    <para><literallayout><filename>systemd-confext.service</filename></literallayout></para>
-
+    <para><filename>systemd-confext.service</filename></para>
   </refsynopsisdiv>
 
   <refsect1>
