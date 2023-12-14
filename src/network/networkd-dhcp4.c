@@ -879,7 +879,7 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
 }
 
 static int dhcp4_request_address(Link *link, bool announce) {
-        _cleanup_(address_freep) Address *addr = NULL;
+        _cleanup_(address_unrefp) Address *addr = NULL;
         struct in_addr address, server;
         uint8_t prefixlen;
         Address *existing;
