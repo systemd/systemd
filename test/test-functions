@@ -3309,9 +3309,10 @@ test_create_image() {
 }
 
 test_setup() {
-    if get_bool "${TEST_REQUIRE_INSTALL_TESTS:?}" && \
-            command -v meson >/dev/null && \
-            [[ "$(meson configure "${BUILD_DIR:?}" | grep install-tests | awk '{ print $2 }')" != "true" ]]; then
+    if ! get_bool "$NO_BUILD" && \
+         get_bool "${TEST_REQUIRE_INSTALL_TESTS:?}" && \
+         command -v meson >/dev/null && \
+         [[ "$(meson configure "${BUILD_DIR:?}" | grep install-tests | awk '{ print $2 }')" != "true" ]]; then
         dfatal "$BUILD_DIR needs to be built with -Dinstall-tests=true"
         exit 1
     fi
