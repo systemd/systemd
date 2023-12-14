@@ -251,6 +251,11 @@ static int nexthop_get(Link *link, const NextHop *in, NextHop **ret) {
                 if (nexthop_compare_full(nexthop, in) != 0)
                         continue;
 
+                /* Even if the configuration matches, it may be configured with another [NextHop] section
+                 * that has an explicit ID. If so, the assigned nexthop is not the one we are looking for. */
+                if (set_contains(link->manager->nexthop_ids, UINT32_TO_PTR(nexthop->id)))
+                        continue;
+
                 if (ret)
                         *ret = nexthop;
                 return 0;
@@ -305,6 +310,11 @@ static int nexthop_get_request(Link *link, const NextHop *in, Request **ret) {
                 if (nexthop->ifindex != ifindex)
                         continue;
                 if (nexthop_compare_full(nexthop, in) != 0)
+                        continue;
+
+                /* Even if the configuration matches, it may be requested by another [NextHop] section
+                 * that has an explicit ID. If so, the request is not the one we are looking for. */
+                if (set_contains(link->manager->nexthop_ids, UINT32_TO_PTR(nexthop->id)))
                         continue;
 
                 if (ret)
