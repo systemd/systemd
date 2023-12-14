@@ -427,21 +427,6 @@ static int context_load_environment(Context *c) {
         return 0;
 }
 
-static int context_ensure_conf_root(Context *c) {
-        int r;
-
-        assert(c);
-
-        if (c->conf_root)
-                return 0;
-
-        r = chaseat(c->rfd, "/etc/kernel", CHASE_AT_RESOLVE_IN_ROOT, &c->conf_root, /* ret_fd = */ NULL);
-        if (r < 0)
-                log_debug_errno(r, "Failed to chase /etc/kernel, ignoring: %m");
-
-        return 0;
-}
-
 static int context_load_install_conf_one(Context *c, const char *path) {
         _cleanup_fclose_ FILE *f = NULL;
         _cleanup_free_ char
@@ -488,11 +473,9 @@ static int context_load_install_conf(Context *c) {
 
         assert(c);
 
-        if (c->conf_root) {
-                r = context_load_install_conf_one(c, c->conf_root);
-                if (r != 0)
-                        return r;
-        }
+        /* If conf_root is set, load the file from that directory only. */
+        if (c->conf_root)
+                return context_load_install_conf_one(c, c->conf_root);
 
         STRV_FOREACH(p, STRV_MAKE("/etc/kernel", "/usr/lib/kernel")) {
                 r = context_load_install_conf_one(c, *p);
@@ -726,10 +709,6 @@ static int context_init(Context *c) {
                 return r;
 
         r = context_load_environment(c);
-        if (r < 0)
-                return r;
-
-        r = context_ensure_conf_root(c);
         if (r < 0)
                 return r;
 
