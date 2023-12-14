@@ -180,6 +180,32 @@ bool uid_range_covers(const UidRange *range, uid_t start, uid_t nr) {
         return false;
 }
 
+int uid_map_read_one(FILE *f, uid_t *ret_base, uid_t *ret_shift, uid_t *ret_range) {
+        uid_t uid_base, uid_shift, uid_range;
+        int r;
+
+        assert(f);
+        assert(ret_base);
+        assert(ret_shift);
+        assert(ret_range);
+
+        r = fscanf(f, UID_FMT " " UID_FMT " " UID_FMT "\n", &uid_base, &uid_shift, &uid_range);
+        if (r == EOF) {
+                if (ferror(f))
+                        return -errno;
+
+                return -ENOMSG;
+        }
+        if (r != 3)
+                return -EBADMSG;
+
+        *ret_base = uid_base;
+        *ret_shift = uid_shift;
+        *ret_range = uid_range;
+
+        return 0;
+}
+
 int uid_range_load_userns(UidRange **ret, const char *path) {
         _cleanup_(uid_range_freep) UidRange *range = NULL;
         _cleanup_fclose_ FILE *f = NULL;
@@ -212,18 +238,12 @@ int uid_range_load_userns(UidRange **ret, const char *path) {
 
         for (;;) {
                 uid_t uid_base, uid_shift, uid_range;
-                int k;
 
-                errno = 0;
-                k = fscanf(f, UID_FMT " " UID_FMT " " UID_FMT "\n", &uid_base, &uid_shift, &uid_range);
-                if (k == EOF) {
-                        if (ferror(f))
-                                return errno_or_else(EIO);
-
+                r = uid_map_read_one(f, &uid_base, &uid_shift, &uid_range);
+                if (r == -ENOMSG)
                         break;
-                }
-                if (k != 3)
-                        return -EBADMSG;
+                if (r < 0)
+                        return r;
 
                 r = uid_range_add_internal(&range, uid_base, uid_range, /* coalesce = */ false);
                 if (r < 0)
