@@ -1310,19 +1310,35 @@ install_compiled_systemd() {
     fi
 }
 
+install_package_file() {
+    local file="${1:?}"
+
+    # Skip missing files (like /etc/machine-info)
+    [[ ! -e "$file" ]] && return 0
+    # Skip python unit tests, since the image_install machinery will try to pull
+    # in the whole python stack in a very questionable state, making the tests fail.
+    # And given we're trying to transition to mkosi-based images anyway I'm not even
+    # going to bother
+    [[ "$file" =~ /tests/unit-tests/.*.py$ ]] && continue
+    # If the current file is a directory, create it with the original
+    # mode; if it's a symlink to a directory, copy it as-is
+    if [[ -d "$file" ]]; then
+        inst_dir "$file"
+    else
+        inst "$file"
+    fi
+}
+
 install_debian_systemd() {
     dinfo "Install debian systemd"
 
-    local files
+    local deb file
 
     while read -r deb; do
-        files="$(dpkg-query -L "$deb" 2>/dev/null)" || continue
         ddebug "Install debian files from package $deb"
-        for file in $files; do
-            [ -e "$file" ] || continue
-            [ ! -L "$file" ] && [ -d "$file" ] && continue
-            inst "$file"
-        done
+        while read -r file; do
+            install_package_file "$file"
+        done < <(dpkg-query -L "$deb" 2>/dev/null)
     done < <(grep -E '^Package:' "${SOURCE_DIR}/debian/control" | cut -d ':' -f 2)
 }
 
@@ -1337,17 +1353,7 @@ install_rpm() {
 
     dinfo "Installing contents of RPM $rpm"
     while read -r file; do
-        # Skip missing files (like /etc/machine-info)
-        [[ ! -e "$file" ]] && continue
-        # Skip directories unless they are a symlink (both -L and -d pass in this case)
-        [[ -d "$file" && ! -L "$file" ]] && continue
-        # Skip python unit tests, since the image_install machinery will try to pull
-        # in the whole python stack in a very questionable state, making the tests fail.
-        # And given we're trying to transition to mkosi-based images anyway I'm not even
-        # going to bother
-        [[ "$file" =~ /tests/unit-tests/.*.py$ ]] && continue
-
-        image_install "$file"
+        install_package_file "$file"
     done < <(rpm -ql "$rpm")
 }
 
@@ -3303,9 +3309,10 @@ test_create_image() {
 }
 
 test_setup() {
-    if get_bool "${TEST_REQUIRE_INSTALL_TESTS:?}" && \
-            command -v meson >/dev/null && \
-            [[ "$(meson configure "${BUILD_DIR:?}" | grep install-tests | awk '{ print $2 }')" != "true" ]]; then
+    if ! get_bool "$NO_BUILD" && \
+         get_bool "${TEST_REQUIRE_INSTALL_TESTS:?}" && \
+         command -v meson >/dev/null && \
+         [[ "$(meson configure "${BUILD_DIR:?}" | grep install-tests | awk '{ print $2 }')" != "true" ]]; then
         dfatal "$BUILD_DIR needs to be built with -Dinstall-tests=true"
         exit 1
     fi
