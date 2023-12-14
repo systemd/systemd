@@ -1018,7 +1018,7 @@ static int nexthop_section_verify(NextHop *nh) {
                                                  "Ignoring [NextHop] section from line %u.",
                                                  nh->section->filename, nh->section->line);
 
-                if (nh->blackhole && in_addr_is_set(nh->family, &nh->gw))
+                if (nh->blackhole)
                         return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                                  "%s: nexthop group cannot be a blackhole. "
                                                  "Ignoring [NextHop] section from line %u.",
