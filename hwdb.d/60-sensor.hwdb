@@ -392,6 +392,9 @@ sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0CC4:*
 sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0CC5:*
 sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0CC7:*
 sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0CC8:*
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0CB2:*
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:skuOCB4:*
+sensor:modalias:platform:HID-SENSOR-200073:dmi:*svnDell*:sku0CB3:*
  ACCEL_LOCATION=base
 
 # Dell Venue 8 Pro 3845
