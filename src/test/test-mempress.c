@@ -220,7 +220,7 @@ TEST(real_pressure) {
 
         assert_se(sd_bus_message_read(reply, "o", &object) >= 0);
 
-        assert_se(bus_wait_for_jobs_one(w, object, /* quiet= */ false, /* extra_args= */ NULL) >= 0);
+        assert_se(bus_wait_for_jobs_one(w, object, /* flags= */ BUS_WAIT_JOBS_LOG_ERROR, /* extra_args= */ NULL) >= 0);
 
         assert_se(sd_event_default(&e) >= 0);
 
