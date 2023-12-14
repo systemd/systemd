@@ -303,7 +303,7 @@ EFI_STATUS chunked_read(EFI_FILE *file, size_t *size, void *buf) {
          * Some broken firmwares cannot handle large file reads and will instead return
          * an error. As a workaround, read such files in small chunks.
          * Note that we cannot just try reading the whole file first on such firmware as
-         * that will permanently break the handle even if it is re-opened.
+         * that will permanently break the handle even if it is reopened.
          *
          * https://github.com/systemd/systemd/issues/25911 */
 

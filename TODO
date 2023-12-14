@@ -2481,18 +2481,17 @@ Features:
 * support crash reporting operation modes (https://live.gnome.org/GnomeOS/Design/Whiteboards/ProblemReporting)
 
 * tmpfiles:
-  - apply "x" on "D" too (see patch from William Douglas)
   - allow time-based cleanup in r and R too
   - instead of ignoring unknown fields, reject them.
   - creating new directories/subvolumes/fifos/device nodes
     should not follow symlinks. None of the other adjustment or creation
     calls follow symlinks.
-  - add --test mode
   - teach tmpfiles.d q/Q logic something sensible in the context of XFS/ext4
     project quota
   - teach tmpfiles.d m/M to move / atomic move + symlink old -> new
   - add new line type for setting btrfs subvolume attributes (i.e. rw/ro)
   - tmpfiles: add new line type for setting fcaps
+  - add -n for --dry-run in tmpfiles & sysusers & possibly other places
 
 * udev-link-config:
    - Make sure ID_PATH is always exported and complete for
