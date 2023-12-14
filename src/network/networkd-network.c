@@ -306,7 +306,9 @@ int network_verify(Network *network) {
         if (r < 0)
                 return r; /* network_drop_invalid_addresses() logs internally. */
         network_drop_invalid_routes(network);
-        network_drop_invalid_nexthops(network);
+        r = network_drop_invalid_nexthops(network);
+        if (r < 0)
+                return r;
         network_drop_invalid_bridge_fdb_entries(network);
         network_drop_invalid_bridge_mdb_entries(network);
         r = network_drop_invalid_neighbors(network);
@@ -773,7 +775,7 @@ static Network *network_free(Network *network) {
         set_free_free(network->ipv6_proxy_ndp_addresses);
         ordered_hashmap_free_with_destructor(network->addresses_by_section, address_free);
         hashmap_free_with_destructor(network->routes_by_section, route_free);
-        hashmap_free_with_destructor(network->nexthops_by_section, nexthop_free);
+        ordered_hashmap_free_with_destructor(network->nexthops_by_section, nexthop_free);
         hashmap_free_with_destructor(network->bridge_fdb_entries_by_section, bridge_fdb_free);
         hashmap_free_with_destructor(network->bridge_mdb_entries_by_section, bridge_mdb_free);
         ordered_hashmap_free_with_destructor(network->neighbors_by_section, neighbor_free);

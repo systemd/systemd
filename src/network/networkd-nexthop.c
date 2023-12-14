@@ -24,7 +24,7 @@ NextHop *nexthop_free(NextHop *nexthop) {
 
         if (nexthop->network) {
                 assert(nexthop->section);
-                hashmap_remove(nexthop->network->nexthops_by_section, nexthop->section);
+                ordered_hashmap_remove(nexthop->network->nexthops_by_section, nexthop->section);
         }
 
         config_section_free(nexthop->section);
@@ -80,7 +80,7 @@ static int nexthop_new_static(Network *network, const char *filename, unsigned s
         if (r < 0)
                 return r;
 
-        nexthop = hashmap_get(network->nexthops_by_section, n);
+        nexthop = ordered_hashmap_get(network->nexthops_by_section, n);
         if (nexthop) {
                 *ret = TAKE_PTR(nexthop);
                 return 0;
@@ -95,7 +95,7 @@ static int nexthop_new_static(Network *network, const char *filename, unsigned s
         nexthop->section = TAKE_PTR(n);
         nexthop->source = NETWORK_CONFIG_SOURCE_STATIC;
 
-        r = hashmap_ensure_put(&network->nexthops_by_section, &config_section_hash_ops, nexthop->section, nexthop);
+        r = ordered_hashmap_ensure_put(&network->nexthops_by_section, &config_section_hash_ops, nexthop->section, nexthop);
         if (r < 0)
                 return r;
 
@@ -363,7 +363,7 @@ static int nexthop_acquire_id(Manager *manager, NextHop *nexthop) {
         ORDERED_HASHMAP_FOREACH(network, manager->networks) {
                 NextHop *tmp;
 
-                HASHMAP_FOREACH(tmp, network->nexthops_by_section) {
+                ORDERED_HASHMAP_FOREACH(tmp, network->nexthops_by_section) {
                         if (tmp->id == 0)
                                 continue;
 
@@ -678,7 +678,7 @@ int link_request_static_nexthops(Link *link, bool only_ipv4) {
 
         link->static_nexthops_configured = false;
 
-        HASHMAP_FOREACH(nh, link->network->nexthops_by_section) {
+        ORDERED_HASHMAP_FOREACH(nh, link->network->nexthops_by_section) {
                 if (only_ipv4 && nh->family != AF_INET)
                         continue;
 
@@ -759,7 +759,7 @@ static void link_mark_nexthops(Link *link, bool foreign) {
                 if (!IN_SET(other->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                         continue;
 
-                HASHMAP_FOREACH(nexthop, other->network->nexthops_by_section) {
+                ORDERED_HASHMAP_FOREACH(nexthop, other->network->nexthops_by_section) {
                         NextHop *existing;
 
                         if (nexthop_get(other, nexthop, &existing) < 0)
@@ -1063,14 +1063,41 @@ static int nexthop_section_verify(NextHop *nh) {
         return 0;
 }
 
-void network_drop_invalid_nexthops(Network *network) {
+int network_drop_invalid_nexthops(Network *network) {
+        _cleanup_hashmap_free_ Hashmap *nexthops = NULL;
         NextHop *nh;
+        int r;
 
         assert(network);
 
-        HASHMAP_FOREACH(nh, network->nexthops_by_section)
-                if (nexthop_section_verify(nh) < 0)
+        ORDERED_HASHMAP_FOREACH(nh, network->nexthops_by_section) {
+                if (nexthop_section_verify(nh) < 0) {
                         nexthop_free(nh);
+                        continue;
+                }
+
+                if (nh->id == 0)
+                        continue;
+
+                /* Always use the setting specified later. So, remove the previously assigned setting. */
+                NextHop *dup = hashmap_remove(nexthops, UINT32_TO_PTR(nh->id));
+                if (dup) {
+                        log_warning("%s: Duplicated nexthop settings for ID %"PRIu32" is specified at line %u and %u, "
+                                    "dropping the nexthop setting specified at line %u.",
+                                    dup->section->filename,
+                                    nh->id, nh->section->line,
+                                    dup->section->line, dup->section->line);
+                        /* nexthop_free() will drop the nexthop from nexthops_by_section. */
+                        nexthop_free(dup);
+                }
+
+                r = hashmap_ensure_put(&nexthops, NULL, UINT32_TO_PTR(nh->id), nh);
+                if (r < 0)
+                        return log_oom();
+                assert(r > 0);
+        }
+
+        return 0;
 }
 
 int config_parse_nexthop_id(
