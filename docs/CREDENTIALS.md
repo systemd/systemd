@@ -455,7 +455,7 @@ qemu-system-x86_64 \
         -device scsi-hd,drive=hd,bootindex=1 \
         -device vhost-vsock-pci,id=vhost-vsock-pci0,guest-cid=42 \
         -smbios type=11,value=io.systemd.credential:vmm.notify_socket=vsock:2:1234 \
-        -smbios type=11,value=io.systemd.credential.binary:tmpfiles.extra=$(echo "f~ /root/.ssh/authorized_keys 700 root root - $(ssh-add -L | base64 -w 0)" | base64 -w 0)
+        -smbios type=11,value=io.systemd.credential.binary:tmpfiles.extra=$(echo "f~ /root/.ssh/authorized_keys 600 root root - $(ssh-add -L | base64 -w 0)" | base64 -w 0)
 ```
 
 A process on the host can listen for the notification, for example:
