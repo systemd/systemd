@@ -658,7 +658,7 @@ int machine_get_uid_shift(Machine *m, uid_t *ret) {
         uid_t uid_base, uid_shift, uid_range;
         gid_t gid_base, gid_shift, gid_range;
         _cleanup_fclose_ FILE *f = NULL;
-        int k, r;
+        int r;
 
         assert(m);
         assert(ret);
@@ -690,14 +690,9 @@ int machine_get_uid_shift(Machine *m, uid_t *ret) {
         }
 
         /* Read the first line. There's at least one. */
-        errno = 0;
-        k = fscanf(f, UID_FMT " " UID_FMT " " UID_FMT "\n", &uid_base, &uid_shift, &uid_range);
-        if (k != 3) {
-                if (ferror(f))
-                        return errno_or_else(EIO);
-
-                return -EBADMSG;
-        }
+        r = uid_read_map_one(f, &uid_base, &uid_shift, &uid_range);
+        if (r < 0)
+                return r;
 
         /* Not a mapping starting at 0? Then it's a complex mapping we can't expose here. */
         if (uid_base != 0)
@@ -721,14 +716,15 @@ int machine_get_uid_shift(Machine *m, uid_t *ret) {
                 return -errno;
 
         /* Read the first line. There's at least one. */
-        errno = 0;
-        k = fscanf(f, GID_FMT " " GID_FMT " " GID_FMT "\n", &gid_base, &gid_shift, &gid_range);
-        if (k != 3) {
+        r = fscanf(f, GID_FMT " " GID_FMT " " GID_FMT "\n", &gid_base, &gid_shift, &gid_range);
+        if (r == EOF) {
                 if (ferror(f))
-                        return errno_or_else(EIO);
+                        return -errno;
 
-                return -EBADMSG;
+                return -ENOMSG;
         }
+        if (r != 3)
+                return -EBADMSG;
 
         /* If there's more than one line, then we don't support this file. */
         r = safe_fgetc(f, NULL);
@@ -780,16 +776,11 @@ static int machine_owns_uid_internal(
                 uid_t uid_base, uid_shift, uid_range, converted;
                 int k;
 
-                errno = 0;
-                k = fscanf(f, UID_FMT " " UID_FMT " " UID_FMT, &uid_base, &uid_shift, &uid_range);
-                if (k < 0 && feof(f))
+                r = uid_read_map_one(f, &uid_base, &uid_shift, &uid_range);
+                if (r == -ENOMSG)
                         break;
-                if (k != 3) {
-                        if (ferror(f))
-                                return errno_or_else(EIO);
-
-                        return -EIO;
-                }
+                if (r < 0)
+                        return r;
 
                 /* The private user namespace is disabled, ignoring. */
                 if (uid_shift == 0)
@@ -852,16 +843,11 @@ static int machine_translate_uid_internal(
                 uid_t uid_base, uid_shift, uid_range, converted;
                 int k;
 
-                errno = 0;
-                k = fscanf(f, UID_FMT " " UID_FMT " " UID_FMT, &uid_base, &uid_shift, &uid_range);
-                if (k < 0 && feof(f))
+                r = uid_read_map_one(f, &uid_base, &uid_shift, &uid_range);
+                if (r == -ENOMSG)
                         break;
-                if (k != 3) {
-                        if (ferror(f))
-                                return errno_or_else(EIO);
-
-                        return -EIO;
-                }
+                if (r < 0)
+                        return r;
 
                 if (uid < uid_base || uid >= uid_base + uid_range)
                         continue;
@@ -872,6 +858,7 @@ static int machine_translate_uid_internal(
 
                 if (ret_host_uid)
                         *ret_host_uid = converted;
+
                 return 0;
         }
 

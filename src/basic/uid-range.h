@@ -31,4 +31,6 @@ static inline bool uid_range_contains(const UidRange *range, uid_t uid) {
         return uid_range_covers(range, uid, 1);
 }
 
+int uid_read_map_one(FILE *f, uid_t *ret_base, uid_t *ret_shift, uid_t *ret_range);
+
 int uid_range_load_userns(UidRange **ret, const char *path);
