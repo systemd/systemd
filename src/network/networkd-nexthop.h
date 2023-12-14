@@ -37,7 +37,7 @@ typedef struct NextHop {
 
 NextHop *nexthop_free(NextHop *nexthop);
 
-void network_drop_invalid_nexthops(Network *network);
+int network_drop_invalid_nexthops(Network *network);
 
 int link_drop_nexthops(Link *link, bool foreign);
 static inline int link_drop_foreign_nexthops(Link *link) {
