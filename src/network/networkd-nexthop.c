@@ -555,6 +555,7 @@ static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
 
         assert(link);
         assert(nexthop);
+        assert(nexthop->id > 0);
 
         if (!link_is_ready_to_configure(link, false))
                 return false;
@@ -580,17 +581,6 @@ static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
 
                 if (!nexthop_exists(g))
                         return false;
-        }
-
-        if (nexthop->id == 0) {
-                Request *req;
-
-                ORDERED_SET_FOREACH(req, link->manager->request_queue) {
-                        if (req->type != REQUEST_TYPE_NEXTHOP)
-                                continue;
-                        if (((NextHop*) req->userdata)->id != 0)
-                                return false; /* first configure nexthop with id. */
-                }
         }
 
         return gateway_is_ready(link, FLAGS_SET(nexthop->flags, RTNH_F_ONLINK), nexthop->family, &nexthop->gw);
