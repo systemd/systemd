@@ -510,8 +510,12 @@
 
       <para><varname>$KERNEL_INSTALL_CONF_ROOT</varname> can be set to override the location of the
       configuration files read by <command>kernel-install</command>. When set,
-      <filename>install.conf</filename>, <filename>entry-token</filename>, and other files will be
-      read from this directory.</para>
+      <filename>install.conf</filename>, <filename>entry-token</filename>, and other files will be read from
+      this directory only. Note that this path is relative to the host, and in particular <emphasis>symlinks
+      in this directory are resolved relative to the host</emphasis>, even if
+      <option>--root=<replaceable>root</replaceable></option> is used. This means that it is generally
+      <emphasis>not</emphasis> correct to use this variable to specify a directory underneath
+      <replaceable>root</replaceable> if symlinks are used there.</para>
 
       <para><varname>$KERNEL_INSTALL_PLUGINS</varname> can be set to override the list of plugins executed by
       <command>kernel-install</command>. The argument is a whitespace-separated list of paths.
