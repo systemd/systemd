@@ -1023,15 +1023,29 @@ static int nexthop_section_verify(NextHop *nh) {
                                                  "%s: nexthop group cannot be a blackhole. "
                                                  "Ignoring [NextHop] section from line %u.",
                                                  nh->section->filename, nh->section->line);
+
+                if (nh->onlink > 0)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                 "%s: nexthop group cannot have on-link flag. "
+                                                 "Ignoring [NextHop] section from line %u.",
+                                                 nh->section->filename, nh->section->line);
         } else if (nh->family == AF_UNSPEC)
                 /* When neither Family=, Gateway=, nor Group= is specified, assume IPv4. */
                 nh->family = AF_INET;
 
-        if (nh->blackhole && in_addr_is_set(nh->family, &nh->gw))
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: blackhole nexthop cannot have gateway address. "
-                                         "Ignoring [NextHop] section from line %u.",
-                                         nh->section->filename, nh->section->line);
+        if (nh->blackhole) {
+                if (in_addr_is_set(nh->family, &nh->gw))
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                 "%s: blackhole nexthop cannot have gateway address. "
+                                                 "Ignoring [NextHop] section from line %u.",
+                                                 nh->section->filename, nh->section->line);
+
+                if (nh->onlink > 0)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                 "%s: blackhole nexthop cannot have on-link flag. "
+                                                 "Ignoring [NextHop] section from line %u.",
+                                                 nh->section->filename, nh->section->line);
+        }
 
         if (nh->onlink < 0 && in_addr_is_set(nh->family, &nh->gw) &&
             ordered_hashmap_isempty(nh->network->addresses_by_section)) {
