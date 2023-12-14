@@ -659,7 +659,7 @@ int machine_get_uid_shift(Machine *m, uid_t *ret) {
         uid_t uid_base, uid_shift, uid_range;
         gid_t gid_base, gid_shift, gid_range;
         _cleanup_fclose_ FILE *f = NULL;
-        int k, r;
+        int r;
 
         assert(m);
         assert(ret);
@@ -717,14 +717,15 @@ int machine_get_uid_shift(Machine *m, uid_t *ret) {
                 return -errno;
 
         /* Read the first line. There's at least one. */
-        errno = 0;
-        k = fscanf(f, GID_FMT " " GID_FMT " " GID_FMT "\n", &gid_base, &gid_shift, &gid_range);
-        if (k != 3) {
+        r = fscanf(f, GID_FMT " " GID_FMT " " GID_FMT "\n", &gid_base, &gid_shift, &gid_range);
+        if (r == EOF) {
                 if (ferror(f))
-                        return errno_or_else(EIO);
+                        return -errno;
 
-                return -EBADMSG;
+                return -ENOMSG;
         }
+        if (r != 3)
+                return -EBADMSG;
 
         /* If there's more than one line, then we don't support this file. */
         r = safe_fgetc(f, NULL);
