@@ -252,11 +252,9 @@ int strv_extend_strv_concat(char ***a, char * const *b, const char *suffix) {
                 if (!v)
                         return -ENOMEM;
 
-                r = strv_push(a, v);
-                if (r < 0) {
-                        free(v);
+                r = strv_consume(a, v);
+                if (r < 0)
                         return r;
-                }
         }
 
         return 0;
