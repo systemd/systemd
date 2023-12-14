@@ -532,6 +532,22 @@
   </refsect1>
 
   <refsect1>
+    <title>Limit reading specific sysfs attributes</title>
+
+    <para>When creating names for network cards, some naming schemes use data from sysfs populated
+    by the kernel. This means that although a specific naming scheme in udev is picked,
+    the network card's name can still change when a new kernel version adds a new sysfs attribute.
+    For example if kernel starts setting <constant>phys_port_name</constant>, udev will append the
+    "<constant>n</constant><replaceable>phys_port_name</replaceable>" suffix to the device name.
+    Users can set an allowlist or denylist for these. To create an allowlist, the user needs to set
+    <varname>ID_NET_NAME_ALLOW=0</varname> for the device and then list the allowed attributes in the format
+    of <varname>ID_NET_NAME_ALLOW_<replaceable>SYSFSATTR</replaceable>=1</varname>. In case of a deny list,
+    the user needs to set <varname>ID_NET_NAME_ALLOW=1</varname> for the device and then list the denied
+    attributes in the format of <varname>ID_NET_NAME_ALLOW_<replaceable>SYSFSATTR</replaceable>=0</varname>.
+    By default, all attributes are allowed.</para>
+  </refsect1>
+
+  <refsect1>
     <title>Examples</title>
 
     <example>
@@ -616,6 +632,36 @@ ID_NET_NAME_PATH=enp0s29u1u2</programlisting>
       <programlisting># /sys/devices/css0/0.0.0007/0.0.f5f0/group_device/net/encf5f0
 ID_NET_NAME_MAC=enx026d3c00000a
 ID_NET_NAME_PATH=encf5f0</programlisting>
+    </example>
+
+    <example>
+      <title>Set an allowlist for reading sysfs attributes for network card naming</title>
+
+      <programlisting><filename>/etc/udev/hwdb.d/50-net-naming-allowlist.hwdb</filename>
+net:naming:virtio_net
+  ID_NET_NAME_ALLOW=0
+  ID_NET_NAME_ALLOW_ACPI_INDEX=1
+  ID_NET_NAME_ALLOW_ADDR_ASSIGN_TYPE=1
+  ID_NET_NAME_ALLOW_ADDRESS=1
+  ID_NET_NAME_ALLOW_ARI_ENABLED=1
+  ID_NET_NAME_ALLOW_DEV_PORT=1
+  ID_NET_NAME_ALLOW_FUNCTION_ID=1
+  ID_NET_NAME_ALLOW_IFLINK=1
+  ID_NET_NAME_ALLOW_INDEX=1
+  ID_NET_NAME_ALLOW_LABEL=1
+  ID_NET_NAME_ALLOW_PHYS_PORT_NAME=1
+  ID_NET_NAME_ALLOW_TYPE=1</programlisting>
+    </example>
+
+    <example>
+      <title>Set an denylist so specified sysfs attribute are ignored</title>
+
+      <programlisting><filename>/etc/udev/hwdb.d/50-net-naming-denylist.hwdb</filename>
+net:naming:virtio_net
+  ID_NET_NAME_ALLOW=1
+  ID_NET_NAME_ALLOW_DEV_PORT=0
+  ID_NET_NAME_ALLOW_PHYS_PORT_NAME=0
+      </programlisting>
     </example>
   </refsect1>
 
