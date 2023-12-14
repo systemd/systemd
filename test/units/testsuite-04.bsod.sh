@@ -22,6 +22,9 @@ at_exit() {
         journalctl --flush
     fi
 
+    rm -f /run/systemd/journald.conf.d/99-forward-to-console.conf
+    systemctl restart systemd-journald
+
     return 0
 }
 
@@ -49,7 +52,12 @@ vcs_dump_and_check() {
 # current boot, let's temporarily overmount /var/log/journal with a tmpfs,
 # as we're going to wipe it multiple times, but we need to keep the original
 # journal intact for the other tests to work correctly.
+#
+# Also, since we'll eventually lose the journal from this test, let's temporarily
+# forward everything to console, to make potential fails debug-able.
 trap at_exit EXIT
+mkdir -p /run/systemd/journald.conf.d/
+echo -ne '[Journal]\nForwardToConsole=yes' >/run/systemd/journald.conf.d/99-forward-to-console.conf
 mount -t tmpfs tmpfs /var/log/journal
 systemctl restart systemd-journald
 
