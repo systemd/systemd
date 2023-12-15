@@ -279,8 +279,15 @@ static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const cha
                 return -EOPNOTSUPP;
         else if (streq(d->result, "once"))
                 return -ESTALE;
-        else if (STR_IN_SET(d->result, "done", "skipped"))
+        else if (streq(d->result, "done")) {
+                if (FLAGS_SET(flags, BUS_WAIT_JOBS_LOG_SUCCESS))
+                        log_info("Job for %s finished.", strna(d->name));
                 return 0;
+        } else if (streq(d->result, "skipped")) {
+                if (FLAGS_SET(flags, BUS_WAIT_JOBS_LOG_SUCCESS))
+                        log_info("Job for %s was skipped.", strna(d->name));
+                return 0;
+        }
 
         return log_debug_errno(SYNTHETIC_ERRNO(EIO),
                                "Unexpected job result, assuming server side newer than us: %s", d->result);
