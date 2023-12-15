@@ -3296,7 +3296,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           Solicitation messages to a neighbor when resolving the address or when probing the reachability of a neighbor.
           Defaults to true.</para>
 
-          <xi:include href="version-info.xml" xpointer="v255"/>
+          <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
       </varlistentry>
 
