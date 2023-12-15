@@ -23,14 +23,16 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>/etc/systemd/journald.conf</filename></para>
-    <para><filename>/etc/systemd/journald.conf.d/*.conf</filename></para>
-    <para><filename>/run/systemd/journald.conf.d/*.conf</filename></para>
-    <para><filename>/usr/lib/systemd/journald.conf.d/*.conf</filename></para>
-    <para><filename>/etc/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf</filename></para>
-    <para><filename>/etc/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf.d/*.conf</filename></para>
-    <para><filename>/run/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf.d/*.conf</filename></para>
-    <para><filename>/usr/lib/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf.d/*.conf</filename></para>
+    <para><simplelist>
+      <member><filename>/etc/systemd/journald.conf</filename></member>
+      <member><filename>/etc/systemd/journald.conf.d/*.conf</filename></member>
+      <member><filename>/run/systemd/journald.conf.d/*.conf</filename></member>
+      <member><filename>/usr/lib/systemd/journald.conf.d/*.conf</filename></member>
+      <member><filename>/etc/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf</filename></member>
+      <member><filename>/etc/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf.d/*.conf</filename></member>
+      <member><filename>/run/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf.d/*.conf</filename></member>
+      <member><filename>/usr/lib/systemd/journald@<replaceable>NAMESPACE</replaceable>.conf.d/*.conf</filename></member>
+    </simplelist></para>
   </refsynopsisdiv>
 
   <refsect1>

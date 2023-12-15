@@ -23,12 +23,14 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>/etc/dnssec-trust-anchors.d/*.positive</filename></para>
-    <para><filename>/run/dnssec-trust-anchors.d/*.positive</filename></para>
-    <para><filename>/usr/lib/dnssec-trust-anchors.d/*.positive</filename></para>
-    <para><filename>/etc/dnssec-trust-anchors.d/*.negative</filename></para>
-    <para><filename>/run/dnssec-trust-anchors.d/*.negative</filename></para>
-    <para><filename>/usr/lib/dnssec-trust-anchors.d/*.negative</filename></para>
+    <para><simplelist>
+      <member><filename>/etc/dnssec-trust-anchors.d/*.positive</filename></member>
+      <member><filename>/run/dnssec-trust-anchors.d/*.positive</filename></member>
+      <member><filename>/usr/lib/dnssec-trust-anchors.d/*.positive</filename></member>
+      <member><filename>/etc/dnssec-trust-anchors.d/*.negative</filename></member>
+      <member><filename>/run/dnssec-trust-anchors.d/*.negative</filename></member>
+      <member><filename>/usr/lib/dnssec-trust-anchors.d/*.negative</filename></member>
+    </simplelist></para>
   </refsynopsisdiv>
 
   <refsect1>

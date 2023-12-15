@@ -40,37 +40,41 @@
     <refsect2>
       <title>System Unit Search Path</title>
 
-      <para><literallayout><filename>/etc/systemd/system.control/*</filename>
-<filename>/run/systemd/system.control/*</filename>
-<filename>/run/systemd/transient/*</filename>
-<filename>/run/systemd/generator.early/*</filename>
-<filename>/etc/systemd/system/*</filename>
-<filename>/etc/systemd/system.attached/*</filename>
-<filename>/run/systemd/system/*</filename>
-<filename>/run/systemd/system.attached/*</filename>
-<filename>/run/systemd/generator/*</filename>
-<filename index='false'>…</filename>
-<filename>/usr/lib/systemd/system/*</filename>
-<filename>/run/systemd/generator.late/*</filename></literallayout></para>
+      <para><simplelist>
+        <member><filename>/etc/systemd/system.control/*</filename></member>
+        <member><filename>/run/systemd/system.control/*</filename></member>
+        <member><filename>/run/systemd/transient/*</filename></member>
+        <member><filename>/run/systemd/generator.early/*</filename></member>
+        <member><filename>/etc/systemd/system/*</filename></member>
+        <member><filename>/etc/systemd/system.attached/*</filename></member>
+        <member><filename>/run/systemd/system/*</filename></member>
+        <member><filename>/run/systemd/system.attached/*</filename></member>
+        <member><filename>/run/systemd/generator/*</filename></member>
+        <member><filename index='false'>…</filename></member>
+        <member><filename>/usr/lib/systemd/system/*</filename></member>
+        <member><filename>/run/systemd/generator.late/*</filename></member>
+      </simplelist></para>
     </refsect2>
 
     <refsect2>
       <title>User Unit Search Path</title>
-      <para><literallayout><filename>~/.config/systemd/user.control/*</filename>
-<filename>$XDG_RUNTIME_DIR/systemd/user.control/*</filename>
-<filename>$XDG_RUNTIME_DIR/systemd/transient/*</filename>
-<filename>$XDG_RUNTIME_DIR/systemd/generator.early/*</filename>
-<filename>~/.config/systemd/user/*</filename>
-<filename>$XDG_CONFIG_DIRS/systemd/user/*</filename>
-<filename>/etc/systemd/user/*</filename>
-<filename>$XDG_RUNTIME_DIR/systemd/user/*</filename>
-<filename>/run/systemd/user/*</filename>
-<filename>$XDG_RUNTIME_DIR/systemd/generator/*</filename>
-<filename>$XDG_DATA_HOME/systemd/user/*</filename>
-<filename>$XDG_DATA_DIRS/systemd/user/*</filename>
-<filename index='false'>…</filename>
-<filename>/usr/lib/systemd/user/*</filename>
-<filename>$XDG_RUNTIME_DIR/systemd/generator.late/*</filename></literallayout></para>
+      <para><simplelist>
+        <member><filename>~/.config/systemd/user.control/*</filename></member>
+        <member><filename>$XDG_RUNTIME_DIR/systemd/user.control/*</filename></member>
+        <member><filename>$XDG_RUNTIME_DIR/systemd/transient/*</filename></member>
+        <member><filename>$XDG_RUNTIME_DIR/systemd/generator.early/*</filename></member>
+        <member><filename>~/.config/systemd/user/*</filename></member>
+        <member><filename>$XDG_CONFIG_DIRS/systemd/user/*</filename></member>
+        <member><filename>/etc/systemd/user/*</filename></member>
+        <member><filename>$XDG_RUNTIME_DIR/systemd/user/*</filename></member>
+        <member><filename>/run/systemd/user/*</filename></member>
+        <member><filename>$XDG_RUNTIME_DIR/systemd/generator/*</filename></member>
+        <member><filename>$XDG_DATA_HOME/systemd/user/*</filename></member>
+        <member><filename>$XDG_DATA_DIRS/systemd/user/*</filename></member>
+        <member><filename index='false'>…</filename></member>
+        <member><filename>/usr/lib/systemd/user/*</filename></member>
+        <member><filename>$XDG_RUNTIME_DIR/systemd/generator.late/*</filename></member>
+      </simplelist></para>
     </refsect2>
 
   </refsynopsisdiv>
