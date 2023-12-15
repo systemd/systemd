@@ -388,8 +388,13 @@ int verb_start(int argc, char *argv[], void *userdata) {
 
         if (!arg_no_block) {
                 const char* extra_args[4];
+                WaitJobsFlags flags = 0;
 
-                r = bus_wait_for_jobs(w, arg_quiet, make_extra_args(extra_args));
+                if (!arg_quiet)
+                        flags |= BUS_WAIT_JOBS_LOG_ERROR;
+                if (arg_show_transaction)
+                        flags |= BUS_WAIT_JOBS_LOG_SUCCESS;
+                r = bus_wait_for_jobs(w, flags, make_extra_args(extra_args));
                 if (r < 0)
                         return r;
 
