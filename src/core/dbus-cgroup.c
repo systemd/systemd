@@ -2188,7 +2188,7 @@ int bus_cgroup_set_property(
                                 c->restrict_network_interfaces_is_allow_list = is_allow_list;
 
                         STRV_FOREACH(s, l) {
-                                if (!ifname_valid(*s)) {
+                                if (!ifname_valid_full(*s, IFNAME_VALID_ALTERNATIVE)) {
                                         log_full(LOG_WARNING, "Invalid interface name, ignoring: %s", *s);
                                         continue;
                                 }

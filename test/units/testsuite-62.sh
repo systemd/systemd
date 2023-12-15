@@ -17,6 +17,7 @@ setup() {
         ip -n "ns${i}" link set dev lo up
         ip -n "ns${i}" addr add "192.168.113."$((4*i+1))/30 dev "veth${i}_"
         ip link set dev "veth${i}" up
+        ip link property add dev "veth${i}" altname "veth${i}-altname-with-more-than-15-chars"
         ip addr add "192.168.113."$((4*i+2))/30 dev "veth${i}"
     done
 }
