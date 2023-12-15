@@ -121,6 +121,7 @@ _udevadm_wait(){
         '--timeout=[Maximum number of seconds to wait for the devices being created.]' \
         '--initialized=[Wait for devices being initialized by systemd-udevd.]:boolean:(yes no)' \
         '--removed[Wait for devices being removed.]' \
+        '--changed[Wait for devices being changed.]' \
         '--settle[Also wait for udev queue being empty.]' \
         '--help[Print help text.]' \
         '*::devpath:_files -P /dev/ -W /dev'
