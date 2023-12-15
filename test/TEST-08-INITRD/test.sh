@@ -44,7 +44,12 @@ EOF
 }
 
 check_result_qemu_hook() {
+    local workspace="${1:?}"
     local console_log="${TESTDIR:?}/console.log"
+
+    if [[ -e "$workspace/skipped" ]]; then
+        return 0
+    fi
 
     if [[ ! -e "$console_log" ]]; then
         dfatal "Missing console log - this shouldn't happen"
