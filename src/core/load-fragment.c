@@ -6093,7 +6093,7 @@ int config_parse_restrict_network_interfaces(
                         break;
                 }
 
-                if (!ifname_valid(word)) {
+                if (!ifname_valid_full(word, IFNAME_VALID_ALTERNATIVE)) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0, "Invalid interface name, ignoring: %s", word);
                         continue;
                 }
