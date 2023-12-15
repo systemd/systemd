@@ -279,8 +279,11 @@ static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const cha
                 return -EOPNOTSUPP;
         else if (streq(d->result, "once"))
                 return -ESTALE;
-        else if (STR_IN_SET(d->result, "done", "skipped"))
+        else if (STR_IN_SET(d->result, "done", "skipped")) {
+                if (flags & BUS_WAIT_JOBS_LOG_SUCCESS)
+                        log_info("Job %s started.", strna(d->name));
                 return 0;
+        }
 
         return log_debug_errno(SYNTHETIC_ERRNO(EIO),
                                "Unexpected job result, assuming server side newer than us: %s", d->result);
