@@ -568,7 +568,7 @@ static int opendir_and_stat(
                 bool *ret_mountpoint) {
 
         _cleanup_closedir_ DIR *d = NULL;
-        STRUCT_STATX_DEFINE(sx);
+        STRUCT_NEW_STATX_DEFINE(st1);
         int r;
 
         assert(path);
@@ -581,26 +581,24 @@ static int opendir_and_stat(
                 return log_full_errno(IN_SET(errno, ENOENT, ENOTDIR) ? LOG_DEBUG : LOG_ERR,
                                       errno, "Failed to open directory %s: %m", path);
 
-        r = statx_fallback(dirfd(d), "", AT_EMPTY_PATH, STATX_MODE|STATX_INO|STATX_ATIME|STATX_MTIME, &sx);
+        r = statx_fallback(dirfd(d), "", AT_EMPTY_PATH, STATX_MODE|STATX_INO|STATX_ATIME|STATX_MTIME, &st1.sx);
         if (r < 0)
                 return log_error_errno(r, "statx(%s) failed: %m", path);
 
-        if (FLAGS_SET(sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT))
-                *ret_mountpoint = FLAGS_SET(sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
+        if (FLAGS_SET(st1.sx.stx_attributes_mask, STATX_ATTR_MOUNT_ROOT))
+                *ret_mountpoint = FLAGS_SET(st1.sx.stx_attributes, STATX_ATTR_MOUNT_ROOT);
         else {
-                struct stat ps;
+                STRUCT_NEW_STATX_DEFINE(st2);
 
-                if (fstatat(dirfd(d), "..", &ps, AT_SYMLINK_NOFOLLOW) != 0)
-                        return log_error_errno(errno, "stat(%s/..) failed: %m", path);
+                r = statx_fallback(dirfd(d), "..", 0, STATX_INO, &st2.sx);
+                if (r < 0)
+                        return log_error_errno(errno, "statx(%s/..) failed: %m", path);
 
-                *ret_mountpoint =
-                        sx.stx_dev_major != major(ps.st_dev) ||
-                        sx.stx_dev_minor != minor(ps.st_dev) ||
-                        sx.stx_ino != ps.st_ino;
+                *ret_mountpoint = !statx_mount_same(&st1.nsx, &st2.nsx);
         }
 
         *ret = TAKE_PTR(d);
-        *ret_sx = sx;
+        *ret_sx = st1.sx;
         return 0;
 }
 
