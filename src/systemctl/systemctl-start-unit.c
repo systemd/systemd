@@ -391,6 +391,7 @@ int verb_start(int argc, char *argv[], void *userdata) {
                 WaitJobsFlags flags = 0;
 
                 SET_FLAG(flags, BUS_WAIT_JOBS_LOG_ERROR, !arg_quiet);
+                SET_FLAG(flags, BUS_WAIT_JOBS_LOG_SUCCESS, arg_show_transaction);
                 r = bus_wait_for_jobs(w, flags, make_extra_args(extra_args));
                 if (r < 0)
                         return r;
