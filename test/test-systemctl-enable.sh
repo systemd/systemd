@@ -97,7 +97,7 @@ test ! -e "$root/etc/systemd/system/test1-badalias.target"
 test ! -e "$root/etc/systemd/system/test1-badalias.socket"
 test -h "$root/etc/systemd/system/test1-goodalias2.service"
 
-: '-------aliases in reeanable----------------------------------'
+: '-------aliases in reenable----------------------------------'
 ( ! "$systemctl" --root="$root" reenable test1 )
 test -h "$root/etc/systemd/system/default.target.wants/test1.service"
 test ! -e "$root/etc/systemd/system/test1-goodalias.service"
