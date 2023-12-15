@@ -8,7 +8,6 @@
 #include "tmpfile-util.h"
 
 TEST_RET(bootspec_sort) {
-
         static const struct {
                 const char *fname;
                 const char *contents;
@@ -150,7 +149,6 @@ TEST_RET(bootspec_extract_tries) {
 }
 
 TEST_RET(bootspec_boot_config_find_entry) {
-
         static const struct {
                 const char *fname;
                 const char *contents;
