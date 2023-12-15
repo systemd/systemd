@@ -648,12 +648,12 @@ int network_drop_invalid_neighbors(Network *network) {
                 dup = set_remove(neighbors, neighbor);
                 if (dup) {
                         log_warning("%s: Duplicated neighbor settings for %s is specified at line %u and %u, "
-                                    "dropping the address setting specified at line %u.",
+                                    "dropping the neighbor setting specified at line %u.",
                                     dup->section->filename,
                                     IN_ADDR_TO_STRING(neighbor->family, &neighbor->in_addr),
                                     neighbor->section->line,
                                     dup->section->line, dup->section->line);
-                        /* neighbor_free() will drop the address from neighbors_by_section. */
+                        /* neighbor_free() will drop the neighbor from neighbors_by_section. */
                         neighbor_free(dup);
                 }
 
