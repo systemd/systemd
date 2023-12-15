@@ -875,10 +875,9 @@ Table=1234</programlisting></para>
       <varlistentry>
         <term><varname>IPv6RetransTime=</varname></term>
         <listitem>
-          <para>Configures IPv6 Retransmission Time. Takes an integer in milliseconds. The
-          RetransTimer is used as the time between retransmissions of Neighbor Solicitation
-          messages to a neighbor when resolving the address or when probing the reachability
-          of a neighbor.</para>
+          <para>Configures IPv6 Retransmission Time. Takes a 32-bit unsigned integer.  The
+          time, in milliseconds, between retransmitted Neighbor Solicitation messages.  Used
+          by address resolution and the Neighbor Unreachability Detection algorithm.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
