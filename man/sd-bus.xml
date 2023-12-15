@@ -41,142 +41,143 @@
     for more information about D-Bus IPC.</para>
 
     <para>See
-    <literallayout><citerefentry><refentrytitle>sd_bus_add_match</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_add_object</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_add_object_manager</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_add_object_vtable</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_add_fallback</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_add_fallback_vtable</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_add_filter</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_add_node_enumerator</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_attach_event</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_call</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_call_async</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_call_method</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_call_method_async</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_can_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_close</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_creds_get_pid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_creds_new_from_pid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_default</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_emit_interfaces_added</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_emit_interfaces_added_strv</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_emit_interfaces_removed</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_emit_interfaces_removed_strv</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_emit_object_added</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_emit_object_removed</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_emit_properties_changed</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_emit_properties_changed_strv</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_emit_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_emit_signalv</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_emit_signal_to</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_emit_signal_tov</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd-bus-errors</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_error</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_error_add_map</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_get_address</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_get_allow_interactive_authorization</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_get_bus_id</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_get_creds_mask</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_get_current_handler</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_get_current_message</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_get_current_slot</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_get_current_userdata</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_get_exit_on_disconnect</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_get_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_get_method_call_timeout</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_get_n_queued_read</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_get_name_creds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_get_name_machine_id</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_get_owner_creds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_get_property</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_get_property_string</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_get_property_strv</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_get_property_trivial</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_get_scope</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_get_tid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_get_unique_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_interface_name_is_valid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_is_bus_client</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_is_monitor</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_is_server</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_list_names</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_append_array</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_append_basic</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_append_string_memfd</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_append_strv</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_at_end</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_close_container</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_copy</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_dump</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_enter_container</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_exit_container</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_get_allow_interactive_authorization</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_get_cookie</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_get_creds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_get_errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_get_error</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_get_monotonic_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_get_sender</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_get_signature</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_get_type</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_new_method_call</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_new_method_error</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_new_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_new_signal_to</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_open_container</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_peek_type</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_read</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_read_array</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_read_basic</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_read_strv</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_rewind</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_seal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_set_allow_interactive_authorization</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_set_destination</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_set_expect_reply</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_set_sender</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_skip</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_message_verify_type</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_negotiate_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_path_encode</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_process</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_query_sender_creds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_query_sender_privilege</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_reply_method_error</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_reply_method_return</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_request_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_send_to</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_set_address</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_set_allow_interactive_authorization</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_set_bus_client</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_set_close_on_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_set_connected_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_set_description</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_set_exit_on_disconnect</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_set_method_call_timeout</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_set_monitor</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_set_property</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_set_propertyv</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_set_sender</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_set_server</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_set_watch_bind</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-<citerefentry><refentrytitle>sd_bus_slot_get_current_handler</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_slot_get_current_message</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_slot_get_current_userdata</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_slot_set_description</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_slot_set_destroy_callback</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_slot_set_floating</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_slot_set_userdata</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_start</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_track_add_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-<citerefentry><refentrytitle>sd_bus_track_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-</literallayout>
+    <simplelist>
+      <member><citerefentry><refentrytitle>sd_bus_add_match</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_add_object</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_add_object_manager</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_add_object_vtable</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_add_fallback</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_add_fallback_vtable</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_add_filter</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_add_node_enumerator</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_attach_event</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_call</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_call_async</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_call_method</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_call_method_async</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_can_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_close</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_creds_get_pid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_creds_new_from_pid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_default</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_emit_interfaces_added</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_emit_interfaces_added_strv</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_emit_interfaces_removed</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_emit_interfaces_removed_strv</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_emit_object_added</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_emit_object_removed</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_emit_properties_changed</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_emit_properties_changed_strv</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_emit_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_emit_signalv</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_emit_signal_to</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_emit_signal_tov</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd-bus-errors</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_error</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_error_add_map</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_get_address</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_get_allow_interactive_authorization</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_get_bus_id</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_get_creds_mask</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_get_current_handler</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_get_current_message</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_get_current_slot</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_get_current_userdata</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_get_exit_on_disconnect</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_get_fd</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_get_method_call_timeout</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_get_n_queued_read</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_get_name_creds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_get_name_machine_id</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_get_owner_creds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_get_property</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_get_property_string</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_get_property_strv</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_get_property_trivial</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_get_scope</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_get_tid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_get_unique_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_interface_name_is_valid</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_is_bus_client</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_is_monitor</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_is_server</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_list_names</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_append</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_append_array</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_append_basic</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_append_string_memfd</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_append_strv</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_at_end</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_close_container</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_copy</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_dump</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_enter_container</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_exit_container</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_get_allow_interactive_authorization</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_get_cookie</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_get_creds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_get_errno</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_get_error</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_get_monotonic_usec</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_get_sender</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_get_signature</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_get_type</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_new_method_call</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_new_method_error</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_new_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_new_signal_to</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_open_container</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_peek_type</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_read</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_read_array</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_read_basic</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_read_strv</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_rewind</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_seal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_set_allow_interactive_authorization</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_set_destination</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_set_expect_reply</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_set_sender</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_skip</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_message_verify_type</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_negotiate_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_new</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_path_encode</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_process</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_query_sender_creds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_query_sender_privilege</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_reply_method_error</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_reply_method_return</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_request_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_send</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_send_to</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_set_address</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_set_allow_interactive_authorization</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_set_bus_client</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_set_close_on_exit</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_set_connected_signal</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_set_description</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_set_exit_on_disconnect</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_set_method_call_timeout</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_set_monitor</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_set_property</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_set_propertyv</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_set_sender</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_set_server</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_set_watch_bind</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>sd_bus_slot_get_current_handler</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_slot_get_current_message</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_slot_get_current_userdata</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_slot_set_description</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_slot_set_destroy_callback</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_slot_set_floating</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_slot_set_userdata</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_start</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_track_add_name</refentrytitle><manvolnum>3</manvolnum></citerefentry>,</member>
+      <member><citerefentry><refentrytitle>sd_bus_track_new</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+    </simplelist>
     for more information about the functions available.</para>
   </refsect1>
 
