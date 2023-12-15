@@ -204,7 +204,6 @@ static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
 
         if (link->network->ipv6_accept_ra_use_retrans_time) {
                 r = sd_ndisc_router_get_retrans_time(rt, &retrans_time);
-                log_link_notice(link, "%s: retrans_time:%lu", __func__, retrans_time);
                 if (r < 0 && r != -ENODATA)
                         return log_link_warning_errno(link, r, "Failed to get default router retransmission time from RA: %m");
         }
