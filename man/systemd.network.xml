@@ -873,6 +873,18 @@ Table=1234</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>IPv6RetransTime=</varname></term>
+        <listitem>
+          <para>Configures IPv6 Retransmission Time. Takes an integer in milliseconds. The
+          RetransTimer is used as the time between retransmissions of Neighbor Solicitation
+          messages to a neighbor when resolving the address or when probing the reachability
+          of a neighbor.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>IPv4ReversePathFilter=</varname></term>
         <listitem>
           <para>Configure IPv4 Reverse Path Filtering. If enabled, when an IPv4 packet is received, the machine will first check
@@ -3651,7 +3663,7 @@ ServerAddress=192.168.0.1/24</programlisting>
         <literal>UTC</literal>) to pass to clients. If no explicit
         timezone is set, the system timezone of the local host is
         propagated, as determined by the
-        <filename>/etc/localtime</filename> symlink.</para>
+        <filename>/etc/sysconfig/localtime</filename> symlink.</para>
 
         <xi:include href="version-info.xml" xpointer="v226"/></listitem>
       </varlistentry>

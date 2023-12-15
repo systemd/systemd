@@ -20,9 +20,8 @@ static inline int sysctl_write_ip_property_boolean(int af, const char *ifname, c
 }
 
 int sysctl_write_ip_neigh_property(int af, const char *ifname, const char *property, const char *value);
-int sysctl_write_ip_neigh_property_int(int af, const char *ifname, const char *property, int value);
 static inline int sysctl_write_ip_neigh_property_int(int af, const char *ifname, const char *property, int value) {
-        char buf[DECIMAL_STR_MAX(type)];
+        char buf[DECIMAL_STR_MAX(int)];
         xsprintf(buf, "%i", value);
         return sysctl_write_ip_neigh_property(af, ifname, property, buf);
 }

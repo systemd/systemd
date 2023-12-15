@@ -28,7 +28,7 @@ static sd_ndisc *test_timeout_nd;
 static void router_dump(sd_ndisc_router *rt) {
         struct in6_addr addr;
         uint8_t hop_limit;
-        usec_t t, lifetime, retrans_timer;
+        usec_t t, lifetime, retrans_time;
         uint64_t flags;
         uint32_t mtu;
         unsigned preference;
