@@ -636,7 +636,15 @@ int network_reload(Manager *manager) {
         ordered_hashmap_free_with_destructor(manager->networks, network_unref);
         manager->networks = new_networks;
 
-        return manager_build_dhcp_pd_subnet_ids(manager);
+        r = manager_build_dhcp_pd_subnet_ids(manager);
+        if (r < 0)
+                return r;
+
+        r = manager_build_nexthop_ids(manager);
+        if (r < 0)
+                return r;
+
+        return 0;
 
 failure:
         ordered_hashmap_free_with_destructor(new_networks, network_unref);

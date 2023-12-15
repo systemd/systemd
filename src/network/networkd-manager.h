@@ -73,6 +73,7 @@ struct Manager {
 
         /* Manage nexthops by id. */
         Hashmap *nexthops_by_id;
+        Set *nexthop_ids; /* requested IDs in .network files */
 
         /* Manager stores routes without RTA_OIF attribute. */
         unsigned route_remove_messages;
