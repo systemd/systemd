@@ -324,6 +324,7 @@ struct Network {
         int ipv4_route_localnet;
         int ipv6_dad_transmits;
         uint8_t ipv6_hop_limit;
+        uint32_t ipv6_retrans_time;
         int proxy_arp;
         uint32_t ipv6_mtu;
         IPv6PrivacyExtensions ipv6_privacy_extensions;
@@ -340,6 +341,7 @@ struct Network {
         bool ipv6_accept_ra_use_onlink_prefix;
         bool ipv6_accept_ra_use_mtu;
         bool ipv6_accept_ra_use_hop_limit;
+        bool ipv6_accept_ra_use_retrans_time;
         bool ipv6_accept_ra_use_icmp6_ratelimit;
         bool ipv6_accept_ra_quickack;
         bool ipv6_accept_ra_use_captive_portal;

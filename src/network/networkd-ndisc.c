@@ -176,6 +176,7 @@ static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
         _cleanup_(route_freep) Route *route = in;
         struct in6_addr router;
         uint8_t hop_limit = 0;
+        usec_t retrans_time = 0;
         uint32_t mtu = 0;
         bool is_new;
         int r;
@@ -199,6 +200,12 @@ static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
                 r = sd_ndisc_router_get_hop_limit(rt, &hop_limit);
                 if (r < 0 && r != -ENODATA)
                         return log_link_warning_errno(link, r, "Failed to get default router hop limit from RA: %m");
+        }
+
+        if (link->network->ipv6_accept_ra_use_retrans_time) {
+                r = sd_ndisc_router_get_retrans_time(rt, &retrans_time);
+                if (r < 0 && r != -ENODATA)
+                        return log_link_warning_errno(link, r, "Failed to get default router retransmission time from RA: %m");
         }
 
         route->source = NETWORK_CONFIG_SOURCE_NDISC;
@@ -383,6 +390,35 @@ static int ndisc_router_process_icmp6_ratelimit(Link *link, sd_ndisc_router *rt)
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to apply ICMP6 ratelimit, ignoring: %m");
 
+        return 0;
+}
+
+static int ndisc_router_process_retrans_time(Link *link, sd_ndisc_router *rt) {
+        char buf[DECIMAL_STR_MAX(usec_t)];
+        usec_t retrans_time;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(rt);
+
+        if (!link->network->ipv6_accept_ra_use_retrans_time)
+                return 0;
+
+        r = sd_ndisc_router_get_retrans_time(rt, &retrans_time);
+        if (r < 0) {
+                log_link_debug(link, "Failed to get ICMP6 ratelimit from RA, ignoring: %m");
+                return 0;
+        }
+
+        /* Set the retransmission time for Neigbor Solicitations.
+         * 0 is the unspecified value and must not be set (see RFC4861, 6.3.4) */
+        if (retrans_time != 0) {
+                xsprintf(buf, USEC_FMT, DIV_ROUND_UP(retrans_time, USEC_PER_MSEC));
+                r = sysctl_write_ip_neigh_property(AF_INET6, link->ifname, "retrans_time_ms", buf);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Failed to apply neighbor retrans time, ignoring: %m");
+        }
         return 0;
 }
 
@@ -1344,6 +1380,10 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
                 return r;
 
         r = ndisc_router_process_icmp6_ratelimit(link, rt);
+        if (r < 0)
+                return r;
+
+        r = ndisc_router_process_retrans_time(link, rt);
         if (r < 0)
                 return r;
 
