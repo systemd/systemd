@@ -962,6 +962,17 @@
         </varlistentry>
 
         <varlistentry>
+          <term><option>--changed</option></term>
+          <listitem>
+            <para>When specified, the command wait for devices being changed (i.e. receiving CHANGE
+            events) instead of created or initialized. This will also trigger if a device is
+            removed. If this is specified, <option>--initialized=</option> will be ignored.</para>
+
+            <xi:include href="version-info.xml" xpointer="v256"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><option>--settle</option></term>
           <listitem>
             <para>When specified, also watches the udev event queue, and wait for all queued events

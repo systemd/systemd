@@ -65,7 +65,7 @@ _udevadm() {
         [TEST]='-a --action -N --resolve-names'
         [TEST_BUILTIN]='-a --action'
         [VERIFY]='-N --resolve-names --root --no-summary --no-style'
-        [WAIT]='-t --timeout --initialized=no --removed --settle'
+        [WAIT]='-t --timeout --initialized=no --removed --changed --settle'
         [LOCK]='-t --timeout -d --device -b --backing -p --print'
     )
 
