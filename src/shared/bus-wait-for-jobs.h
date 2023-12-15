@@ -7,6 +7,7 @@
 
 typedef enum WaitJobsFlags {
         BUS_WAIT_JOBS_LOG_ERROR   = 1 << 0,
+        BUS_WAIT_JOBS_LOG_SUCCESS = 1 << 1,
 } WaitJobsFlags;
 
 typedef struct BusWaitForJobs BusWaitForJobs;

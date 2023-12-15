@@ -265,7 +265,15 @@ static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const cha
                 }
         }
 
-        if (STR_IN_SET(d->result, "canceled", "collected"))
+        if (STR_IN_SET(d->result, "done", "skipped")) {
+                if (FLAGS_SET(flags, BUS_WAIT_JOBS_LOG_SUCCESS)) {
+                        if (streq(d->result, "done"))
+                                log_info("Job for %s finished.", strna(d->name));
+                        else
+                                log_info("Job for %s was skipped.", strna(d->name));
+                }
+                return 0;
+        } else if (STR_IN_SET(d->result, "canceled", "collected"))
                 return -ECANCELED;
         else if (streq(d->result, "timeout"))
                 return -ETIME;
@@ -279,8 +287,6 @@ static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const cha
                 return -EOPNOTSUPP;
         else if (streq(d->result, "once"))
                 return -ESTALE;
-        else if (STR_IN_SET(d->result, "done", "skipped"))
-                return 0;
 
         return log_debug_errno(SYNTHETIC_ERRNO(EIO),
                                "Unexpected job result, assuming server side newer than us: %s", d->result);
