@@ -344,10 +344,6 @@ static int nexthop_add_new(Manager *manager, uint32_t id, NextHop **ret) {
 }
 
 static int nexthop_acquire_id(Manager *manager, NextHop *nexthop) {
-        _cleanup_set_free_ Set *ids = NULL;
-        Network *network;
-        int r;
-
         assert(manager);
         assert(nexthop);
 
@@ -360,25 +356,12 @@ static int nexthop_acquire_id(Manager *manager, NextHop *nexthop) {
 
         /* Find the lowest unused ID. */
 
-        ORDERED_HASHMAP_FOREACH(network, manager->networks) {
-                NextHop *tmp;
-
-                ORDERED_HASHMAP_FOREACH(tmp, network->nexthops_by_section) {
-                        if (tmp->id == 0)
-                                continue;
-
-                        r = set_ensure_put(&ids, NULL, UINT32_TO_PTR(tmp->id));
-                        if (r < 0)
-                                return r;
-                }
-        }
-
         for (uint32_t id = 1; id < UINT32_MAX; id++) {
                 if (nexthop_get_by_id(manager, id, NULL) >= 0)
                         continue;
                 if (nexthop_get_request_by_id(manager, id, NULL) >= 0)
                         continue;
-                if (set_contains(ids, UINT32_TO_PTR(id)))
+                if (set_contains(manager->nexthop_ids, UINT32_TO_PTR(id)))
                         continue;
 
                 nexthop->id = id;
@@ -1095,6 +1078,33 @@ int network_drop_invalid_nexthops(Network *network) {
                 if (r < 0)
                         return log_oom();
                 assert(r > 0);
+        }
+
+        return 0;
+}
+
+int manager_build_nexthop_ids(Manager *manager) {
+        Network *network;
+        int r;
+
+        assert(manager);
+
+        if (!manager->manage_foreign_nexthops)
+                return 0;
+
+        manager->nexthop_ids = set_free(manager->nexthop_ids);
+
+        ORDERED_HASHMAP_FOREACH(network, manager->networks) {
+                NextHop *nh;
+
+                ORDERED_HASHMAP_FOREACH(nh, network->nexthops_by_section) {
+                        if (nh->id == 0)
+                                continue;
+
+                        r = set_ensure_put(&manager->nexthop_ids, NULL, UINT32_TO_PTR(nh->id));
+                        if (r < 0)
+                                return r;
+                }
         }
 
         return 0;
