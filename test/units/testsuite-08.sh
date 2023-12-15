@@ -8,6 +8,13 @@ if systemd-detect-virt -qc; then
     exit 1
 fi
 
+# This test requires systemd to run in the initrd as well, which is not the case
+# for mkinitrd-based initrd (Ubuntu/Debian)
+if [[ "$(systemctl show -P InitRDTimestamp)" == "n/a" ]]; then
+    echo "systemd didn't run in the initrd, skipping the test"
+    exit 0
+fi
+
 # We should've created a mount under /run in initrd (see the other half of the test)
 # that should've survived the transition from initrd to the real system
 test -d /run/initrd-mount-target
