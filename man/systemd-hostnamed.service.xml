@@ -51,7 +51,33 @@
       </listitem>
     </itemizedlist></para>
 
-    <para>The static hostname is stored in <filename>/etc/hostname</filename>, see
+    <para>The current hostname is set to the first available and valid option from the following list:
+    <orderedlist>
+      <listitem><para><literal>static</literal> hostnames:
+        <orderedlist>
+          <listitem><para>The <varname>systemd.hostname=</varname> kernel parameter.</para></listitem>
+          <listitem><para>The <filename>/etc/hostname</filename> file.</para></listitem>
+        </orderedlist>
+      </para></listitem>
+      <listitem><para><literal>transient</literal> hostnames:
+        <orderedlist>
+          <listitem><para>May be set and unset via the <filename>systemd-hostnamed.service</filename>
+          DBus API, to e.g. configure a hostname via DHCP.</para></listitem>
+        </orderedlist>
+      </para></listitem>
+      <listitem><para><literal>default</literal> hostnames:
+        <orderedlist>
+          <listitem><para>The <varname>hostname=</varname> kernel parameter.</para></listitem>
+          <listitem><para>The <varname>$SYSTEMD_DEFAULT_HOSTNAME</varname> environment variable.</para></listitem>
+          <listitem><para>The <varname>DEFAULT_HOSTNAME=</varname> parameter in the
+          <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry> file.</para></listitem>
+          <listitem><para>A fallback name specified at compile time.</para></listitem>
+        </orderedlist>
+      </para></listitem>
+    </orderedlist></para>
+
+    <para>The static hostname is stored in <filename>/etc/hostname</filename> or provided via the
+    <varname>systemd.hostname=</varname> kernel commandline parameter, see
     <citerefentry><refentrytitle>hostname</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more
     information. The pretty hostname, chassis type, and icon name are stored in
     <filename>/etc/machine-info</filename>, see
@@ -76,6 +102,7 @@
       <citerefentry><refentrytitle>machine-info</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>hostnamectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>sethostname</refentrytitle><manvolnum>2</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>os-release</refentrytitle><manvolnum>5</manvolnum></citerefentry>
     </para>
   </refsect1>
 

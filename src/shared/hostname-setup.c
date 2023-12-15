@@ -115,6 +115,29 @@ int read_etc_hostname(const char *path, char **ret) {
         return read_etc_hostname_stream(f, ret);
 }
 
+int read_static_hostname(const char *etc_hostname_path, char **ret) {
+        _cleanup_free_ char *b = NULL;
+        int r;
+
+        assert(ret);
+
+        /* Check for a hostname on the kernel command line first */
+        r = proc_cmdline_get_key("systemd.hostname", 0, &b);
+        if (r < 0)
+                log_warning_errno(r, "Failed to retrieve system hostname from kernel command line, ignoring: %m");
+        else if (r > 0) {
+                if (hostname_is_valid(b, VALID_HOSTNAME_TRAILING_DOT)) {
+                        *ret = TAKE_PTR(b);
+                        return 0;
+                }
+
+                log_warning("Hostname specified on kernel command line is invalid, ignoring: %s", b);
+        }
+
+        /* Fall back to /etc/hostname if none was passed via cmdline */
+        return read_etc_hostname(etc_hostname_path, ret);
+}
+
 void hostname_update_source_hint(const char *hostname, HostnameSource source) {
         int r;
 
@@ -138,30 +161,15 @@ int hostname_setup(bool really) {
         bool enoent = false;
         int r;
 
-        r = proc_cmdline_get_key("systemd.hostname", 0, &b);
-        if (r < 0)
-                log_warning_errno(r, "Failed to retrieve system hostname from kernel command line, ignoring: %m");
-        else if (r > 0) {
-                if (hostname_is_valid(b, VALID_HOSTNAME_TRAILING_DOT)) {
-                        hn = b;
-                        source = HOSTNAME_TRANSIENT;
-                } else  {
-                        log_warning("Hostname specified on kernel command line is invalid, ignoring: %s", b);
-                        b = mfree(b);
-                }
-        }
-
-        if (!hn) {
-                r = read_etc_hostname(NULL, &b);
-                if (r < 0) {
-                        if (r == -ENOENT)
-                                enoent = true;
-                        else
-                                log_warning_errno(r, "Failed to read configured hostname: %m");
-                } else {
-                        hn = b;
-                        source = HOSTNAME_STATIC;
-                }
+        r = read_static_hostname(NULL, &b);
+        if (r < 0) {
+                if (r == -ENOENT)
+                        enoent = true;
+                else
+                        log_warning_errno(r, "Failed to read configured hostname: %m");
+        } else {
+                hn = b;
+                source = HOSTNAME_STATIC;
         }
 
         if (!hn) {

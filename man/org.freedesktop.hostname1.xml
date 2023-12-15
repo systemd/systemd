@@ -208,7 +208,8 @@ node /org/freedesktop/hostname1 {
     <title>Semantics</title>
 
     <para>The <varname>StaticHostname</varname> property exposes the "static" hostname configured in
-    <filename>/etc/hostname</filename>. It is not always in sync with the current hostname as returned by the
+    <filename>/etc/hostname</filename> or via the <varname>systemd.hostname=</varname> kernel commandline parameter.
+    It is not always in sync with the current hostname as returned by the
     <citerefentry project="man-pages"><refentrytitle>gethostname</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     system call. If no static hostname is configured this property will be the empty string.</para>
 

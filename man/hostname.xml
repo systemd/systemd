@@ -84,9 +84,10 @@
 
     <para>Effectively, the static hostname has higher priority than a transient hostname, which has higher
     priority than the fallback hostname. Transient hostnames are equivalent, so setting a new transient
-    hostname causes the previous transient hostname to be forgotten. The hostname specified on the kernel
-    command line is like a transient hostname, with the exception that it has higher priority when the
-    machine boots. Also note that those are the semantics implemented by systemd tools, but other programs
+    hostname causes the previous transient hostname to be forgotten.
+    The static hostname can be configured via <filename>/etc/hostname</filename> or the
+    <varname>systemd.hostname=</varname> kernel commandline parameter and the latter takes precedence over
+    the former. Also note that those are the semantics implemented by systemd tools, but other programs
     may also set the hostname.</para>
   </refsect1>
 

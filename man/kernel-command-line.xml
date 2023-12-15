@@ -664,11 +664,20 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>hostname=</varname></term>
+
+        <listitem><para>Accepts a hostname to set during early boot. It is used as a default until another
+        hostname is set via e.g. <filename>/etc/hostname</filename> or DHCP.
+        This parameter is intepreted by the kernel to set the initial hostname and by systemd as a fallback
+        if not other hostname is set.</para></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>systemd.hostname=</varname></term>
 
-        <listitem><para>Accepts a hostname to set during early boot. If specified takes precedence over what
-        is set in <filename>/etc/hostname</filename>. Note that this does not bar later runtime changes to
-        the hostname, it simply controls the initial hostname set during early boot.</para>
+        <listitem><para>Accepts a hostname to use instead of e.g. the one set in
+        <filename>/etc/hostname</filename>.
+        It takes precedence over all other hostname configuration options.</para>
 
         <xi:include href="version-info.xml" xpointer="v246"/></listitem>
       </varlistentry>
