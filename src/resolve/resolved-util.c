@@ -14,7 +14,7 @@ int resolve_system_hostname(char **full_hostname, char **first_label) {
 #elif HAVE_LIBIDN
         int k;
 #endif
-        char label[DNS_LABEL_MAX];
+        char label[DNS_LABEL_MAX+1];
         const char *p, *decoded;
         int r;
 
