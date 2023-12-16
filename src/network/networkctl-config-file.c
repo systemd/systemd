@@ -459,6 +459,7 @@ int verb_cat(int argc, char *argv[], void *userdata) {
 
         pager_open(arg_pager_flags);
 
+        bool first = true;
         STRV_FOREACH(name, strv_skip(argv, 1)) {
                 _cleanup_strv_free_ char **dropins = NULL;
                 _cleanup_free_ char *path = NULL;
@@ -481,9 +482,14 @@ int verb_cat(int argc, char *argv[], void *userdata) {
                         }
                 }
 
+                if (!first)
+                        putchar('\n');
+
                 r = cat_files(path, dropins, /* flags = */ CAT_FORMAT_HAS_SECTIONS);
                 if (r < 0)
                         return RET_GATHER(ret, r);
+
+                first = false;
         }
 
         return ret;
