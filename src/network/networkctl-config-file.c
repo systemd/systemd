@@ -341,6 +341,42 @@ static int udevd_reload(sd_bus *bus) {
         return 1;
 }
 
+static int reload_daemons(ReloadFlags flags) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        int r, ret = 1;
+
+        if (arg_no_reload)
+                return 0;
+
+        if (flags == 0)
+                return 0;
+
+        if (!sd_booted() || running_in_chroot() > 0) {
+                log_debug("System is not booted with systemd or is running in chroot, skipping reload.");
+                return 0;
+        }
+
+        r = sd_bus_open_system(&bus);
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to system bus: %m");
+
+        if (FLAGS_SET(flags, RELOAD_UDEVD))
+                RET_GATHER(ret, udevd_reload(bus));
+
+        if (FLAGS_SET(flags, RELOAD_NETWORKD)) {
+                if (networkd_is_running()) {
+                        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+
+                        r = bus_call_method(bus, bus_network_mgr, "Reload", &error, NULL, NULL);
+                        if (r < 0)
+                                RET_GATHER(ret, log_error_errno(r, "Failed to reload systemd-networkd: %s", bus_error_message(&error, r)));
+                } else
+                        log_debug("systemd-networkd is not running, skipping reload.");
+        }
+
+        return ret;
+}
+
 int verb_edit(int argc, char *argv[], void *userdata) {
         _cleanup_(edit_file_context_done) EditFileContext context = {
                 .marker_start = DROPIN_MARKER_START,
@@ -415,40 +451,7 @@ int verb_edit(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        if (arg_no_reload)
-                return 0;
-
-        if (!sd_booted() || running_in_chroot() > 0) {
-                log_debug("System is not booted with systemd or is running in chroot, skipping reload.");
-                return 0;
-        }
-
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-
-        r = sd_bus_open_system(&bus);
-        if (r < 0)
-                return log_error_errno(r, "Failed to connect to system bus: %m");
-
-        if (FLAGS_SET(reload, RELOAD_UDEVD)) {
-                r = udevd_reload(bus);
-                if (r < 0)
-                        return r;
-        }
-
-        if (FLAGS_SET(reload, RELOAD_NETWORKD)) {
-                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-
-                if (!networkd_is_running()) {
-                        log_debug("systemd-networkd is not running, skipping reload.");
-                        return 0;
-                }
-
-                r = bus_call_method(bus, bus_network_mgr, "Reload", &error, NULL, NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to reload systemd-networkd: %s", bus_error_message(&error, r));
-        }
-
-        return 0;
+        return reload_daemons(reload);
 }
 
 int verb_cat(int argc, char *argv[], void *userdata) {
