@@ -299,6 +299,37 @@ int config_parse_dnssd_service_type(
         return 0;
 }
 
+int config_parse_dnssd_service_subtype(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        DnssdService *s = ASSERT_PTR(userdata);
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                s->subtype = mfree(s->subtype);
+                return 0;
+        }
+
+        if (!dns_subtype_name_is_valid(rvalue)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Service subtype is invalid. Ignoring.");
+                return 0;
+        }
+
+        return free_and_strdup_warn(&s->subtype, rvalue);
+}
+
 int config_parse_dnssd_txt(
                 const char *unit,
                 const char *filename,

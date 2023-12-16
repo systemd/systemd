@@ -43,6 +43,7 @@ DnssdService *dnssd_service_free(DnssdService *service) {
                 hashmap_remove(service->manager->dnssd_services, service->name);
 
         dns_resource_record_unref(service->ptr_rr);
+        dns_resource_record_unref(service->sub_ptr_rr);
         dns_resource_record_unref(service->srv_rr);
 
         dnssd_txtdata_free_all(service->txt_data_items);
@@ -50,6 +51,7 @@ DnssdService *dnssd_service_free(DnssdService *service) {
         free(service->filename);
         free(service->name);
         free(service->type);
+        free(service->subtype);
         free(service->name_template);
 
         return mfree(service);
@@ -208,7 +210,7 @@ int dnssd_load(Manager *manager) {
 }
 
 int dnssd_update_rrs(DnssdService *s) {
-        _cleanup_free_ char *n = NULL, *service_name = NULL, *full_name = NULL;
+        _cleanup_free_ char *n = NULL, *service_name = NULL, *full_name = NULL, *sub_name = NULL, *selective_name = NULL;
         int r;
 
         assert(s);
@@ -216,6 +218,7 @@ int dnssd_update_rrs(DnssdService *s) {
         assert(s->manager);
 
         s->ptr_rr = dns_resource_record_unref(s->ptr_rr);
+        s->sub_ptr_rr = dns_resource_record_unref(s->sub_ptr_rr);
         s->srv_rr = dns_resource_record_unref(s->srv_rr);
         LIST_FOREACH(items, txt_data, s->txt_data_items)
                 txt_data->rr = dns_resource_record_unref(txt_data->rr);
@@ -230,6 +233,14 @@ int dnssd_update_rrs(DnssdService *s) {
         r = dns_name_concat(n, service_name, 0, &full_name);
         if (r < 0)
                 return r;
+        if (s->subtype) {
+                r = dns_name_concat("_sub", service_name, 0, &sub_name);
+                if (r < 0)
+                        return r;
+                r = dns_name_concat(s->subtype, sub_name, 0, &selective_name);
+                if (r < 0)
+                        return r;
+        }
 
         LIST_FOREACH(items, txt_data, s->txt_data_items) {
                 txt_data->rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_TXT,
@@ -253,6 +264,17 @@ int dnssd_update_rrs(DnssdService *s) {
         if (!s->ptr_rr->ptr.name)
                 goto oom;
 
+        if (selective_name) {
+                s->sub_ptr_rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR, selective_name);
+                if (!s->sub_ptr_rr)
+                        goto oom;
+
+                s->sub_ptr_rr->ttl = MDNS_DEFAULT_TTL;
+                s->sub_ptr_rr->ptr.name = strdup(full_name);
+                if (!s->sub_ptr_rr->ptr.name)
+                        goto oom;
+        }
+
         s->srv_rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SRV,
                                                  full_name);
         if (!s->srv_rr)
@@ -272,6 +294,7 @@ oom:
         LIST_FOREACH(items, txt_data, s->txt_data_items)
                 txt_data->rr = dns_resource_record_unref(txt_data->rr);
         s->ptr_rr = dns_resource_record_unref(s->ptr_rr);
+        s->sub_ptr_rr = dns_resource_record_unref(s->sub_ptr_rr);
         s->srv_rr = dns_resource_record_unref(s->srv_rr);
         return -ENOMEM;
 }

@@ -40,6 +40,7 @@ int bus_dnssd_method_unregister(sd_bus_message *message, void *userdata, sd_bus_
                                 log_warning_errno(r, "Failed to send goodbye messages in IPv4 scope: %m");
 
                         dns_zone_remove_rr(&l->mdns_ipv4_scope->zone, s->ptr_rr);
+                        dns_zone_remove_rr(&l->mdns_ipv4_scope->zone, s->sub_ptr_rr);
                         dns_zone_remove_rr(&l->mdns_ipv4_scope->zone, s->srv_rr);
                         LIST_FOREACH(items, txt_data, s->txt_data_items)
                                 dns_zone_remove_rr(&l->mdns_ipv4_scope->zone, txt_data->rr);
@@ -51,6 +52,7 @@ int bus_dnssd_method_unregister(sd_bus_message *message, void *userdata, sd_bus_
                                 log_warning_errno(r, "Failed to send goodbye messages in IPv6 scope: %m");
 
                         dns_zone_remove_rr(&l->mdns_ipv6_scope->zone, s->ptr_rr);
+                        dns_zone_remove_rr(&l->mdns_ipv6_scope->zone, s->sub_ptr_rr);
                         dns_zone_remove_rr(&l->mdns_ipv6_scope->zone, s->srv_rr);
                         LIST_FOREACH(items, txt_data, s->txt_data_items)
                                 dns_zone_remove_rr(&l->mdns_ipv6_scope->zone, txt_data->rr);

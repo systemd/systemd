@@ -29,11 +29,13 @@ struct DnssdService {
         char *name;
         char *name_template;
         char *type;
+        char *subtype;
         uint16_t port;
         uint16_t priority;
         uint16_t weight;
 
         DnsResourceRecord *ptr_rr;
+        DnsResourceRecord *sub_ptr_rr;
         DnsResourceRecord *srv_rr;
 
         /* Section 6.8 of RFC 6763 allows having service

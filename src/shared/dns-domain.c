@@ -980,6 +980,29 @@ bool dns_service_name_is_valid(const char *name) {
         return true;
 }
 
+bool dns_subtype_name_is_valid(const char *name) {
+        size_t l;
+
+        /* This more or less implements RFC 6763, Section 7.2 */
+
+        if (!name)
+                return false;
+
+        if (!utf8_is_valid(name))
+                return false;
+
+        if (string_has_cc(name, NULL))
+                return false;
+
+        l = strlen(name);
+        if (l <= 0)
+                return false;
+        if (l > DNS_LABEL_MAX)
+                return false;
+
+        return true;
+}
+
 int dns_service_join(const char *name, const char *type, const char *domain, char **ret) {
         char escaped[DNS_LABEL_ESCAPED_MAX];
         _cleanup_free_ char *n = NULL;
