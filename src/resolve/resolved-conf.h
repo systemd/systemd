@@ -17,6 +17,7 @@ CONFIG_PARSER_PROTOTYPE(config_parse_dns_servers);
 CONFIG_PARSER_PROTOTYPE(config_parse_search_domains);
 CONFIG_PARSER_PROTOTYPE(config_parse_dns_stub_listener_mode);
 CONFIG_PARSER_PROTOTYPE(config_parse_dnssd_service_name);
+CONFIG_PARSER_PROTOTYPE(config_parse_dnssd_service_subtype);
 CONFIG_PARSER_PROTOTYPE(config_parse_dnssd_service_type);
 CONFIG_PARSER_PROTOTYPE(config_parse_dnssd_txt);
 CONFIG_PARSER_PROTOTYPE(config_parse_dns_stub_listener_extra);
