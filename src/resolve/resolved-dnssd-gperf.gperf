@@ -18,6 +18,7 @@ struct ConfigPerfItem;
 %%
 Service.Name,     config_parse_dnssd_service_name, 0,                 0
 Service.Type,     config_parse_dnssd_service_type, 0,                 0
+Service.SubType,  config_parse_dnssd_service_subtype, 0,              0
 Service.Port,     config_parse_ip_port,            0,                 offsetof(DnssdService, port)
 Service.Priority, config_parse_uint16,             0,                 offsetof(DnssdService, priority)
 Service.Weight,   config_parse_uint16,             0,                 offsetof(DnssdService, weight)

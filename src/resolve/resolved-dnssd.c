@@ -208,7 +208,7 @@ int dnssd_load(Manager *manager) {
 }
 
 int dnssd_update_rrs(DnssdService *s) {
-        _cleanup_free_ char *n = NULL, *service_name = NULL, *full_name = NULL;
+        _cleanup_free_ char *n = NULL, *service_name = NULL, *full_name = NULL, *selective_name = NULL;
         int r;
 
         assert(s);
@@ -230,6 +230,11 @@ int dnssd_update_rrs(DnssdService *s) {
         r = dns_name_concat(n, service_name, 0, &full_name);
         if (r < 0)
                 return r;
+        if (s->subtype) {
+                r = dns_name_concat(s->subtype, service_name, 0, &selective_name);
+                if (r < 0)
+                        return r;
+        }
 
         LIST_FOREACH(items, txt_data, s->txt_data_items) {
                 txt_data->rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_TXT,
@@ -253,6 +258,16 @@ int dnssd_update_rrs(DnssdService *s) {
         if (!s->ptr_rr->ptr.name)
                 goto oom;
 
+        s->sub_ptr_rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_PTR,
+                                                 selective_name);
+        if (!s->sub_ptr_rr)
+                goto oom;
+
+        s->sub_ptr_rr->ttl = MDNS_DEFAULT_TTL;
+        s->sub_ptr_rr->ptr.name = strdup(full_name);
+        if (!s->sub_ptr_rr->ptr.name)
+                goto oom;
+
         s->srv_rr = dns_resource_record_new_full(DNS_CLASS_IN, DNS_TYPE_SRV,
                                                  full_name);
         if (!s->srv_rr)
@@ -272,6 +287,7 @@ oom:
         LIST_FOREACH(items, txt_data, s->txt_data_items)
                 txt_data->rr = dns_resource_record_unref(txt_data->rr);
         s->ptr_rr = dns_resource_record_unref(s->ptr_rr);
+        s->sub_ptr_rr = dns_resource_record_unref(s->sub_ptr_rr);
         s->srv_rr = dns_resource_record_unref(s->srv_rr);
         return -ENOMEM;
 }
