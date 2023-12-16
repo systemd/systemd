@@ -137,6 +137,12 @@ static int netdev_create_tuntap(NetDev *netdev) {
         if (ioctl(fd, TUNSETIFF, &ifr) < 0)
                 return log_netdev_error_errno(netdev, errno, "TUNSETIFF failed: %m");
 
+        if (t->multi_queue) {
+                struct ifreq detach_request = { .ifr_flags = IFF_DETACH_QUEUE };
+                if (ioctl(fd, TUNSETQUEUE, &detach_request) < 0)
+                        return log_netdev_error_errno(netdev, errno, "TUNSETQUEUE failed: %m");
+        }
+
         if (t->user_name) {
                 const char *user = t->user_name;
                 uid_t uid;
