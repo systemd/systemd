@@ -119,6 +119,16 @@
           </listitem>
         </varlistentry>
         <varlistentry>
+          <term><varname>SubType=</varname></term>
+          <listitem>
+            <para>A subtype of the network service as defined in the section 7.1 of <ulink
+            url="https://tools.ietf.org/html/rfc6763">RFC 6763</ulink>, e.g. <literal>_printer</literal>.
+            </para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+          </listitem>
+        </varlistentry>
+        <varlistentry>
           <term><varname>Port=</varname></term>
           <listitem>
             <para>An IP port number of the network service.</para>
