@@ -574,6 +574,13 @@ int main(int argc, char *argv[]) {
                           need_dm_detach ? " DM devices," : "",
                           need_md_detach ? " MD devices," : "");
 
+        /* This is primarily useful when running systemd in a VM, as it provides the user running the VM with
+         * a mechanism to pick up systemd's exit status in the VM. Note that we execute this before the final
+         * sync(), since otherwise we might shut down the VM before the AF_VSOCK buffers have been flushed.
+         * While sync() doesn't guarantee our message will arrive, it does seem to take long enough to make
+         * sure the message arrives on the listening socket. */
+        (void) sd_notifyf(0, "EXIT_STATUS=%i", arg_exit_code);
+
         /* The kernel will automatically flush ATA disks and suchlike on reboot(), but the file systems need
          * to be sync'ed explicitly in advance. So let's do this here, but not needlessly slow down
          * containers. Note that we sync'ed things already once above, but we did some more work since then
@@ -581,10 +588,6 @@ int main(int argc, char *argv[]) {
          * will result. */
         if (!in_container)
                 sync_with_progress();
-
-        /* This is primarily useful when running systemd in a VM, as it provides the user running the VM with
-         * a mechanism to pick up systemd's exit status in the VM. */
-        (void) sd_notifyf(0, "EXIT_STATUS=%i", arg_exit_code);
 
         if (streq(arg_verb, "exit")) {
                 if (in_container) {
