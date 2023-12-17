@@ -258,6 +258,8 @@ def compare_kernel_version(min_kernel_version):
     # Get only the actual kernel version without any build/distro/arch stuff
     # e.g. '5.18.5-200.fc36.x86_64' -> '5.18.5'
     kver = platform.release().split('-')[0]
+    # Get also rid of '+'
+    kver = kver.split('+')[0]
 
     return version.parse(kver) >= version.parse(min_kernel_version)
 
