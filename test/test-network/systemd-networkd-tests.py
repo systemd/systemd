@@ -2562,10 +2562,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
     def test_address_static(self):
         copy_network_unit('25-address-static.network', '12-dummy.netdev', copy_dropins=False)
-        start_networkd()
         self.setup_nftset('addr4', 'ipv4_addr')
         self.setup_nftset('network4', 'ipv4_addr', 'flags interval;')
         self.setup_nftset('ifindex', 'iface_index')
+        start_networkd()
 
         self.wait_online(['dummy98:routable'])
 
@@ -2621,10 +2621,9 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             ip6_null_74=ip6_null_74,
         )
         # nft set
-        # FIXME: re-enable once https://github.com/systemd/systemd/issues/30427 is resolved
-        #self.check_nftset('addr4', r'10\.10\.1\.1')
-        #self.check_nftset('network4', r'10\.10\.1\.0/24')
-        #self.check_nftset('ifindex', 'dummy98')
+        self.check_nftset('addr4', r'10\.10\.1\.1')
+        self.check_nftset('network4', r'10\.10\.1\.0/24')
+        self.check_nftset('ifindex', 'dummy98')
 
         self.teardown_nftset('addr4', 'network4', 'ifindex')
 
