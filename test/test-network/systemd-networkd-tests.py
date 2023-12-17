@@ -2621,10 +2621,9 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             ip6_null_74=ip6_null_74,
         )
         # nft set
-        # FIXME: re-enable once https://github.com/systemd/systemd/issues/30427 is resolved
-        #self.check_nftset('addr4', r'10\.10\.1\.1')
-        #self.check_nftset('network4', r'10\.10\.1\.0/24')
-        #self.check_nftset('ifindex', 'dummy98')
+        self.check_nftset('addr4', r'10\.10\.1\.1')
+        self.check_nftset('network4', r'10\.10\.1\.0/24')
+        self.check_nftset('ifindex', 'dummy98')
 
         self.teardown_nftset('addr4', 'network4', 'ifindex')
 
