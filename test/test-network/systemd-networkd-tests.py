@@ -2562,10 +2562,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
     def test_address_static(self):
         copy_network_unit('25-address-static.network', '12-dummy.netdev', copy_dropins=False)
-        start_networkd()
         self.setup_nftset('addr4', 'ipv4_addr')
         self.setup_nftset('network4', 'ipv4_addr', 'flags interval;')
         self.setup_nftset('ifindex', 'iface_index')
+        start_networkd()
 
         self.wait_online(['dummy98:routable'])
 
