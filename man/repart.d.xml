@@ -22,10 +22,11 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><literallayout><filename>/etc/repart.d/*.conf</filename>
-<filename>/run/repart.d/*.conf</filename>
-<filename>/usr/lib/repart.d/*.conf</filename>
-    </literallayout></para>
+    <para><simplelist>
+      <member><filename>/etc/repart.d/*.conf</filename></member>
+      <member><filename>/run/repart.d/*.conf</filename></member>
+      <member><filename>/usr/lib/repart.d/*.conf</filename></member>
+    </simplelist></para>
   </refsynopsisdiv>
 
   <refsect1>

@@ -22,10 +22,12 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>/etc/systemd/coredump.conf</filename></para>
-    <para><filename>/etc/systemd/coredump.conf.d/*.conf</filename></para>
-    <para><filename>/run/systemd/coredump.conf.d/*.conf</filename></para>
-    <para><filename>/usr/lib/systemd/coredump.conf.d/*.conf</filename></para>
+    <para><simplelist>
+      <member><filename>/etc/systemd/coredump.conf</filename></member>
+      <member><filename>/etc/systemd/coredump.conf.d/*.conf</filename></member>
+      <member><filename>/run/systemd/coredump.conf.d/*.conf</filename></member>
+      <member><filename>/usr/lib/systemd/coredump.conf.d/*.conf</filename></member>
+    </simplelist></para>
   </refsynopsisdiv>
 
   <refsect1>
