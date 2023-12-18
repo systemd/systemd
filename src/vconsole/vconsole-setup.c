@@ -538,22 +538,19 @@ static int find_source_vc(char **ret_path, unsigned *ret_idx) {
 
                 fd = open_terminal(path, O_RDWR|O_CLOEXEC|O_NOCTTY);
                 if (fd < 0) {
-                        log_debug_errno(fd, "Failed to open terminal %s, ignoring: %m", path);
-                        RET_GATHER(err, r);
+                        RET_GATHER(err, log_debug_errno(fd, "Failed to open terminal %s, ignoring: %m", path));
                         continue;
                 }
 
                 r = verify_vc_kbmode(fd);
                 if (r < 0) {
-                        log_debug_errno(r, "Failed to check VC %s keyboard mode: %m", path);
-                        RET_GATHER(err, r);
+                        RET_GATHER(err, log_debug_errno(r, "Failed to check VC %s keyboard mode: %m", path));
                         continue;
                 }
 
                 r = verify_vc_display_mode(fd);
                 if (r < 0) {
-                        log_debug_errno(r, "Failed to check VC %s display mode: %m", path);
-                        RET_GATHER(err, r);
+                        RET_GATHER(err, log_debug_errno(r, "Failed to check VC %s display mode: %m", path));
                         continue;
                 }
 
