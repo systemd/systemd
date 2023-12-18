@@ -132,6 +132,11 @@ Deprecations and removals:
 
 Features:
 
+* varlink: figure out how to do docs for our varlink interfaces. Idea: install
+  interface files augmented with docs in /usr/share/ somewhere. And have
+  functionality in varlinkctl to merge interface info extracted from binaries
+  with interface info on disk. And store the doc strings only in the latter.
+
 * introduce mntid_t, and make it 64bit, as apparently the kernel switched to
   64bit mount ids
 
