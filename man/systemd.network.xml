@@ -873,6 +873,17 @@ Table=1234</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>IPv6RetransTime=</varname></term>
+        <listitem>
+          <para>Configures IPv6 Retransmission Time. Takes a 32-bit unsigned integer.  The
+          time, in milliseconds, between retransmitted Neighbor Solicitation messages.  Used
+          by address resolution and the Neighbor Unreachability Detection algorithm.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>IPv4ReversePathFilter=</varname></term>
         <listitem>
           <para>Configure IPv4 Reverse Path Filtering. If enabled, when an IPv4 packet is received, the machine will first check
@@ -3274,6 +3285,18 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
           configured based on the advertisement. See also <varname>IPv6HopLimit=</varname>. Defaults to true.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>UseRetransTime=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When true, the retransmission time received in the Router Advertisement will be set
+          on the interface receiving the advertisement. It is used as the time between retransmissions of Neighbor
+          Solicitation messages to a neighbor when resolving the address or when probing the reachability of a neighbor.
+          Defaults to true.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
       </varlistentry>
 
