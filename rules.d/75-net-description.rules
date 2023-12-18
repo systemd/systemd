@@ -3,6 +3,8 @@
 ACTION=="remove", GOTO="net_end"
 SUBSYSTEM!="net", GOTO="net_end"
 
+IMPORT{builtin}="hwdb 'net:naming:dr$env{ID_NET_DRIVER}:'"
+
 IMPORT{builtin}="net_id"
 
 SUBSYSTEMS=="usb", IMPORT{builtin}="usb_id", IMPORT{builtin}="hwdb --subsystem=usb"
