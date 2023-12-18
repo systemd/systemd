@@ -1030,6 +1030,7 @@ static int dns_transaction_fix_rcode(DnsTransaction *t) {
 void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypted) {
         bool retry_with_tcp = false;
         int r;
+        uint16_t ede_rcode;
 
         assert(t);
         assert(p);
@@ -1124,6 +1125,39 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
 
                 if (!t->bypass &&
                     IN_SET(DNS_PACKET_RCODE(p), DNS_RCODE_FORMERR, DNS_RCODE_SERVFAIL, DNS_RCODE_NOTIMP)) {
+                        /* If the server has replied with detailed error data, using a degraded feature set
+                         * will likely not help anyone. Examine the detailed error to determine the best
+                         * course of action. */
+                        r = dns_packet_ede_rcode(p, &ede_rcode);
+                        if (r < 0 && r != -EINVAL)
+                                goto fail;
+                        if (r > 0 && DNS_PACKET_RCODE(p) == DNS_RCODE_SERVFAIL) {
+                                /* These codes are related to DNSSEC configuration errors. If accurate,
+                                 * this is the domain operator's problem, and retrying won't help. */
+                                if (dns_ede_rcode_is_dnssec(ede_rcode)) {
+                                        log_debug("Server returned error: %s (%s). Lookup failed.",
+                                                        FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)),
+                                                        FORMAT_DNS_EDE_RCODE(ede_rcode));
+                                        dns_transaction_complete(t, DNS_TRANSACTION_DNSSEC_FAILED);
+                                        return;
+                                }
+
+                                /* These codes probably indicate a transient error. Let's try again. */
+                                if (IN_SET(ede_rcode, DNS_EDE_RCODE_NOT_READY, DNS_EDE_RCODE_NET_ERROR)) {
+                                        log_debug("Server returned error: %s (%s), retrying transaction.",
+                                                        FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)),
+                                                        FORMAT_DNS_EDE_RCODE(ede_rcode));
+                                        dns_transaction_retry(t, false);
+                                        return;
+                                }
+
+                                /* OK, the query failed, but we still shouldn't degrade the feature set for
+                                 * this server. */
+                                log_debug("Server returned error: %s (%s)",
+                                                FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)),
+                                                FORMAT_DNS_EDE_RCODE(ede_rcode));
+                                break;
+                        } /* No EDE rcode, or EDE rcode we don't understand */
 
                         /* Request failed, immediately try again with reduced features */
 
