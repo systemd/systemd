@@ -2661,6 +2661,48 @@ const char *format_dns_rcode(int i, char buf[static DECIMAL_STR_MAX(int)]) {
         return snprintf_ok(buf, DECIMAL_STR_MAX(int), "%i", i);
 }
 
+static const char* const dns_ede_rcode_table[_DNS_EDE_RCODE_MAX_DEFINED] = {
+        [DNS_EDE_RCODE_OTHER]                  = "Other",
+        [DNS_EDE_RCODE_UNSUPPORTED_DNSKEY_ALG] = "Unsupported DNSKEY Algorithm",
+        [DNS_EDE_RCODE_UNSUPPORTED_DS_DIGEST]  = "Unsupported DS Digest Type",
+        [DNS_EDE_RCODE_STALE_ANSWER]           = "Stale Answer",
+        [DNS_EDE_RCODE_FORGED_ANSWER]          = "Forged Answer",
+        [DNS_EDE_RCODE_DNSSEC_INDETERMINATE]   = "DNSSEC Indeterminate",
+        [DNS_EDE_RCODE_DNSSEC_BOGUS]           = "DNSSEC Bogus",
+        [DNS_EDE_RCODE_SIG_EXPIRED]            = "Signature Expired",
+        [DNS_EDE_RCODE_SIG_NOT_YET_VALID]      = "Signature Not Yet Valid",
+        [DNS_EDE_RCODE_DNSKEY_MISSING]         = "DNSKEY Missing",
+        [DNS_EDE_RCODE_RRSIG_MISSING]          = "RRSIG Missing",
+        [DNS_EDE_RCODE_NO_ZONE_KEY_BIT]        = "No Zone Key Bit Set",
+        [DNS_EDE_RCODE_NSEC_MISSING]           = "NSEC Missing",
+        [DNS_EDE_RCODE_CACHED_ERROR]           = "Cached Error",
+        [DNS_EDE_RCODE_NOT_READY]              = "Not Ready",
+        [DNS_EDE_RCODE_BLOCKED]                = "Blocked",
+        [DNS_EDE_RCODE_CENSORED]               = "Censored",
+        [DNS_EDE_RCODE_FILTERED]               = "Filtered",
+        [DNS_EDE_RCODE_PROHIBITIED]            = "Prohibited",
+        [DNS_EDE_RCODE_STALE_NXDOMAIN_ANSWER]  = "Stale NXDOMAIN Answer",
+        [DNS_EDE_RCODE_NOT_AUTHORITATIVE]      = "Not Authoritative",
+        [DNS_EDE_RCODE_NOT_SUPPORTED]          = "Not Supported",
+        [DNS_EDE_RCODE_UNREACH_AUTHORITY]      = "No Reachable Authority",
+        [DNS_EDE_RCODE_NET_ERROR]              = "Network Error",
+        [DNS_EDE_RCODE_INVALID_DATA]           = "Invalid Data",
+        [DNS_EDE_RCODE_SIG_NEVER]              = "Signature Never Valid",
+        [DNS_EDE_RCODE_TOO_EARLY]              = "Too Early",
+        [DNS_EDE_RCODE_UNSUPPORTED_NSEC3_ITER] = "Unsupported NSEC3 Iterations",
+        [DNS_EDE_RCODE_TRANSPORT_POLICY]       = "Impossible Transport Policy",
+        [DNS_EDE_RCODE_SYNTHESIZED]            = "Synthesized",
+};
+DEFINE_STRING_TABLE_LOOKUP(dns_ede_rcode, int);
+
+const char *format_dns_ede_rcode(int i, char buf[static DECIMAL_STR_MAX(int)]) {
+        const char *p = dns_ede_rcode_to_string(i);
+        if (p)
+                return p;
+
+        return snprintf_ok(buf, DECIMAL_STR_MAX(int), "%i", i);
+}
+
 static const char* const dns_protocol_table[_DNS_PROTOCOL_MAX] = {
         [DNS_PROTOCOL_DNS]   = "dns",
         [DNS_PROTOCOL_MDNS]  = "mdns",
