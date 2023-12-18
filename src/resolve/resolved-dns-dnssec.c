@@ -1951,7 +1951,7 @@ found_closest_encloser:
 }
 
 static int dnssec_nsec_wildcard_equal(DnsResourceRecord *rr, const char *name) {
-        char label[DNS_LABEL_MAX];
+        char label[DNS_LABEL_MAX+1];
         const char *n;
         int r;
 

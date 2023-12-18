@@ -552,7 +552,7 @@ int dns_packet_append_name(
 
         while (!dns_name_is_root(name)) {
                 const char *z = name;
-                char label[DNS_LABEL_MAX];
+                char label[DNS_LABEL_MAX+1];
                 size_t n = 0;
 
                 if (allow_compression)
