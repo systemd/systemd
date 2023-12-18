@@ -270,3 +270,11 @@ int parse_ether_addr(const char *s, struct ether_addr *ret) {
         *ret = a.ether;
         return 0;
 }
+
+void ether_addr_mark_random(struct ether_addr *addr) {
+        assert(addr);
+
+        /* see eth_random_addr in the kernel */
+        addr->ether_addr_octet[0] &= 0xfe;        /* clear multicast bit */
+        addr->ether_addr_octet[0] |= 0x02;        /* set local assignment bit (IEEE802) */
+}
