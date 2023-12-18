@@ -1030,6 +1030,8 @@ static int dns_transaction_fix_rcode(DnsTransaction *t) {
 void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypted) {
         bool retry_with_tcp = false;
         int r;
+        int ede_rcode;
+        _cleanup_free_ char *ede_msg = NULL;
 
         assert(t);
         assert(p);
@@ -1199,8 +1201,46 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
         case DNS_PROTOCOL_DNS:
                 assert(t->server);
 
+                r = dns_packet_ede_rcode(p, &ede_msg);
+                if (r < 0 && r != -EINVAL)
+                        goto fail;
+                ede_rcode = r;
+
                 if (!t->bypass &&
                     IN_SET(DNS_PACKET_RCODE(p), DNS_RCODE_FORMERR, DNS_RCODE_SERVFAIL, DNS_RCODE_NOTIMP)) {
+                        /* If the server has replied with detailed error data, using a degraded feature set
+                         * will likely not help anyone. Examine the detailed error to determine the best
+                         * course of action. */
+                        if (ede_rcode >= 0 && DNS_PACKET_RCODE(p) == DNS_RCODE_SERVFAIL) {
+                                /* These codes are related to DNSSEC configuration errors. If accurate,
+                                 * this is the domain operator's problem, and retrying won't help. */
+                                if (dns_ede_rcode_is_dnssec(ede_rcode)) {
+                                        log_debug("Server returned error: %s (%s%s%s). Lookup failed.",
+                                                        FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)),
+                                                        FORMAT_DNS_EDE_RCODE(ede_rcode),
+                                                        isempty(ede_msg) ? "" : ": ", ede_msg);
+                                        dns_transaction_complete(t, DNS_TRANSACTION_DNSSEC_FAILED);
+                                        return;
+                                }
+
+                                /* These codes probably indicate a transient error. Let's try again. */
+                                if (IN_SET(ede_rcode, DNS_EDE_RCODE_NOT_READY, DNS_EDE_RCODE_NET_ERROR)) {
+                                        log_debug("Server returned error: %s (%s%s%s), retrying transaction.",
+                                                        FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)),
+                                                        FORMAT_DNS_EDE_RCODE(ede_rcode),
+                                                        isempty(ede_msg) ? "" : ": ", ede_msg);
+                                        dns_transaction_retry(t, false);
+                                        return;
+                                }
+
+                                /* OK, the query failed, but we still shouldn't degrade the feature set for
+                                 * this server. */
+                                log_debug("Server returned error: %s (%s%s%s)",
+                                                FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)),
+                                                FORMAT_DNS_EDE_RCODE(ede_rcode),
+                                                isempty(ede_msg) ? "" : ": ", ede_msg);
+                                break;
+                        } /* No EDE rcode, or EDE rcode we don't understand */
 
                         /* Request failed, immediately try again with reduced features */
 
@@ -1257,7 +1297,11 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
 
                 if (DNS_PACKET_RCODE(p) == DNS_RCODE_REFUSED) {
                         /* This server refused our request? If so, try again, use a different server */
-                        log_debug("Server returned REFUSED, switching servers, and retrying.");
+                        if (ede_rcode > 0)
+                                log_debug("Server returned REFUSED (%s), switching servers, and retrying.",
+                                                FORMAT_DNS_EDE_RCODE(ede_rcode));
+                        else
+                                log_debug("Server returned REFUSED, switching servers, and retrying.");
 
                         if (dns_transaction_limited_retry(t))
                                 return;
