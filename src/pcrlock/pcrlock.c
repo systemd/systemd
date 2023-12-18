@@ -4906,7 +4906,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_PCRLOCK:
-                        if (isempty(optarg) || streq(optarg, "-"))
+                        if (empty_or_dash(optarg))
                                 arg_pcrlock_path = mfree(arg_pcrlock_path);
                         else {
                                 r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_pcrlock_path);
@@ -4918,7 +4918,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_POLICY:
-                        if (isempty(optarg) || streq(optarg, "-"))
+                        if (empty_or_dash(optarg))
                                 arg_policy_path = mfree(arg_policy_path);
                         else {
                                 r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_policy_path);
