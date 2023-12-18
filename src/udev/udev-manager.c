@@ -353,9 +353,17 @@ static void worker_attach_event(Worker *worker, Event *event) {
         (void) sd_event_add_time_relative(e, &event->timeout_warning_event, CLOCK_MONOTONIC,
                                           udev_warn_timeout(manager->timeout_usec), USEC_PER_SEC,
                                           on_event_timeout_warning, event);
-
+        /* In case of a timeout, for example one caused by a script called by the udev rule, the
+        script / program forked by the worker should get killed after the configured timeout -
+        the worker itself should not get killed after the same timeout. The worker should get time to
+        detect that its child has timed out, kill the child, then detect that the child has exited
+        (using SIGCHLD), and then it should continue with remaining tasks. Giving an extra buffer time
+        of 10 seconds for the worker, to make sure the worker can kill the forked child after it times out,
+        and get unblocked after child exited/died. The 10 seconds is just an arbitrary buffer, big enough to
+        make sure that udevd does not kill the worker, before the worker gets a chance to kill its child.
+        */
         (void) sd_event_add_time_relative(e, &event->timeout_event, CLOCK_MONOTONIC,
-                                          manager->timeout_usec, USEC_PER_SEC,
+                                          manager->timeout_usec + 10*USEC_PER_SEC, USEC_PER_SEC,
                                           on_event_timeout, event);
 }
 
