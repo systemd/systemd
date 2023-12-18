@@ -113,3 +113,5 @@ static inline bool ether_addr_is_global(const struct ether_addr *addr) {
 
 extern const struct hash_ops ether_addr_hash_ops;
 extern const struct hash_ops ether_addr_hash_ops_free;
+
+void ether_addr_mark_random(struct ether_addr *addr);
