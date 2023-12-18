@@ -152,7 +152,7 @@ int verify_set_unit_path(char **filenames) {
          * Treat explicit empty path to mean that nothing should be appended. */
         old = getenv("SYSTEMD_UNIT_PATH");
         if (!streq_ptr(old, "") &&
-            !strextend_with_separator(&joined, ":", old ?: ""))
+            !strextend_with_separator(&joined, ":", strempty(old)))
                 return -ENOMEM;
 
         assert_se(set_unit_path(joined) >= 0);
