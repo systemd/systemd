@@ -2570,6 +2570,73 @@ bool dns_packet_equal(const DnsPacket *a, const DnsPacket *b) {
         return dns_packet_compare_func(a, b) == 0;
 }
 
+int dns_packet_ede_rcode(DnsPacket *p, const char **ret_ede_msg) {
+        assert(p);
+
+        _cleanup_free_ char *msg = NULL;
+        int ede_rcode = _DNS_EDNS_OPT_INVALID;
+        int r;
+        const uint8_t *d;
+        size_t l;
+
+        if (!p->opt)
+                return false;
+
+        d = p->opt->opt.data;
+        l = p->opt->opt.data_size;
+
+        while (l > 0) {
+                uint16_t code, length;
+
+                if (l < 4U)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "EDNS0 variable part has invalid size.");
+
+                code = unaligned_read_be16(d);
+                length = unaligned_read_be16(d + 2);
+
+                if (l < 4U + length)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Truncated option in EDNS0 variable part.");
+
+                if (code == DNS_EDNS_OPT_EXT_ERROR) {
+                        if (length < 2U)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                                "EDNS0 truncated EDE info code.");
+                        ede_rcode = unaligned_read_be16(d + 4);
+                        r = make_cstring((char *)d + 6, length - 2U, MAKE_CSTRING_ALLOW_TRAILING_NUL, &msg);
+                        if (r < 0 || !utf8_is_valid(msg))
+                                return r;
+                        else if (ret_ede_msg)
+                                *ret_ede_msg = strdup(msg);
+                        break;
+                }
+
+                d += 4U + length;
+                l -= 4U + length;
+        }
+
+        if (ede_rcode >= _DNS_EDNS_OPT_MAX_DEFINED)
+                return _DNS_EDNS_OPT_INVALID;
+
+        return ede_rcode;
+}
+
+bool dns_ede_rcode_is_dnssec(int ede_rcode) {
+        return IN_SET(ede_rcode,
+                        DNS_EDE_RCODE_UNSUPPORTED_DNSKEY_ALG,
+                        DNS_EDE_RCODE_UNSUPPORTED_DS_DIGEST,
+                        DNS_EDE_RCODE_DNSSEC_INDETERMINATE,
+                        DNS_EDE_RCODE_DNSSEC_BOGUS,
+                        DNS_EDE_RCODE_SIG_EXPIRED,
+                        DNS_EDE_RCODE_SIG_NOT_YET_VALID,
+                        DNS_EDE_RCODE_DNSKEY_MISSING,
+                        DNS_EDE_RCODE_RRSIG_MISSING,
+                        DNS_EDE_RCODE_NO_ZONE_KEY_BIT,
+                        DNS_EDE_RCODE_NSEC_MISSING
+                     );
+}
+
 int dns_packet_has_nsid_request(DnsPacket *p) {
         bool has_nsid = false;
         const uint8_t *d;
@@ -2693,7 +2760,7 @@ static const char* const dns_ede_rcode_table[_DNS_EDE_RCODE_MAX_DEFINED] = {
         [DNS_EDE_RCODE_TRANSPORT_POLICY]       = "Impossible Transport Policy",
         [DNS_EDE_RCODE_SYNTHESIZED]            = "Synthesized",
 };
-DEFINE_STRING_TABLE_LOOKUP(dns_ede_rcode, int);
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(dns_ede_rcode, int);
 
 const char *format_dns_ede_rcode(int i, char buf[static DECIMAL_STR_MAX(int)]) {
         const char *p = dns_ede_rcode_to_string(i);
