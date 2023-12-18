@@ -281,10 +281,75 @@ enum {
         _DNS_RCODE_MAX = 4095 /* 4 bit rcode in the header plus 8 bit rcode in OPT, makes 12 bit */
 };
 
+/* https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-11 */
+enum {
+        DNS_EDNS_OPT_RESERVED = 0,       /* RFC 6891 */
+        DNS_EDNS_OPT_LLQ = 1,            /* RFC 8764 */
+        DNS_EDNS_OPT_UL = 2,
+        DNS_EDNS_OPT_NSID = 3,           /* RFC 5001 */
+        /* DNS_EDNS_OPT_RESERVED = 4 */
+        DNS_EDNS_OPT_DAU = 5,            /* RFC 6975 */
+        DNS_EDNS_OPT_DHU = 6,            /* RFC 6975 */
+        DNS_EDNS_OPT_N3U = 7,            /* RFC 6975 */
+        DNS_EDNS_OPT_CLIENT_SUBNET = 8,  /* RFC 7871 */
+        DNS_EDNS_OPT_EXPIRE = 9,         /* RFC 7314 */
+        DNS_EDNS_OPT_COOKIE = 10,        /* RFC 7873 */
+        DNS_EDNS_OPT_TCP_KEEPALIVE = 11, /* RFC 7828 */
+        DNS_EDNS_OPT_PADDING = 12,       /* RFC 7830 */
+        DNS_EDNS_OPT_CHAIN = 13,         /* RFC 7901 */
+        DNS_EDNS_OPT_KEY_TAG = 14,       /* RFC 8145 */
+        DNS_EDNS_OPT_EXT_ERROR = 15,     /* RFC 8914 */
+        DNS_EDNS_OPT_CLIENT_TAG = 16,
+        DNS_EDNS_OPT_SERVER_TAG = 17,
+        _DNS_EDNS_OPT_MAX_DEFINED,
+        _DNS_EDNS_OPT_INVALID = -EINVAL
+};
+
+/* https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#extended-dns-error-codes */
+enum {
+        DNS_EDE_RCODE_OTHER = 0,                    /* RFC 8914, Section 4.1 */
+        DNS_EDE_RCODE_UNSUPPORTED_DNSKEY_ALG = 1,   /* RFC 8914, Section 4.2 */
+        DNS_EDE_RCODE_UNSUPPORTED_DS_DIGEST = 2,    /* RFC 8914, Section 4.3 */
+        DNS_EDE_RCODE_STALE_ANSWER = 3,             /* RFC 8914, Section 4.4 */
+        DNS_EDE_RCODE_FORGED_ANSWER = 4,            /* RFC 8914, Section 4.5 */
+        DNS_EDE_RCODE_DNSSEC_INDETERMINATE = 5,     /* RFC 8914, Section 4.6 */
+        DNS_EDE_RCODE_DNSSEC_BOGUS = 6,             /* RFC 8914, Section 4.7 */
+        DNS_EDE_RCODE_SIG_EXPIRED = 7,              /* RFC 8914, Section 4.8 */
+        DNS_EDE_RCODE_SIG_NOT_YET_VALID = 8,        /* RFC 8914, Section 4.9 */
+        DNS_EDE_RCODE_DNSKEY_MISSING = 9,           /* RFC 8914, Section 4.10 */
+        DNS_EDE_RCODE_RRSIG_MISSING = 10,           /* RFC 8914, Section 4.11 */
+        DNS_EDE_RCODE_NO_ZONE_KEY_BIT = 11,         /* RFC 8914, Section 4.12 */
+        DNS_EDE_RCODE_NSEC_MISSING = 12,            /* RFC 8914, Section 4.13 */
+        DNS_EDE_RCODE_CACHED_ERROR = 13,            /* RFC 8914, Section 4.14 */
+        DNS_EDE_RCODE_NOT_READY = 14,               /* RFC 8914, Section 4.15 */
+        DNS_EDE_RCODE_BLOCKED = 15,                 /* RFC 8914, Section 4.16 */
+        DNS_EDE_RCODE_CENSORED = 16,                /* RFC 8914, Section 4.17 */
+        DNS_EDE_RCODE_FILTERED = 17,                /* RFC 8914, Section 4.18 */
+        DNS_EDE_RCODE_PROHIBITIED = 18,             /* RFC 8914, Section 4.19 */
+        DNS_EDE_RCODE_STALE_NXDOMAIN_ANSWER = 19,   /* RFC 8914, Section 4.20 */
+        DNS_EDE_RCODE_NOT_AUTHORITATIVE = 20,       /* RFC 8914, Section 4.21 */
+        DNS_EDE_RCODE_NOT_SUPPORTED = 21,           /* RFC 8914, Section 4.22 */
+        DNS_EDE_RCODE_UNREACH_AUTHORITY = 22,       /* RFC 8914, Section 4.23 */
+        DNS_EDE_RCODE_NET_ERROR = 23,               /* RFC 8914, Section 4.24 */
+        DNS_EDE_RCODE_INVALID_DATA = 24,            /* RFC 8914, Section 4.25 */
+        DNS_EDE_RCODE_SIG_NEVER = 25,
+        DNS_EDE_RCODE_TOO_EARLY = 26,               /* RFC 9250 */
+        DNS_EDE_RCODE_UNSUPPORTED_NSEC3_ITER = 27,  /* RFC 9276 */
+        DNS_EDE_RCODE_TRANSPORT_POLICY = 28,
+        DNS_EDE_RCODE_SYNTHESIZED = 29,
+        _DNS_EDE_RCODE_MAX_DEFINED,
+        _DNS_EDE_RCODE_INVALID = -EINVAL
+};
+
 const char* dns_rcode_to_string(int i) _const_;
 int dns_rcode_from_string(const char *s) _pure_;
 const char *format_dns_rcode(int i, char buf[static DECIMAL_STR_MAX(int)]);
 #define FORMAT_DNS_RCODE(i) format_dns_rcode(i, (char [DECIMAL_STR_MAX(int)]) {})
+
+const char* dns_ede_rcode_to_string(int i) _const_;
+int dns_ede_rcode_from_string(const char *s) _pure_;
+const char *format_dns_ede_rcode(int i, char buf[static DECIMAL_STR_MAX(int)]);
+#define FORMAT_DNS_EDE_RCODE(i) format_dns_ede_rcode(i, (char [DECIMAL_STR_MAX(int)]) {})
 
 const char* dns_protocol_to_string(DnsProtocol p) _const_;
 DnsProtocol dns_protocol_from_string(const char *s) _pure_;
