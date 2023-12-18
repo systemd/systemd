@@ -253,6 +253,8 @@ int dns_packet_extract(DnsPacket *p);
 
 bool dns_packet_equal(const DnsPacket *a, const DnsPacket *b);
 
+int dns_packet_ede_rcode(DnsPacket *p, char **ret_ede_msg);
+bool dns_ede_rcode_is_dnssec(int ede_rcode);
 int dns_packet_has_nsid_request(DnsPacket *p);
 
 /* https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6 */
@@ -347,7 +349,6 @@ const char *format_dns_rcode(int i, char buf[static DECIMAL_STR_MAX(int)]);
 #define FORMAT_DNS_RCODE(i) format_dns_rcode(i, (char [DECIMAL_STR_MAX(int)]) {})
 
 const char* dns_ede_rcode_to_string(int i) _const_;
-int dns_ede_rcode_from_string(const char *s) _pure_;
 const char *format_dns_ede_rcode(int i, char buf[static DECIMAL_STR_MAX(int)]);
 #define FORMAT_DNS_EDE_RCODE(i) format_dns_ede_rcode(i, (char [DECIMAL_STR_MAX(int)]) {})
 
