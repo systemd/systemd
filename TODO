@@ -132,6 +132,9 @@ Deprecations and removals:
 
 Features:
 
+* introduce mntid_t, and make it 64bit, as apparently the kernel switched to
+  64bit mount ids
+
 * Add an alias to systemd-run maybe called "uid0" or so, which tries to mimic
   the sudo/su command lines to some level, but is backed by transient services,
   and proper security isolate/tty forwarding. This would then allow us to run
