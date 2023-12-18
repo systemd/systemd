@@ -2180,7 +2180,7 @@ static bool opt_is_good(DnsResourceRecord *rr, bool *rfc6975) {
                         return false;
 
                 /* RFC 6975 DAU, DHU or N3U fields found. */
-                if (IN_SET(option_code, 5, 6, 7))
+                if (IN_SET(option_code, DNS_EDNS_OPT_DAU, DNS_EDNS_OPT_DHU, DNS_EDNS_OPT_N3U))
                         found_dau_dhu_n3u = true;
 
                 p += option_length + 4U;
@@ -2570,6 +2570,67 @@ bool dns_packet_equal(const DnsPacket *a, const DnsPacket *b) {
         return dns_packet_compare_func(a, b) == 0;
 }
 
+int dns_packet_ede_rcode(DnsPacket *p, uint16_t *ret_ede_rcode) {
+        assert(p);
+        bool has_ede = false;
+        uint16_t ede_rcode = _DNS_EDNS_OPT_MAX_DEFINED;
+        const uint8_t *d;
+        size_t l;
+
+        if (!p->opt)
+                return false;
+
+        d = p->opt->opt.data;
+        l = p->opt->opt.data_size;
+
+        while (l > 0) {
+                uint16_t code, length;
+
+                if (l < 4U)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "EDNS0 variable part has invalid size.");
+
+                code = unaligned_read_be16(d);
+                length = unaligned_read_be16(d + 2);
+
+                if (l < 4U + length)
+                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                               "Truncated option in EDNS0 variable part.");
+
+                if (code == DNS_EDNS_OPT_EXT_ERROR) {
+                        if (length < 2U)
+                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
+                                                "EDNS0 truncated EDE info code.");
+                        has_ede = true;
+                        ede_rcode = unaligned_read_be16(d+4);
+                        break;
+                }
+
+                d += 4U + length;
+                l -= 4U + length;
+        }
+
+        if (has_ede && ede_rcode < _DNS_EDNS_OPT_MAX_DEFINED)
+                *ret_ede_rcode = ede_rcode;
+
+        return has_ede;
+}
+
+bool ede_rcode_is_dnssec(int ede_rcode) {
+        return IN_SET(ede_rcode,
+                        DNS_EDE_RCODE_UNSUPPORTED_DNSKEY_ALG,
+                        DNS_EDE_RCODE_UNSUPPORTED_DS_DIGEST,
+                        DNS_EDE_RCODE_DNSSEC_INDETERMINATE,
+                        DNS_EDE_RCODE_DNSSEC_BOGUS,
+                        DNS_EDE_RCODE_SIG_EXPIRED,
+                        DNS_EDE_RCODE_SIG_NOT_YET_VALID,
+                        DNS_EDE_RCODE_DNSKEY_MISSING,
+                        DNS_EDE_RCODE_RRSIG_MISSING,
+                        DNS_EDE_RCODE_NO_ZONE_KEY_BIT,
+                        DNS_EDE_RCODE_NSEC_MISSING
+                     );
+}
+
 int dns_packet_has_nsid_request(DnsPacket *p) {
         bool has_nsid = false;
         const uint8_t *d;
@@ -2597,7 +2658,7 @@ int dns_packet_has_nsid_request(DnsPacket *p) {
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Truncated option in EDNS0 variable part.");
 
-                if (code == 3) {
+                if (code == DNS_EDNS_OPT_NSID) {
                         if (has_nsid)
                                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                        "Duplicate NSID option in EDNS0 variable part.");
