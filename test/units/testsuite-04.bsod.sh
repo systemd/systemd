@@ -35,9 +35,9 @@ vcs_dump_and_check() {
     # so try it a couple of times
     for _ in {0..9}; do
         setterm --term linux --dump --file /tmp/console.dump
-        if grep -aq "Press any key to exit" /tmp/console.dump
-            grep -aq "$expected_message" /tmp/console.dump
-            grep -aq "The current boot has failed" /tmp/console.dump; then
+        if grep -aq "Press any key to exit" /tmp/console.dump &&
+           grep -aq "$expected_message" /tmp/console.dump &&
+           grep -aq "The current boot has failed" /tmp/console.dump; then
 
             return 0
         fi
