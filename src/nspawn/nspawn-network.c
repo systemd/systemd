@@ -95,9 +95,7 @@ static int generate_mac(
         assert_cc(ETH_ALEN <= sizeof(result));
         memcpy(mac->ether_addr_octet, &result, ETH_ALEN);
 
-        /* see eth_random_addr in the kernel */
-        mac->ether_addr_octet[0] &= 0xfe;        /* clear multicast bit */
-        mac->ether_addr_octet[0] |= 0x02;        /* set local assignment bit (IEEE802) */
+        ether_addr_mark_random(mac);
 
         return 0;
 }
