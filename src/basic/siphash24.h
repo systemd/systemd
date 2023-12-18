@@ -25,12 +25,12 @@ void siphash24_compress(const void *in, size_t inlen, struct siphash *state);
 
 static inline void siphash24_compress_boolean(bool in, struct siphash *state) {
         uint8_t i = in;
-
         siphash24_compress(&i, sizeof i, state);
 }
 
 static inline void siphash24_compress_usec_t(usec_t in, struct siphash *state) {
-        siphash24_compress(&in, sizeof in, state);
+        uint64_t u = htole64(in);
+        siphash24_compress(&u, sizeof u, state);
 }
 
 static inline void siphash24_compress_safe(const void *in, size_t inlen, struct siphash *state) {
