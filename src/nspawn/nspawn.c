@@ -229,8 +229,7 @@ static DeviceNode* arg_extra_nodes = NULL;
 static size_t arg_n_extra_nodes = 0;
 static char **arg_sysctl = NULL;
 static ConsoleMode arg_console_mode = _CONSOLE_MODE_INVALID;
-static MachineCredential *arg_credentials = NULL;
-static size_t arg_n_credentials = 0;
+static MachineCredentialContext arg_credentials = {};
 static char **arg_bind_user = NULL;
 static bool arg_suppress_sync = false;
 static char *arg_settings_filename = NULL;
@@ -266,6 +265,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_syscall_deny_list, strv_freep);
 #if HAVE_SECCOMP
 STATIC_DESTRUCTOR_REGISTER(arg_seccomp, seccomp_releasep);
 #endif
+STATIC_DESTRUCTOR_REGISTER(arg_credentials, machine_credential_context_done);
 STATIC_DESTRUCTOR_REGISTER(arg_cpu_set, cpu_set_reset);
 STATIC_DESTRUCTOR_REGISTER(arg_sysctl, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_bind_user, strv_freep);
@@ -1568,7 +1568,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_SET_CREDENTIAL:
-                        r = machine_credential_set(&arg_credentials, &arg_n_credentials, optarg);
+                        r = machine_credential_set(&arg_credentials, optarg);
                         if (r < 0)
                                 return r;
 
@@ -1576,7 +1576,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_LOAD_CREDENTIAL:
-                        r = machine_credential_load(&arg_credentials, &arg_n_credentials, optarg);
+                        r = machine_credential_load(&arg_credentials, optarg);
                         if (r < 0)
                                 return r;
 
@@ -2367,7 +2367,7 @@ static int setup_credentials(const char *root) {
         const char *q;
         int r;
 
-        if (arg_n_credentials <= 0)
+        if (arg_credentials.n_credentials == 0)
                 return 0;
 
         r = userns_mkdir(root, "/run/host", 0755, 0, 0);
@@ -2383,11 +2383,11 @@ static int setup_credentials(const char *root) {
         if (r < 0)
                 return r;
 
-        for (size_t i = 0; i < arg_n_credentials; i++) {
+        FOREACH_ARRAY(cred, arg_credentials.credentials, arg_credentials.n_credentials) {
                 _cleanup_free_ char *j = NULL;
                 _cleanup_close_ int fd = -EBADF;
 
-                j = path_join(q, arg_credentials[i].id);
+                j = path_join(q, cred->id);
                 if (!j)
                         return log_oom();
 
@@ -2395,7 +2395,7 @@ static int setup_credentials(const char *root) {
                 if (fd < 0)
                         return log_error_errno(errno, "Failed to create credential file %s: %m", j);
 
-                r = loop_write(fd, arg_credentials[i].data, arg_credentials[i].size);
+                r = loop_write(fd, cred->data, cred->size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to write credential to file %s: %m", j);
 
@@ -3406,7 +3406,7 @@ static int inner_child(
         if (asprintf(envp + n_env++, "NOTIFY_SOCKET=%s", NSPAWN_NOTIFY_SOCKET_PATH) < 0)
                 return log_oom();
 
-        if (arg_n_credentials > 0) {
+        if (arg_credentials.n_credentials > 0) {
                 envp[n_env] = strdup("CREDENTIALS_DIRECTORY=/run/host/credentials");
                 if (!envp[n_env])
                         return log_oom();
@@ -5286,7 +5286,7 @@ static int initialize_rlimits(void) {
                  * don't read the other limits from PID 1 but prefer the static table above. */
         };
 
-        int rl;
+        int rl, r;
 
         for (rl = 0; rl < _RLIMIT_MAX; rl++) {
                 /* Let's only fill in what the user hasn't explicitly configured anyway */
@@ -5297,8 +5297,9 @@ static int initialize_rlimits(void) {
                         if (IN_SET(rl, RLIMIT_NPROC, RLIMIT_SIGPENDING)) {
                                 /* For these two let's read the limits off PID 1. See above for an explanation. */
 
-                                if (prlimit(1, rl, NULL, &buffer) < 0)
-                                        return log_error_errno(errno, "Failed to read resource limit RLIMIT_%s of PID 1: %m", rlimit_to_string(rl));
+                                r = pid_getrlimit(1, rl, &buffer);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to read resource limit RLIMIT_%s of PID 1: %m", rlimit_to_string(rl));
 
                                 v = &buffer;
                         } else if (rl == RLIMIT_NOFILE) {
@@ -5857,7 +5858,6 @@ finish:
         expose_port_free_all(arg_expose_ports);
         rlimit_free_all(arg_rlimit);
         device_node_array_free(arg_extra_nodes, arg_n_extra_nodes);
-        machine_credential_free_all(arg_credentials, arg_n_credentials);
 
         if (r < 0)
                 return r;

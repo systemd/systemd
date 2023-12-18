@@ -83,3 +83,12 @@ if [ "$ID" = "centos" ] && [ "$VERSION" = "8" ]; then
     alternatives --install /usr/bin/python3 python3 /usr/bin/python3.9 1
     alternatives --set python3 /usr/bin/python3.9
 fi
+
+mkdir -p /usr/lib/sysusers.d
+cat >/usr/lib/sysusers.d/testuser.conf <<EOF
+u	testuser	4711	"Test User"	/home/testuser
+EOF
+mkdir -p /usr/lib/tmpfiles.d
+cat >/usr/lib/tmpfiles.d/testuser.conf <<EOF
+q	/home/testuser	0700	4711	4711
+EOF

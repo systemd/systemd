@@ -27,7 +27,7 @@ check_result_qemu() {
 
     mount_initdir
 
-    cryptsetup luksOpen "${LOOPDEV:?}p2" "${DM_NAME:?}" <"$TESTDIR/keyfile"
+    cryptsetup luksOpen "${LOOPDEV:?}p4" "${DM_NAME:?}" <"$TESTDIR/keyfile"
     mount "/dev/mapper/$DM_NAME" "$initdir/var"
 
     check_result_common "${initdir:?}" && ret=0 || ret=$?
@@ -43,8 +43,8 @@ test_create_image() {
     create_empty_image_rootdir
 
     echo -n test >"${TESTDIR:?}/keyfile"
-    cryptsetup -q luksFormat --uuid="$PART_UUID" --pbkdf pbkdf2 --pbkdf-force-iterations 1000 "${LOOPDEV:?}p2" "$TESTDIR/keyfile"
-    cryptsetup luksOpen "${LOOPDEV}p2" "${DM_NAME:?}" <"$TESTDIR/keyfile"
+    cryptsetup -q luksFormat --uuid="$PART_UUID" --pbkdf pbkdf2 --pbkdf-force-iterations 1000 "${LOOPDEV:?}p4" "$TESTDIR/keyfile"
+    cryptsetup luksOpen "${LOOPDEV}p4" "${DM_NAME:?}" <"$TESTDIR/keyfile"
     mkfs.ext4 -L var "/dev/mapper/$DM_NAME"
     mkdir -p "${initdir:?}/var"
     mount "/dev/mapper/$DM_NAME" "$initdir/var"

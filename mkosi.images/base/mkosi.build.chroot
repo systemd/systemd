@@ -44,7 +44,7 @@ EOF
 fi
 
 if [ ! -f "$BUILDDIR"/build.ninja ]; then
-    sysvinit_path=$(realpath /etc/init.d)
+    [[ -d /etc/rc.d/init.d ]] && sysvinit_path="/etc/rc.d/init.d" || sysvinit_path="/etc/init.d"
 
     if [ "$ID" = "centos" ] && [ "$VERSION" = "8" ]; then
         UKIFY="disabled"

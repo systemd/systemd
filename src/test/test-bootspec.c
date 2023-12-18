@@ -188,22 +188,21 @@ TEST_RET(bootspec_boot_config_find_entry) {
         assert_se(boot_config_load(&config, d, NULL) >= 0);
         assert_se(config.n_entries == 2);
 
-        // Test finding the first entry
+        /* Test finding the first entry */
         BootEntry *entry = boot_config_find_entry(&config, "a-10.conf");
         assert_se(entry && streq(entry->id, "a-10.conf"));
 
-        // Test finding the second entry
+        /* Test finding the second entry */
         entry = boot_config_find_entry(&config, "a-05.conf");
         assert_se(entry && streq(entry->id, "a-05.conf"));
 
-        // Test finding a non-existent entry
+        /* Test finding a non-existent entry */
         entry = boot_config_find_entry(&config, "nonexistent.conf");
         assert_se(entry == NULL);
 
-        // Test case-insensitivity
+        /* Test case-insensitivity */
         entry = boot_config_find_entry(&config, "A-10.CONF");
         assert_se(entry && streq(entry->id, "a-10.conf"));
-
 
         return 0;
 }

@@ -35,16 +35,22 @@
     </cmdsynopsis>
 
     <para>System units:
-<literallayout><filename>systemd-tmpfiles-setup.service</filename>
-<filename>systemd-tmpfiles-setup-dev-early.service</filename>
-<filename>systemd-tmpfiles-setup-dev.service</filename>
-<filename>systemd-tmpfiles-clean.service</filename>
-<filename>systemd-tmpfiles-clean.timer</filename></literallayout></para>
+    <simplelist>
+      <member><filename>systemd-tmpfiles-setup.service</filename></member>
+      <member><filename>systemd-tmpfiles-setup-dev-early.service</filename></member>
+      <member><filename>systemd-tmpfiles-setup-dev.service</filename></member>
+      <member><filename>systemd-tmpfiles-clean.service</filename></member>
+      <member><filename>systemd-tmpfiles-clean.timer</filename></member>
+    </simplelist>
+    </para>
 
     <para>User units:
-<literallayout><filename>systemd-tmpfiles-setup.service</filename>
-<filename>systemd-tmpfiles-clean.service</filename>
-<filename>systemd-tmpfiles-clean.timer</filename></literallayout></para>
+    <simplelist>
+      <member><filename>systemd-tmpfiles-setup.service</filename></member>
+      <member><filename>systemd-tmpfiles-clean.service</filename></member>
+      <member><filename>systemd-tmpfiles-clean.timer</filename></member>
+    </simplelist>
+    </para>
   </refsynopsisdiv>
 
   <refsect1>
