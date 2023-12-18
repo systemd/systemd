@@ -146,6 +146,22 @@ Features:
 * use udev rule networkd ownership property to take ownership of network
   interfaces nspawn creates
 
+* mntfsd/nsresourced
+  - enforce naming regime on userns that ensures clients can't take each others names
+  - mntfsd: require that calling user is root or only uid in userns
+  - docs
+  - tests
+  - polkit support
+  - userdb: maybe allow callers to map one uid to their own uid
+  - bpflsm: allow writes if resulting UID on disk would be userns' owner UID
+  - make encrypted DDIs work (password…)
+  - add API for creating a new file system from scratch (together with some
+    dm-integrity/HMAC key). Should probably work using systemd-repart (access
+    via varlink).
+  - add api to make an existing file "trusted" via dm-integry/HMAC key
+  - port: portabled
+  - port: tmpfiles, sysusers and similar
+
 * add a kernel cmdline switch (and cred?) for marking a system to be
   "headless", in which case we never open /dev/console for reading, only for
   writing. This would then mean: systemd-firstboot would process creds but not

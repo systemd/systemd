@@ -129,4 +129,36 @@ TEST(extend) {
         assert_se(partition_policy_flags_extend(PARTITION_POLICY_GROWFS_ON) == (PARTITION_POLICY_GROWFS_ON|_PARTITION_POLICY_USE_MASK|_PARTITION_POLICY_READ_ONLY_MASK));
 }
 
+static void test_policy_intersect_one(const char *a, const char *b, const char *c) {
+        _cleanup_(image_policy_freep) ImagePolicy *x = NULL, *y = NULL, *z = NULL, *t = NULL;
+
+        assert_se(image_policy_from_string(a, &x) >= 0);
+        assert_se(image_policy_from_string(b, &y) >= 0);
+        assert_se(image_policy_from_string(c, &z) >= 0);
+
+        assert_se(image_policy_intersect(x, y, &t) >= 0);
+
+        _cleanup_free_ char *s1 = NULL, *s2 = NULL, *s3 = NULL, *s4 = NULL;
+        assert_se(image_policy_to_string(x, false, &s1) >= 0);
+        assert_se(image_policy_to_string(y, false, &s2) >= 0);
+        assert_se(image_policy_to_string(z, false, &s3) >= 0);
+        assert_se(image_policy_to_string(t, false, &s4) >= 0);
+
+        log_info("%s ^ %s → %s vs. %s", s1, s2, s3, s4);
+
+        assert_se(image_policy_equivalent(z, t) > 0);
+}
+
+TEST(image_policy_intersect) {
+        test_policy_intersect_one("", "", "");
+        test_policy_intersect_one("-", "-", "-");
+        test_policy_intersect_one("*", "*", "*");
+        test_policy_intersect_one("~", "~", "~");
+        test_policy_intersect_one("root=verity+signed", "root=signed+verity", "root=verity+signed");
+        test_policy_intersect_one("root=verity+signed", "root=signed", "root=signed");
+        test_policy_intersect_one("root=verity+signed", "root=verity", "root=verity");
+        test_policy_intersect_one("root=open", "root=verity", "root=verity");
+        test_policy_intersect_one("root=open", "=verity+ignore", "root=verity+ignore:=ignore");
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
