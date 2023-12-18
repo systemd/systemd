@@ -78,8 +78,7 @@ int specifier_printf(const char *text, size_t max_length, const Specifier table[
 
                                         if (!GREEDY_REALLOC(result, j + k + l + 1))
                                                 return -ENOMEM;
-                                        memcpy(result + j, w, k);
-                                        t = result + j + k;
+                                        t = mempcpy(result + j, w, k);
                                 } else if (strchr(POSSIBLE_SPECIFIERS, *f))
                                         /* Oops, an unknown specifier. */
                                         return -EBADSLT;
