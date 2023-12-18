@@ -806,7 +806,7 @@ static int bus_method_resolve_record(sd_bus_message *message, void *userdata, sd
 
         if (!dns_type_is_valid_query(type))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified resource record type %" PRIu16 " may not be used in a query.", type);
-        if (dns_type_is_zone_transer(type))
+        if (dns_type_is_zone_transfer(type))
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Zone transfers not permitted via this programming interface.");
         if (dns_type_is_obsolete(type))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Specified DNS resource record type %" PRIu16 " is obsolete.", type);
