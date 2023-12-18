@@ -2180,7 +2180,7 @@ static bool opt_is_good(DnsResourceRecord *rr, bool *rfc6975) {
                         return false;
 
                 /* RFC 6975 DAU, DHU or N3U fields found. */
-                if (IN_SET(option_code, 5, 6, 7))
+                if (IN_SET(option_code, DNS_EDNS_OPT_DAU, DNS_EDNS_OPT_DHU, DNS_EDNS_OPT_N3U))
                         found_dau_dhu_n3u = true;
 
                 p += option_length + 4U;
@@ -2597,7 +2597,7 @@ int dns_packet_has_nsid_request(DnsPacket *p) {
                         return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Truncated option in EDNS0 variable part.");
 
-                if (code == 3) {
+                if (code == DNS_EDNS_OPT_NSID) {
                         if (has_nsid)
                                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                        "Duplicate NSID option in EDNS0 variable part.");
