@@ -305,7 +305,7 @@ int allocate_scope(
 
                 r = bus_append_scope_pidref(m, &pidref);
         } else
-                r = sd_bus_message_append(m, "(sv)", "PIDs", "au", 1, pid);
+                r = sd_bus_message_append(m, "(sv)", "PIDs", "au", 1, (uint32_t) pid);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -368,7 +368,11 @@ int allocate_scope(
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        r = bus_wait_for_jobs_one(w, object, false, NULL);
+        r = bus_wait_for_jobs_one(
+                        w,
+                        object,
+                        /* quiet= */ false,
+                        /* extra_args= */ NULL);
         if (r < 0)
                 return r;
 
