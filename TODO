@@ -934,10 +934,6 @@ Features:
     file system paths to enable on start.
   • make systemd-fstab-generator look for a system credential encoding root= or
     usr=
-  • systemd-homed: when initializing, look for a credential
-    systemd.homed.register or so with JSON user records to automatically
-    register if not registered yet.  Use case: deploy a system, and add an
-    account one can directly log into.
   • in gpt-auto-generator: check partition uuids against such uuids supplied via
     sd-stub credentials. That way, we can support parallel OS installations with
     pre-built kernels.
@@ -2262,11 +2258,6 @@ Features:
   - support new FS_IOC_ADD_ENCRYPTION_KEY ioctl for setting up fscrypt
   - maybe pre-create ~/.cache as subvol so that it can have separate quota
     easily?
-  - add a switch to homectl (maybe called --first-boot) where it will check if
-    any non-system users exist, and if not prompts interactively for basic user
-    info, mimicking systemd-firstboot. Then, place this in a service that runs
-    after systemd-homed, but before gdm and friends, as a simple, barebones
-    fallback logic to get a regular user created on uninitialized systems.
   - store PKCS#11 + FIDO2 token info in LUKS2 header, compatible with
     systemd-cryptsetup, so that it can unlock homed volumes
   - maybe make all *.home files owned by `systemd-home` user or so, so that we
