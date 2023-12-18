@@ -253,6 +253,8 @@ int dns_packet_extract(DnsPacket *p);
 
 bool dns_packet_equal(const DnsPacket *a, const DnsPacket *b);
 
+int dns_packet_ede_rcode(DnsPacket *p, uint16_t *ret_ede_rcode);
+bool dns_ede_rcode_is_dnssec(int ede_rcode);
 int dns_packet_has_nsid_request(DnsPacket *p);
 
 /* https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6 */
