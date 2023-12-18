@@ -8,13 +8,9 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=TPM2 PCR Extension (Varlink)
-Documentation=man:systemd-pcrphase.service(8)
-DefaultDependencies=no
-After=tpm2.target
-Conflicts=shutdown.target initrd-switch-root.target
-Before=shutdown.target initrd-switch-root.target
+Description=Trusted Platform Module
+Documentation=man:systemd.special(7)
 
-[Service]
-Environment=LISTEN_FDNAMES=varlink
-ExecStart=-{{LIBEXECDIR}}/systemd-pcrextend
+# Make this a synchronization point on the first TPM device found
+After=dev-tpmrm0.device
+Wants=dev-tpmrm0.device
