@@ -20,10 +20,10 @@ islink() {
     test "$(readlink "$1")" = "$2" || return 2
 }
 
-: '------enable nonexistent------------------------------------'
+: '-------enable nonexistent--------------------------------------'
 ( ! "$systemctl" --root="$root" enable test1.service )
 
-: '------basic enablement--------------------------------------'
+: '-------basic enablement----------------------------------------'
 mkdir -p "$root/etc/systemd/system"
 cat >"$root/etc/systemd/system/test1.service" <<EOF
 [Install]
@@ -43,7 +43,7 @@ test -h "$root/etc/systemd/system/special.target.requires/test1.service"
 test ! -h "$root/etc/systemd/system/default.target.wants/test1.service"
 test ! -h "$root/etc/systemd/system/special.target.requires/test1.service"
 
-: '------enable when link already exists-----------------------'
+: '-------enable when link already exists-------------------------'
 # We don't read the symlink target, so it's OK for the symlink to point
 # to something else. We should just silently accept this.
 
@@ -64,7 +64,7 @@ test -h "$root/etc/systemd/system/special.target.requires/test1.service"
 test ! -h "$root/etc/systemd/system/default.target.wants/test1.service"
 test ! -h "$root/etc/systemd/system/special.target.requires/test1.service"
 
-: '------suffix guessing---------------------------------------'
+: '-------suffix guessing-----------------------------------------'
 "$systemctl" --root="$root" enable test1
 test -h "$root/etc/systemd/system/default.target.wants/test1.service"
 test -h "$root/etc/systemd/system/special.target.requires/test1.service"
@@ -77,7 +77,7 @@ test -h "$root/etc/systemd/system/special.target.requires/test1.service"
 test ! -e "$root/etc/systemd/system/default.target.wants/test1.service"
 test ! -e "$root/etc/systemd/system/special.target.requires/test1.service"
 
-: '-------aliases----------------------------------------------'
+: '-------aliases-------------------------------------------------'
 cat >>"$root/etc/systemd/system/test1.service" <<EOF
 Alias=test1-goodalias.service
 Alias=test1@badalias.service
@@ -97,7 +97,7 @@ test ! -e "$root/etc/systemd/system/test1-badalias.target"
 test ! -e "$root/etc/systemd/system/test1-badalias.socket"
 test -h "$root/etc/systemd/system/test1-goodalias2.service"
 
-: '-------aliases in reenable----------------------------------'
+: '-------aliases in reenable-------------------------------------'
 ( ! "$systemctl" --root="$root" reenable test1 )
 test -h "$root/etc/systemd/system/default.target.wants/test1.service"
 test ! -e "$root/etc/systemd/system/test1-goodalias.service"
@@ -112,7 +112,7 @@ test ! -e "$root/etc/systemd/system/default.target.wants/test1.service"
 test ! -e "$root/etc/systemd/system/special.target.requires/test1.service"
 test ! -e "$root/etc/systemd/system/test1-goodalias.service"
 
-: '-------aliases when link already exists---------------------'
+: '-------aliases when link already exists------------------------'
 cat >"$root/etc/systemd/system/test1a.service" <<EOF
 [Install]
 Alias=test1a-alias.service
@@ -126,7 +126,7 @@ test -h "$root/etc/systemd/system/test1a-alias.service"
 "$systemctl" --root="$root" disable test1a.service
 test ! -h "$root/etc/systemd/system/test1a-alias.service"
 
-: '-------also units-------------------------------------------'
+: '-------also units----------------------------------------------'
 cat >"$root/etc/systemd/system/test2.socket" <<EOF
 [Install]
 WantedBy=sockets.target
@@ -152,7 +152,7 @@ test ! -e "$root/etc/systemd/system/default.target.wants/test2.service"
 test ! -e "$root/etc/systemd/system/sockets.target.wants/test2.socket"
 
 
-: '-------link-------------------------------------------------'
+: '-------link----------------------------------------------------'
 # File doesn't exist yet
 test ! -e "$root/link1.path"
 ( ! "$systemctl" --root="$root" link '/link1.path' )
@@ -166,65 +166,65 @@ EOF
 "$systemctl" --root="$root" link '/link1.path'
 islink "$root/etc/systemd/system/link1.path" "/link1.path"
 
-: '-------link already linked same path------------------------'
+: '-------link already linked same path---------------------------'
 SYSTEMD_LOG_LEVEL=debug "$systemctl" --root="$root" link '/link1.path'  # this passes
 islink "$root/etc/systemd/system/link1.path" "/link1.path"
 
-: '-------link already linked different path-------------------'
+: '-------link already linked different path----------------------'
 mkdir "$root/subdir"
 cp "$root/link1.path" "$root/subdir/"
 ( ! "$systemctl" --root="$root" link '/subdir/link1.path' )
 islink "$root/etc/systemd/system/link1.path" "/link1.path"
 
-: '-------link bad suffix--------------------------------------'
+: '-------link bad suffix-----------------------------------------'
 cp "$root/link1.path" "$root/subdir/link1.suffix"
 ( ! "$systemctl" --root="$root" link '/subdir/link1.suffix' )
 test ! -e "$root/etc/systemd/system/link1.suffix"
 
-: '-------unlink by unit name----------------------------------'
+: '-------unlink by unit name-------------------------------------'
 "$systemctl" --root="$root" disable 'link1.path'
 test ! -e "$root/etc/systemd/system/link1.path"
 
-: '-------unlink by path---------------------------------------'
+: '-------unlink by path------------------------------------------'
 "$systemctl" --root="$root" link '/link1.path'
 test -h "$root/etc/systemd/system/link1.path"
 "$systemctl" --root="$root" disable '/link1.path'
 test ! -e "$root/etc/systemd/system/link1.path"
 
-: '-------unlink by wrong path---------------------------------'
+: '-------unlink by wrong path------------------------------------'
 "$systemctl" --root="$root" link '/link1.path'
 test -h "$root/etc/systemd/system/link1.path"
 "$systemctl" --root="$root" disable '/subdir/link1.path'  # we only care about the name
 test ! -e "$root/etc/systemd/system/link1.path"
 
 
-: '-------link and enable--------------------------------------'
+: '-------link and enable-----------------------------------------'
 "$systemctl" --root="$root" enable '/link1.path'
 islink "$root/etc/systemd/system/link1.path" "/link1.path"
 islink "$root/etc/systemd/system/paths.target.wants/link1.path" "/link1.path"
 
-: '-------enable already linked same path----------------------'
+: '-------enable already linked same path-------------------------'
 "$systemctl" --root="$root" enable '/link1.path'
 islink "$root/etc/systemd/system/link1.path" "/link1.path"
 islink "$root/etc/systemd/system/paths.target.wants/link1.path" "/link1.path"
 
-: '-------enable already linked different path-----------------'
+: '-------enable already linked different path--------------------'
 ( ! "$systemctl" --root="$root" enable '/subdir/link1.path' )
 islink "$root/etc/systemd/system/link1.path" "/link1.path"
 islink "$root/etc/systemd/system/paths.target.wants/link1.path" "/link1.path"
 
-: '-------enable bad suffix------------------------------------'
+: '-------enable bad suffix---------------------------------------'
 cp "$root/link1.path" "$root/subdir/link1.suffix"
 ( ! "$systemctl" --root="$root" enable '/subdir/link1.suffix' )
 test ! -e "$root/etc/systemd/system/link1.suffix"
 test ! -e "$root/etc/systemd/system/paths.target.wants/link1.suffix"
 
-: '-------disable by unit name---------------------------------'
+: '-------disable by unit name------------------------------------'
 "$systemctl" --root="$root" disable 'link1.path'
 test ! -e "$root/etc/systemd/system/link1.path"
 test ! -e "$root/etc/systemd/system/paths.target.wants/link1.path"
 
-: '-------disable by path--------------------------------------'
+: '-------disable by path-----------------------------------------'
 "$systemctl" --root="$root" enable '/link1.path'
 test -h "$root/etc/systemd/system/link1.path"
 test -h "$root/etc/systemd/system/paths.target.wants/link1.path"
@@ -233,7 +233,7 @@ test ! -e "$root/etc/systemd/system/link1.path"
 test ! -e "$root/etc/systemd/system/paths.target.wants/link1.path"
 
 
-: '-------link and enable-------------------------------------'
+: '-------link and enable-----------------------------------------'
 "$systemctl" --root="$root" link '/link1.path'
 islink "$root/etc/systemd/system/link1.path" "/link1.path"
 test ! -h "$root/etc/systemd/system/paths.target.wants/link1.path"
@@ -246,7 +246,7 @@ islink "$root/etc/systemd/system/paths.target.wants/link1.path" "/link1.path"
 islink "$root/etc/systemd/system/link1.path" "/link1.path"
 islink "$root/etc/systemd/system/paths.target.wants/link1.path" "/link1.path"
 
-: '-------link instance and enable-------------------------------------'
+: '-------link instance and enable--------------------------------'
 cat >"$root/link-instance@.service" <<EOF
 [Service]
 ExecStart=true
@@ -269,7 +269,7 @@ islink "$root/etc/systemd/system/services.target.wants/link-instance@first.servi
 test ! -h "$root/etc/systemd/system/link-instance@first.service"
 test ! -h "$root/etc/systemd/system/services.target.wants/link-instance@first.service"
 
-: '-------manual link------------------------------------------'
+: '-------manual link---------------------------------------------'
 cat >"$root/link3.suffix" <<EOF
 [Install]
 WantedBy=services.target
@@ -286,18 +286,18 @@ SYSTEMD_LOG_LEVEL=debug SYSTEMD_LOG_LOCATION=1 "$systemctl" --root="$root" disab
 test ! -h "$root/etc/systemd/system/link3.service"
 test ! -h "$root/etc/systemd/system/services.target.wants/link3.service"
 
-: '-------enable on masked-------------------------------------'
+: '-------enable on masked----------------------------------------'
 ln -s "/dev/null" "$root/etc/systemd/system/masked.service"
 ( ! "$systemctl" --root="$root" enable 'masked.service' )
 ( ! "$systemctl" --root="$root" enable '/etc/systemd/system/masked.service' )
 
-: '-------enable on masked alias-------------------------------'
+: '-------enable on masked alias----------------------------------'
 test -h "$root/etc/systemd/system/masked.service"
 ln -s "masked.service" "$root/etc/systemd/system/masked-alias.service"
 ( ! "$systemctl" --root="$root" enable 'masked-alias.service' )
 ( ! "$systemctl" --root="$root" enable '/etc/systemd/system/masked-alias.service' )
 
-: '-------issue 22000: link in subdirectory--------------------'
+: '-------issue 22000: link in subdirectory-----------------------'
 mkdir -p "$root/etc/systemd/system/myown.d"
 cat >"$root/etc/systemd/system/link5-also.service" <<EOF
 [Install]
@@ -318,7 +318,7 @@ test ! -h "$root/etc/systemd/system/services.target.wants/link5-also.service"
 test ! -h "$root/etc/systemd/system/services.target.wants/link5.service"
 islink "$root/etc/systemd/system/services.target.wants/link5-also.service" "/etc/systemd/system/link5-also.service"
 
-: '-------template enablement----------------------------------'
+: '-------template enablement-------------------------------------'
 cat >"$root/etc/systemd/system/templ1@.service" <<EOF
 [Install]
 WantedBy=services.target
@@ -352,7 +352,7 @@ test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@one.service"
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@two.service"
 
-: '-------template enablement w/ default instance--------------'
+: '-------template enablement w/ default instance-----------------'
 cat >"$root/etc/systemd/system/templ1@.service" <<EOF
 [Install]
 # check enablement with
@@ -401,7 +401,7 @@ test ! -h "$root/etc/systemd/system/other@templ1.target.requires/templ1@one.serv
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@two.service"
 test ! -h "$root/etc/systemd/system/other@templ1.target.requires/templ1@two.service"
 
-: '-------removal of relative enablement symlinks--------------'
+: '-------removal of relative enablement symlinks-----------------'
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@.service"
 ln -s '../templ1@one.service' "$root/etc/systemd/system/services.target.wants/templ1@one.service"
 ln -s 'templ1@two.service' "$root/etc/systemd/system/services.target.wants/templ1@two.service"
@@ -421,7 +421,7 @@ test ! -h "$root/etc/systemd/system/services.target.wants/templ1@five.service"
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@six.service"
 test ! -h "$root/etc/systemd/system/services.target.wants/templ1@seven.service"
 
-: '-------template enablement for another template-------------'
+: '-------template enablement for another template----------------'
 cat >"$root/etc/systemd/system/templ2@.service" <<EOF
 [Install]
 RequiredBy=another-template@.target
@@ -446,7 +446,7 @@ test ! -h "$root/etc/systemd/system/another-template@.target.requires/templ2@two
 test ! -h "$root/etc/systemd/system/another-template@.target.requires/templ2@.service"
 test ! -h "$root/etc/systemd/system/another-template@.target.requires/templ2@two.service"
 
-: '-------aliases w/ and w/o instance--------------------------'
+: '-------aliases w/ and w/o instance-----------------------------'
 test ! -e "$root/etc/systemd/system/link4.service"
 cat >"$root/etc/systemd/system/link4.service" <<EOF
 [Install]
@@ -471,7 +471,7 @@ test ! -h "$root/etc/systemd/system/link4@inst.service"
 test ! -h "$root/etc/systemd/system/link4alias.service"
 test ! -h "$root/etc/systemd/system/link4alias2.service"
 
-: '-------systemctl enable on path to unit file----------------'
+: '-------systemctl enable on path to unit file-------------------'
 cat >"$root/etc/systemd/system/link4.service" <<EOF
 [Install]
 Alias=link4alias.service
@@ -489,7 +489,7 @@ test ! -h "$root/etc/systemd/system/link4.service"
 test ! -h "$root/etc/systemd/system/link4alias.service"
 test ! -h "$root/etc/systemd/system/link4alias2.service"
 
-: '-------issue 661: enable on unit file--------------'
+: '-------issue 661: enable on unit file--------------------------'
 test ! -e "$root/etc/systemd/system/link5.service"
 cat >"$root/etc/systemd/system/link5.service" <<EOF
 [Install]
@@ -507,7 +507,7 @@ islink "$root/etc/systemd/system/link5alias2.service" "/etc/systemd/system/link5
 test ! -h "$root/etc/systemd/system/link5alias.service"
 test ! -h "$root/etc/systemd/system/link5alias2.service"
 
-: '-------issue 661: link and enable on unit file--------------'
+: '-------issue 661: link and enable on unit file-----------------'
 test ! -e "$root/etc/systemd/system/link5copy.service"
 cat >"$root/link5copy.service" <<EOF
 [Install]
@@ -542,7 +542,7 @@ test ! -h "$root/etc/systemd/system/link5copy.service"
 test ! -h "$root/etc/systemd/system/link5alias.service"
 test ! -h "$root/etc/systemd/system/link5alias2.service"
 
-: '----issue 19437: plain templates in .wants/ or .requires/---'
+: '-------issue 19437: plain templates in .wants/ or .requires/---'
 test ! -e "$root/etc/systemd/system/link5@.path"
 cat >"$root/etc/systemd/system/link5@.path" <<EOF
 [Install]
@@ -566,7 +566,7 @@ test ! -h "$root/etc/systemd/system/target5@.target.requires/link5@.path"
 test ! -h "$root/etc/systemd/system/target5@inst.target.wants/link5@.path"
 test ! -h "$root/etc/systemd/system/target5@inst.target.requires/link5@.path"
 
-: '-------removal of symlinks not listed in [Install]----------'
+: '-------removal of symlinks not listed in [Install]-------------'
 # c.f. 66a19d85a533b15ed32f4066ec880b5a8c06babd
 test ! -e "$root/etc/systemd/system/multilink.mount"
 cat >"$root/etc/systemd/system/multilink.mount" <<EOF
@@ -585,7 +585,7 @@ test ! -h "$root/etc/systemd/system/default.target.wants/"
 test ! -h "$root/etc/systemd/system/multilink-alias.mount"
 test ! -h "$root/etc/systemd/system/multilink-badalias.service"
 
-: '-------merge 20017: specifiers in the unit file-------------'
+: '-------merge 20017: specifiers in the unit file----------------'
 test ! -e "$root/etc/systemd/system/some-some-link6@.socket"
 # c.f. de61a04b188f81a85cdb5c64ddb4987dcd9d30d3
 
@@ -689,7 +689,7 @@ uname -r | grep -q '[^a-zA-Z0-9_.\\-]' || \
 # %z is not defined
 ( ! check_alias z 'z' )
 
-: '-------specifiers in WantedBy-------------------------------'
+: '-------specifiers in WantedBy----------------------------------'
 # We don't need to repeat all the tests. Let's do a basic check that specifier
 # expansion is performed.
 
@@ -715,7 +715,7 @@ test ! -h "$root/etc/systemd/system/another-target2@.target.requires/some-some-l
 
 # TODO: repeat the tests above for presets
 
-: '-------SYSTEMD_OS_RELEASE relative to root-------------------'
+: '-------SYSTEMD_OS_RELEASE relative to root---------------------'
 # check that os-release overwriting works as expected with root
 test -e "$root/etc/os-release"
 
