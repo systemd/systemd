@@ -388,7 +388,7 @@ static char* fallback_hostname(void) {
 
 static int make_fallback_hostnames(char **full_hostname, char **llmnr_hostname, char **mdns_hostname) {
         _cleanup_free_ char *h = NULL, *n = NULL, *m = NULL;
-        char label[DNS_LABEL_MAX];
+        char label[DNS_LABEL_MAX+1];
         const char *p;
         int r;
 
