@@ -231,6 +231,18 @@ static int verify_vc_kbmode(int fd) {
         return IN_SET(curr_mode, K_XLATE, K_UNICODE) ? 0 : -EBUSY;
 }
 
+static int verify_vc_display_mode(int fd) {
+        int mode;
+
+        /* Similarly the vc is likely busy if it is in KD_GRAPHICS mode. If it's not the case and it's been
+         * left in graphics mode, the kernel will refuse to operate on the font settings anyway. */
+
+        if (ioctl(fd, KDGETMODE, &mode) < 0)
+                return -errno;
+
+        return mode != KD_TEXT ? -EBUSY : 0;
+}
+
 static int toggle_utf8_vc(const char *name, int fd, bool utf8) {
         int r;
         struct termios tc = {};
@@ -470,24 +482,15 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
                 if (cfo.op != KD_FONT_OP_SET)
                         continue;
 
+                r = verify_vc_display_mode(fd_d);
+                if (r < 0) {
+                        log_debug_errno(r, "KD_FONT_OP_SET skipped: tty%u is not in text mode", i);
+                        continue;
+                }
+
                 r = ioctl(fd_d, KDFONTOP, &cfo);
                 if (r < 0) {
-                        int last_errno, mode;
-
-                        /* The fonts couldn't have been copied. It might be due to the
-                         * terminal being in graphical mode. In this case the kernel
-                         * returns -EINVAL which is too generic for distinguishing this
-                         * specific case. So we need to retrieve the terminal mode and if
-                         * the graphical mode is in used, let's assume that something else
-                         * is using the terminal and the failure was expected as we
-                         * shouldn't have tried to copy the fonts. */
-
-                        last_errno = errno;
-                        if (ioctl(fd_d, KDGETMODE, &mode) >= 0 && mode != KD_TEXT)
-                                log_debug("KD_FONT_OP_SET skipped: tty%u is not in text mode", i);
-                        else
-                                log_warning_errno(last_errno, "KD_FONT_OP_SET failed, fonts will not be copied to tty%u: %m", i);
-
+                        log_warning_errno(errno, "KD_FONT_OP_SET failed, fonts will not be copied to tty%u: %m", i);
                         continue;
                 }
 
@@ -535,9 +538,17 @@ static int find_source_vc(char **ret_path, unsigned *ret_idx) {
                         RET_GATHER(err, r);
                         continue;
                 }
+
                 r = verify_vc_kbmode(fd);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to check VC %s keyboard mode: %m", path);
+                        RET_GATHER(err, r);
+                        continue;
+                }
+
+                r = verify_vc_display_mode(fd);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to check VC %s display mode: %m", path);
                         RET_GATHER(err, r);
                         continue;
                 }
@@ -571,6 +582,13 @@ static int verify_source_vc(char **ret_path, const char *src_vc) {
         r = verify_vc_kbmode(fd);
         if (r < 0)
                 return log_error_errno(r, "Virtual console %s is not in K_XLATE or K_UNICODE: %m", src_vc);
+
+        /* setfont(8) silently ignores when the font can't be applied due to the vc being in
+         * KD_GRAPHICS. Hence we continue to accept this case however we now let the user know that the vc
+         * will be initialized only partially.*/
+        r = verify_vc_display_mode(fd);
+        if (r < 0)
+                log_notice_errno(r, "Virtual console %s is not in KD_TEXT, font settings likely won't be applied.", src_vc);
 
         path = strdup(src_vc);
         if (!path)
