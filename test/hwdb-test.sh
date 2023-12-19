@@ -10,6 +10,7 @@
 set -e
 
 export SYSTEMD_LOG_LEVEL=info
+export SYSTEMD_HWDB_UPDATE_BYPASS=0
 ROOTDIR="$(dirname "$(dirname "$(readlink -f "$0")")")"
 SYSTEMD_HWDB="${1:?}"
 
