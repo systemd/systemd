@@ -281,7 +281,7 @@ static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const cha
                 return -ESTALE;
         else if (STR_IN_SET(d->result, "done", "skipped")) {
                 if (flags & BUS_WAIT_JOBS_LOG_SUCCESS)
-                        log_info("Job %s finished.", strna(d->name));
+                        log_info("Job for %s finished.", strna(d->name));
                 return 0;
         }
 
