@@ -70,7 +70,7 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
         -D tests=unsafe
         -D slow-tests="${SLOW_TESTS:-false}"
         -D create-log-dirs=false
-        -D pamconfdir=no
+        -D pamconfdir=/usr/lib/pam.d/
         -D utmp=true
         -D hibernate=true
         -D ldconfig=true
