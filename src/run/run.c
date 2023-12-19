@@ -73,6 +73,7 @@ static bool arg_aggressive_gc = false;
 static char *arg_working_directory = NULL;
 static bool arg_shell = false;
 static char **arg_cmdline = NULL;
+static char *arg_exec_path = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_description, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_environment, strv_freep);
@@ -82,6 +83,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_socket_property, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_timer_property, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_working_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cmdline, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_exec_path, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -146,6 +148,39 @@ static int help(void) {
         return 0;
 }
 
+static int help_sudo_mode(void) {
+        _cleanup_free_ char *link = NULL;
+        int r;
+
+        r = terminal_urlify_man("uid0", "1", &link);
+        if (r < 0)
+                return log_oom();
+
+        printf("%s [OPTIONS...] COMMAND [ARGUMENTS...]\n"
+               "\n%sElevate privileges interactively.%s\n\n"
+               "  -h --help                       Show this help\n"
+               "  -V --version                    Show package version\n"
+               "     --no-ask-password            Do not prompt for password\n"
+               "     --machine=CONTAINER          Operate on local container\n"
+               "     --unit=UNIT                  Run under the specified unit name\n"
+               "     --property=NAME=VALUE        Set service or scope unit property\n"
+               "     --description=TEXT           Description for unit\n"
+               "     --slice=SLICE                Run in the specified slice\n"
+               "     --slice-inherit              Inherit the slice\n"
+               "  -u --user=USER                  Run as system user\n"
+               "  -g --group=GROUP                Run as system group\n"
+               "     --nice=NICE                  Nice level\n"
+               "  -D --chdir=PATH                 Set working directory\n"
+               "     --setenv=NAME[=VALUE]        Set environment variable\n"
+               "\nSee the %s for details.\n",
+               program_invocation_short_name,
+               ansi_highlight(),
+               ansi_normal(),
+               link);
+
+        return 0;
+}
+
 static int add_timer_property(const char *name, const char *val) {
         char *p;
 
@@ -160,6 +195,18 @@ static int add_timer_property(const char *name, const char *val) {
                 return log_oom();
 
         return 0;
+}
+
+static char **make_login_shell_cmdline(const char *shell) {
+        _cleanup_free_ char *argv0 = NULL;
+
+        assert(shell);
+
+        argv0 = strjoin("-", shell); /* The - is how shells determine if they shall be consider login shells */
+        if (!argv0)
+                return NULL;
+
+        return strv_new(argv0);
 }
 
 static int parse_argv(int argc, char *argv[]) {
@@ -651,6 +698,219 @@ static int parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
+static int parse_argv_sudo_mode(int argc, char *argv[]) {
+
+        enum {
+                ARG_NO_ASK_PASSWORD = 0x100,
+                ARG_HOST,
+                ARG_MACHINE,
+                ARG_UNIT,
+                ARG_PROPERTY,
+                ARG_DESCRIPTION,
+                ARG_SLICE,
+                ARG_SLICE_INHERIT,
+                ARG_NICE,
+                ARG_SETENV,
+        };
+
+        /* If invoked as "uid0" binary, let's expose a more sudo-like interface. We add various extensions
+         * though (but limit the extension to long options). */
+
+        static const struct option options[] = {
+                { "help",               no_argument,       NULL, 'h'                    },
+                { "version",            no_argument,       NULL, 'V'                    },
+                { "no-ask-password",    no_argument,       NULL, ARG_NO_ASK_PASSWORD    },
+                { "machine",            required_argument, NULL, ARG_MACHINE            },
+                { "unit",               required_argument, NULL, ARG_UNIT               },
+                { "property",           required_argument, NULL, ARG_PROPERTY           },
+                { "description",        required_argument, NULL, ARG_DESCRIPTION        },
+                { "slice",              required_argument, NULL, ARG_SLICE              },
+                { "slice-inherit",      no_argument,       NULL, ARG_SLICE_INHERIT      },
+                { "user",               required_argument, NULL, 'u'                    },
+                { "group",              required_argument, NULL, 'g'                    },
+                { "nice",               required_argument, NULL, ARG_NICE               },
+                { "chdir",              required_argument, NULL, 'D'                    },
+                { "setenv",             required_argument, NULL, ARG_SETENV             },
+                {},
+        };
+
+        int r, c;
+
+        assert(argc >= 0);
+        assert(argv);
+
+        /* Resetting to 0 forces the invocation of an internal initialization routine of getopt_long()
+         * that checks for GNU extensions in optstring ('-' or '+' at the beginning). */
+        optind = 0;
+        while ((c = getopt_long(argc, argv, "+hVu:g:D:", options, NULL)) >= 0)
+
+                switch (c) {
+
+                case 'h':
+                        return help_sudo_mode();
+
+                case 'V':
+                        return version();
+
+                case ARG_NO_ASK_PASSWORD:
+                        arg_ask_password = false;
+                        break;
+
+                case ARG_MACHINE:
+                        arg_transport = BUS_TRANSPORT_MACHINE;
+                        arg_host = optarg;
+                        break;
+
+                case ARG_UNIT:
+                        arg_unit = optarg;
+                        break;
+
+                case ARG_PROPERTY:
+                        if (strv_extend(&arg_property, optarg) < 0)
+                                return log_oom();
+
+                        break;
+
+                case ARG_DESCRIPTION:
+                        r = free_and_strdup_warn(&arg_description, optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_SLICE:
+                        arg_slice = optarg;
+                        break;
+
+                case ARG_SLICE_INHERIT:
+                        arg_slice_inherit = true;
+                        break;
+
+                case 'u':
+                        arg_exec_user = optarg;
+                        break;
+
+                case 'g':
+                        arg_exec_group = optarg;
+                        break;
+
+                case ARG_NICE:
+                        r = parse_nice(optarg, &arg_nice);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse nice value: %s", optarg);
+
+                        arg_nice_set = true;
+                        break;
+
+                case 'D':
+                        r = parse_path_argument(optarg, true, &arg_working_directory);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case ARG_SETENV:
+                        r = strv_env_replace_strdup_passthrough(&arg_environment, optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Cannot assign environment variable %s: %m", optarg);
+
+                        break;
+
+                case '?':
+                        return -EINVAL;
+
+                default:
+                        assert_not_reached();
+                }
+
+        if (!arg_working_directory) {
+                if (arg_exec_user) {
+                        /* When switching to a specific user, also switch to its home directory. */
+                        arg_working_directory = strdup("~");
+                        if (!arg_working_directory)
+                                return log_oom();
+                } else {
+                        /* When switching to root without this being specified, then stay in the current directory */
+                        r = safe_getcwd(&arg_working_directory);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to get current working directory: %m");
+                }
+        }
+
+        arg_service_type = "exec";
+        arg_quiet = true;
+        arg_wait = true;
+        arg_aggressive_gc = true;
+
+        arg_stdio = isatty(STDIN_FILENO) && isatty(STDOUT_FILENO) && isatty(STDERR_FILENO) ? ARG_STDIO_PTY : ARG_STDIO_DIRECT;
+        arg_expand_environment = false;
+        arg_send_sighup = true;
+
+        _cleanup_strv_free_ char **l = NULL;
+        if (argc > optind)
+                l = strv_copy(argv + optind);
+        else {
+                const char *e;
+
+                e = strv_env_get(arg_environment, "SHELL");
+                if (e)
+                        arg_exec_path = strdup(e);
+                else {
+                        if (arg_transport == BUS_TRANSPORT_LOCAL) {
+                                r = get_shell(&arg_exec_path);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to determine shell: %m");
+                        } else
+                                arg_exec_path = strdup("/bin/sh");
+                }
+                if (!arg_exec_path)
+                        return log_oom();
+
+                l = make_login_shell_cmdline(arg_exec_path);
+        }
+        if (!l)
+                return log_oom();
+
+        strv_free_and_replace(arg_cmdline, l);
+
+        if (!arg_slice) {
+                arg_slice = strdup("user.slice");
+                if (!arg_slice)
+                        return log_oom();
+        }
+
+        _cleanup_free_ char *un = NULL;
+        un = getusername_malloc();
+        if (!un)
+                return log_oom();
+
+        /* Set a bunch of environment variables in a roughly sudo-compatible way */
+        r = strv_env_assign(&arg_environment, "SUDO_USER", un);
+        if (r < 0)
+                return log_error_errno(r, "Failed to set $SUDO_USER environment variable: %m");
+
+        r = strv_env_assignf(&arg_environment, "SUDO_UID", UID_FMT, getuid());
+        if (r < 0)
+                return log_error_errno(r, "Failed to set $SUDO_UID environment variable: %m");
+
+        r = strv_env_assignf(&arg_environment, "SUDO_GID", GID_FMT, getgid());
+        if (r < 0)
+                return log_error_errno(r, "Failed to set $SUDO_GID environment variable: %m");
+
+        if (strv_extendf(&arg_property, "LogExtraFields=ELEVATED_UID=" UID_FMT, getuid()) < 0)
+                return log_oom();
+
+        if (strv_extendf(&arg_property, "LogExtraFields=ELEVATED_GID=" GID_FMT, getgid()) < 0)
+                return log_oom();
+
+        if (strv_extendf(&arg_property, "LogExtraFields=ELEVATED_USER=%s", un) < 0)
+                return log_oom();
+
+        if (strv_extend(&arg_property, "PAMName=systemd-uid0") < 0)
+                return log_oom();
+
+        return 1;
+}
+
 static int transient_unit_set_properties(sd_bus_message *m, UnitType t, char **properties) {
         int r;
 
@@ -899,7 +1159,7 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                 if (r < 0)
                         return bus_log_create_error(r);
 
-                r = sd_bus_message_append(m, "s", arg_cmdline[0]);
+                r = sd_bus_message_append(m, "s", arg_exec_path ?: arg_cmdline[0]);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1899,6 +2159,8 @@ static int start_transient_trigger(sd_bus *bus, const char *suffix) {
 }
 
 static bool shall_make_executable_absolute(void) {
+        if (arg_exec_path)
+                return false;
         if (strv_isempty(arg_cmdline))
                 return false;
         if (arg_transport != BUS_TRANSPORT_LOCAL)
@@ -1919,7 +2181,10 @@ static int run(int argc, char* argv[]) {
         log_parse_environment();
         log_open();
 
-        r = parse_argv(argc, argv);
+        if (invoked_as(argv, "uid0"))
+                r = parse_argv_sudo_mode(argc, argv);
+        else
+                r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
 
