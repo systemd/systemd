@@ -33,6 +33,7 @@ typedef enum VerifyESPFlags {
 
 static VerifyESPFlags verify_esp_flags_init(int unprivileged_mode, const char *env_name_for_relaxing) {
         VerifyESPFlags flags = 0;
+        int r;
 
         assert(env_name_for_relaxing);
 
@@ -41,7 +42,10 @@ static VerifyESPFlags verify_esp_flags_init(int unprivileged_mode, const char *e
         if (unprivileged_mode)
                 flags |= VERIFY_ESP_UNPRIVILEGED_MODE;
 
-        if (getenv_bool(env_name_for_relaxing) > 0)
+        r = getenv_bool(env_name_for_relaxing);
+        if (r < 0 && r != -ENXIO)
+                log_debug_errno(r, "Failed to parse $%s environment variable, assuming false.", env_name_for_relaxing);
+        else if (r > 0)
                 flags |= VERIFY_ESP_SKIP_FSTYPE_CHECK | VERIFY_ESP_SKIP_DEVICE_CHECK;
 
         if (detect_container() > 0)
