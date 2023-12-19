@@ -12,7 +12,7 @@ int main(int argc, char *argv[]) {
 
         test_setup_logging(LOG_DEBUG);
 
-        if (cg_unified() == -ENOMEDIUM)
+        if (IN_SET(cg_unified(), -ENOMEDIUM, -ENOENT))
                 return log_tests_skipped("/sys/fs/cgroup/ not available");
 
         r = sd_bus_creds_new_from_pid(&creds, 0, _SD_BUS_CREDS_ALL);

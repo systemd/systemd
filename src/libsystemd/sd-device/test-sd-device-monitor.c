@@ -10,6 +10,7 @@
 #include "device-private.h"
 #include "device-util.h"
 #include "macro.h"
+#include "mountpoint-util.h"
 #include "path-util.h"
 #include "stat-util.h"
 #include "string-util.h"
@@ -297,6 +298,9 @@ int main(int argc, char *argv[]) {
 
         if (getuid() != 0)
                 return log_tests_skipped("not root");
+
+        if (path_is_mount_point("/sys", NULL, 0) <= 0)
+                return log_tests_skipped("/sys is not mounted");
 
         if (path_is_read_only_fs("/sys") > 0)
                 return log_tests_skipped("Running in container");
