@@ -28,6 +28,12 @@ Name=test
 EOF
 
 # Test files
+
+networkctl mask --runtime "donotexist.network"
+assert_eq "$(readlink /run/systemd/network/donotexist.network)" "/dev/null"
+networkctl unmask "donotexist.network" # unmask should work even without --runtime
+[[ ! -e /run/systemd/network/donotexist.network ]]
+
 networkctl cat "$NETWORK_NAME" | tail -n +2 | cmp - "/usr/lib/systemd/network/$NETWORK_NAME"
 
 cat >new <<EOF
@@ -36,11 +42,21 @@ Name=test2
 EOF
 
 EDITOR='mv new' script -ec 'networkctl edit --runtime "$NETWORK_NAME"' /dev/null
+(! networkctl mask --runtime "$LINK_NAME")
 printf '%s\n' '[Match]' 'Name=test2' | cmp - "/run/systemd/network/$NETWORK_NAME"
+
+networkctl mask "$LINK_NAME"
+assert_eq "$(readlink "/etc/systemd/network/$LINK_NAME")" "/dev/null"
+(! networkctl edit "$LINK_NAME")
+(! networkctl edit --runtime "$LINK_NAME")
+(! networkctl cat "$LINK_NAME")
+(! networkctl unmask --runtime "$LINK_NAME")
+networkctl unmask "$LINK_NAME"
 
 EDITOR='true' script -ec 'networkctl edit "$NETWORK_NAME"' /dev/null
 printf '%s\n' '[Match]' 'Name=test2' | cmp - "/etc/systemd/network/$NETWORK_NAME"
 
+(! networkctl mask "$LINK_NAME")
 (! EDITOR='true' script -ec 'networkctl edit --runtime "$NETWORK_NAME"' /dev/null)
 
 cat >"+4" <<EOF
