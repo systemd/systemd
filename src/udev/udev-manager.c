@@ -332,6 +332,28 @@ static int on_event_timeout_warning(sd_event_source *s, uint64_t usec, void *use
         return 1;
 }
 
+static usec_t extra_timeout_usec(void) {
+        static usec_t saved = 10 * USEC_PER_SEC;
+        static bool parsed = false;
+        const char *e;
+        int r;
+
+        if (parsed)
+                return saved;
+
+        parsed = true;
+
+        e = getenv("SYSTEMD_UDEV_EXTRA_TIMEOUT_SEC");
+        if (!e)
+                return saved;
+
+        r = parse_sec(e, &saved);
+        if (r < 0)
+                log_debug_errno(r, "Failed to parse $SYSTEMD_UDEV_EXTRA_TIMEOUT_SEC=%s, ignoring: %m", e);
+
+        return saved;
+}
+
 static void worker_attach_event(Worker *worker, Event *event) {
         Manager *manager = ASSERT_PTR(ASSERT_PTR(worker)->manager);
         sd_event *e = ASSERT_PTR(manager->event);
@@ -349,8 +371,12 @@ static void worker_attach_event(Worker *worker, Event *event) {
                                           udev_warn_timeout(manager->timeout_usec), USEC_PER_SEC,
                                           on_event_timeout_warning, event);
 
+        /* Manager.timeout_usec is also used as the timeout for running programs specified in
+         * IMPORT{program}=, PROGRAM=, or RUN=. Here, let's add an extra time before the manager
+         * kills a worker, to make it possible that the worker detects timed out of spawned programs,
+         * kills them, and finalizes the event. */
         (void) sd_event_add_time_relative(e, &event->timeout_event, CLOCK_MONOTONIC,
-                                          manager->timeout_usec, USEC_PER_SEC,
+                                          usec_add(manager->timeout_usec, extra_timeout_usec()), USEC_PER_SEC,
                                           on_event_timeout, event);
 }
 
