@@ -141,7 +141,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to open device '%s'", devpath);
 
-        assert_se(event = udev_event_new(dev, 0, NULL, log_get_max_level()));
+        assert_se(event = udev_event_new(dev, NULL));
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, SIGHUP, SIGCHLD, -1) >= 0);
 
@@ -169,8 +169,8 @@ static int run(int argc, char *argv[]) {
                 }
         }
 
-        udev_event_execute_rules(event, 3 * USEC_PER_SEC, SIGKILL, NULL, rules);
-        udev_event_execute_run(event, 3 * USEC_PER_SEC, SIGKILL);
+        udev_event_execute_rules(event, rules);
+        udev_event_execute_run(event);
 
         return 0;
 }

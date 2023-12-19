@@ -221,8 +221,6 @@ static int spawn_wait(Spawn *spawn) {
 
 int udev_event_spawn(
                 UdevEvent *event,
-                usec_t timeout_usec,
-                int timeout_signal,
                 bool accept_failure,
                 const char *cmd,
                 char *result,
@@ -239,6 +237,9 @@ int udev_event_spawn(
         assert(event);
         assert(event->dev);
         assert(result || result_size == 0);
+
+        int timeout_signal = event->worker ? event->worker->timeout_signal : SIGKILL;
+        usec_t timeout_usec = event->worker ? event->worker->timeout_usec : DEFAULT_WORKER_TIMEOUT_USEC;
 
         /* pipes from child to parent */
         if (result || log_get_max_level() >= LOG_INFO)
@@ -322,10 +323,12 @@ int udev_event_spawn(
         return r; /* 0 for success, and positive if the program failed */
 }
 
-void udev_event_execute_run(UdevEvent *event, usec_t timeout_usec, int timeout_signal) {
+void udev_event_execute_run(UdevEvent *event) {
         const char *command;
         void *val;
         int r;
+
+        assert(event);
 
         ORDERED_HASHMAP_FOREACH_KEY(val, command, event->run_list) {
                 UdevBuiltinCommand builtin_cmd = PTR_TO_UDEV_BUILTIN_CMD(val);
@@ -336,15 +339,15 @@ void udev_event_execute_run(UdevEvent *event, usec_t timeout_usec, int timeout_s
                         if (r < 0)
                                 log_device_debug_errno(event->dev, r, "Failed to run built-in command \"%s\", ignoring: %m", command);
                 } else {
-                        if (event->exec_delay_usec > 0) {
+                        if (event->worker && event->worker->exec_delay_usec > 0) {
                                 log_device_debug(event->dev, "Delaying execution of \"%s\" for %s.",
-                                                 command, FORMAT_TIMESPAN(event->exec_delay_usec, USEC_PER_SEC));
-                                (void) usleep_safe(event->exec_delay_usec);
+                                                 command, FORMAT_TIMESPAN(event->worker->exec_delay_usec, USEC_PER_SEC));
+                                (void) usleep_safe(event->worker->exec_delay_usec);
                         }
 
                         log_device_debug(event->dev, "Running command \"%s\"", command);
 
-                        r = udev_event_spawn(event, timeout_usec, timeout_signal, false, command, NULL, 0, NULL);
+                        r = udev_event_spawn(event, /* accept_failure = */ false, command, NULL, 0, NULL);
                         if (r < 0)
                                 log_device_warning_errno(event->dev, r, "Failed to execute '%s', ignoring: %m", command);
                         else if (r > 0) /* returned value is positive when program fails */
