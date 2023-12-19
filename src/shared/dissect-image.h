@@ -162,6 +162,7 @@ int dissect_image_file_and_warn(const char *path, const VeritySettings *verity, 
 int dissect_loop_device(LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, const ImagePolicy *image_policy, DissectImageFlags flags, DissectedImage **ret);
 int dissect_loop_device_and_warn(LoopDevice *loop, const VeritySettings *verity, const MountOptions *mount_options, const ImagePolicy *image_policy, DissectImageFlags flags, DissectedImage **ret);
 
+void dissected_image_close(DissectedImage *m);
 DissectedImage* dissected_image_unref(DissectedImage *m);
 DEFINE_TRIVIAL_CLEANUP_FUNC(DissectedImage*, dissected_image_unref);
 
@@ -170,7 +171,7 @@ int dissected_image_decrypt_interactively(DissectedImage *m, const char *passphr
 int dissected_image_mount(DissectedImage *m, const char *dest, uid_t uid_shift, uid_t uid_range, int userns_fd, DissectImageFlags flags);
 int dissected_image_mount_and_warn(DissectedImage *m, const char *where, uid_t uid_shift, uid_t uid_range, int userns_fd, DissectImageFlags flags);
 
-int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_flags);
+int dissected_image_acquire_metadata(DissectedImage *m, int userns_fd, DissectImageFlags extra_flags);
 
 Architecture dissected_image_architecture(DissectedImage *m);
 
@@ -197,6 +198,14 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(DecryptedImage*, decrypted_image_unref);
 int dissected_image_relinquish(DissectedImage *m);
 
 int verity_settings_load(VeritySettings *verity, const char *image, const char *root_hash_path, const char *root_hash_sig_path);
+
+static inline bool verity_settings_set(const VeritySettings *settings) {
+        return settings &&
+                (settings->root_hash_size > 0 ||
+                 (settings->root_hash_sig_size > 0 ||
+                  settings->data_path));
+}
+
 void verity_settings_done(VeritySettings *verity);
 
 static inline bool verity_settings_data_covers(const VeritySettings *verity, PartitionDesignator d) {
@@ -229,3 +238,7 @@ static inline const char *dissected_partition_fstype(const DissectedPartition *m
 
         return m->decrypted_node ? m->decrypted_fstype : m->fstype;
 }
+
+int get_common_dissect_directory(char **ret);
+
+int mntfsd_mount_image(const char *path, int userns_fd, const ImagePolicy *image_policy, DissectImageFlags flags, DissectedImage **ret);
