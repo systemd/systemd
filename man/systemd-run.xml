@@ -485,6 +485,17 @@
         <xi:include href="version-info.xml" xpointer="v236"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--ignore-failure</option></term>
+
+        <listitem><para>By default, if the specified command fails the invoked unit will be marked failed
+        (though possibly still unloaded, see <option>--collect=</option>, above), and this is reported in the
+        logs. If this switch is specified this is suppressed and any non-success exit status/code of the
+        command is treated as success.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
       <xi:include href="user-system-options.xml" xpointer="user" />
       <xi:include href="user-system-options.xml" xpointer="system" />
       <xi:include href="user-system-options.xml" xpointer="host" />

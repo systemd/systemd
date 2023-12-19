@@ -74,6 +74,7 @@ static char *arg_working_directory = NULL;
 static bool arg_shell = false;
 static char **arg_cmdline = NULL;
 static char *arg_exec_path = NULL;
+static bool arg_ignore_failure = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_description, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_environment, strv_freep);
@@ -125,6 +126,7 @@ static int help(void) {
                "  -q --quiet                      Suppress information messages during runtime\n"
                "  -G --collect                    Unload unit after it ran, even when failed\n"
                "  -S --shell                      Invoke a $SHELL interactively\n"
+               "     --ignore-failure             Ignore the exit status of the invoked process\n"
                "\n%3$sPath options:%4$s\n"
                "     --path-property=NAME=VALUE   Set path unit property\n"
                "\n%3$sSocket options:%4$s\n"
@@ -241,6 +243,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_WAIT,
                 ARG_WORKING_DIRECTORY,
                 ARG_SHELL,
+                ARG_IGNORE_FAILURE,
         };
 
         static const struct option options[] = {
@@ -286,6 +289,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "working-directory",  required_argument, NULL, ARG_WORKING_DIRECTORY  },
                 { "same-dir",           no_argument,       NULL, 'd'                    },
                 { "shell",              no_argument,       NULL, 'S'                    },
+                { "ignore-failure",     no_argument,       NULL, ARG_IGNORE_FAILURE     },
                 {},
         };
 
@@ -569,6 +573,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'S':
                         arg_shell = true;
+                        break;
+
+                case ARG_IGNORE_FAILURE:
+                        arg_ignore_failure = true;
                         break;
 
                 case '?':
@@ -1170,9 +1178,10 @@ static int transient_service_set_properties(sd_bus_message *m, const char *pty_p
                 if (use_ex_prop)
                         r = sd_bus_message_append_strv(
                                         m,
-                                        STRV_MAKE(arg_expand_environment > 0 ? NULL : "no-env-expand"));
+                                        STRV_MAKE(arg_expand_environment > 0 ? NULL : "no-env-expand",
+                                                  arg_ignore_failure ? "ignore-failure" : NULL));
                 else
-                        r = sd_bus_message_append(m, "b", false);
+                        r = sd_bus_message_append(m, "b", arg_ignore_failure);
                 if (r < 0)
                         return bus_log_create_error(r);
 
