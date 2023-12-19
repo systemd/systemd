@@ -2877,6 +2877,8 @@ static int help(void) {
                "  reload                 Reload .network and .netdev files\n"
                "  edit FILES|DEVICES...  Edit network configuration files\n"
                "  cat FILES|DEVICES...   Show network configuration files\n"
+               "  mask FILES...          Mask network configuration files\n"
+               "  unmask FILES...        Unmask network configuration files\n"
                "\nOptions:\n"
                "  -h --help              Show this help\n"
                "     --version           Show package version\n"
@@ -3033,6 +3035,8 @@ static int networkctl_main(int argc, char *argv[]) {
                 { "reload",      1,        1,        VERB_ONLINE_ONLY,              verb_reload         },
                 { "edit",        2,        VERB_ANY, 0,                             verb_edit           },
                 { "cat",         2,        VERB_ANY, 0,                             verb_cat            },
+                { "mask",        2,        VERB_ANY, 0,                             verb_mask           },
+                { "unmask",      2,        VERB_ANY, 0,                             verb_unmask         },
                 {}
         };
 
