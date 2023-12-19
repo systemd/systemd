@@ -2271,13 +2271,13 @@ int unit_file_mask(
         if (!config_path)
                 return -ENXIO;
 
+        r = 0;
+
         STRV_FOREACH(name, names) {
                 _cleanup_free_ char *path = NULL;
-                int q;
 
                 if (!unit_name_is_valid(*name, UNIT_NAME_ANY)) {
-                        if (r == 0)
-                                r = -EINVAL;
+                        RET_GATHER(r, -EINVAL);
                         continue;
                 }
 
@@ -2285,9 +2285,7 @@ int unit_file_mask(
                 if (!path)
                         return -ENOMEM;
 
-                q = create_symlink(&lp, "/dev/null", path, flags & UNIT_FILE_FORCE, changes, n_changes);
-                if (q < 0 && r >= 0)
-                        r = q;
+                RET_GATHER(r, create_symlink(&lp, "/dev/null", path, flags & UNIT_FILE_FORCE, changes, n_changes));
         }
 
         return r;
@@ -2383,8 +2381,7 @@ int unit_file_unmask(
 
                 if (!dry_run && unlink(path) < 0) {
                         if (errno != ENOENT) {
-                                if (r >= 0)
-                                        r = -errno;
+                                RET_GATHER(r, -errno);
                                 install_changes_add(changes, n_changes, -errno, path, NULL);
                         }
 
@@ -2401,9 +2398,7 @@ int unit_file_unmask(
                         return q;
         }
 
-        q = remove_marked_symlinks(remove_symlinks_to, config_path, &lp, dry_run, changes, n_changes);
-        if (r >= 0)
-                r = q;
+        RET_GATHER(r, remove_marked_symlinks(remove_symlinks_to, config_path, &lp, dry_run, changes, n_changes));
 
         return r;
 }
