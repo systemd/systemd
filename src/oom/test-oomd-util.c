@@ -8,6 +8,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "mountpoint-util.h"
 #include "oomd-util.h"
 #include "parse-util.h"
 #include "path-util.h"
