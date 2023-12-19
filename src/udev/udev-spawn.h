@@ -24,5 +24,8 @@ int udev_event_spawn(
 void udev_event_execute_run(UdevEvent *event, usec_t timeout_usec, int timeout_signal);
 
 static inline usec_t udev_warn_timeout(usec_t timeout_usec) {
+        if (timeout_usec == USEC_INFINITY)
+                return USEC_INFINITY;
+
         return DIV_ROUND_UP(timeout_usec, 3);
 }
