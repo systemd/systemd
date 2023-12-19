@@ -32,10 +32,22 @@ proc_supports_option() {
 # the transient stuff from systemd-run. Let's just skip the following tests
 # in that case instead of complicating the test setup even more */
 if [[ -z "${COVERAGE_BUILD_DIR:-}" ]]; then
+    if ! systemd-detect-virt -cq && command -v bootctl >/dev/null; then
+        boot_path="$(bootctl --print-boot-path)"
+        esp_path="$(bootctl --print-esp-path)"
+    else
+        boot_path="/boot"
+        esp_path=""
+    fi
+
+    # If the mount points are handled by automount units, make sure we trigger
+    # them before proceeding further
+    ls -l "$boot_path" ${esp_path:+"$esp_path"}
+
     systemd-run --wait --pipe -p ProtectSystem=yes \
-        bash -xec "test ! -w /usr; test ! -w /boot; test -w /etc; test -w /var"
+        bash -xec "test ! -w /usr; test ! -w $boot_path; ${esp_path:+"test ! -w $esp_path;"} test -w /etc; test -w /var"
     systemd-run --wait --pipe -p ProtectSystem=full \
-        bash -xec "test ! -w /usr; test ! -w /boot; test ! -w /etc; test -w /var"
+        bash -xec "test ! -w /usr; test ! -w $boot_path; ${esp_path:+"test ! -w $esp_path;"} test ! -w /etc; test -w /var"
     systemd-run --wait --pipe -p ProtectSystem=strict \
         bash -xec "test ! -w /; test ! -w /etc; test ! -w /var; test -w /dev; test -w /proc"
     systemd-run --wait --pipe -p ProtectSystem=no \
