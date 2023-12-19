@@ -556,11 +556,8 @@ static int parse_argv(int argc, char *argv[]) {
                                         return log_error_errno(r, "Failed to get current working directory: %m");
                         }
 
-                        if (!arg_service_type) {
-                                arg_service_type = strdup("exec");
-                                if (!arg_service_type)
-                                        return log_oom();
-                        }
+                        if (!arg_service_type)
+                                arg_service_type = "exec";
 
                         arg_wait = true;
                 }
