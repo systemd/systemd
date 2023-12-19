@@ -578,12 +578,18 @@ executables += [
         },
         test_template + {
                 'sources' : files('../libsystemd/sd-device/test-sd-device-thread.c'),
-                'link_with' : libsystemd,
+                'link_with' : [
+                        libbasic,
+                        libsystemd,
+                ],
                 'dependencies' : threads,
         },
         test_template + {
                 'sources' : files('../libudev/test-udev-device-thread.c'),
-                'link_with' : libudev,
+                'link_with' : [
+                        libbasic,
+                        libudev,
+                ],
                 'dependencies' : threads,
         },
         test_template + {
