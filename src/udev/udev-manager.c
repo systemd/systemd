@@ -1275,22 +1275,22 @@ int manager_main(Manager *manager) {
 
         udev_watch_restore(manager->inotify_fd);
 
-        /* block and listen to all signals on signalfd */
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, SIGHUP, SIGCHLD, SIGRTMIN+18, -1) >= 0);
+        /* block SIGCHLD for listening child events. */
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
 
         r = sd_event_default(&manager->event);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
-        r = sd_event_add_signal(manager->event, NULL, SIGINT, on_sigterm, manager);
+        r = sd_event_add_signal(manager->event, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, on_sigterm, manager);
         if (r < 0)
                 return log_error_errno(r, "Failed to create SIGINT event source: %m");
 
-        r = sd_event_add_signal(manager->event, NULL, SIGTERM, on_sigterm, manager);
+        r = sd_event_add_signal(manager->event, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, on_sigterm, manager);
         if (r < 0)
                 return log_error_errno(r, "Failed to create SIGTERM event source: %m");
 
-        r = sd_event_add_signal(manager->event, NULL, SIGHUP, on_sighup, manager);
+        r = sd_event_add_signal(manager->event, NULL, SIGHUP | SD_EVENT_SIGNAL_PROCMASK, on_sighup, manager);
         if (r < 0)
                 return log_error_errno(r, "Failed to create SIGHUP event source: %m");
 
@@ -1340,7 +1340,8 @@ int manager_main(Manager *manager) {
                 log_full_errno(ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r) || (r == -EHOSTDOWN) ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to allocate memory pressure watch, ignoring: %m");
 
-        r = sd_event_add_signal(manager->event, &manager->memory_pressure_event_source, SIGRTMIN+18, sigrtmin18_handler, NULL);
+        r = sd_event_add_signal(manager->event, &manager->memory_pressure_event_source,
+                                (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate SIGRTMIN+18 event source, ignoring: %m");
 
