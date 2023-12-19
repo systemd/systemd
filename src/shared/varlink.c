@@ -2425,6 +2425,13 @@ int varlink_error_invalid_parameter(Varlink *v, JsonVariant *parameters) {
         return -EINVAL;
 }
 
+int varlink_error_invalid_parameter_name(Varlink *v, const char *name) {
+        return varlink_errorb(
+                        v,
+                        VARLINK_ERROR_INVALID_PARAMETER,
+                        JSON_BUILD_OBJECT(JSON_BUILD_PAIR("parameter", JSON_BUILD_STRING(name))));
+}
+
 int varlink_error_errno(Varlink *v, int error) {
         return varlink_errorb(
                         v,
@@ -2567,9 +2574,26 @@ int varlink_get_peer_uid(Varlink *v, uid_t *ret) {
                 return varlink_log_errno(v, r, "Failed to acquire credentials: %m");
 
         if (!uid_is_valid(v->ucred.uid))
-                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENODATA), "Peer uid is invalid.");
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENODATA), "Peer UID is invalid.");
 
         *ret = v->ucred.uid;
+        return 0;
+}
+
+int varlink_get_peer_gid(Varlink *v, gid_t *ret) {
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        r = varlink_acquire_ucred(v);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to acquire credentials: %m");
+
+        if (!gid_is_valid(v->ucred.gid))
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENODATA), "Peer GID is invalid.");
+
+        *ret = v->ucred.gid;
         return 0;
 }
 
@@ -3764,4 +3788,43 @@ int varlink_invocation(VarlinkInvocationFlags flags) {
                 return -EISCONN;
 
         return true;
+}
+
+int varlink_error_to_errno(const char *error, JsonVariant *parameters) {
+        static const struct {
+                const char *error;
+                int value;
+        } table[] = {
+                { VARLINK_ERROR_DISCONNECTED,           -ECONNRESET    },
+                { VARLINK_ERROR_TIMEOUT,                -ETIMEDOUT     },
+                { VARLINK_ERROR_PROTOCOL,               -EPROTO        },
+                { VARLINK_ERROR_INTERFACE_NOT_FOUND,    -EADDRNOTAVAIL },
+                { VARLINK_ERROR_METHOD_NOT_FOUND,       -ENXIO         },
+                { VARLINK_ERROR_METHOD_NOT_IMPLEMENTED, -ENOTTY        },
+                { VARLINK_ERROR_INVALID_PARAMETER,      -EINVAL        },
+                { VARLINK_ERROR_PERMISSION_DENIED,      -EACCES        },
+                { VARLINK_ERROR_EXPECTED_MORE,          -EBADE         },
+        };
+
+        if (!error)
+                return 0;
+
+        FOREACH_ARRAY(t, table, ELEMENTSOF(table))
+                if (streq(error, t->error))
+                        return t->value;
+
+        if (streq(error, VARLINK_ERROR_SYSTEM)) {
+                JsonVariant *e;
+
+                e = json_variant_by_key(parameters, "errno");
+                if (json_variant_is_integer(e)) {
+                        int64_t i;
+
+                        i = json_variant_integer(e);
+                        if (i > 0 && i < ERRNO_MAX)
+                                return -i;
+                }
+        }
+
+        return -ENOANO; /* Catch-all */
 }
