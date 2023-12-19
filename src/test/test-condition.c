@@ -139,8 +139,8 @@ TEST(condition_test_control_group_hierarchy) {
         int r;
 
         r = cg_unified();
-        if (r == -ENOMEDIUM) {
-                log_tests_skipped("cgroup not mounted");
+        if (IN_SET(r, -ENOMEDIUM, -ENOENT)) {
+                log_tests_skipped("cgroupfs is not mounted");
                 return;
         }
         assert_se(r >= 0);
@@ -163,8 +163,8 @@ TEST(condition_test_control_group_controller) {
         int r;
 
         r = cg_unified();
-        if (r == -ENOMEDIUM) {
-                log_tests_skipped("cgroup not mounted");
+        if (IN_SET(r, -ENOMEDIUM, -ENOENT)) {
+                log_tests_skipped("cgroupfs is not mounted");
                 return;
         }
         assert_se(r >= 0);

@@ -138,10 +138,10 @@ TEST(path_is_mount_point) {
         assert_se(path_is_mount_point("/proc/1/", NULL, AT_SYMLINK_FOLLOW) == 0);
         assert_se(path_is_mount_point("/proc/1/", NULL, 0) == 0);
 
-        assert_se(path_is_mount_point("/sys", NULL, AT_SYMLINK_FOLLOW) > 0);
-        assert_se(path_is_mount_point("/sys", NULL, 0) > 0);
-        assert_se(path_is_mount_point("/sys/", NULL, AT_SYMLINK_FOLLOW) > 0);
-        assert_se(path_is_mount_point("/sys/", NULL, 0) > 0);
+        assert_se(path_is_mount_point("/dev", NULL, AT_SYMLINK_FOLLOW) > 0);
+        assert_se(path_is_mount_point("/dev", NULL, 0) > 0);
+        assert_se(path_is_mount_point("/dev/", NULL, AT_SYMLINK_FOLLOW) > 0);
+        assert_se(path_is_mount_point("/dev/", NULL, 0) > 0);
 
         /* we'll create a hierarchy of different kinds of dir/file/link
          * layouts:

@@ -21,6 +21,7 @@
 #include "fd-util.h"
 #include "fs-util.h"
 #include "log.h"
+#include "mountpoint-util.h"
 #include "namespace-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -266,7 +267,7 @@ static int enter_cgroup(char **ret_cgroup, bool enter_subroot) {
                 log_warning_errno(r, "Couldn't allocate a scope unit for this test, proceeding without.");
 
         r = cg_pid_get_path(NULL, 0, &cgroup_root);
-        if (r == -ENOMEDIUM)
+        if (IN_SET(r, -ENOMEDIUM, -ENOENT))
                 return log_warning_errno(r, "cg_pid_get_path(NULL, 0, ...) failed: %m");
         assert(r >= 0);
 

@@ -44,8 +44,8 @@ TEST(cg_create) {
         int r;
 
         r = cg_unified_cached(false);
-        if (r == -ENOMEDIUM) {
-                log_tests_skipped("cgroup not mounted");
+        if (IN_SET(r, -ENOMEDIUM, -ENOENT)) {
+                log_tests_skipped("cgroupfs is not mounted");
                 return;
         }
         assert_se(r >= 0);
