@@ -14,7 +14,6 @@
 #include "udev-node.h"
 #include "udev-trace.h"
 #include "udev-util.h"
-#include "udev-watch.h"
 #include "user-util.h"
 
 UdevEvent *udev_event_new(sd_device *dev, usec_t exec_delay_usec, sd_netlink *rtnl, int log_level) {
@@ -278,7 +277,6 @@ static int update_devnode(UdevEvent *event) {
 
 static int event_execute_rules_on_remove(
                 UdevEvent *event,
-                int inotify_fd,
                 usec_t timeout_usec,
                 int timeout_signal,
                 Hashmap *properties_list,
@@ -298,10 +296,6 @@ static int event_execute_rules_on_remove(
         r = device_delete_db(dev);
         if (r < 0)
                 log_device_debug_errno(dev, r, "Failed to delete database under /run/udev/data/, ignoring: %m");
-
-        r = udev_watch_end(inotify_fd, dev);
-        if (r < 0)
-                log_device_warning_errno(dev, r, "Failed to remove inotify watch, ignoring: %m");
 
         r = udev_rules_apply_to_event(rules, event, timeout_usec, timeout_signal, properties_list);
 
@@ -330,7 +324,6 @@ static int copy_all_tags(sd_device *d, sd_device *s) {
 
 int udev_event_execute_rules(
                 UdevEvent *event,
-                int inotify_fd, /* This may be negative */
                 usec_t timeout_usec,
                 int timeout_signal,
                 Hashmap *properties_list,
@@ -348,12 +341,7 @@ int udev_event_execute_rules(
                 return log_device_error_errno(dev, r, "Failed to get ACTION: %m");
 
         if (action == SD_DEVICE_REMOVE)
-                return event_execute_rules_on_remove(event, inotify_fd, timeout_usec, timeout_signal, properties_list, rules);
-
-        /* Disable watch during event processing. */
-        r = udev_watch_end(inotify_fd, dev);
-        if (r < 0)
-                log_device_warning_errno(dev, r, "Failed to remove inotify watch, ignoring: %m");
+                return event_execute_rules_on_remove(event, timeout_usec, timeout_signal, properties_list, rules);
 
         r = device_clone_with_db(dev, &event->dev_db_clone);
         if (r < 0)

@@ -169,7 +169,7 @@ static int run(int argc, char *argv[]) {
                 }
         }
 
-        udev_event_execute_rules(event, -1, 3 * USEC_PER_SEC, SIGKILL, NULL, rules);
+        udev_event_execute_rules(event, 3 * USEC_PER_SEC, SIGKILL, NULL, rules);
         udev_event_execute_run(event, 3 * USEC_PER_SEC, SIGKILL);
 
         return 0;

@@ -53,7 +53,6 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(UdevEvent*, udev_event_free);
 
 int udev_event_execute_rules(
                 UdevEvent *event,
-                int inotify_fd,
                 usec_t timeout_usec,
                 int timeout_signal,
                 Hashmap *properties_list,
