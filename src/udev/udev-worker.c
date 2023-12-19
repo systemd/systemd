@@ -194,10 +194,14 @@ static int worker_process_device(UdevWorker *worker, sd_device *dev) {
         if (worker->blockdev_read_only)
                 (void) worker_mark_block_device_read_only(dev);
 
+        /* Disable watch during event processing. */
+        r = udev_watch_end(worker->inotify_fd, dev);
+        if (r < 0)
+                log_device_warning_errno(dev, r, "Failed to remove inotify watch, ignoring: %m");
+
         /* apply rules, create node, symlinks */
         r = udev_event_execute_rules(
                           udev_event,
-                          worker->inotify_fd,
                           worker->timeout_usec,
                           worker->timeout_signal,
                           worker->properties,
