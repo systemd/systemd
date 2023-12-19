@@ -109,6 +109,7 @@ int varlink_replyb(Varlink *v, ...);
 int varlink_error(Varlink *v, const char *error_id, JsonVariant *parameters);
 int varlink_errorb(Varlink *v, const char *error_id, ...);
 int varlink_error_invalid_parameter(Varlink *v, JsonVariant *parameters);
+int varlink_error_invalid_parameter_name(Varlink *v, const char *name);
 int varlink_error_errno(Varlink *v, int error);
 
 /* Enqueue a "more" reply */
@@ -137,6 +138,7 @@ void* varlink_set_userdata(Varlink *v, void *userdata);
 void* varlink_get_userdata(Varlink *v);
 
 int varlink_get_peer_uid(Varlink *v, uid_t *ret);
+int varlink_get_peer_gid(Varlink *v, gid_t *ret);
 int varlink_get_peer_pid(Varlink *v, pid_t *ret);
 
 int varlink_set_relative_timeout(Varlink *v, usec_t usec);
@@ -200,6 +202,8 @@ typedef enum VarlinkInvocationFlags {
 
 int varlink_invocation(VarlinkInvocationFlags flags);
 
+int varlink_error_to_errno(const char *error, JsonVariant *parameters);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_close_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_flush_close_unref);
@@ -218,7 +222,5 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(VarlinkServer *, varlink_server_unref);
 #define VARLINK_ERROR_METHOD_NOT_FOUND "org.varlink.service.MethodNotFound"
 #define VARLINK_ERROR_METHOD_NOT_IMPLEMENTED "org.varlink.service.MethodNotImplemented"
 #define VARLINK_ERROR_INVALID_PARAMETER "org.varlink.service.InvalidParameter"
-
-/* These are errors we came up with and squatted the namespace with */
 #define VARLINK_ERROR_PERMISSION_DENIED "org.varlink.service.PermissionDenied"
 #define VARLINK_ERROR_EXPECTED_MORE "org.varlink.service.ExpectedMore"

@@ -1059,6 +1059,29 @@ int open_mkdir_at(int dirfd, const char *path, int flags, mode_t mode) {
         return TAKE_FD(fd);
 }
 
+int open_mkdirp_at(int dirfd, const char *path, int flags, mode_t mode) {
+        _cleanup_free_ char *parent = NULL, *fname = NULL;
+        _cleanup_close_ int pfd = -EBADF;
+        int r;
+
+        r = path_extract_directory(path, &parent);
+        if (IN_SET(r, -EDESTADDRREQ, -EADDRNOTAVAIL)) /* only a dir specified, or only an fname specified */
+                return open_mkdir_at(dirfd, path, flags, mode);
+        if (r < 0)
+                return r;
+
+        r = path_extract_filename(path, &fname);
+        if (r < 0)
+                return r;
+
+        /* Yeah this is recursive, bounded by the specified path depth */
+        pfd = open_mkdirp_at(dirfd, parent, O_CLOEXEC, 0755);
+        if (pfd < 0)
+                return pfd;
+
+        return open_mkdir_at(pfd, fname, flags, mode);
+}
+
 int openat_report_new(int dirfd, const char *pathname, int flags, mode_t mode, bool *ret_newly_created) {
         unsigned attempts = 7;
         int fd;
@@ -1231,4 +1254,84 @@ int xopenat_lock(
         }
 
         return TAKE_FD(fd);
+}
+
+int linkat_replace(int olddirfd, const char *oldpath, int newdirfd, const char *newpath) {
+        _cleanup_close_ int old_fd = -EBADF;
+        int r;
+
+        /* Like linkat() but replaces the target if needed. Is a NOP if source and target already share the
+         * same inode. */
+
+        if (olddirfd == AT_FDCWD && isempty(oldpath)) /* Refuse operating on the cwd (which is a dir, and dirs can't be hardlinked) */
+                return -EISDIR;
+
+        if (oldpath) {
+                if (STR_IN_SET(oldpath, ".", "..")) /* Refuse these definite directories early */
+                        return -EISDIR;
+
+                if (ENDSWITH_SET(oldpath, "/", "/.", "/..")) /* ditto */
+                        return -EISDIR;
+        }
+
+        if (isempty(newpath)) /* source path is optional, but the target path is not */
+                return -EINVAL;
+
+        if (STR_IN_SET(newpath, ".", ".."))
+                return -EISDIR;
+
+        if (ENDSWITH_SET(oldpath, "/", "/.", "/..")) /* ditto */
+                return -EISDIR;
+
+        if (linkat(olddirfd, oldpath, newdirfd, newpath, 0) >= 0)
+                return 0;
+        if (errno != EEXIST)
+                return -errno;
+
+        old_fd = xopenat(olddirfd, oldpath, O_PATH|O_CLOEXEC, /* xopen_flags= */ 0, /* mode= */ 0);
+        if (old_fd < 0)
+                return old_fd;
+
+        struct stat old_st;
+        if (fstat(old_fd, &old_st) < 0)
+                return -errno;
+
+        if (S_ISDIR(old_st.st_mode)) /* Don't bother if are operating on a directory */
+                return -EISDIR;
+
+        struct stat new_st;
+        if (fstatat(newdirfd, newpath, &new_st, AT_SYMLINK_NOFOLLOW) < 0)
+                return -errno;
+
+        if (S_ISDIR(new_st.st_mode)) /* Refuse replacing directories */
+                return -EEXIST;
+
+        if (stat_inode_same(&old_st, &new_st)) /* Already the same inode? Then shortcut this */
+                return 0;
+
+        _cleanup_free_ char *tmp_path = NULL;
+        r = tempfn_random(newpath, /* extra */ NULL, &tmp_path);
+        if (r < 0)
+                return r;
+
+        /* First, let's try to go via the opened fd as source */
+        if (linkat(old_fd, "", newdirfd, tmp_path, AT_EMPTY_PATH) < 0) {
+                /* linkat() with AT_EMPTY_PATH requires privs. Let's cover for that. Interestingly, if we
+                 * lack the privs the kernel returns ENOENT rather than EACCESS/EPERM. But let's also check
+                 * for the error here that actually makese sense */
+                if (!ERRNO_IS_PRIVILEGE(errno) && errno != ENOENT)
+                        return -errno;
+
+                /* If that didn't work due to permissions then go via the path*/
+                if (linkat(olddirfd, oldpath, newdirfd, tmp_path, 0) < 0)
+                        return -errno;
+        }
+
+        r = RET_NERRNO(renameat(newdirfd, tmp_path, newdirfd, newpath));
+        if (r < 0) {
+                (void) unlinkat(newdirfd, tmp_path, /* flags= */ 0);
+                return r;
+        }
+
+        return 0;
 }
