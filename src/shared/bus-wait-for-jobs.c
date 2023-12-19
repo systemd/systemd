@@ -227,12 +227,12 @@ finish:
                          service_shell_quoted ?: "<service>");
 }
 
-static int check_wait_response(BusWaitForJobs *d, bool quiet, const char* const* extra_args) {
+static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const char* const* extra_args) {
         assert(d);
         assert(d->name);
         assert(d->result);
 
-        if (!quiet) {
+        if (FLAGS_SET(flags, BUS_WAIT_JOBS_LOG_ERROR)) {
                 if (streq(d->result, "canceled"))
                         log_error("Job for %s canceled.", strna(d->name));
                 else if (streq(d->result, "timeout"))
@@ -279,14 +279,17 @@ static int check_wait_response(BusWaitForJobs *d, bool quiet, const char* const*
                 return -EOPNOTSUPP;
         else if (streq(d->result, "once"))
                 return -ESTALE;
-        else if (STR_IN_SET(d->result, "done", "skipped"))
+        else if (STR_IN_SET(d->result, "done", "skipped")) {
+                if (FLAGS_SET(flags, BUS_WAIT_JOBS_LOG_SUCCESS))
+                        log_info("Job for %s %s.", strna(d->name), d->result);
                 return 0;
+        }
 
         return log_debug_errno(SYNTHETIC_ERRNO(EIO),
                                "Unexpected job result, assuming server side newer than us: %s", d->result);
 }
 
-int bus_wait_for_jobs(BusWaitForJobs *d, bool quiet, const char* const* extra_args) {
+int bus_wait_for_jobs(BusWaitForJobs *d, WaitJobsFlags flags, const char* const* extra_args) {
         int r = 0;
 
         assert(d);
@@ -299,7 +302,7 @@ int bus_wait_for_jobs(BusWaitForJobs *d, bool quiet, const char* const* extra_ar
                         return log_error_errno(q, "Failed to wait for response: %m");
 
                 if (d->name && d->result) {
-                        q = check_wait_response(d, quiet, extra_args);
+                        q = check_wait_response(d, flags, extra_args);
                         /* Return the first error as it is most likely to be
                          * meaningful. */
                         if (q < 0 && r == 0)
@@ -322,12 +325,12 @@ int bus_wait_for_jobs_add(BusWaitForJobs *d, const char *path) {
         return set_put_strdup(&d->jobs, path);
 }
 
-int bus_wait_for_jobs_one(BusWaitForJobs *d, const char *path, bool quiet, const char* const* extra_args) {
+int bus_wait_for_jobs_one(BusWaitForJobs *d, const char *path, WaitJobsFlags flags, const char* const* extra_args) {
         int r;
 
         r = bus_wait_for_jobs_add(d, path);
         if (r < 0)
                 return log_oom();
 
-        return bus_wait_for_jobs(d, quiet, extra_args);
+        return bus_wait_for_jobs(d, flags, extra_args);
 }
