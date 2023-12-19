@@ -47,7 +47,7 @@
 #include "utf8.h"
 #include "xattr-util.h"
 
-static const char* const image_search_path[_IMAGE_CLASS_MAX] = {
+const char* const image_search_path[_IMAGE_CLASS_MAX] = {
         [IMAGE_MACHINE] =   "/etc/machines\0"              /* only place symlinks here */
                             "/run/machines\0"              /* and here too */
                             "/var/lib/machines\0"          /* the main place for images */
@@ -1061,7 +1061,11 @@ int image_read_only(Image *i, bool b) {
         return 0;
 }
 
-int image_path_lock(const char *path, int operation, LockFile *global, LockFile *local) {
+int image_path_lock(
+                const char *path,
+                int operation,
+                LockFile *ret_global,
+                LockFile *ret_local) {
         _cleanup_free_ char *p = NULL;
         LockFile t = LOCK_FILE_INIT;
         struct stat st;
@@ -1069,8 +1073,7 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
         int r;
 
         assert(path);
-        assert(global);
-        assert(local);
+        assert(ret_local);
 
         /* Locks an image path. This actually creates two locks: one "local" one, next to the image path
          * itself, which might be shared via NFS. And another "global" one, in /run, that uses the
@@ -1092,7 +1095,9 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
         }
 
         if (getenv_bool("SYSTEMD_NSPAWN_LOCK") == 0) {
-                *local = *global = (LockFile) LOCK_FILE_INIT;
+                *ret_local = LOCK_FILE_INIT;
+                if (ret_global)
+                        *ret_global = LOCK_FILE_INIT;
                 return 0;
         }
 
@@ -1108,19 +1113,23 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
                 if (exclusive)
                         return -EBUSY;
 
-                *local = *global = (LockFile) LOCK_FILE_INIT;
+                *ret_local = LOCK_FILE_INIT;
+                if (ret_global)
+                        *ret_global = LOCK_FILE_INIT;
                 return 0;
         }
 
-        if (stat(path, &st) >= 0) {
-                if (S_ISBLK(st.st_mode))
-                        r = asprintf(&p, "/run/systemd/nspawn/locks/block-%u:%u", major(st.st_rdev), minor(st.st_rdev));
-                else if (S_ISDIR(st.st_mode) || S_ISREG(st.st_mode))
-                        r = asprintf(&p, "/run/systemd/nspawn/locks/inode-%lu:%lu", (unsigned long) st.st_dev, (unsigned long) st.st_ino);
-                else
-                        return -ENOTTY;
-                if (r < 0)
-                        return -ENOMEM;
+        if (ret_global) {
+                if (stat(path, &st) >= 0) {
+                        if (S_ISBLK(st.st_mode))
+                                r = asprintf(&p, "/run/systemd/nspawn/locks/block-%u:%u", major(st.st_rdev), minor(st.st_rdev));
+                        else if (S_ISDIR(st.st_mode) || S_ISREG(st.st_mode))
+                                r = asprintf(&p, "/run/systemd/nspawn/locks/inode-%lu:%lu", (unsigned long) st.st_dev, (unsigned long) st.st_ino);
+                        else
+                                return -ENOTTY;
+                        if (r < 0)
+                                return -ENOMEM;
+                }
         }
 
         /* For block devices we don't need the "local" lock, as the major/minor lock above should be
@@ -1138,15 +1147,15 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
         if (p) {
                 (void) mkdir_p("/run/systemd/nspawn/locks", 0700);
 
-                r = make_lock_file(p, operation, global);
+                r = make_lock_file(p, operation, ret_global);
                 if (r < 0) {
                         release_lock_file(&t);
                         return r;
                 }
-        } else
-                *global = (LockFile) LOCK_FILE_INIT;
+        } else if (ret_global)
+                *ret_global = LOCK_FILE_INIT;
 
-        *local = t;
+        *ret_local = t;
         return 0;
 }
 
@@ -1267,9 +1276,11 @@ int image_read_metadata(Image *i, const ImagePolicy *image_policy) {
                 if (r < 0)
                         return r;
 
-                r = dissected_image_acquire_metadata(m,
-                                                     DISSECT_IMAGE_VALIDATE_OS |
-                                                     DISSECT_IMAGE_VALIDATE_OS_EXT);
+                r = dissected_image_acquire_metadata(
+                                m,
+                                /* userns_fd= */ -EBADF,
+                                DISSECT_IMAGE_VALIDATE_OS |
+                                DISSECT_IMAGE_VALIDATE_OS_EXT);
                 if (r < 0)
                         return r;
 
