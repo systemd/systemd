@@ -1257,6 +1257,7 @@ manpages = [
   ''],
  ['udev_new', '3', ['udev_ref', 'udev_unref'], ''],
  ['udevadm', '8', [], ''],
+ ['uid0', '1', [], ''],
  ['ukify', '1', [], 'ENABLE_UKIFY'],
  ['user@.service',
   '5',
