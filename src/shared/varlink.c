@@ -2574,9 +2574,26 @@ int varlink_get_peer_uid(Varlink *v, uid_t *ret) {
                 return varlink_log_errno(v, r, "Failed to acquire credentials: %m");
 
         if (!uid_is_valid(v->ucred.uid))
-                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENODATA), "Peer uid is invalid.");
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENODATA), "Peer UID is invalid.");
 
         *ret = v->ucred.uid;
+        return 0;
+}
+
+int varlink_get_peer_gid(Varlink *v, gid_t *ret) {
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        r = varlink_acquire_ucred(v);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to acquire credentials: %m");
+
+        if (!gid_is_valid(v->ucred.gid))
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENODATA), "Peer GID is invalid.");
+
+        *ret = v->ucred.gid;
         return 0;
 }
 
