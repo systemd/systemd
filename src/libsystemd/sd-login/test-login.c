@@ -10,6 +10,7 @@
 #include "format-util.h"
 #include "log.h"
 #include "missing_syscall.h"
+#include "mountpoint-util.h"
 #include "process-util.h"
 #include "string-util.h"
 #include "strv.h"
@@ -327,6 +328,9 @@ TEST(monitor) {
 }
 
 static int intro(void) {
+        if (IN_SET(cg_unified(), -ENOENT, -ENOMEDIUM))
+                return log_tests_skipped("cgroups is not mounted");
+
         log_info("/* Information printed is from the live system */");
         return EXIT_SUCCESS;
 }
