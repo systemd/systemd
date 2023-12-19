@@ -318,8 +318,6 @@ int udev_worker_main(UdevWorker *worker, sd_device *dev) {
 
         DEVICE_TRACE_POINT(worker_spawned, dev, getpid_cached());
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, -1) >= 0);
-
         /* Reset OOM score, we only protect the main daemon. */
         r = set_oom_score_adjust(0);
         if (r < 0)
@@ -329,7 +327,7 @@ int udev_worker_main(UdevWorker *worker, sd_device *dev) {
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
-        r = sd_event_add_signal(worker->event, NULL, SIGTERM, NULL, NULL);
+        r = sd_event_add_signal(worker->event, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to set SIGTERM event: %m");
 
