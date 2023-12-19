@@ -516,3 +516,109 @@ int verb_cat(int argc, char *argv[], void *userdata) {
 
         return ret;
 }
+
+int verb_mask(int argc, char *argv[], void *userdata) {
+        ReloadFlags flags = 0;
+        int r;
+
+        STRV_FOREACH(name, strv_skip(argv, 1)) {
+                _cleanup_free_ char *config_path = NULL, *symlink_path = NULL;
+                ReloadFlags reload;
+
+                /* We update the real 'flags' at last, since the operation can be skipped. */
+                if (ENDSWITH_SET(*name, ".network", ".netdev"))
+                        reload = RELOAD_NETWORKD;
+                else if (endswith(*name, ".link"))
+                        reload = RELOAD_UDEVD;
+                else
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid network config name '%s'.", *name);
+
+                r = get_config_files_by_name(*name, /* allow_masked = */ true, &config_path, /* ret_dropins = */ NULL);
+                if (r == -ENOENT)
+                        log_warning("No existing network config '%s' found, proceeding anyway.", *name);
+                else if (r < 0)
+                        return log_error_errno(r, "Failed to get the path of network config '%s': %m", *name);
+                else if (!path_startswith(config_path, "/usr")) {
+                        r = null_or_empty_path(config_path);
+                        if (r < 0)
+                                return log_error_errno(r,
+                                                       "Failed to check if '%s' is masked: %m", config_path);
+                        if (r > 0) {
+                                log_debug("%s is already masked, skipping.", config_path);
+                                continue;
+                        }
+
+                        if (arg_runtime || path_startswith(config_path, "/etc"))
+                                return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                                       "Cannot mask network config %s: %s exists",
+                                                       *name, config_path);
+                }
+
+                symlink_path = path_join(NETWORK_DIRS[arg_runtime ? 1 : 0], *name);
+                if (!symlink_path)
+                        return log_oom();
+
+                (void) mkdir_parents_label(symlink_path, 0755);
+
+                if (symlink("/dev/null", symlink_path) < 0)
+                        return log_error_errno(errno,
+                                               "Failed to create symlink '%s' to /dev/null: %m", symlink_path);
+
+                flags |= reload;
+                log_info("Successfully created symlink '%s' to /dev/null.", symlink_path);
+        }
+
+        return reload_daemons(reload);
+}
+
+int verb_unmask(int argc, char *argv[], void *userdata) {
+        ReloadFlags flags = 0;
+        int r;
+
+        STRV_FOREACH(name, strv_skip(argv, 1)) {
+                _cleanup_free_ char *path = NULL;
+                ReloadFlags reload;
+
+                if (ENDSWITH_SET(*name, ".network", ".netdev"))
+                        reload = RELOAD_NETWORKD;
+                else if (endswith(*name, ".link"))
+                        reload = RELOAD_UDEVD;
+                else
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid network config name '%s'.", *name);
+
+                r = get_config_files_by_name(*name, /* allow_masked = */ true, &path, /* ret_dropins = */ NULL);
+                if (r == -ENOENT) {
+                        log_debug_errno(r, "Network configuration '%s' doesn't exist, skipping.", *name);
+                        continue;
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get the path of network config '%s': %m", *name);
+
+                if (path_startswith(path, "/usr"))
+                        continue;
+
+                r = null_or_empty_path(path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check if '%s' is masked: %m", path);
+                if (r == 0)
+                        continue;
+
+                /* We unmask files in /run/ even when --runtime is not specified. */
+                if (arg_runtime && path_startswith(config_path, "/etc"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EEXIST),
+                                               "Cannot unmask network config %s: %s exists",
+                                               *name, path);
+
+                if (unlink(path) < 0) {
+                        if (errno == ENOENT)
+                                continue;
+
+                        return log_error_errno(errno, "Failed to remove '%s': %m", path);
+                }
+
+                flags |= reload;
+                log_info("Successfully removed masked network config '%s'.", path);
+        }
+
+        return reload_daemons(reload);
+}
