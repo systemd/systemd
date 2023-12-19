@@ -27,7 +27,12 @@ typedef enum ReloadFlags {
         RELOAD_UDEVD    = 1 << 1,
 } ReloadFlags;
 
-static int get_config_files_by_name(const char *name, char **ret_path, char ***ret_dropins) {
+static int get_config_files_by_name(
+                const char *name,
+                bool allow_masked,
+                char **ret_path,
+                char ***ret_dropins) {
+
         _cleanup_free_ char *path = NULL;
         int r;
 
@@ -43,6 +48,16 @@ static int get_config_files_by_name(const char *name, char **ret_path, char ***r
 
                 r = RET_NERRNO(access(p, F_OK));
                 if (r >= 0) {
+                        if (!allow_masked) {
+                                r = null_or_empty_path(p);
+                                if (r < 0)
+                                        return log_debug_errno(r,
+                                                               "Failed to check if network config '%s' is masked: %m",
+                                                               name);
+                                if (r > 0)
+                                        return -ERFKILL;
+                        }
+
                         path = TAKE_PTR(p);
                         break;
                 }
@@ -423,7 +438,9 @@ int verb_edit(int argc, char *argv[], void *userdata) {
                 else
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid network config name '%s'.", *name);
 
-                r = get_config_files_by_name(*name, &path, &dropins);
+                r = get_config_files_by_name(*name, /* allow_masked = */ false, &path, &dropins);
+                if (r == -ERFKILL)
+                        return log_error_errno(r, "Network config '%s' is masked.", *name);
                 if (r == -ENOENT) {
                         if (arg_drop_in)
                                 return log_error_errno(r, "Cannot find network config '%s'.", *name);
@@ -472,9 +489,13 @@ int verb_cat(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return RET_GATHER(ret, r);
                 } else {
-                        r = get_config_files_by_name(*name, &path, &dropins);
+                        r = get_config_files_by_name(*name, /* allow_masked = */ false, &path, &dropins);
                         if (r == -ENOENT) {
                                 RET_GATHER(ret, log_error_errno(r, "Cannot find network config file '%s'.", *name));
+                                continue;
+                        }
+                        if (r == -ERFKILL) {
+                                RET_GATHER(ret, log_debug_errno(r, "Network config '%s' is masked, ignoring.", *name));
                                 continue;
                         }
                         if (r < 0) {
