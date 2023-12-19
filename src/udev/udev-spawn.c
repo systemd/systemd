@@ -338,6 +338,17 @@ void udev_event_execute_run(UdevEvent *event) {
                                 log_device_debug_errno(event->dev, r, "Failed to run built-in command \"%s\", ignoring: %m", command);
                 } else {
                         if (event->worker && event->worker->exec_delay_usec > 0) {
+                                usec_t timeout_usec = event->worker ? event->worker->timeout_usec : DEFAULT_WORKER_TIMEOUT_USEC;
+                                usec_t now_usec = now(CLOCK_MONOTONIC);
+                                usec_t age_usec = usec_sub_unsigned(now_usec, event->birth_usec);
+
+                                if (event->worker->exec_delay_usec >= usec_sub_unsigned(timeout_usec, age_usec)) {
+                                        log_device_warning_errno(event->dev, r,
+                                                                 "Cannot delaying execution of \"%s\" for %s, skipping.",
+                                                                 command, FORMAT_TIMESPAN(event->worker->exec_delay_usec, USEC_PER_SEC));
+                                        continue;
+                                }
+
                                 log_device_debug(event->dev, "Delaying execution of \"%s\" for %s.",
                                                  command, FORMAT_TIMESPAN(event->worker->exec_delay_usec, USEC_PER_SEC));
                                 (void) usleep_safe(event->worker->exec_delay_usec);
