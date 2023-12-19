@@ -201,6 +201,8 @@ typedef enum VarlinkInvocationFlags {
 
 int varlink_invocation(VarlinkInvocationFlags flags);
 
+int varlink_error_to_errno(const char *error, JsonVariant *parameters);
+
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_close_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_flush_close_unref);
