@@ -26,6 +26,7 @@ typedef enum WaitUntil {
         WAIT_UNTIL_INITIALIZED,
         WAIT_UNTIL_ADDED,
         WAIT_UNTIL_REMOVED,
+        WAIT_UNTIL_CHANGED,
         _WAIT_UNTIL_MAX,
         _WAIT_UNTIL_INVALID = -EINVAL,
 } WaitUntil;
@@ -41,6 +42,7 @@ static const char * const wait_until_table[_WAIT_UNTIL_MAX] = {
         [WAIT_UNTIL_INITIALIZED] = "initialized",
         [WAIT_UNTIL_ADDED]       = "added",
         [WAIT_UNTIL_REMOVED]     = "removed",
+        [WAIT_UNTIL_CHANGED]     = "changed",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(wait_until, WaitUntil);
@@ -51,7 +53,7 @@ static int check_device(const char *path) {
 
         assert(path);
 
-        if (arg_wait_until == WAIT_UNTIL_REMOVED) {
+        if (arg_wait_until == WAIT_UNTIL_REMOVED || arg_wait_until == WAIT_UNTIL_CHANGED) {
                 r = laccess(path, F_OK);
                 if (r == -ENOENT)
                         return true;
@@ -103,7 +105,7 @@ static int check_and_exit(sd_event *event) {
 
         assert(event);
 
-        if (check()) {
+        if (check() || arg_wait_until == WAIT_UNTIL_CHANGED) {
                 r = sd_event_exit(event, 0);
                 if (r < 0)
                         return r;
@@ -121,7 +123,11 @@ static int device_monitor_handler(sd_device_monitor *monitor, sd_device *device,
         assert(monitor);
         assert(device);
 
-        if (device_for_action(device, SD_DEVICE_REMOVE) != (arg_wait_until == WAIT_UNTIL_REMOVED))
+        if (arg_wait_until == WAIT_UNTIL_CHANGED &&
+            !device_for_action(device, SD_DEVICE_REMOVE) && !device_for_action(device, SD_DEVICE_CHANGE))
+                /* Allow a REMOVE event to trigger WAIT_UNTIL_CHANGED also. */
+                return 0;
+        else if (device_for_action(device, SD_DEVICE_REMOVE) != (arg_wait_until == WAIT_UNTIL_REMOVED))
                 return 0;
 
         if (arg_wait_until == WAIT_UNTIL_REMOVED)
@@ -305,6 +311,7 @@ static int help(void) {
                "  -t --timeout=SEC      Maximum time to wait for the device\n"
                "     --initialized=BOOL Wait for devices being initialized by systemd-udevd\n"
                "     --removed          Wait for devices being removed\n"
+               "     --changed          Wait for devices being changed\n"
                "     --settle           Also wait for all queued events being processed\n",
                program_invocation_short_name);
 
@@ -315,6 +322,7 @@ static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_INITIALIZED = 0x100,
                 ARG_REMOVED,
+                ARG_CHANGED,
                 ARG_SETTLE,
         };
 
@@ -322,6 +330,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "timeout",     required_argument, NULL, 't'             },
                 { "initialized", required_argument, NULL, ARG_INITIALIZED },
                 { "removed",     no_argument,       NULL, ARG_REMOVED     },
+                { "changed",     no_argument,       NULL, ARG_CHANGED     },
                 { "settle",      no_argument,       NULL, ARG_SETTLE      },
                 { "help",        no_argument,       NULL, 'h'             },
                 { "version",     no_argument,       NULL, 'V'             },
@@ -347,6 +356,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_REMOVED:
                         arg_wait_until = WAIT_UNTIL_REMOVED;
+                        break;
+
+                case ARG_CHANGED:
+                        arg_wait_until = WAIT_UNTIL_CHANGED;
                         break;
 
                 case ARG_SETTLE:
