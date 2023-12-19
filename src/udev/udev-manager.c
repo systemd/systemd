@@ -1189,11 +1189,31 @@ Manager* manager_new(void) {
                 .worker_watch = EBADF_PAIR,
                 .log_level = LOG_INFO,
                 .resolve_name_timing = RESOLVE_NAME_EARLY,
-                .timeout_usec = 180 * USEC_PER_SEC,
+                .timeout_usec = DEFAULT_WORKER_TIMEOUT_USEC,
                 .timeout_signal = SIGKILL,
         };
 
         return manager;
+}
+
+void manager_adjust_arguments(Manager *manager) {
+        assert(manager);
+
+        if (manager->timeout_usec < MIN_WORKER_TIMEOUT_USEC) {
+                log_debug("Timeout (%s) for processing event is too small, using the default: %s",
+                          FORMAT_TIMESPAN(manager->timeout_usec, 1),
+                          FORMAT_TIMESPAN(DEFAULT_WORKER_TIMEOUT_USEC, 1));
+
+                manager->timeout_usec = DEFAULT_WORKER_TIMEOUT_USEC;
+        }
+
+        if (manager->exec_delay_usec >= manager->timeout_usec) {
+                log_debug("Delay (%s) for executing RUN= commands is too large compared with the timeout (%s) for event execution, ignoring the delay.",
+                          FORMAT_TIMESPAN(manager->exec_delay_usec, 1),
+                          FORMAT_TIMESPAN(manager->timeout_usec, 1));
+
+                manager->exec_delay_usec = 0;
+        }
 }
 
 int manager_init(Manager *manager, int fd_ctrl, int fd_uevent) {
