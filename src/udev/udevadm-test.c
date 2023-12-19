@@ -124,12 +124,12 @@ int test_main(int argc, char *argv[], void *userdata) {
         /* don't read info from the db */
         device_seal(dev);
 
-        event = udev_event_new(dev, 0, NULL, LOG_DEBUG);
+        event = udev_event_new(dev, NULL);
 
         assert_se(sigfillset(&mask) >= 0);
         assert_se(sigprocmask(SIG_SETMASK, &mask, &sigmask_orig) >= 0);
 
-        udev_event_execute_rules(event, 60 * USEC_PER_SEC, SIGKILL, NULL, rules);
+        udev_event_execute_rules(event, rules);
 
         FOREACH_DEVICE_PROPERTY(dev, key, value)
                 printf("%s=%s\n", key, value);
@@ -138,7 +138,7 @@ int test_main(int argc, char *argv[], void *userdata) {
                 char program[UDEV_PATH_SIZE];
                 bool truncated;
 
-                (void) udev_event_apply_format(event, cmd, program, sizeof(program), false, NULL, &truncated);
+                (void) udev_event_apply_format(event, cmd, program, sizeof(program), false, &truncated);
                 if (truncated)
                         log_warning("The command '%s' is truncated while substituting into '%s'.", program, cmd);
                 printf("run: '%s'\n", program);
