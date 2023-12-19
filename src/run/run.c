@@ -91,8 +91,8 @@ static int help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] COMMAND [ARGUMENTS...]\n"
-               "\n%sRun the specified command in a transient scope or service.%s\n\n"
+        printf("%1$s [OPTIONS...] COMMAND [ARGUMENTS...]\n"
+               "\n%5$sRun the specified command in a transient scope or service.%6$s\n\n"
                "  -h --help                       Show this help\n"
                "     --version                    Show package version\n"
                "     --no-ask-password            Do not prompt for password\n"
@@ -122,12 +122,12 @@ static int help(void) {
                "  -P --pipe                       Pass STDIN/STDOUT/STDERR directly to service\n"
                "  -q --quiet                      Suppress information messages during runtime\n"
                "  -G --collect                    Unload unit after it ran, even when failed\n"
-               "  -S --shell                      Invoke a $SHELL interactively\n\n"
-               "Path options:\n"
-               "     --path-property=NAME=VALUE   Set path unit property\n\n"
-               "Socket options:\n"
-               "     --socket-property=NAME=VALUE Set socket unit property\n\n"
-               "Timer options:\n"
+               "  -S --shell                      Invoke a $SHELL interactively\n"
+               "\n%3$sPath options:%4$s\n"
+               "     --path-property=NAME=VALUE   Set path unit property\n"
+               "\n%3$sSocket options:%4$s\n"
+               "     --socket-property=NAME=VALUE Set socket unit property\n"
+               "\n%3$sTimer options:%4$s\n"
                "     --on-active=SECONDS          Run after SECONDS delay\n"
                "     --on-boot=SECONDS            Run SECONDS after machine was booted up\n"
                "     --on-startup=SECONDS         Run SECONDS after systemd activation\n"
@@ -137,11 +137,11 @@ static int help(void) {
                "     --on-timezone-change         Run when the timezone changes\n"
                "     --on-clock-change            Run when the realtime clock jumps\n"
                "     --timer-property=NAME=VALUE  Set timer unit property\n"
-               "\nSee the %s for details.\n",
+               "\nSee the %2$s for details.\n",
                program_invocation_short_name,
-               ansi_highlight(),
-               ansi_normal(),
-               link);
+               link,
+               ansi_underline(), ansi_normal(),
+               ansi_highlight(), ansi_normal());
 
         return 0;
 }
