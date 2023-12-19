@@ -333,11 +333,9 @@ static int on_event_timeout_warning(sd_event_source *s, uint64_t usec, void *use
 }
 
 static void worker_attach_event(Worker *worker, Event *event) {
-        Manager *manager;
-        sd_event *e;
+        Manager *manager = ASSERT_PTR(ASSERT_PTR(worker)->manager);
+        sd_event *e = ASSERT_PTR(manager->event);
 
-        assert(worker);
-        assert(worker->manager);
         assert(event);
         assert(!event->worker);
         assert(!worker->event);
@@ -346,9 +344,6 @@ static void worker_attach_event(Worker *worker, Event *event) {
         worker->event = event;
         event->state = EVENT_RUNNING;
         event->worker = worker;
-
-        manager = worker->manager;
-        e = manager->event;
 
         (void) sd_event_add_time_relative(e, &event->timeout_warning_event, CLOCK_MONOTONIC,
                                           udev_warn_timeout(manager->timeout_usec), USEC_PER_SEC,
