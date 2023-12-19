@@ -52,6 +52,9 @@ monitor_check_rr() (
 restart_resolved() {
     systemctl stop systemd-resolved.service
     (! systemctl is-failed systemd-resolved.service)
+    # Reset the restart counter since we call this method a bunch of times
+    # and can occasionally hit the default rate limit
+    systemctl reset-failed systemd-resolved.service
     systemctl start systemd-resolved.service
     systemctl service-log-level systemd-resolved.service debug
 }
