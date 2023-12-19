@@ -1761,7 +1761,7 @@ static bool token_match_attr(UdevRuleToken *token, sd_device *dev, UdevEvent *ev
 
         switch (token->attr_subst_type) {
         case SUBST_TYPE_FORMAT:
-                (void) udev_event_apply_format(event, name, nbuf, sizeof(nbuf), false, NULL, &truncated);
+                (void) udev_event_apply_format(event, name, nbuf, sizeof(nbuf), false, &truncated);
                 if (truncated) {
                         log_event_truncated(dev, token, "sysfs attribute name", name,
                                             token->type == TK_M_ATTR ? "ATTR" : "ATTRS", /* is_match = */ true);
@@ -1928,10 +1928,7 @@ static size_t udev_replace_ifname(char *str) {
 static int udev_rule_apply_token_to_event(
                 UdevRuleToken *token,
                 sd_device *dev,
-                UdevEvent *event,
-                usec_t timeout_usec,
-                int timeout_signal,
-                Hashmap *properties_list) {
+                UdevEvent *event) {
 
         int r;
 
@@ -1983,7 +1980,7 @@ static int udev_rule_apply_token_to_event(
         case TK_M_ENV: {
                 const char *val = NULL;
 
-                (void) device_get_property_value_with_fallback(dev, token->data, properties_list, &val);
+                (void) device_get_property_value_with_fallback(dev, token->data, event->worker ? event->worker->properties : NULL, &val);
 
                 return token_match_string(token, val);
         }
@@ -2038,7 +2035,7 @@ static int udev_rule_apply_token_to_event(
                 char buf[UDEV_PATH_SIZE];
                 bool truncated;
 
-                (void) udev_event_apply_format(event, token->data, buf, sizeof(buf), false, properties_list, &truncated);
+                (void) udev_event_apply_format(event, token->data, buf, sizeof(buf), false, &truncated);
                 if (truncated) {
                         log_event_truncated(dev, token, "sysctl entry name", token->data, "SYSCTL", /* is_match = */ true);
                         return false;
@@ -2056,7 +2053,7 @@ static int udev_rule_apply_token_to_event(
                 struct stat statbuf;
                 bool match, truncated;
 
-                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, properties_list, &truncated);
+                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, &truncated);
                 if (truncated) {
                         log_event_truncated(dev, token, "file name", token->value, "TEST", /* is_match = */ true);
                         return false;
@@ -2099,7 +2096,7 @@ static int udev_rule_apply_token_to_event(
                 size_t count;
 
                 event->program_result = mfree(event->program_result);
-                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, properties_list, &truncated);
+                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, &truncated);
                 if (truncated) {
                         log_event_truncated(dev, token, "command", token->value, "PROGRAM", /* is_match = */ true);
                         return false;
@@ -2107,7 +2104,7 @@ static int udev_rule_apply_token_to_event(
 
                 log_event_debug(dev, token, "Running PROGRAM '%s'", buf);
 
-                r = udev_event_spawn(event, timeout_usec, timeout_signal, true, buf, result, sizeof(result), NULL);
+                r = udev_event_spawn(event, /* accept_failure = */ true, buf, result, sizeof(result), NULL);
                 if (r != 0) {
                         if (r < 0)
                                 log_event_warning_errno(dev, token, r, "Failed to execute \"%s\": %m", buf);
@@ -2131,7 +2128,7 @@ static int udev_rule_apply_token_to_event(
                 char buf[UDEV_PATH_SIZE];
                 bool truncated;
 
-                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, properties_list, &truncated);
+                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, &truncated);
                 if (truncated) {
                         log_event_truncated(dev, token, "file name to be imported", token->value, "IMPORT", /* is_match = */ true);
                         return false;
@@ -2182,7 +2179,7 @@ static int udev_rule_apply_token_to_event(
                 char buf[UDEV_LINE_SIZE], result[UDEV_LINE_SIZE];
                 bool truncated;
 
-                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, properties_list, &truncated);
+                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, &truncated);
                 if (truncated) {
                         log_event_truncated(dev, token, "command", token->value, "IMPORT", /* is_match = */ true);
                         return false;
@@ -2190,7 +2187,7 @@ static int udev_rule_apply_token_to_event(
 
                 log_event_debug(dev, token, "Importing properties from results of '%s'", buf);
 
-                r = udev_event_spawn(event, timeout_usec, timeout_signal, true, buf, result, sizeof result, &truncated);
+                r = udev_event_spawn(event, /* accept_failure = */ true, buf, result, sizeof result, &truncated);
                 if (r != 0) {
                         if (r < 0)
                                 log_event_warning_errno(dev, token, r, "Failed to execute '%s', ignoring: %m", buf);
@@ -2261,7 +2258,7 @@ static int udev_rule_apply_token_to_event(
                         event->builtin_run |= mask;
                 }
 
-                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, properties_list, &truncated);
+                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, &truncated);
                 if (truncated) {
                         log_event_truncated(dev, token, "builtin command", token->value, "IMPORT", /* is_match = */ true);
                         return false;
@@ -2317,7 +2314,7 @@ static int udev_rule_apply_token_to_event(
                 char buf[UDEV_PATH_SIZE];
                 bool truncated;
 
-                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, properties_list, &truncated);
+                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, &truncated);
                 if (truncated) {
                         log_event_truncated(dev, token, "property name", token->value, "IMPORT", /* is_match = */ true);
                         return false;
@@ -2378,7 +2375,7 @@ static int udev_rule_apply_token_to_event(
                 if (token->op == OP_ASSIGN_FINAL)
                         event->owner_final = true;
 
-                (void) udev_event_apply_format(event, token->value, owner, sizeof(owner), false, properties_list, &truncated);
+                (void) udev_event_apply_format(event, token->value, owner, sizeof(owner), false, &truncated);
                 if (truncated) {
                         log_event_truncated(dev, token, "user name", token->value, "OWNER", /* is_match = */ false);
                         break;
@@ -2401,7 +2398,7 @@ static int udev_rule_apply_token_to_event(
                 if (token->op == OP_ASSIGN_FINAL)
                         event->group_final = true;
 
-                (void) udev_event_apply_format(event, token->value, group, sizeof(group), false, properties_list, &truncated);
+                (void) udev_event_apply_format(event, token->value, group, sizeof(group), false, &truncated);
                 if (truncated) {
                         log_event_truncated(dev, token, "group name", token->value, "GROUP", /* is_match = */ false);
                         break;
@@ -2423,7 +2420,7 @@ static int udev_rule_apply_token_to_event(
                 if (token->op == OP_ASSIGN_FINAL)
                         event->mode_final = true;
 
-                (void) udev_event_apply_format(event, token->value, mode_str, sizeof(mode_str), false, properties_list, &truncated);
+                (void) udev_event_apply_format(event, token->value, mode_str, sizeof(mode_str), false, &truncated);
                 if (truncated) {
                         log_event_truncated(dev, token, "mode", token->value, "MODE", /* is_match = */ false);
                         break;
@@ -2475,7 +2472,7 @@ static int udev_rule_apply_token_to_event(
                 if (!name)
                         return log_oom();
 
-                (void) udev_event_apply_format(event, token->value, label_str, sizeof(label_str), false, properties_list, &truncated);
+                (void) udev_event_apply_format(event, token->value, label_str, sizeof(label_str), false, &truncated);
                 if (truncated) {
                         log_event_truncated(dev, token, "security label", token->value, "SECLABEL", /* is_match = */ false);
                         break;
@@ -2519,7 +2516,7 @@ static int udev_rule_apply_token_to_event(
                 }
 
                 if (token->op == OP_ADD &&
-                    device_get_property_value_with_fallback(dev, name, properties_list, &val) >= 0) {
+                    device_get_property_value_with_fallback(dev, name, event->worker ? event->worker->properties : NULL, &val) >= 0) {
                         l = strpcpyl_full(&p, l, &truncated, val, " ", NULL);
                         if (truncated) {
                                 log_event_warning(dev, token,
@@ -2529,7 +2526,7 @@ static int udev_rule_apply_token_to_event(
                         }
                 }
 
-                (void) udev_event_apply_format(event, token->value, p, l, false, properties_list, &truncated);
+                (void) udev_event_apply_format(event, token->value, p, l, false, &truncated);
                 if (truncated) {
                         _cleanup_free_ char *key_with_name = strjoin("ENV{", name, "}");
                         log_event_truncated(dev, token, "property value", token->value,
@@ -2554,7 +2551,7 @@ static int udev_rule_apply_token_to_event(
                 char buf[UDEV_PATH_SIZE];
                 bool truncated;
 
-                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, properties_list, &truncated);
+                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, &truncated);
                 if (truncated) {
                         log_event_truncated(dev, token, "tag name", token->value, "TAG", /* is_match = */ false);
                         break;
@@ -2591,7 +2588,7 @@ static int udev_rule_apply_token_to_event(
                         break;
                 }
 
-                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, properties_list, &truncated);
+                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, &truncated);
                 if (truncated) {
                         log_event_truncated(dev, token, "network interface name", token->value, "NAME", /* is_match = */ false);
                         break;
@@ -2629,7 +2626,7 @@ static int udev_rule_apply_token_to_event(
                         device_cleanup_devlinks(dev);
 
                 (void) udev_event_apply_format(event, token->value, buf, sizeof(buf),
-                                               /* replace_whitespace = */ event->esc != ESCAPE_NONE, properties_list, &truncated);
+                                               /* replace_whitespace = */ event->esc != ESCAPE_NONE, &truncated);
                 if (truncated) {
                         log_event_truncated(dev, token, "symbolic link path", token->value, "SYMLINK", /* is_match = */ false);
                         break;
@@ -2701,7 +2698,7 @@ static int udev_rule_apply_token_to_event(
                         log_event_error_errno(dev, token, r, "Could not find file matches '%s', ignoring: %m", buf);
                         break;
                 }
-                (void) udev_event_apply_format(event, token->value, value, sizeof(value), false, properties_list, &truncated);
+                (void) udev_event_apply_format(event, token->value, value, sizeof(value), false, &truncated);
                 if (truncated) {
                         log_event_truncated(dev, token, "attribute value", token->value, "ATTR", /* is_match = */ false);
                         break;
@@ -2721,13 +2718,13 @@ static int udev_rule_apply_token_to_event(
                 char buf[UDEV_PATH_SIZE], value[UDEV_NAME_SIZE];
                 bool truncated;
 
-                (void) udev_event_apply_format(event, token->data, buf, sizeof(buf), false, properties_list, &truncated);
+                (void) udev_event_apply_format(event, token->data, buf, sizeof(buf), false, &truncated);
                 if (truncated) {
                         log_event_truncated(dev, token, "sysctl entry name", token->data, "SYSCTL", /* is_match = */ false);
                         break;
                 }
 
-                (void) udev_event_apply_format(event, token->value, value, sizeof(value), false, properties_list, &truncated);
+                (void) udev_event_apply_format(event, token->value, value, sizeof(value), false, &truncated);
                 if (truncated) {
                         _cleanup_free_ char *key_with_name = strjoin("SYSCTL{", buf, "}");
                         log_event_truncated(dev, token, "sysctl value", token->value,
@@ -2756,7 +2753,7 @@ static int udev_rule_apply_token_to_event(
                 if (IN_SET(token->op, OP_ASSIGN, OP_ASSIGN_FINAL))
                         ordered_hashmap_clear_free_key(event->run_list);
 
-                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, properties_list, &truncated);
+                (void) udev_event_apply_format(event, token->value, buf, sizeof(buf), false, &truncated);
                 if (truncated) {
                         log_event_truncated(dev, token, "command", token->value,
                                             token->type == TK_A_RUN_BUILTIN ? "RUN{builtin}" : "RUN{program}",
@@ -2793,11 +2790,7 @@ static bool token_is_for_parents(UdevRuleToken *token) {
         return token->type >= TK_M_PARENTS_KERNEL && token->type <= TK_M_PARENTS_TAG;
 }
 
-static int udev_rule_apply_parent_token_to_event(
-                UdevRuleToken *head_token,
-                UdevEvent *event,
-                int timeout_signal) {
-
+static int udev_rule_apply_parent_token_to_event(UdevRuleToken *head_token, UdevEvent *event) {
         int r;
 
         assert(head_token);
@@ -2810,7 +2803,7 @@ static int udev_rule_apply_parent_token_to_event(
                         if (!token_is_for_parents(token))
                                 return true; /* All parent tokens match. */
 
-                        r = udev_rule_apply_token_to_event(token, event->dev_parent, event, 0, timeout_signal, NULL);
+                        r = udev_rule_apply_token_to_event(token, event->dev_parent, event);
                         if (r < 0)
                                 return r;
                         if (r == 0)
@@ -2830,9 +2823,6 @@ static int udev_rule_apply_parent_token_to_event(
 static int udev_rule_apply_line_to_event(
                 UdevRuleLine *line,
                 UdevEvent *event,
-                usec_t timeout_usec,
-                int timeout_signal,
-                Hashmap *properties_list,
                 UdevRuleLine **next_line) {
 
         UdevRuleLineType mask = LINE_HAS_GOTO | LINE_UPDATE_SOMETHING;
@@ -2868,7 +2858,7 @@ static int udev_rule_apply_line_to_event(
                         if (parents_done)
                                 continue;
 
-                        r = udev_rule_apply_parent_token_to_event(token, event, timeout_signal);
+                        r = udev_rule_apply_parent_token_to_event(token, event);
                         if (r <= 0)
                                 return r;
 
@@ -2876,7 +2866,7 @@ static int udev_rule_apply_line_to_event(
                         continue;
                 }
 
-                r = udev_rule_apply_token_to_event(token, event->dev, event, timeout_usec, timeout_signal, properties_list);
+                r = udev_rule_apply_token_to_event(token, event->dev, event);
                 if (r <= 0)
                         return r;
         }
@@ -2887,13 +2877,7 @@ static int udev_rule_apply_line_to_event(
         return 0;
 }
 
-int udev_rules_apply_to_event(
-                UdevRules *rules,
-                UdevEvent *event,
-                usec_t timeout_usec,
-                int timeout_signal,
-                Hashmap *properties_list) {
-
+int udev_rules_apply_to_event(UdevRules *rules, UdevEvent *event) {
         int r;
 
         assert(rules);
@@ -2901,7 +2885,7 @@ int udev_rules_apply_to_event(
 
         LIST_FOREACH(rule_files, file, rules->rule_files)
                 LIST_FOREACH_WITH_NEXT(rule_lines, line, next_line, file->rule_lines) {
-                        r = udev_rule_apply_line_to_event(line, event, timeout_usec, timeout_signal, properties_list, &next_line);
+                        r = udev_rule_apply_line_to_event(line, event, &next_line);
                         if (r < 0)
                                 return r;
                 }

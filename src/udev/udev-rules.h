@@ -39,10 +39,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(UdevRules*, udev_rules_free);
 #define udev_rules_free_and_replace(a, b) free_and_replace_full(a, b, udev_rules_free)
 
 bool udev_rules_should_reload(UdevRules *rules);
-int udev_rules_apply_to_event(UdevRules *rules, UdevEvent *event,
-                              usec_t timeout_usec,
-                              int timeout_signal,
-                              Hashmap *properties_list);
+int udev_rules_apply_to_event(UdevRules *rules, UdevEvent *event);
 int udev_rules_apply_static_dev_perms(UdevRules *rules);
 
 ResolveNameTiming resolve_name_timing_from_string(const char *s) _pure_;
