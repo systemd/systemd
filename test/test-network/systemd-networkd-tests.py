@@ -1238,15 +1238,20 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         print(output)
         self.assertRegex(output, 'Type: loopback')
 
-    def test_udev_link_file(self):
-        copy_network_unit('11-dummy.netdev', '11-dummy.network', '25-default.link')
+    def test_unit_file(self):
+        copy_network_unit('11-test-unit-file.netdev', '11-test-unit-file.network', '11-test-unit-file.link')
         start_networkd()
         self.wait_online(['test1:degraded'])
 
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'test1', env=env)
         print(output)
-        self.assertRegex(output, r'Link File: /run/systemd/network/25-default.link')
-        self.assertRegex(output, r'Network File: /run/systemd/network/11-dummy.network')
+        self.assertIn('Link File: /run/systemd/network/11-test-unit-file.link', output)
+        self.assertIn('/run/systemd/network/11-test-unit-file.link.d/dropin.conf', output)
+        self.assertIn('Network File: /run/systemd/network/11-test-unit-file.network', output)
+        self.assertIn('/run/systemd/network/11-test-unit-file.network.d/dropin.conf', output)
+
+        output = read_networkd_log()
+        self.assertIn('test1: Configuring with /run/systemd/network/11-test-unit-file.network (dropins: /run/systemd/network/11-test-unit-file.network.d/dropin.conf).', output)
 
         # This test may be run on the system that has older udevd than 70f32a260b5ebb68c19ecadf5d69b3844896ba55 (v249).
         # In that case, the udev DB for the loopback network interface may already have ID_NET_LINK_FILE property.
@@ -1254,8 +1259,8 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         check_output(*udevadm_cmd, 'trigger', '--settle', '--action=add', '/sys/class/net/lo')
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'lo', env=env)
         print(output)
-        self.assertRegex(output, r'Link File: n/a')
-        self.assertRegex(output, r'Network File: n/a')
+        self.assertIn('Link File: n/a', output)
+        self.assertIn('Network File: n/a', output)
 
     def test_delete_links(self):
         copy_network_unit('11-dummy.netdev', '11-dummy.network',
