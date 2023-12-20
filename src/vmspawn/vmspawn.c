@@ -8,6 +8,7 @@
 
 #include "alloc-util.h"
 #include "architecture.h"
+#include "blkid-util.h"
 #include "build.h"
 #include "common-signal.h"
 #include "copy.h"
@@ -17,6 +18,7 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "gpt.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "log.h"
@@ -33,6 +35,7 @@
 #include "rm-rf.h"
 #include "sd-daemon.h"
 #include "sd-event.h"
+#include "sd-id128.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "vmspawn-mount.h"
@@ -760,6 +763,117 @@ static int start_virtiofsd(sd_bus *bus, const char *scope, const char *directory
         return 0;
 }
 
+static int finalize_root(char **ret) {
+        int r, nparts;
+        _cleanup_(blkid_free_probep) blkid_probe b = NULL;
+        blkid_partlist pl;
+        _cleanup_close_ int fd = -EBADF;
+        _cleanup_free_ char *root = NULL;
+        const char *pttype;
+
+        assert(ret);
+
+        b = blkid_new_probe();
+        if (!b)
+                return log_oom();
+
+        fd = open(arg_image, O_RDONLY|O_CLOEXEC);
+        if (fd < 0)
+                return log_debug_errno(errno, "Failed to open %s as read only: %m", arg_image);
+
+        r = blkid_probe_set_device(b, fd, 0, 0);
+        if (r != 0)
+                return log_debug_errno(errno ?: SYNTHETIC_ERRNO(EIO), "Failed to allocate device probe for probing partitions.");
+
+        (void) blkid_probe_enable_partitions(b, 1);
+        (void) blkid_probe_set_partitions_flags(b, BLKID_PARTS_ENTRY_DETAILS);
+
+        errno = 0;
+        r = blkid_do_safeprobe(b);
+        if (r == _BLKID_SAFEPROBE_ERROR)
+                return log_debug_errno(errno_or_else(EINVAL), "Unable to probe for partition table of '%s': %m", arg_image);
+        if (IN_SET(r, _BLKID_SAFEPROBE_AMBIGUOUS, _BLKID_SAFEPROBE_NOT_FOUND)) {
+                return log_debug_errno(SYNTHETIC_ERRNO(ENOENT), "Didn't find partition table in '%s'.", arg_image);
+        }
+
+        assert(r == _BLKID_SAFEPROBE_FOUND);
+
+        (void) blkid_probe_lookup_value(b, "PTTYPE", &pttype, NULL);
+        if (!streq_ptr(pttype, "gpt")) {
+                log_debug("Didn't find a GPT partition table in '%s'.", arg_image);
+                return false;
+        }
+
+        errno = 0;
+        pl = blkid_probe_get_partitions(b);
+        if (!pl)
+                return log_debug_errno(errno_or_else(ENOENT), "Unable read partition table in '%s': %m", arg_image);
+
+        errno = 0;
+        nparts = blkid_partlist_numof_partitions(pl);
+        if (nparts == 0)
+                return log_debug_errno(errno_or_else(ENOENT), "Partition table in '%s' is empty: %m", arg_image);
+
+        sd_id128_t usr_partuuid = {};
+        for (int i = 0; i < nparts; i++) {
+                const char *p;
+                blkid_partition par;
+                sd_id128_t pt_parsed, uuid_parsed;
+
+                par = blkid_partlist_get_partition(pl, i);
+                if (!par) {
+                        log_debug("Failed to get partition %d in '%s', ignoring...", i, arg_image);
+                        continue;
+                }
+
+                r = blkid_partition_get_type_id128(par, &pt_parsed);
+                if (r == -ENXIO) {
+                        log_debug_errno(r, "Partition %d in '%s' has no type UUID, ignoring", i, arg_image);
+                        continue;
+                }
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to read type UUID of partition %d in '%s': %m", i, arg_image);
+
+                r = blkid_partition_get_uuid_id128(par, &uuid_parsed);
+                if (r == -ENXIO) {
+                        log_debug_errno(r, "Partition %d in '%s' has no UUID, ignoring", i, arg_image);
+                        continue;
+                }
+                if (r < 0)
+                        return log_debug_errno(r, "Failed to read UUID of partition %d in '%s': %m", i, arg_image);
+
+                p = gpt_partition_type_uuid_to_string(pt_parsed);
+                if (!p) {
+                        log_debug("Couldn't determine type name for partition %d in '%s'.", i, arg_image);
+                        continue;
+                }
+
+                if (startswith(p, "root")) {
+                        root = strjoin("root=PARTUUID=", SD_ID128_TO_UUID_STRING(uuid_parsed));
+                        if (!root)
+                                return log_oom();
+
+                        *ret = TAKE_PTR(root);
+                        return 0;
+                }
+
+                if (startswith(p, "usr") && sd_id128_is_null(usr_partuuid)) {
+                        usr_partuuid = uuid_parsed;
+                }
+        }
+
+        if (!sd_id128_is_null(usr_partuuid)) {
+                root = strjoin("mount.usr=PARTUUID=", SD_ID128_TO_UUID_STRING(usr_partuuid));
+                if (!root)
+                        return log_oom();
+
+                *ret = TAKE_PTR(root);
+                return 0;
+        }
+
+        return -ENOENT;
+}
+
 static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1027,6 +1141,19 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 r = strv_extend_strv(&cmdline, STRV_MAKE("-kernel", kernel), /* filter_duplicates= */ false);
                 if (r < 0)
                         return log_oom();
+
+                /* We can't rely on gpt-auto-generator when direct kernel booting so synthesize a root=
+                 * kernel argument instead. */
+                if (arg_image && !strv_find_startswith(arg_kernel_cmdline_extra, "root=")) {
+                        _cleanup_free_ char *root = NULL;
+                        r = finalize_root(&root);
+                        if (r < 0)
+                                return log_error_errno(r, "Cannot perform a direct kernel boot without a root or usr partition: %m");
+
+                        r = strv_extend(&arg_kernel_cmdline_extra, root);
+                        if (r < 0)
+                                return log_oom();
+                }
         }
 
         if (arg_image) {
