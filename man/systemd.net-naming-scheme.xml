@@ -544,7 +544,7 @@
       <varlistentry>
         <term><varname>ID_NET_NAME_ALLOW=<replaceable>BOOL</replaceable></varname></term>
 
-        <listitem><para>This evironment value sets a fallback policy for reading a sysfs attribute.
+        <listitem><para>This udev property sets a fallback policy for reading a sysfs attribute.
         If set to <constant>0</constant> udev will not read any sysfs attribute by default, unless it is
         explicitly allowlisted, see below. If set to <constant>1</constant> udev can use any sysfs attribute
         unless it is explicitly forbidden. The default value is <constant>1</constant>.</para>
@@ -556,7 +556,7 @@
       <varlistentry>
         <term><varname>ID_NET_NAME_ALLOW_<replaceable>sysfsattr</replaceable>=<replaceable>BOOL</replaceable></varname></term>
 
-        <listitem><para>This evironment value explicitly states if udev shall use the specified
+        <listitem><para>This udev property explicitly states if udev shall use the specified
         <replaceable>sysfsattr</replaceable>, when composing the device name.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/>
