@@ -337,6 +337,17 @@ systemd-analyze verify /tmp/hoge@test.service
 (! systemd-analyze verify /tmp/hoge@nonexist.service)
 (! systemd-analyze verify /tmp/hoge@.service)
 
+# test that all commands are verified.
+cat <<EOF >/tmp/multi-exec-start.service
+[Service]
+Type=oneshot
+ExecStart=true
+ExecStart=ls
+EOF
+systemd-analyze verify /tmp/multi-exec-start.service
+echo 'ExecStart=command-should-not-exist' >>/tmp/multi-exec-start.service
+(! systemd-analyze verify /tmp/multi-exec-start.service)
+
 # Added an additional "INVALID_ID" id to the .json to verify that nothing breaks when input is malformed
 # The PrivateNetwork id description and weight was changed to verify that 'security' is actually reading in
 # values from the .json file when required. The default weight for "PrivateNetwork" is 2500, and the new weight
