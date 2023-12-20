@@ -1087,7 +1087,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         self.assertNotIn('dummy98', output)
 
     def test_reconfigure(self):
-        copy_network_unit('25-address-static.network', '12-dummy.netdev')
+        copy_network_unit('25-address-static.network', '12-dummy.netdev', copy_dropins=False)
         start_networkd()
         self.wait_online(['dummy98:routable'])
 
@@ -1121,7 +1121,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         self.assertNotIn('inet 10.1.2.4/16 brd 10.1.255.255 scope global secondary dummy98', output)
         self.assertNotIn('inet 10.2.2.4/16 brd 10.2.255.255 scope global dummy98', output)
 
-        copy_network_unit('25-address-static.network')
+        copy_network_unit('25-address-static.network', copy_dropins=False)
         networkctl_reload()
         self.wait_online(['dummy98:routable'])
 
@@ -1154,7 +1154,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
             check()
 
     def test_up_down(self):
-        copy_network_unit('25-address-static.network', '12-dummy.netdev')
+        copy_network_unit('25-address-static.network', '12-dummy.netdev', copy_dropins=False)
         start_networkd()
         self.wait_online(['dummy98:routable'])
 
@@ -3186,7 +3186,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output(*networkctl_cmd, '--json=short', 'status', env=env)
         check_json(output)
 
-        copy_network_unit('25-address-static.network')
+        copy_network_unit('25-address-static.network', copy_dropins=False)
         networkctl_reload()
         self.wait_online(['dummy98:routable'])
 
