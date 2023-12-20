@@ -662,6 +662,9 @@ Table=1234</programlisting></para>
           number of dynamically created network interfaces with the same network configuration and
           automatic address range assignment.</para>
 
+          <para>If an empty string is specified, then the all previous assignments in both [Network] and
+          [Address] sections are cleared.</para>
+
           <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
