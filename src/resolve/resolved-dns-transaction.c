@@ -2808,7 +2808,7 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
                         if (r == 0)
                                 continue;
 
-                        return FLAGS_SET(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED);
+                        return FLAGS_SET(dt->answer_query_flags, SD_RESOLVED_AUTHENTICATED);
                 }
 
                 return true;
@@ -2835,7 +2835,7 @@ static int dns_transaction_requires_rrsig(DnsTransaction *t, DnsResourceRecord *
                         /* We found the transaction that was supposed to find the SOA RR for us. It was
                          * successful, but found no RR for us. This means we are not at a zone cut. In this
                          * case, we require authentication if the SOA lookup was authenticated too. */
-                        return FLAGS_SET(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED);
+                        return FLAGS_SET(dt->answer_query_flags, SD_RESOLVED_AUTHENTICATED);
                 }
 
                 return true;
