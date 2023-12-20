@@ -19,6 +19,7 @@
 #include "alloc-util.h"
 #include "errno-util.h"
 #include "fd-util.h"
+#include "io-util.h"
 #include "log.h"
 #include "macro.h"
 #include "ptyfwd.h"
@@ -96,6 +97,10 @@ static void pty_forward_disconnect(PTYForward *f) {
 
                 /* STDIN/STDOUT should not be non-blocking normally, so let's reset it */
                 (void) fd_nonblock(f->output_fd, false);
+
+                if (colors_enabled())
+                        (void) loop_write(f->output_fd, ANSI_NORMAL ANSI_ERASE_TO_END_OF_LINE, SIZE_MAX);
+
                 if (f->close_output_fd)
                         f->output_fd = safe_close(f->output_fd);
         }
