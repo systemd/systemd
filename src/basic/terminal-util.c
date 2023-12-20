@@ -27,6 +27,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
+#include "hexdecoct.h"
 #include "inotify-util.h"
 #include "io-util.h"
 #include "log.h"
@@ -1558,4 +1559,211 @@ void termios_disable_echo(struct termios *termios) {
         termios->c_lflag &= ~(ICANON|ECHO);
         termios->c_cc[VMIN] = 1;
         termios->c_cc[VTIME] = 0;
+}
+
+typedef enum BackgroundColorState {
+        BACKGROUND_TEXT,
+        BACKGROUND_ESCAPE,
+        BACKGROUND_BRACKET,
+        BACKGROUND_FIRST_ONE,
+        BACKGROUND_SECOND_ONE,
+        BACKGROUND_SEMICOLON,
+        BACKGROUND_R,
+        BACKGROUND_G,
+        BACKGROUND_B,
+        BACKGROUND_RED,
+        BACKGROUND_GREEN,
+        BACKGROUND_BLUE,
+} BackgroundColorState;
+
+typedef struct BackgroundColorContext {
+        BackgroundColorState state;
+        uint32_t red, green, blue;
+        unsigned red_bits, green_bits, blue_bits;
+} BackgroundColorContext;
+
+static int scan_background_color_response(
+                BackgroundColorContext *context,
+                const char *buf,
+                size_t size) {
+
+        assert(context);
+        assert(buf || size == 0);
+
+        for (size_t i = 0; i < size; i++) {
+                char c = buf[i];
+
+                switch (context->state) {
+
+                case BACKGROUND_TEXT:
+                        context->state = c == '\x1B' ? BACKGROUND_ESCAPE : BACKGROUND_TEXT;
+                        break;
+
+                case BACKGROUND_ESCAPE:
+                        context->state = c == ']' ? BACKGROUND_BRACKET : BACKGROUND_TEXT;
+                        break;
+
+                case BACKGROUND_BRACKET:
+                        context->state = c == '1' ? BACKGROUND_FIRST_ONE : BACKGROUND_TEXT;
+                        break;
+
+                case BACKGROUND_FIRST_ONE:
+                        context->state = c == '1' ? BACKGROUND_SECOND_ONE : BACKGROUND_TEXT;
+                        break;
+
+                case BACKGROUND_SECOND_ONE:
+                        context->state = c == ';' ? BACKGROUND_SEMICOLON : BACKGROUND_TEXT;
+                        break;
+
+                case BACKGROUND_SEMICOLON:
+                        context->state = c == 'r' ? BACKGROUND_R : BACKGROUND_TEXT;
+                        break;
+
+                case BACKGROUND_R:
+                        context->state = c == 'g' ? BACKGROUND_G : BACKGROUND_TEXT;
+                        break;
+
+                case BACKGROUND_G:
+                        context->state = c == 'b' ? BACKGROUND_B : BACKGROUND_TEXT;
+                        break;
+
+                case BACKGROUND_B:
+                        context->state = c == ':' ? BACKGROUND_RED : BACKGROUND_TEXT;
+                        break;
+
+                case BACKGROUND_RED:
+                        if (c == '/')
+                                context->state = context->red_bits > 0 ? BACKGROUND_GREEN : BACKGROUND_TEXT;
+                        else {
+                                int d = unhexchar(c);
+                                if (d < 0 || context->red_bits >= sizeof(context->red)*8)
+                                        context->state = BACKGROUND_TEXT;
+                                else {
+                                        context->red = (context->red << 4) | d;
+                                        context->red_bits += 4;
+                                }
+                        }
+                        break;
+
+                case BACKGROUND_GREEN:
+                        if (c == '/')
+                                context->state = context->green_bits > 0 ? BACKGROUND_BLUE : BACKGROUND_TEXT;
+                        else {
+                                int d = unhexchar(c);
+                                if (d < 0 || context->green_bits >= sizeof(context->green)*8)
+                                        context->state = BACKGROUND_TEXT;
+                                else {
+                                        context->green = (context->green << 4) | d;
+                                        context->green_bits += 4;
+                                }
+                        }
+                        break;
+
+                case BACKGROUND_BLUE:
+                        if (c == '\x07') {
+                                if (context->blue_bits > 0)
+                                        return 1; /* success! */
+
+                                context->state = BACKGROUND_TEXT;
+                        } else {
+                                int d = unhexchar(c);
+                                if (d < 0 || context->blue_bits >= sizeof(context->blue)*8)
+                                        context->state = BACKGROUND_TEXT;
+                                else {
+                                        context->blue = (context->blue << 4) | d;
+                                        context->blue_bits += 4;
+                                }
+                        }
+                        break;
+                }
+
+                /* Reset any colors we might have picked up */
+                if (context->state == BACKGROUND_TEXT) {
+                        /* reset color */
+                        context->red = context->green = context->blue = 0;
+                        context->red_bits = context->green_bits = context->blue_bits = 0;
+                }
+        }
+
+        return 0; /* all good, but not enough data yet */
+}
+
+int get_default_background_color(double *ret_red, double *ret_green, double *ret_blue) {
+        int r;
+
+        assert(ret_red);
+        assert(ret_green);
+        assert(ret_blue);
+
+        if (!colors_enabled())
+                return -EOPNOTSUPP;
+
+        if (isatty(STDOUT_FILENO) < 1 || isatty(STDIN_FILENO) < 1)
+                return -EOPNOTSUPP;
+
+        if (streq_ptr(getenv("TERM"), "linux")) {
+                /* Linux console is black */
+                *ret_red = *ret_green = *ret_blue = 0.0;
+                return 0;
+        }
+
+        struct termios old_termios;
+        if (tcgetattr(STDIN_FILENO, &old_termios) < 0)
+                return -errno;
+
+        struct termios new_termios = old_termios;
+        termios_disable_echo(&new_termios);
+
+        if (tcsetattr(STDOUT_FILENO, TCSADRAIN, &new_termios) < 0)
+                return -errno;
+
+        r = loop_write(STDOUT_FILENO, "\x1B]11;?\x07", SIZE_MAX);
+        if (r < 0)
+                goto finish;
+
+        usec_t end = usec_add(now(CLOCK_MONOTONIC), 100 * USEC_PER_MSEC);
+        char buf[256];
+        size_t buf_full = 0;
+        BackgroundColorContext context = {};
+
+        for (;;) {
+                usec_t n = now(CLOCK_MONOTONIC);
+
+                if (n >= end) {
+                        r = -EOPNOTSUPP;
+                        goto finish;
+                }
+
+                r = fd_wait_for_event(STDIN_FILENO, POLLIN, usec_sub_unsigned(end, n));
+                if (r < 0)
+                        goto finish;
+
+                ssize_t l;
+                l = read(STDIN_FILENO, buf, sizeof(buf) - buf_full);
+                if (l < 0) {
+                        r = -errno;
+                        goto finish;
+                }
+
+                buf_full += l;
+                assert(buf_full <= sizeof(buf));
+
+                r = scan_background_color_response(&context, buf, buf_full);
+                if (r < 0)
+                        goto finish;
+                if (r > 0) {
+                        assert(context.red_bits > 0);
+                        *ret_red = (double) context.red / ((UINT64_C(1) << context.red_bits) - 1);
+                        assert(context.green_bits > 0);
+                        *ret_green = (double) context.green / ((UINT64_C(1) << context.green_bits) - 1);
+                        assert(context.blue_bits > 0);
+                        *ret_blue = (double) context.blue / ((UINT64_C(1) << context.blue_bits) - 1);
+                        r = 0;
+                        goto finish;
+                }
+        }
+
+finish:
+        (void) tcsetattr(STDOUT_FILENO, TCSADRAIN, &old_termios);
+        return r;
 }
