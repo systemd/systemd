@@ -461,6 +461,40 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term>
+          <command>mask</command>
+          <replaceable>FILE</replaceable>…
+        </term>
+        <listitem><para>Mask network configuration files, which include <filename>.network</filename>,
+        <filename>.netdev</filename>, and <filename>.link</filename> files. A symlink of the given name will
+        be created under <filename>/etc/</filename> or <filename>/run/</filename>, depending on
+        whether <option>--runtime</option> is specified, that points to <filename>/dev/null</filename>.
+        If a non-empty config file with the specified name exists under the target directory or a directory
+        with higher priority (e.g. <option>--runtime</option> is used while an existing config resides
+        in <filename>/etc/</filename>), the operation is aborted.</para>
+
+        <para>This command honors <option>--no-reload</option> in the same way as <command>edit</command>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>
+          <command>unmask</command>
+          <replaceable>FILE</replaceable>…
+        </term>
+        <listitem><para>Unmask network configuration files, i.e. reverting the effect of <command>mask</command>.
+        Note that this command operates regardless of the scope of the directory, i.e. <option>--runtime</option>
+        is of no effect.</para>
+
+        <para>This command honors <option>--no-reload</option> in the same way as <command>edit</command>
+        and <command>mask</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
@@ -534,11 +568,11 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         <term><option>--no-reload</option></term>
 
         <listitem>
-          <para>When used with <command>edit</command>,
+          <para>When used with <command>edit</command>, <command>mask</command>, or <command>unmask</command>,
           <citerefentry><refentrytitle>systemd-networkd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
           or
           <citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-          will not be reloaded after the editing finishes.</para>
+          will not be reloaded after the operation finishes.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
@@ -547,8 +581,8 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
         <term><option>--runtime</option></term>
 
         <listitem>
-          <para>When used with <command>edit</command>, edit the file under <filename>/run/</filename>
-          instead of <filename>/etc/</filename>.</para>
+          <para>When used with <command>edit</command> or <command>mask</command>,
+          operate on the file under <filename>/run/</filename> instead of <filename>/etc/</filename>.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
