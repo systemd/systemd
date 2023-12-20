@@ -1955,8 +1955,7 @@ static char *destroy_tree(char *path) {
 }
 
 void exec_shared_runtime_done(ExecSharedRuntime *rt) {
-        if (!rt)
-                return;
+        assert(rt);
 
         if (rt->manager)
                 (void) hashmap_remove(rt->manager->exec_shared_runtime_by_id, rt->id);
@@ -1969,8 +1968,10 @@ void exec_shared_runtime_done(ExecSharedRuntime *rt) {
 }
 
 static ExecSharedRuntime* exec_shared_runtime_free(ExecSharedRuntime *rt) {
-        exec_shared_runtime_done(rt);
+        if (!rt)
+                return NULL;
 
+        exec_shared_runtime_done(rt);
         return mfree(rt);
 }
 
