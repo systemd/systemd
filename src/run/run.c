@@ -17,6 +17,7 @@
 #include "bus-unit-util.h"
 #include "bus-wait-for-jobs.h"
 #include "calendarspec.h"
+#include "color-util.h"
 #include "env-util.h"
 #include "escape.h"
 #include "exit-status.h"
@@ -74,6 +75,7 @@ static char *arg_working_directory = NULL;
 static bool arg_shell = false;
 static char **arg_cmdline = NULL;
 static bool arg_ignore_failure = false;
+static char *arg_background = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_description, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_environment, strv_freep);
@@ -83,6 +85,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_socket_property, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_timer_property, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_working_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_cmdline, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -125,6 +128,7 @@ static int help(void) {
                "  -G --collect                    Unload unit after it ran, even when failed\n"
                "  -S --shell                      Invoke a $SHELL interactively\n"
                "     --ignore-failure             Ignore the exit status of the invoked process\n"
+               "     --background=COLOR           Set ANSI color for background\n"
                "\n%3$sPath options:%4$s\n"
                "     --path-property=NAME=VALUE   Set path unit property\n"
                "\n%3$sSocket options:%4$s\n"
@@ -172,6 +176,7 @@ static int help_sudo_mode(void) {
                "     --nice=NICE                  Nice level\n"
                "  -D --chdir=PATH                 Set working directory\n"
                "     --setenv=NAME[=VALUE]        Set environment variable\n"
+               "     --background=COLOR           Set ANSI color for background\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -230,6 +235,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_WORKING_DIRECTORY,
                 ARG_SHELL,
                 ARG_IGNORE_FAILURE,
+                ARG_BACKGROUND,
         };
 
         static const struct option options[] = {
@@ -276,6 +282,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "same-dir",           no_argument,       NULL, 'd'                    },
                 { "shell",              no_argument,       NULL, 'S'                    },
                 { "ignore-failure",     no_argument,       NULL, ARG_IGNORE_FAILURE     },
+                { "background",         no_argument,       NULL, ARG_BACKGROUND         },
                 {},
         };
 
@@ -565,6 +572,11 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_ignore_failure = true;
                         break;
 
+                case ARG_BACKGROUND:
+                        if (free_and_strdup(&arg_background, optarg) < 0)
+                                return log_oom();
+                        break;
+
                 case '?':
                         return -EINVAL;
 
@@ -705,6 +717,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 ARG_SLICE_INHERIT,
                 ARG_NICE,
                 ARG_SETENV,
+                ARG_BACKGROUND,
         };
 
         /* If invoked as "uid0" binary, let's expose a more sudo-like interface. We add various extensions
@@ -725,6 +738,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 { "nice",               required_argument, NULL, ARG_NICE               },
                 { "chdir",              required_argument, NULL, 'D'                    },
                 { "setenv",             required_argument, NULL, ARG_SETENV             },
+                { "background",         required_argument, NULL, ARG_BACKGROUND         },
                 {},
         };
 
@@ -807,6 +821,11 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                         if (r < 0)
                                 return log_error_errno(r, "Cannot assign environment variable %s: %m", optarg);
 
+                        break;
+
+                case ARG_BACKGROUND:
+                        if (free_and_strdup(&arg_background, optarg) < 0)
+                                return log_oom();
                         break;
 
                 case '?':
@@ -894,6 +913,37 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
 
         if (strv_extend(&arg_property, "PAMName=systemd-uid0") < 0)
                 return log_oom();
+
+        if (!arg_background && arg_stdio == ARG_STDIO_PTY) {
+                double red, green, blue;
+
+                r = get_default_background_color(&red, &green, &blue);
+                if (r < 0)
+                        log_debug_errno(r, "Unable to get terminal background color, not tinting background: %m");
+                else {
+                        double h, s, v;
+
+                        rgb_to_hsv(red, green, blue, &h, &s, &v);
+
+                        if (!arg_exec_user || STR_IN_SET(arg_exec_user, "root", "0"))
+                                h = 0; /* red */
+                        else
+                                h = 60 /* yellow */;
+
+                        if (v > 50) /* If the background is bright, then pull down saturation */
+                                s = 25;
+                        else        /* otherwise pump it up */
+                                s = 75;
+
+                        v = MAX(30, v); /* Make sure we don't hide the color in black */
+
+                        uint8_t r8, g8, b8;
+                        hsv_to_rgb(h, s, v, &r8, &g8, &b8);
+
+                        if (asprintf(&arg_background, "48;2;%u;%u;%u", r8, g8, b8) < 0)
+                                return log_oom();
+                }
+        }
 
         return 1;
 }
@@ -1680,6 +1730,9 @@ static int start_transient_service(sd_bus *bus) {
 
                         /* Make sure to process any TTY events before we process bus events */
                         (void) pty_forward_set_priority(c.forward, SD_EVENT_PRIORITY_IMPORTANT);
+
+                        if (!isempty(arg_background))
+                                (void) pty_forward_set_background_color(c.forward, arg_background);
                 }
 
                 path = unit_dbus_path_from_name(service);
