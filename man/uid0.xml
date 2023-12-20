@@ -1,0 +1,232 @@
+<?xml version='1.0'?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="uid0"
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>uid0</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>uid0</refentrytitle>
+    <manvolnum>1</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>uid0</refname>
+    <refpurpose>Elevate privileges</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <cmdsynopsis>
+      <command>uid0</command>
+      <arg choice="opt" rep="repeat">OPTIONS</arg>
+      <arg choice="plain"><replaceable>COMMAND</replaceable>
+      <arg choice="opt" rep="repeat">ARGS</arg>
+      </arg>
+    </cmdsynopsis>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>uid0</command> maybe used to temporarily and interactively acquire elavated or different
+    privileges. It serves a similar purpose as
+    <citerefentry project='man-pages'><refentrytitle>sudo</refentrytitle><manvolnum>8</manvolnum></citerefentry>, but operates
+    differently in a couple of key areas:</para>
+
+    <itemizedlist>
+      <listitem><para>No execution or security context credentials are inherited from the caller into the
+      invoked commands, as they are invoked from a fresh, isolated service forked off the service
+      manager.</para></listitem>
+
+      <listitem><para>Authentication takes place via <ulink
+      url="https://www.freedesktop.org/wiki/Software/polkit">polkit</ulink>, thus isolating the
+      authentication prompt from the terminal (if possible).</para></listitem>
+
+      <listitem><para>An independent pseudo-tty is allocated for the invoked command, detaching its lifecycle and
+      isolating it for security.</para></listitem>
+
+      <listitem><para>Not SetUID/SetGID functionality is used for the implementation.</para></listitem>
+    </itemizedlist>
+
+    <para>Altogether this should provide a safer and more robust alternative to the <command>sudo</command>
+    mechanism, in particular in OS environments where SetUID/SetGID support is not available (for example by
+    setting the <varname>NoNewPrivileges=</varname> variable in
+    <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>).</para>
+
+    <para>Any session invoked via <command>uid0</command> will run through the
+    <literal>systemd-uid0</literal> PAM stack.</para>
+
+    <para>Note that <command>uid0</command> is implemented as an alternative multi-call invocation of
+    <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Options</title>
+
+    <para>The following options are understood:</para>
+
+    <variablelist>
+      <varlistentry>
+        <term><option>--no-ask-password</option></term>
+
+        <listitem><para>Do not query the user for authentication for privileged operations.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--unit=</option></term>
+
+        <listitem><para>Use this unit name instead of an automatically generated one.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--property=</option></term>
+
+        <listitem><para>Sets a property on the service unit that is created. This option takes an assignment
+        in the same format as
+        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>'s
+        <command>set-property</command> command.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--description=</option></term>
+
+        <listitem><para>Provide a description for the service unit that is invoked. If not specified,
+        the command itself will be used as a description. See <varname>Description=</varname> in
+        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+        </para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--slice=</option></term>
+
+        <listitem><para>Make the new <filename>.service</filename> unit part of the specified slice, instead
+        of <filename>user.slice</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--slice-inherit</option></term>
+
+        <listitem><para>Make the new <filename>.service</filename> or <filename>.scope</filename> unit part
+        of the slice the <command>systemd-run</command> itself has been invoked in. This option may be
+        combined with <option>--slice=</option>, in which case the slice specified via
+        <option>--slice=</option> is placed within the slice the <command>systemd-run</command> command is
+        invoked in.</para>
+
+        <para>Example: consider <command>systemd-run</command> being invoked in the slice
+        <filename>foo.slice</filename>, and the <option>--slice=</option> argument is
+        <filename>bar</filename>. The unit will then be placed under
+        <filename>foo-bar.slice</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/>
+
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--user=</option></term>
+        <term><option>-u</option></term>
+        <term><option>--group=</option></term>
+        <term><option>-g</option></term>
+
+        <listitem><para>Switches to the specified user/group instead of root.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--nice=</option></term>
+
+        <listitem><para>Runs the invoked session with the specified nice level.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--chdir=</option></term>
+        <term><option>-D</option></term>
+
+        <listitem><para>Runs the invoked session with the specified working directory. If not specified
+        defaults to the client's current working directory if switching to the root user, or the target
+        user's home directory otherwise.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--setenv=<replaceable>NAME</replaceable>[=<replaceable>VALUE</replaceable>]</option></term>
+
+        <listitem><para>Runs the invoked session with the specified environment variable set. This parameter
+        may be used more than once to set multiple variables. When <literal>=</literal> and
+        <replaceable>VALUE</replaceable> are omitted, the value of the variable with the same name in the
+        invoking environment will be used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--background=<replaceable>COLOR</replaceable></option></term>
+
+        <listitem><para>Change the terminal background color to the specified ANSI color as long as the
+        session lasts. If not specified, the background will be tinted in a reddish tone when operating as
+        root, and in a yellowish tone when operating under another UID, as reminder of the changed
+        privileges. The color specified should be an ANSI X3.64 SGR background color, i.e. strings such as
+        <literal>40</literal>, <literal>41</literal>, …, <literal>47</literal>, <literal>48;2;…</literal>,
+        <literal>48;5;…</literal>. See <ulink
+        url="https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_(Select_Graphic_Rendition)_parameters">ANSI
+        Escape Code (Wikipedia)</ulink> for details. Set to an empty string to disable.</para>
+
+        <para>Example: <literal>--background=44</literal> for a blue background.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <xi:include href="user-system-options.xml" xpointer="machine" />
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
+
+    <para>All command line arguments after the first non-option argument become part of the command line of
+    the launched process. If no command line is specified an interactive shell is invoked.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Exit status</title>
+
+    <para>On success, 0 is returned. If <command>uid0</command> failed to start the session or the specified command fails, a
+    non-zero return value will be returned.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>sudo</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+
+</refentry>

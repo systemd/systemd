@@ -458,6 +458,32 @@ int strv_env_assign(char ***l, const char *key, const char *value) {
         return strv_env_replace_consume(l, p);
 }
 
+int strv_env_assignf(char ***l, const char *key, const char *valuef, ...) {
+        int r;
+
+        if (!env_name_is_valid(key))
+                return -EINVAL;
+
+        if (!valuef) {
+                strv_env_unset(*l, key);
+                return 0;
+        }
+
+        _cleanup_free_ char *value = NULL;
+        va_list ap;
+        va_start(ap, valuef);
+        r = vasprintf(&value, valuef, ap);
+        va_end(ap);
+        if (r < 0)
+                return -ENOMEM;
+
+        char *p = strjoin(key, "=", value);
+        if (!p)
+                return -ENOMEM;
+
+        return strv_env_replace_consume(l, p);
+}
+
 int _strv_env_assign_many(char ***l, ...) {
         va_list ap;
         int r;
