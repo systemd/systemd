@@ -5,17 +5,22 @@
 #include <stdlib.h>
 #include <unistd.h>
 
+#include "sd-event.h"
+#include "sd-id128.h"
+
 #include "alloc-util.h"
 #include "architecture.h"
 #include "build.h"
 #include "common-signal.h"
 #include "copy.h"
 #include "creds-util.h"
+#include "dissect-image.h"
 #include "escape.h"
 #include "event-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "gpt.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "log.h"
@@ -30,7 +35,6 @@
 #include "pretty-print.h"
 #include "process-util.h"
 #include "rm-rf.h"
-#include "sd-event.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "strv.h"
@@ -566,6 +570,60 @@ static int start_tpm(sd_bus *bus, const char *scope, const char *tpm, const char
         return 0;
 }
 
+static int discover_root(char **ret) {
+        int r;
+        _cleanup_(dissected_image_unrefp) DissectedImage *image = NULL;
+        _cleanup_free_ char *root = NULL;
+
+        assert(ret);
+
+        r = dissect_image_file_and_warn(
+                        arg_image,
+                        /* verity= */ NULL,
+                        /* mount_options= */ NULL,
+                        /* image_policy= */ NULL,
+                        /* flags= */ 0,
+                        &image);
+        if (r < 0)
+                return r;
+
+        if (image->partitions[PARTITION_ROOT].found)
+                root = strjoin("root=PARTUUID=", SD_ID128_TO_UUID_STRING(image->partitions[PARTITION_ROOT].uuid));
+        else if (image->partitions[PARTITION_USR].found)
+                root = strjoin("mount.usr=PARTUUID=", SD_ID128_TO_UUID_STRING(image->partitions[PARTITION_USR].uuid));
+        else
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Cannot perform a direct kernel boot without a root or usr partition, refusing");
+
+        if (!root)
+                return log_oom();
+
+        *ret = TAKE_PTR(root);
+
+        return 0;
+}
+
+static int kernel_cmdline_maybe_append_root(void) {
+        int r;
+        bool cmdline_contains_root = strv_find_startswith(arg_kernel_cmdline_extra, "root=")
+                        || strv_find_startswith(arg_kernel_cmdline_extra, "mount.usr=");
+
+        if (!cmdline_contains_root) {
+                _cleanup_free_ char *root = NULL;
+
+                r = discover_root(&root);
+                if (r < 0)
+                        return r;
+
+                log_debug("Determined root file system %s from dissected image", root);
+
+                r = strv_extend(&arg_kernel_cmdline_extra, root);
+                if (r < 0)
+                        return log_oom();
+        }
+
+        return 0;
+}
+
 static int run_virtual_machine(void) {
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -763,6 +821,14 @@ static int run_virtual_machine(void) {
                 r = strv_extend_many(&cmdline, "-kernel", arg_linux);
                 if (r < 0)
                         return log_oom();
+
+                /* We can't rely on gpt-auto-generator when direct kernel booting so synthesize a root=
+                 * kernel argument instead. */
+                if (arg_image) {
+                        r = kernel_cmdline_maybe_append_root();
+                        if (r < 0)
+                                return r;
+                }
         }
 
         r = strv_extend(&cmdline, "-drive");
