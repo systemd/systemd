@@ -552,6 +552,8 @@ int pty_forward_new(
 }
 
 PTYForward *pty_forward_free(PTYForward *f) {
+        if (!f)
+                return NULL;
         pty_forward_disconnect(f);
         return mfree(f);
 }
