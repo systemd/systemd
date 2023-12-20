@@ -24,7 +24,7 @@ NextHop *nexthop_free(NextHop *nexthop) {
 
         if (nexthop->network) {
                 assert(nexthop->section);
-                hashmap_remove(nexthop->network->nexthops_by_section, nexthop->section);
+                ordered_hashmap_remove(nexthop->network->nexthops_by_section, nexthop->section);
         }
 
         config_section_free(nexthop->section);
@@ -80,7 +80,7 @@ static int nexthop_new_static(Network *network, const char *filename, unsigned s
         if (r < 0)
                 return r;
 
-        nexthop = hashmap_get(network->nexthops_by_section, n);
+        nexthop = ordered_hashmap_get(network->nexthops_by_section, n);
         if (nexthop) {
                 *ret = TAKE_PTR(nexthop);
                 return 0;
@@ -95,7 +95,7 @@ static int nexthop_new_static(Network *network, const char *filename, unsigned s
         nexthop->section = TAKE_PTR(n);
         nexthop->source = NETWORK_CONFIG_SOURCE_STATIC;
 
-        r = hashmap_ensure_put(&network->nexthops_by_section, &config_section_hash_ops, nexthop->section, nexthop);
+        r = ordered_hashmap_ensure_put(&network->nexthops_by_section, &config_section_hash_ops, nexthop->section, nexthop);
         if (r < 0)
                 return r;
 
@@ -239,12 +239,21 @@ static int nexthop_get(Link *link, const NextHop *in, NextHop **ret) {
         if (in->id > 0)
                 return nexthop_get_by_id(link->manager, in->id, ret);
 
+        /* If ManageForeignNextHops=no, nexthop with id == 0 should be already filtered by
+         * nexthop_section_verify(). */
+        assert(link->manager->manage_foreign_nexthops);
+
         ifindex = nexthop_bound_to_link(in) ? link->ifindex : 0;
 
         HASHMAP_FOREACH(nexthop, link->manager->nexthops_by_id) {
                 if (nexthop->ifindex != ifindex)
                         continue;
                 if (nexthop_compare_full(nexthop, in) != 0)
+                        continue;
+
+                /* Even if the configuration matches, it may be configured with another [NextHop] section
+                 * that has an explicit ID. If so, the assigned nexthop is not the one we are looking for. */
+                if (set_contains(link->manager->nexthop_ids, UINT32_TO_PTR(nexthop->id)))
                         continue;
 
                 if (ret)
@@ -287,6 +296,10 @@ static int nexthop_get_request(Link *link, const NextHop *in, Request **ret) {
         if (in->id > 0)
                 return nexthop_get_request_by_id(link->manager, in->id, ret);
 
+        /* If ManageForeignNextHops=no, nexthop with id == 0 should be already filtered by
+         * nexthop_section_verify(). */
+        assert(link->manager->manage_foreign_nexthops);
+
         ifindex = nexthop_bound_to_link(in) ? link->ifindex : 0;
 
         ORDERED_SET_FOREACH(req, link->manager->request_queue) {
@@ -297,6 +310,11 @@ static int nexthop_get_request(Link *link, const NextHop *in, Request **ret) {
                 if (nexthop->ifindex != ifindex)
                         continue;
                 if (nexthop_compare_full(nexthop, in) != 0)
+                        continue;
+
+                /* Even if the configuration matches, it may be requested by another [NextHop] section
+                 * that has an explicit ID. If so, the request is not the one we are looking for. */
+                if (set_contains(link->manager->nexthop_ids, UINT32_TO_PTR(nexthop->id)))
                         continue;
 
                 if (ret)
@@ -336,10 +354,6 @@ static int nexthop_add_new(Manager *manager, uint32_t id, NextHop **ret) {
 }
 
 static int nexthop_acquire_id(Manager *manager, NextHop *nexthop) {
-        _cleanup_set_free_ Set *ids = NULL;
-        Network *network;
-        int r;
-
         assert(manager);
         assert(nexthop);
 
@@ -352,25 +366,12 @@ static int nexthop_acquire_id(Manager *manager, NextHop *nexthop) {
 
         /* Find the lowest unused ID. */
 
-        ORDERED_HASHMAP_FOREACH(network, manager->networks) {
-                NextHop *tmp;
-
-                HASHMAP_FOREACH(tmp, network->nexthops_by_section) {
-                        if (tmp->id == 0)
-                                continue;
-
-                        r = set_ensure_put(&ids, NULL, UINT32_TO_PTR(tmp->id));
-                        if (r < 0)
-                                return r;
-                }
-        }
-
         for (uint32_t id = 1; id < UINT32_MAX; id++) {
                 if (nexthop_get_by_id(manager, id, NULL) >= 0)
                         continue;
                 if (nexthop_get_request_by_id(manager, id, NULL) >= 0)
                         continue;
-                if (set_contains(ids, UINT32_TO_PTR(id)))
+                if (set_contains(manager->nexthop_ids, UINT32_TO_PTR(id)))
                         continue;
 
                 nexthop->id = id;
@@ -430,15 +431,13 @@ static int nexthop_remove(NextHop *nexthop) {
         Request *req;
         int r;
 
-        manager = ASSERT_PTR(ASSERT_PTR(nexthop)->manager);
+        assert(nexthop);
+        assert(nexthop->id > 0);
+
+        manager = ASSERT_PTR(nexthop->manager);
 
         /* link may be NULL. */
         (void) link_get_by_index(manager, nexthop->ifindex, &link);
-
-        if (nexthop->id == 0) {
-                log_link_debug(link, "Cannot remove nexthop without valid ID, ignoring.");
-                return 0;
-        }
 
         log_nexthop_debug(nexthop, "Removing", manager);
 
@@ -555,6 +554,7 @@ static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
 
         assert(link);
         assert(nexthop);
+        assert(nexthop->id > 0);
 
         if (!link_is_ready_to_configure(link, false))
                 return false;
@@ -580,17 +580,6 @@ static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
 
                 if (!nexthop_exists(g))
                         return false;
-        }
-
-        if (nexthop->id == 0) {
-                Request *req;
-
-                ORDERED_SET_FOREACH(req, link->manager->request_queue) {
-                        if (req->type != REQUEST_TYPE_NEXTHOP)
-                                continue;
-                        if (((NextHop*) req->userdata)->id != 0)
-                                return false; /* first configure nexthop with id. */
-                }
         }
 
         return gateway_is_ready(link, FLAGS_SET(nexthop->flags, RTNH_F_ONLINK), nexthop->family, &nexthop->gw);
@@ -682,7 +671,7 @@ int link_request_static_nexthops(Link *link, bool only_ipv4) {
 
         link->static_nexthops_configured = false;
 
-        HASHMAP_FOREACH(nh, link->network->nexthops_by_section) {
+        ORDERED_HASHMAP_FOREACH(nh, link->network->nexthops_by_section) {
                 if (only_ipv4 && nh->family != AF_INET)
                         continue;
 
@@ -763,7 +752,7 @@ static void link_mark_nexthops(Link *link, bool foreign) {
                 if (!IN_SET(other->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
                         continue;
 
-                HASHMAP_FOREACH(nexthop, other->network->nexthops_by_section) {
+                ORDERED_HASHMAP_FOREACH(nexthop, other->network->nexthops_by_section) {
                         NextHop *existing;
 
                         if (nexthop_get(other, nexthop, &existing) < 0)
@@ -1022,20 +1011,34 @@ static int nexthop_section_verify(NextHop *nh) {
                                                  "Ignoring [NextHop] section from line %u.",
                                                  nh->section->filename, nh->section->line);
 
-                if (nh->blackhole && in_addr_is_set(nh->family, &nh->gw))
+                if (nh->blackhole)
                         return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                                  "%s: nexthop group cannot be a blackhole. "
+                                                 "Ignoring [NextHop] section from line %u.",
+                                                 nh->section->filename, nh->section->line);
+
+                if (nh->onlink > 0)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                 "%s: nexthop group cannot have on-link flag. "
                                                  "Ignoring [NextHop] section from line %u.",
                                                  nh->section->filename, nh->section->line);
         } else if (nh->family == AF_UNSPEC)
                 /* When neither Family=, Gateway=, nor Group= is specified, assume IPv4. */
                 nh->family = AF_INET;
 
-        if (nh->blackhole && in_addr_is_set(nh->family, &nh->gw))
-                return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
-                                         "%s: blackhole nexthop cannot have gateway address. "
-                                         "Ignoring [NextHop] section from line %u.",
-                                         nh->section->filename, nh->section->line);
+        if (nh->blackhole) {
+                if (in_addr_is_set(nh->family, &nh->gw))
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                 "%s: blackhole nexthop cannot have gateway address. "
+                                                 "Ignoring [NextHop] section from line %u.",
+                                                 nh->section->filename, nh->section->line);
+
+                if (nh->onlink > 0)
+                        return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                 "%s: blackhole nexthop cannot have on-link flag. "
+                                                 "Ignoring [NextHop] section from line %u.",
+                                                 nh->section->filename, nh->section->line);
+        }
 
         if (nh->onlink < 0 && in_addr_is_set(nh->family, &nh->gw) &&
             ordered_hashmap_isempty(nh->network->addresses_by_section)) {
@@ -1053,14 +1056,68 @@ static int nexthop_section_verify(NextHop *nh) {
         return 0;
 }
 
-void network_drop_invalid_nexthops(Network *network) {
+int network_drop_invalid_nexthops(Network *network) {
+        _cleanup_hashmap_free_ Hashmap *nexthops = NULL;
         NextHop *nh;
+        int r;
 
         assert(network);
 
-        HASHMAP_FOREACH(nh, network->nexthops_by_section)
-                if (nexthop_section_verify(nh) < 0)
+        ORDERED_HASHMAP_FOREACH(nh, network->nexthops_by_section) {
+                if (nexthop_section_verify(nh) < 0) {
                         nexthop_free(nh);
+                        continue;
+                }
+
+                if (nh->id == 0)
+                        continue;
+
+                /* Always use the setting specified later. So, remove the previously assigned setting. */
+                NextHop *dup = hashmap_remove(nexthops, UINT32_TO_PTR(nh->id));
+                if (dup) {
+                        log_warning("%s: Duplicated nexthop settings for ID %"PRIu32" is specified at line %u and %u, "
+                                    "dropping the nexthop setting specified at line %u.",
+                                    dup->section->filename,
+                                    nh->id, nh->section->line,
+                                    dup->section->line, dup->section->line);
+                        /* nexthop_free() will drop the nexthop from nexthops_by_section. */
+                        nexthop_free(dup);
+                }
+
+                r = hashmap_ensure_put(&nexthops, NULL, UINT32_TO_PTR(nh->id), nh);
+                if (r < 0)
+                        return log_oom();
+                assert(r > 0);
+        }
+
+        return 0;
+}
+
+int manager_build_nexthop_ids(Manager *manager) {
+        Network *network;
+        int r;
+
+        assert(manager);
+
+        if (!manager->manage_foreign_nexthops)
+                return 0;
+
+        manager->nexthop_ids = set_free(manager->nexthop_ids);
+
+        ORDERED_HASHMAP_FOREACH(network, manager->networks) {
+                NextHop *nh;
+
+                ORDERED_HASHMAP_FOREACH(nh, network->nexthops_by_section) {
+                        if (nh->id == 0)
+                                continue;
+
+                        r = set_ensure_put(&manager->nexthop_ids, NULL, UINT32_TO_PTR(nh->id));
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
 }
 
 int config_parse_nexthop_id(
