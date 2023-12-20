@@ -429,24 +429,11 @@ static int manager_connect_rtnl(Manager *m, int fd) {
         return manager_setup_rtnl_filter(m);
 }
 
-static int manager_dirty_handler(sd_event_source *s, void *userdata) {
-        Manager *m = ASSERT_PTR(userdata);
-        Link *link;
-        int r;
+static int manager_post_handler(sd_event_source *s, void *userdata) {
+        Manager *manager = ASSERT_PTR(userdata);
 
-        if (m->dirty) {
-                r = manager_save(m);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to update state file %s, ignoring: %m", m->state_file);
-        }
-
-        SET_FOREACH(link, m->dirty_links) {
-                r = link_save_and_clean(link);
-                if (r < 0)
-                        log_link_warning_errno(link, r, "Failed to update link state file %s, ignoring: %m", link->state_file);
-        }
-
-        return 1;
+        (void) manager_clean_all(manager);
+        return 0;
 }
 
 static int signal_terminate_callback(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
@@ -522,7 +509,7 @@ int manager_setup(Manager *m) {
         if (r < 0)
                 log_debug_errno(r, "Failed allocate memory pressure event source, ignoring: %m");
 
-        r = sd_event_add_post(m->event, NULL, manager_dirty_handler, m);
+        r = sd_event_add_post(m->event, NULL, manager_post_handler, m);
         if (r < 0)
                 return r;
 
