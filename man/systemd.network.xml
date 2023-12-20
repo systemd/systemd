@@ -5865,10 +5865,17 @@ ServerAddress=192.168.0.1/24</programlisting>
 
   <refsect1>
     <title>[BridgeVLAN] Section Options</title>
-    <para>The [BridgeVLAN] section manages the VLAN ID configuration of a bridge port and accepts the
-    following keys. Specify several [BridgeVLAN] sections to configure several VLAN entries. The
-    <varname>VLANFiltering=</varname> option has to be enabled, see the [Bridge] section in
-    <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+    <para>
+      The [BridgeVLAN] section manages the VLAN ID configurations of a bridge master or port, and accepts the
+      following keys. To make the settings in this section take an effect,
+      <varname>VLANFiltering=</varname> option has to be enabled on the bridge master, see the [Bridge]
+      section in
+      <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+      If at least one valid settings specified in this section in a .network file for an interface, all
+      assigned VLAN IDs on the interface that are not configured in the .network file will be removed. If
+      VLAN IDs on an interface need to be managed by other tools, then the settings in this section cannot
+      be used in the matching .network file.
+    </para>
 
     <variablelist class='network-directives'>
       <varlistentry>

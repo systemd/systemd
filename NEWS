@@ -4,6 +4,12 @@ CHANGES WITH 256 in spe:
 
         Announcements of Future Feature Removals and Incompatible Changes:
 
+        * Previously, systemd-networkd did not explicitly remove any bridge VLAN
+          IDs assigned on bridge master and ports. Since v256, if a .network
+          file for an interface has at least one valid settings in [BridgeVLAN]
+          section, then all assigned VLAN IDs on the interface that are not
+          configured in the .network file are removed.
+
 CHANGES WITH 255:
 
         Announcements of Future Feature Removals and Incompatible Changes:
