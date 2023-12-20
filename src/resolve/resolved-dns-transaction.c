@@ -1117,6 +1117,83 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                 }
         }
 
+        if (DNS_PACKET_TC(p)) {
+
+                /* Truncated packets for mDNS are not allowed. Give up immediately. */
+                if (t->scope->protocol == DNS_PROTOCOL_MDNS) {
+                        dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
+                        return;
+                }
+
+                /* Response was truncated, let's try again with good old TCP */
+                log_debug("Reply truncated, retrying via TCP.");
+                retry_with_tcp = true;
+
+        } else if (t->scope->protocol == DNS_PROTOCOL_DNS &&
+                   DNS_PACKET_IS_FRAGMENTED(p)) {
+
+                /* Report the fragment size, so that we downgrade from LARGE to regular EDNS0 if needed */
+                if (t->server)
+                        dns_server_packet_udp_fragmented(t->server, dns_packet_size_unfragmented(p));
+
+                if (t->current_feature_level > DNS_SERVER_FEATURE_LEVEL_UDP) {
+                        /* Packet was fragmented. Let's retry with TCP to avoid fragmentation attack
+                         * issues. (We don't do that on the lowest feature level however, since crappy DNS
+                         * servers often do not implement TCP, hence falling back to TCP on fragmentation is
+                         * counter-productive there.) */
+
+                        log_debug("Reply fragmented, retrying via TCP. (Largest fragment size: %zu; Datagram size: %zu)",
+                                  p->fragsize, p->size);
+                        retry_with_tcp = true;
+                }
+        }
+
+        if (retry_with_tcp) {
+                r = dns_transaction_emit_tcp(t);
+                if (r == -ESRCH) {
+                        /* No servers found? Damn! */
+                        dns_transaction_complete(t, DNS_TRANSACTION_NO_SERVERS);
+                        return;
+                }
+                if (r == -EOPNOTSUPP) {
+                        /* Tried to ask for DNSSEC RRs, on a server that doesn't do DNSSEC  */
+                        dns_transaction_complete(t, DNS_TRANSACTION_RR_TYPE_UNSUPPORTED);
+                        return;
+                }
+                if (r < 0) {
+                        /* On LLMNR, if we cannot connect to the host,
+                         * we immediately give up */
+                        if (t->scope->protocol != DNS_PROTOCOL_DNS)
+                                goto fail;
+
+                        /* On DNS, couldn't send? Try immediately again, with a new server */
+                        if (dns_transaction_limited_retry(t))
+                                return;
+
+                        /* No new server to try, give up */
+                        dns_transaction_complete(t, DNS_TRANSACTION_ATTEMPTS_MAX_REACHED);
+                }
+
+                return;
+        }
+
+        /* After the superficial checks, actually parse the message. */
+        r = dns_packet_extract(p);
+        if (r < 0) {
+                if (t->server) {
+                        dns_server_packet_invalid(t->server, t->current_feature_level);
+
+                        r = dns_transaction_maybe_restart(t);
+                        if (r < 0)
+                                goto fail;
+                        if (r > 0) /* Transaction got restarted... */
+                                return;
+                }
+
+                dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
+                return;
+        }
+
         switch (t->scope->protocol) {
 
         case DNS_PROTOCOL_DNS:
@@ -1200,83 +1277,6 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
 
         default:
                 assert_not_reached();
-        }
-
-        if (DNS_PACKET_TC(p)) {
-
-                /* Truncated packets for mDNS are not allowed. Give up immediately. */
-                if (t->scope->protocol == DNS_PROTOCOL_MDNS) {
-                        dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
-                        return;
-                }
-
-                /* Response was truncated, let's try again with good old TCP */
-                log_debug("Reply truncated, retrying via TCP.");
-                retry_with_tcp = true;
-
-        } else if (t->scope->protocol == DNS_PROTOCOL_DNS &&
-                   DNS_PACKET_IS_FRAGMENTED(p)) {
-
-                /* Report the fragment size, so that we downgrade from LARGE to regular EDNS0 if needed */
-                if (t->server)
-                        dns_server_packet_udp_fragmented(t->server, dns_packet_size_unfragmented(p));
-
-                if (t->current_feature_level > DNS_SERVER_FEATURE_LEVEL_UDP) {
-                        /* Packet was fragmented. Let's retry with TCP to avoid fragmentation attack
-                         * issues. (We don't do that on the lowest feature level however, since crappy DNS
-                         * servers often do not implement TCP, hence falling back to TCP on fragmentation is
-                         * counter-productive there.) */
-
-                        log_debug("Reply fragmented, retrying via TCP. (Largest fragment size: %zu; Datagram size: %zu)",
-                                  p->fragsize, p->size);
-                        retry_with_tcp = true;
-                }
-        }
-
-        if (retry_with_tcp) {
-                r = dns_transaction_emit_tcp(t);
-                if (r == -ESRCH) {
-                        /* No servers found? Damn! */
-                        dns_transaction_complete(t, DNS_TRANSACTION_NO_SERVERS);
-                        return;
-                }
-                if (r == -EOPNOTSUPP) {
-                        /* Tried to ask for DNSSEC RRs, on a server that doesn't do DNSSEC  */
-                        dns_transaction_complete(t, DNS_TRANSACTION_RR_TYPE_UNSUPPORTED);
-                        return;
-                }
-                if (r < 0) {
-                        /* On LLMNR, if we cannot connect to the host,
-                         * we immediately give up */
-                        if (t->scope->protocol != DNS_PROTOCOL_DNS)
-                                goto fail;
-
-                        /* On DNS, couldn't send? Try immediately again, with a new server */
-                        if (dns_transaction_limited_retry(t))
-                                return;
-
-                        /* No new server to try, give up */
-                        dns_transaction_complete(t, DNS_TRANSACTION_ATTEMPTS_MAX_REACHED);
-                }
-
-                return;
-        }
-
-        /* After the superficial checks, actually parse the message. */
-        r = dns_packet_extract(p);
-        if (r < 0) {
-                if (t->server) {
-                        dns_server_packet_invalid(t->server, t->current_feature_level);
-
-                        r = dns_transaction_maybe_restart(t);
-                        if (r < 0)
-                                goto fail;
-                        if (r > 0) /* Transaction got restarted... */
-                                return;
-                }
-
-                dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
-                return;
         }
 
         if (t->server) {
