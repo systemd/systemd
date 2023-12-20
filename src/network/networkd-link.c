@@ -1241,10 +1241,20 @@ int link_reconfigure_impl(Link *link, bool force) {
                 return 0;
 
         if (network) {
+                _cleanup_free_ char *joined = strv_join(network->dropins, ", ");
+
                 if (link->state == LINK_STATE_INITIALIZED)
-                        log_link_info(link, "Configuring with %s.", network->filename);
+                        log_link_info(link, "Configuring with %s%s%s%s.",
+                                      network->filename,
+                                      isempty(joined) ? "" : " (dropins: ",
+                                      joined,
+                                      isempty(joined) ? "" : ")");
                 else
-                        log_link_info(link, "Reconfiguring with %s.", network->filename);
+                        log_link_info(link, "Reconfiguring with %s%s%s%s.",
+                                      network->filename,
+                                      isempty(joined) ? "" : " (dropins: ",
+                                      joined,
+                                      isempty(joined) ? "" : ")");
         } else
                 log_link_full(link, link->state == LINK_STATE_INITIALIZED ? LOG_DEBUG : LOG_INFO,
                               "Unmanaging interface.");
