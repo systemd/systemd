@@ -5,6 +5,43 @@
 #include "color-util.h"
 #include "macro.h"
 
+void rgb_to_hsv(double r, double g, double b,
+                double *ret_h, double *ret_s, double *ret_v) {
+
+        assert(r >= 0 && r <= 1);
+        assert(g >= 0 && g <= 1);
+        assert(b >= 0 && b <= 1);
+        assert(ret_h);
+        assert(ret_s);
+        assert(ret_v);
+
+        double max_color = fmax(r, fmax(g, b));
+        double min_color = fmin(r, fmin(g, b));
+        double delta = max_color - min_color;
+
+        *ret_v = max_color * 100.0;
+
+        if (max_color > 0)
+                *ret_s = delta / max_color * 100.0;
+        else {
+                *ret_s = 0;
+                *ret_h = NAN;
+                return;
+        }
+
+        if (delta > 0) {
+                if (r >= max_color)
+                        *ret_h = 60 * fmod((g - b) / delta, 6);
+                else if (g >= max_color)
+                        *ret_h = 60 * (((b - r) / delta) + 2);
+                else if (b >= max_color)
+                        *ret_h = 60 * (((r - g) / delta) + 4);
+
+                *ret_h = fmod(*ret_h, 360);
+        } else
+                *ret_h = NAN;
+}
+
 void hsv_to_rgb(double h, double s, double v,
                 uint8_t* ret_r, uint8_t *ret_g, uint8_t *ret_b) {
 
