@@ -2607,9 +2607,10 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <term><option>--firmware-setup</option></term>
 
         <listitem>
-          <para>When used with the <command>reboot</command> command, indicate to the system's firmware to
-          reboot into the firmware setup interface. Note that this functionality is not available on all
-          systems.</para>
+          <para>When used with the <command>reboot</command>, <command>poweroff</command>, or
+          <command>halt</command> command, indicate to the system's firmware to reboot into the firmware
+          setup interface for the next boot. Note that this functionality is not available on all systems.
+          </para>
 
           <xi:include href="version-info.xml" xpointer="v220"/>
         </listitem>
@@ -2619,10 +2620,11 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <term><option>--boot-loader-menu=<replaceable>timeout</replaceable></option></term>
 
         <listitem>
-          <para>When used with the <command>reboot</command> command, indicate to the system's boot loader to
-          show the boot loader menu on the following boot. Takes a time value as parameter — indicating the
-          menu timeout. Pass zero in order to disable the menu timeout. Note that not all boot loaders
-          support this functionality.</para>
+          <para>When used with the <command>reboot</command>, <command>poweroff</command>, or
+          <command>halt</command> command, indicate to the system's boot loader to show the boot loader menu
+          on the following boot. Takes a time value as parameter — indicating the menu timeout. Pass zero
+          in order to disable the menu timeout. Note that not all boot loaders support this functionality.
+          </para>
 
           <xi:include href="version-info.xml" xpointer="v242"/>
         </listitem>
@@ -2632,10 +2634,11 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
         <term><option>--boot-loader-entry=<replaceable>ID</replaceable></option></term>
 
         <listitem>
-          <para>When used with the <command>reboot</command> command, indicate to the system's boot loader to
-          boot into a specific boot loader entry on the following boot. Takes a boot loader entry identifier
-          as argument, or <literal>help</literal> in order to list available entries. Note that not all boot
-          loaders support this functionality.</para>
+          <para>When used with the <command>reboot</command>, <command>poweroff</command>, or
+          <command>halt</command> command, indicate to the system's boot loader to boot into a specific
+          boot loader entry on the following boot. Takes a boot loader entry identifier as argument,
+          or <literal>help</literal> in order to list available entries. Note that not all boot loaders
+          support this functionality.</para>
 
           <xi:include href="version-info.xml" xpointer="v242"/>
         </listitem>
