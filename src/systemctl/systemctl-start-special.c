@@ -121,8 +121,7 @@ static int set_exit_code(uint8_t code) {
 }
 
 int verb_start_special(int argc, char *argv[], void *userdata) {
-        bool termination_action; /* An action that terminates the manager, can be performed also by
-                                  * signal. */
+        bool termination_action; /* An action that terminates the system, can be performed also by signal. */
         enum action a;
         int r;
 
@@ -140,17 +139,21 @@ int verb_start_special(int argc, char *argv[], void *userdata) {
                         return r;
         }
 
-        r = prepare_firmware_setup();
-        if (r < 0)
-                return r;
+        termination_action = IN_SET(a, ACTION_HALT, ACTION_POWEROFF, ACTION_REBOOT);
 
-        r = prepare_boot_loader_menu();
-        if (r < 0)
-                return r;
+        if (termination_action) {
+                r = prepare_firmware_setup();
+                if (r < 0)
+                        return r;
 
-        r = prepare_boot_loader_entry();
-        if (r < 0)
-                return r;
+                r = prepare_boot_loader_menu();
+                if (r < 0)
+                        return r;
+
+                r = prepare_boot_loader_entry();
+                if (r < 0)
+                        return r;
+        }
 
         if (a == ACTION_REBOOT) {
                 if (arg_reboot_argument) {
@@ -181,10 +184,6 @@ int verb_start_special(int argc, char *argv[], void *userdata) {
                         return r;
         }
 
-        termination_action = IN_SET(a,
-                                    ACTION_HALT,
-                                    ACTION_POWEROFF,
-                                    ACTION_REBOOT);
         if (termination_action && arg_force >= 2)
                 return halt_now(a);
 
