@@ -426,7 +426,7 @@ static int vl_method_get_memberships(Varlink *link, JsonVariant *parameters, Var
 }
 
 static int process_connection(VarlinkServer *server, int _fd) {
-        _cleanup_close_ int fd = TAKE_FD(_fd); /* always take possesion */
+        _cleanup_close_ int fd = TAKE_FD(_fd); /* always take possession */
         _cleanup_(varlink_close_unrefp) Varlink *vl = NULL;
         int r;
 
