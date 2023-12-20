@@ -201,19 +201,23 @@ static int verify_executables(Unit *u, const char *root) {
 
         assert(u);
 
-        ExecCommand *exec =
-                u->type == UNIT_SOCKET ? SOCKET(u)->control_command :
-                u->type == UNIT_MOUNT ? MOUNT(u)->control_command :
-                u->type == UNIT_SWAP ? SWAP(u)->control_command : NULL;
-        RET_GATHER(r, verify_executable(u, exec, root));
+        if (u->type == UNIT_MOUNT)
+                FOREACH_ARRAY(i, MOUNT(u)->exec_command, ELEMENTSOF(MOUNT(u)->exec_command))
+                        RET_GATHER(r, verify_executable(u, i, root));
 
         if (u->type == UNIT_SERVICE)
                 FOREACH_ARRAY(i, SERVICE(u)->exec_command, ELEMENTSOF(SERVICE(u)->exec_command))
-                        RET_GATHER(r, verify_executable(u, *i, root));
+                        LIST_FOREACH(command, j, *i)
+                                RET_GATHER(r, verify_executable(u, j, root));
 
         if (u->type == UNIT_SOCKET)
                 FOREACH_ARRAY(i, SOCKET(u)->exec_command, ELEMENTSOF(SOCKET(u)->exec_command))
-                        RET_GATHER(r, verify_executable(u, *i, root));
+                        LIST_FOREACH(command, j, *i)
+                                RET_GATHER(r, verify_executable(u, j, root));
+
+        if (u->type == UNIT_SWAP)
+                FOREACH_ARRAY(i, SWAP(u)->exec_command, ELEMENTSOF(SWAP(u)->exec_command))
+                        RET_GATHER(r, verify_executable(u, i, root));
 
         return r;
 }
