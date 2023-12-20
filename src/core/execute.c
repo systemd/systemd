@@ -1955,8 +1955,7 @@ static char *destroy_tree(char *path) {
 }
 
 void exec_shared_runtime_done(ExecSharedRuntime *rt) {
-        if (!rt)
-                return;
+        assert(rt);
 
         if (rt->manager)
                 (void) hashmap_remove(rt->manager->exec_shared_runtime_by_id, rt->id);
@@ -1969,8 +1968,10 @@ void exec_shared_runtime_done(ExecSharedRuntime *rt) {
 }
 
 static ExecSharedRuntime* exec_shared_runtime_free(ExecSharedRuntime *rt) {
-        exec_shared_runtime_done(rt);
+        if (!rt)
+                return NULL;
 
+        exec_shared_runtime_done(rt);
         return mfree(rt);
 }
 
@@ -2094,15 +2095,13 @@ static int exec_shared_runtime_make(
                         return r;
         }
 
-        if (exec_needs_network_namespace(c)) {
+        if (exec_needs_network_namespace(c))
                 if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, netns_storage_socket) < 0)
                         return -errno;
-        }
 
-        if (exec_needs_ipc_namespace(c)) {
+        if (exec_needs_ipc_namespace(c))
                 if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, ipcns_storage_socket) < 0)
                         return -errno;
-        }
 
         r = exec_shared_runtime_add(m, id, &tmp_dir, &var_tmp_dir, netns_storage_socket, ipcns_storage_socket, ret);
         if (r < 0)
