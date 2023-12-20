@@ -432,6 +432,7 @@ static int manager_connect_rtnl(Manager *m, int fd) {
 static int manager_post_handler(sd_event_source *s, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
 
+        (void) manager_process_requests(manager);
         (void) manager_clean_all(manager);
         return 0;
 }
@@ -510,10 +511,6 @@ int manager_setup(Manager *m) {
                 log_debug_errno(r, "Failed allocate memory pressure event source, ignoring: %m");
 
         r = sd_event_add_post(m->event, NULL, manager_post_handler, m);
-        if (r < 0)
-                return r;
-
-        r = sd_event_add_post(m->event, NULL, manager_process_requests, m);
         if (r < 0)
                 return r;
 
