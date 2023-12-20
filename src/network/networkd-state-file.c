@@ -861,3 +861,26 @@ int link_save_and_clean_full(Link *link, bool also_save_manager) {
         link_clean(link);
         return k;
 }
+
+int manager_clean_all(Manager *manager) {
+        int r, ret = 0;
+
+        assert(manager);
+
+        if (manager->dirty) {
+                r = manager_save(manager);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to update state file %s, ignoring: %m", manager->state_file);
+                RET_GATHER(ret, r);
+        }
+
+        Link *link;
+        SET_FOREACH(link, manager->dirty_links) {
+                r = link_save_and_clean(link);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Failed to update link state file %s, ignoring: %m", link->state_file);
+                RET_GATHER(ret, r);
+        }
+
+        return ret;
+}
