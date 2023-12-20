@@ -27,9 +27,18 @@ static void set_bit(unsigned nr, uint32_t *addr) {
         addr[nr / 32] |= (UINT32_C(1) << (nr % 32));
 }
 
-static int add_single(sd_netlink_message *m, uint16_t id, bool untagged, bool is_pvid) {
+static int add_single(sd_netlink_message *m, uint16_t id, bool untagged, bool is_pvid, char **str) {
         assert(m);
         assert(id < BRIDGE_VLAN_BITMAP_MAX);
+
+        if (DEBUG_LOGGING)
+                (void) strextendf_with_separator(str, ",", "%u%s%s%s%s%s", id,
+                                                 (untagged || is_pvid) ? "(" : "",
+                                                 untagged ? "untagged" : "",
+                                                 (untagged && is_pvid) ? "," : "",
+                                                 is_pvid ? "pvid" : "",
+                                                 (untagged || is_pvid) ? ")" : "");
+
         return sd_netlink_message_append_data(m, IFLA_BRIDGE_VLAN_INFO,
                                               &(struct bridge_vlan_info) {
                                                       .vid = id,
@@ -39,7 +48,7 @@ static int add_single(sd_netlink_message *m, uint16_t id, bool untagged, bool is
                                               sizeof(struct bridge_vlan_info));
 }
 
-static int add_range(sd_netlink_message *m, uint16_t begin, uint16_t end, bool untagged) {
+static int add_range(sd_netlink_message *m, uint16_t begin, uint16_t end, bool untagged, char **str) {
         int r;
 
         assert(m);
@@ -47,7 +56,10 @@ static int add_range(sd_netlink_message *m, uint16_t begin, uint16_t end, bool u
         assert(end < BRIDGE_VLAN_BITMAP_MAX);
 
         if (begin == end)
-                return add_single(m, begin, untagged, /* is_pvid = */ false);
+                return add_single(m, begin, untagged, /* is_pvid = */ false, str);
+
+        if (DEBUG_LOGGING)
+                (void) strextendf_with_separator(str, ",", "%u-%u%s", begin, end, untagged ? "(untagged)" : "");
 
         r = sd_netlink_message_append_data(m, IFLA_BRIDGE_VLAN_INFO,
                                            &(struct bridge_vlan_info) {
@@ -95,6 +107,7 @@ static uint16_t link_get_pvid(Link *link, bool *ret_untagged) {
 }
 
 static int bridge_vlan_append_set_info(Link *link, sd_netlink_message *m) {
+        _cleanup_free_ char *str = NULL;
         uint16_t pvid, begin = UINT16_MAX;
         bool untagged, pvid_is_untagged;
         int r;
@@ -112,14 +125,14 @@ static int bridge_vlan_append_set_info(Link *link, sd_netlink_message *m) {
                         if (begin != UINT16_MAX) {
                                 assert(begin < k);
 
-                                r = add_range(m, begin, k - 1, untagged);
+                                r = add_range(m, begin, k - 1, untagged, &str);
                                 if (r < 0)
                                         return r;
 
                                 begin = UINT16_MAX;
                         }
 
-                        r = add_single(m, pvid, pvid_is_untagged, /* is_pvid = */ true);
+                        r = add_single(m, pvid, pvid_is_untagged, /* is_pvid = */ true, &str);
                         if (r < 0)
                                 return r;
 
@@ -131,7 +144,7 @@ static int bridge_vlan_append_set_info(Link *link, sd_netlink_message *m) {
                         if (begin != UINT16_MAX) {
                                 assert(begin < k);
 
-                                r = add_range(m, begin, k - 1, untagged);
+                                r = add_range(m, begin, k - 1, untagged, &str);
                                 if (r < 0)
                                         return r;
 
@@ -151,7 +164,7 @@ static int bridge_vlan_append_set_info(Link *link, sd_netlink_message *m) {
                                 continue;
 
                         /* Tagging flag is changed from the previous bits. Finish them. */
-                        r = add_range(m, begin, k - 1, untagged);
+                        r = add_range(m, begin, k - 1, untagged, &str);
                         if (r < 0)
                                 return r;
 
@@ -170,10 +183,13 @@ static int bridge_vlan_append_set_info(Link *link, sd_netlink_message *m) {
          * the above loop, we run 0…4095. */
         assert_cc(BRIDGE_VLAN_BITMAP_MAX > VLANID_MAX);
         assert(begin == UINT16_MAX);
+
+        log_link_debug(link, "Setting Bridge VLAN IDs: %s", strna(str));
         return 0;
 }
 
 static int bridge_vlan_append_del_info(Link *link, sd_netlink_message *m) {
+        _cleanup_free_ char *str = NULL;
         uint16_t pvid, begin = UINT16_MAX;
         int r;
 
@@ -192,7 +208,7 @@ static int bridge_vlan_append_del_info(Link *link, sd_netlink_message *m) {
                         if (begin != UINT16_MAX) {
                                 assert(begin < k);
 
-                                r = add_range(m, begin, k - 1, /* untagged = */ false);
+                                r = add_range(m, begin, k - 1, /* untagged = */ false, &str);
                                 if (r < 0)
                                         return r;
 
@@ -211,6 +227,8 @@ static int bridge_vlan_append_del_info(Link *link, sd_netlink_message *m) {
 
         /* No pending bit sequence. */
         assert(begin == UINT16_MAX);
+
+        log_link_debug(link, "Removing Bridge VLAN IDs: %s", strna(str));
         return 0;
 }
 
