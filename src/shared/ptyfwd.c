@@ -18,14 +18,25 @@
 
 #include "alloc-util.h"
 #include "errno-util.h"
+#include "extract-word.h"
 #include "fd-util.h"
 #include "io-util.h"
 #include "log.h"
 #include "macro.h"
 #include "ptyfwd.h"
 #include "stat-util.h"
+#include "strv.h"
 #include "terminal-util.h"
 #include "time-util.h"
+
+typedef enum AnsiColorState  {
+        ANSI_COLOR_STATE_TEXT,
+        ANSI_COLOR_STATE_ESC,
+        ANSI_COLOR_STATE_CSI_SEQUENCE,
+        ANSI_COLOR_STATE_NEWLINE,
+        _ANSI_COLOR_STATE_MAX,
+        _ANSI_COLOR_STATE_INVALID = -EINVAL,
+} AnsiColorState;
 
 struct PTYForward {
         sd_event *event;
@@ -67,7 +78,8 @@ struct PTYForward {
         bool last_char_set:1;
         char last_char;
 
-        char in_buffer[LINE_MAX], out_buffer[LINE_MAX];
+        char in_buffer[LINE_MAX], *out_buffer;
+        size_t out_buffer_size;
         size_t in_buffer_full, out_buffer_full;
 
         usec_t escape_timestamp;
@@ -75,6 +87,10 @@ struct PTYForward {
 
         PTYForwardHandler handler;
         void *userdata;
+
+        char *background_color;
+        AnsiColorState ansi_color_state;
+        char *csi_sequence;
 };
 
 #define ESCAPE_USEC (1*USEC_PER_SEC)
@@ -115,6 +131,14 @@ static void pty_forward_disconnect(PTYForward *f) {
         }
 
         f->saved_stdout = f->saved_stdin = false;
+
+        f->out_buffer = mfree(f->out_buffer);
+        f->out_buffer_size = 0;
+        f->out_buffer_full = 0;
+        f->in_buffer_full = 0;
+
+        f->csi_sequence = mfree(f->csi_sequence);
+        f->ansi_color_state = _ANSI_COLOR_STATE_INVALID;
 }
 
 static int pty_forward_done(PTYForward *f, int rcode) {
@@ -202,10 +226,243 @@ static bool drained(PTYForward *f) {
         return true;
 }
 
-static int shovel(PTYForward *f) {
-        ssize_t k;
+static char *background_color_sequence(PTYForward *f) {
+        assert(f);
+        assert(f->background_color);
+
+        /* This sets the background color to the desired one, and erase the rest of the line with it */
+
+        return strjoin("\x1B[", f->background_color, "m", ANSI_ERASE_TO_END_OF_LINE);
+}
+
+static int insert_string(PTYForward *f, size_t offset, const char *s) {
+        assert(f);
+        assert(offset <= f->out_buffer_full);
+        assert(s);
+
+        size_t l = strlen(s);
+        assert(l <= INT_MAX); /* Make sure we can still return this */
+
+        void *p = realloc(f->out_buffer, MAX(f->out_buffer_full + l, (size_t) LINE_MAX));
+        if (!p)
+                return -ENOMEM;
+
+        f->out_buffer = p;
+        f->out_buffer_size = MALLOC_SIZEOF_SAFE(f->out_buffer);
+
+        memmove(f->out_buffer + offset + l, f->out_buffer + offset, f->out_buffer_full - offset);
+        memcpy(f->out_buffer + offset, s, l);
+        f->out_buffer_full += l;
+
+        return (int) l;
+}
+
+static int insert_erase_newline(PTYForward *f, size_t offset) {
+        _cleanup_free_ char *s = NULL;
 
         assert(f);
+        assert(f->background_color);
+
+        s = background_color_sequence(f);
+        if (!s)
+                return -ENOMEM;
+
+        return insert_string(f, offset, s);
+}
+
+static int is_csi_background_reset_sequence(const char *seq) {
+        enum {
+                COLOR_TOKEN_NO,
+                COLOR_TOKEN_START,
+                COLOR_TOKEN_8BIT,
+                COLOR_TOKEN_24BIT_R,
+                COLOR_TOKEN_24BIT_G,
+                COLOR_TOKEN_24BIT_B,
+        } token_state = COLOR_TOKEN_NO;
+
+        bool b = false;
+        int r;
+
+        assert(seq);
+
+        /* This parses CSI "m" sequences, and determines if they reset the background color. If so returns
+         * 1. This can then be used to insert another sequence that sets the color to the desired
+         * replacement. */
+
+        for (;;) {
+                _cleanup_free_ char *token = NULL;
+
+                r = extract_first_word(&seq, &token, ";", EXTRACT_RELAX|EXTRACT_DONT_COALESCE_SEPARATORS|EXTRACT_RETAIN_ESCAPE);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                switch (token_state) {
+
+                case COLOR_TOKEN_NO:
+
+                        if (STR_IN_SET(token, "", "0", "00", "49"))
+                                b = true; /* These tokens set the background back to normal */
+                        else if (STR_IN_SET(token, "40", "41", "42", "43", "44", "45", "46", "47", "48"))
+                                b = false; /* And these tokens set them to something other than normal */
+
+                        if (STR_IN_SET(token, "38", "48", "58"))
+                                token_state = COLOR_TOKEN_START; /* These tokens mean an 8bit or 24bit color will follow */
+                        break;
+
+                case COLOR_TOKEN_START:
+
+                        if (STR_IN_SET(token, "5", "05"))
+                                token_state = COLOR_TOKEN_8BIT; /* 8bit color */
+                        else if (STR_IN_SET(token, "2", "02"))
+                                token_state = COLOR_TOKEN_24BIT_R;  /* 24bit color */
+                        else
+                                token_state = COLOR_TOKEN_NO; /* something weird? */
+                        break;
+
+                case COLOR_TOKEN_24BIT_R:
+                        token_state = COLOR_TOKEN_24BIT_G;
+                        break;
+
+                case COLOR_TOKEN_24BIT_G:
+                        token_state = COLOR_TOKEN_24BIT_B;
+                        break;
+
+                case COLOR_TOKEN_8BIT:
+                case COLOR_TOKEN_24BIT_B:
+                        token_state = COLOR_TOKEN_NO;
+                        break;
+                }
+        }
+
+        return b;
+}
+
+static int insert_background_fix(PTYForward *f, size_t offset) {
+        assert(f);
+        assert(f->background_color);
+
+        if (!is_csi_background_reset_sequence(strempty(f->csi_sequence)))
+                return 0;
+
+        _cleanup_free_ char *s = NULL;
+        s = strjoin(";", f->background_color);
+        if (!s)
+                return -ENOMEM;
+
+        return insert_string(f, offset, s);
+}
+
+static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
+        int r;
+
+        assert(f);
+        assert(offset <= f->out_buffer_full);
+
+        if (!f->background_color)
+                return 0;
+
+        for (size_t i = offset; i < f->out_buffer_full; i++) {
+                char c = f->out_buffer[i];
+
+                switch (f->ansi_color_state) {
+
+                case ANSI_COLOR_STATE_TEXT:
+                        if (c == '\n')
+                                f->ansi_color_state = ANSI_COLOR_STATE_NEWLINE;
+                        if (c == 0x1B) /* ESC */
+                                f->ansi_color_state = ANSI_COLOR_STATE_ESC;
+                        break;
+
+                case ANSI_COLOR_STATE_NEWLINE: {
+                        /* Immediately after a newline insert an ANSI sequence to erase the line with a background color */
+
+                        r = insert_erase_newline(f, i);
+                        if (r < 0)
+                                return r;
+
+                        i += r;
+
+                        f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
+                        break;
+                }
+
+                case ANSI_COLOR_STATE_ESC: {
+
+                        if (c == '[')
+                                f->ansi_color_state = ANSI_COLOR_STATE_CSI_SEQUENCE;
+                        else
+                                f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
+
+                        break;
+                }
+
+                case ANSI_COLOR_STATE_CSI_SEQUENCE: {
+
+                        if (c >= 0x20 && c <= 0x3F) {
+                                /* If this is a "parameter" or "intermediary" byte (i.e. ranges 0x20…0x2F and
+                                 * 0x30…0x3F) then we are still in the CSI sequence */
+
+                                if (strlen_ptr(f->csi_sequence) >= 64) {
+                                        /* Safety check: lets not accept unbounded CSI sequences */
+
+                                        f->csi_sequence = mfree(f->csi_sequence);
+                                        f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
+                                } else if (!strextend(&f->csi_sequence, CHAR_TO_STR(c)))
+                                        return -ENOMEM;
+                        } else {
+                                /* Otherwise, the CSI sequence is over */
+
+                                if (c == 'm') {
+                                        /* This is an "SGR" (Select Graphic Rendition) sequence. Patch in our background color. */
+                                        r = insert_background_fix(f, i);
+                                        if (r < 0)
+                                                return r;
+
+                                        i += r;
+                                }
+
+                                f->csi_sequence = mfree(f->csi_sequence);
+                                f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
+                        }
+
+                        break;
+                }
+
+                default:
+                        assert_not_reached();
+                }
+        }
+
+        return 0;
+}
+
+static int shovel(PTYForward *f) {
+        ssize_t k;
+        int r;
+
+        assert(f);
+
+        if (f->out_buffer_size == 0 && f->background_color) {
+                /* Erase the first line when we start */
+                f->out_buffer = background_color_sequence(f);
+                if (!f->out_buffer)
+                        return pty_forward_done(f, log_oom());
+
+                f->out_buffer_full = strlen(f->out_buffer);
+                f->out_buffer_size = MALLOC_SIZEOF_SAFE(f->out_buffer);
+        }
+
+        if (f->out_buffer_size < LINE_MAX) {
+                /* Make sure we always have room for at least one "line" */
+                void *p = realloc(f->out_buffer, LINE_MAX);
+                if (!p)
+                        return pty_forward_done(f, log_oom());
+
+                f->out_buffer = p;
+                f->out_buffer_size = MALLOC_SIZEOF_SAFE(p);
+        }
 
         while ((f->stdin_readable && f->in_buffer_full <= 0) ||
                (f->master_writable && f->in_buffer_full > 0) ||
@@ -267,9 +524,9 @@ static int shovel(PTYForward *f) {
                         }
                 }
 
-                if (f->master_readable && f->out_buffer_full < LINE_MAX) {
+                if (f->master_readable && f->out_buffer_full < MIN(f->out_buffer_size, (size_t) LINE_MAX)) {
 
-                        k = read(f->master, f->out_buffer + f->out_buffer_full, LINE_MAX - f->out_buffer_full);
+                        k = read(f->master, f->out_buffer + f->out_buffer_full, f->out_buffer_size - f->out_buffer_full);
                         if (k < 0) {
 
                                 /* Note that EIO on the master device might be caused by vhangup() or
@@ -289,7 +546,12 @@ static int shovel(PTYForward *f) {
                                 }
                         } else {
                                 f->read_from_master = true;
+                                size_t scan_index = f->out_buffer_full;
                                 f->out_buffer_full += (size_t) k;
+
+                                r = pty_forward_ansi_process(f, scan_index);
+                                if (r < 0)
+                                        return pty_forward_done(f, log_error_errno(r, "Failed to scan for ANSI sequences: %m"));
                         }
                 }
 
@@ -555,6 +817,7 @@ PTYForward *pty_forward_free(PTYForward *f) {
         if (!f)
                 return NULL;
         pty_forward_disconnect(f);
+        free(f->background_color);
         return mfree(f);
 }
 
@@ -688,4 +951,10 @@ int pty_forward_set_width_height(PTYForward *f, unsigned width, unsigned height)
         f->sigwinch_event_source = sd_event_source_unref(f->sigwinch_event_source);
 
         return 0;
+}
+
+int pty_forward_set_background_color(PTYForward *f, const char *color) {
+        assert(f);
+
+        return free_and_strdup(&f->background_color, color);
 }
