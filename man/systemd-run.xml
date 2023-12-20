@@ -176,11 +176,14 @@
         <term><option>--slice-inherit</option></term>
 
         <listitem><para>Make the new <filename>.service</filename> or <filename>.scope</filename> unit part
-        of the inherited slice. This option can be combined with <option>--slice=</option>.</para>
+        of the slice the <command>systemd-run</command> itself has been invoked in. This option may be
+        combined with <option>--slice=</option>, in which case the slice specified via
+        <option>--slice=</option> is placed within the slice the <command>systemd-run</command> command is
+        invoked in.</para>
 
-        <para>An inherited slice is located within <command>systemd-run</command> slice. Example: if
-        <command>systemd-run</command> slice is <filename>foo.slice</filename>, and the
-        <option>--slice=</option> argument is <filename>bar</filename>, the unit will be placed under the
+        <para>Example: consider <command>systemd-run</command> being invoked in the slice
+        <filename>foo.slice</filename>, and the <option>--slice=</option> argument is
+        <filename>bar</filename>. The unit will then be placed under
         <filename>foo-bar.slice</filename>.</para>
 
         <xi:include href="version-info.xml" xpointer="v246"/>
