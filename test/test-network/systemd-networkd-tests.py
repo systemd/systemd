@@ -1087,7 +1087,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         self.assertNotIn('dummy98', output)
 
     def test_reconfigure(self):
-        copy_network_unit('25-address-static.network', '12-dummy.netdev')
+        copy_network_unit('25-address-static.network', '12-dummy.netdev', copy_dropins=False)
         start_networkd()
         self.wait_online(['dummy98:routable'])
 
@@ -1121,7 +1121,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         self.assertNotIn('inet 10.1.2.4/16 brd 10.1.255.255 scope global secondary dummy98', output)
         self.assertNotIn('inet 10.2.2.4/16 brd 10.2.255.255 scope global dummy98', output)
 
-        copy_network_unit('25-address-static.network')
+        copy_network_unit('25-address-static.network', copy_dropins=False)
         networkctl_reload()
         self.wait_online(['dummy98:routable'])
 
@@ -1154,7 +1154,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
             check()
 
     def test_up_down(self):
-        copy_network_unit('25-address-static.network', '12-dummy.netdev')
+        copy_network_unit('25-address-static.network', '12-dummy.netdev', copy_dropins=False)
         start_networkd()
         self.wait_online(['dummy98:routable'])
 
@@ -2756,6 +2756,15 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         for i in range(1, 254):
             self.assertIn(f'inet 10.3.3.{i}/16 brd 10.3.255.255', output)
 
+        # test for an empty string assignment for Address= in [Network]
+        copy_network_unit('25-address-static.network.d/20-clear-addresses.conf')
+        networkctl_reload()
+        self.wait_online(['dummy98:routable'])
+        output = check_output('ip -4 address show dev dummy98')
+        for i in range(1, 254):
+            self.assertNotIn(f'inet 10.3.3.{i}/16 brd 10.3.255.255', output)
+        self.assertIn('inet 10.4.0.1/16 brd 10.4.255.255', output)
+
     def test_address_ipv4acd(self):
         check_output('ip netns add ns99')
         check_output('ip link add veth99 type veth peer veth-peer')
@@ -3186,7 +3195,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output(*networkctl_cmd, '--json=short', 'status', env=env)
         check_json(output)
 
-        copy_network_unit('25-address-static.network')
+        copy_network_unit('25-address-static.network', copy_dropins=False)
         networkctl_reload()
         self.wait_online(['dummy98:routable'])
 
