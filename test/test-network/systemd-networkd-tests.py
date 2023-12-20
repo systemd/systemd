@@ -2756,6 +2756,15 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         for i in range(1, 254):
             self.assertIn(f'inet 10.3.3.{i}/16 brd 10.3.255.255', output)
 
+        # test for an empty string assignment for Address= in [Network]
+        copy_network_unit('25-address-static.network.d/20-clear-addresses.conf')
+        networkctl_reload()
+        self.wait_online(['dummy98:routable'])
+        output = check_output('ip -4 address show dev dummy98')
+        for i in range(1, 254):
+            self.assertNotIn(f'inet 10.3.3.{i}/16 brd 10.3.255.255', output)
+        self.assertIn('inet 10.4.0.1/16 brd 10.4.255.255', output)
+
     def test_address_ipv4acd(self):
         check_output('ip netns add ns99')
         check_output('ip link add veth99 type veth peer veth-peer')
