@@ -443,9 +443,7 @@ int ask_password_tty(
                         (void) loop_write(ttyfd, ANSI_NORMAL, SIZE_MAX);
 
                 new_termios = old_termios;
-                new_termios.c_lflag &= ~(ICANON|ECHO);
-                new_termios.c_cc[VMIN] = 1;
-                new_termios.c_cc[VTIME] = 0;
+                termios_disable_echo(&new_termios);
 
                 r = RET_NERRNO(tcsetattr(ttyfd, TCSADRAIN, &new_termios));
                 if (r < 0)
