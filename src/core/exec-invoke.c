@@ -1883,7 +1883,7 @@ static int build_environment(
                                                     "Failed to determine user credentials for root: %m");
         }
 
-        bool set_user_login_env = c->set_login_environment >= 0 ? c->set_login_environment : (c->user || c->dynamic_user);
+        bool set_user_login_env = exec_context_get_set_login_environment(c);
 
         if (username) {
                 x = strjoin("USER=", username);

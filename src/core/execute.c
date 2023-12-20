@@ -1661,6 +1661,15 @@ uint64_t exec_context_get_timer_slack_nsec(const ExecContext *c) {
         return (uint64_t) MAX(r, 0);
 }
 
+bool exec_context_get_set_login_environment(const ExecContext *c) {
+        assert(c);
+
+        if (c->set_login_environment >= 0)
+                return c->set_login_environment;
+
+        return c->user || c->dynamic_user || c->pam_name;
+}
+
 char** exec_context_get_syscall_filter(const ExecContext *c) {
         _cleanup_strv_free_ char **l = NULL;
 
