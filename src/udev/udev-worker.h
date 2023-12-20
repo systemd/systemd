@@ -11,6 +11,9 @@
 #include "hashmap.h"
 #include "time-util.h"
 
+#define DEFAULT_WORKER_TIMEOUT_USEC (3 * USEC_PER_MINUTE)
+#define MIN_WORKER_TIMEOUT_USEC     (1 * USEC_PER_MSEC)
+
 typedef struct UdevRules UdevRules;
 
 typedef struct UdevWorker {
