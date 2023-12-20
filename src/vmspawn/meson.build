@@ -24,5 +24,6 @@ executables += [
                 'conditions': ['ENABLE_VMSPAWN'],
                 'sources' : files('vmspawn.c'),
                 'link_with' : vmspawn_libs,
+                'dependencies' : [libblkid]
         }
 ]
