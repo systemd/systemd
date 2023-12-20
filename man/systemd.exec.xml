@@ -703,12 +703,15 @@
       <varlistentry>
         <term><varname>SetLoginEnvironment=</varname></term>
 
-        <listitem><para>Takes a boolean parameter that controls whether to set <varname>$HOME</varname>,
-        <varname>$LOGNAME</varname>, and <varname>$SHELL</varname> environment variables. If unset, this is
-        controlled by whether <varname>User=</varname> is set. If true, they will always be set for system services,
-        i.e. even when the default user <literal>root</literal> is used. If false, the mentioned variables are not set
-        by systemd, no matter whether <varname>User=</varname> is used or not. This option normally has no effect
-        on user services, since these variables are typically inherited from user manager's own environment anyway.</para>
+        <listitem><para>Takes a boolean parameter that controls whether to set the <varname>$HOME</varname>,
+        <varname>$LOGNAME</varname>, and <varname>$SHELL</varname> environment variables. If not set, this
+        defaults to true if <varname>User=</varname>, <varname>DynamicUser=</varname> or
+        <varname>PAMName=</varname> are set, false otherwise. If set to true, the variables will always be
+        set for system services, i.e. even when the default user <literal>root</literal> is used. If set to
+        false, the mentioned variables are not set by the service manager, no matter whether
+        <varname>User=</varname>, <varname>DynamicUser=</varname> or <varname>PAMName=</varname> are used or
+        not. This option normally has no effect on services of the per-user service manager, since in that
+        case these variables are typically inherited from user manager's own environment anyway.</para>
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
