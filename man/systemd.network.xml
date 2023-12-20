@@ -3978,9 +3978,9 @@ ServerAddress=192.168.0.1/24</programlisting>
       </varlistentry>
 
     </variablelist>
-    </refsect1>
+  </refsect1>
 
-    <refsect1>
+  <refsect1>
     <title>[IPv6Prefix] Section Options</title>
     <para>One or more [IPv6Prefix] sections contain the IPv6 prefixes that are announced via Router
     Advertisements. See <ulink url="https://tools.ietf.org/html/rfc4861">RFC 4861</ulink> for further
@@ -4055,9 +4055,9 @@ ServerAddress=192.168.0.1/24</programlisting>
         </listitem>
       </varlistentry>
     </variablelist>
-    </refsect1>
+  </refsect1>
 
-    <refsect1>
+  <refsect1>
     <title>[IPv6RoutePrefix] Section Options</title>
     <para>One or more [IPv6RoutePrefix] sections contain the IPv6
     prefix routes that are announced via Router Advertisements. See
@@ -4087,9 +4087,9 @@ ServerAddress=192.168.0.1/24</programlisting>
       </varlistentry>
 
     </variablelist>
-    </refsect1>
+  </refsect1>
 
-    <refsect1>
+  <refsect1>
     <title>[IPv6PREF64Prefix] Section Options</title>
     <para>One or more [IPv6PREF64Prefix] sections contain the IPv6 PREF64 (or NAT64) prefixes that are announced via Router
     Advertisements. See <ulink url="https://tools.ietf.org/html/rfc8781">RFC 8781</ulink> for further
@@ -4116,480 +4116,486 @@ ServerAddress=192.168.0.1/24</programlisting>
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
     </variablelist>
-    </refsect1>
-
-    <refsect1>
-    <title>[Bridge] Section Options</title>
-      <para>The [Bridge] section accepts the following keys:</para>
-      <variablelist class='network-directives'>
-        <varlistentry>
-          <term><varname>UnicastFlood=</varname></term>
-          <listitem>
-            <para>Takes a boolean. Controls whether the bridge should flood
-            traffic for which an FDB entry is missing and the destination
-            is unknown through this port. When unset, the kernel's default will be used.
-            </para>
-
-            <xi:include href="version-info.xml" xpointer="v223"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>MulticastFlood=</varname></term>
-          <listitem>
-            <para>Takes a boolean. Controls whether the bridge should flood
-            traffic for which an MDB entry is missing and the destination
-            is unknown through this port. When unset, the kernel's default will be used.
-            </para>
-
-            <xi:include href="version-info.xml" xpointer="v242"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>MulticastToUnicast=</varname></term>
-          <listitem>
-            <para>Takes a boolean. Multicast to unicast works on top of the multicast snooping feature of
-            the bridge. Which means unicast copies are only delivered to hosts which are interested in it.
-            When unset, the kernel's default will be used.
-            </para>
-
-            <xi:include href="version-info.xml" xpointer="v240"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>NeighborSuppression=</varname></term>
-          <listitem>
-            <para>Takes a boolean. Configures whether ARP and ND neighbor suppression is enabled for
-            this port. When unset, the kernel's default will be used.
-            </para>
-
-            <xi:include href="version-info.xml" xpointer="v242"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>Learning=</varname></term>
-          <listitem>
-            <para>Takes a boolean. Configures whether MAC address learning is enabled for
-            this port. When unset, the kernel's default will be used.
-            </para>
-
-            <xi:include href="version-info.xml" xpointer="v242"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>HairPin=</varname></term>
-          <listitem>
-            <para>Takes a boolean. Configures whether traffic may be sent back out of the port on which it
-            was received. When this flag is false, then the bridge will not forward traffic back out of the
-            receiving port. When unset, the kernel's default will be used.</para>
-
-            <xi:include href="version-info.xml" xpointer="v223"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>Isolated=</varname></term>
-          <listitem>
-            <para>Takes a boolean. Configures whether this port is isolated or not. Within a bridge,
-            isolated ports can only communicate with non-isolated ports. When set to true, this port can only
-            communicate with other ports whose Isolated setting is false.  When set to false, this port
-            can communicate with any other ports. When unset, the kernel's default will be used.</para>
-
-            <xi:include href="version-info.xml" xpointer="v251"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>UseBPDU=</varname></term>
-          <listitem>
-            <para>Takes a boolean. Configures whether STP Bridge Protocol Data Units will be
-            processed by the bridge port. When unset, the kernel's default will be used.</para>
-
-            <xi:include href="version-info.xml" xpointer="v223"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>FastLeave=</varname></term>
-          <listitem>
-            <para>Takes a boolean. This flag allows the bridge to immediately stop multicast
-            traffic on a port that receives an IGMP Leave message. It is only used with
-            IGMP snooping if enabled on the bridge. When unset, the kernel's default will be used.</para>
-
-            <xi:include href="version-info.xml" xpointer="v223"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>AllowPortToBeRoot=</varname></term>
-          <listitem>
-            <para>Takes a boolean. Configures whether a given port is allowed to
-            become a root port. Only used when STP is enabled on the bridge.
-            When unset, the kernel's default will be used.</para>
-
-            <xi:include href="version-info.xml" xpointer="v223"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>ProxyARP=</varname></term>
-          <listitem>
-            <para>Takes a boolean. Configures whether proxy ARP to be enabled on this port.
-            When unset, the kernel's default will be used.</para>
-
-            <xi:include href="version-info.xml" xpointer="v243"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>ProxyARPWiFi=</varname></term>
-          <listitem>
-            <para>Takes a boolean. Configures whether proxy ARP to be enabled on this port
-            which meets extended requirements by IEEE 802.11 and Hotspot 2.0 specifications.
-            When unset, the kernel's default will be used.</para>
-
-            <xi:include href="version-info.xml" xpointer="v243"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>MulticastRouter=</varname></term>
-          <listitem>
-            <para>Configures this port for having multicast routers attached. A port with a multicast
-            router will receive all multicast traffic. Takes one of <literal>no</literal>
-            to disable multicast routers on this port, <literal>query</literal> to let the system detect
-            the presence of routers, <literal>permanent</literal> to permanently enable multicast traffic
-            forwarding on this port, or <literal>temporary</literal> to enable multicast routers temporarily
-            on this port, not depending on incoming queries. When unset, the kernel's default will be used.</para>
-
-            <xi:include href="version-info.xml" xpointer="v243"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>Cost=</varname></term>
-          <listitem>
-            <para>Sets the "cost" of sending packets of this interface.
-            Each port in a bridge may have a different speed and the cost
-            is used to decide which link to use. Faster interfaces
-            should have lower costs. It is an integer value between 1 and
-            65535.</para>
-
-            <xi:include href="version-info.xml" xpointer="v218"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>Priority=</varname></term>
-          <listitem>
-            <para>Sets the "priority" of sending packets on this interface.
-            Each port in a bridge may have a different priority which is used
-            to decide which link to use. Lower value means higher priority.
-            It is an integer value between 0 to 63. Networkd does not set any
-            default, meaning the kernel default value of 32 is used.</para>
-
-            <xi:include href="version-info.xml" xpointer="v234"/>
-          </listitem>
-        </varlistentry>
-      </variablelist>
   </refsect1>
+
+  <refsect1>
+    <title>[Bridge] Section Options</title>
+    <para>The [Bridge] section accepts the following keys:</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>UnicastFlood=</varname></term>
+        <listitem>
+          <para>Takes a boolean. Controls whether the bridge should flood
+          traffic for which an FDB entry is missing and the destination
+          is unknown through this port. When unset, the kernel's default will be used.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v223"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>MulticastFlood=</varname></term>
+        <listitem>
+          <para>Takes a boolean. Controls whether the bridge should flood
+          traffic for which an MDB entry is missing and the destination
+          is unknown through this port. When unset, the kernel's default will be used.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v242"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>MulticastToUnicast=</varname></term>
+        <listitem>
+          <para>Takes a boolean. Multicast to unicast works on top of the multicast snooping feature of
+          the bridge. Which means unicast copies are only delivered to hosts which are interested in it.
+          When unset, the kernel's default will be used.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v240"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>NeighborSuppression=</varname></term>
+        <listitem>
+          <para>Takes a boolean. Configures whether ARP and ND neighbor suppression is enabled for
+          this port. When unset, the kernel's default will be used.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v242"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Learning=</varname></term>
+        <listitem>
+          <para>Takes a boolean. Configures whether MAC address learning is enabled for
+          this port. When unset, the kernel's default will be used.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v242"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>HairPin=</varname></term>
+        <listitem>
+          <para>Takes a boolean. Configures whether traffic may be sent back out of the port on which it
+          was received. When this flag is false, then the bridge will not forward traffic back out of the
+          receiving port. When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v223"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Isolated=</varname></term>
+        <listitem>
+          <para>Takes a boolean. Configures whether this port is isolated or not. Within a bridge,
+          isolated ports can only communicate with non-isolated ports. When set to true, this port can only
+          communicate with other ports whose Isolated setting is false.  When set to false, this port
+          can communicate with any other ports. When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v251"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>UseBPDU=</varname></term>
+        <listitem>
+          <para>Takes a boolean. Configures whether STP Bridge Protocol Data Units will be
+          processed by the bridge port. When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v223"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>FastLeave=</varname></term>
+        <listitem>
+          <para>Takes a boolean. This flag allows the bridge to immediately stop multicast
+          traffic on a port that receives an IGMP Leave message. It is only used with
+          IGMP snooping if enabled on the bridge. When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v223"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>AllowPortToBeRoot=</varname></term>
+        <listitem>
+          <para>Takes a boolean. Configures whether a given port is allowed to
+          become a root port. Only used when STP is enabled on the bridge.
+          When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v223"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>ProxyARP=</varname></term>
+        <listitem>
+          <para>Takes a boolean. Configures whether proxy ARP to be enabled on this port.
+          When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>ProxyARPWiFi=</varname></term>
+        <listitem>
+          <para>Takes a boolean. Configures whether proxy ARP to be enabled on this port
+          which meets extended requirements by IEEE 802.11 and Hotspot 2.0 specifications.
+          When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>MulticastRouter=</varname></term>
+        <listitem>
+          <para>Configures this port for having multicast routers attached. A port with a multicast
+          router will receive all multicast traffic. Takes one of <literal>no</literal>
+          to disable multicast routers on this port, <literal>query</literal> to let the system detect
+          the presence of routers, <literal>permanent</literal> to permanently enable multicast traffic
+          forwarding on this port, or <literal>temporary</literal> to enable multicast routers temporarily
+          on this port, not depending on incoming queries. When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v243"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Cost=</varname></term>
+        <listitem>
+          <para>Sets the "cost" of sending packets of this interface.
+          Each port in a bridge may have a different speed and the cost
+          is used to decide which link to use. Faster interfaces
+          should have lower costs. It is an integer value between 1 and
+          65535.</para>
+
+          <xi:include href="version-info.xml" xpointer="v218"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Priority=</varname></term>
+        <listitem>
+          <para>Sets the "priority" of sending packets on this interface.
+          Each port in a bridge may have a different priority which is used
+          to decide which link to use. Lower value means higher priority.
+          It is an integer value between 0 to 63. Networkd does not set any
+          default, meaning the kernel default value of 32 is used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v234"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
+  </refsect1>
+
   <refsect1>
     <title>[BridgeFDB] Section Options</title>
-      <para>The [BridgeFDB] section manages the forwarding database table of a port and accepts the following
-      keys. Specify several [BridgeFDB] sections to configure several static MAC table entries.</para>
 
-      <variablelist class='network-directives'>
-        <varlistentry>
-          <term><varname>MACAddress=</varname></term>
-          <listitem>
-            <para>As in the [Network] section. This key is mandatory.</para>
+    <para>The [BridgeFDB] section manages the forwarding database table of a port and accepts the following
+    keys. Specify several [BridgeFDB] sections to configure several static MAC table entries.</para>
+
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>MACAddress=</varname></term>
+        <listitem>
+          <para>As in the [Network] section. This key is mandatory.</para>
 
           <xi:include href="version-info.xml" xpointer="v219"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>Destination=</varname></term>
-          <listitem>
-            <para>Takes an IP address of the destination VXLAN tunnel endpoint.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Destination=</varname></term>
+        <listitem>
+          <para>Takes an IP address of the destination VXLAN tunnel endpoint.</para>
 
           <xi:include href="version-info.xml" xpointer="v243"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>VLANId=</varname></term>
-          <listitem>
-            <para>The VLAN ID for the new static MAC table entry. If
-            omitted, no VLAN ID information is appended to the new static MAC
-            table entry.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>VLANId=</varname></term>
+        <listitem>
+          <para>The VLAN ID for the new static MAC table entry. If
+          omitted, no VLAN ID information is appended to the new static MAC
+          table entry.</para>
 
-            <xi:include href="version-info.xml" xpointer="v219"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>VNI=</varname></term>
-          <listitem>
-            <para>The VXLAN Network Identifier (or VXLAN Segment ID) to use to connect to
-            the remote VXLAN tunnel endpoint. Takes a number in the range 1…16777215.
-            Defaults to unset.</para>
-
-            <xi:include href="version-info.xml" xpointer="v243"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>AssociatedWith=</varname></term>
-          <listitem>
-            <para>Specifies where the address is associated with. Takes one of <literal>use</literal>,
-            <literal>self</literal>, <literal>master</literal> or <literal>router</literal>.
-            <literal>use</literal> means the address is in use. User space can use this option to
-            indicate to the kernel that the fdb entry is in use. <literal>self</literal> means
-            the address is associated with the port drivers fdb. Usually hardware. <literal>master</literal>
-            means the address is associated with master devices fdb. <literal>router</literal> means
-            the destination address is associated with a router. Note that it's valid if the referenced
-            device is a VXLAN type device and has route shortcircuit enabled. Defaults to <literal>self</literal>.</para>
+          <xi:include href="version-info.xml" xpointer="v219"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>VNI=</varname></term>
+        <listitem>
+          <para>The VXLAN Network Identifier (or VXLAN Segment ID) to use to connect to
+          the remote VXLAN tunnel endpoint. Takes a number in the range 1…16777215.
+          Defaults to unset.</para>
 
           <xi:include href="version-info.xml" xpointer="v243"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>OutgoingInterface=</varname></term>
-          <listitem>
-            <para>Specifies the name or index of the outgoing interface for the VXLAN device driver to
-            reach the remote VXLAN tunnel endpoint. Defaults to unset.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>AssociatedWith=</varname></term>
+        <listitem>
+          <para>Specifies where the address is associated with. Takes one of <literal>use</literal>,
+          <literal>self</literal>, <literal>master</literal> or <literal>router</literal>.
+          <literal>use</literal> means the address is in use. User space can use this option to
+          indicate to the kernel that the fdb entry is in use. <literal>self</literal> means
+          the address is associated with the port drivers fdb. Usually hardware. <literal>master</literal>
+          means the address is associated with master devices fdb. <literal>router</literal> means
+          the destination address is associated with a router. Note that it's valid if the referenced
+          device is a VXLAN type device and has route shortcircuit enabled. Defaults to <literal>self</literal>.</para>
 
-            <xi:include href="version-info.xml" xpointer="v249"/>
-          </listitem>
-        </varlistentry>
-      </variablelist>
+          <xi:include href="version-info.xml" xpointer="v243"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>OutgoingInterface=</varname></term>
+        <listitem>
+          <para>Specifies the name or index of the outgoing interface for the VXLAN device driver to
+          reach the remote VXLAN tunnel endpoint. Defaults to unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v249"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
+
   <refsect1>
     <title>[BridgeMDB] Section Options</title>
-      <para>The [BridgeMDB] section manages the multicast membership entries forwarding database table of a port and accepts the following
-      keys. Specify several [BridgeMDB] sections to configure several permanent multicast membership entries.</para>
+    <para>The [BridgeMDB] section manages the multicast membership entries forwarding database table of a port and accepts the following
+    keys. Specify several [BridgeMDB] sections to configure several permanent multicast membership entries.</para>
 
-      <variablelist class='network-directives'>
-        <varlistentry>
-          <term><varname>MulticastGroupAddress=</varname></term>
-          <listitem>
-            <para>Specifies the IPv4 or IPv6 multicast group address to add. This setting is mandatory.</para>
-
-          <xi:include href="version-info.xml" xpointer="v247"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>VLANId=</varname></term>
-          <listitem>
-            <para>The VLAN ID for the new entry. Valid ranges are 0 (no VLAN) to 4094. Optional, defaults to 0.</para>
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>MulticastGroupAddress=</varname></term>
+        <listitem>
+          <para>Specifies the IPv4 or IPv6 multicast group address to add. This setting is mandatory.</para>
 
           <xi:include href="version-info.xml" xpointer="v247"/>
-          </listitem>
-        </varlistentry>
-      </variablelist>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>VLANId=</varname></term>
+        <listitem>
+          <para>The VLAN ID for the new entry. Valid ranges are 0 (no VLAN) to 4094. Optional, defaults to 0.</para>
+
+          <xi:include href="version-info.xml" xpointer="v247"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
   <refsect1>
     <title>[LLDP] Section Options</title>
-      <para>The [LLDP] section manages the Link Layer Discovery Protocol (LLDP) and accepts the following
-      keys:</para>
-      <variablelist class='network-directives'>
-        <varlistentry>
-          <term><varname>MUDURL=</varname></term>
-          <listitem>
-            <para>When configured, the specified Manufacturer Usage Descriptions (MUD) URL will be sent in
-            LLDP packets. The syntax and semantics are the same as for <varname>MUDURL=</varname> in the
-            [DHCPv4] section described above.</para>
+    <para>The [LLDP] section manages the Link Layer Discovery Protocol (LLDP) and accepts the following
+    keys:</para>
 
-            <para>The MUD URLs received via LLDP packets are saved and can be read using the
-            <function>sd_lldp_neighbor_get_mud_url()</function> function.</para>
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>MUDURL=</varname></term>
+        <listitem>
+          <para>When configured, the specified Manufacturer Usage Descriptions (MUD) URL will be sent in
+          LLDP packets. The syntax and semantics are the same as for <varname>MUDURL=</varname> in the
+          [DHCPv4] section described above.</para>
 
-            <xi:include href="version-info.xml" xpointer="v246"/>
-          </listitem>
-        </varlistentry>
-      </variablelist>
+          <para>The MUD URLs received via LLDP packets are saved and can be read using the
+          <function>sd_lldp_neighbor_get_mud_url()</function> function.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
   <refsect1>
     <title>[CAN] Section Options</title>
-      <para>The [CAN] section manages the Controller Area Network (CAN bus) and accepts the
-      following keys:</para>
-      <variablelist class='network-directives'>
-        <varlistentry>
-          <term><varname>BitRate=</varname></term>
-          <listitem>
-            <para>The bitrate of CAN device in bits per second. The usual SI prefixes (K, M) with the base of 1000 can
-            be used here. Takes a number in the range 1…4294967295.</para>
-
-            <xi:include href="version-info.xml" xpointer="v239"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>SamplePoint=</varname></term>
-          <listitem>
-            <para>Optional sample point in percent with one decimal (e.g. <literal>75%</literal>,
-            <literal>87.5%</literal>) or permille (e.g. <literal>875‰</literal>). This will be ignored when
-            <varname>BitRate=</varname> is unspecified.</para>
+    <para>The [CAN] section manages the Controller Area Network (CAN bus) and accepts the
+    following keys:</para>
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>BitRate=</varname></term>
+        <listitem>
+          <para>The bitrate of CAN device in bits per second. The usual SI prefixes (K, M) with the base of 1000 can
+          be used here. Takes a number in the range 1…4294967295.</para>
 
           <xi:include href="version-info.xml" xpointer="v239"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>TimeQuantaNSec=</varname></term>
-          <term><varname>PropagationSegment=</varname></term>
-          <term><varname>PhaseBufferSegment1=</varname></term>
-          <term><varname>PhaseBufferSegment2=</varname></term>
-          <term><varname>SyncJumpWidth=</varname></term>
-          <listitem>
-            <para>Specifies the time quanta, propagation segment, phase buffer segment 1 and 2, and the
-            synchronization jump width, which allow one to define the CAN bit-timing in a hardware
-            independent format as proposed by the Bosch CAN 2.0 Specification.
-            <varname>TimeQuantaNSec=</varname> takes a timespan in nanoseconds.
-            <varname>PropagationSegment=</varname>, <varname>PhaseBufferSegment1=</varname>,
-            <varname>PhaseBufferSegment2=</varname>, and <varname>SyncJumpWidth=</varname> take number
-            of time quantum specified in <varname>TimeQuantaNSec=</varname> and must be an unsigned
-            integer in the range 0…4294967295. These settings except for
-            <varname>SyncJumpWidth=</varname> will be ignored when <varname>BitRate=</varname> is
-            specified.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>SamplePoint=</varname></term>
+        <listitem>
+          <para>Optional sample point in percent with one decimal (e.g. <literal>75%</literal>,
+          <literal>87.5%</literal>) or permille (e.g. <literal>875‰</literal>). This will be ignored when
+          <varname>BitRate=</varname> is unspecified.</para>
 
-            <xi:include href="version-info.xml" xpointer="v250"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>DataBitRate=</varname></term>
-          <term><varname>DataSamplePoint=</varname></term>
-          <listitem>
-            <para>The bitrate and sample point for the data phase, if CAN-FD is used. These settings are
-            analogous to the <varname>BitRate=</varname> and <varname>SamplePoint=</varname> keys.</para>
+          <xi:include href="version-info.xml" xpointer="v239"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>TimeQuantaNSec=</varname></term>
+        <term><varname>PropagationSegment=</varname></term>
+        <term><varname>PhaseBufferSegment1=</varname></term>
+        <term><varname>PhaseBufferSegment2=</varname></term>
+        <term><varname>SyncJumpWidth=</varname></term>
+        <listitem>
+          <para>Specifies the time quanta, propagation segment, phase buffer segment 1 and 2, and the
+          synchronization jump width, which allow one to define the CAN bit-timing in a hardware
+          independent format as proposed by the Bosch CAN 2.0 Specification.
+          <varname>TimeQuantaNSec=</varname> takes a timespan in nanoseconds.
+          <varname>PropagationSegment=</varname>, <varname>PhaseBufferSegment1=</varname>,
+          <varname>PhaseBufferSegment2=</varname>, and <varname>SyncJumpWidth=</varname> take number
+          of time quantum specified in <varname>TimeQuantaNSec=</varname> and must be an unsigned
+          integer in the range 0…4294967295. These settings except for
+          <varname>SyncJumpWidth=</varname> will be ignored when <varname>BitRate=</varname> is
+          specified.</para>
 
-            <xi:include href="version-info.xml" xpointer="v246"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>DataTimeQuantaNSec=</varname></term>
-          <term><varname>DataPropagationSegment=</varname></term>
-          <term><varname>DataPhaseBufferSegment1=</varname></term>
-          <term><varname>DataPhaseBufferSegment2=</varname></term>
-          <term><varname>DataSyncJumpWidth=</varname></term>
-          <listitem>
-            <para>Specifies the time quanta, propagation segment, phase buffer segment 1 and 2, and the
-            synchronization jump width for the data phase, if CAN-FD is used. These settings are
-            analogous to the <varname>TimeQuantaNSec=</varname> or related settings.</para>
-
-            <xi:include href="version-info.xml" xpointer="v250"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>FDMode=</varname></term>
-          <listitem>
-            <para>Takes a boolean. When <literal>yes</literal>, CAN-FD mode is enabled for the interface.
-            Note, that a bitrate and optional sample point should also be set for the CAN-FD data phase using
-            the <varname>DataBitRate=</varname> and <varname>DataSamplePoint=</varname> keys, or
-            <varname>DataTimeQuanta=</varname> and related settings.</para>
+          <xi:include href="version-info.xml" xpointer="v250"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>DataBitRate=</varname></term>
+        <term><varname>DataSamplePoint=</varname></term>
+        <listitem>
+          <para>The bitrate and sample point for the data phase, if CAN-FD is used. These settings are
+          analogous to the <varname>BitRate=</varname> and <varname>SamplePoint=</varname> keys.</para>
 
           <xi:include href="version-info.xml" xpointer="v246"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>FDNonISO=</varname></term>
-          <listitem>
-            <para>Takes a boolean. When <literal>yes</literal>, non-ISO CAN-FD mode is enabled for the
-            interface. When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>DataTimeQuantaNSec=</varname></term>
+        <term><varname>DataPropagationSegment=</varname></term>
+        <term><varname>DataPhaseBufferSegment1=</varname></term>
+        <term><varname>DataPhaseBufferSegment2=</varname></term>
+        <term><varname>DataSyncJumpWidth=</varname></term>
+        <listitem>
+          <para>Specifies the time quanta, propagation segment, phase buffer segment 1 and 2, and the
+          synchronization jump width for the data phase, if CAN-FD is used. These settings are
+          analogous to the <varname>TimeQuantaNSec=</varname> or related settings.</para>
+
+          <xi:include href="version-info.xml" xpointer="v250"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>FDMode=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When <literal>yes</literal>, CAN-FD mode is enabled for the interface.
+          Note, that a bitrate and optional sample point should also be set for the CAN-FD data phase using
+          the <varname>DataBitRate=</varname> and <varname>DataSamplePoint=</varname> keys, or
+          <varname>DataTimeQuanta=</varname> and related settings.</para>
 
           <xi:include href="version-info.xml" xpointer="v246"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>RestartSec=</varname></term>
-          <listitem>
-            <para>Automatic restart delay time. If set to a non-zero value, a restart of the CAN controller will be
-            triggered automatically in case of a bus-off condition after the specified delay time. Subsecond delays can
-            be specified using decimals (e.g. <literal>0.1s</literal>) or a <literal>ms</literal> or
-            <literal>us</literal> postfix. Using <literal>infinity</literal> or <literal>0</literal> will turn the
-            automatic restart off. By default automatic restart is disabled.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>FDNonISO=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When <literal>yes</literal>, non-ISO CAN-FD mode is enabled for the
+          interface. When unset, the kernel's default will be used.</para>
 
-            <xi:include href="version-info.xml" xpointer="v239"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>Termination=</varname></term>
-          <listitem>
-            <para>Takes a boolean or a termination resistor value in ohm in the range 0…65535. When
-            <literal>yes</literal>, the termination resistor is set to 120 ohm. When
-            <literal>no</literal> or <literal>0</literal> is set, the termination resistor is disabled.
-            When unset, the kernel's default will be used.</para>
+          <xi:include href="version-info.xml" xpointer="v246"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>RestartSec=</varname></term>
+        <listitem>
+          <para>Automatic restart delay time. If set to a non-zero value, a restart of the CAN controller will be
+          triggered automatically in case of a bus-off condition after the specified delay time. Subsecond delays can
+          be specified using decimals (e.g. <literal>0.1s</literal>) or a <literal>ms</literal> or
+          <literal>us</literal> postfix. Using <literal>infinity</literal> or <literal>0</literal> will turn the
+          automatic restart off. By default automatic restart is disabled.</para>
 
-            <xi:include href="version-info.xml" xpointer="v246"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>TripleSampling=</varname></term>
-          <listitem>
-            <para>Takes a boolean. When <literal>yes</literal>, three samples (instead of one) are used to determine
-            the value of a received bit by majority rule. When unset, the kernel's default will be used.</para>
+          <xi:include href="version-info.xml" xpointer="v239"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Termination=</varname></term>
+        <listitem>
+          <para>Takes a boolean or a termination resistor value in ohm in the range 0…65535. When
+          <literal>yes</literal>, the termination resistor is set to 120 ohm. When
+          <literal>no</literal> or <literal>0</literal> is set, the termination resistor is disabled.
+          When unset, the kernel's default will be used.</para>
+
+          <xi:include href="version-info.xml" xpointer="v246"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>TripleSampling=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When <literal>yes</literal>, three samples (instead of one) are used to determine
+          the value of a received bit by majority rule. When unset, the kernel's default will be used.</para>
 
           <xi:include href="version-info.xml" xpointer="v242"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>BusErrorReporting=</varname></term>
-          <listitem>
-            <para>Takes a boolean. When <literal>yes</literal>, reporting of CAN bus errors is activated
-            (those include single bit, frame format, and bit stuffing errors, unable to send dominant bit,
-            unable to send recessive bit, bus overload, active error announcement, error occurred on
-            transmission). When unset, the kernel's default will be used. Note: in case of a CAN bus with a
-            single CAN device, sending a CAN frame may result in a huge number of CAN bus errors.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>BusErrorReporting=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When <literal>yes</literal>, reporting of CAN bus errors is activated
+          (those include single bit, frame format, and bit stuffing errors, unable to send dominant bit,
+          unable to send recessive bit, bus overload, active error announcement, error occurred on
+          transmission). When unset, the kernel's default will be used. Note: in case of a CAN bus with a
+          single CAN device, sending a CAN frame may result in a huge number of CAN bus errors.</para>
 
           <xi:include href="version-info.xml" xpointer="v248"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>ListenOnly=</varname></term>
-          <listitem>
-            <para>Takes a boolean. When <literal>yes</literal>, listen-only mode is enabled. When the
-            interface is in listen-only mode, the interface neither transmit CAN frames nor send ACK
-            bit. Listen-only mode is important to debug CAN networks without interfering with the
-            communication or acknowledge the CAN frame. When unset, the kernel's default will be used.
-            </para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>ListenOnly=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When <literal>yes</literal>, listen-only mode is enabled. When the
+          interface is in listen-only mode, the interface neither transmit CAN frames nor send ACK
+          bit. Listen-only mode is important to debug CAN networks without interfering with the
+          communication or acknowledge the CAN frame. When unset, the kernel's default will be used.
+          </para>
 
           <xi:include href="version-info.xml" xpointer="v246"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>Loopback=</varname></term>
-          <listitem>
-            <para>Takes a boolean. When <literal>yes</literal>, loopback mode is enabled. When the
-            loopback mode is enabled, the interface treats messages transmitted by itself as received
-            messages. The loopback mode is important to debug CAN networks. When unset, the kernel's
-            default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Loopback=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When <literal>yes</literal>, loopback mode is enabled. When the
+          loopback mode is enabled, the interface treats messages transmitted by itself as received
+          messages. The loopback mode is important to debug CAN networks. When unset, the kernel's
+          default will be used.</para>
 
           <xi:include href="version-info.xml" xpointer="v250"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>OneShot=</varname></term>
-          <listitem>
-            <para>Takes a boolean. When <literal>yes</literal>, one-shot mode is enabled. When unset,
-            the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>OneShot=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When <literal>yes</literal>, one-shot mode is enabled. When unset,
+          the kernel's default will be used.</para>
 
           <xi:include href="version-info.xml" xpointer="v250"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>PresumeAck=</varname></term>
-          <listitem>
-            <para>Takes a boolean. When <literal>yes</literal>, the interface will ignore missing CAN
-            ACKs. When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>PresumeAck=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When <literal>yes</literal>, the interface will ignore missing CAN
+          ACKs. When unset, the kernel's default will be used.</para>
 
           <xi:include href="version-info.xml" xpointer="v250"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>ClassicDataLengthCode=</varname></term>
-          <listitem>
-            <para>Takes a boolean. When <literal>yes</literal>, the interface will handle the 4bit data
-            length code (DLC). When unset, the kernel's default will be used.</para>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>ClassicDataLengthCode=</varname></term>
+        <listitem>
+          <para>Takes a boolean. When <literal>yes</literal>, the interface will handle the 4bit data
+          length code (DLC). When unset, the kernel's default will be used.</para>
 
           <xi:include href="version-info.xml" xpointer="v250"/>
-          </listitem>
-        </varlistentry>
-      </variablelist>
+        </listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
   <refsect1>
     <title>[IPoIB] Section Options</title>
-      <para>The [IPoIB] section manages the IP over Infiniband and accepts the following keys:</para>
-      <variablelist class='network-directives'>
-        <xi:include href="systemd.netdev.xml" xpointer="ipoib_mode" />
-        <xi:include href="systemd.netdev.xml" xpointer="ipoib_umcast" />
-      </variablelist>
+    <para>The [IPoIB] section manages the IP over Infiniband and accepts the following keys:</para>
+
+    <variablelist class='network-directives'>
+      <xi:include href="systemd.netdev.xml" xpointer="ipoib_mode" />
+      <xi:include href="systemd.netdev.xml" xpointer="ipoib_umcast" />
+    </variablelist>
   </refsect1>
 
   <refsect1>
@@ -4603,7 +4609,7 @@ ServerAddress=192.168.0.1/24</programlisting>
           <para>Specifies the parent Queueing Discipline (qdisc). Takes one of <literal>clsact</literal>
           or <literal>ingress</literal>. This is mandatory.</para>
 
-        <xi:include href="version-info.xml" xpointer="v244"/>
+          <xi:include href="version-info.xml" xpointer="v244"/>
         </listitem>
       </varlistentry>
 
@@ -5859,47 +5865,54 @@ ServerAddress=192.168.0.1/24</programlisting>
 
   <refsect1>
     <title>[BridgeVLAN] Section Options</title>
-      <para>The [BridgeVLAN] section manages the VLAN ID configuration of a bridge port and accepts the
-      following keys. Specify several [BridgeVLAN] sections to configure several VLAN entries. The
-      <varname>VLANFiltering=</varname> option has to be enabled, see the [Bridge] section in
-      <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+    <para>
+      The [BridgeVLAN] section manages the VLAN ID configurations of a bridge master or port, and accepts the
+      following keys. To make the settings in this section take an effect,
+      <varname>VLANFiltering=</varname> option has to be enabled on the bridge master, see the [Bridge]
+      section in
+      <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+      If at least one valid settings specified in this section in a .network file for an interface, all
+      assigned VLAN IDs on the interface that are not configured in the .network file will be removed. If
+      VLAN IDs on an interface need to be managed by other tools, then the settings in this section cannot
+      be used in the matching .network file.
+    </para>
 
-      <variablelist class='network-directives'>
-        <varlistentry>
-          <term><varname>VLAN=</varname></term>
-          <listitem>
-            <para>The VLAN ID allowed on the port. This can be either a single ID or a range M-N. Takes an
-            integer in the range 1…4094. This setting can be specified multiple times. If an empty string is
-            assigned, then the all previous assignments are cleared.</para>
+    <variablelist class='network-directives'>
+      <varlistentry>
+        <term><varname>VLAN=</varname></term>
+        <listitem>
+          <para>The VLAN ID allowed on the port. This can be either a single ID or a range M-N. Takes an
+          integer in the range 1…4094. This setting can be specified multiple times. If an empty string is
+          assigned, then the all previous assignments are cleared.</para>
 
-            <xi:include href="version-info.xml" xpointer="v231"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>EgressUntagged=</varname></term>
-          <listitem>
-            <para>The VLAN ID specified here will be used to untag frames on egress. Configuring
-            <varname>EgressUntagged=</varname> implicates the use of <varname>VLAN=</varname> above and will
-            enable the VLAN ID for ingress as well. This can be either a single ID or a range M-N. This
-            setting can be specified multiple times. If an empty string is assigned, then the all previous
-            assignments are cleared.</para>
+          <xi:include href="version-info.xml" xpointer="v231"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>EgressUntagged=</varname></term>
+        <listitem>
+          <para>The VLAN ID specified here will be used to untag frames on egress. Configuring
+          <varname>EgressUntagged=</varname> implicates the use of <varname>VLAN=</varname> above and will
+          enable the VLAN ID for ingress as well. This can be either a single ID or a range M-N. This
+          setting can be specified multiple times. If an empty string is assigned, then the all previous
+          assignments are cleared.</para>
 
-            <xi:include href="version-info.xml" xpointer="v231"/>
-          </listitem>
-        </varlistentry>
-        <varlistentry>
-          <term><varname>PVID=</varname></term>
-          <listitem>
-            <para>The port VLAN ID specified here is assigned to all untagged frames at ingress. Takes an
-            VLAN ID or negative boolean value (e.g. <literal>no</literal>). When false, the currently
-            assigned port VLAN ID will be dropped. Configuring <varname>PVID=</varname> implicates the use of
-            <varname>VLAN=</varname> setting in the above and will enable the VLAN ID for ingress as well.
-            Defaults to unset, and will keep the assigned port VLAN ID if exists.</para>
+          <xi:include href="version-info.xml" xpointer="v231"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>PVID=</varname></term>
+        <listitem>
+          <para>The port VLAN ID specified here is assigned to all untagged frames at ingress. Takes an
+          VLAN ID or negative boolean value (e.g. <literal>no</literal>). When false, the currently
+          assigned port VLAN ID will be dropped. Configuring <varname>PVID=</varname> implicates the use of
+          <varname>VLAN=</varname> setting in the above and will enable the VLAN ID for ingress as well.
+          Defaults to unset, and will keep the assigned port VLAN ID if exists.</para>
 
-            <xi:include href="version-info.xml" xpointer="v231"/>
-          </listitem>
-        </varlistentry>
-      </variablelist>
+          <xi:include href="version-info.xml" xpointer="v231"/>
+        </listitem>
+      </varlistentry>
+    </variablelist>
   </refsect1>
 
   <refsect1>
