@@ -108,7 +108,7 @@ static int help(void) {
                "  -p --property=NAME=VALUE        Set service or scope unit property\n"
                "     --description=TEXT           Description for unit\n"
                "     --slice=SLICE                Run in the specified slice\n"
-               "     --slice-inherit              Inherit the slice\n"
+               "     --slice-inherit              Inherit the slice from the caller\n"
                "     --expand-environment=BOOL    Control expansion of environment variables\n"
                "     --no-block                   Do not wait until operation finished\n"
                "  -r --remain-after-exit          Leave service around until explicitly stopped\n"
