@@ -2059,9 +2059,8 @@ static int exec_shared_runtime_add(
         rt->manager = m;
 
         if (ret)
-                *ret = rt;
-        /* do not remove created ExecSharedRuntime object when the operation succeeds. */
-        TAKE_PTR(rt);
+                *ret = TAKE_PTR(rt);
+
         return 0;
 }
 
@@ -2094,15 +2093,13 @@ static int exec_shared_runtime_make(
                         return r;
         }
 
-        if (exec_needs_network_namespace(c)) {
+        if (exec_needs_network_namespace(c))
                 if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, netns_storage_socket) < 0)
                         return -errno;
-        }
 
-        if (exec_needs_ipc_namespace(c)) {
+        if (exec_needs_ipc_namespace(c))
                 if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, ipcns_storage_socket) < 0)
                         return -errno;
-        }
 
         r = exec_shared_runtime_add(m, id, &tmp_dir, &var_tmp_dir, netns_storage_socket, ipcns_storage_socket, ret);
         if (r < 0)
