@@ -227,5 +227,9 @@ B=$(systemd-run -q --wait --pipe -p ProtectProc=invisible cat /proc/version)
 
 assert_eq "$A" "$B"
 
+# Check that invoking the tool under the uid0 alias name works
+uid0 ls /
+echo "$(uid0 echo foo)" = "foo"
+
 umount /proc/version
 rm "$V"
