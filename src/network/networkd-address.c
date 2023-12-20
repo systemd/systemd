@@ -1994,10 +1994,16 @@ int config_parse_address(
         assert(rvalue);
         assert(data);
 
-        if (streq(section, "Network"))
+        if (streq(section, "Network")) {
+                if (isempty(rvalue)) {
+                        /* If an empty string specified in [Network] section, clear previously assigned addresses. */
+                        network->addresses_by_section = ordered_hashmap_free_with_destructor(network->addresses_by_section, address_free);
+                        return 0;
+                }
+
                 /* we are not in an Address section, so use line number instead. */
                 r = address_new_static(network, filename, line, &n);
-        else
+        } else
                 r = address_new_static(network, filename, section_line, &n);
         if (r == -ENOMEM)
                 return log_oom();
