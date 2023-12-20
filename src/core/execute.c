@@ -2059,9 +2059,8 @@ static int exec_shared_runtime_add(
         rt->manager = m;
 
         if (ret)
-                *ret = rt;
-        /* do not remove created ExecSharedRuntime object when the operation succeeds. */
-        TAKE_PTR(rt);
+                *ret = TAKE_PTR(rt);
+
         return 0;
 }
 
