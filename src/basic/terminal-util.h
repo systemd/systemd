@@ -288,3 +288,5 @@ static inline const char* ansi_highlight_green_red(bool b) {
 #define TTY_MODE 0620
 
 void termios_disable_echo(struct termios *termios);
+
+int get_default_background_color(double *ret_red, double *ret_green, double *ret_blue);
