@@ -57,6 +57,7 @@ simple_tests += files(
         'test-cgroup.c',
         'test-chase.c',
         'test-clock.c',
+        'test-color-util.c',
         'test-compare-operator.c',
         'test-condition.c',
         'test-conf-files.c',
