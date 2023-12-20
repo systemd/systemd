@@ -1551,3 +1551,11 @@ int set_terminal_cursor_position(int fd, unsigned int row, unsigned int column) 
 
         return 0;
 }
+
+void termios_disable_echo(struct termios *termios) {
+        assert(termios);
+
+        termios->c_lflag &= ~(ICANON|ECHO);
+        termios->c_cc[VMIN] = 1;
+        termios->c_cc[VTIME] = 0;
+}
