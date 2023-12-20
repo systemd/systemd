@@ -12,11 +12,13 @@
 #include "common-signal.h"
 #include "copy.h"
 #include "creds-util.h"
+#include "dissect-image.h"
 #include "escape.h"
 #include "extract-word.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "gpt.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "log.h"
@@ -35,6 +37,7 @@
 #include "rm-rf.h"
 #include "sd-daemon.h"
 #include "sd-event.h"
+#include "sd-id128.h"
 #include "signal-util.h"
 #include "socket-util.h"
 #include "vmspawn-mount.h"
@@ -802,6 +805,32 @@ static int start_virtiofsd(sd_bus *bus, const char *scope, const char *our_runti
         return 0;
 }
 
+static int finalize_root(char **ret) {
+        int r;
+        _cleanup_(dissected_image_unrefp) DissectedImage *image = NULL;
+        _cleanup_free_ char *root = NULL;
+
+        assert(ret);
+
+        r = dissect_image_file_and_warn(arg_image, NULL, NULL, NULL, 0, &image);
+        if (r < 0)
+                return log_error_errno(r, "Failed to dissect image: %m");
+
+        if (image->partitions[PARTITION_ROOT].found)
+                root = strjoin("root=PARTUUID=", SD_ID128_TO_UUID_STRING(image->partitions[PARTITION_ROOT].uuid));
+        else if (image->partitions[PARTITION_USR].found)
+                root = strjoin("mount.usr=PARTUUID=", SD_ID128_TO_UUID_STRING(image->partitions[PARTITION_USR].uuid));
+        else
+                return -ENOENT;
+
+        if (!root)
+                return log_oom();
+
+        *ret = TAKE_PTR(root);
+
+        return 0;
+}
+
 static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1091,6 +1120,19 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 r = strv_extend_strv(&cmdline, STRV_MAKE("-kernel", kernel), /* filter_duplicates= */ false);
                 if (r < 0)
                         return log_oom();
+
+                /* We can't rely on gpt-auto-generator when direct kernel booting so synthesize a root=
+                 * kernel argument instead. */
+                if (arg_image && !strv_find_startswith(arg_kernel_cmdline_extra, "root=")) {
+                        _cleanup_free_ char *root = NULL;
+                        r = finalize_root(&root);
+                        if (r < 0)
+                                return log_error_errno(r, "Cannot perform a direct kernel boot without a root or usr partition: %m");
+
+                        r = strv_extend(&arg_kernel_cmdline_extra, root);
+                        if (r < 0)
+                                return log_oom();
+                }
         }
 
         if (arg_image) {
