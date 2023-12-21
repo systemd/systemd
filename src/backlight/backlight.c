@@ -309,7 +309,8 @@ static int validate_device(sd_device *device) {
         return true;
 }
 
-static int get_max_brightness(sd_device *device, unsigned *ret) {
+static int read_max_brightness(sd_device *device, unsigned *ret) {
+        unsigned max_brightness;
         const char *s;
         int r;
 
@@ -320,11 +321,22 @@ static int get_max_brightness(sd_device *device, unsigned *ret) {
         if (r < 0)
                 return log_device_warning_errno(device, r, "Failed to read 'max_brightness' attribute: %m");
 
-        r = safe_atou(s, ret);
+        r = safe_atou(s, &max_brightness);
         if (r < 0)
                 return log_device_warning_errno(device, r, "Failed to parse 'max_brightness' \"%s\": %m", s);
 
-        return 0;
+        /* If max_brightness is 0, then there is no actual backlight device. This happens on desktops
+         * with Asus mainboards that load the eeepc-wmi module. */
+        if (max_brightness == 0) {
+                log_device_warning(device, "Maximum brightness is 0, ignoring device.");
+                *ret = 0;
+                return 0;
+        }
+
+        log_device_debug(device, "Maximum brightness is %u", max_brightness);
+
+        *ret = max_brightness;
+        return 1; /* valid max brightness */
 }
 
 static int clamp_brightness(
@@ -506,17 +518,9 @@ static int run(int argc, char *argv[]) {
                 return ignore ? 0 : r;
         }
 
-        /* If max_brightness is 0, then there is no actual backlight device. This happens on desktops
-         * with Asus mainboards that load the eeepc-wmi module. */
-        if (get_max_brightness(device, &max_brightness) < 0)
-                return 0;
-
-        if (max_brightness == 0) {
-                log_device_warning(device, "Maximum brightness is 0, ignoring device.");
-                return 0;
-        }
-
-        log_device_debug(device, "Maximum brightness is %u", max_brightness);
+        r = read_max_brightness(device, &max_brightness);
+        if (r <= 0)
+                return r;
 
         escaped_ss = cescape(ss);
         if (!escaped_ss)
