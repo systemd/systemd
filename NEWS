@@ -10,6 +10,12 @@ CHANGES WITH 256 in spe:
           section, then all assigned VLAN IDs on the interface that are not
           configured in the .network file are removed.
 
+        Network Management:
+
+        * systemd-networkd's proxy support gained a new option to configure
+          a private VLAN variant of the proxy ARP supported by the kernel
+          under the name IPv4ProxyARPPrivateVLAN=.
+
 CHANGES WITH 255:
 
         Announcements of Future Feature Removals and Incompatible Changes:
