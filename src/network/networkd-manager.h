@@ -73,6 +73,7 @@ struct Manager {
 
         /* Manage nexthops by id. */
         Hashmap *nexthops_by_id;
+        Set *nexthop_ids; /* requested IDs in .network files */
 
         /* Manager stores routes without RTA_OIF attribute. */
         unsigned route_remove_messages;
@@ -98,6 +99,7 @@ struct Manager {
         FirewallContext *fw_ctx;
 
         OrderedSet *request_queue;
+        OrderedSet *remove_request_queue;
 
         Hashmap *tuntap_fds_by_name;
 };
