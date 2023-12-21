@@ -255,6 +255,8 @@ void service_release_socket_fd(Service *s);
 
 usec_t service_restart_usec_next(Service *s);
 
+int service_determine_exec_selinux_label(Service *s, char **ret);
+
 const char* service_restart_to_string(ServiceRestart i) _const_;
 ServiceRestart service_restart_from_string(const char *s) _pure_;
 
