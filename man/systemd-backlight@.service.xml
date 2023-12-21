@@ -31,13 +31,22 @@
   <refsect1>
     <title>Description</title>
 
-    <para><filename>systemd-backlight@.service</filename> is a service that restores the display backlight
-    brightness at early boot and saves it at shutdown. On disk, the backlight brightness is stored in
-    <filename>/var/lib/systemd/backlight/</filename>. During loading, if the udev property
-    <option>ID_BACKLIGHT_CLAMP</option> is not set to false, the brightness is clamped to a value of at least
-    1 or 5% of maximum brightness, whichever is greater. The percentage can be adjusted by specifying a
-    percentage (needs to be suffixed with <literal>%</literal>, e.g. <literal>30%</literal>) to the property
-    <option>ID_BACKLIGHT_CLAMP</option>.</para>
+    <para><filename>systemd-backlight@.service</filename> is a service that restores the brightness of
+    a display backlight or LED (e.g. keyboard backlight) device at early boot, and saves it at shutdown.
+    The brightness is stored in <filename>/var/lib/systemd/backlight/</filename>.</para>
+
+    <para>On restoring brightness of a display backlight device, <command>systemd-backlight</command> reads
+    <varname>ID_BACKLIGHT_CLAMP</varname> udev property, that takes a boolean value or a percentage (needs to
+    be suffixed with <literal>%</literal>, e.g. <literal>30%</literal>). When a percentage is specified, the
+    saved brightness is clamped to a value of at least 1 or the specified percentage of the maximum
+    brightness, whichever is greater. When unset or set to true, the brightness is clamped in the same way
+    with percentage 5%. When false, the saved brightness will not be clamped, and loaded as is.</para>
+
+    <para>On restoring brightness of a LED device, <command>systemd-backlight</command> reads
+    <varname>ID_LEDS_CLAMP</varname> udev property, that also takes a boolean value or a percentage. When a
+    percentage is specified, the saved brightness is clamped to the specified percentage of the maximum
+    brightness. When set to true, the brightness is clamped in the same way with percentage 5%. When unset or
+    set to false, the saved brightness will not be clamped, and loaded as is.</para>
   </refsect1>
 
   <refsect1>
