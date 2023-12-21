@@ -872,13 +872,11 @@ bool address_label_valid(const char *p) {
 int getpeercred(int fd, struct ucred *ucred) {
         socklen_t n = sizeof(struct ucred);
         struct ucred u;
-        int r;
 
         assert(fd >= 0);
         assert(ucred);
 
-        r = getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &u, &n);
-        if (r < 0)
+        if (getsockopt(fd, SOL_SOCKET, SO_PEERCRED, &u, &n) < 0)
                 return -errno;
 
         if (n != sizeof(struct ucred))
@@ -907,8 +905,10 @@ int getpeersec(int fd, char **ret) {
                 if (!s)
                         return -ENOMEM;
 
-                if (getsockopt(fd, SOL_SOCKET, SO_PEERSEC, s, &n) >= 0)
+                if (getsockopt(fd, SOL_SOCKET, SO_PEERSEC, s, &n) >= 0) {
+                        s[n] = 0;
                         break;
+                }
 
                 if (errno != ERANGE)
                         return -errno;
