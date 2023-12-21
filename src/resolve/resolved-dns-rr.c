@@ -379,6 +379,7 @@ DnsResourceRecord* dns_resource_record_new(DnsResourceKey *key) {
                 .n_ref = 1,
                 .key = dns_resource_key_ref(key),
                 .expiry = USEC_INFINITY,
+                .until = USEC_INFINITY,
                 .n_skip_labels_signer = UINT8_MAX,
                 .n_skip_labels_source = UINT8_MAX,
         };
@@ -1487,6 +1488,7 @@ DnsResourceRecord *dns_resource_record_copy(DnsResourceRecord *rr) {
 
         copy->ttl = rr->ttl;
         copy->expiry = rr->expiry;
+        copy->until = rr->until;
         copy->n_skip_labels_signer = rr->n_skip_labels_signer;
         copy->n_skip_labels_source = rr->n_skip_labels_source;
         copy->unparsable = rr->unparsable;
