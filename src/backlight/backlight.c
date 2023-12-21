@@ -192,11 +192,8 @@ static int validate_device(sd_device *device) {
         if (r < 0)
                 return log_device_debug_errno(device, r, "Failed to get sysname: %m");
 
-        r = sd_device_get_subsystem(device, &subsystem);
-        if (r < 0)
-                return log_device_debug_errno(device, r, "Failed to get subsystem: %m");
-        if (!streq(subsystem, "backlight"))
-                return true;
+        if (!device_in_subsystem(device, "backlight"))
+                return true; /* We assume LED device is always valid. */
 
         r = sd_device_get_sysattr_value(device, "type", &v);
         if (r < 0)
@@ -261,7 +258,6 @@ static int validate_device(sd_device *device) {
         }
 
         FOREACH_DEVICE(enumerate, other) {
-                const char *other_subsystem;
                 sd_device *other_parent;
 
                 /* OK, so there's another backlight device, and it's a platform or firmware device.
@@ -286,13 +282,7 @@ static int validate_device(sd_device *device) {
                         return false;
                 }
 
-                r = sd_device_get_subsystem(other_parent, &other_subsystem);
-                if (r < 0) {
-                        log_device_debug_errno(other_parent, r, "Failed to get subsystem, ignoring: %m");
-                        continue;
-                }
-
-                if (streq(other_subsystem, "platform") && streq(subsystem, "pci")) {
+                if (device_in_subsystem(other_parent, "platform") && streq(subsystem, "pci")) {
                         /* The other is connected to the platform bus and we are a PCI device, that also means we are out. */
                         if (DEBUG_LOGGING) {
                                 const char *other_sysname = NULL, *other_type = NULL;
@@ -347,8 +337,6 @@ static int clamp_brightness(
                 unsigned *brightness) {
 
         unsigned new_brightness, min_brightness;
-        const char *subsystem;
-        int r;
 
         assert(device);
         assert(brightness);
@@ -358,11 +346,7 @@ static int clamp_brightness(
          * avoids preserving an unreadably dim screen, which would otherwise force the user to disable
          * state restoration. */
 
-        r = sd_device_get_subsystem(device, &subsystem);
-        if (r < 0)
-                return log_device_warning_errno(device, r, "Failed to get device subsystem: %m");
-
-        if (streq(subsystem, "backlight"))
+        if (device_in_subsystem(device, "backlight"))
                 min_brightness = MAX(1U, (unsigned) ((double) max_brightness * percent / 100));
         else
                 min_brightness = 0;
@@ -413,18 +397,14 @@ static bool shall_clamp(sd_device *d, unsigned *ret) {
 }
 
 static int read_brightness(sd_device *device, unsigned max_brightness, unsigned *ret_brightness) {
-        const char *subsystem, *value;
+        const char *value;
         unsigned brightness;
         int r;
 
         assert(device);
         assert(ret_brightness);
 
-        r = sd_device_get_subsystem(device, &subsystem);
-        if (r < 0)
-                return log_device_debug_errno(device, r, "Failed to get subsystem: %m");
-
-        if (streq(subsystem, "backlight")) {
+        if (device_in_subsystem(device, "backlight")) {
                 r = sd_device_get_sysattr_value(device, "actual_brightness", &value);
                 if (r == -ENOENT) {
                         log_device_debug_errno(device, r, "Failed to read 'actual_brightness' attribute, "
