@@ -281,13 +281,12 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
                 return sd_bus_reply_method_return(m, NULL);
         }
 
-        r = bus_verify_polkit_async(
+        r = bus_verify_polkit_async_full(
                         m,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.locale1.set-locale",
-                        NULL,
+                        /* details= */ NULL,
                         interactive,
-                        UID_INVALID,
+                        /* good_user= */ UID_INVALID,
                         &c->polkit_registry,
                         error);
         if (r < 0)
@@ -386,13 +385,12 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
         if (vc_context_equal(&c->vc, &in) && !x_needs_update)
                 return sd_bus_reply_method_return(m, NULL);
 
-        r = bus_verify_polkit_async(
+        r = bus_verify_polkit_async_full(
                         m,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.locale1.set-keyboard",
-                        NULL,
+                        /* details= */ NULL,
                         interactive,
-                        UID_INVALID,
+                        /* good_user= */ UID_INVALID,
                         &c->polkit_registry,
                         error);
         if (r < 0)
@@ -506,13 +504,12 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
         if (x11_context_equal(&c->x11_from_vc, &in) && x11_context_equal(&c->x11_from_xorg, &in) && !convert)
                 return sd_bus_reply_method_return(m, NULL);
 
-        r = bus_verify_polkit_async(
+        r = bus_verify_polkit_async_full(
                         m,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.locale1.set-keyboard",
-                        NULL,
+                        /* details= */ NULL,
                         interactive,
-                        UID_INVALID,
+                        /* good_user= */ UID_INVALID,
                         &c->polkit_registry,
                         error);
         if (r < 0)
