@@ -350,10 +350,9 @@ static int clamp_brightness(
         if (r < 0)
                 return log_device_warning_errno(device, r, "Failed to get device subsystem: %m");
 
+        min_brightness = (unsigned) ((double) max_brightness * percent / 100);
         if (streq(subsystem, "backlight"))
-                min_brightness = MAX(1U, (unsigned) ((double) max_brightness * percent / 100));
-        else
-                min_brightness = 0;
+                min_brightness = MAX(1U, min_brightness);
 
         new_brightness = CLAMP(*brightness, min_brightness, max_brightness);
         if (new_brightness != *brightness)
@@ -368,7 +367,7 @@ static int clamp_brightness(
         return 0;
 }
 
-static bool shall_clamp(sd_device *d, unsigned *ret) {
+static int shall_clamp(sd_device *d, unsigned *ret) {
         const char *s;
         int r;
 
@@ -379,8 +378,7 @@ static bool shall_clamp(sd_device *d, unsigned *ret) {
         if (r < 0) {
                 if (r != -ENOENT)
                         log_device_debug_errno(d, r, "Failed to get ID_BACKLIGHT_CLAMP property, ignoring: %m");
-                *ret = 5; /* defaults to 5% */
-                return true;
+                goto fallback;
         }
 
         r = parse_boolean(s);
@@ -392,12 +390,28 @@ static bool shall_clamp(sd_device *d, unsigned *ret) {
         r = parse_percent(s);
         if (r < 0) {
                 log_device_debug_errno(d, r, "Failed to parse ID_BACKLIGHT_CLAMP property, ignoring: %m");
-                *ret = 5;
-                return true;
+                goto fallback;
         }
 
         *ret = r;
         return true;
+
+fallback:
+
+        const char *subsystem;
+        r = sd_device_get_subsystem(d, &subsystem);
+        if (r < 0)
+                return log_device_warning_errno(d, r, "Failed to get device subsystem: %m");
+
+        if (streq(subsystem, "backlight")) {
+                /* defaults to yes and 5% for display backlight */
+                *ret = 5;
+                return true;
+        }
+
+        /* Otherwise, defaults to no. */
+        *ret = 0;
+        return false;
 }
 
 static int read_brightness(sd_device *device, unsigned max_brightness, unsigned *ret_brightness) {
@@ -552,7 +566,10 @@ static int run(int argc, char *argv[]) {
                 if (validate_device(device) == 0)
                         return 0;
 
-                clamp = shall_clamp(device, &percent);
+                r = shall_clamp(device, &percent);
+                if (r < 0)
+                        return r;
+                clamp = r;
 
                 r = read_one_line_file(saved, &value);
                 if (r < 0 && r != -ENOENT)

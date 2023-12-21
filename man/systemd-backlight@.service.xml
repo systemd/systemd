@@ -32,12 +32,23 @@
     <title>Description</title>
 
     <para><filename>systemd-backlight@.service</filename> is a service that restores the display backlight
-    brightness at early boot and saves it at shutdown. On disk, the backlight brightness is stored in
-    <filename>/var/lib/systemd/backlight/</filename>. During loading, if the udev property
-    <option>ID_BACKLIGHT_CLAMP</option> is not set to false, the brightness is clamped to a value of at least
-    1 or 5% of maximum brightness, whichever is greater. The percentage can be adjusted by specifying a
-    percentage (needs to be suffixed with <literal>%</literal>, e.g. <literal>30%</literal>) to the property
-    <option>ID_BACKLIGHT_CLAMP</option>.</para>
+    or LED (e.g. keyboard backlight) brightness at early boot and saves it at shutdown. The brightness is
+    stored in <filename>/var/lib/systemd/backlight/</filename>.</para>
+
+    <para>During loading, <command>systemd-backlight</command> reads <option>ID_BACKLIGHT_CLAMP</option>
+    udev property, that takes a boolean value or a percentage (needs to be suffixed with <literal>%</literal>,
+    e.g. <literal>30%</literal>).</para>
+
+    <para>If the device is a display backlight, when the property is unset or set to true, the saved
+    brightness is clamped to a value of at least 1 or 5% of the maximum brightness, whichever is greater.
+    When a percentage is specified, the saved brightness is clamped to a value of at least 1 or the specified
+    percentage of the maximum brightness, whichever is greater. If false, the saved brightness will not be
+    clamped, and loaded as is.</para>
+
+    <para>If the device is an LED (e.g. keyboard backlight) device, when the property is unset or set to
+    false, the saved brightness will not be clamped, and loaded as is. When set to true, the saved brightness
+    is clamped to 5% of the maximum brightness. When a percentage is specified, the saved brightness is
+    clamped to the specified percentage of the maximum brightness.</para>
   </refsect1>
 
   <refsect1>
