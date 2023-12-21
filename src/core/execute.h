@@ -527,6 +527,7 @@ int exec_context_get_nice(const ExecContext *c);
 int exec_context_get_cpu_sched_policy(const ExecContext *c);
 int exec_context_get_cpu_sched_priority(const ExecContext *c);
 uint64_t exec_context_get_timer_slack_nsec(const ExecContext *c);
+bool exec_context_get_set_login_environment(const ExecContext *c);
 char** exec_context_get_syscall_filter(const ExecContext *c);
 char** exec_context_get_syscall_archs(const ExecContext *c);
 char** exec_context_get_syscall_log(const ExecContext *c);
