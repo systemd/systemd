@@ -599,13 +599,25 @@ static int add_mount(
                 SET_FLAG(flags, MOUNT_NOFAIL, true);
         }
 
+        if (!strv_isempty(wanted_by) || !strv_isempty(required_by)) {
+                /* If x-systemd.{wanted,required}-by= is specified, target_unit is not used */
+                target_unit = NULL;
+
+                /* Don't set default ordering dependencies on local-fs.target or remote-fs.target, but we
+                 * still need to conflict with umount.target. */
+                fputs("DefaultDependencies=no\n"
+                      "Conflicts=umount.target\n"
+                      "Before=umount.target\n",
+                      f);
+        }
+
         r = write_extra_dependencies(f, opts);
         if (r < 0)
                 return r;
 
         /* Order the mount unit we generate relative to target_unit, so that DefaultDependencies= on the
          * target unit won't affect us. */
-        if (!FLAGS_SET(flags, MOUNT_NOFAIL))
+        if (target_unit && !FLAGS_SET(flags, MOUNT_NOFAIL))
                 fprintf(f, "Before=%s\n", target_unit);
 
         if (passno != 0) {
@@ -696,26 +708,7 @@ static int add_mount(
                 }
         }
 
-        if (!FLAGS_SET(flags, MOUNT_AUTOMOUNT)) {
-                if (!FLAGS_SET(flags, MOUNT_NOAUTO) && strv_isempty(wanted_by) && strv_isempty(required_by)) {
-                        r = generator_add_symlink(dest, target_unit,
-                                                  (flags & MOUNT_NOFAIL) ? "wants" : "requires", name);
-                        if (r < 0)
-                                return r;
-                } else {
-                        STRV_FOREACH(s, wanted_by) {
-                                r = generator_add_symlink(dest, *s, "wants", name);
-                                if (r < 0)
-                                        return r;
-                        }
-
-                        STRV_FOREACH(s, required_by) {
-                                r = generator_add_symlink(dest, *s, "requires", name);
-                                if (r < 0)
-                                        return r;
-                        }
-                }
-        } else {
+        if (FLAGS_SET(flags, MOUNT_AUTOMOUNT)) {
                 r = unit_name_from_path(where, ".automount", &automount_name);
                 if (r < 0)
                         return log_error_errno(r, "Failed to generate unit name: %m");
@@ -745,11 +738,37 @@ static int add_mount(
                 r = fflush_and_check(f);
                 if (r < 0)
                         return log_error_errno(r, "Failed to write unit file %s: %m", automount_name);
+        }
 
-                r = generator_add_symlink(dest, target_unit,
-                                          (flags & MOUNT_NOFAIL) ? "wants" : "requires", automount_name);
-                if (r < 0)
-                        return r;
+        if (target_unit) {
+                assert(strv_isempty(wanted_by));
+                assert(strv_isempty(required_by));
+
+                /* noauto has no effect if x-systemd.automount is used */
+                if (!FLAGS_SET(flags, MOUNT_NOAUTO) || automount_name) {
+                        r = generator_add_symlink(dest, target_unit,
+                                                  FLAGS_SET(flags, MOUNT_NOFAIL) ? "wants" : "requires",
+                                                  automount_name ?: name);
+                        if (r < 0)
+                                return r;
+                }
+        } else {
+                const char *unit_name = automount_name ?: name;
+
+                STRV_FOREACH(s, wanted_by) {
+                        r = generator_add_symlink(dest, *s, "wants", unit_name);
+                        if (r < 0)
+                                return r;
+                }
+
+                STRV_FOREACH(s, required_by) {
+                        r = generator_add_symlink(dest, *s, "requires", unit_name);
+                        if (r < 0)
+                                return r;
+                }
+
+                if ((flags & (MOUNT_NOAUTO|MOUNT_NOFAIL)) != 0)
+                        log_warning("x-systemd.wanted-by= and/or x-systemd.required-by= specified, 'noauto' and 'nofail' have no effect.");
         }
 
         return true;

@@ -104,19 +104,18 @@
         system hierarchy, both a requirement dependency and an ordering
         dependency between both units are created automatically.</para></listitem>
 
-        <listitem><para>Block device backed file systems automatically gain
-        <varname>BindsTo=</varname> and <varname>After=</varname> type
-        dependencies on the device unit encapsulating the block
-        device (see below).</para></listitem>
+        <listitem><para>Block device backed file systems automatically gain <varname>Requires=</varname>,
+        <varname>StopPropagatedFrom=</varname>, and <varname>After=</varname> type dependencies on the
+        device unit encapsulating the block device (see <varname>x-systemd.device-bound=</varname> for details).
+        </para></listitem>
 
-        <listitem><para>If traditional file system quota is enabled for a mount
-        unit, automatic <varname>Wants=</varname> and
-        <varname>Before=</varname> dependencies on
-        <filename>systemd-quotacheck.service</filename> and
-        <filename>quotaon.service</filename> are added.</para></listitem>
+        <listitem><para>If traditional file system quota is enabled for a mount unit, automatic
+        <varname>Wants=</varname> and <varname>Before=</varname> dependencies on
+        <filename>systemd-quotacheck.service</filename> and <filename>quotaon.service</filename>
+        are added.</para></listitem>
 
-        <listitem><para>Additional implicit dependencies may be added as result of
-        execution and resource control parameters as documented in
+        <listitem><para>Additional implicit dependencies may be added as result of execution and
+        resource control parameters as documented in
         <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         and
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
@@ -135,15 +134,20 @@
 
         <listitem><para>Mount units referring to local file systems automatically gain
         an <varname>After=</varname> dependency on <filename>local-fs-pre.target</filename>, and a
-        <varname>Before=</varname> dependency on <filename>local-fs.target</filename> unless
-        <option>nofail</option> mount option is set.</para></listitem>
+        <varname>Before=</varname> dependency on <filename>local-fs.target</filename> unless one or more
+        mount options among <option>nofail</option>, <option>x-systemd.wanted-by=</option>,
+        and <option>x-systemd.required-by=</option> is set. See below for detailed information.</para>
 
-        <listitem><para>Network mount units
-        automatically acquire <varname>After=</varname> dependencies on <filename>remote-fs-pre.target</filename>,
-        <filename>network.target</filename> and <filename>network-online.target</filename>, and gain a
-        <varname>Before=</varname> dependency on <filename>remote-fs.target</filename> unless
-        <option>nofail</option> mount option is set. Towards the latter a
-        <varname>Wants=</varname> unit is added as well.</para></listitem>
+        <para>Additionally, an <varname>After=</varname> dependency on <filename>swap.target</filename>
+        is added when the file system type is <literal>tmpfs</literal>.</para>
+        </listitem>
+
+        <listitem><para>Network mount units automatically acquire <varname>After=</varname> dependencies on
+        <filename>remote-fs-pre.target</filename>, <filename>network.target</filename>,
+        plus <varname>After=</varname> and <varname>Wants=</varname> dependencies on <filename>network-online.target</filename>,
+        and a <varname>Before=</varname> dependency on <filename>remote-fs.target</filename>, unless
+        one or more mount options among <option>nofail</option>, <option>x-systemd.wanted-by=</option>,
+        and <option>x-systemd.required-by=</option> is set.</para></listitem>
       </itemizedlist>
 
       <para>Mount units referring to local and network file systems are distinguished by their file system type
@@ -241,13 +245,13 @@
         <term><option>x-systemd.wanted-by=</option></term>
         <term><option>x-systemd.required-by=</option></term>
 
-        <listitem><para>In the created mount unit, configures a
-        <varname>WantedBy=</varname> or <varname>RequiredBy=</varname>
-        dependency on another unit.  This option may be
-        specified more than once. If this is specified, the normal
-        automatic dependencies on the created mount unit, e.g.,
-        <filename>local-fs.target</filename>, are not automatically
-        created. See <varname>WantedBy=</varname> and <varname>RequiredBy=</varname> in
+        <listitem><para>In the created mount unit, configures a <varname>WantedBy=</varname> or
+        <varname>RequiredBy=</varname> dependency on another unit. This option may be specified more than once.
+        If this is specified, the default dependencies (see above) other than <filename>umount.target</filename>
+        on the created mount unit, e.g. <filename>local-fs.target</filename>, are not automatically created.
+        Hence it is likely that some ordering dependencies need to be set up manually through
+        <option>x-systemd.before=</option> and <option>x-systemd.after=</option>. See <varname>WantedBy=</varname>
+        and <varname>RequiredBy=</varname> in
         <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for details.</para>
 
