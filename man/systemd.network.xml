@@ -926,6 +926,21 @@ Table=1234</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>IPv4ProxyARPPrivateVLAN=</varname></term>
+        <listitem>
+          <para>Takes a boolean. Configures proxy ARP private VLAN for IPv4, also known as VLAN aggregation,
+            private VLAN, source-port filtering, port-isolation, or MAC-forced forwarding.</para>
+
+          <para>This variant of the ARP proxy technique will allow the ARP proxy to reply back to the same
+            interface.</para>
+
+          <para>See <ulink url="https://tools.ietf.org/html/rfc3069">RFC 3069</ulink>. When unset,
+          the kernel's default will be used.</para>
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>IPv6ProxyNDP=</varname></term>
         <listitem>
           <para>Takes a boolean. Configures proxy NDP for IPv6. Proxy NDP (Neighbor Discovery Protocol)
