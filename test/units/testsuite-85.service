@@ -1,0 +1,9 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Unit]
+Description=TEST-84-RESOLVED-MDNS
+
+[Service]
+Type=oneshot
+ExecStart=/bin/true
+StandardOutput=journal+console
+StandardError=journal+console
