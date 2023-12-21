@@ -2633,7 +2633,7 @@ int server_init(Server *s, const char *namespace) {
         /* Try to restore streams, but don't bother if this fails */
         (void) server_restore_streams(s, fds);
 
-        if (fdset_size(fds) > 0) {
+        if (!fdset_isempty(fds)) {
                 log_warning("%u unknown file descriptors passed, closing.", fdset_size(fds));
                 fds = fdset_free(fds);
         }

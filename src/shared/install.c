@@ -747,7 +747,7 @@ static int remove_marked_symlinks(
         assert(config_path);
         assert(lp);
 
-        if (set_size(remove_symlinks_to) <= 0)
+        if (set_isempty(remove_symlinks_to))
                 return 0;
 
         fd = open(config_path, O_RDONLY|O_NONBLOCK|O_DIRECTORY|O_CLOEXEC);
