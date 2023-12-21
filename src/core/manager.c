@@ -1804,7 +1804,7 @@ static void manager_distribute_fds(Manager *m, FDSet *fds) {
 
         HASHMAP_FOREACH(u, m->units) {
 
-                if (fdset_size(fds) <= 0)
+                if (fdset_isempty(fds))
                         break;
 
                 if (!UNIT_VTABLE(u)->distribute_fds)
@@ -2745,7 +2745,7 @@ static int manager_dispatch_notify_fd(sd_event_source *source, int fd, uint32_t 
         if (!found)
                 log_warning("Cannot find unit for notify message of PID "PID_FMT", ignoring.", ucred->pid);
 
-        if (fdset_size(fds) > 0)
+        if (!fdset_isempty(fds))
                 log_warning("Got extra auxiliary fds with notification message, closing them.");
 
         return 0;
@@ -3810,7 +3810,7 @@ void manager_check_finished(Manager *m) {
 
         manager_check_basic_target(m);
 
-        if (hashmap_size(m->jobs) > 0) {
+        if (!hashmap_isempty(m->jobs)) {
                 if (m->jobs_in_progress_event_source)
                         /* Ignore any failure, this is only for feedback */
                         (void) sd_event_source_set_time(m->jobs_in_progress_event_source,
@@ -4545,7 +4545,7 @@ ManagerState manager_state(Manager *m) {
         }
 
         /* Are there any failed units? If so, we are in degraded mode */
-        if (set_size(m->failed_units) > 0)
+        if (!set_isempty(m->failed_units))
                 return MANAGER_DEGRADED;
 
         return MANAGER_RUNNING;

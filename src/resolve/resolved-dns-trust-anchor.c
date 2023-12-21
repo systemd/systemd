@@ -181,7 +181,7 @@ static int dns_trust_anchor_add_builtin_negative(DnsTrustAnchor *d) {
          * trust anchor defined at all. This enables easy overriding
          * of negative trust anchors. */
 
-        if (set_size(d->negative_by_name) > 0)
+        if (!set_isempty(d->negative_by_name))
                 return 0;
 
         r = set_ensure_allocated(&d->negative_by_name, &dns_name_hash_ops);
