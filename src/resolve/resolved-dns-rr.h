@@ -94,6 +94,8 @@ struct DnsResourceRecord {
         unsigned n_ref;
         uint32_t ttl;
         usec_t expiry; /* RRSIG signature expiry */
+        usec_t until; /* Used to pass until of a record when doing a dns_cache_lookup().
+                       * Needed to schedule cache maintenance queries when browsing for services. */
 
         DnsResourceKey *key;
 
