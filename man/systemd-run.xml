@@ -176,11 +176,14 @@
         <term><option>--slice-inherit</option></term>
 
         <listitem><para>Make the new <filename>.service</filename> or <filename>.scope</filename> unit part
-        of the inherited slice. This option can be combined with <option>--slice=</option>.</para>
+        of the slice the <command>systemd-run</command> itself has been invoked in. This option may be
+        combined with <option>--slice=</option>, in which case the slice specified via
+        <option>--slice=</option> is placed within the slice the <command>systemd-run</command> command is
+        invoked in.</para>
 
-        <para>An inherited slice is located within <command>systemd-run</command> slice. Example: if
-        <command>systemd-run</command> slice is <filename>foo.slice</filename>, and the
-        <option>--slice=</option> argument is <filename>bar</filename>, the unit will be placed under the
+        <para>Example: consider <command>systemd-run</command> being invoked in the slice
+        <filename>foo.slice</filename>, and the <option>--slice=</option> argument is
+        <filename>bar</filename>. The unit will then be placed under
         <filename>foo-bar.slice</filename>.</para>
 
         <xi:include href="version-info.xml" xpointer="v246"/>
@@ -485,6 +488,31 @@
         <xi:include href="version-info.xml" xpointer="v236"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--ignore-failure</option></term>
+
+        <listitem><para>By default, if the specified command fails the invoked unit will be marked failed
+        (though possibly still unloaded, see <option>--collect=</option>, above), and this is reported in the
+        logs. If this switch is specified this is suppressed and any non-success exit status/code of the
+        command is treated as success.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--background=<replaceable>COLOR</replaceable></option></term>
+
+        <listitem><para>Change the terminal background color to the specified ANSI color as long as the
+        session lasts. The color specified should be an ANSI X3.64 SGR background color, i.e. strings such as
+        <literal>40</literal>, <literal>41</literal>, …, <literal>47</literal>, <literal>48;2;…</literal>,
+        <literal>48;5;…</literal>. See <ulink
+        url="https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_(Select_Graphic_Rendition)_parameters">ANSI
+        Escape Code (Wikipedia)</ulink> for details.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
       <xi:include href="user-system-options.xml" xpointer="user" />
       <xi:include href="user-system-options.xml" xpointer="system" />
       <xi:include href="user-system-options.xml" xpointer="host" />
@@ -677,7 +705,8 @@ $ systemd-run --user --wait -p SuccessExitStatus=SIGUSR1 --expand-environment=no
       <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd.timer</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
       <citerefentry><refentrytitle>systemd-mount</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+      <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>uid0</refentrytitle><manvolnum>1</manvolnum></citerefentry>
     </para>
   </refsect1>
 
