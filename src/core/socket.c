@@ -1385,50 +1385,26 @@ int socket_load_service_unit(Socket *s, int cfd, Unit **ret) {
 }
 
 static int socket_determine_selinux_label(Socket *s, char **ret) {
+        Unit *service;
         int r;
 
         assert(s);
         assert(ret);
 
-        Unit *service;
-        ExecCommand *c;
-        const char *exec_context;
-        _cleanup_free_ char *path = NULL;
-
-        r = socket_load_service_unit(s, -1, &service);
-        if (r == -ENODATA)
-                goto no_label;
+        r = socket_load_service_unit(s, /* cfd= */ -EBADF, &service);
+        if (r == -ENODATA) {
+                *ret = NULL;
+                return 0;
+        }
         if (r < 0)
                 return r;
 
-        exec_context = SERVICE(service)->exec_context.selinux_context;
-        if (exec_context) {
-                char *con;
-
-                con = strdup(exec_context);
-                if (!con)
-                        return -ENOMEM;
-
-                *ret = TAKE_PTR(con);
+        r = service_determine_exec_selinux_label(SERVICE(service), ret);
+        if (r == -ENODATA) {
+                *ret = NULL;
                 return 0;
         }
-
-        c = SERVICE(service)->exec_command[SERVICE_EXEC_START];
-        if (!c)
-                goto no_label;
-
-        r = chase(c->path, SERVICE(service)->exec_context.root_directory, CHASE_PREFIX_ROOT, &path, NULL);
-        if (r < 0)
-                goto no_label;
-
-        r = mac_selinux_get_create_label_from_exe(path, ret);
-        if (IN_SET(r, -EPERM, -EOPNOTSUPP))
-                goto no_label;
         return r;
-
-no_label:
-        *ret = NULL;
-        return 0;
 }
 
 static int socket_address_listen_do(
