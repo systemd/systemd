@@ -50,7 +50,7 @@ int verb_cat(int argc, char *argv[], void *userdata) {
                 _cleanup_free_ char *fragment_path = NULL;
                 _cleanup_strv_free_ char **dropin_paths = NULL;
 
-                r = unit_find_paths(bus, *name, &lp, false, &cached_name_map, &cached_id_map, &fragment_path, &dropin_paths);
+                r = unit_find_paths(bus, *name, &lp, false, &cached_id_map, &cached_name_map, &fragment_path, &dropin_paths);
                 if (r == -ERFKILL) {
                         printf("%s# Unit %s is masked%s.\n",
                                ansi_highlight_magenta(),
@@ -233,13 +233,13 @@ static int find_paths_to_edit(
                 _cleanup_free_ char *path = NULL;
                 _cleanup_strv_free_ char **unit_paths = NULL;
 
-                r = unit_find_paths(bus, *name, &lp, /* force_client_side= */ false, &cached_name_map, &cached_id_map, &path, &unit_paths);
+                r = unit_find_paths(bus, *name, &lp, /* force_client_side= */ false, &cached_id_map, &cached_name_map, &path, &unit_paths);
                 if (r == -EKEYREJECTED) {
                         /* If loading of the unit failed server side complete, then the server won't tell us
                          * the unit file path. In that case, find the file client side. */
 
                         log_debug_errno(r, "Unit '%s' was not loaded correctly, retrying client-side.", *name);
-                        r = unit_find_paths(bus, *name, &lp, /* force_client_side= */ true, &cached_name_map, &cached_id_map, &path, &unit_paths);
+                        r = unit_find_paths(bus, *name, &lp, /* force_client_side= */ true, &cached_id_map, &cached_name_map, &path, &unit_paths);
                 }
                 if (r == -ERFKILL)
                         return log_error_errno(r, "Unit '%s' masked, cannot edit.", *name);
