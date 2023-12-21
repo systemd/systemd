@@ -588,7 +588,7 @@ static int manager_count_external_displays(Manager *m) {
                 return r;
 
         FOREACH_DEVICE(e, d) {
-                const char *status, *enabled, *dash, *nn, *subsys;
+                const char *status, *enabled, *dash, *nn;
                 sd_device *p;
 
                 if (sd_device_get_parent(d, &p) < 0)
@@ -597,7 +597,7 @@ static int manager_count_external_displays(Manager *m) {
                 /* If the parent shares the same subsystem as the
                  * device we are looking at then it is a connector,
                  * which is what we are interested in. */
-                if (sd_device_get_subsystem(p, &subsys) < 0 || !streq(subsys, "drm"))
+                if (!device_in_subsystem(p, "drm"))
                         continue;
 
                 if (sd_device_get_sysname(d, &nn) < 0)
