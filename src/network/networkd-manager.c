@@ -164,7 +164,6 @@ static int manager_connect_bus(Manager *m) {
 static int manager_process_uevent(sd_device_monitor *monitor, sd_device *device, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
         sd_device_action_t action;
-        const char *s;
         int r;
 
         assert(device);
@@ -173,20 +172,12 @@ static int manager_process_uevent(sd_device_monitor *monitor, sd_device *device,
         if (r < 0)
                 return log_device_warning_errno(device, r, "Failed to get udev action, ignoring: %m");
 
-        r = sd_device_get_subsystem(device, &s);
-        if (r < 0)
-                return log_device_warning_errno(device, r, "Failed to get subsystem, ignoring: %m");
-
-        if (streq(s, "net"))
+        if (device_in_subsystem(device, "net"))
                 r = manager_udev_process_link(m, device, action);
-        else if (streq(s, "ieee80211"))
+        else if (device_in_subsystem(device, "ieee80211"))
                 r = manager_udev_process_wiphy(m, device, action);
-        else if (streq(s, "rfkill"))
+        else if (device_in_subsystem(device, "rfkill"))
                 r = manager_udev_process_rfkill(m, device, action);
-        else {
-                log_device_debug(device, "Received device with unexpected subsystem \"%s\", ignoring.", s);
-                return 0;
-        }
         if (r < 0)
                 log_device_warning_errno(device, r, "Failed to process \"%s\" uevent, ignoring: %m",
                                          device_action_to_string(action));
