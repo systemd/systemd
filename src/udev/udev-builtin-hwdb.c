@@ -77,20 +77,15 @@ static int udev_builtin_hwdb_search(sd_device *dev, sd_device *srcdev,
                 srcdev = dev;
 
         for (sd_device *d = srcdev; d; ) {
-                const char *dsubsys, *devtype, *modalias = NULL;
-
-                if (sd_device_get_subsystem(d, &dsubsys) < 0)
-                        goto next;
+                const char *modalias = NULL;
 
                 /* look only at devices of a specific subsystem */
-                if (subsystem && !streq(dsubsys, subsystem))
+                if (subsystem && !device_in_subsystem(d, subsystem))
                         goto next;
 
                 (void) sd_device_get_property_value(d, "MODALIAS", &modalias);
 
-                if (streq(dsubsys, "usb") &&
-                    sd_device_get_devtype(d, &devtype) >= 0 &&
-                    streq(devtype, "usb_device")) {
+                if (device_in_subsystem(d, "usb") && device_is_devtype(d, "usb_device")) {
                         /* if the usb_device does not have a modalias, compose one */
                         if (!modalias)
                                 modalias = modalias_usb(d, s, sizeof(s));

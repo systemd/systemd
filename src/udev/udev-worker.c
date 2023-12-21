@@ -138,11 +138,7 @@ static int worker_mark_block_device_read_only(sd_device *dev) {
         if (!device_for_action(dev, SD_DEVICE_ADD))
                 return 0;
 
-        r = sd_device_get_subsystem(dev, &val);
-        if (r < 0)
-                return log_device_debug_errno(dev, r, "Failed to get subsystem: %m");
-
-        if (!streq(val, "block"))
+        if (!device_in_subsystem(dev, "block"))
                 return 0;
 
         r = sd_device_get_sysname(dev, &val);

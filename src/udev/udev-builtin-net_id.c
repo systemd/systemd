@@ -49,12 +49,7 @@ static sd_device *device_skip_virtio(sd_device *dev) {
          * safely ignore any virtio buses. see
          * http://lists.linuxfoundation.org/pipermail/virtualization/2015-August/030331.html */
         while (dev) {
-                const char *subsystem;
-
-                if (sd_device_get_subsystem(dev, &subsystem) < 0)
-                        break;
-
-                if (!streq(subsystem, "virtio"))
+                if (!device_in_subsystem(dev, "virtio"))
                         break;
 
                 if (sd_device_get_parent(dev, &dev) < 0)
@@ -86,22 +81,15 @@ static int get_matching_parent(
                         return -ENODEV;
         }
 
-        if (!strv_isempty(parent_subsystems)) {
-                const char *subsystem;
+        /* check if our direct parent is in an expected subsystem. */
+        STRV_FOREACH(s, parent_subsystems)
+                if (device_in_subsystem(parent, *s)) {
+                        if (ret)
+                                *ret = parent;
+                        return 0;
+                }
 
-                /* check if our direct parent is in an expected subsystem. */
-                r = sd_device_get_subsystem(parent, &subsystem);
-                if (r < 0)
-                        return r;
-
-                if (!strv_contains(parent_subsystems, subsystem))
-                        return -ENODEV;
-        }
-
-        if (ret)
-                *ret = parent;
-
-        return 0;
+        return -ENODEV;
 }
 
 static int get_first_syspath_component(sd_device *dev, const char *prefix, char **ret) {
@@ -1272,15 +1260,9 @@ static int get_ifname_prefix(sd_device *dev, const char **ret) {
         /* handle only ARPHRD_ETHER, ARPHRD_SLIP and ARPHRD_INFINIBAND devices */
         switch (iftype) {
         case ARPHRD_ETHER: {
-                const char *s = NULL;
-
-                r = sd_device_get_devtype(dev, &s);
-                if (r < 0 && r != -ENOENT)
-                        return r;
-
-                if (streq_ptr(s, "wlan"))
+                if (device_is_devtype(dev, "wlan"))
                         *ret = "wl";
-                else if (streq_ptr(s, "wwan"))
+                else if (device_is_devtype(dev, "wwan"))
                         *ret = "ww";
                 else
                         *ret = "en";

@@ -510,22 +510,17 @@ static int link_update(sd_device *dev, const char *slink, bool add) {
 }
 
 static int device_get_devpath_by_devnum(sd_device *dev, char **ret) {
-        const char *subsystem;
         dev_t devnum;
         int r;
 
         assert(dev);
         assert(ret);
 
-        r = sd_device_get_subsystem(dev, &subsystem);
-        if (r < 0)
-                return r;
-
         r = sd_device_get_devnum(dev, &devnum);
         if (r < 0)
                 return r;
 
-        return device_path_make_major_minor(streq(subsystem, "block") ? S_IFBLK : S_IFCHR, devnum, ret);
+        return device_path_make_major_minor(device_in_subsystem(dev, "block") ? S_IFBLK : S_IFCHR, devnum, ret);
 }
 
 int udev_node_update(sd_device *dev, sd_device *dev_old) {

@@ -1267,7 +1267,7 @@ static int acquire_removable(sd_device *d) {
                 if (sd_device_get_parent(d, &d) < 0)
                         return 0;
 
-                if (sd_device_get_subsystem(d, &v) < 0 || !streq(v, "block"))
+                if (!device_in_subsystem(d, "block"))
                         return 0;
         }
 
