@@ -93,26 +93,37 @@ WORKDIR="$(mktemp -d)"
 
 # Prepare a couple of LUKS2-encrypted disk images
 #
-# 1) Image with an empty password
-IMAGE_EMPTY="$WORKDIR/empty.img)"
-IMAGE_EMPTY_KEYFILE="$WORKDIR/empty.keyfile"
-IMAGE_EMPTY_KEYFILE_ERASE="$WORKDIR/empty-erase.keyfile"
-IMAGE_EMPTY_KEYFILE_ERASE_FAIL="$WORKDIR/empty-erase-fail.keyfile)"
-truncate -s 32M "$IMAGE_EMPTY"
-echo -n passphrase >"$IMAGE_EMPTY_KEYFILE"
-chmod 0600 "$IMAGE_EMPTY_KEYFILE"
+# 1) Image with both a password and an empty password
+IMAGE_PASS="$WORKDIR/password.img"
+IMAGE_PASS_KEYFILE="$WORKDIR/password.keyfile"
+IMAGE_PASS_KEYFILE_ERASE="$WORKDIR/password-erase.keyfile"
+IMAGE_PASS_KEYFILE_ERASE_FAIL="$WORKDIR/password-erase-fail.keyfile)"
+truncate -s 32M "$IMAGE_PASS"
+echo -n passphrase >"$IMAGE_PASS_KEYFILE"
+chmod 0600 "$IMAGE_PASS_KEYFILE"
 cryptsetup luksFormat --batch-mode \
                       --pbkdf pbkdf2 \
                       --pbkdf-force-iterations 1000 \
                       --use-urandom \
-                      "$IMAGE_EMPTY" "$IMAGE_EMPTY_KEYFILE"
-PASSWORD=passphrase NEWPASSWORD="" systemd-cryptenroll --password "$IMAGE_EMPTY"
+                      "$IMAGE_PASS" "$IMAGE_PASS_KEYFILE"
+# Enroll an empty passphrase as well
+PASSWORD=passphrase NEWPASSWORD="" systemd-cryptenroll --password "$IMAGE_PASS"
 # Duplicate the key file to test keyfile-erase as well
-cp -v "$IMAGE_EMPTY_KEYFILE" "$IMAGE_EMPTY_KEYFILE_ERASE"
+cp -v "$IMAGE_PASS_KEYFILE" "$IMAGE_PASS_KEYFILE_ERASE"
 # The key should get erased even on a failed attempt, so test that too
-cp -v "$IMAGE_EMPTY_KEYFILE" "$IMAGE_EMPTY_KEYFILE_ERASE_FAIL"
+cp -v "$IMAGE_PASS_KEYFILE" "$IMAGE_PASS_KEYFILE_ERASE_FAIL"
 
-# 2) Image with a detached header and a key file offset + size
+# 2) Image with a systemd-empty slot
+IMAGE_EMPTY="$WORKDIR/empty.img"
+truncate -s 32M "$IMAGE_EMPTY"
+cryptsetup luksFormat --batch-mode \
+                      --pbkdf pbkdf2 \
+                      --pbkdf-force-iterations 1000 \
+                      --use-urandom \
+                      "$IMAGE_EMPTY" "$IMAGE_PASS_KEYFILE"
+PASSWORD=passphrase systemd-cryptenroll --wipe-slot=password --empty "$IMAGE_EMPTY"
+
+# 3) Image with a detached header and a key file offset + size
 IMAGE_DETACHED="$WORKDIR/detached.img"
 IMAGE_DETACHED_KEYFILE="$WORKDIR/detached.keyfile"
 IMAGE_DETACHED_KEYFILE2="$WORKDIR/detached.keyfile2"
@@ -175,16 +186,19 @@ udevadm settle --timeout=30
 [[ -e /etc/crypttab ]] && cp -fv /etc/crypttab /tmp/crypttab.bak
 cat >/etc/crypttab <<EOF
 # headless should translate to headless=1
-empty_key            $IMAGE_EMPTY    $IMAGE_EMPTY_KEYFILE            headless,x-systemd.device-timeout=1m
-empty_key_erase      $IMAGE_EMPTY    $IMAGE_EMPTY_KEYFILE_ERASE      headless=1,keyfile-erase=1
-empty_key_erase_fail $IMAGE_EMPTY    $IMAGE_EMPTY_KEYFILE_ERASE_FAIL headless=1,keyfile-erase=1,keyfile-offset=4
+pass_key             $IMAGE_PASS     $IMAGE_PASS_KEYFILE             headless,x-systemd.device-timeout=1m
+pass_key_erase       $IMAGE_PASS     $IMAGE_PASS_KEYFILE_ERASE       headless=1,keyfile-erase=1
+pass_key_erase_fail  $IMAGE_PASS     $IMAGE_PASS_KEYFILE_ERASE_FAIL  headless=1,keyfile-erase=1,keyfile-offset=4
 # Empty passphrase without try-empty-password(=yes) shouldn't work
-empty_fail0          $IMAGE_EMPTY    -                               headless=1
-empty_fail1          $IMAGE_EMPTY    -                               headless=1,try-empty-password=0
-empty0               $IMAGE_EMPTY    -                               headless=1,try-empty-password
-empty1               $IMAGE_EMPTY    -                               headless=1,try-empty-password=1
-# This one expects the key to be under /{etc,run}/cryptsetup-keys.d/empty_nokey.key
-empty_nokey          $IMAGE_EMPTY    -                               headless=1
+pass_empty_fail0     $IMAGE_PASS     -                               headless=1
+pass_empty_fail1     $IMAGE_PASS     -                               headless=1,try-empty-password=0
+pass_empty0          $IMAGE_PASS     -                               headless=1,try-empty-password
+pass_empty1          $IMAGE_PASS     -                               headless=1,try-empty-password=1
+# This one expects the key to be under /{etc,run}/cryptsetup-keys.d/pass_nokey.key
+pass_nokey           $IMAGE_PASS     -                               headless=1
+
+# Unlike the empty passphrase, an image with an empty slot should automatically unlock w/o try-empty-password
+empty                $IMAGE_EMPTY    -                               headless=1
 
 detached             $IMAGE_DETACHED $IMAGE_DETACHED_KEYFILE         headless=1,header=$IMAGE_DETACHED_HEADER,keyfile-offset=32,keyfile-size=16
 detached_store0      $IMAGE_DETACHED $IMAGE_DETACHED_KEYFILE         headless=1,header=/header:LABEL=header_store,keyfile-offset=32,keyfile-size=16
@@ -213,21 +227,23 @@ mkdir -p /tmp/systemd-cryptsetup-generator.out
 systemctl daemon-reload
 systemctl list-unit-files "systemd-cryptsetup@*"
 
-cryptsetup_start_and_check empty_key
-test -e "$IMAGE_EMPTY_KEYFILE_ERASE"
-cryptsetup_start_and_check empty_key_erase
-test ! -e "$IMAGE_EMPTY_KEYFILE_ERASE"
-test -e "$IMAGE_EMPTY_KEYFILE_ERASE_FAIL"
-cryptsetup_start_and_check -f empty_key_erase_fail
-test ! -e "$IMAGE_EMPTY_KEYFILE_ERASE_FAIL"
-cryptsetup_start_and_check -f empty_fail{0..1}
-cryptsetup_start_and_check empty{0..1}
+cryptsetup_start_and_check pass_key
+test -e "$IMAGE_PASS_KEYFILE_ERASE"
+cryptsetup_start_and_check pass_key_erase
+test ! -e "$IMAGE_PASS_KEYFILE_ERASE"
+test -e "$IMAGE_PASS_KEYFILE_ERASE_FAIL"
+cryptsetup_start_and_check -f pass_key_erase_fail
+test ! -e "$IMAGE_PASS_KEYFILE_ERASE_FAIL"
+cryptsetup_start_and_check -f pass_empty_fail{0..1}
+cryptsetup_start_and_check pass_empty{0..1}
 # First, check if we correctly fail without any key
-cryptsetup_start_and_check -f empty_nokey
+cryptsetup_start_and_check -f pass_nokey
 # And now provide the key via /{etc,run}/cryptsetup-keys.d/
 mkdir -p /run/cryptsetup-keys.d
-cp "$IMAGE_EMPTY_KEYFILE" /run/cryptsetup-keys.d/empty_nokey.key
-cryptsetup_start_and_check empty_nokey
+cp "$IMAGE_PASS_KEYFILE" /run/cryptsetup-keys.d/pass_nokey.key
+cryptsetup_start_and_check pass_nokey
+
+cryptsetup_start_and_check empty
 
 cryptsetup_start_and_check detached
 cryptsetup_start_and_check detached_store{0..2}

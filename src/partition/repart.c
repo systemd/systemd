@@ -3758,15 +3758,41 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 return log_error_errno(r, "Failed to LUKS2 format future partition: %m");
 
         if (IN_SET(p->encrypt, ENCRYPT_KEY_FILE, ENCRYPT_KEY_FILE_TPM2)) {
-                r = sym_crypt_keyslot_add_by_volume_key(
+                int keyslot;
+
+                if (arg_key_size == 0) {
+                        /* No need for robust protection against brute-force... */
+                        r = cryptsetup_set_minimal_pbkdf(cd);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to set minimal PBKDF: %m");
+                }
+
+                keyslot = sym_crypt_keyslot_add_by_volume_key(
                                 cd,
                                 CRYPT_ANY_SLOT,
                                 NULL,
                                 VOLUME_KEY_SIZE,
                                 strempty(arg_key),
                                 arg_key_size);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to add LUKS2 key: %m");
+                if (keyslot < 0)
+                        return log_error_errno(keyslot, "Failed to add LUKS2 key: %m");
+
+                if (arg_key_size == 0) {
+                        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+                        char keyslot_str[DECIMAL_STR_MAX(keyslot)];
+
+                        xsprintf(keyslot_str, "%i", keyslot);
+
+                        r = json_build(&v, JSON_BUILD_OBJECT(
+                                                JSON_BUILD_PAIR("type", JSON_BUILD_CONST_STRING("systemd-empty")),
+                                                JSON_BUILD_PAIR("keyslots", JSON_BUILD_ARRAY(JSON_BUILD_STRING(keyslot_str)))));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to create systemd-empty JSON token: %m");
+
+                        r = cryptsetup_add_token_json(cd, v);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to add systemd-empty JSON token to LUKS2 header: %m");
+                }
 
                 passphrase = strempty(arg_key);
                 passphrase_size = arg_key_size;

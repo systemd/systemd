@@ -4,6 +4,7 @@ systemd_cryptenroll_sources = files(
         'cryptenroll-list.c',
         'cryptenroll-password.c',
         'cryptenroll-recovery.c',
+        'cryptenroll-empty.c',
         'cryptenroll-wipe.c',
         'cryptenroll.c',
 )
