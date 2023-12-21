@@ -164,8 +164,8 @@ void dns_cache_flush(DnsCache *c) {
         while ((key = hashmap_first_key(c->by_key)))
                 dns_cache_remove_by_key(c, key);
 
-        assert(hashmap_size(c->by_key) == 0);
-        assert(prioq_size(c->by_expiry) == 0);
+        assert(hashmap_isempty(c->by_key));
+        assert(prioq_isempty(c->by_expiry));
 
         c->by_key = hashmap_free(c->by_key);
         c->by_expiry = prioq_free(c->by_expiry);
@@ -186,7 +186,7 @@ static void dns_cache_make_space(DnsCache *c, unsigned add) {
                 _cleanup_(dns_resource_key_unrefp) DnsResourceKey *key = NULL;
                 DnsCacheItem *i;
 
-                if (prioq_size(c->by_expiry) <= 0)
+                if (prioq_isempty(c->by_expiry))
                         break;
 
                 if (prioq_size(c->by_expiry) + add < CACHE_MAX)
