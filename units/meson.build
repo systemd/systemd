@@ -280,6 +280,11 @@ units = [
           'file' : 'systemd-coredump@.service.in',
           'conditions' : ['ENABLE_COREDUMP'],
         },
+        {
+          'file' : 'systemd-creds.socket',
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        { 'file' : 'systemd-creds@.service' },
         { 'file' : 'systemd-exit.service' },
         {
           'file' : 'systemd-firstboot.service',

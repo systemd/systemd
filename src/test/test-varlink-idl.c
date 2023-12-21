@@ -8,6 +8,7 @@
 #include "varlink.h"
 #include "varlink-idl.h"
 #include "varlink-io.systemd.h"
+#include "varlink-io.systemd.Credentials.h"
 #include "varlink-io.systemd.Journal.h"
 #include "varlink-io.systemd.ManagedOOM.h"
 #include "varlink-io.systemd.PCRExtend.h"
@@ -142,6 +143,8 @@ TEST(parse_format) {
         test_parse_format_one(&vl_interface_io_systemd_service);
         print_separator();
         test_parse_format_one(&vl_interface_io_systemd_sysext);
+        print_separator();
+        test_parse_format_one(&vl_interface_io_systemd_Credentials);
         print_separator();
         test_parse_format_one(&vl_interface_xyz_test);
 }
