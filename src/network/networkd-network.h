@@ -325,6 +325,7 @@ struct Network {
         int ipv6_dad_transmits;
         uint8_t ipv6_hop_limit;
         int proxy_arp;
+        int proxy_arp_pvlan;
         uint32_t ipv6_mtu;
         IPv6PrivacyExtensions ipv6_privacy_extensions;
         IPReversePathFilter ipv4_rp_filter;
