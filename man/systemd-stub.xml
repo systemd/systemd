@@ -32,6 +32,8 @@
       <member><filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.addon.efi</filename></member>
       <member><filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.cred</filename></member>
       <member><filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.raw</filename></member>
+      <member><filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.sysext.raw</filename></member>
+      <member><filename><replaceable>ESP</replaceable>/.../<replaceable>foo</replaceable>.efi.extra.d/*.confext.raw</filename></member>
       <member><filename><replaceable>ESP</replaceable>/loader/addons/*.addon.efi</filename></member>
       <member><filename><replaceable>ESP</replaceable>/loader/credentials/*.cred</filename></member>
     </simplelist></para>
@@ -153,13 +155,27 @@
       details on encrypted credentials. The generated <command>cpio</command> archive is measured into TPM
       PCR 12 (if a TPM is present).</para></listitem>
 
-      <listitem><para>Similarly, files <filename><replaceable>foo</replaceable>.efi.extra.d/*.raw</filename>
-      are packed up in a <command>cpio</command> archive and placed in the <filename>/.extra/sysext/</filename>
-      directory in the initrd file hierarchy. This is supposed to be used to pass additional system extension
-      images to the initrd. See
+      <listitem><para>Similarly, files
+      <filename><replaceable>foo</replaceable>.efi.extra.d/*.sysext.raw</filename> are packed up in a
+      <command>cpio</command> archive and placed in the <filename>/.extra/sysext/</filename> directory in the
+      initrd file hierarchy. This is supposed to be used to pass additional system extension images to the
+      initrd. See
       <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
       details on system extension images. The generated <command>cpio</command> archive containing these
       system extension images is measured into TPM PCR 13 (if a TPM is present).</para></listitem>
+
+      <!-- Note: the actual suffix we look for for sysexts is just *.raw (not *.sysext.raw), for
+           compatibility reasons with old versions. But we want people to name their system extensions
+           properly, hence we document the *.sysext.raw suffix only. -->
+
+      <listitem><para>Similarly, files
+      <filename><replaceable>foo</replaceable>.efi.extra.d/*.confext.raw</filename> are packed up in a
+      <command>cpio</command> archive and placed in the <filename>/.extra/confext/</filename> directory in
+      the initrd file hierarchy. This is supposed to be used to pass additional configuration extension
+      images to the initrd. See
+      <citerefentry><refentrytitle>systemd-confext</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
+      details on configuration extension images. The generated <command>cpio</command> archive containing
+      these system extension images is measured into TPM PCR 12 (if a TPM is present).</para></listitem>
 
       <listitem><para>Similarly, files
       <filename><replaceable>foo</replaceable>.efi.extra.d/*.addon.efi</filename> are loaded and verified as
@@ -218,9 +234,10 @@
 
     <para>Also note that the Linux kernel will measure all initrds it receives into TPM PCR 9. This means
     every type of initrd will be measured two or three times: the initrd embedded in the kernel image will be
-    measured to PCR 4, PCR 9 and PCR 11; the initrd synthesized from credentials will be measured to both PCR
-    9 and PCR 12; the initrd synthesized from system extensions will be measured to both PCR 4 and PCR
-    9. Let's summarize the OS resources and the PCRs they are measured to:</para>
+    measured to PCR 4, PCR 9 and PCR 11; the initrd synthesized from credentials (and the one synthesized
+    from configuration extensions) will be measured to both PCR 9 and PCR 12; the initrd synthesized from
+    system extensions will be measured to both PCR 4 and PCR 9. Let's summarize the OS resources and the PCRs
+    they are measured to:</para>
 
     <table>
       <title>OS Resource PCR Summary</title>
@@ -290,6 +307,11 @@
           <row>
             <entry>System Extensions (synthesized initrd from companion files)</entry>
             <entry>9 + 13</entry>
+          </row>
+
+          <row>
+            <entry>Configuration Extensions (synthesized initrd from companion files)</entry>
+            <entry>9 + 12</entry>
           </row>
         </tbody>
       </tgroup>
@@ -371,12 +393,23 @@
       <varlistentry>
         <term><varname>StubPcrInitRDSysExts</varname></term>
 
-        <listitem><para>The PCR register index the systemd extensions for the initrd, which are picked up
-        from the file system the kernel image is located on. Formatted as decimal ASCII string (e.g.
+        <listitem><para>The PCR register index the system extensions for the initrd, which are picked up from
+        the file system the kernel image is located on. Formatted as decimal ASCII string (e.g.
         <literal>13</literal>). This variable is set if a measurement was successfully completed, and remains
         unset otherwise.</para>
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>StubPcrInitRDConfExts</varname></term>
+
+        <listitem><para>The PCR register index the configuration extensions for the initrd, which are picked
+        up from the file system the kernel image is located on. Formatted as decimal ASCII string (e.g.
+        <literal>12</literal>). This variable is set if a measurement was successfully completed, and remains
+        unset otherwise.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
     </variablelist>
 
@@ -422,12 +455,21 @@
       </varlistentry>
 
       <varlistentry>
-        <term><filename>/.extra/sysext/*.raw</filename></term>
-        <listitem><para>System extension image files (suffix <literal>.raw</literal>) that are placed next to
-        the unified kernel image (as described above) are copied into the
+        <term><filename>/.extra/sysext/*.sysext.raw</filename></term>
+        <listitem><para>System extension image files (suffix <literal>.sysext.raw</literal>) that are placed
+        next to the unified kernel image (as described above) are copied into the
         <filename>/.extra/sysext/</filename> directory in the initrd execution environment.</para>
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><filename>/.extra/confext/*.confext.raw</filename></term>
+        <listitem><para>Configuration extension image files (suffix <literal>.confext.raw</literal>) that are
+        placed next to the unified kernel image (as described above) are copied into the
+        <filename>/.extra/confext/</filename> directory in the initrd execution environment.</para>
+
+        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
 
       <varlistentry>
