@@ -36,8 +36,9 @@
 #include "networkd-dhcp-server-bus.h"
 #include "networkd-dhcp6.h"
 #include "networkd-link-bus.h"
-#include "networkd-manager-bus.h"
 #include "networkd-manager.h"
+#include "networkd-manager-bus.h"
+#include "networkd-manager-varlink.h"
 #include "networkd-neighbor.h"
 #include "networkd-network-bus.h"
 #include "networkd-nexthop.h"
@@ -545,6 +546,10 @@ int manager_setup(Manager *m) {
         if (m->test_mode)
                 return 0;
 
+        r = manager_connect_varlink(m);
+        if (r < 0)
+                return r;
+
         r = manager_connect_bus(m);
         if (r < 0)
                 return r;
@@ -655,6 +660,8 @@ Manager* manager_free(Manager *m) {
         sd_event_unref(m->event);
 
         sd_device_monitor_unref(m->device_monitor);
+
+        manager_varlink_done(m);
 
         bus_verify_polkit_async_registry_free(m->polkit_registry);
         sd_bus_flush_close_unref(m->bus);
