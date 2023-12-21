@@ -470,10 +470,49 @@ use_brightness:
         return 0;
 }
 
+static int build_save_file_path(sd_device *device, char **ret) {
+        _cleanup_free_ char *escaped_subsystem = NULL, *escaped_sysname = NULL, *path = NULL;
+        const char *s;
+        int r;
+
+        assert(device);
+        assert(ret);
+
+        r = sd_device_get_subsystem(device, &s);
+        if (r < 0)
+                return log_device_error_errno(device, r, "Failed to get subsystem: %m");
+
+        escaped_subsystem = cescape(s);
+        if (!escaped_subsystem)
+                return log_oom();
+
+        r = sd_device_get_sysname(device, &s);
+        if (r < 0)
+                return log_device_error_errno(device, r, "Failed to get sysname: %m");
+
+        escaped_sysname = cescape(s);
+        if (!escaped_sysname)
+                return log_oom();
+
+        if (sd_device_get_property_value(device, "ID_PATH", &s) >= 0) {
+                _cleanup_free_ char *escaped_path_id = cescape(s);
+                if (!escaped_path_id)
+                        return log_oom();
+
+                path = strjoin("/var/lib/systemd/backlight/", escaped_path_id, ":", escaped_subsystem, ":", escaped_sysname);
+        } else
+                path = strjoin("/var/lib/systemd/backlight/", escaped_subsystem, ":", escaped_sysname);
+        if (!path)
+                return log_oom();
+
+        *ret = TAKE_PTR(path);
+        return 0;
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
-        _cleanup_free_ char *escaped_ss = NULL, *escaped_sysname = NULL, *escaped_path_id = NULL;
-        const char *sysname, *path_id, *ss, *saved;
+        _cleanup_free_ char *saved = NULL;
+        const char *sysname, *ss;
         unsigned max_brightness, brightness;
         int r;
 
@@ -521,22 +560,9 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        escaped_ss = cescape(ss);
-        if (!escaped_ss)
-                return log_oom();
-
-        escaped_sysname = cescape(sysname);
-        if (!escaped_sysname)
-                return log_oom();
-
-        if (sd_device_get_property_value(device, "ID_PATH", &path_id) >= 0) {
-                escaped_path_id = cescape(path_id);
-                if (!escaped_path_id)
-                        return log_oom();
-
-                saved = strjoina("/var/lib/systemd/backlight/", escaped_path_id, ":", escaped_ss, ":", escaped_sysname);
-        } else
-                saved = strjoina("/var/lib/systemd/backlight/", escaped_ss, ":", escaped_sysname);
+        r = build_save_file_path(device, &saved);
+        if (r < 0)
+                return r;
 
         /* If there are multiple conflicting backlight devices, then their probing at boot-time might
          * happen in any order. This means the validity checking of the device then is not reliable,
