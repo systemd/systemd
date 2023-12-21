@@ -3774,17 +3774,15 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
 
         if (IN_SET(p->encrypt, ENCRYPT_TPM2, ENCRYPT_KEY_FILE_TPM2)) {
 #if HAVE_TPM2
+                _cleanup_(iovec_done) struct iovec pubkey = {}, blob = {}, srk = {};
+                _cleanup_(iovec_done_erase) struct iovec secret = {};
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-                _cleanup_(erase_and_freep) void *secret = NULL;
-                _cleanup_free_ void *pubkey = NULL;
-                _cleanup_free_ void *blob = NULL, *srk_buf = NULL;
-                size_t secret_size, blob_size, pubkey_size = 0, srk_buf_size = 0;
                 ssize_t base64_encoded_size;
                 int keyslot;
                 TPM2Flags flags = 0;
 
                 if (arg_tpm2_public_key_pcr_mask != 0) {
-                        r = tpm2_load_pcr_public_key(arg_tpm2_public_key, &pubkey, &pubkey_size);
+                        r = tpm2_load_pcr_public_key(arg_tpm2_public_key, &pubkey.iov_base, &pubkey.iov_len);
                         if (r < 0) {
                                 if (arg_tpm2_public_key || r != -ENOENT)
                                         return log_error_errno(r, "Failed to read TPM PCR public key: %m");
@@ -3795,8 +3793,8 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 }
 
                 TPM2B_PUBLIC public;
-                if (pubkey) {
-                        r = tpm2_tpm2b_public_from_pem(pubkey, pubkey_size, &public);
+                if (iovec_is_set(&pubkey)) {
+                        r = tpm2_tpm2b_public_from_pem(pubkey.iov_base, pubkey.iov_len, &public);
                         if (r < 0)
                                 return log_error_errno(r, "Could not convert public key to TPM2B_PUBLIC: %m");
                 }
@@ -3853,7 +3851,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 r = tpm2_calculate_sealing_policy(
                                 arg_tpm2_hash_pcr_values,
                                 arg_tpm2_n_hash_pcr_values,
-                                pubkey ? &public : NULL,
+                                iovec_is_set(&pubkey) ? &public : NULL,
                                 /* use_pin= */ false,
                                 arg_tpm2_pcrlock ? &pcrlock_policy : NULL,
                                 &policy);
@@ -3865,25 +3863,25 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                         arg_tpm2_seal_key_handle,
                                         &device_key_public,
                                         /* attributes= */ NULL,
-                                        /* secret= */ NULL, /* secret_size= */ 0,
+                                        /* secret= */ NULL,
                                         &policy,
                                         /* pin= */ NULL,
-                                        &secret, &secret_size,
-                                        &blob, &blob_size,
-                                        &srk_buf, &srk_buf_size);
+                                        &secret,
+                                        &blob,
+                                        &srk);
                 else
                         r = tpm2_seal(tpm2_context,
                                       arg_tpm2_seal_key_handle,
                                       &policy,
                                       /* pin= */ NULL,
-                                      &secret, &secret_size,
-                                      &blob, &blob_size,
+                                      &secret,
+                                      &blob,
                                       /* ret_primary_alg= */ NULL,
-                                      &srk_buf, &srk_buf_size);
+                                      &srk);
                 if (r < 0)
                         return log_error_errno(r, "Failed to seal to TPM2: %m");
 
-                base64_encoded_size = base64mem(secret, secret_size, &base64_encoded);
+                base64_encoded_size = base64mem(secret.iov_base, secret.iov_len, &base64_encoded);
                 if (base64_encoded_size < 0)
                         return log_error_errno(base64_encoded_size, "Failed to base64 encode secret key: %m");
 
@@ -3905,13 +3903,14 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                 keyslot,
                                 hash_pcr_mask,
                                 hash_pcr_bank,
-                                pubkey, pubkey_size,
+                                &pubkey,
                                 arg_tpm2_public_key_pcr_mask,
                                 /* primary_alg= */ 0,
-                                blob, blob_size,
-                                policy.buffer, policy.size,
-                                NULL, 0, /* no salt because tpm2_seal has no pin */
-                                srk_buf, srk_buf_size,
+                                &blob,
+                                &IOVEC_MAKE(policy.buffer, policy.size),
+                                /* salt= */ NULL, /* no salt because tpm2_seal has no pin */
+                                &srk,
+                                &pcrlock_policy.nv_handle,
                                 flags,
                                 &v);
                 if (r < 0)
