@@ -379,7 +379,10 @@
         <literal>systemd.journald.forward_to_console</literal>, and
         <literal>systemd.journald.forward_to_wall</literal>. If the option name is specified without
         <literal>=</literal> and the following argument, true is assumed. Otherwise, the argument is parsed
-        as a boolean.</para>
+        as a boolean. The credentials <literal>journald.forward_to_syslog</literal>,
+        <literal>journald.forward_to_kmsg</literal>, <literal>journald.forward_to_console</literal>, and
+        <literal>journald.forward_to_wall</literal> can also be used to override these settings. Empty
+        credentials are assumed to be true, and non-empty credentials are parsed as booleans.</para>
 
         <para>When forwarding to the console, the TTY to log to can be changed with
         <varname>TTYPath=</varname>, described below.</para>

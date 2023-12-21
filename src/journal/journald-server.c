@@ -18,6 +18,7 @@
 #include "audit-util.h"
 #include "cgroup-util.h"
 #include "conf-parser.h"
+#include "creds-util.h"
 #include "dirent-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -2444,6 +2445,58 @@ static int server_setup_memory_pressure(Server *s) {
         return 0;
 }
 
+static int server_load_boolean_credential(const char *name) {
+        _cleanup_free_ void *data = NULL;
+        int r;
+
+        r = read_credential(name, &data, NULL);
+        if (r < 0)
+                return r;
+
+        if (isempty(data))
+                return true;
+
+        return parse_boolean(data);
+}
+
+static int server_load_credentials(Server *s) {
+        int r;
+
+        r = server_load_boolean_credential("journald.forward_to_syslog");
+        if (r < 0)
+                log_debug_errno(r, "Failed to read credential journald.forward_to_syslog, ignoring: %m");
+        else {
+                s->forward_to_syslog = r;
+                log_debug("Acquired forward_to_syslog from credential.");
+        }
+
+        r = server_load_boolean_credential("journald.forward_to_kmsg");
+        if (r < 0)
+                log_debug_errno(r, "Failed to read credential journald.forward_to_kmsg, ignoring: %m");
+        else {
+                s->forward_to_kmsg = r;
+                log_debug("Acquired forward_to_kmsg from credential.");
+        }
+
+        r = server_load_boolean_credential("journald.forward_to_console");
+        if (r < 0)
+                log_debug_errno(r, "Failed to read credential journald.forward_to_console, ignoring: %m");
+        else {
+                s->forward_to_console = r;
+                log_debug("Acquired forward_to_console from credential.");
+        }
+
+        r = server_load_boolean_credential("journald.forward_to_wall");
+        if (r < 0)
+                log_debug_errno(r, "Failed to read credential journald.forward_to_wall, ignoring: %m");
+        else {
+                s->forward_to_wall = r;
+                log_debug("Acquired forward_to_wall from credential.");
+        }
+
+        return 0;
+}
+
 int server_new(Server **ret) {
         _cleanup_(server_freep) Server *s = NULL;
 
@@ -2524,6 +2577,10 @@ int server_init(Server *s, const char *namespace) {
         journal_reset_metrics(&s->runtime_storage.metrics);
 
         server_parse_config_file(s);
+
+        r = server_load_credentials(s);
+        if (r < 0)
+                log_warning_errno(r, "Failed to parse credentials, ignoring: %m");
 
         if (!s->namespace) {
                 /* Parse kernel command line, but only if we are not a namespace instance */

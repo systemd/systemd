@@ -29,6 +29,7 @@ IgnoreOnIsolate=yes
 DeviceAllow=char-* rw
 ExecStart={{LIBEXECDIR}}/systemd-journald
 FileDescriptorStoreMax=4224
+ImportCredential=journald.*
 IPAddressDeny=any
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
