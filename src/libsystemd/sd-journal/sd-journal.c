@@ -932,8 +932,8 @@ static int real_journal_next(sd_journal *j, direction_t direction) {
         if (r < 0)
                 return r;
 
-        for (unsigned i = 0; i < n_files; i++) {
-                JournalFile *f = (JournalFile *)files[i];
+        FOREACH_ARRAY(_f, files, n_files) {
+                JournalFile *f = (JournalFile*) *_f;
                 bool found;
 
                 r = next_beyond_location(j, f, direction);
