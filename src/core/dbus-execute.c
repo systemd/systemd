@@ -67,6 +67,7 @@ static BUS_DEFINE_PROPERTY_GET(property_get_cpu_sched_policy, "i", ExecContext, 
 static BUS_DEFINE_PROPERTY_GET(property_get_cpu_sched_priority, "i", ExecContext, exec_context_get_cpu_sched_priority);
 static BUS_DEFINE_PROPERTY_GET(property_get_coredump_filter, "t", ExecContext, exec_context_get_coredump_filter);
 static BUS_DEFINE_PROPERTY_GET(property_get_timer_slack_nsec, "t", ExecContext, exec_context_get_timer_slack_nsec);
+static BUS_DEFINE_PROPERTY_GET(property_get_set_login_environment, "b", ExecContext, exec_context_get_set_login_environment);
 
 static int property_get_environment_files(
                 sd_bus *bus,
@@ -1038,7 +1039,7 @@ const sd_bus_vtable bus_exec_vtable[] = {
         SD_BUS_PROPERTY("User", "s", NULL, offsetof(ExecContext, user), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Group", "s", NULL, offsetof(ExecContext, group), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("DynamicUser", "b", bus_property_get_bool, offsetof(ExecContext, dynamic_user), SD_BUS_VTABLE_PROPERTY_CONST),
-        SD_BUS_PROPERTY("SetLoginEnvironment", "b", bus_property_get_tristate, offsetof(ExecContext, set_login_environment), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("SetLoginEnvironment", "b", property_get_set_login_environment, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("RemoveIPC", "b", bus_property_get_bool, offsetof(ExecContext, remove_ipc), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SetCredential", "a(say)", property_get_set_credential, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("SetCredentialEncrypted", "a(say)", property_get_set_credential, 0, SD_BUS_VTABLE_PROPERTY_CONST),
