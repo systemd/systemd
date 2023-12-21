@@ -56,23 +56,12 @@ static int fd_get_devnum(int fd, BlockDeviceLookupFlag flags, dev_t *ret) {
 }
 
 int block_device_is_whole_disk(sd_device *dev) {
-        const char *s;
-        int r;
-
         assert(dev);
 
-        r = sd_device_get_subsystem(dev, &s);
-        if (r < 0)
-                return r;
-
-        if (!streq(s, "block"))
+        if (!device_in_subsystem(dev, "block"))
                 return -ENOTBLK;
 
-        r = sd_device_get_devtype(dev, &s);
-        if (r < 0)
-                return r;
-
-        return streq(s, "disk");
+        return device_is_devtype(dev, "disk");
 }
 
 int block_device_get_whole_disk(sd_device *dev, sd_device **ret) {

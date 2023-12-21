@@ -780,14 +780,14 @@ static void acquire_ether_link_info(int *fd, LinkInfo *link) {
 
 static void acquire_wlan_link_info(LinkInfo *link) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *genl = NULL;
-        const char *type = NULL;
         int r, k = 0;
 
         assert(link);
 
-        if (link->sd_device)
-                (void) sd_device_get_devtype(link->sd_device, &type);
-        if (!streq_ptr(type, "wlan"))
+        if (!link->sd_device)
+                return;
+
+        if (!device_is_devtype(link->sd_device, "wlan"))
                 return;
 
         r = sd_genl_socket_open(&genl);
