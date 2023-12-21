@@ -1176,9 +1176,7 @@ static int generic_method_get_info(
         assert(link);
 
         if (json_variant_elements(parameters) != 0)
-                return varlink_errorb(link, VARLINK_ERROR_INVALID_PARAMETER,
-                                      JSON_BUILD_OBJECT(
-                                                      JSON_BUILD_PAIR_VARIANT("parameter", json_variant_by_index(parameters, 0))));
+                return varlink_error_invalid_parameter(link, parameters);
 
         product = strjoin("systemd (", program_invocation_short_name, ")");
         if (!product)
