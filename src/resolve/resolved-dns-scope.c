@@ -10,6 +10,7 @@
 #include "hostname-util.h"
 #include "missing_network.h"
 #include "random-util.h"
+#include "resolved-dns-browse-services.h"
 #include "resolved-dnssd.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-zone.h"
@@ -41,6 +42,7 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
                 .protocol = protocol,
                 .family = family,
                 .resend_timeout = MULTICAST_RESEND_TIMEOUT_MIN_USEC,
+                .mdns_goodbye_event_source = NULL,
         };
 
         if (protocol == DNS_PROTOCOL_DNS) {
@@ -115,8 +117,13 @@ DnsScope* dns_scope_free(DnsScope *s) {
 
         sd_event_source_disable_unref(s->announce_event_source);
 
+        sd_event_source_disable_unref(s->mdns_goodbye_event_source);
+
         dns_cache_flush(&s->cache);
         dns_zone_flush(&s->zone);
+
+        /* Clear records of mDNS service browse subscriber, since cache bas been flushed */
+        dns_browse_services_purge(s->manager, s->family);
 
         LIST_REMOVE(scopes, s->manager->dns_scopes, s);
         return mfree(s);
