@@ -69,7 +69,7 @@ static void bus_track_add_to_queue(sd_bus_track *track) {
                 return;
 
         /* still referenced? */
-        if (hashmap_size(track->names) > 0)
+        if (!hashmap_isempty(track->names))
                 return;
 
         /* Nothing to call? */

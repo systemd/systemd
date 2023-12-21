@@ -452,11 +452,12 @@ int catalog_update(const char* database, const char* root, const char* const* di
                         return log_error_errno(r, "Failed to import file '%s': %m", *f);
         }
 
-        if (ordered_hashmap_size(h) <= 0) {
+        if (ordered_hashmap_isempty(h)) {
                 log_info("No items in catalog.");
                 return 0;
-        } else
-                log_debug("Found %u items in catalog.", ordered_hashmap_size(h));
+        }
+
+        log_debug("Found %u items in catalog.", ordered_hashmap_size(h));
 
         items = new(CatalogItem, ordered_hashmap_size(h));
         if (!items)

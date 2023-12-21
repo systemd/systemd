@@ -650,8 +650,8 @@ void client_context_flush_all(Server *s) {
 
         client_context_flush_regular(s);
 
-        assert(prioq_size(s->client_contexts_lru) == 0);
-        assert(hashmap_size(s->client_contexts) == 0);
+        assert(prioq_isempty(s->client_contexts_lru));
+        assert(hashmap_isempty(s->client_contexts));
 
         s->client_contexts_lru = prioq_free(s->client_contexts_lru);
         s->client_contexts = hashmap_free(s->client_contexts);
