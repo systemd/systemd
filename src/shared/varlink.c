@@ -1176,9 +1176,7 @@ static int generic_method_get_info(
         assert(link);
 
         if (json_variant_elements(parameters) != 0)
-                return varlink_errorb(link, VARLINK_ERROR_INVALID_PARAMETER,
-                                      JSON_BUILD_OBJECT(
-                                                      JSON_BUILD_PAIR_VARIANT("parameter", json_variant_by_index(parameters, 0))));
+                return varlink_error_invalid_parameter(link, parameters);
 
         product = strjoin("systemd (", program_invocation_short_name, ")");
         if (!product)
@@ -1336,7 +1334,7 @@ static int varlink_dispatch_method(Varlink *v) {
                                 varlink_log_errno(v, r, "Parameters for method %s() didn't pass validation on field '%s': %m", method, strna(bad_field));
 
                                 if (IN_SET(v->state, VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE)) {
-                                        r = varlink_errorb(v, VARLINK_ERROR_INVALID_PARAMETER, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("parameter", bad_field)));
+                                        r = varlink_error_invalid_parameter_name(v, bad_field);
                                         if (r < 0)
                                                 return r;
                                 }
@@ -2422,6 +2420,13 @@ int varlink_error_invalid_parameter(Varlink *v, JsonVariant *parameters) {
         return -EINVAL;
 }
 
+int varlink_error_invalid_parameter_name(Varlink *v, const char *name) {
+        return varlink_errorb(
+                        v,
+                        VARLINK_ERROR_INVALID_PARAMETER,
+                        JSON_BUILD_OBJECT(JSON_BUILD_PAIR("parameter", JSON_BUILD_STRING(name))));
+}
+
 int varlink_error_errno(Varlink *v, int error) {
         return varlink_errorb(
                         v,
@@ -2501,8 +2506,7 @@ int varlink_dispatch(Varlink *v, JsonVariant *parameters, const JsonDispatch tab
         r = json_dispatch_full(parameters, table, /* bad= */ NULL, /* flags= */ 0, userdata, &bad_field);
         if (r < 0) {
                 if (bad_field)
-                        return varlink_errorb(v, VARLINK_ERROR_INVALID_PARAMETER,
-                                              JSON_BUILD_OBJECT(JSON_BUILD_PAIR("parameter", JSON_BUILD_STRING(bad_field))));
+                        return varlink_error_invalid_parameter_name(v, bad_field);
                 return r;
         }
 
