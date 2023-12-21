@@ -44,7 +44,7 @@ _systemd_cgls() {
 
     local -A OPTS=(
         [STANDALONE]='-h --help --version --all -l --full -k --no-pager --xattr=no --cgroup-id=no'
-        [ARG]='-M --machine -u --unit --user-unit'
+        [ARG]='-c --cgroup-id -M --machine -u --unit --user-unit -x --xattr'
     )
 
     _init_completion || return
@@ -56,6 +56,9 @@ _systemd_cgls() {
                 ;;
             --unit|-u)
                 comps=$( __get_units_have_cgroup --system )
+                ;;
+            -c|--cgroup-id|-x|--xattr)
+                comps='yes no'
                 ;;
             --user-unit)
                 comps=$( __get_units_have_cgroup --user )

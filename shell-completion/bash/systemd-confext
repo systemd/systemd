@@ -30,9 +30,12 @@ _systemd-confext() {
         [STANDALONE]='-h --help --version
                      --no-pager
                      --no-legend
+                     --no-reload
                      --force'
         [ARG]='--root
-               --json'
+               --json
+               --noexec
+               --image-policy'
     )
 
     local -A VERBS=(
@@ -53,6 +56,12 @@ _systemd-confext() {
                 ;;
             --json)
                 comps='pretty short off'
+                ;;
+            --noexec)
+                comps='false true'
+                ;;
+            --image-policy)
+                comps=''
                 ;;
         esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
