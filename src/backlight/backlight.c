@@ -509,10 +509,46 @@ static int build_save_file_path(sd_device *device, char **ret) {
         return 0;
 }
 
+static int device_new_from_arg(const char *s, sd_device **ret) {
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        const char *subsystem, *sysname;
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        sysname = strchr(s, ':');
+        if (!sysname)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Requires a subsystem and sysname pair specifying a backlight or LED device.");
+
+        subsystem = strndupa_safe(s, sysname - s);
+        sysname++;
+
+        if (!STR_IN_SET(subsystem, "backlight", "leds"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Not a backlight or LED device: '%s:%s'",
+                                       subsystem, sysname);
+
+        r = sd_device_new_from_subsystem_sysname(&device, subsystem, sysname);
+        if (r < 0) {
+                bool ignore = r == -ENODEV;
+
+                /* Some drivers, e.g. for AMD GPU, removes acpi backlight device soon after it is added.
+                 * See issue #21997. */
+                log_full_errno(ignore ? LOG_DEBUG : LOG_ERR, r,
+                               "Failed to get backlight or LED device '%s:%s'%s: %m",
+                               subsystem, sysname, ignore ? ", ignoring" : "");
+                return ignore ? 0 : r;
+        }
+
+        *ret = TAKE_PTR(device);
+        return 1; /* Found. */
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(sd_device_unrefp) sd_device *device = NULL;
         _cleanup_free_ char *saved = NULL;
-        const char *sysname, *ss;
         unsigned max_brightness, brightness;
         int r;
 
@@ -533,28 +569,9 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "Failed to create backlight directory /var/lib/systemd/backlight: %m");
 
-        sysname = strchr(argv[2], ':');
-        if (!sysname)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Requires a subsystem and sysname pair specifying a backlight device.");
-
-        ss = strndupa_safe(argv[2], sysname - argv[2]);
-
-        sysname++;
-
-        if (!STR_IN_SET(ss, "backlight", "leds"))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a backlight or LED device: '%s:%s'", ss, sysname);
-
-        r = sd_device_new_from_subsystem_sysname(&device, ss, sysname);
-        if (r < 0) {
-                bool ignore = r == -ENODEV;
-
-                /* Some drivers, e.g. for AMD GPU, removes acpi backlight device soon after it is added.
-                 * See issue #21997. */
-                log_full_errno(ignore ? LOG_DEBUG : LOG_ERR, r,
-                               "Failed to get backlight or LED device '%s:%s'%s: %m",
-                               ss, sysname, ignore ? ", ignoring" : "");
-                return ignore ? 0 : r;
-        }
+        r = device_new_from_arg(argv[2], &device);
+        if (r <= 0)
+                return r;
 
         r = read_max_brightness(device, &max_brightness);
         if (r <= 0)
