@@ -34,6 +34,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "random-util.h"
+#include "selinux-util.h"
 #include "serialize.h"
 #include "service.h"
 #include "signal-util.h"
@@ -4973,6 +4974,55 @@ static void service_release_resources(Unit *u) {
 
         if (s->state == SERVICE_DEAD_RESOURCES_PINNED && !s->fd_store)
                 service_set_state(s, SERVICE_DEAD);
+}
+
+int service_determine_exec_selinux_label(Service *s, char **ret) {
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        if (!mac_selinux_use())
+                return -ENODATA;
+
+        /* Returns the SELinux label used for execution of the main service binary */
+
+        if (s->exec_context.selinux_context) { /* Prefer the explicitly configured label if there is one */
+                char *con = strdup(s->exec_context.selinux_context);
+                if (!con)
+                        return -ENOMEM;
+
+                *ret = con;
+                return 0;
+        }
+
+        if (s->exec_context.root_image) /* We cannot chase paths through images */
+                return log_unit_debug_errno(UNIT(s), SYNTHETIC_ERRNO(ENODATA), "Service with RootImage= set, cannot determine socket SELinux label before activation, ignoring.");
+
+        ExecCommand *c = s->exec_command[SERVICE_EXEC_START];
+        if (!c)
+                return -ENODATA;
+
+        _cleanup_free_ char *path = NULL;
+        r = chase(c->path, s->exec_context.root_directory, CHASE_PREFIX_ROOT, &path, NULL);
+        if (r < 0) {
+                log_unit_debug_errno(UNIT(s), r, "Failed to resolve service binary '%s', ignoring.", c->path);
+                return -ENODATA;
+        }
+
+        r = mac_selinux_get_create_label_from_exe(path, ret);
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
+                log_unit_debug_errno(UNIT(s), r, "Reading SELinux label off binary '%s' is not supported, ignoring.", path);
+                return -ENODATA;
+        }
+        if (ERRNO_IS_NEG_PRIVILEGE(r)) {
+                log_unit_debug_errno(UNIT(s), r, "Can't read SELinux label off binary '%s', due to privileges, ignoring.", path);
+                return -ENODATA;
+        }
+        if (r < 0)
+                return log_unit_debug_errno(UNIT(s), r, "Failed to read SELinux label off binary '%s': %m", path);
+
+        return 0;
 }
 
 static const char* const service_restart_table[_SERVICE_RESTART_MAX] = {
