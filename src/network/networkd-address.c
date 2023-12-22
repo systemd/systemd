@@ -206,15 +206,8 @@ Address *address_free(Address *address) {
                         address->network->dhcp_server_address = NULL;
         }
 
-        if (address->link) {
+        if (address->link)
                 set_remove(address->link->addresses, address);
-
-                if (address->family == AF_INET6 &&
-                    in6_addr_equal(&address->in_addr.in6, &address->link->ipv6ll_address))
-                        memzero(&address->link->ipv6ll_address, sizeof(struct in6_addr));
-
-                ipv4acd_detach(address->link, address);
-        }
 
         config_section_free(address->section);
         free(address->label);
@@ -780,6 +773,13 @@ static int address_drop(Address *address) {
         address_modify_nft_set(address, /* add = */ false);
 
         address_del_netlabel(address);
+
+        /* FIXME: if the IPv6LL address is dropped, stop DHCPv6, NDISC, RADV. */
+        if (address->family == AF_INET6 &&
+            in6_addr_equal(&address->in_addr.in6, &link->ipv6ll_address))
+                link->ipv6ll_address = (const struct in6_addr) {};
+
+        ipv4acd_detach(link, address);
 
         address_free(address);
 
