@@ -996,6 +996,12 @@ static int link_drop_foreign_config(Link *link) {
         if (link->network->keep_configuration == KEEP_CONFIGURATION_YES)
                 return 0;
 
+        /* FIXME:
+         * There may be some requests (though, they are already detached) that have been already called but
+         * their replies have not been received yet. So, some configurations (address or so) that conflict
+         * with the .network file currently matches with the interface may comes after this function is
+         * called. So, we also need to drop addresses or so currently we do not know... Ouch. */
+
         r = link_drop_foreign_routes(link);
 
         RET_GATHER(r, link_drop_foreign_nexthops(link));
