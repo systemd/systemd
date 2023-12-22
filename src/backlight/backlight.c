@@ -11,7 +11,6 @@
 #include "escape.h"
 #include "fileio.h"
 #include "main-func.h"
-#include "mkdir.h"
 #include "parse-util.h"
 #include "percent-util.h"
 #include "pretty-print.h"
@@ -599,10 +598,6 @@ static int run(int argc, char *argv[]) {
 
         umask(0022);
 
-        r = mkdir_p("/var/lib/systemd/backlight", 0755);
-        if (r < 0)
-                return log_error_errno(r, "Failed to create backlight directory /var/lib/systemd/backlight: %m");
-
         r = device_new_from_arg(argv[2], &device);
         if (r <= 0)
                 return r;
@@ -663,7 +658,7 @@ static int run(int argc, char *argv[]) {
                 if (r < 0)
                         return log_device_error_errno(device, r, "Failed to read current brightness: %m");
 
-                r = write_string_filef(saved, WRITE_STRING_FILE_CREATE, "%u", brightness);
+                r = write_string_filef(saved, WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_MKDIR_0755, "%u", brightness);
                 if (r < 0)
                         return log_device_error_errno(device, r, "Failed to write %s: %m", saved);
 
