@@ -82,6 +82,8 @@
 /* Set cursor to top left corner and clear screen */
 #define ANSI_HOME_CLEAR "\x1B[H\x1B[2J"
 
+bool isatty_safe(int fd);
+
 int reset_terminal_fd(int fd, bool switch_to_text);
 int reset_terminal(const char *name);
 
