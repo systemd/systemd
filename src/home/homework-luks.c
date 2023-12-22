@@ -270,20 +270,11 @@ static int upload_to_keyring(
         assert(h);
         assert(password);
 
-        /* If auto-shrink-on-logout is turned on, we need to keep the key we used to unlock the LUKS volume
-         * around, since we'll need it when automatically resizing (since we can't ask the user there
-         * again). We do this by uploading it into the kernel keyring, specifically the "session" one. This
-         * is done under the assumption systemd-homed gets its private per-session keyring (i.e. default
-         * service behaviour, given that KeyringMode=private is the default). It will survive between our
-         * systemd-homework invocations that way.
-         *
-         * If auto-shrink-on-logout is disabled we'll skip this step, to be frugal with sensitive data. */
-
-        if (user_record_auto_resize_mode(h) != AUTO_RESIZE_SHRINK_AND_GROW) {  /* Won't need it */
-                if (ret_key_serial)
-                        *ret_key_serial = -1;
-                return 0;
-        }
+        /* We need to keep the key we used to unlock the LUKS volume around, since we'll need it if/when
+         * automatically resizing or if a record for a logged-in user is being updated. We do this by uploading
+         * it into the kernel keyring, specifically the "session" one. This is done under the assumption that
+         * systemd-homed gets its private per-session keyring (i.e. default service behaviour, given that
+         * KeyringMode=private is the default). It will survive between our systemd-homework invocations that way. */
 
         name = strjoin("homework-user-", h->user_name);
         if (!name)
@@ -420,7 +411,7 @@ static int luks_setup(
 
         r = -ENOKEY;
         FOREACH_POINTER(list,
-                        cache ? cache->keyring_passswords : NULL,
+                        cache ? cache->keyring_passwords : NULL,
                         cache ? cache->pkcs11_passwords : NULL,
                         cache ? cache->fido2_passwords : NULL,
                         passwords) {
@@ -561,7 +552,7 @@ static int luks_open(
 
         r = -ENOKEY;
         FOREACH_POINTER(list,
-                        cache ? cache->keyring_passswords : NULL,
+                        cache ? cache->keyring_passwords : NULL,
                         cache ? cache->pkcs11_passwords : NULL,
                         cache ? cache->fido2_passwords : NULL,
                         h->password) {
@@ -3614,7 +3605,7 @@ int home_passwd_luks(
 
         r = -ENOKEY;
         FOREACH_POINTER(list,
-                        cache ? cache->keyring_passswords : NULL,
+                        cache ? cache->keyring_passwords : NULL,
                         cache ? cache->pkcs11_passwords : NULL,
                         cache ? cache->fido2_passwords : NULL,
                         h->password) {

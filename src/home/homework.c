@@ -96,7 +96,18 @@ int user_record_authenticate(
         else
                 log_info("None of the supplied plaintext passwords unlock the user record's hashed recovery keys.");
 
-        /* Second, test cached PKCS#11 passwords */
+        /* Next, test cached keyring passwords */
+        STRV_FOREACH(pp, cache->keyring_passwords) {
+                r = test_password_many(h->hashed_password, *pp);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to check keyring password: %m");
+                if (r > 0) {
+                        log_info("Password cached in keyring unlocks user record.");
+                        return 1;
+                }
+        }
+
+        /* Next, test cached PKCS#11 passwords */
         for (size_t n = 0; n < h->n_pkcs11_encrypted_key; n++)
                 STRV_FOREACH(pp, cache->pkcs11_passwords) {
                         r = test_password_one(h->pkcs11_encrypted_key[n].hashed_password, *pp);
@@ -108,7 +119,7 @@ int user_record_authenticate(
                         }
                 }
 
-        /* Third, test cached FIDO2 passwords */
+        /* Next, test cached FIDO2 passwords */
         for (size_t n = 0; n < h->n_fido2_hmac_salt; n++)
                 /* See if any of the previously calculated passwords work */
                 STRV_FOREACH(pp, cache->fido2_passwords) {
@@ -121,7 +132,7 @@ int user_record_authenticate(
                         }
                 }
 
-        /* Fourth, let's see if any of the PKCS#11 security tokens are plugged in and help us */
+        /* Next, let's see if any of the PKCS#11 security tokens are plugged in and help us */
         for (size_t n = 0; n < h->n_pkcs11_encrypted_key; n++) {
 #if HAVE_P11KIT
                 _cleanup_(pkcs11_callback_data_release) struct pkcs11_callback_data data = {
@@ -177,7 +188,7 @@ int user_record_authenticate(
 #endif
         }
 
-        /* Fifth, let's see if any of the FIDO2 security tokens are plugged in and help us */
+        /* Next, let's see if any of the FIDO2 security tokens are plugged in and help us */
         for (size_t n = 0; n < h->n_fido2_hmac_salt; n++) {
 #if HAVE_LIBFIDO2
                 _cleanup_(erase_and_freep) char *decrypted_password = NULL;
@@ -976,9 +987,7 @@ static int home_deactivate(UserRecord *h, bool force) {
                         return r;
 
                 if (user_record_storage(h) == USER_LUKS) {
-                        /* Automatically shrink on logout if that's enabled. To be able to shrink we need the
-                         * keys to the device. */
-                        password_cache_load_keyring(h, &cache);
+                        /* Automatically shrink on logout if that's enabled. */
                         (void) home_trim_luks(h, &setup);
                 }
 
@@ -1584,9 +1593,35 @@ static int home_update(UserRecord *h, UserRecord **ret) {
         assert(ret);
 
         r = user_record_authenticate(h, h, &cache, /* strict_verify= */ true);
-        if (r < 0)
-                return r;
-        assert(r > 0); /* Insist that a password was verified */
+        if (r < 0) {
+                if (FLAGS_SET(h->mask, USER_RECORD_SECRET))
+                        return r;
+
+                /* Authentication wasn't attempted. We will allow the update operation to continue
+                 * as best we can. This allows an adminstrator to update the user record without
+                 * direct knoweldge of the user's password. */
+
+                /* First, we try to load the user's password from the kernel keyring. It might be there
+                 * if they are logged in */
+                r = password_cache_load_keyring(h, &cache);
+
+                if (r == -ENOKEY) {
+                        /* There's no key available in the keyring. We have no way to unlock the
+                         * embedded records right now. So instead, we'll let the update operation continue
+                         * on the host side. homed's reconciliation logic will propagate the changes into the
+                         * embedded records eventually... */
+                        log_info("No keys available. Not touching embedded records.");
+                        sd_notify(false, "HOMED_HOST_ONLY=1"); /* Tell the daemon that we're giving up here */
+                        return user_record_clone(h, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_PERMISSIVE, ret);
+                }
+
+                if (r < 0)
+                        return log_error_errno(r, "Failed to load key from keyring: %m");
+
+                /* If we end up here, we've successfully loaded a key from the keyring. We'll now try to use
+                 * it to unlock the LUKS volume and update the embedded records */
+        } else
+                assert(r > 0); /* Insist that a password was verified */
 
         r = home_validate_update(h, &setup, &flags);
         if (r < 0)
@@ -1642,16 +1677,19 @@ static int home_resize(UserRecord *h, bool automatic, UserRecord **ret) {
         if (h->disk_size == UINT64_MAX)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No target size specified, refusing.");
 
-        if (automatic)
-                /* In automatic mode don't want to ask the user for the password, hence load it from the kernel keyring */
-                password_cache_load_keyring(h, &cache);
-        else {
-                /* In manual mode let's ensure the user is fully authenticated */
-                r = user_record_authenticate(h, h, &cache, /* strict_verify= */ true);
-                if (r < 0)
-                        return r;
-                assert(r > 0); /* Insist that a password was verified */
+        /* In automatic mode don't want to ask the user for the password, hence load it from the kernel keyring */
+        if (automatic) {
+                r = password_cache_load_keyring(h, &cache);
+                if (r == -ENOKEY)
+                        log_warning("Password not found in keyring, ignoring.");
+                else if (r < 0)
+                        log_warning_errno(r, "Failed to load password from keyring, ignoring: %m");
         }
+
+        r = user_record_authenticate(h, h, &cache, /* strict_verify= */ true);
+        if (r < 0)
+                return r;
+        assert(r > 0); /* Insist that a password was verified */
 
         r = home_validate_update(h, &setup, &flags);
         if (r < 0)
@@ -1659,6 +1697,7 @@ static int home_resize(UserRecord *h, bool automatic, UserRecord **ret) {
 
         /* In automatic mode let's skip syncing identities, because we can't validate them, since we can't
          * ask the user for reauthentication */
+        // TODO: Should we drop this, now that we actually _can_ authenticate via the key in the keyring?
         if (automatic)
                 flags |= HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES;
 
