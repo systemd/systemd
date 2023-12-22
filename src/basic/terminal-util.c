@@ -1447,38 +1447,33 @@ int vt_reset_keyboard(int fd) {
 }
 
 int vt_restore(int fd) {
+
         static const struct vt_mode mode = {
                 .mode = VT_AUTO,
         };
-        int r, q = 0;
+
+        int r, ret = 0;
+
+        assert(fd >= 0);
 
         if (isatty(fd) < 1)
                 return log_debug_errno(errno, "Asked to restore the VT for an fd that does not refer to a terminal: %m");
 
         if (ioctl(fd, KDSETMODE, KD_TEXT) < 0)
-                q = log_debug_errno(errno, "Failed to set VT in text mode, ignoring: %m");
+                RET_GATHER(ret, log_debug_errno(errno, "Failed to set VT to text mode, ignoring: %m"));
 
         r = vt_reset_keyboard(fd);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to reset keyboard mode, ignoring: %m");
-                if (q >= 0)
-                        q = r;
-        }
+        if (r < 0)
+                RET_GATHER(ret, log_debug_errno(r, "Failed to reset keyboard mode, ignoring: %m"));
 
-        if (ioctl(fd, VT_SETMODE, &mode) < 0) {
-                log_debug_errno(errno, "Failed to set VT_AUTO mode, ignoring: %m");
-                if (q >= 0)
-                        q = -errno;
-        }
+        if (ioctl(fd, VT_SETMODE, &mode) < 0)
+                RET_GATHER(ret, log_debug_errno(errno, "Failed to set VT_AUTO mode, ignoring: %m"));
 
         r = fchmod_and_chown(fd, TTY_MODE, 0, GID_INVALID);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to chmod()/chown() VT, ignoring: %m");
-                if (q >= 0)
-                        q = r;
-        }
+        if (r < 0)
+                RET_GATHER(ret, log_debug_errno(r, "Failed to chmod()/chown() VT, ignoring: %m"));
 
-        return q;
+        return ret;
 }
 
 int vt_release(int fd, bool restore) {
