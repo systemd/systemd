@@ -138,6 +138,7 @@ Network.IPv4RouteLocalnet,                   config_parse_tristate,             
 Network.ActiveSlave,                         config_parse_bool,                                        0,                             offsetof(Network, active_slave)
 Network.PrimarySlave,                        config_parse_bool,                                        0,                             offsetof(Network, primary_slave)
 Network.IPv4ProxyARP,                        config_parse_tristate,                                    0,                             offsetof(Network, proxy_arp)
+Network.IPv4ProxyARPPrivateVLAN,             config_parse_tristate,                                    0,                             offsetof(Network, proxy_arp_pvlan)
 Network.ProxyARP,                            config_parse_tristate,                                    0,                             offsetof(Network, proxy_arp)
 Network.IPv6ProxyNDPAddress,                 config_parse_ipv6_proxy_ndp_address,                      0,                             0
 Network.IPv4ReversePathFilter,               config_parse_ip_reverse_path_filter,                      0,                             offsetof(Network, ipv4_rp_filter)
