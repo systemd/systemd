@@ -70,6 +70,7 @@
 #include "terminal-util.h"
 #include "udev-util.h"
 #include "unit-def.h"
+#include "varlink.h"
 #include "verbs.h"
 #include "wifi-util.h"
 
@@ -92,19 +93,31 @@ JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 
 STATIC_DESTRUCTOR_REGISTER(arg_drop_in, freep);
 
-static int check_netns_match(sd_bus *bus) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+static int check_netns_match(void) {
         struct stat st;
-        uint64_t id;
+        JsonVariant *reply = NULL;
+        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
         int r;
 
-        assert(bus);
+        r = varlink_connect_address(&vl, "/run/systemd/netif/io.systemd.Network");
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to network service /run/systemd/netif/io.systemd.Network: %m");
 
-        r = bus_get_property_trivial(bus, bus_network_mgr, "NamespaceId", &error, 't', &id);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to query network namespace of networkd, ignoring: %s", bus_error_message(&error, r));
-                return 0;
-        }
+        r = varlink_call(vl, "io.systemd.Network.GetNamespaceId", NULL, &reply, NULL, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue GetNamespaceId() varlink call: %m");
+
+        uint64_t id;
+
+        static const JsonDispatch namespace_dispatch_table[] = {
+                { "NamespaceId", JSON_VARIANT_UNSIGNED, json_dispatch_uint64, 0, JSON_MANDATORY },
+                {},
+        };
+
+        r = json_dispatch(reply, namespace_dispatch_table, JSON_LOG, &id);
+        if (r < 0)
+                return r;
+
         if (id == 0) {
                 log_debug("systemd-networkd.service not running in a network namespace (?), skipping netns check.");
                 return 0;
@@ -150,7 +163,7 @@ int acquire_bus(sd_bus **ret) {
                 return log_error_errno(r, "Failed to connect to system bus: %m");
 
         if (networkd_is_running()) {
-                r = check_netns_match(bus);
+                r = check_netns_match();
                 if (r < 0)
                         return r;
         } else
