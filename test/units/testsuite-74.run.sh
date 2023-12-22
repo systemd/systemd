@@ -229,7 +229,7 @@ assert_eq "$A" "$B"
 
 # Check that invoking the tool under the uid0 alias name works
 uid0 ls /
-echo "$(uid0 echo foo)" = "foo"
+assert_eq "$(uid0 echo foo)" "foo"
 
 umount /proc/version
 rm "$V"
