@@ -133,7 +133,7 @@ Deprecations and removals:
 Features:
 
 * add a new ExecStart= flag that inserts the configured user's shell as first
-  word in the comand line. (maybe use character '.'). Usecase: tool such as
+  word in the command line. (maybe use character '.'). Usecase: tool such as
   uid0 can use that to spawn the target user's default shell.
 
 * varlink: figure out how to do docs for our varlink interfaces. Idea: install
