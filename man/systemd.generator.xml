@@ -380,7 +380,7 @@ find $dir</programlisting>
   </refsect1>
 
   <refsect1>
-    <title>See also</title>
+    <title>See Also</title>
 
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>

@@ -122,7 +122,7 @@
   </refsect1>
 
   <refsect1>
-    <title>See also</title>
+    <title>See Also</title>
 
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd-environment-d-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
