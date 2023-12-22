@@ -1786,6 +1786,11 @@ int json_variant_format(JsonVariant *v, JsonFormatFlags flags, char **ret) {
         if (flags & JSON_FORMAT_OFF)
                 return -ENOEXEC;
 
+        if ((flags & JSON_FORMAT_REFUSE_SENSITIVE))
+                for (size_t i = 0; i < json_variant_elements(v); ++i)
+                        if (json_variant_is_sensitive(json_variant_by_index(v, i)))
+                                return -EPERM;
+
         f = memstream_init(&m);
         if (!f)
                 return -ENOMEM;
