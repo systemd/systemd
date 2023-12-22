@@ -11,6 +11,7 @@
 #include "alloc-util.h"
 #include "bus-util.h"
 #include "daemon-util.h"
+#include "device-util.h"
 #include "fd-util.h"
 #include "logind-session-dbus.h"
 #include "logind-session-device.h"
@@ -239,22 +240,21 @@ static void session_device_stop(SessionDevice *sd) {
 }
 
 static DeviceType detect_device_type(sd_device *dev) {
-        const char *sysname, *subsystem;
-        DeviceType type = DEVICE_TYPE_UNKNOWN;
+        const char *sysname;
 
-        if (sd_device_get_sysname(dev, &sysname) < 0 ||
-            sd_device_get_subsystem(dev, &subsystem) < 0)
-                return type;
+        if (sd_device_get_sysname(dev, &sysname) < 0)
+                return DEVICE_TYPE_UNKNOWN;
 
-        if (streq(subsystem, "drm")) {
+        if (device_in_subsystem(dev, "drm")) {
                 if (startswith(sysname, "card"))
-                        type = DEVICE_TYPE_DRM;
-        } else if (streq(subsystem, "input")) {
+                        return DEVICE_TYPE_DRM;
+
+        } else if (device_in_subsystem(dev, "input")) {
                 if (startswith(sysname, "event"))
-                        type = DEVICE_TYPE_EVDEV;
+                        return DEVICE_TYPE_EVDEV;
         }
 
-        return type;
+        return DEVICE_TYPE_UNKNOWN;
 }
 
 static int session_device_verify(SessionDevice *sd) {
