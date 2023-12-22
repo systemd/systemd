@@ -1111,11 +1111,13 @@
 
   <refsect1>
     <title>See Also</title>
-    <para><citerefentry>
+    <para><simplelist type="inline">
+      <member><citerefentry>
         <refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum>
-    </citerefentry>,
-    <citerefentry>
+      </citerefentry></member>
+      <member><citerefentry>
         <refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum>
-    </citerefentry></para>
+      </citerefentry></member>
+    </simplelist></para>
   </refsect1>
 </refentry>

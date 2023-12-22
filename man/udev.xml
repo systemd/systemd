@@ -884,16 +884,16 @@ SUBSYSTEM=="net", OPTIONS="log_level=debug"</programlisting></para>
 
   <refsect1>
     <title>See Also</title>
-    <para>
-      <citerefentry>
+    <para><simplelist type="inline">
+      <member><citerefentry>
         <refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum>
-      </citerefentry>,
-      <citerefentry>
+      </citerefentry></member>
+      <member><citerefentry>
         <refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum>
-      </citerefentry>,
-      <citerefentry>
+      </citerefentry></member>
+      <member><citerefentry>
         <refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum>
-      </citerefentry>
-    </para>
+      </citerefentry></member>
+    </simplelist></para>
   </refsect1>
 </refentry>

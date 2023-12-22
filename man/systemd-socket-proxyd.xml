@@ -177,14 +177,14 @@ $ curl http://localhost:80/]]></programlisting>
   </refsect1>
   <refsect1>
     <title>See Also</title>
-    <para>
-      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry project='die-net'><refentrytitle>socat</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry project='die-net'><refentrytitle>nginx</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry project='die-net'><refentrytitle>curl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    </para>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>socat</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>nginx</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>curl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
   </refsect1>
 </refentry>

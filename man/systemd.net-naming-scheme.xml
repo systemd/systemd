@@ -692,12 +692,12 @@ net:naming:drvirtio_net:*
 
   <refsect1>
     <title>See Also</title>
-    <para>
-      <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <ulink url="https://systemd.io/PREDICTABLE_INTERFACE_NAMES">Predictable Network Interface Names</ulink>,
-      <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    </para>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><ulink url="https://systemd.io/PREDICTABLE_INTERFACE_NAMES">Predictable Network Interface Names</ulink></member>
+      <member><citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
   </refsect1>
 
 </refentry>

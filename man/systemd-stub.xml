@@ -485,16 +485,16 @@
 
   <refsect1>
     <title>See Also</title>
-    <para>
-      <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink>,
-      <ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink>,
-      <citerefentry><refentrytitle>ukify</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <ulink url="https://systemd.io/TPM2_PCR_MEASUREMENTS">TPM2 PCR Measurements Made by systemd</ulink>
-    </para>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-creds</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><ulink url="https://uapi-group.org/specifications/specs/boot_loader_specification">Boot Loader Specification</ulink></member>
+      <member><ulink url="https://systemd.io/BOOT_LOADER_INTERFACE">Boot Loader Interface</ulink></member>
+      <member><citerefentry><refentrytitle>ukify</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><ulink url="https://systemd.io/TPM2_PCR_MEASUREMENTS">TPM2 PCR Measurements Made by systemd</ulink></member>
+    </simplelist></para>
   </refsect1>
 </refentry>
