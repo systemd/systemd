@@ -639,6 +639,7 @@ Manager* manager_free(Manager *m) {
         m->routes = set_free(m->routes);
 
         m->nexthops_by_id = hashmap_free(m->nexthops_by_id);
+        m->nexthop_ids = set_free(m->nexthop_ids);
 
         sd_event_source_unref(m->speed_meter_event_source);
         sd_event_unref(m->event);
@@ -699,7 +700,15 @@ int manager_load_config(Manager *m) {
         if (r < 0)
                 return r;
 
-        return manager_build_dhcp_pd_subnet_ids(m);
+        r = manager_build_dhcp_pd_subnet_ids(m);
+        if (r < 0)
+                return r;
+
+        r = manager_build_nexthop_ids(m);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 int manager_enumerate_internal(
