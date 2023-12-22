@@ -230,6 +230,15 @@ assert_eq "$A" "$B"
 # Check that invoking the tool under the uid0 alias name works
 uid0 ls /
 assert_eq "$(uid0 echo foo)" "foo"
+# Check if we set some expected environment variables
+for arg in "" "--user=root" "--user=testuser"; do
+    assert_eq "$(uid0 ${arg:+"$arg"} bash -c 'echo $SUDO_USER')" "$USER"
+    assert_eq "$(uid0 ${arg:+"$arg"} bash -c 'echo $SUDO_UID')" "$(id -u "$USER")"
+    assert_eq "$(uid0 ${arg:+"$arg"} bash -c 'echo $SUDO_GID')" "$(id -u "$USER")"
+done
+# Let's chain a couple of uid0 calls together, for fun
+readarray -t cmdline < <(printf "%.0suid0\n" {0..31})
+assert_eq "$("${cmdline[@]}" bash -c 'echo $SUDO_USER')" "$USER"
 
 umount /proc/version
 rm "$V"
