@@ -201,6 +201,9 @@ Address *address_free(Address *address) {
         if (address->network) {
                 assert(address->section);
                 ordered_hashmap_remove(address->network->addresses_by_section, address->section);
+
+                if (address->network->dhcp_server_address == address)
+                        address->network->dhcp_server_address = NULL;
         }
 
         if (address->link) {
