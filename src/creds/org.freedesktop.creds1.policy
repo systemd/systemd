@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?> <!--*-nxml-*-->
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+        "https://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<policyconfig>
+
+        <vendor>The systemd Project</vendor>
+        <vendor_url>https://systemd.io</vendor_url>
+
+        <action id="org.freedesktop.creds1.encrypt">
+                <description gettext-domain="systemd">Encrypt a credential</description>
+                <message gettext-domain="systemd">Authentication is required to encrypt a credential.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
+        <action id="org.freedesktop.creds1.decrypt">
+                <description gettext-domain="systemd">Decrypt a credential</description>
+                <message gettext-domain="systemd">Authentication is required to decrypt a credential.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
+
+</policyconfig>

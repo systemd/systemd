@@ -4,6 +4,7 @@
 #include <unistd.h>
 
 #include "build.h"
+#include "bus-polkit.h"
 #include "creds-util.h"
 #include "dirent-util.h"
 #include "escape.h"
@@ -990,6 +991,7 @@ static int vl_method_encrypt(Varlink *link, JsonVariant *parameters, VarlinkMeth
                 .not_after = UINT64_MAX,
         };
         _cleanup_(iovec_done) struct iovec output = {};
+        Hashmap **polkit_registry = ASSERT_PTR(userdata);
         int r;
 
         assert(link);
@@ -1009,6 +1011,16 @@ static int vl_method_encrypt(Varlink *link, JsonVariant *parameters, VarlinkMeth
                 p.timestamp = now(CLOCK_REALTIME);
         if (p.not_after != UINT64_MAX && p.not_after < p.timestamp)
                 return varlink_error_invalid_parameter_name(link, "notAfter");
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        /* bus= */ NULL,
+                        "org.freedesktop.creds1.encrypt",
+                        /* details= */ NULL,
+                        /* good_user= */ UID_INVALID,
+                        polkit_registry);
+        if (r <= 0)
+                return r;
 
         r = encrypt_credential_and_warn(
                         arg_with_key,
@@ -1060,6 +1072,7 @@ static int vl_method_decrypt(Varlink *link, JsonVariant *parameters, VarlinkMeth
                 .timestamp = UINT64_MAX,
         };
         _cleanup_(iovec_done_erase) struct iovec output = {};
+        Hashmap **polkit_registry = ASSERT_PTR(userdata);
         int r;
 
         assert(link);
@@ -1077,6 +1090,16 @@ static int vl_method_decrypt(Varlink *link, JsonVariant *parameters, VarlinkMeth
                 return varlink_error_invalid_parameter_name(link, "blob");
         if (p.timestamp == UINT64_MAX)
                 p.timestamp = now(CLOCK_REALTIME);
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        /* bus= */ NULL,
+                        "org.freedesktop.creds1.decrypt",
+                        /* details= */ NULL,
+                        /* good_user= */ UID_INVALID,
+                        polkit_registry);
+        if (r <= 0)
+                return r;
 
         r = decrypt_credential_and_warn(
                         p.name,
@@ -1116,10 +1139,11 @@ static int run(int argc, char *argv[]) {
 
         if (arg_varlink) {
                 _cleanup_(varlink_server_unrefp) VarlinkServer *varlink_server = NULL;
+                _cleanup_(hashmap_freep) Hashmap *polkit_registry = NULL;
 
                 /* Invocation as Varlink service */
 
-                r = varlink_server_new(&varlink_server, VARLINK_SERVER_ROOT_ONLY|VARLINK_SERVER_INHERIT_USERDATA);
+                r = varlink_server_new(&varlink_server, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate Varlink server: %m");
 
@@ -1133,6 +1157,8 @@ static int run(int argc, char *argv[]) {
                                 "io.systemd.Credentials.Decrypt", vl_method_decrypt);
                 if (r < 0)
                         return log_error_errno(r, "Failed to bind Varlink methods: %m");
+
+                varlink_server_set_userdata(varlink_server, &polkit_registry);
 
                 r = varlink_server_loop_auto(varlink_server);
                 if (r < 0)

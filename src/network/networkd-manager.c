@@ -648,7 +648,7 @@ Manager* manager_free(Manager *m) {
 
         manager_varlink_done(m);
 
-        bus_verify_polkit_async_registry_free(m->polkit_registry);
+        hashmap_free(m->polkit_registry);
         sd_bus_flush_close_unref(m->bus);
 
         free(m->dynamic_timezone);

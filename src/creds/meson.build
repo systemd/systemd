@@ -23,3 +23,5 @@ if install_sysconfdir
         install_emptydir(sysconfdir / 'credstore.encrypted',
                          install_mode : 'rwx------')
 endif
+
+install_data('org.freedesktop.creds1.policy', install_dir : polkitpolicydir)
