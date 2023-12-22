@@ -189,6 +189,11 @@ static int reply_query_state(DnsQuery *q) {
                 return sd_bus_reply_method_error(req, &error);
         }
 
+        case DNS_TRANSACTION_EDE_RCODE_FAILURE:
+                return reply_method_errorf(q, BUS_ERROR_DNSSEC_FAILED, "DNSSEC validation failed upstream: %s%s%s",
+                                           dns_ede_rcode_to_string(q->answer_ede_rcode),
+                                           isempty(q->answer_ede_msg) ? "" : ": ", q->answer_ede_msg);
+
         case DNS_TRANSACTION_NULL:
         case DNS_TRANSACTION_PENDING:
         case DNS_TRANSACTION_VALIDATING:
