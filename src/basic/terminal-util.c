@@ -54,6 +54,19 @@ static volatile int cached_on_dev_null = -1;
 static volatile int cached_color_mode = _COLOR_INVALID;
 static volatile int cached_underline_enabled = -1;
 
+bool isatty_safe(int fd) {
+        assert(fd >= 0);
+
+        if (isatty(fd))
+                return true;
+
+        /* Be resilient if we're working on stdio, since they're set up by parent process. */
+        if (!IN_SET(fd, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO))
+                assert(errno != EBADF);
+
+        return false;
+}
+
 int chvt(int vt) {
         _cleanup_close_ int fd = -EBADF;
 
@@ -240,7 +253,7 @@ int reset_terminal_fd(int fd, bool switch_to_text) {
 
         assert(fd >= 0);
 
-        if (isatty(fd) < 1)
+        if (!isatty_safe(fd))
                 return log_debug_errno(errno, "Asked to reset a terminal that actually isn't a terminal: %m");
 
         /* We leave locked terminal attributes untouched, so that Plymouth may set whatever it wants to set,
@@ -347,7 +360,7 @@ int open_terminal(const char *name, int mode) {
                 c++;
         }
 
-        if (isatty(fd) < 1)
+        if (!isatty_safe(fd))
                 return negative_errno();
 
         return TAKE_FD(fd);
@@ -1447,38 +1460,33 @@ int vt_reset_keyboard(int fd) {
 }
 
 int vt_restore(int fd) {
+
         static const struct vt_mode mode = {
                 .mode = VT_AUTO,
         };
-        int r, q = 0;
 
-        if (isatty(fd) < 1)
+        int r, ret = 0;
+
+        assert(fd >= 0);
+
+        if (!isatty_safe(fd))
                 return log_debug_errno(errno, "Asked to restore the VT for an fd that does not refer to a terminal: %m");
 
         if (ioctl(fd, KDSETMODE, KD_TEXT) < 0)
-                q = log_debug_errno(errno, "Failed to set VT in text mode, ignoring: %m");
+                RET_GATHER(ret, log_debug_errno(errno, "Failed to set VT to text mode, ignoring: %m"));
 
         r = vt_reset_keyboard(fd);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to reset keyboard mode, ignoring: %m");
-                if (q >= 0)
-                        q = r;
-        }
+        if (r < 0)
+                RET_GATHER(ret, log_debug_errno(r, "Failed to reset keyboard mode, ignoring: %m"));
 
-        if (ioctl(fd, VT_SETMODE, &mode) < 0) {
-                log_debug_errno(errno, "Failed to set VT_AUTO mode, ignoring: %m");
-                if (q >= 0)
-                        q = -errno;
-        }
+        if (ioctl(fd, VT_SETMODE, &mode) < 0)
+                RET_GATHER(ret, log_debug_errno(errno, "Failed to set VT_AUTO mode, ignoring: %m"));
 
         r = fchmod_and_chown(fd, TTY_MODE, 0, GID_INVALID);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to chmod()/chown() VT, ignoring: %m");
-                if (q >= 0)
-                        q = r;
-        }
+        if (r < 0)
+                RET_GATHER(ret, log_debug_errno(r, "Failed to chmod()/chown() VT, ignoring: %m"));
 
-        return q;
+        return ret;
 }
 
 int vt_release(int fd, bool restore) {
@@ -1488,7 +1496,7 @@ int vt_release(int fd, bool restore) {
          * sent by the kernel and optionally reset the VT in text and auto
          * VT-switching modes. */
 
-        if (isatty(fd) < 1)
+        if (!isatty_safe(fd))
                 return log_debug_errno(errno, "Asked to release the VT for an fd that does not refer to a terminal: %m");
 
         if (ioctl(fd, VT_RELDISP, 1) < 0)
@@ -1698,7 +1706,7 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
         if (!colors_enabled())
                 return -EOPNOTSUPP;
 
-        if (isatty(STDOUT_FILENO) < 1 || isatty(STDIN_FILENO) < 1)
+        if (!isatty(STDIN_FILENO) || !isatty(STDOUT_FILENO))
                 return -EOPNOTSUPP;
 
         if (streq_ptr(getenv("TERM"), "linux")) {
