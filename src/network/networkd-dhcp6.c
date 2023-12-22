@@ -196,7 +196,7 @@ static int dhcp6_request_address(
                 usec_t lifetime_preferred_usec,
                 usec_t lifetime_valid_usec) {
 
-        _cleanup_(address_freep) Address *addr = NULL;
+        _cleanup_(address_unrefp) Address *addr = NULL;
         Address *existing;
         int r;
 

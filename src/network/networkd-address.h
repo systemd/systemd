@@ -34,6 +34,8 @@ struct Address {
         NetworkConfigState state;
         union in_addr_union provider; /* DHCP server or router address */
 
+        unsigned n_ref;
+
         int family;
         unsigned char prefixlen;
         unsigned char scope;
@@ -83,9 +85,11 @@ void link_get_address_states(
 
 extern const struct hash_ops address_hash_ops;
 
+Address* address_ref(Address *address);
+Address* address_unref(Address *address);
+
 int address_new(Address **ret);
 int address_new_static(Network *network, const char *filename, unsigned section_line, Address **ret);
-Address* address_free(Address *address);
 int address_get(Link *link, const Address *in, Address **ret);
 int address_get_harder(Link *link, const Address *in, Address **ret);
 int address_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg);
@@ -95,7 +99,7 @@ int address_dup(const Address *src, Address **ret);
 bool address_is_ready(const Address *a);
 bool link_check_addresses_ready(Link *link, NetworkConfigSource source);
 
-DEFINE_SECTION_CLEANUP_FUNCTIONS(Address, address_free);
+DEFINE_SECTION_CLEANUP_FUNCTIONS(Address, address_unref);
 
 int link_drop_managed_addresses(Link *link);
 int link_drop_foreign_addresses(Link *link);
