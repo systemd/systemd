@@ -522,6 +522,14 @@ static int dhcp4_server_configure(Link *link) {
                         return log_link_error_errno(link, r, "Failed to set DHCPv4 static lease for DHCP server: %m");
         }
 
+        _cleanup_free_ char *lease_file = NULL;
+        if (asprintf(&lease_file, "/var/lib/systemd/network/dhcp-server-lease/%s", link->ifname) < 0)
+                return log_oom();
+
+        r = sd_dhcp_server_set_lease_file(link->dhcp_server, lease_file);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Failed to load DHCPv4 server leases, ignoring: %m");
+
         r = sd_dhcp_server_start(link->dhcp_server);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not start DHCPv4 server instance: %m");

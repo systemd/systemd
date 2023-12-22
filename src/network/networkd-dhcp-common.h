@@ -4,7 +4,7 @@
 #include <netinet/in.h>
 
 #include "conf-parser.h"
-#include "dhcp-identifier.h"
+#include "dhcp-duid-internal.h"
 #include "in-addr-util.h"
 #include "set.h"
 #include "time-util.h"
