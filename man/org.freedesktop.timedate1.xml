@@ -193,7 +193,7 @@ $ gdbus introspect --system \
   <xi:include href="org.freedesktop.locale1.xml" xpointer="versioning"/>
 
   <refsect1>
-    <title>See also</title>
+    <title>See Also</title>
 
       <para><ulink url="https://lists.freedesktop.org/archives/systemd-devel/2011-May/002526.html">More information on how the system clock and RTC interact</ulink></para>
   </refsect1>
