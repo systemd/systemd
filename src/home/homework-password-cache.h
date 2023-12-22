@@ -25,4 +25,4 @@ static inline bool password_cache_contains(const PasswordCache *cache, const cha
                 strv_contains(cache->keyring_passwords, p);
 }
 
-void password_cache_load_keyring(UserRecord *h, PasswordCache *cache);
+int password_cache_load_keyring(UserRecord *h, PasswordCache *cache);
