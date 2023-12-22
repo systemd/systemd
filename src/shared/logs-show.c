@@ -453,6 +453,39 @@ static int output_timestamp_realtime(
         return (int) strlen(buf);
 }
 
+static void parse_display_timestamp(
+                sd_journal *j,
+                const char *realtime,
+                const char *monotonic,
+                dual_timestamp *ret_display_ts,
+                sd_id128_t *ret_boot_id) {
+
+        bool realtime_good = false, monotonic_good = false, boot_id_good = false;
+
+        assert(j);
+        assert(ret_display_ts);
+        assert(ret_boot_id);
+
+        if (realtime)
+                realtime_good = safe_atou64(realtime, &ret_display_ts->realtime) >= 0;
+        if (!realtime_good || !VALID_REALTIME(ret_display_ts->realtime))
+                realtime_good = sd_journal_get_realtime_usec(j, &ret_display_ts->realtime) >= 0;
+        if (!realtime_good)
+                ret_display_ts->realtime = USEC_INFINITY;
+
+        if (monotonic)
+                monotonic_good = safe_atou64(monotonic, &ret_display_ts->monotonic) >= 0;
+        if (!monotonic_good || !VALID_MONOTONIC(ret_display_ts->monotonic))
+                monotonic_good = boot_id_good = sd_journal_get_monotonic_usec(j, &ret_display_ts->monotonic, ret_boot_id) >= 0;
+        if (!monotonic_good)
+                ret_display_ts->monotonic = USEC_INFINITY;
+
+        if (!boot_id_good)
+                boot_id_good = sd_journal_get_monotonic_usec(j, NULL, ret_boot_id) >= 0;
+        if (!boot_id_good)
+                *ret_boot_id = SD_ID128_NULL;
+}
+
 static int output_short(
                 FILE *f,
                 sd_journal *j,
@@ -461,42 +494,43 @@ static int output_short(
                 OutputFlags flags,
                 const Set *output_fields,
                 const size_t highlight[2],
-                const dual_timestamp *display_ts,
-                const sd_id128_t *boot_id,
-                const dual_timestamp *previous_display_ts,
-                const sd_id128_t *previous_boot_id) {
+                dual_timestamp *previous_display_ts, /* in and out */
+                sd_id128_t *previous_boot_id) {      /* in and out */
 
         int r;
         const void *data;
         size_t length, n = 0;
         _cleanup_free_ char *hostname = NULL, *identifier = NULL, *comm = NULL, *pid = NULL, *fake_pid = NULL,
                 *message = NULL, *priority = NULL, *transport = NULL,
-                *config_file = NULL, *unit = NULL, *user_unit = NULL, *documentation_url = NULL;
+                *config_file = NULL, *unit = NULL, *user_unit = NULL, *documentation_url = NULL,
+                *realtime = NULL, *monotonic = NULL;
         size_t hostname_len = 0, identifier_len = 0, comm_len = 0, pid_len = 0, fake_pid_len = 0, message_len = 0,
                 priority_len = 0, transport_len = 0, config_file_len = 0,
                 unit_len = 0, user_unit_len = 0, documentation_url_len = 0;
+        dual_timestamp display_ts;
+        sd_id128_t boot_id;
         int p = LOG_INFO;
         bool ellipsized = false, audit;
         const ParseFieldVec fields[] = {
-                PARSE_FIELD_VEC_ENTRY("_PID=", &pid, &pid_len),
-                PARSE_FIELD_VEC_ENTRY("_COMM=", &comm, &comm_len),
-                PARSE_FIELD_VEC_ENTRY("MESSAGE=", &message, &message_len),
-                PARSE_FIELD_VEC_ENTRY("PRIORITY=", &priority, &priority_len),
-                PARSE_FIELD_VEC_ENTRY("_TRANSPORT=", &transport, &transport_len),
-                PARSE_FIELD_VEC_ENTRY("_HOSTNAME=", &hostname, &hostname_len),
-                PARSE_FIELD_VEC_ENTRY("SYSLOG_PID=", &fake_pid, &fake_pid_len),
-                PARSE_FIELD_VEC_ENTRY("SYSLOG_IDENTIFIER=", &identifier, &identifier_len),
-                PARSE_FIELD_VEC_ENTRY("CONFIG_FILE=", &config_file, &config_file_len),
-                PARSE_FIELD_VEC_ENTRY("_SYSTEMD_UNIT=", &unit, &unit_len),
-                PARSE_FIELD_VEC_ENTRY("_SYSTEMD_USER_UNIT=", &user_unit, &user_unit_len),
-                PARSE_FIELD_VEC_ENTRY("DOCUMENTATION=", &documentation_url, &documentation_url_len),
+                PARSE_FIELD_VEC_ENTRY("_PID=",                        &pid,               &pid_len              ),
+                PARSE_FIELD_VEC_ENTRY("_COMM=",                       &comm,              &comm_len             ),
+                PARSE_FIELD_VEC_ENTRY("MESSAGE=",                     &message,           &message_len          ),
+                PARSE_FIELD_VEC_ENTRY("PRIORITY=",                    &priority,          &priority_len         ),
+                PARSE_FIELD_VEC_ENTRY("_TRANSPORT=",                  &transport,         &transport_len        ),
+                PARSE_FIELD_VEC_ENTRY("_HOSTNAME=",                   &hostname,          &hostname_len         ),
+                PARSE_FIELD_VEC_ENTRY("SYSLOG_PID=",                  &fake_pid,          &fake_pid_len         ),
+                PARSE_FIELD_VEC_ENTRY("SYSLOG_IDENTIFIER=",           &identifier,        &identifier_len       ),
+                PARSE_FIELD_VEC_ENTRY("CONFIG_FILE=",                 &config_file,       &config_file_len      ),
+                PARSE_FIELD_VEC_ENTRY("_SYSTEMD_UNIT=",               &unit,              &unit_len             ),
+                PARSE_FIELD_VEC_ENTRY("_SYSTEMD_USER_UNIT=",          &user_unit,         &user_unit_len        ),
+                PARSE_FIELD_VEC_ENTRY("DOCUMENTATION=",               &documentation_url, &documentation_url_len),
+                PARSE_FIELD_VEC_ENTRY("_SOURCE_REALTIME_TIMESTAMP=",  &realtime,          NULL                  ),
+                PARSE_FIELD_VEC_ENTRY("_SOURCE_MONOTONIC_TIMESTAMP=", &monotonic,         NULL                  ),
         };
         size_t highlight_shifted[] = {highlight ? highlight[0] : 0, highlight ? highlight[1] : 0};
 
         assert(f);
         assert(j);
-        assert(display_ts);
-        assert(boot_id);
         assert(previous_display_ts);
         assert(previous_boot_id);
 
@@ -523,6 +557,8 @@ static int output_short(
                 return 0;
         }
 
+        parse_display_timestamp(j, realtime, monotonic, &display_ts, &boot_id);
+
         if (!(flags & OUTPUT_SHOW_ALL))
                 strip_tab_ansi(&message, &message_len, highlight_shifted);
 
@@ -535,9 +571,9 @@ static int output_short(
         audit = streq_ptr(transport, "audit");
 
         if (IN_SET(mode, OUTPUT_SHORT_MONOTONIC, OUTPUT_SHORT_DELTA))
-                r = output_timestamp_monotonic(f, mode, display_ts, boot_id, previous_display_ts, previous_boot_id);
+                r = output_timestamp_monotonic(f, mode, &display_ts, &boot_id, previous_display_ts, previous_boot_id);
         else
-                r = output_timestamp_realtime(f, j, mode, flags, display_ts);
+                r = output_timestamp_realtime(f, j, mode, flags, &display_ts);
         if (r < 0)
                 return r;
         n += r;
@@ -658,7 +694,49 @@ static int output_short(
         if (flags & OUTPUT_CATALOG)
                 (void) print_catalog(f, j);
 
+        *previous_display_ts = display_ts;
+        *previous_boot_id = boot_id;
+
         return ellipsized;
+}
+
+static int get_display_timestamp(
+                sd_journal *j,
+                dual_timestamp *ret_display_ts,
+                sd_id128_t *ret_boot_id) {
+
+        const void *data;
+        _cleanup_free_ char *realtime = NULL, *monotonic = NULL;
+        size_t length;
+        const ParseFieldVec message_fields[] = {
+                PARSE_FIELD_VEC_ENTRY("_SOURCE_REALTIME_TIMESTAMP=",  &realtime,  NULL),
+                PARSE_FIELD_VEC_ENTRY("_SOURCE_MONOTONIC_TIMESTAMP=", &monotonic, NULL),
+        };
+        int r;
+
+        assert(j);
+        assert(ret_display_ts);
+        assert(ret_boot_id);
+
+        JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
+                r = parse_fieldv(data, length, message_fields, ELEMENTSOF(message_fields));
+                if (r < 0)
+                        return r;
+
+                if (realtime && monotonic)
+                        break;
+        }
+        if (r < 0)
+                return r;
+
+        (void) parse_display_timestamp(j, realtime, monotonic, ret_display_ts, ret_boot_id);
+
+        /* Restart all data before */
+        sd_journal_restart_data(j);
+        sd_journal_restart_unique(j);
+        sd_journal_restart_fields(j);
+
+        return 0;
 }
 
 static int output_verbose(
@@ -669,35 +747,39 @@ static int output_verbose(
                 OutputFlags flags,
                 const Set *output_fields,
                 const size_t highlight[2],
-                const dual_timestamp *display_ts,
-                const sd_id128_t *boot_id,
-                const dual_timestamp *previous_display_ts,
-                const sd_id128_t *previous_boot_id) {
+                dual_timestamp *previous_display_ts, /* unused */
+                sd_id128_t *previous_boot_id) {      /* unused */
 
         const void *data;
         size_t length;
         _cleanup_free_ char *cursor = NULL;
         char buf[FORMAT_TIMESTAMP_MAX + 7];
+        dual_timestamp display_ts;
+        sd_id128_t boot_id;
         const char *timestamp;
         int r;
 
         assert(f);
         assert(j);
-        assert(display_ts);
-        assert(boot_id);
-        assert(previous_display_ts);
-        assert(previous_boot_id);
 
         (void) sd_journal_set_data_threshold(j, 0);
 
-        if (!VALID_REALTIME(display_ts->realtime))
+        r = get_display_timestamp(j, &display_ts, &boot_id);
+        if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
+                log_debug_errno(r, "Skipping message we can't read: %m");
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get journal fields: %m");
+
+        if (!VALID_REALTIME(display_ts.realtime))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No valid realtime timestamp available");
 
         r = sd_journal_get_cursor(j, &cursor);
         if (r < 0)
                 return log_error_errno(r, "Failed to get cursor: %m");
 
-        timestamp = format_timestamp_style(buf, sizeof buf, display_ts->realtime,
+        timestamp = format_timestamp_style(buf, sizeof buf, display_ts.realtime,
                                            flags & OUTPUT_UTC ? TIMESTAMP_US_UTC : TIMESTAMP_US);
         fprintf(f, "%s%s%s %s[%s]%s\n",
                 timestamp && (flags & OUTPUT_COLOR) ? ANSI_UNDERLINE : "",
@@ -786,10 +868,8 @@ static int output_export(
                 OutputFlags flags,
                 const Set *output_fields,
                 const size_t highlight[2],
-                const dual_timestamp *display_ts,
-                const sd_id128_t *boot_id,
-                const dual_timestamp *previous_display_ts,
-                const sd_id128_t *previous_boot_id) {
+                dual_timestamp *previous_display_ts, /* unused */
+                sd_id128_t *previous_boot_id) {      /* unused */
 
         sd_id128_t journal_boot_id, seqnum_id;
         _cleanup_free_ char *cursor = NULL;
@@ -800,10 +880,6 @@ static int output_export(
         int r;
 
         assert(j);
-        assert(display_ts);
-        assert(boot_id);
-        assert(previous_display_ts);
-        assert(previous_boot_id);
 
         (void) sd_journal_set_data_threshold(j, 0);
 
@@ -1055,10 +1131,8 @@ static int output_json(
                 OutputFlags flags,
                 const Set *output_fields,
                 const size_t highlight[2],
-                const dual_timestamp *display_ts,
-                const sd_id128_t *boot_id,
-                const dual_timestamp *previous_display_ts,
-                const sd_id128_t *previous_boot_id) {
+                dual_timestamp *previous_display_ts, /* unused */
+                sd_id128_t *previous_boot_id) {      /* unused */
 
         char usecbuf[CONST_MAX(DECIMAL_STR_MAX(usec_t), DECIMAL_STR_MAX(uint64_t))];
         _cleanup_(json_variant_unrefp) JsonVariant *object = NULL;
@@ -1073,10 +1147,6 @@ static int output_json(
         int r;
 
         assert(j);
-        assert(display_ts);
-        assert(boot_id);
-        assert(previous_display_ts);
-        assert(previous_boot_id);
 
         (void) sd_journal_set_data_threshold(j, flags & OUTPUT_SHOW_ALL ? 0 : JSON_THRESHOLD);
 
@@ -1238,20 +1308,14 @@ static int output_cat(
                 OutputFlags flags,
                 const Set *output_fields,
                 const size_t highlight[2],
-                const dual_timestamp *display_ts,
-                const sd_id128_t *boot_id,
-                const dual_timestamp *previous_display_ts,
-                const sd_id128_t *previous_boot_id) {
+                dual_timestamp *previous_display_ts, /* unused */
+                sd_id128_t *previous_boot_id) {      /* unused */
 
         int r, prio = LOG_INFO;
         const char *field;
 
         assert(j);
         assert(f);
-        assert(display_ts);
-        assert(boot_id);
-        assert(previous_display_ts);
-        assert(previous_boot_id);
 
         (void) sd_journal_set_data_threshold(j, 0);
 
@@ -1291,63 +1355,6 @@ static int output_cat(
         return 0;
 }
 
-static int get_display_timestamp(
-                sd_journal *j,
-                dual_timestamp *ret_display_ts,
-                sd_id128_t *ret_boot_id) {
-
-        const void *data;
-        _cleanup_free_ char *realtime = NULL, *monotonic = NULL;
-        size_t length = 0, realtime_len = 0, monotonic_len = 0;
-        const ParseFieldVec message_fields[] = {
-                PARSE_FIELD_VEC_ENTRY("_SOURCE_REALTIME_TIMESTAMP=", &realtime, &realtime_len),
-                PARSE_FIELD_VEC_ENTRY("_SOURCE_MONOTONIC_TIMESTAMP=", &monotonic, &monotonic_len),
-        };
-        int r;
-        bool realtime_good = false, monotonic_good = false, boot_id_good = false;
-
-        assert(j);
-        assert(ret_display_ts);
-        assert(ret_boot_id);
-
-        JOURNAL_FOREACH_DATA_RETVAL(j, data, length, r) {
-                r = parse_fieldv(data, length, message_fields, ELEMENTSOF(message_fields));
-                if (r < 0)
-                        return r;
-
-                if (realtime && monotonic)
-                        break;
-        }
-        if (r < 0)
-                return r;
-
-        if (realtime)
-                realtime_good = safe_atou64(realtime, &ret_display_ts->realtime) >= 0;
-        if (!realtime_good || !VALID_REALTIME(ret_display_ts->realtime))
-                realtime_good = sd_journal_get_realtime_usec(j, &ret_display_ts->realtime) >= 0;
-        if (!realtime_good)
-                ret_display_ts->realtime = USEC_INFINITY;
-
-        if (monotonic)
-                monotonic_good = safe_atou64(monotonic, &ret_display_ts->monotonic) >= 0;
-        if (!monotonic_good || !VALID_MONOTONIC(ret_display_ts->monotonic))
-                monotonic_good = boot_id_good = sd_journal_get_monotonic_usec(j, &ret_display_ts->monotonic, ret_boot_id) >= 0;
-        if (!monotonic_good)
-                ret_display_ts->monotonic = USEC_INFINITY;
-
-        if (!boot_id_good)
-                boot_id_good = sd_journal_get_monotonic_usec(j, NULL, ret_boot_id) >= 0;
-        if (!boot_id_good)
-                *ret_boot_id = SD_ID128_NULL;
-
-        /* Restart all data before */
-        sd_journal_restart_data(j);
-        sd_journal_restart_unique(j);
-        sd_journal_restart_fields(j);
-
-        return 0;
-}
-
 typedef int (*output_func_t)(
                 FILE *f,
                 sd_journal *j,
@@ -1356,10 +1363,8 @@ typedef int (*output_func_t)(
                 OutputFlags flags,
                 const Set *output_fields,
                 const size_t highlight[2],
-                const dual_timestamp *display_ts,
-                const sd_id128_t *boot_id,
-                const dual_timestamp *previous_display_ts,
-                const sd_id128_t *previous_boot_id);
+                dual_timestamp *previous_display_ts,
+                sd_id128_t *previous_boot_id);
 
 
 static output_func_t output_funcs[_OUTPUT_MODE_MAX] = {
@@ -1393,8 +1398,6 @@ int show_journal_entry(
                 dual_timestamp *previous_display_ts,
                 sd_id128_t *previous_boot_id) {
 
-        dual_timestamp display_ts = DUAL_TIMESTAMP_NULL;
-        sd_id128_t boot_id = SD_ID128_NULL;
         int r;
 
         assert(mode >= 0);
@@ -1405,14 +1408,6 @@ int show_journal_entry(
         if (n_columns <= 0)
                 n_columns = columns();
 
-        r = get_display_timestamp(j, &display_ts, &boot_id);
-        if (IN_SET(r, -EBADMSG, -EADDRNOTAVAIL)) {
-                log_debug_errno(r, "Skipping message we can't read: %m");
-                return 0;
-        }
-        if (r < 0)
-                return log_error_errno(r, "Failed to get journal fields: %m");
-
         r = output_funcs[mode](
                         f,
                         j,
@@ -1421,14 +1416,8 @@ int show_journal_entry(
                         flags,
                         output_fields,
                         highlight,
-                        &display_ts,
-                        &boot_id,
                         previous_display_ts,
                         previous_boot_id);
-
-        /* Store timestamp and boot ID for next iteration */
-        *previous_display_ts = display_ts;
-        *previous_boot_id = boot_id;
 
         if (ellipsized && r > 0)
                 *ellipsized = true;
@@ -1798,7 +1787,10 @@ int show_journal_by_unit(
         if (how_many <= 0)
                 return 0;
 
-        r = sd_journal_open_namespace(&j, log_namespace, journal_open_flags | SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE);
+        r = sd_journal_open_namespace(&j, log_namespace,
+                                      journal_open_flags |
+                                      SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE |
+                                      SD_JOURNAL_READ_TAIL_TIMESTAMP_ONCE);
         if (r < 0)
                 return log_error_errno(r, "Failed to open journal: %m");
 
