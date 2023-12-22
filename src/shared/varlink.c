@@ -961,10 +961,6 @@ static int varlink_parse_message(Varlink *v) {
 
         sz = e - begin + 1;
 
-        varlink_log(v, "New incoming message: %s", begin); /* FIXME: should we output the whole message here before validation?
-                                                            * This may produce a non-printable journal entry if the message
-                                                            * is invalid. We may also expose privileged information. */
-
         r = json_parse(begin, 0, &v->current, NULL, NULL);
         if (r < 0) {
                 /* If we encounter a parse failure flush all data. We cannot possibly recover from this,
@@ -1768,12 +1764,17 @@ Varlink* varlink_flush_close_unref(Varlink *v) {
 
 static int varlink_format_json(Varlink *v, JsonVariant *m) {
         _cleanup_(erase_and_freep) char *text = NULL;
+        bool sensitive = false;
         int r;
 
         assert(v);
         assert(m);
 
-        r = json_variant_format(m, 0, &text);
+        r = json_variant_format(m, JSON_FORMAT_REFUSE_SENSITIVE, &text);
+        if (r == -EPERM) {
+                sensitive = true;
+                r = json_variant_format(m, /* flags= */ 0, &text);
+        }
         if (r < 0)
                 return r;
         assert(text[r] == '\0');
@@ -1781,7 +1782,7 @@ static int varlink_format_json(Varlink *v, JsonVariant *m) {
         if (v->output_buffer_size + r + 1 > VARLINK_BUFFER_MAX)
                 return -ENOBUFS;
 
-        varlink_log(v, "Sending message: %s", text);
+        varlink_log(v, "Sending message: %s", sensitive ? "<sensitive data>" : text);
 
         if (v->output_buffer_size == 0) {
 
@@ -1812,7 +1813,7 @@ static int varlink_format_json(Varlink *v, JsonVariant *m) {
                 v->output_buffer_index = 0;
         }
 
-        if (json_variant_is_sensitive(m))
+        if (sensitive)
                 v->output_buffer_sensitive = true; /* Propagate sensitive flag */
         else
                 text = mfree(text); /* No point in the erase_and_free() destructor declared above */
