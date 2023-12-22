@@ -147,7 +147,7 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p)
 
         const char *path = exec_context_tty_path(context);
 
-        if (p && p->stdin_fd >= 0 && isatty(p->stdin_fd))
+        if (p && p->stdin_fd >= 0 && isatty_safe(p->stdin_fd))
                 fd = p->stdin_fd;
         else if (path && (context->tty_path || is_terminal_input(context->std_input) ||
                         is_terminal_output(context->std_output) || is_terminal_output(context->std_error))) {
