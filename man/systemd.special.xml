@@ -95,9 +95,10 @@
     <filename>umount.target</filename>,
     <filename>usb-gadget.target</filename>,
     <!-- slices --><filename>-.slice</filename>,
+    <filename>machine.slice</filename>,
+    <filename>project.slice</filename>,
     <filename>system.slice</filename>,
     <filename>user.slice</filename>,
-    <filename>machine.slice</filename>,
     <!-- the rest --><filename>-.mount</filename>,
     <filename>dbus.service</filename>,
     <filename>dbus.socket</filename>,
@@ -1272,18 +1273,39 @@
         <varlistentry>
           <term><filename>-.slice</filename></term>
           <listitem>
-            <para>The root slice is the root of the slice hierarchy. It usually does not contain
-            units directly, but may be used to set defaults for the whole tree.</para>
+            <para>The root slice is the root of the slice hierarchy. It usually does not contain units
+            directly, but may be used to set defaults for the whole tree.</para>
 
             <xi:include href="version-info.xml" xpointer="v206"/>
           </listitem>
         </varlistentry>
 
         <varlistentry>
+          <term><filename>machine.slice</filename></term>
+          <listitem>
+            <para>By default, all virtual machines and containers registered with
+            <command>systemd-machined</command> are found in this slice. This is pulled in by
+            <filename>systemd-machined.service</filename>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v206"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><filename>project.slice</filename></term>
+          <listitem>
+            <para>By default, all projects encapsulated in <filename>project@.service</filename> are found in
+            this slice.</para>
+
+            <xi:include href="version-info.xml" xpointer="v255"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
           <term><filename>system.slice</filename></term>
           <listitem>
-            <para>By default, all system services started by
-            <command>systemd</command> are found in this slice.</para>
+            <para>By default, all system services started by <command>systemd</command> are found in this
+            slice.</para>
 
             <xi:include href="version-info.xml" xpointer="v206"/>
           </listitem>
@@ -1301,17 +1323,6 @@
           </listitem>
         </varlistentry>
 
-        <varlistentry>
-          <term><filename>machine.slice</filename></term>
-          <listitem>
-            <para>By default, all virtual machines and containers
-            registered with <command>systemd-machined</command> are
-            found in this slice. This is pulled in by
-            <filename>systemd-machined.service</filename>.</para>
-
-            <xi:include href="version-info.xml" xpointer="v206"/>
-          </listitem>
-        </varlistentry>
       </variablelist>
     </refsect2>
   </refsect1>
@@ -1329,12 +1340,27 @@
         <varlistentry>
           <term><filename>default.target</filename></term>
           <listitem>
-            <para>This is the main target of the user session, started by default. Various services that
-            compose the normal user session should be pulled into this target. In this regard,
-            <filename>default.target</filename> is similar to <filename>multi-user.target</filename> in the
-            system instance, but it is a real unit, not an alias.</para>
+            <para>This is the main target of the user service manager, started by default when the service
+            manager is invoked. Various services that compose the normal user session should be pulled into
+            this target. In this regard, <filename>default.target</filename> is similar to
+            <filename>multi-user.target</filename> in the system instance, but it is a real unit, not an
+            alias.</para>
 
             <xi:include href="version-info.xml" xpointer="v242"/>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+
+      <variablelist>
+        <varlistentry>
+          <term><filename>project@.target</filename></term>
+          <listitem>
+            <para>This is the main target of project service managers, started by default, instantiated with
+            the project name. This may be used to define different sets of units that are started for
+            different projects via generic unit definitions. For details about projects see
+            <citerefentry><refentrytitle>project@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+            <xi:include href="version-info.xml" xpointer="v255"/>
           </listitem>
         </varlistentry>
       </variablelist>

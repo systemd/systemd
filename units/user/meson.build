@@ -11,6 +11,7 @@ units = [
         'graphical-session.target',
         'paths.target',
         'printer.target',
+        'project@.target',
         'session.slice',
         'shutdown.target',
         'smartcard.target',

@@ -255,14 +255,29 @@ static const char** make_extra_args(const char *extra_args[static 4]) {
         if (arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)
                 extra_args[n++] = "--user";
 
-        if (arg_transport == BUS_TRANSPORT_REMOTE) {
+        switch (arg_transport) {
+
+        case BUS_TRANSPORT_REMOTE:
                 extra_args[n++] = "-H";
                 extra_args[n++] = arg_host;
-        } else if (arg_transport == BUS_TRANSPORT_MACHINE) {
+                break;
+
+        case BUS_TRANSPORT_MACHINE:
                 extra_args[n++] = "-M";
                 extra_args[n++] = arg_host;
-        } else
-                assert(arg_transport == BUS_TRANSPORT_LOCAL);
+                break;
+
+        case BUS_TRANSPORT_PROJECT:
+                extra_args[n++] = "-J";
+                extra_args[n++] = arg_host;
+                break;
+
+        case BUS_TRANSPORT_LOCAL:
+                break;
+
+        default:
+                assert_not_reached();
+        }
 
         extra_args[n] = NULL;
         return extra_args;

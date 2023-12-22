@@ -1,0 +1,33 @@
+#  SPDX-License-Identifier: LGPL-2.1-or-later
+#
+#  This file is part of systemd.
+#
+#  systemd is free software; you can redistribute it and/or modify it
+#  under the terms of the GNU Lesser General Public License as published by
+#  the Free Software Foundation; either version 2.1 of the License, or
+#  (at your option) any later version.
+
+[Unit]
+Description=Project Service Manager for %i
+Documentation=man:project@.service(5)
+After=dbus.service systemd-oomd.service
+
+[Service]
+User=p_%i
+DynamicUser=yes
+Type=notify-reload
+ExecStart={{LIBEXECDIR}}/systemd --user --unit=project@%i.target
+Environment=HOME=/var/lib/projects/%i
+Environment=XDG_RUNTIME_DIR=/run/projects/%i
+StateDirectory=projects/%i
+RuntimeDirectory=projects/%i
+LogExtraFields=PROJECT=%i
+Slice=project.slice
+KillMode=mixed
+Delegate=pids memory cpu
+DelegateSubgroup=init.scope
+TasksMax=infinity
+TimeoutStopSec={{ DEFAULT_USER_TIMEOUT_SEC*4//3 }}s
+KeyringMode=inherit
+OOMScoreAdjust=100
+MemoryPressureWatch=skip

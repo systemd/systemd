@@ -70,6 +70,7 @@ manpages = [
  ['pam_systemd_loadkey', '8', [], 'HAVE_PAM'],
  ['portablectl', '1', [], 'ENABLE_PORTABLED'],
  ['poweroff', '8', ['halt', 'reboot'], ''],
+ ['project@.service', '5', [], ''],
  ['pstore.conf', '5', ['pstore.conf.d'], 'ENABLE_PSTORE'],
  ['repart.d', '5', [], 'ENABLE_REPART'],
  ['resolvectl', '1', ['resolvconf'], 'ENABLE_RESOLVE'],
