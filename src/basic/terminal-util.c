@@ -252,7 +252,7 @@ int reset_terminal_fd(int fd, bool switch_to_text) {
 
         assert(fd >= 0);
 
-        if (isatty(fd) < 1)
+        if (!isatty_safe(fd))
                 return log_debug_errno(errno, "Asked to reset a terminal that actually isn't a terminal: %m");
 
         /* We leave locked terminal attributes untouched, so that Plymouth may set whatever it wants to set,
@@ -359,7 +359,7 @@ int open_terminal(const char *name, int mode) {
                 c++;
         }
 
-        if (isatty(fd) < 1)
+        if (!isatty_safe(fd))
                 return negative_errno();
 
         return TAKE_FD(fd);
@@ -1468,7 +1468,7 @@ int vt_restore(int fd) {
 
         assert(fd >= 0);
 
-        if (isatty(fd) < 1)
+        if (!isatty_safe(fd))
                 return log_debug_errno(errno, "Asked to restore the VT for an fd that does not refer to a terminal: %m");
 
         if (ioctl(fd, KDSETMODE, KD_TEXT) < 0)
@@ -1495,7 +1495,7 @@ int vt_release(int fd, bool restore) {
          * sent by the kernel and optionally reset the VT in text and auto
          * VT-switching modes. */
 
-        if (isatty(fd) < 1)
+        if (!isatty_safe(fd))
                 return log_debug_errno(errno, "Asked to release the VT for an fd that does not refer to a terminal: %m");
 
         if (ioctl(fd, VT_RELDISP, 1) < 0)
@@ -1705,7 +1705,7 @@ int get_default_background_color(double *ret_red, double *ret_green, double *ret
         if (!colors_enabled())
                 return -EOPNOTSUPP;
 
-        if (isatty(STDOUT_FILENO) < 1 || isatty(STDIN_FILENO) < 1)
+        if (!isatty(STDIN_FILENO) || !isatty(STDOUT_FILENO))
                 return -EOPNOTSUPP;
 
         if (streq_ptr(getenv("TERM"), "linux")) {
