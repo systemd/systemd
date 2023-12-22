@@ -12,6 +12,7 @@
 #include <unistd.h>
 
 #include "device-private.h"
+#include "device-util.h"
 #include "fs-util.h"
 #include "log.h"
 #include "main-func.h"
@@ -147,10 +148,9 @@ static int run(int argc, char *argv[]) {
 
         /* do what devtmpfs usually provides us */
         if (sd_device_get_devname(dev, &devname) >= 0) {
-                const char *subsystem;
                 mode_t mode = 0600;
 
-                if (sd_device_get_subsystem(dev, &subsystem) >= 0 && streq(subsystem, "block"))
+                if (device_in_subsystem(dev, "block"))
                         mode |= S_IFBLK;
                 else
                         mode |= S_IFCHR;
