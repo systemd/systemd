@@ -3999,6 +3999,10 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         remove_network_unit('25-nexthop-nothing.network', '25-nexthop-dummy-2.network')
         copy_network_unit('25-nexthop-1.network', '25-nexthop-dummy-1.network')
+        # FIXME:
+        # Inserting networkctl_reconfigure() here easily triggers a race, and dummy98 may enter the failed
+        # state. See also the FIXME comment in link_drop_foreign_config().
+        #networkctl_reconfigure('dummy98')
         networkctl_reload()
 
         self.check_nexthop(manage_foreign_nexthops, first=True)
