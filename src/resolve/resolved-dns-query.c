@@ -421,6 +421,8 @@ DnsQuery *dns_query_free(DnsQuery *q) {
         dns_answer_unref(q->reply_authoritative);
         dns_answer_unref(q->reply_additional);
 
+        free(q->answer_ede_msg);
+
         if (q->request_stream) {
                 /* Detach the stream from our query, in case something else keeps a reference to it. */
                 (void) set_remove(q->request_stream->queries, q);
@@ -899,6 +901,8 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                         DNS_ANSWER_REPLACE(q->answer, dns_answer_ref(t->answer));
                         q->answer_rcode = t->answer_rcode;
                         q->answer_dnssec_result = t->answer_dnssec_result;
+                        q->answer_ede_rcode = t->answer_ede_rcode;
+                        q->answer_ede_msg = strdup(t->answer_ede_msg);
                         q->answer_query_flags = t->answer_query_flags | dns_transaction_source_to_query_flags(t->answer_source);
                         q->answer_errno = t->answer_errno;
                         DNS_PACKET_REPLACE(q->answer_full_packet, dns_packet_ref(t->received));
