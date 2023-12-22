@@ -10,6 +10,7 @@
 #include "dhcp6-lease-internal.h"
 #include "network-common.h"
 #include "strv.h"
+#include "unaligned.h"
 
 #define IRT_DEFAULT (1 * USEC_PER_DAY)
 #define IRT_MINIMUM (600 * USEC_PER_SEC)
@@ -866,7 +867,7 @@ static int dhcp6_lease_parse_message(
                                               "%s message does not contain client ID. Ignoring.",
                                               dhcp6_message_type_to_string(message->type));
 
-        if (memcmp_nn(clientid, clientid_len, &client->duid, client->duid_len) != 0)
+        if (memcmp_nn(clientid, clientid_len, &client->duid.duid, client->duid.size) != 0)
                 return log_dhcp6_client_errno(client, SYNTHETIC_ERRNO(EINVAL),
                                               "The client ID in %s message does not match. Ignoring.",
                                               dhcp6_message_type_to_string(message->type));

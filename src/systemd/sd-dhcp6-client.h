@@ -24,6 +24,7 @@
 #include <sys/types.h>
 
 #include "sd-device.h"
+#include "sd-dhcp-duid.h"
 #include "sd-dhcp6-lease.h"
 #include "sd-dhcp6-option.h"
 #include "sd-event.h"
@@ -68,15 +69,15 @@ int sd_dhcp6_client_set_duid_ll(sd_dhcp6_client *client);
 int sd_dhcp6_client_set_duid_en(sd_dhcp6_client *client);
 int sd_dhcp6_client_set_duid_uuid(sd_dhcp6_client *client);
 int sd_dhcp6_client_set_duid_raw(sd_dhcp6_client *client, uint16_t duid_type, const uint8_t *duid, size_t duid_len);
+int sd_dhcp6_client_set_duid(sd_dhcp6_client *client, const sd_dhcp_duid *duid);
+int sd_dhcp6_client_get_duid(sd_dhcp6_client *client, const sd_dhcp_duid **ret);
+int sd_dhcp6_client_get_duid_as_string(sd_dhcp6_client *client, char **ret);
 int sd_dhcp6_client_set_iaid(
                 sd_dhcp6_client *client,
                 uint32_t iaid);
 int sd_dhcp6_client_get_iaid(
                 sd_dhcp6_client *client,
                 uint32_t *iaid);
-int sd_dhcp6_client_duid_as_string(
-                sd_dhcp6_client *client,
-                char **duid);
 int sd_dhcp6_client_set_fqdn(
                 sd_dhcp6_client *client,
                 const char *fqdn);
