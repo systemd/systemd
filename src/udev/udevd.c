@@ -355,6 +355,8 @@ int run_udevd(int argc, char *argv[]) {
                 log_set_max_level(LOG_DEBUG);
         }
 
+        manager_adjust_arguments(manager);
+
         r = must_be_root();
         if (r < 0)
                 return r;
