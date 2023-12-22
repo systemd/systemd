@@ -289,7 +289,7 @@ static int handle_arg_console(const char *arg) {
         else if (streq(arg, "passive"))
                 arg_console_mode = CONSOLE_PASSIVE;
         else if (streq(arg, "pipe")) {
-                if (isatty(STDIN_FILENO) > 0 && isatty(STDOUT_FILENO) > 0)
+                if (isatty(STDIN_FILENO) && isatty(STDOUT_FILENO))
                         log_full(arg_quiet ? LOG_DEBUG : LOG_NOTICE,
                                  "Console mode 'pipe' selected, but standard input/output are connected to an interactive TTY. "
                                  "Most likely you want to use 'interactive' console mode for proper interactivity and shell job control. "
@@ -297,7 +297,7 @@ static int handle_arg_console(const char *arg) {
 
                 arg_console_mode = CONSOLE_PIPE;
         } else if (streq(arg, "autopipe")) {
-                if (isatty(STDIN_FILENO) > 0 && isatty(STDOUT_FILENO) > 0)
+                if (isatty(STDIN_FILENO) && isatty(STDOUT_FILENO))
                         arg_console_mode = CONSOLE_INTERACTIVE;
                 else
                         arg_console_mode = CONSOLE_PIPE;
@@ -5766,9 +5766,8 @@ static int run(int argc, char *argv[]) {
                 goto finish;
 
         if (arg_console_mode < 0)
-                arg_console_mode =
-                        isatty(STDIN_FILENO) > 0 &&
-                        isatty(STDOUT_FILENO) > 0 ? CONSOLE_INTERACTIVE : CONSOLE_READ_ONLY;
+                arg_console_mode = isatty(STDIN_FILENO) && isatty(STDOUT_FILENO) ?
+                                   CONSOLE_INTERACTIVE : CONSOLE_READ_ONLY;
 
         if (arg_console_mode == CONSOLE_PIPE) /* if we pass STDERR on to the container, don't add our own logs into it too */
                 arg_quiet = true;
