@@ -54,6 +54,19 @@ static volatile int cached_on_dev_null = -1;
 static volatile int cached_color_mode = _COLOR_INVALID;
 static volatile int cached_underline_enabled = -1;
 
+bool isatty_safe(int fd) {
+        assert(fd >= 0);
+
+        if (isatty(fd))
+                return true;
+
+        /* Be resilient if we're working on stdio, since they're set up by parent process. */
+        if (!IN_SET(fd, STDIN_FILENO, STDOUT_FILENO, STDERR_FILENO))
+                assert(errno != EBADF);
+
+        return false;
+}
+
 int chvt(int vt) {
         _cleanup_close_ int fd = -EBADF;
 
