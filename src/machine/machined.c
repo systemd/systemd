@@ -96,7 +96,7 @@ static Manager* manager_unref(Manager *m) {
         sd_event_source_unref(m->nscd_cache_flush_event);
 #endif
 
-        bus_verify_polkit_async_registry_free(m->polkit_registry);
+        hashmap_free(m->polkit_registry);
 
         manager_varlink_done(m);
 
