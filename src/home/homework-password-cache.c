@@ -11,7 +11,7 @@ void password_cache_free(PasswordCache *cache) {
 
         cache->pkcs11_passwords = strv_free_erase(cache->pkcs11_passwords);
         cache->fido2_passwords = strv_free_erase(cache->fido2_passwords);
-        cache->keyring_passswords = strv_free_erase(cache->keyring_passswords);
+        cache->keyring_passwords = strv_free_erase(cache->keyring_passwords);
 }
 
 void password_cache_load_keyring(UserRecord *h, PasswordCache *cache) {
@@ -50,8 +50,8 @@ void password_cache_load_keyring(UserRecord *h, PasswordCache *cache) {
                                 * to NUL terminate manually here: it's a valid string. */
         strv[1] = NULL;
 
-        strv_free_erase(cache->keyring_passswords);
-        cache->keyring_passswords = strv;
+        strv_free_erase(cache->keyring_passwords);
+        cache->keyring_passwords = strv;
 
         log_debug("Successfully acquired home key from kernel keyring.");
 }

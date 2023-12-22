@@ -420,7 +420,7 @@ static int luks_setup(
 
         r = -ENOKEY;
         FOREACH_POINTER(list,
-                        cache ? cache->keyring_passswords : NULL,
+                        cache ? cache->keyring_passwords : NULL,
                         cache ? cache->pkcs11_passwords : NULL,
                         cache ? cache->fido2_passwords : NULL,
                         passwords) {
@@ -561,7 +561,7 @@ static int luks_open(
 
         r = -ENOKEY;
         FOREACH_POINTER(list,
-                        cache ? cache->keyring_passswords : NULL,
+                        cache ? cache->keyring_passwords : NULL,
                         cache ? cache->pkcs11_passwords : NULL,
                         cache ? cache->fido2_passwords : NULL,
                         h->password) {
@@ -3614,7 +3614,7 @@ int home_passwd_luks(
 
         r = -ENOKEY;
         FOREACH_POINTER(list,
-                        cache ? cache->keyring_passswords : NULL,
+                        cache ? cache->keyring_passwords : NULL,
                         cache ? cache->pkcs11_passwords : NULL,
                         cache ? cache->fido2_passwords : NULL,
                         h->password) {
