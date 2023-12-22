@@ -414,7 +414,7 @@ static bool check_console_fd_is_tty(void) {
                 return false;
 
         if (console_fd_is_tty < 0)
-                console_fd_is_tty = isatty(console_fd) > 0;
+                console_fd_is_tty = isatty_safe(console_fd);
 
         return console_fd_is_tty;
 }

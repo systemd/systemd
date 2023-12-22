@@ -315,7 +315,7 @@ static int print_newline(FILE *f, const char *data, size_t l) {
 
         /* Don't bother unless this is a tty */
         fd = fileno(f);
-        if (fd >= 0 && isatty(fd) <= 0)
+        if (fd >= 0 && !isatty_safe(fd))
                 return 0;
 
         if (fputc('\n', f) != '\n')
