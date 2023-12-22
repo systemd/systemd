@@ -1771,6 +1771,28 @@ static int json_format(FILE *f, JsonVariant *v, JsonFormatFlags flags, const cha
         return 0;
 }
 
+static bool json_variant_is_sensitive_recursive(JsonVariant *v) {
+        if (!v)
+                return false;
+        if (json_variant_is_sensitive(v))
+                return true;
+        if (v == JSON_VARIANT_MAGIC_EMPTY_ARRAY ||
+            v == JSON_VARIANT_MAGIC_EMPTY_OBJECT)
+                return false;
+        if (!json_variant_is_regular(v))
+                return false;
+        if (!IN_SET(v->type, JSON_VARIANT_ARRAY, JSON_VARIANT_OBJECT))
+                return false;
+        if (v->is_reference)
+                return json_variant_is_sensitive_recursive(v->reference);
+
+        for (size_t i = 0; i < json_variant_elements(v); i++)
+                if (json_variant_is_sensitive_recursive(json_variant_by_index(v, i)))
+                        return true;
+
+        return false;
+}
+
 int json_variant_format(JsonVariant *v, JsonFormatFlags flags, char **ret) {
         _cleanup_(memstream_done) MemStream m = {};
         size_t sz;
@@ -1785,6 +1807,10 @@ int json_variant_format(JsonVariant *v, JsonFormatFlags flags, char **ret) {
 
         if (flags & JSON_FORMAT_OFF)
                 return -ENOEXEC;
+
+        if ((flags & JSON_FORMAT_REFUSE_SENSITIVE))
+                if (json_variant_is_sensitive_recursive(v))
+                        return -EPERM;
 
         f = memstream_init(&m);
         if (!f)
