@@ -710,33 +710,33 @@
 
   <refsect1>
       <title>See Also</title>
-      <para>
-        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-        <citerefentry project='man-pages'><refentrytitle>bootparam</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-        <citerefentry><refentrytitle>smbios-type-11</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-        <citerefentry project='man-pages'><refentrytitle>dracut.cmdline</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-debug-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-fsck@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-quotacheck.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-vconsole-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry project='die-net'><refentrytitle>plymouth</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-cryptsetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-veritysetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-getty-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-volatile-root.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-modules-load.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-backlight@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-rfkill.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-hibernate-resume-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-firstboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-      </para>
+      <para><simplelist type="inline">
+        <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry project='man-pages'><refentrytitle>bootparam</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.system-credentials</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>smbios-type-11</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+        <member><citerefentry project='man-pages'><refentrytitle>dracut.cmdline</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-debug-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-fsck@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-quotacheck.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-vconsole-setup.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-udevd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+        <member><citerefentry project='die-net'><refentrytitle>plymouth</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-cryptsetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-veritysetup-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-fstab-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-getty-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-gpt-auto-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-volatile-root.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-modules-load.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-backlight@.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-rfkill.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-hibernate-resume-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-firstboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>bootctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      </simplelist></para>
   </refsect1>
 
 </refentry>

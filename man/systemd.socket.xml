@@ -926,25 +926,27 @@
 
   <refsect1>
       <title>See Also</title>
-      <para>
-        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>sd_listen_fds_with_names</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-      </para>
+      <para><simplelist type="inline">
+        <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.kill</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.directives</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>sd_listen_fds_with_names</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      </simplelist></para>
       <para>
         For more extensive descriptions see the "systemd for Developers" series:
-        <ulink url="https://0pointer.de/blog/projects/socket-activation.html">Socket Activation</ulink>,
-        <ulink url="https://0pointer.de/blog/projects/socket-activation2.html">Socket Activation, part II</ulink>,
-        <ulink url="https://0pointer.de/blog/projects/inetd.html">Converting inetd Services</ulink>,
-        <ulink url="https://0pointer.de/blog/projects/socket-activated-containers.html">Socket Activated Internet Services and OS Containers</ulink>.
+        <simplelist type="inline">
+          <member><ulink url="https://0pointer.de/blog/projects/socket-activation.html">Socket Activation</ulink></member>
+          <member><ulink url="https://0pointer.de/blog/projects/socket-activation2.html">Socket Activation, part II</ulink></member>
+          <member><ulink url="https://0pointer.de/blog/projects/inetd.html">Converting inetd Services</ulink></member>
+          <member><ulink url="https://0pointer.de/blog/projects/socket-activated-containers.html">Socket Activated Internet Services and OS Containers</ulink></member>
+        </simplelist>.
       </para>
   </refsect1>
 

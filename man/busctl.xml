@@ -578,14 +578,14 @@ o "/org/freedesktop/systemd1/job/42684"</programlisting>
   <refsect1>
     <title>See Also</title>
 
-    <para>
-      <citerefentry project='dbus'><refentrytitle>dbus-daemon</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <ulink url="https://www.freedesktop.org/wiki/Software/dbus">D-Bus</ulink>,
-      <citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry project='die-net'><refentrytitle>wireshark</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    </para>
+    <para><simplelist type="inline">
+      <member><citerefentry project='dbus'><refentrytitle>dbus-daemon</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><ulink url="https://www.freedesktop.org/wiki/Software/dbus">D-Bus</ulink></member>
+      <member><citerefentry><refentrytitle>sd-bus</refentrytitle><manvolnum>3</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>varlinkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>wireshark</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
   </refsect1>
 </refentry>
