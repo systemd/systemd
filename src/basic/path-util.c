@@ -1193,10 +1193,7 @@ bool path_is_normalized(const char *p) {
         if (!path_is_safe(p))
                 return false;
 
-        if (streq(p, ".") || startswith(p, "./") || endswith(p, "/.") || strstr(p, "/./"))
-                return false;
-
-        if (strstr(p, "//"))
+        if (streq(p, ".") || startswith(p, "./") || endswith(p, "/.") || strstr(p, "/./") || strstr(p, "//") || strstr(p, "/../"))
                 return false;
 
         return true;
