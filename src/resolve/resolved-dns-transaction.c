@@ -162,6 +162,8 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         dns_resource_key_unref(t->key);
         dns_packet_unref(t->bypass);
 
+        free(t->answer_ede_msg);
+
         return mfree(t);
 }
 
@@ -280,6 +282,7 @@ int dns_transaction_new(
                 .dns_udp_fd = -EBADF,
                 .answer_source = _DNS_TRANSACTION_SOURCE_INVALID,
                 .answer_dnssec_result = _DNSSEC_RESULT_INVALID,
+                .answer_ede_rcode = _DNS_EDE_RCODE_INVALID,
                 .answer_nsec_ttl = UINT32_MAX,
                 .key = dns_resource_key_ref(key),
                 .query_flags = query_flags,
@@ -400,6 +403,21 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
                            "DNS_TRANSACTION=%" PRIu16, t->id,
                            "DNS_QUESTION=%s", key_str,
                            "DNSSEC_RESULT=%s", dnssec_result_to_string(t->answer_dnssec_result),
+                           "DNS_SERVER=%s", strna(dns_server_string_full(t->server)),
+                           "DNS_SERVER_FEATURE_LEVEL=%s", dns_server_feature_level_to_string(t->server->possible_feature_level));
+        }
+
+        if (state == DNS_TRANSACTION_UPSTREAM_DNSSEC_FAILURE) {
+                dns_resource_key_to_string(dns_transaction_key(t), key_str, sizeof key_str);
+
+                log_struct(LOG_NOTICE,
+                           "MESSAGE_ID=" SD_MESSAGE_DNSSEC_FAILURE_STR,
+                           LOG_MESSAGE("Upstream resolver reported failure for question %s: %s%s%s",
+                                       key_str, dns_ede_rcode_to_string(t->answer_ede_rcode),
+                                       isempty(t->answer_ede_msg) ? "" : ": ", t->answer_ede_msg),
+                           "DNS_TRANSACTION=%" PRIu16, t->id,
+                           "DNS_QUESTION=%s", key_str,
+                           "DNS_EDE_RCODE=%s", dns_ede_rcode_to_string(t->answer_ede_rcode),
                            "DNS_SERVER=%s", strna(dns_server_string_full(t->server)),
                            "DNS_SERVER_FEATURE_LEVEL=%s", dns_server_feature_level_to_string(t->server->possible_feature_level));
         }
@@ -1209,6 +1227,10 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                 ede_rcode = dns_packet_ede_rcode(p, &ede_msg);
                 if (ede_rcode < 0 && ede_rcode != -EINVAL)
                         log_debug_errno(ede_rcode, "Unable to extract EDE error code from packet, ignoring: %m");
+                else {
+                        t->answer_ede_rcode = ede_rcode;
+                        t->answer_ede_msg = TAKE_PTR(ede_msg);
+                }
 
                 if (!t->bypass &&
                     IN_SET(DNS_PACKET_RCODE(p), DNS_RCODE_FORMERR, DNS_RCODE_SERVFAIL, DNS_RCODE_NOTIMP)) {
@@ -1222,8 +1244,9 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                                         log_debug("Server returned error: %s (%s%s%s). Lookup failed.",
                                                         FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)),
                                                         FORMAT_DNS_EDE_RCODE(ede_rcode),
-                                                        isempty(ede_msg) ? "" : ": ", ede_msg);
-                                        dns_transaction_complete(t, DNS_TRANSACTION_DNSSEC_FAILED);
+                                                        isempty(t->answer_ede_msg) ? "" : ": ",
+                                                        t->answer_ede_msg);
+                                        dns_transaction_complete(t, DNS_TRANSACTION_UPSTREAM_DNSSEC_FAILURE);
                                         return;
                                 }
 
@@ -1232,7 +1255,8 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                                         log_debug("Server returned error: %s (%s%s%s), retrying transaction.",
                                                         FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)),
                                                         FORMAT_DNS_EDE_RCODE(ede_rcode),
-                                                        isempty(ede_msg) ? "" : ": ", ede_msg);
+                                                        isempty(t->answer_ede_msg) ? "" : ": ",
+                                                        t->answer_ede_msg);
                                         dns_transaction_retry(t, false);
                                         return;
                                 }
@@ -1242,7 +1266,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                                 log_debug("Server returned error: %s (%s%s%s)",
                                                 FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)),
                                                 FORMAT_DNS_EDE_RCODE(ede_rcode),
-                                                isempty(ede_msg) ? "" : ": ", ede_msg);
+                                                isempty(t->answer_ede_msg) ? "" : ": ", t->answer_ede_msg);
                                 break;
                         } /* No EDE rcode, or EDE rcode we don't understand */
 
