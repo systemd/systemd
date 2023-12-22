@@ -210,9 +210,10 @@ int link_queue_request_full(
                            process, counter, netlink_handler, ret);
 }
 
-int manager_process_requests(sd_event_source *s, void *userdata) {
-        Manager *manager = ASSERT_PTR(userdata);
+int manager_process_requests(Manager *manager) {
         int r;
+
+        assert(manager);
 
         for (;;) {
                 bool processed = false;
