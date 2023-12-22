@@ -3592,6 +3592,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.check_ipv6_sysctl_attr('dummy98', 'proxy_ndp', '1')
         self.check_ipv4_sysctl_attr('dummy98', 'forwarding', '1')
         self.check_ipv4_sysctl_attr('dummy98', 'proxy_arp', '1')
+        # FIXME: self.check_ipv4_sysctl_attr('dummy98', 'proxy_arp_pvlan', '1') should it end here?
         self.check_ipv4_sysctl_attr('dummy98', 'accept_local', '1')
         self.check_ipv4_sysctl_attr('dummy98', 'rp_filter', '0')
 
