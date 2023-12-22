@@ -11,7 +11,6 @@
 #include "escape.h"
 #include "fileio.h"
 #include "main-func.h"
-#include "mkdir.h"
 #include "parse-util.h"
 #include "percent-util.h"
 #include "pretty-print.h"
@@ -20,6 +19,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "verbs.h"
 
 #define PCI_CLASS_GRAPHICS_CARD 0x30000
 
@@ -309,7 +309,8 @@ static int validate_device(sd_device *device) {
         return true;
 }
 
-static int get_max_brightness(sd_device *device, unsigned *ret) {
+static int read_max_brightness(sd_device *device, unsigned *ret) {
+        unsigned max_brightness;
         const char *s;
         int r;
 
@@ -320,11 +321,22 @@ static int get_max_brightness(sd_device *device, unsigned *ret) {
         if (r < 0)
                 return log_device_warning_errno(device, r, "Failed to read 'max_brightness' attribute: %m");
 
-        r = safe_atou(s, ret);
+        r = safe_atou(s, &max_brightness);
         if (r < 0)
                 return log_device_warning_errno(device, r, "Failed to parse 'max_brightness' \"%s\": %m", s);
 
-        return 0;
+        /* If max_brightness is 0, then there is no actual backlight device. This happens on desktops
+         * with Asus mainboards that load the eeepc-wmi module. */
+        if (max_brightness == 0) {
+                log_device_warning(device, "Maximum brightness is 0, ignoring device.");
+                *ret = 0;
+                return 0;
+        }
+
+        log_device_debug(device, "Maximum brightness is %u", max_brightness);
+
+        *ret = max_brightness;
+        return 1; /* valid max brightness */
 }
 
 static int clamp_brightness(
@@ -459,154 +471,219 @@ use_brightness:
         return 0;
 }
 
-static int run(int argc, char *argv[]) {
-        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
-        _cleanup_free_ char *escaped_ss = NULL, *escaped_sysname = NULL, *escaped_path_id = NULL;
-        const char *sysname, *path_id, *ss, *saved;
-        unsigned max_brightness, brightness;
+static int build_save_file_path(sd_device *device, char **ret) {
+        _cleanup_free_ char *escaped_subsystem = NULL, *escaped_sysname = NULL, *path = NULL;
+        const char *s;
         int r;
 
-        log_setup();
+        assert(device);
+        assert(ret);
 
-        if (argv_looks_like_help(argc, argv))
-                return help();
-
-        if (argc != 3)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "This program requires two arguments.");
-
-        if (!STR_IN_SET(argv[1], "load", "save"))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown verb %s.", argv[1]);
-
-        umask(0022);
-
-        r = mkdir_p("/var/lib/systemd/backlight", 0755);
+        r = sd_device_get_subsystem(device, &s);
         if (r < 0)
-                return log_error_errno(r, "Failed to create backlight directory /var/lib/systemd/backlight: %m");
+                return log_device_error_errno(device, r, "Failed to get subsystem: %m");
 
-        sysname = strchr(argv[2], ':');
-        if (!sysname)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Requires a subsystem and sysname pair specifying a backlight device.");
-
-        ss = strndupa_safe(argv[2], sysname - argv[2]);
-
-        sysname++;
-
-        if (!STR_IN_SET(ss, "backlight", "leds"))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Not a backlight or LED device: '%s:%s'", ss, sysname);
-
-        r = sd_device_new_from_subsystem_sysname(&device, ss, sysname);
-        if (r < 0) {
-                bool ignore = r == -ENODEV;
-
-                /* Some drivers, e.g. for AMD GPU, removes acpi backlight device soon after it is added.
-                 * See issue #21997. */
-                log_full_errno(ignore ? LOG_DEBUG : LOG_ERR, r,
-                               "Failed to get backlight or LED device '%s:%s'%s: %m",
-                               ss, sysname, ignore ? ", ignoring" : "");
-                return ignore ? 0 : r;
-        }
-
-        /* If max_brightness is 0, then there is no actual backlight device. This happens on desktops
-         * with Asus mainboards that load the eeepc-wmi module. */
-        if (get_max_brightness(device, &max_brightness) < 0)
-                return 0;
-
-        if (max_brightness == 0) {
-                log_device_warning(device, "Maximum brightness is 0, ignoring device.");
-                return 0;
-        }
-
-        log_device_debug(device, "Maximum brightness is %u", max_brightness);
-
-        escaped_ss = cescape(ss);
-        if (!escaped_ss)
+        escaped_subsystem = cescape(s);
+        if (!escaped_subsystem)
                 return log_oom();
 
-        escaped_sysname = cescape(sysname);
+        r = sd_device_get_sysname(device, &s);
+        if (r < 0)
+                return log_device_error_errno(device, r, "Failed to get sysname: %m");
+
+        escaped_sysname = cescape(s);
         if (!escaped_sysname)
                 return log_oom();
 
-        if (sd_device_get_property_value(device, "ID_PATH", &path_id) >= 0) {
-                escaped_path_id = cescape(path_id);
+        if (sd_device_get_property_value(device, "ID_PATH", &s) >= 0) {
+                _cleanup_free_ char *escaped_path_id = cescape(s);
                 if (!escaped_path_id)
                         return log_oom();
 
-                saved = strjoina("/var/lib/systemd/backlight/", escaped_path_id, ":", escaped_ss, ":", escaped_sysname);
+                path = strjoin("/var/lib/systemd/backlight/", escaped_path_id, ":", escaped_subsystem, ":", escaped_sysname);
         } else
-                saved = strjoina("/var/lib/systemd/backlight/", escaped_ss, ":", escaped_sysname);
+                path = strjoin("/var/lib/systemd/backlight/", escaped_subsystem, ":", escaped_sysname);
+        if (!path)
+                return log_oom();
+
+        *ret = TAKE_PTR(path);
+        return 0;
+}
+
+static int read_saved_brightness(sd_device *device, unsigned *ret) {
+        _cleanup_free_ char *path = NULL, *value = NULL;
+        int r;
+
+        assert(device);
+        assert(ret);
+
+        r = build_save_file_path(device, &path);
+        if (r < 0)
+                return r;
+
+        r = read_one_line_file(path, &value);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        log_device_error_errno(device, r, "Failed to read %s: %m", path);
+                return r;
+        }
+
+        r = safe_atou(value, ret);
+        if (r < 0) {
+                log_device_warning_errno(device, r,
+                                         "Failed to parse saved brightness '%s', removing %s.",
+                                         value, path);
+                (void) unlink(path);
+                return r;
+        }
+
+        log_device_debug(device, "Using saved brightness %u.", *ret);
+        return 0;
+}
+
+static int device_new_from_arg(const char *s, sd_device **ret) {
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_free_ char *subsystem = NULL;
+        const char *sysname;
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        sysname = strchr(s, ':');
+        if (!sysname)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Requires a subsystem and sysname pair specifying a backlight or LED device.");
+
+        subsystem = strndup(s, sysname - s);
+        if (!subsystem)
+                return log_oom();
+
+        sysname++;
+
+        if (!STR_IN_SET(subsystem, "backlight", "leds"))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Not a backlight or LED device: '%s:%s'",
+                                       subsystem, sysname);
+
+        r = sd_device_new_from_subsystem_sysname(&device, subsystem, sysname);
+        if (r == -ENODEV) {
+                /* Some drivers, e.g. for AMD GPU, removes acpi backlight device soon after it is added.
+                 * See issue #21997. */
+                log_debug_errno(r, "Failed to get backlight or LED device '%s:%s', ignoring: %m", subsystem, sysname);
+                *ret = NULL;
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to get backlight or LED device '%s:%s': %m", subsystem, sysname);
+
+        *ret = TAKE_PTR(device);
+        return 1; /* Found. */
+}
+
+static int verb_load(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        unsigned max_brightness, brightness, percent;
+        bool clamp;
+        int r;
+
+        assert(argc == 2);
+
+        if (!shall_restore_state())
+                return 0;
+
+        r = device_new_from_arg(argv[1], &device);
+        if (r <= 0)
+                return r;
+
+        r = read_max_brightness(device, &max_brightness);
+        if (r <= 0)
+                return r;
+
+        /* Ignore any errors in validation, and use the device as is. */
+        if (validate_device(device) == 0)
+                return 0;
+
+        clamp = shall_clamp(device, &percent);
+
+        r = read_saved_brightness(device, &brightness);
+        if (r < 0) {
+                /* Fallback to clamping current brightness or exit early if clamping is not
+                 * supported/enabled. */
+                if (!clamp)
+                        return 0;
+
+                r = read_brightness(device, max_brightness, &brightness);
+                if (r < 0)
+                        return log_device_error_errno(device, r, "Failed to read current brightness: %m");
+
+                (void) clamp_brightness(device, percent, /* saved = */ false, max_brightness, &brightness);
+        } else if (clamp)
+                (void) clamp_brightness(device, percent, /* saved = */ true, max_brightness, &brightness);
+
+        r = sd_device_set_sysattr_valuef(device, "brightness", "%u", brightness);
+        if (r < 0)
+                return log_device_error_errno(device, r, "Failed to write system 'brightness' attribute: %m");
+
+        return 0;
+}
+
+static int verb_save(int argc, char *argv[], void *userdata) {
+        _cleanup_(sd_device_unrefp) sd_device *device = NULL;
+        _cleanup_free_ char *path = NULL;
+        unsigned max_brightness, brightness;
+        int r;
+
+        assert(argc == 2);
+
+        r = device_new_from_arg(argv[1], &device);
+        if (r <= 0)
+                return r;
+
+        r = read_max_brightness(device, &max_brightness);
+        if (r <= 0)
+                return r;
+
+        r = build_save_file_path(device, &path);
+        if (r < 0)
+                return r;
 
         /* If there are multiple conflicting backlight devices, then their probing at boot-time might
          * happen in any order. This means the validity checking of the device then is not reliable,
          * since it might not see other devices conflicting with a specific backlight. To deal with
          * this, we will actively delete backlight state files at shutdown (where device probing should
          * be complete), so that the validity check at boot time doesn't have to be reliable. */
+        if (validate_device(device) == 0) {
+                (void) unlink(path);
+                return 0;
+        }
 
-        if (streq(argv[1], "load")) {
-                _cleanup_free_ char *value = NULL;
-                unsigned percent;
-                bool clamp;
+        r = read_brightness(device, max_brightness, &brightness);
+        if (r < 0)
+                return log_device_error_errno(device, r, "Failed to read current brightness: %m");
 
-                if (!shall_restore_state())
-                        return 0;
-
-                if (validate_device(device) == 0)
-                        return 0;
-
-                clamp = shall_clamp(device, &percent);
-
-                r = read_one_line_file(saved, &value);
-                if (r < 0 && r != -ENOENT)
-                        return log_error_errno(r, "Failed to read %s: %m", saved);
-                if (r > 0) {
-                        r = safe_atou(value, &brightness);
-                        if (r < 0) {
-                                log_warning_errno(r, "Failed to parse saved brightness '%s', removing %s.",
-                                                  value, saved);
-                                (void) unlink(saved);
-                        } else {
-                                log_debug("Using saved brightness %u.", brightness);
-                                if (clamp)
-                                        (void) clamp_brightness(device, percent, /* saved = */ true, max_brightness, &brightness);
-
-                                /* Do not fall back to read current brightness below. */
-                                r = 1;
-                        }
-                }
-                if (r <= 0) {
-                        /* Fallback to clamping current brightness or exit early if clamping is not
-                         * supported/enabled. */
-                        if (!clamp)
-                                return 0;
-
-                        r = read_brightness(device, max_brightness, &brightness);
-                        if (r < 0)
-                                return log_device_error_errno(device, r, "Failed to read current brightness: %m");
-
-                        (void) clamp_brightness(device, percent, /* saved = */ false, max_brightness, &brightness);
-                }
-
-                r = sd_device_set_sysattr_valuef(device, "brightness", "%u", brightness);
-                if (r < 0)
-                        return log_device_error_errno(device, r, "Failed to write system 'brightness' attribute: %m");
-
-        } else if (streq(argv[1], "save")) {
-                if (validate_device(device) == 0) {
-                        (void) unlink(saved);
-                        return 0;
-                }
-
-                r = read_brightness(device, max_brightness, &brightness);
-                if (r < 0)
-                        return log_device_error_errno(device, r, "Failed to read current brightness: %m");
-
-                r = write_string_filef(saved, WRITE_STRING_FILE_CREATE, "%u", brightness);
-                if (r < 0)
-                        return log_device_error_errno(device, r, "Failed to write %s: %m", saved);
-
-        } else
-                assert_not_reached();
+        r = write_string_filef(path, WRITE_STRING_FILE_CREATE | WRITE_STRING_FILE_MKDIR_0755, "%u", brightness);
+        if (r < 0)
+                return log_device_error_errno(device, r, "Failed to write %s: %m", path);
 
         return 0;
+}
+
+static int run(int argc, char *argv[]) {
+        static const Verb verbs[] = {
+                { "load", 2, 2, VERB_ONLINE_ONLY, verb_load },
+                { "save", 2, 2, VERB_ONLINE_ONLY, verb_save },
+                {}
+        };
+
+        log_setup();
+
+        if (argv_looks_like_help(argc, argv))
+                return help();
+
+        umask(0022);
+
+        return dispatch_verb(argc, argv, verbs, NULL);
 }
 
 DEFINE_MAIN_FUNCTION(run);
