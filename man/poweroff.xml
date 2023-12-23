@@ -55,9 +55,11 @@
       <varlistentry>
         <term><option>--help</option></term>
 
-        <xi:include href="standard-options.xml" xpointer="help-text" />
+        <listitem>
+          <xi:include href="standard-options.xml" xpointer="help-para" />
 
-        <xi:include href="version-info.xml" xpointer="v253"/>
+          <xi:include href="version-info.xml" xpointer="v253"/>
+        </listitem>
       </varlistentry>
 
       <varlistentry>

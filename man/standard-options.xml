@@ -11,7 +11,7 @@
     <term><option>--help</option></term>
 
     <listitem id='help-text'>
-      <para>Print a short help text and exit.
+      <para id='help-para'>Print a short help text and exit.
     </para></listitem>
   </varlistentry>
 
