@@ -1109,7 +1109,7 @@ int pidref_is_alive(const PidRef *pidref) {
         int r, result;
 
         if (!pidref_is_set(pidref))
-                return -ESRCH;
+                return -EINVAL;
 
         result = pid_is_alive(pidref->pid);
         if (result < 0)
