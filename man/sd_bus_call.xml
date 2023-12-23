@@ -122,22 +122,24 @@
         <varlistentry>
           <term><constant>-EINVAL</constant></term>
 
-          <listitem><para>The input parameter <parameter>m</parameter> is <constant>NULL</constant>.
-          </para>
+          <listitem>
+            <para>The input parameter <parameter>m</parameter> is <constant>NULL</constant>.
+            </para>
 
-          <xi:include href="version-info.xml" xpointer="v246"/></listitem>
+            <para>The input parameter <parameter>m</parameter> is not a D-Bus method call.
+            To create a new D-Bus method call, use
+            <citerefentry><refentrytitle>sd_bus_message_new_method_call</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
+            </para>
 
-          <listitem><para>The input parameter <parameter>m</parameter> is not a D-Bus method call.
-          To create a new D-Bus method call, use
-          <citerefentry><refentrytitle>sd_bus_message_new_method_call</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
-          </para></listitem>
+            <para>The input parameter <parameter>m</parameter> has the
+            <constant>BUS_MESSAGE_NO_REPLY_EXPECTED</constant> flag set.</para>
 
-          <listitem><para>The input parameter <parameter>m</parameter> has the
-          <constant>BUS_MESSAGE_NO_REPLY_EXPECTED</constant> flag set.</para></listitem>
+            <para>The input parameter <parameter>error</parameter> is
+            non-<constant>NULL</constant> but was not set to <constant>SD_BUS_ERROR_NULL</constant>.
+            </para>
 
-          <listitem><para>The input parameter <parameter>error</parameter> is
-          non-<constant>NULL</constant> but was not set to <constant>SD_BUS_ERROR_NULL</constant>.
-          </para></listitem>
+            <xi:include href="version-info.xml" xpointer="v246"/>
+          </listitem>
         </varlistentry>
 
         <varlistentry>
