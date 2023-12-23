@@ -102,7 +102,7 @@
         <funcdef>int <function>sd_id128_in_set_sentinel</function></funcdef>
         <paramdef>sd_id128_t <parameter>id</parameter></paramdef>
         <paramdef>…</paramdef>
-        <paramdef><constant>SD_ID128_NULL</constant></paramdef>
+        <paramdef><parameter><constant>SD_ID128_NULL</constant></parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
