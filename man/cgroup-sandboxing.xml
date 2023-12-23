@@ -11,6 +11,6 @@
 in the service unit, as it applies to the whole control group.</para>
 
 <para id="plural">These options cannot be bypassed by prefixing <literal>+</literal> to the executable path
-in the service unit, as it applies to the whole control group.</para>
+in the service unit, as they apply to the whole control group.</para>
 
 </refsect1>
