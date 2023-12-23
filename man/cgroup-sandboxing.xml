@@ -6,6 +6,7 @@
 -->
 
 <refsect1>
+  <title/>
 
 <para id="singular">This option cannot be bypassed by prefixing <literal>+</literal> to the executable path
 in the service unit, as it applies to the whole control group.</para>

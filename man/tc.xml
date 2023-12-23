@@ -6,6 +6,8 @@
 -->
 
 <refsect1>
+  <title/>
+
   <variablelist class='network-directives'>
     <varlistentry id='qdisc-parent'>
       <term><varname>Parent=</varname></term>
