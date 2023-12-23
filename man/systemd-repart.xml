@@ -378,8 +378,8 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--tpm2-device-key=</option><arg>PATH</arg></term>
-        <term><option>--tpm2-seal-key-handle=</option><arg>HANDLE</arg></term>
+        <term><option>--tpm2-device-key=</option><replaceable>PATH</replaceable></term>
+        <term><option>--tpm2-seal-key-handle=</option><replaceable>HANDLE</replaceable></term>
 
         <listitem><para>Configures a TPM2 SRK key to bind encryption to. See
         <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -389,8 +389,8 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--tpm2-public-key=</option><arg>PATH</arg></term>
-        <term><option>--tpm2-public-key-pcrs=</option><arg rep="repeat">PCR</arg></term>
+        <term><option>--tpm2-public-key=</option><replaceable>PATH</replaceable></term>
+        <term><option>--tpm2-public-key-pcrs=</option><replaceable>PCR<optional>+PCR&hellip;</optional></replaceable></term>
 
         <listitem><para>Configures a TPM2 signed PCR policy to bind encryption to. See
         <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -400,7 +400,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--tpm2-pcrlock=</option><arg>PATH</arg></term>
+        <term><option>--tpm2-pcrlock=</option><replaceable>PATH</replaceable></term>
 
         <listitem><para>Configures a TPM2 pcrlock policy to bind encryption to. See
         <citerefentry><refentrytitle>systemd-cryptenroll</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -410,7 +410,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--split=</option><arg>BOOL</arg></term>
+        <term><option>--split=</option><replaceable>BOOL</replaceable></term>
 
         <listitem><para>Enables generation of split artifacts from partitions configured with
         <varname>SplitName=</varname>. If enabled, for each partition with <varname>SplitName=</varname> set,
@@ -427,8 +427,8 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--include-partitions=</option><arg rep="repeat">PARTITION</arg></term>
-        <term><option>--exclude-partitions=</option><arg rep="repeat">PARTITION</arg></term>
+        <term><option>--include-partitions=</option><replaceable>PARTITIONS</replaceable></term>
+        <term><option>--exclude-partitions=</option><replaceable>PARTITIONS</replaceable></term>
 
         <listitem><para>These options specify which partition types <command>systemd-repart</command> should
         operate on. If <option>--include-partitions=</option> is used, all partitions that aren't specified
@@ -442,7 +442,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--defer-partitions=</option><arg rep="repeat">PARTITION</arg></term>
+        <term><option>--defer-partitions=</option><replaceable>PARTITIONS</replaceable></term>
 
         <listitem><para>This option specifies for which partition types <command>systemd-repart</command>
         should defer. All partitions that are deferred using this option are still taken into account when
@@ -455,7 +455,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--sector-size=</option><arg>BYTES</arg></term>
+        <term><option>--sector-size=</option><replaceable>BYTES</replaceable></term>
 
         <listitem><para>This option allows configuring the sector size of the image produced by
         <command>systemd-repart</command>. It takes a value that is a power of <literal>2</literal> between
@@ -466,7 +466,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--architecture=</option><arg>ARCH</arg></term>
+        <term><option>--architecture=</option><replaceable>ARCH</replaceable></term>
 
         <listitem><para>This option allows overriding the architecture used for architecture specific
         partition types. For example, if set to <literal>arm64</literal> a partition type of
@@ -496,7 +496,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--offline=</option><arg>BOOL</arg></term>
+        <term><option>--offline=</option><replaceable>BOOL</replaceable></term>
 
         <listitem><para>Instructs <command>systemd-repart</command> to build the image offline. Takes a
         boolean or <literal>auto</literal>. Defaults to <literal>auto</literal>. If enabled, the image is
@@ -510,7 +510,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--copy-from=</option><arg>IMAGE</arg></term>
+        <term><option>--copy-from=</option><replaceable>IMAGE</replaceable></term>
 
         <listitem><para>Instructs <command>systemd-repart</command> to synthesize partition definitions from
         the partition table in the given image. This option can be specified multiple times to synthesize
