@@ -177,7 +177,7 @@
     <cmdsynopsis>
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
-      <arg choice="plain">srk</arg> &gt;<arg choice="plain"><replaceable>FILE</replaceable></arg>
+      <arg choice="plain">srk</arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>systemd-analyze</command>
