@@ -116,24 +116,28 @@
         <varlistentry>
           <term><option>K</option></term>
 
-          <para>This option instructs the pager to exit immediately when
-          <keycombo><keycap>Ctrl</keycap><keycap>C</keycap></keycombo> is pressed. To allow
-          <command>less</command> to handle <keycombo><keycap>Ctrl</keycap><keycap>C</keycap></keycombo>
-          itself to switch back to the pager command prompt, unset this option.</para>
+          <listitem>
+            <para>This option instructs the pager to exit immediately when
+            <keycombo><keycap>Ctrl</keycap><keycap>C</keycap></keycombo> is pressed. To allow
+            <command>less</command> to handle <keycombo><keycap>Ctrl</keycap><keycap>C</keycap></keycombo>
+            itself to switch back to the pager command prompt, unset this option.</para>
 
-          <para>If the value of <varname>$SYSTEMD_LESS</varname> does not include <literal>K</literal>,
-          and the pager that is invoked is <command>less</command>,
-          <keycombo><keycap>Ctrl</keycap><keycap>C</keycap></keycombo> will be ignored by the
-          executable, and needs to be handled by the pager.</para>
+            <para>If the value of <varname>$SYSTEMD_LESS</varname> does not include <literal>K</literal>,
+            and the pager that is invoked is <command>less</command>,
+            <keycombo><keycap>Ctrl</keycap><keycap>C</keycap></keycombo> will be ignored by the
+            executable, and needs to be handled by the pager.</para>
+          </listitem>
         </varlistentry>
 
         <varlistentry>
           <term><option>X</option></term>
 
-          <para>This option instructs the pager to not send termcap initialization and deinitialization
-          strings to the terminal. It is set by default to allow command output to remain visible in the
-          terminal even after the pager exits. Nevertheless, this prevents some pager functionality from
-          working, in particular paged output cannot be scrolled with the mouse.</para>
+          <listitem>
+            <para>This option instructs the pager to not send termcap initialization and deinitialization
+            strings to the terminal. It is set by default to allow command output to remain visible in the
+            terminal even after the pager exits. Nevertheless, this prevents some pager functionality from
+            working, in particular paged output cannot be scrolled with the mouse.</para>
+        </listitem>
         </varlistentry>
       </variablelist>
 
