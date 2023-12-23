@@ -117,7 +117,7 @@ This is based on crypttab(5).
         <term><option>salt=<replaceable>HEX</replaceable></option></term>
 
         <listitem><para>Salt used for format or verification. Format is a hexadecimal string; 256 bytes long maximum;
-        <literal>-</literal>is the special value for empty.</para>
+        <literal>-</literal> is the special value for empty.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
