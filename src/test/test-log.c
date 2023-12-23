@@ -22,6 +22,26 @@ assert_cc(!IS_SYNTHETIC_ERRNO(0));
 #define X100(x) X10(X10(x))
 #define X1000(x) X100(X10(x))
 
+static int fail_with_EINVAL(void) {
+        assert_return(false, -EINVAL);
+        return 0;
+}
+
+static void test_assert_return_is_critical(void) {
+        SAVE_ASSERT_RETURN_IS_CRITICAL;
+
+        log_set_assert_return_is_critical(false);
+        assert_se(fail_with_EINVAL() == -EINVAL);
+
+        log_set_assert_return_is_critical(true);
+        ASSERT_RETURN_IS_CRITICAL(false, assert_se(fail_with_EINVAL() == -EINVAL));
+        assert_se(log_get_assert_return_is_critical() == true);
+        ASSERT_RETURN_EXPECTED(assert_se(fail_with_EINVAL() == -EINVAL));
+        assert_se(log_get_assert_return_is_critical() == true);
+        ASSERT_RETURN_EXPECTED_SE(fail_with_EINVAL() == -EINVAL);
+        assert_se(log_get_assert_return_is_critical() == true);
+}
+
 static void test_file(void) {
         log_info("__FILE__: %s", __FILE__);
         log_info("RELATIVE_SOURCE_PATH: %s", RELATIVE_SOURCE_PATH);
@@ -207,6 +227,7 @@ static void test_log_prefix(void) {
 int main(int argc, char* argv[]) {
         test_setup_logging(LOG_DEBUG);
 
+        test_assert_return_is_critical();
         test_file();
 
         assert_se(log_info_errno(SYNTHETIC_ERRNO(EUCLEAN), "foo") == -EUCLEAN);
