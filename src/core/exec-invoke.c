@@ -3944,6 +3944,8 @@ int exec_invoke(
         assert(params);
         assert(exit_status);
 
+        /* This should be mostly redundant, as the log level is also passed as an argument of the executor,
+         * and is already applied earlier. Just for safety. */
         if (context->log_level_max >= 0)
                 log_set_max_level(context->log_level_max);
 
