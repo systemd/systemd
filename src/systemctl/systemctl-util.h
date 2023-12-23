@@ -37,7 +37,7 @@ int append_unit_dependencies(sd_bus *bus, char **names, char ***ret);
 int maybe_extend_with_unit_dependencies(sd_bus *bus, char ***list);
 
 int unit_file_find_path(LookupPaths *lp, const char *unit_name, char **ret_unit_path);
-int unit_find_paths(sd_bus *bus, const char *unit_name, LookupPaths *lp, bool force_client_side, Hashmap **cached_id_map, Hashmap **cached_name_map, char **ret_fragment_path, char ***ret_dropin_paths);
+int unit_find_paths(sd_bus *bus, const char *unit_name, LookupPaths *lp, bool force_client_side, Hashmap **cached_name_map, Hashmap **cached_id_map, char **ret_fragment_path, char ***ret_dropin_paths);
 
 int unit_is_masked(sd_bus *bus, const char *unit);
 int unit_exists(LookupPaths *lp, const char *unit);
