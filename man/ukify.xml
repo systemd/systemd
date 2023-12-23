@@ -203,7 +203,7 @@
 
         <varlistentry>
           <term><option>--section=<replaceable>NAME</replaceable>:<replaceable>TEXT</replaceable>|<replaceable>@PATH</replaceable></option></term>
-          <term><option>--section=<replaceable>NAME</replaceable>:<arg choice="plain">text|binary</arg><optional>@<replaceable>PATH</replaceable></optional></option></term>
+          <term><option>--section=<replaceable>NAME</replaceable>:text|binary<optional>@<replaceable>PATH</replaceable></optional></option></term>
 
           <listitem><para>For all verbs except <command>inspect</command>, the first syntax is used.
           Specify an arbitrary additional section <literal><replaceable>NAME</replaceable></literal>.
