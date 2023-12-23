@@ -630,6 +630,14 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   file (containing firmware measurement data) to read. This allows overriding
   the default of `/sys/kernel/security/tpm0/binary_bios_measurements`.
 
+`systemd-sleep`:
+
+* `$SYSTEMD_SLEEP_FREEZE_USER_SESSIONS` - Takes a boolean. When true (the default),
+  `user.slice` will be frozen during sleep. When false it will not be. We recommend
+  against using this variable, because it can lead to undesired behavior, especially
+  for systems that use home directory encryption and for
+  `systemd-suspend-then-hibernate.service`.
+
 Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
 `busctl`):
 
