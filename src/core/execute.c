@@ -434,7 +434,7 @@ int exec_spawn(Unit *unit,
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to set O_CLOEXEC on serialized fds: %m");
 
-        r = log_level_to_string_alloc(log_get_max_level(), &log_level);
+        r = log_level_to_string_alloc(context->log_level_max >= 0 ? context->log_level_max : log_get_max_level(), &log_level);
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to convert log level to string: %m");
 
