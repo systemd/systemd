@@ -23,7 +23,7 @@
 
   <refsynopsisdiv>
     <cmdsynopsis>
-      <command>telinit <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="req">COMMAND</arg></command>
+      <command>telinit</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="req">COMMAND</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
