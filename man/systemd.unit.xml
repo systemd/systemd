@@ -25,17 +25,19 @@
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename><replaceable>service</replaceable>.service</filename>,
-    <filename><replaceable>socket</replaceable>.socket</filename>,
-    <filename><replaceable>device</replaceable>.device</filename>,
-    <filename><replaceable>mount</replaceable>.mount</filename>,
-    <filename><replaceable>automount</replaceable>.automount</filename>,
-    <filename><replaceable>swap</replaceable>.swap</filename>,
-    <filename><replaceable>target</replaceable>.target</filename>,
-    <filename><replaceable>path</replaceable>.path</filename>,
-    <filename><replaceable>timer</replaceable>.timer</filename>,
-    <filename><replaceable>slice</replaceable>.slice</filename>,
-    <filename><replaceable>scope</replaceable>.scope</filename></para>
+    <para><simplelist type="inline">
+      <member><filename><replaceable>service</replaceable>.service</filename></member>
+      <member><filename><replaceable>socket</replaceable>.socket</filename></member>
+      <member><filename><replaceable>device</replaceable>.device</filename></member>
+      <member><filename><replaceable>mount</replaceable>.mount</filename></member>
+      <member><filename><replaceable>automount</replaceable>.automount</filename></member>
+      <member><filename><replaceable>swap</replaceable>.swap</filename></member>
+      <member><filename><replaceable>target</replaceable>.target</filename></member>
+      <member><filename><replaceable>path</replaceable>.path</filename></member>
+      <member><filename><replaceable>timer</replaceable>.timer</filename></member>
+      <member><filename><replaceable>slice</replaceable>.slice</filename></member>
+      <member><filename><replaceable>scope</replaceable>.scope</filename></member>
+    </simplelist></para>
 
     <refsect2>
       <title>System Unit Search Path</title>
