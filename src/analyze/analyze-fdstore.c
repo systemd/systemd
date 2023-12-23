@@ -81,7 +81,7 @@ static int dump_fdstore(sd_bus *bus, const char *arg) {
         if (r < 0)
                 return r;
 
-        if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF) && table_get_rows(table) <= 0)
+        if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF) && table_get_rows(table) <= 1)
                 log_info("No file descriptors in fdstore of '%s'.", unit);
         else {
                 r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, /* show_header= */true);
