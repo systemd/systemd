@@ -10,6 +10,7 @@
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "condition.h"
+#include "constants.h"
 #include "coredump-util.h"
 #include "cpu-set-util.h"
 #include "dissect-image.h"
@@ -2936,4 +2937,52 @@ int bus_service_manager_reload(sd_bus *bus) {
                 return log_error_errno(r, "Failed to reload service manager: %s", bus_error_message(&error, r));
 
         return 0;
+}
+
+int unit_freezer_freeze(const char *name, UnitFreezer *ret) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_free_ char *namedup = NULL;
+        int r;
+
+        assert(name);
+        assert(ret);
+
+        namedup = strdup(name);
+        if (!namedup)
+                return log_oom_debug();
+
+        r = bus_connect_system_systemd(&bus);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to open connection to systemd: %m");
+
+        (void) sd_bus_set_method_call_timeout(bus, FREEZE_TIMEOUT);
+
+        r = bus_call_method(bus, bus_systemd_mgr, "FreezeUnit", &error, NULL, "s", name);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to freeze unit %s: %s", name, bus_error_message(&error, r));
+
+        *ret = (UnitFreezer) {
+                .name = TAKE_PTR(namedup),
+                .bus = TAKE_PTR(bus),
+        };
+        return 0;
+}
+
+int unit_freezer_thaw(UnitFreezer *f) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_free_ char *name = NULL;
+        int r;
+
+        if (!f || !f->name)
+                return 0;
+
+        name = TAKE_PTR(f->name);
+        bus = TAKE_PTR(f->bus);
+
+        r = bus_call_method(bus, bus_systemd_mgr, "ThawUnit", &error, NULL, "s", name);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to thaw unit %s: %s", name, bus_error_message(&error, r));
+        return 1;
 }
