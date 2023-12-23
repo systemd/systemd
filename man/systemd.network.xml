@@ -1327,13 +1327,15 @@ Table=1234</programlisting></para>
           Fallback Peer Labeling</ulink> rules. They will be removed when the interface is
           deconfigured. Failures to manage the labels will be ignored.</para>
 
-          <para>Warning: Once labeling is enabled for network traffic, a lot of LSM access control points in
-          Linux networking stack go from dormant to active. Care should be taken to avoid getting into a
-          situation where for example remote connectivity is broken, when the security policy hasn't been
-          updated to consider LSM per-packet access controls and no rules would allow any network
-          traffic. Also note that additional configuration with <citerefentry
-          project='man-pages'><refentrytitle>netlabelctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-          is needed.</para>
+          <warning>
+            <para>Once labeling is enabled for network traffic, a lot of LSM access control points in
+            Linux networking stack go from dormant to active. Care should be taken to avoid getting into a
+            situation where for example remote connectivity is broken, when the security policy hasn't been
+            updated to consider LSM per-packet access controls and no rules would allow any network
+            traffic. Also note that additional configuration with <citerefentry
+            project='man-pages'><refentrytitle>netlabelctl</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            is needed.</para>
+          </warning>
 
           <para>Example:
           <programlisting>[Address]

@@ -151,10 +151,11 @@ This is based on crypttab(5).
         <term><option>ignore-zero-blocks</option></term>
 
         <listitem><para>Instruct kernel to not verify blocks that are expected to contain zeroes and always directly
-        return zeroes instead.
+        return zeroes instead.</para>
 
-        WARNING: Use this option only in very specific cases. This option is available since Linux kernel version 4.5.
-        </para>
+        <warning>
+          <para>Use this option only in very specific cases. This option is available since Linux kernel version 4.5.</para>
+        </warning>
 
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
@@ -163,11 +164,12 @@ This is based on crypttab(5).
         <term><option>check-at-most-once</option></term>
 
         <listitem><para>Instruct kernel to verify blocks only the first time they are read from the data device, rather
-        than every time.
+        than every time.</para>
 
-        WARNING: It provides a reduced level of security because only offline tampering of the data device's content
-        will be detected, not online tampering. This option is available since Linux kernel version 4.17.
-        </para>
+        <warning>
+          <para>It provides a reduced level of security because only offline tampering of the data device's content
+          will be detected, not online tampering. This option is available since Linux kernel version 4.17.</para>
+        </warning>
 
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
