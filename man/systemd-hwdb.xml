@@ -67,15 +67,15 @@
     </variablelist>
 
     <refsect2><title>systemd-hwdb
-      <arg choice="opt"><replaceable>options</replaceable></arg>
+      <optional><replaceable>options</replaceable></optional>
       update</title>
       <para>Update the binary database.</para>
     </refsect2>
 
     <refsect2><title>systemd-hwdb
-      <arg choice="opt"><replaceable>options</replaceable></arg>
+      <optional><replaceable>options</replaceable></optional>
       query
-      <arg><replaceable>MODALIAS</replaceable></arg>
+      <replaceable>MODALIAS</replaceable>
     </title>
       <para>Query database and print result.</para>
     </refsect2>
