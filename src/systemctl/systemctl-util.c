@@ -480,8 +480,8 @@ int unit_find_paths(
                 const char *unit_name,
                 LookupPaths *lp,
                 bool force_client_side,
-                Hashmap **cached_name_map,
                 Hashmap **cached_id_map,
+                Hashmap **cached_name_map,
                 char **ret_fragment_path,
                 char ***ret_dropin_paths) {
 
