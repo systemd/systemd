@@ -44,7 +44,7 @@
 
     <variablelist>
       <varlistentry>
-        <term><command>list</command></term>
+        <term><cmdsynopsis><command>list</command></cmdsynopsis></term>
 
         <listitem><para>Show all peers on the bus, by their service
         names. By default, shows both unique and well-known names, but
@@ -56,7 +56,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>status</command> <arg choice="opt"><replaceable>SERVICE</replaceable></arg></term>
+        <term><cmdsynopsis><command>status</command> <arg choice="opt"><replaceable>SERVICE</replaceable></arg></cmdsynopsis></term>
 
         <listitem><para>Show process information and credentials of a
         bus service (if one is specified by its unique or well-known
@@ -68,7 +68,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>monitor</command> <arg choice="opt" rep="repeat"><replaceable>SERVICE</replaceable></arg></term>
+        <term><cmdsynopsis><command>monitor</command> <arg choice="opt" rep="repeat"><replaceable>SERVICE</replaceable></arg></cmdsynopsis></term>
 
         <listitem><para>Dump messages being exchanged. If
         <replaceable>SERVICE</replaceable> is specified, show messages
@@ -81,7 +81,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>capture</command> <arg choice="opt" rep="repeat"><replaceable>SERVICE</replaceable></arg></term>
+        <term><cmdsynopsis><command>capture</command> <arg choice="opt" rep="repeat"><replaceable>SERVICE</replaceable></arg></cmdsynopsis></term>
 
         <listitem><para>Similar to <command>monitor</command> but
         writes the output in pcapng format (for details, see
@@ -96,7 +96,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>tree</command> <arg choice="opt" rep="repeat"><replaceable>SERVICE</replaceable></arg></term>
+        <term><cmdsynopsis><command>tree</command> <arg choice="opt" rep="repeat"><replaceable>SERVICE</replaceable></arg></cmdsynopsis></term>
 
         <listitem><para>Shows an object tree of one or more
         services. If <replaceable>SERVICE</replaceable> is specified,
@@ -108,7 +108,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>introspect</command> <arg choice="plain"><replaceable>SERVICE</replaceable></arg> <arg choice="plain"><replaceable>OBJECT</replaceable></arg> <arg choice="opt"><replaceable>INTERFACE</replaceable></arg></term>
+        <term><cmdsynopsis><command>introspect</command> <arg choice="plain"><replaceable>SERVICE</replaceable></arg> <arg choice="plain"><replaceable>OBJECT</replaceable></arg> <arg choice="opt"><replaceable>INTERFACE</replaceable></arg></cmdsynopsis></term>
 
         <listitem><para>Show interfaces, methods, properties and
         signals of the specified object (identified by its path) on
@@ -120,7 +120,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>call</command> <arg choice="plain"><replaceable>SERVICE</replaceable></arg> <arg choice="plain"><replaceable>OBJECT</replaceable></arg> <arg choice="plain"><replaceable>INTERFACE</replaceable></arg> <arg choice="plain"><replaceable>METHOD</replaceable></arg> <arg choice="opt"><replaceable>SIGNATURE</replaceable> <arg choice="opt" rep="repeat"><replaceable>ARGUMENT</replaceable></arg></arg></term>
+        <term><cmdsynopsis><command>call</command> <arg choice="plain"><replaceable>SERVICE</replaceable></arg> <arg choice="plain"><replaceable>OBJECT</replaceable></arg> <arg choice="plain"><replaceable>INTERFACE</replaceable></arg> <arg choice="plain"><replaceable>METHOD</replaceable></arg> <arg choice="opt"><replaceable>SIGNATURE</replaceable> <arg choice="opt" rep="repeat"><replaceable>ARGUMENT</replaceable></arg></arg></cmdsynopsis></term>
 
         <listitem><para>Invoke a method and show the response. Takes a
         service name, object path, interface name and method name. If
@@ -134,7 +134,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>emit</command> <arg choice="plain"><replaceable>OBJECT</replaceable></arg> <arg choice="plain"><replaceable>INTERFACE</replaceable></arg> <arg choice="plain"><replaceable>SIGNAL</replaceable></arg> <arg choice="opt"><replaceable>SIGNATURE</replaceable> <arg choice="opt" rep="repeat"><replaceable>ARGUMENT</replaceable></arg></arg></term>
+        <term><cmdsynopsis><command>emit</command> <arg choice="plain"><replaceable>OBJECT</replaceable></arg> <arg choice="plain"><replaceable>INTERFACE</replaceable></arg> <arg choice="plain"><replaceable>SIGNAL</replaceable></arg> <arg choice="opt"><replaceable>SIGNATURE</replaceable> <arg choice="opt" rep="repeat"><replaceable>ARGUMENT</replaceable></arg></arg></cmdsynopsis></term>
 
         <listitem><para>Emit a signal. Takes an object path, interface name and method name. If parameters
         shall be passed, a signature string is required, followed by the arguments, individually formatted as
@@ -145,7 +145,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>get-property</command> <arg choice="plain"><replaceable>SERVICE</replaceable></arg> <arg choice="plain"><replaceable>OBJECT</replaceable></arg> <arg choice="plain"><replaceable>INTERFACE</replaceable></arg> <arg choice="plain" rep="repeat"><replaceable>PROPERTY</replaceable></arg></term>
+        <term><cmdsynopsis><command>get-property</command> <arg choice="plain"><replaceable>SERVICE</replaceable></arg> <arg choice="plain"><replaceable>OBJECT</replaceable></arg> <arg choice="plain"><replaceable>INTERFACE</replaceable></arg> <arg choice="plain" rep="repeat"><replaceable>PROPERTY</replaceable></arg></cmdsynopsis></term>
 
         <listitem><para>Retrieve the current value of one or more
         object properties. Takes a service name, object path,
@@ -159,7 +159,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>set-property</command> <arg choice="plain"><replaceable>SERVICE</replaceable></arg> <arg choice="plain"><replaceable>OBJECT</replaceable></arg> <arg choice="plain"><replaceable>INTERFACE</replaceable></arg> <arg choice="plain"><replaceable>PROPERTY</replaceable></arg> <arg choice="plain"><replaceable>SIGNATURE</replaceable></arg> <arg choice="plain" rep="repeat"><replaceable>ARGUMENT</replaceable></arg></term>
+        <term><cmdsynopsis><command>set-property</command> <arg choice="plain"><replaceable>SERVICE</replaceable></arg> <arg choice="plain"><replaceable>OBJECT</replaceable></arg> <arg choice="plain"><replaceable>INTERFACE</replaceable></arg> <arg choice="plain"><replaceable>PROPERTY</replaceable></arg> <arg choice="plain"><replaceable>SIGNATURE</replaceable></arg> <arg choice="plain" rep="repeat"><replaceable>ARGUMENT</replaceable></arg></cmdsynopsis></term>
 
         <listitem><para>Set the current value of an object
         property. Takes a service name, object path, interface name,
@@ -170,7 +170,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>help</command></term>
+        <term><cmdsynopsis><command>help</command></cmdsynopsis></term>
 
         <listitem><para>Show command syntax help.</para>
 
