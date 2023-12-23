@@ -26,8 +26,8 @@
     <cmdsynopsis>
       <command index='false'>/path/to/generator</command>
       <arg choice="plain"><replaceable>normal-dir</replaceable></arg>
-      <arg choice="option"><replaceable>early-dir</replaceable></arg>
-      <arg choice="option"><replaceable>late-dir</replaceable></arg>
+      <arg choice="opt"><replaceable>early-dir</replaceable></arg>
+      <arg choice="opt"><replaceable>late-dir</replaceable></arg>
     </cmdsynopsis>
 
     <para><simplelist>
