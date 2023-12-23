@@ -609,3 +609,11 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   latter two via the environment variable unless `systemd-storagetm` is invoked
   to expose a single device only, since those identifiers better should be kept
   unique.
+
+`systemd-sleep`:
+
+* `$SYSTEMD_SLEEP_SKIP_FREEZE_USER_SESSIONS` - Takes a boolean. When true,
+  `user.slice` will not be frozen during sleep. We recommend against using this
+  variable, because it can lead to unexpected behavior. This is especially true
+  for systems that use home directory encryption and for
+  `systemd-suspend-then-hibernate.service`.

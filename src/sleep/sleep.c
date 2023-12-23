@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <getopt.h>
 #include <poll.h>
+#include <stdbool.h>
 #include <sys/timerfd.h>
 #include <sys/types.h>
 #include <sys/utsname.h>
@@ -23,10 +24,12 @@
 #include "build.h"
 #include "bus-error.h"
 #include "bus-locator.h"
+#include "bus-unit-util.h"
 #include "bus-util.h"
 #include "constants.h"
 #include "devnum-util.h"
 #include "efivars.h"
+#include "env-util.h"
 #include "exec-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -446,37 +449,10 @@ static int custom_timer_suspend(const SleepConfig *sleep_config) {
         return 1;
 }
 
-/* Freeze when invoked and thaw on cleanup */
-static int freeze_thaw_user_slice(const char **method) {
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
-        int r;
-
-        if (!method || !*method)
-                return 0;
-
-        r = bus_connect_system_systemd(&bus);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to open connection to systemd: %m");
-
-        (void) sd_bus_set_method_call_timeout(bus, FREEZE_TIMEOUT);
-
-        r = bus_call_method(bus, bus_systemd_mgr, *method, &error, NULL, "s", SPECIAL_USER_SLICE);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to execute operation: %s", bus_error_message(&error, r));
-
-        return 1;
-}
-
 static int execute_s2h(const SleepConfig *sleep_config) {
-        _unused_ _cleanup_(freeze_thaw_user_slice) const char *auto_method_thaw = "ThawUnit";
         int r;
 
         assert(sleep_config);
-
-        r = freeze_thaw_user_slice(&(const char*) { "FreezeUnit" });
-        if (r < 0)
-                log_debug_errno(r, "Failed to freeze unit user.slice, ignoring: %m");
 
         /* Only check if we have automated battery alarms if HibernateDelaySec= is not set, as in that case
          * we'll busy poll for the configured interval instead */
@@ -601,6 +577,7 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char *argv[]) {
+        _cleanup_(unit_freezer_thaw) UnitFreezer user_slice_freezer = UNIT_FREEZER_NULL;
         _cleanup_(sleep_config_freep) SleepConfig *sleep_config = NULL;
         int r;
 
@@ -618,6 +595,19 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EACCES),
                                        "Sleep operation \"%s\" is disabled by configuration, refusing.",
                                        sleep_operation_to_string(arg_operation));
+
+        /* Freeze the user sessions */
+        r = getenv_bool("SYSTEMD_SLEEP_SKIP_FREEZE_USER_SESSIONS");
+        if (r < 0 && r != -ENXIO)
+                log_warning_errno(r, "Cannot parse value of $SYSTEMD_SLEEP_SKIP_FREEZE_USER_SESSIONS, ignoring.");
+        if (r <= 0) {
+                r = unit_freezer_freeze(SPECIAL_USER_SLICE, &user_slice_freezer);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to freeze user sessions, ignoring: %m");
+                else
+                        log_info("Froze user sessions");
+        } else
+                log_notice("User sessions remain unfrozen on explicit request. This is not recommended and might create deadlocks, security leaks, data loss, and other undesired behavior; especially if home directory encryption or hybrid sleep is used.");
 
         switch (arg_operation) {
 
