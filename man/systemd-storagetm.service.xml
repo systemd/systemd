@@ -39,9 +39,11 @@
     NVMe-TCP mass storage devices. Its primary use-case is to be invoked by the
     <filename>storage-target-mode.target</filename> unit that can be booted into.</para>
 
-    <para>Warning: the NVMe disks are currently exposed without authentication or encryption, in read/write
-    mode. This means network peers may read from and write to the device without any restrictions. This
-    functionality should hence only be used in a local setup.</para>
+    <warning>
+      <para>The NVMe disks are currently exposed without authentication or encryption, in read/write
+      mode. This means network peers may read from and write to the device without any restrictions. This
+      functionality should hence only be used in a local setup.</para>
+    </warning>
 
     <para>Note that to function properly networking must be configured too. The recommended mechanism to boot
     into a storage target mode is by adding <literal>rd.systemd.unit=storage-target-mode.target

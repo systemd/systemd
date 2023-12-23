@@ -95,11 +95,11 @@
       <title>Item type specifiers</title>
 
       <tgroup cols='5'>
-        <xi:include href="sd_bus_message_append_basic.xml" xpointer="xpointer(//table[@id='format-specifiers'])//colspec" />
-        <xi:include href="sd_bus_message_append_basic.xml" xpointer="xpointer(//table[@id='format-specifiers']//thead)" />
+        <xi:include href="sd_bus_message_append_basic.xml" xpointer="xpointer(id('format-specifiers'))//colspec" />
+        <xi:include href="sd_bus_message_append_basic.xml" xpointer="xpointer(id('format-specifiers')//thead)" />
 
         <tbody>
-          <xi:include href="sd_bus_message_append_basic.xml" xpointer="xpointer(//table[@id='format-specifiers']//tbody/*)" />
+          <xi:include href="sd_bus_message_append_basic.xml" xpointer="xpointer(id('format-specifiers')//tbody/*)" />
 
           <row>
             <entry><literal>a</literal></entry>

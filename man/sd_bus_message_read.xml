@@ -102,7 +102,7 @@
         </thead>
 
         <tbody>
-          <xi:include href="sd_bus_message_read_basic.xml" xpointer="xpointer(//table[@id='format-specifiers']//tbody/*)" />
+          <xi:include href="sd_bus_message_read_basic.xml" xpointer="xpointer(id('format-specifiers')//tbody/*)" />
 
           <row>
             <entry><literal>a</literal></entry>
