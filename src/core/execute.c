@@ -434,7 +434,10 @@ int exec_spawn(Unit *unit,
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to set O_CLOEXEC on serialized fds: %m");
 
-        r = log_level_to_string_alloc(log_get_max_level(), &log_level);
+        /* If LogLevelMax= is specified, then let's use the specified log level at the beginning of the
+         * executor process. To achieve that the specified log level is passed as an argument, rather than
+         * the one for the manager process. */
+        r = log_level_to_string_alloc(context->log_level_max >= 0 ? context->log_level_max : log_get_max_level(), &log_level);
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to convert log level to string: %m");
 

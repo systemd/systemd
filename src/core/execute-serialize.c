@@ -2153,6 +2153,8 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         if (r < 0)
                 return r;
 
+        /* This is also passed to executor as an argument. So, the information should be redundant in general.
+         * But, let's keep this as is for consistency with other elements of ExecContext. See exec_spawn(). */
         r = serialize_item_format(f, "exec-context-log-level-max", "%d", c->log_level_max);
         if (r < 0)
                 return r;
@@ -3096,6 +3098,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-log-level-max="))) {
+                        /* See comment in serialization. */
                         r = safe_atoi(val, &c->log_level_max);
                         if (r < 0)
                                 return r;
