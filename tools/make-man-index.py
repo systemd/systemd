@@ -46,7 +46,7 @@ This index contains {count} entries, referring to {pages} individual manual page
 
 def check_id(page, t):
     page_id = t.getroot().get('id')
-    if not re.search('/' + page_id + '[.]', page):
+    if not re.search('/' + page_id + '[.]', page.translate(str.maketrans('@', '_'))):
         raise ValueError(f"id='{page_id}' is not the same as page name '{page}'")
 
 def make_index(pages):

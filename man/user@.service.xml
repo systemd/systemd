@@ -3,7 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<refentry id="user@.service">
+<refentry id="user_.service">
   <refentryinfo>
     <title>user@.service</title>
     <productname>systemd</productname>
