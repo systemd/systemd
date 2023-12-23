@@ -4,11 +4,13 @@
 #include <sys/mount.h>
 
 #include "blockdev-util.h"
+#include "bus-unit-util.h"
 #include "chown-recursive.h"
 #include "copy.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "filesystems.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "home-util.h"
 #include "homework-cifs.h"
@@ -1795,8 +1797,21 @@ static int home_inspect(UserRecord *h, UserRecord **ret_home) {
         return 1;
 }
 
+static int user_session_freezer(uid_t uid, bool freeze, UnitFreezer *ret) {
+        _cleanup_free_ char *unit = NULL;
+
+        if (asprintf(&unit, "user-" UID_FMT ".slice", uid) < 0)
+                return log_oom();
+
+        if (freeze)
+                return unit_freezer_freeze(unit, ret);
+        else
+                return unit_freezer_recover(unit, ret);
+}
+
 static int home_lock(UserRecord *h) {
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
+        _cleanup_(unit_freezer_thaw) UnitFreezer freezer = UNIT_FREEZER_NULL;
         int r;
 
         assert(h);
@@ -1812,9 +1827,15 @@ static int home_lock(UserRecord *h) {
         if (r != USER_TEST_MOUNTED)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOEXEC), "Home directory of %s is not mounted, can't lock.", h->user_name);
 
+        r = user_session_freezer(h->uid, TRUE, &freezer);
+        if (r < 0)
+                log_warning_errno(r, "Failed to freeze user session, ignoring: %m");
+
         r = home_lock_luks(h, &setup);
         if (r < 0)
                 return r;
+
+        unit_freezer_clear(&freezer); /* Don't thaw the user session. */
 
         log_info("Everything completed.");
         return 1;
@@ -1822,6 +1843,7 @@ static int home_lock(UserRecord *h) {
 
 static int home_unlock(UserRecord *h) {
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
+        _cleanup_(unit_freezer_thaw) UnitFreezer freezer = UNIT_FREEZER_NULL;
         _cleanup_(password_cache_free) PasswordCache cache = {};
         int r;
 
@@ -1835,9 +1857,9 @@ static int home_unlock(UserRecord *h) {
         /* Note that we don't check if $HOME is actually mounted, since we want to avoid disk accesses on
          * that mount until we have resumed the device. */
 
-        r = user_record_authenticate(h, h, &cache, /* strict_verify= */ false);
+        r = user_session_freezer(h->uid, FALSE, &freezer);
         if (r < 0)
-                return r;
+                log_warning_errno(r, "Failed to recover freezer for user session, ignoring: %m");
 
         r = home_unlock_luks(h, &setup, &cache);
         if (r < 0)
