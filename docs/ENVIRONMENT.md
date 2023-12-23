@@ -557,6 +557,14 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   `mkfs` when formatting LUKS home directories. There's one variable for each
   of the supported file systems for the LUKS home directory backend.
 
+* `$SYSTEMD_HOME_LOCK_FREEZE_SESSION` - Takes a boolean. When false, the user's
+  session will not be frozen when the home directory is locked. Note that the kernel
+  may still freeze any task that tries to access data from the user's locked home
+  directory. This can lead to data loss, security leaks, or other undesired behavior
+  caused by parts of the session becoming unresponsive due to disk I/O while other
+  parts of the session continue running. Thus, we highly recommend that this variable
+  isn't used unless necessary. Defaults to true.
+
 `kernel-install`:
 
 * `$KERNEL_INSTALL_BYPASS` – If set to "1", execution of kernel-install is skipped
