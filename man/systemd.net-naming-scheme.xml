@@ -223,7 +223,7 @@
           </table>
 
           <para>The PCI domain is only prepended when it is not 0. All multi-function PCI devices will carry
-          the <constant>f<replaceable>function</replaceable></constant> number in the device name, including
+          the <constant>f</constant><replaceable>function</replaceable> number in the device name, including
           the function 0 device. For non-multi-function devices, the number is suppressed if 0. The port name
           <replaceable>port_name</replaceable> is used, or the port number
           <constant>d</constant><replaceable>dev_port</replaceable> if the name is not known.</para>
