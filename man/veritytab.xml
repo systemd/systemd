@@ -48,12 +48,12 @@ This is based on crypttab(5).
     below <filename>/dev/mapper/</filename>.</para>
 
     <para>The second field contains a path to the underlying block data device, or a specification of a block device via
-    <literal>UUID=</literal> followed by the UUID.</para>
+    <varname>UUID=</varname> followed by the UUID.</para>
 
     <para>The third field contains a path to the underlying block hash device, or a specification of a block device via
-    <literal>UUID=</literal> followed by the UUID.</para>
+    <varname>UUID=</varname> followed by the UUID.</para>
 
-    <para>The fourth field is the <literal>roothash</literal> in hexadecimal.</para>
+    <para>The fourth field is the <replaceable>roothash</replaceable> in hexadecimal.</para>
 
     <para>The fifth field, if present, is a comma-delimited list of options. The following options are
     recognized:</para>
@@ -138,9 +138,9 @@ This is based on crypttab(5).
         <term><option>panic-on-corruption</option></term>
 
         <listitem><para>Defines what to do if a data verity problem is detected (data corruption). Without these
-        options kernel fails the IO operation with I/O error. With <literal>--ignore-corruption</literal> option the
-        corruption is only logged. With <literal>--restart-on-corruption</literal> or
-        <literal>--panic-on-corruption</literal> the kernel is restarted (panicked) immediately.
+        options kernel fails the IO operation with I/O error. With <option>--ignore-corruption</option> option the
+        corruption is only logged. With <option>--restart-on-corruption</option> or
+        <option>--panic-on-corruption</option> the kernel is restarted (panicked) immediately.
 
         (You have to provide way how to avoid restart loops.)</para>
 
