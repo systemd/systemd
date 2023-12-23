@@ -58,6 +58,18 @@ static int link_set_proxy_arp(Link *link) {
         return sysctl_write_ip_property_boolean(AF_INET, link->ifname, "proxy_arp", link->network->proxy_arp > 0);
 }
 
+static int link_set_proxy_arp_pvlan(Link *link) {
+        assert(link);
+
+        if (!link_is_configured_for_family(link, AF_INET))
+                return 0;
+
+        if (link->network->proxy_arp_pvlan < 0)
+                return 0;
+
+        return sysctl_write_ip_property_boolean(AF_INET, link->ifname, "proxy_arp_pvlan", link->network->proxy_arp_pvlan > 0);
+}
+
 static bool link_ip_forward_enabled(Link *link, int family) {
         assert(link);
         assert(IN_SET(family, AF_INET, AF_INET6));
@@ -256,6 +268,10 @@ int link_set_sysctl(Link *link) {
         r = link_set_proxy_arp(link);
         if (r < 0)
                log_link_warning_errno(link, r, "Cannot configure proxy ARP for interface, ignoring: %m");
+
+        r = link_set_proxy_arp_pvlan(link);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Cannot configure proxy ARP private VLAN for interface, ignoring: %m");
 
         r = link_set_ipv4_forward(link);
         if (r < 0)
