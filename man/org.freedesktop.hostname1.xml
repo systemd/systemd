@@ -425,7 +425,7 @@ node /org/freedesktop/hostname1 {
   </refsect1>
 
   <refsect1>
-    <title>See also</title>
+    <title>See Also</title>
 
     <para>David Zeuthen's original Fedora
     <ulink url="https://fedoraproject.org/wiki/Features/BetterHostname">Feature page about xdg-hostname</ulink></para>
