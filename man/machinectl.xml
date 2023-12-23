@@ -1111,16 +1111,16 @@
 
   <refsect1>
     <title>See Also</title>
-    <para>
-      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-      <citerefentry project='die-net'><refentrytitle>tar</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry project='die-net'><refentrytitle>xz</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry project='die-net'><refentrytitle>gzip</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry project='die-net'><refentrytitle>bzip2</refentrytitle><manvolnum>1</manvolnum></citerefentry>
-    </para>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-machined.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>tar</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>xz</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>gzip</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry project='die-net'><refentrytitle>bzip2</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
   </refsect1>
 
 </refentry>

@@ -67,12 +67,13 @@
 
   <refsect1>
     <title>See Also</title>
-    <para>
-      <citerefentry><refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <ulink url="https://github.com/iocost-benchmark/iocost-benchmarks">The iocost-benchmarks github project</ulink>,
-      <ulink url="https://github.com/facebookexperimental/resctl-demo/tree/main/resctl-bench/doc">The resctl-bench
-      documentation details how the values are obtained</ulink>
-    </para>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><ulink url="https://github.com/iocost-benchmark/iocost-benchmarks">The
+      iocost-benchmarks github project</ulink></member>
+      <member><ulink url="https://github.com/facebookexperimental/resctl-demo/tree/main/resctl-bench/doc">The resctl-bench
+      documentation details how the values are obtained</ulink></member>
+    </simplelist></para>
   </refsect1>
 
 </refentry>

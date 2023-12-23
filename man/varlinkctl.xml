@@ -307,9 +307,9 @@ method Extend(
   <refsect1>
     <title>See Also</title>
 
-    <para>
-      <citerefentry><refentrytitle>busctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <ulink url="https://varlink.org/">Varlink</ulink>
-    </para>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>busctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><ulink url="https://varlink.org/">Varlink</ulink></member>
+    </simplelist></para>
   </refsect1>
 </refentry>
