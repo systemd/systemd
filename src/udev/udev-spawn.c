@@ -105,19 +105,18 @@ static int on_spawn_timeout(sd_event_source *s, uint64_t usec, void *userdata) {
 
         DEVICE_TRACE_POINT(spawn_timeout, spawn->device, spawn->cmd);
 
-        kill_and_sigcont(spawn->pid, spawn->timeout_signal);
-
-        log_device_error(spawn->device, "Spawned process '%s' ["PID_FMT"] timed out after %s, killing",
+        log_device_error(spawn->device, "Spawned process '%s' ["PID_FMT"] timed out after %s, killing.",
                          spawn->cmd, spawn->pid,
                          FORMAT_TIMESPAN(spawn->timeout_usec, USEC_PER_SEC));
 
+        kill_and_sigcont(spawn->pid, spawn->timeout_signal);
         return 1;
 }
 
 static int on_spawn_timeout_warning(sd_event_source *s, uint64_t usec, void *userdata) {
         Spawn *spawn = ASSERT_PTR(userdata);
 
-        log_device_warning(spawn->device, "Spawned process '%s' ["PID_FMT"] is taking longer than %s to complete",
+        log_device_warning(spawn->device, "Spawned process '%s' ["PID_FMT"] is taking longer than %s to complete.",
                            spawn->cmd, spawn->pid,
                            FORMAT_TIMESPAN(spawn->timeout_warn_usec, USEC_PER_SEC));
 
