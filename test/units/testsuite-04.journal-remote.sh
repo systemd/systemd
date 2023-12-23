@@ -109,6 +109,11 @@ L = Brno
 O = Foo
 OU = Bar
 CN = Test CA
+
+[ v3_ca ]
+subjectKeyIdentifier = hash
+authorityKeyIdentifier = keyid:always,issuer:always
+basicConstraints = CA:true
 EOF
 cat >/run/systemd/remote-pki/client.conf <<EOF
 [ req ]
@@ -136,9 +141,11 @@ CN = localhost
 EOF
 # Generate a dummy CA
 openssl req -x509 -nodes -newkey rsa:2048 -sha256 -days 7 \
+            -extensions v3_ca \
             -config /run/systemd/remote-pki/ca.conf \
             -keyout /run/systemd/remote-pki/ca.key \
             -out /run/systemd/remote-pki/ca.crt
+openssl x509 -in /run/systemd/remote-pki/ca.crt -noout -text
 echo 01 >/run/systemd/remote-pki/ca.srl
 # Generate a client key and signing request
 openssl req -nodes -newkey rsa:2048 -sha256 \
