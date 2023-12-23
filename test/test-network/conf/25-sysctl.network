@@ -7,6 +7,7 @@ IPForward=yes
 IPv6DuplicateAddressDetection=3
 IPv6HopLimit=5
 IPv4ProxyARP=yes
+IPv4ProxyARPPrivateVLAN=yes
 IPv6ProxyNDP=yes
 IPv6AcceptRA=no
 IPv4AcceptLocal=yes
