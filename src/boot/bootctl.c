@@ -324,7 +324,7 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case 'R':
-                        arg_print_root_device ++;
+                        arg_print_root_device++;
                         break;
 
                 case ARG_NO_VARIABLES:

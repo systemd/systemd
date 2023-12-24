@@ -90,7 +90,7 @@ int path_spec_watch(PathSpec *s, sd_event_io_handler_t handler) {
                 /* If this is a symlink watch both the symlink inode and where it points to. If the inode is
                  * not a symlink both calls will install the same watch, which is redundant and doesn't
                  * hurt. */
-                for (int follow_symlink = 0; follow_symlink < 2; follow_symlink ++) {
+                for (int follow_symlink = 0; follow_symlink < 2; follow_symlink++) {
                         uint32_t f = flags;
 
                         SET_FLAG(f, IN_DONT_FOLLOW, !follow_symlink);

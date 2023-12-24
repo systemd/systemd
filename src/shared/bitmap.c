@@ -163,9 +163,9 @@ bool bitmap_iterate(const Bitmap *b, Iterator *i, unsigned *n) {
         rem = BITMAP_NUM_TO_REM(i->idx);
         bitmask = UINT64_C(1) << rem;
 
-        for (; offset < b->n_bitmaps; offset ++) {
+        for (; offset < b->n_bitmaps; offset++) {
                 if (b->bitmaps[offset]) {
-                        for (; bitmask; bitmask <<= 1, rem ++) {
+                        for (; bitmask; bitmask <<= 1, rem++) {
                                 if (b->bitmaps[offset] & bitmask) {
                                         *n = BITMAP_OFFSET_TO_NUM(offset, rem);
                                         i->idx = *n + 1;

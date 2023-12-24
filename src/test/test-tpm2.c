@@ -74,7 +74,7 @@ TEST(tpm2_util_pbkdf2_hmac_sha256) {
         };
 
         uint8_t res[SHA256_DIGEST_SIZE];
-        for(size_t i = 0; i < sizeof(test_vectors)/sizeof(test_vectors[0]); i++) {
+        for (size_t i = 0; i < sizeof(test_vectors)/sizeof(test_vectors[0]); i++) {
 
                 int rc = tpm2_util_pbkdf2_hmac_sha256(
                                 test_vectors[i].pass,

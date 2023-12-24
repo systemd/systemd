@@ -2082,7 +2082,7 @@ static int oci_hooks_array(const char *name, JsonVariant *v, JsonDispatchFlags f
                         return r;
                 }
 
-                (*n_array) ++;
+                (*n_array)++;
         }
 
         return 0;

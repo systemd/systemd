@@ -3396,7 +3396,7 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
 
         assert(m);
 
-        for (; n_meta_initialized < _META_MAX; n_meta_initialized ++) {
+        for (; n_meta_initialized < _META_MAX; n_meta_initialized++) {
                 assert(paths[n_meta_initialized]);
 
                 if (pipe2(fds + 2*n_meta_initialized, O_CLOEXEC) < 0) {

@@ -574,7 +574,7 @@ static int fido2_use_hmac_hash_specific_token(
 
 /* COSE_ECDH_ES256 is not usable with fido_cred_set_type() thus it's not listed here. */
 static const char *fido2_algorithm_to_string(int alg) {
-        switch(alg) {
+        switch (alg) {
                 case COSE_ES256:
                         return "es256";
                 case COSE_RS256:

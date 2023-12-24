@@ -135,7 +135,7 @@ bool mount_point_is_api(const char *path) {
         /* Checks if this mount point is considered "API", and hence
          * should be ignored */
 
-        for (size_t i = 0; i < ELEMENTSOF(mount_table); i ++)
+        for (size_t i = 0; i < ELEMENTSOF(mount_table); i++)
                 if (path_equal(path, mount_table[i].where))
                         return true;
 

@@ -153,7 +153,7 @@ static int find_free_uid(const char *directory, uid_t max_uid, uid_t *current_ui
         assert(directory);
         assert(current_uid);
 
-        for (;; (*current_uid) ++) {
+        for (;; (*current_uid)++) {
                 if (*current_uid > MAP_UID_MAX || *current_uid > max_uid)
                         return log_error_errno(
                                         SYNTHETIC_ERRNO(EBUSY),

@@ -423,7 +423,7 @@ static int dhcp4_server_configure(Link *link) {
                 return log_link_warning_errno(link, r, "Failed to %s Rapid Commit support for DHCPv4 server instance: %m",
                                               enable_disable(link->network->dhcp_server_rapid_commit));
 
-        for (sd_dhcp_lease_server_type_t type = 0; type < _SD_DHCP_LEASE_SERVER_TYPE_MAX; type ++) {
+        for (sd_dhcp_lease_server_type_t type = 0; type < _SD_DHCP_LEASE_SERVER_TYPE_MAX; type++) {
 
                 if (!link->network->dhcp_server_emit[type].emit)
                         continue;

@@ -401,7 +401,7 @@ static int varlink_interface_realloc(VarlinkInterface **interface, size_t n_symb
 
         assert(interface);
 
-        n_symbols ++; /* Space for trailing NULL end marker symbol */
+        n_symbols++; /* Space for trailing NULL end marker symbol */
 
         /* Overflow check */
         if (n_symbols > (SIZE_MAX - offsetof(VarlinkInterface, symbols)) / sizeof(VarlinkSymbol*))
@@ -420,7 +420,7 @@ static int varlink_symbol_realloc(VarlinkSymbol **symbol, size_t n_fields) {
 
         assert(symbol);
 
-        n_fields ++; /* Space for trailing end marker field */
+        n_fields++; /* Space for trailing end marker field */
 
         /* Overflow check */
         if (n_fields > (SIZE_MAX - offsetof(VarlinkSymbol, fields)) / sizeof(VarlinkField))

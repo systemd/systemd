@@ -1810,7 +1810,7 @@ int unit_file_verify_alias(
                 _cleanup_free_ char *dir = NULL;
                 char *p;
 
-                path_alias ++; /* skip over slash */
+                path_alias++; /* skip over slash */
 
                 r = path_extract_directory(dst, &dir);
                 if (r < 0)
