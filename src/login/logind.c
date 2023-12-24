@@ -463,8 +463,6 @@ static int deliver_session_leader_fd_consume(Session *s, const char *fdname, int
         if (r < 0)
                 return log_warning_errno(r, "Failed to attach leader pidfd for session '%s': %m", s->id);
 
-        // FIXME: Maybe call session_watch_pidfd() here?
-
         return 0;
 }
 
