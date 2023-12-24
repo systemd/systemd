@@ -120,6 +120,6 @@ body:
     attributes:
       label: The systemd version you checked that didn't have the feature you are asking for
       description: If this is not the most recently released upstream version, then please check first if it has that feature already.
-      placeholder: '253'
+      placeholder: '255'
     validations:
       required: false
