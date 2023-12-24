@@ -41,3 +41,94 @@ expression s;
 - strlen_ptr@p(s) != 0
 + !isempty(s)
 )
+@@
+/* Disable this transformation for the hashmap.h, set.h, test-hashmap.c, test-hashmap-plain.c */
+position p : script:python() {
+                p[0].file != "src/basic/hashmap.h" and
+                p[0].file != "src/basic/set.h" and
+                p[0].file != "src/test/test-hashmap.c" and
+                p[0].file != "src/test/test-hashmap-plain.c"
+        };
+expression s;
+@@
+(
+- hashmap_size@p(s) == 0
++ hashmap_isempty(s)
+|
+- hashmap_size@p(s) <= 0
++ hashmap_isempty(s)
+|
+- hashmap_size@p(s) > 0
++ !hashmap_isempty(s)
+|
+- hashmap_size@p(s) != 0
++ !hashmap_isempty(s)
+|
+- ordered_hashmap_size@p(s) == 0
++ ordered_hashmap_isempty(s)
+|
+- ordered_hashmap_size@p(s) <= 0
++ ordered_hashmap_isempty(s)
+|
+- ordered_hashmap_size@p(s) > 0
++ !ordered_hashmap_isempty(s)
+|
+- ordered_hashmap_size@p(s) != 0
++ !ordered_hashmap_isempty(s)
+|
+- set_size@p(s) == 0
++ set_isempty(s)
+|
+- set_size@p(s) <= 0
++ set_isempty(s)
+|
+- set_size@p(s) > 0
++ !set_isempty(s)
+|
+- set_size@p(s) != 0
++ !set_isempty(s)
+|
+- ordered_set_size@p(s) == 0
++ ordered_set_isempty(s)
+|
+- ordered_set_size@p(s) <= 0
++ ordered_set_isempty(s)
+|
+- ordered_set_size@p(s) > 0
++ !ordered_set_isempty(s)
+|
+- ordered_set_size@p(s) != 0
++ !ordered_set_isempty(s)
+)
+@@
+expression s;
+@@
+(
+- fdset_size(s) == 0
++ fdset_isempty(s)
+|
+- fdset_size(s) <= 0
++ fdset_isempty(s)
+|
+- fdset_size(s) > 0
++ !fdset_isempty(s)
+|
+- fdset_size(s) != 0
++ !fdset_isempty(s)
+)
+@@
+expression s;
+@@
+(
+- prioq_size(s) == 0
++ prioq_isempty(s)
+|
+- prioq_size(s) <= 0
++ prioq_isempty(s)
+|
+- prioq_size(s) > 0
++ !prioq_isempty(s)
+|
+- prioq_size(s) != 0
++ !prioq_isempty(s)
+)
