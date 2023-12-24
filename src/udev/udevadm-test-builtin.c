@@ -97,7 +97,7 @@ int builtin_main(int argc, char *argv[], void *userdata) {
                 goto finish;
         }
 
-        event = udev_event_new(dev, 0, NULL, LOG_DEBUG);
+        event = udev_event_new(dev, NULL);
         if (!event) {
                 r = log_oom();
                 goto finish;
