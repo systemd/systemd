@@ -41,35 +41,37 @@
   <refsynopsisdiv>
     <funcsynopsis>
       <funcsynopsisinfo>#include &lt;systemd/sd-id128.h&gt;</funcsynopsisinfo>
+    </funcsynopsis>
 
-      <para>
-        <constant>SD_ID128_ALLF</constant>
-      </para>
-      <para>
-        <constant>SD_ID128_NULL</constant>
-      </para>
-      <para>
-        <constant>SD_ID128_CONST_STR(<replaceable>id</replaceable>)</constant>
-      </para>
-      <para>
-        <constant>SD_ID128_FORMAT_STR</constant>
-      </para>
-      <para>
-        <constant>SD_ID128_FORMAT_VAL(<replaceable>id</replaceable>)</constant>
-      </para>
-      <para>
-        <constant>SD_ID128_MAKE(<replaceable>v0</replaceable>, <replaceable>v1</replaceable>, <replaceable>v2</replaceable>, <replaceable>v3</replaceable>, <replaceable>v4</replaceable>, <replaceable>v5</replaceable>, <replaceable>v6</replaceable>, <replaceable>v7</replaceable>, <replaceable>v8</replaceable>, <replaceable>v9</replaceable>, <replaceable>vA</replaceable>, <replaceable>vB</replaceable>, <replaceable>vC</replaceable>, <replaceable>vD</replaceable>, <replaceable>vE</replaceable>, <replaceable>vF</replaceable>)</constant>
-      </para>
-      <para>
-        <constant>SD_ID128_MAKE_STR(<replaceable>v0</replaceable>, <replaceable>v1</replaceable>, <replaceable>v2</replaceable>, <replaceable>v3</replaceable>, <replaceable>v4</replaceable>, <replaceable>v5</replaceable>, <replaceable>v6</replaceable>, <replaceable>v7</replaceable>, <replaceable>v8</replaceable>, <replaceable>v9</replaceable>, <replaceable>vA</replaceable>, <replaceable>vB</replaceable>, <replaceable>vC</replaceable>, <replaceable>vD</replaceable>, <replaceable>vE</replaceable>, <replaceable>vF</replaceable>)</constant>
-      </para>
-      <para>
-        <constant>SD_ID128_MAKE_UUID_STR(<replaceable>v0</replaceable>, <replaceable>v1</replaceable>, <replaceable>v2</replaceable>, <replaceable>v3</replaceable>, <replaceable>v4</replaceable>, <replaceable>v5</replaceable>, <replaceable>v6</replaceable>, <replaceable>v7</replaceable>, <replaceable>v8</replaceable>, <replaceable>v9</replaceable>, <replaceable>vA</replaceable>, <replaceable>vB</replaceable>, <replaceable>vC</replaceable>, <replaceable>vD</replaceable>, <replaceable>vE</replaceable>, <replaceable>vF</replaceable>)</constant>
-      </para>
-      <para>
-        <constant>SD_ID128_UUID_FORMAT_STR</constant>
-      </para>
+    <para>
+      <constant>SD_ID128_ALLF</constant>
+    </para>
+    <para>
+      <constant>SD_ID128_NULL</constant>
+    </para>
+    <para>
+      <constant>SD_ID128_CONST_STR(<replaceable>id</replaceable>)</constant>
+    </para>
+    <para>
+      <constant>SD_ID128_FORMAT_STR</constant>
+    </para>
+    <para>
+      <constant>SD_ID128_FORMAT_VAL(<replaceable>id</replaceable>)</constant>
+    </para>
+    <para>
+      <constant>SD_ID128_MAKE(<replaceable>v0</replaceable>, <replaceable>v1</replaceable>, <replaceable>v2</replaceable>, <replaceable>v3</replaceable>, <replaceable>v4</replaceable>, <replaceable>v5</replaceable>, <replaceable>v6</replaceable>, <replaceable>v7</replaceable>, <replaceable>v8</replaceable>, <replaceable>v9</replaceable>, <replaceable>vA</replaceable>, <replaceable>vB</replaceable>, <replaceable>vC</replaceable>, <replaceable>vD</replaceable>, <replaceable>vE</replaceable>, <replaceable>vF</replaceable>)</constant>
+    </para>
+    <para>
+      <constant>SD_ID128_MAKE_STR(<replaceable>v0</replaceable>, <replaceable>v1</replaceable>, <replaceable>v2</replaceable>, <replaceable>v3</replaceable>, <replaceable>v4</replaceable>, <replaceable>v5</replaceable>, <replaceable>v6</replaceable>, <replaceable>v7</replaceable>, <replaceable>v8</replaceable>, <replaceable>v9</replaceable>, <replaceable>vA</replaceable>, <replaceable>vB</replaceable>, <replaceable>vC</replaceable>, <replaceable>vD</replaceable>, <replaceable>vE</replaceable>, <replaceable>vF</replaceable>)</constant>
+    </para>
+    <para>
+      <constant>SD_ID128_MAKE_UUID_STR(<replaceable>v0</replaceable>, <replaceable>v1</replaceable>, <replaceable>v2</replaceable>, <replaceable>v3</replaceable>, <replaceable>v4</replaceable>, <replaceable>v5</replaceable>, <replaceable>v6</replaceable>, <replaceable>v7</replaceable>, <replaceable>v8</replaceable>, <replaceable>v9</replaceable>, <replaceable>vA</replaceable>, <replaceable>vB</replaceable>, <replaceable>vC</replaceable>, <replaceable>vD</replaceable>, <replaceable>vE</replaceable>, <replaceable>vF</replaceable>)</constant>
+    </para>
+    <para>
+      <constant>SD_ID128_UUID_FORMAT_STR</constant>
+    </para>
 
+    <funcsynopsis>
       <funcprototype>
         <funcdef>int <function>sd_id128_equal</function></funcdef>
         <paramdef>sd_id128_t <parameter>a</parameter></paramdef>
