@@ -88,6 +88,38 @@ int session_new(Session **ret, Manager *m, const char *id) {
         return 0;
 }
 
+static int session_dispatch_leader_pidfd(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
+        Session *s = ASSERT_PTR(userdata);
+
+        assert(s->leader.fd == fd);
+        session_stop(s, /* force= */ false);
+
+        return 1;
+}
+
+static int session_watch_pidfd(Session *s) {
+        int r;
+
+        assert(s);
+        assert(s->manager);
+        assert(pidref_is_set(&s->leader));
+
+        if (s->leader.fd < 0)
+                return 0;
+
+        r = sd_event_add_io(s->manager->event, &s->leader_pidfd_event_source, s->leader.fd, EPOLLIN, session_dispatch_leader_pidfd, s);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_priority(s->leader_pidfd_event_source, SD_EVENT_PRIORITY_IMPORTANT);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_source_set_description(s->leader_pidfd_event_source, "session-pidfd");
+
+        return 0;
+}
+
 static void session_reset_leader(Session *s, bool keep_fdstore) {
         assert(s);
 
@@ -100,6 +132,8 @@ static void session_reset_leader(Session *s, bool keep_fdstore) {
 
         if (!pidref_is_set(&s->leader))
                 return;
+
+        s->leader_pidfd_event_source = sd_event_source_disable_unref(s->leader_pidfd_event_source);
 
         (void) hashmap_remove_value(s->manager->sessions_by_leader, &s->leader, s);
 
@@ -199,6 +233,10 @@ int session_set_leader_consume(Session *s, PidRef _leader) {
         session_reset_leader(s, /* keep_fdstore = */ false);
 
         s->leader = TAKE_PIDREF(pidref);
+
+        r = session_watch_pidfd(s);
+        if (r < 0)
+                return log_error_errno(r, "Failed to watch leader pidfd for session '%s': %m", s->id);
 
         r = hashmap_ensure_put(&s->manager->sessions_by_leader, &pidref_hash_ops, &s->leader, s);
         if (r < 0)
@@ -951,7 +989,6 @@ int session_finalize(Session *s) {
                            LOG_MESSAGE("Removed session %s.", s->id));
 
         s->timer_event_source = sd_event_source_unref(s->timer_event_source);
-        s->leader_pidfd_event_source = sd_event_source_unref(s->leader_pidfd_event_source);
 
         if (s->seat)
                 seat_evict_position(s->seat, s);
@@ -1257,36 +1294,6 @@ static void session_remove_fifo(Session *s) {
                 (void) unlink(s->fifo_path);
                 s->fifo_path = mfree(s->fifo_path);
         }
-}
-
-static int session_dispatch_leader_pidfd(sd_event_source *es, int fd, uint32_t revents, void *userdata) {
-        Session *s = ASSERT_PTR(userdata);
-
-        assert(s->leader.fd == fd);
-        session_stop(s, /* force= */ false);
-
-        return 1;
-}
-
-int session_watch_pidfd(Session *s) {
-        int r;
-
-        assert(s);
-
-        if (s->leader.fd < 0)
-                return 0;
-
-        r = sd_event_add_io(s->manager->event, &s->leader_pidfd_event_source, s->leader.fd, EPOLLIN, session_dispatch_leader_pidfd, s);
-        if (r < 0)
-                return r;
-
-        r = sd_event_source_set_priority(s->leader_pidfd_event_source, SD_EVENT_PRIORITY_IMPORTANT);
-        if (r < 0)
-                return r;
-
-        (void) sd_event_source_set_description(s->leader_pidfd_event_source, "session-pidfd");
-
-        return 0;
 }
 
 bool session_may_gc(Session *s, bool drop_not_started) {
