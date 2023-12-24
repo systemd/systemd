@@ -541,6 +541,9 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   `mkfs` when formatting LUKS home directories. There's one variable for each
   of the supported file systems for the LUKS home directory backend.
 
+* `$SYSTEMD_HOME_FREEZE_SESSION_DEFAULT` - overrides the default value of `freezeSession`
+  as defined in [JSON User Records](USER_RECORD.md).
+
 `kernel-install`:
 
 * `$KERNEL_INSTALL_BYPASS` – If set to "1", execution of kernel-install is skipped

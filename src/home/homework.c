@@ -8,6 +8,7 @@
 #include "bus-unit-util.h"
 #include "chown-recursive.h"
 #include "copy.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "filesystems.h"
@@ -1798,10 +1799,22 @@ static int home_inspect(UserRecord *h, UserRecord **ret_home) {
         return 1;
 }
 
-static int user_session_freezer(uid_t uid, bool freeze, UnitFreezer *ret) {
+static int user_session_freezer(UserRecord *h, bool freeze, UnitFreezer *ret) {
         _cleanup_free_ char *unit = NULL;
+        int should_freeze = h->freeze_session;
 
-        if (asprintf(&unit, "user-" UID_FMT ".slice", uid) < 0)
+        if (should_freeze < 0) {
+                should_freeze = getenv_bool("SYSTEMD_HOME_FREEZE_SESSION_DEFAULT");
+                if (should_freeze < 0) {
+                        if (should_freeze != -ENXIO)
+                                log_warning_errno(should_freeze, "Failed to parse $SYSTEMD_HOME_FREEZE_SESSION_DEFAULT, ignoring.");
+                        should_freeze = TRUE;
+                }
+        }
+        if (!should_freeze)
+                return 0;
+
+        if (asprintf(&unit, "user-" UID_FMT ".slice", h->uid) < 0)
                 return log_oom();
 
         if (freeze)
@@ -1828,9 +1841,13 @@ static int home_lock(UserRecord *h) {
         if (r != USER_TEST_MOUNTED)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOEXEC), "Home directory of %s is not mounted, can't lock.", h->user_name);
 
-        r = user_session_freezer(h->uid, TRUE, &freezer);
+        r = user_session_freezer(h, TRUE, &freezer);
         if (r < 0)
                 log_warning_errno(r, "Failed to freeze user session, ignoring: %m");
+        else if (r == 0)
+                log_info("User session freeze disabled, skipping.");
+        else
+                log_info("Froze user session.");
 
         r = home_lock_luks(h, &setup);
         if (r < 0)
@@ -1867,7 +1884,7 @@ static int home_unlock(UserRecord *h) {
                 return r;
 
         /* We want to thaw the session only after it's safe to access $HOME */
-        r = user_session_freezer(h->uid, FALSE, &freezer);
+        r = user_session_freezer(h, FALSE, &freezer);
         if (r < 0)
                 log_warning_errno(r, "Failed to recover freezer for user session, ignoring: %m");
 
