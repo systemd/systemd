@@ -8,8 +8,8 @@
 <refsect1>
   <title/>
 
-<para id="controllers-text">The following controller names may be specified: <option>cpu</option>, <option>cpuacct</option>,
-<option>cpuset</option>, <option>io</option>, <option>blkio</option>, <option>memory</option>, <option>devices</option>,
-<option>pids</option>, <option>bpf-firewall</option>, and <option>bpf-devices</option>.</para>
+  <para id="controllers-text">The following controller names may be specified: <option>cpu</option>, <option>cpuacct</option>,
+  <option>cpuset</option>, <option>io</option>, <option>blkio</option>, <option>memory</option>, <option>devices</option>,
+  <option>pids</option>, <option>bpf-firewall</option>, and <option>bpf-devices</option>.</para>
 
 </refsect1>
