@@ -8,6 +8,8 @@
 -->
 
 <refsection>
+  <title/>
+
   <refsection id='confd'>
     <title>Configuration Directories and Precedence</title>
 

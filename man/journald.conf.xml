@@ -387,7 +387,7 @@
         <para>When forwarding to the kernel log buffer (kmsg), make sure to select a suitably large size for
         the log buffer, for example by adding <literal>log_buf_len=8M</literal> to the kernel command line.
         <command>systemd</command> will automatically disable kernel's rate-limiting applied to userspace
-        processes (equivalent to setting <literal>printk.devkmsg=on</literal>).</para></listitem>
+        processes (equivalent to setting <literal>printk.devkmsg=on</literal>).</para>
 
         <para>Note: Forwarding is performed synchronously within journald, and may significantly affect its
         performance.  This is particularly relevant when using ForwardToConsole=yes in cloud environments,
@@ -397,6 +397,7 @@
         journal also becoming blocked.  Unless actively debugging/developing something, it's generally
         preferable to setup a <command>journalctl --follow</command> style service redirected to the
         console, instead of ForwardToConsole=yes, for production use.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
