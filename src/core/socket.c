@@ -406,11 +406,11 @@ static void peer_address_hash_func(const SocketPeer *s, struct siphash *state) {
         assert(s);
 
         if (s->peer.sa.sa_family == AF_INET)
-                siphash24_compress(&s->peer.in.sin_addr, sizeof(s->peer.in.sin_addr), state);
+                siphash24_compress_typesafe(s->peer.in.sin_addr, state);
         else if (s->peer.sa.sa_family == AF_INET6)
-                siphash24_compress(&s->peer.in6.sin6_addr, sizeof(s->peer.in6.sin6_addr), state);
+                siphash24_compress_typesafe(s->peer.in6.sin6_addr, state);
         else if (s->peer.sa.sa_family == AF_VSOCK)
-                siphash24_compress(&s->peer.vm.svm_cid, sizeof(s->peer.vm.svm_cid), state);
+                siphash24_compress_typesafe(s->peer.vm.svm_cid, state);
         else
                 assert_not_reached();
 }

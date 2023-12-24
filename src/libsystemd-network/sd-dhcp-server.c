@@ -132,7 +132,7 @@ void client_id_hash_func(const DHCPClientId *id, struct siphash *state) {
         assert(id->length > 0);
         assert(id->data);
 
-        siphash24_compress(&id->length, sizeof(id->length), state);
+        siphash24_compress_typesafe(id->length, state);
         siphash24_compress(id->data, id->length, state);
 }
 

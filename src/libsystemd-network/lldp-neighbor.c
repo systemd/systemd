@@ -14,10 +14,10 @@ static void lldp_neighbor_id_hash_func(const LLDPNeighborID *id, struct siphash 
         assert(id);
         assert(state);
 
-        siphash24_compress(id->chassis_id, id->chassis_id_size, state);
-        siphash24_compress(&id->chassis_id_size, sizeof(id->chassis_id_size), state);
-        siphash24_compress(id->port_id, id->port_id_size, state);
-        siphash24_compress(&id->port_id_size, sizeof(id->port_id_size), state);
+        siphash24_compress_safe(id->chassis_id, id->chassis_id_size, state);
+        siphash24_compress_typesafe(id->chassis_id_size, state);
+        siphash24_compress_safe(id->port_id, id->port_id_size, state);
+        siphash24_compress_typesafe(id->port_id_size, state);
 }
 
 int lldp_neighbor_id_compare_func(const LLDPNeighborID *x, const LLDPNeighborID *y) {

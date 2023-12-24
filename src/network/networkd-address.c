@@ -400,25 +400,25 @@ static int address_ipv4_prefix(const Address *a, struct in_addr *ret) {
 static void address_hash_func(const Address *a, struct siphash *state) {
         assert(a);
 
-        siphash24_compress(&a->family, sizeof(a->family), state);
+        siphash24_compress_typesafe(a->family, state);
 
         switch (a->family) {
         case AF_INET: {
                 struct in_addr prefix;
 
-                siphash24_compress(&a->prefixlen, sizeof(a->prefixlen), state);
+                siphash24_compress_typesafe(a->prefixlen, state);
 
                 assert_se(address_ipv4_prefix(a, &prefix) >= 0);
-                siphash24_compress(&prefix, sizeof(prefix), state);
+                siphash24_compress_typesafe(prefix, state);
 
-                siphash24_compress(&a->in_addr.in, sizeof(a->in_addr.in), state);
+                siphash24_compress_typesafe(a->in_addr.in, state);
                 break;
         }
         case AF_INET6:
-                siphash24_compress(&a->in_addr.in6, sizeof(a->in_addr.in6), state);
+                siphash24_compress_typesafe(a->in_addr.in6, state);
 
                 if (in6_addr_is_null(&a->in_addr.in6))
-                        siphash24_compress(&a->prefixlen, sizeof(a->prefixlen), state);
+                        siphash24_compress_typesafe(a->prefixlen, state);
                 break;
 
         default:

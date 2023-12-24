@@ -156,33 +156,33 @@ static int routing_policy_rule_dup(const RoutingPolicyRule *src, RoutingPolicyRu
 static void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct siphash *state) {
         assert(rule);
 
-        siphash24_compress(&rule->family, sizeof(rule->family), state);
+        siphash24_compress_typesafe(rule->family, state);
 
         switch (rule->family) {
         case AF_INET:
         case AF_INET6:
-                siphash24_compress(&rule->from, FAMILY_ADDRESS_SIZE(rule->family), state);
-                siphash24_compress(&rule->from_prefixlen, sizeof(rule->from_prefixlen), state);
+                in_addr_hash_func(&rule->from, rule->family, state);
+                siphash24_compress_typesafe(rule->from_prefixlen, state);
 
-                siphash24_compress(&rule->to, FAMILY_ADDRESS_SIZE(rule->family), state);
-                siphash24_compress(&rule->to_prefixlen, sizeof(rule->to_prefixlen), state);
+                in_addr_hash_func(&rule->to, rule->family, state);
+                siphash24_compress_typesafe(rule->to_prefixlen, state);
 
                 siphash24_compress_boolean(rule->invert_rule, state);
 
-                siphash24_compress(&rule->tos, sizeof(rule->tos), state);
-                siphash24_compress(&rule->type, sizeof(rule->type), state);
-                siphash24_compress(&rule->fwmark, sizeof(rule->fwmark), state);
-                siphash24_compress(&rule->fwmask, sizeof(rule->fwmask), state);
-                siphash24_compress(&rule->priority, sizeof(rule->priority), state);
-                siphash24_compress(&rule->table, sizeof(rule->table), state);
-                siphash24_compress(&rule->suppress_prefixlen, sizeof(rule->suppress_prefixlen), state);
-                siphash24_compress(&rule->suppress_ifgroup, sizeof(rule->suppress_ifgroup), state);
+                siphash24_compress_typesafe(rule->tos, state);
+                siphash24_compress_typesafe(rule->type, state);
+                siphash24_compress_typesafe(rule->fwmark, state);
+                siphash24_compress_typesafe(rule->fwmask, state);
+                siphash24_compress_typesafe(rule->priority, state);
+                siphash24_compress_typesafe(rule->table, state);
+                siphash24_compress_typesafe(rule->suppress_prefixlen, state);
+                siphash24_compress_typesafe(rule->suppress_ifgroup, state);
 
-                siphash24_compress(&rule->ipproto, sizeof(rule->ipproto), state);
-                siphash24_compress(&rule->protocol, sizeof(rule->protocol), state);
-                siphash24_compress(&rule->sport, sizeof(rule->sport), state);
-                siphash24_compress(&rule->dport, sizeof(rule->dport), state);
-                siphash24_compress(&rule->uid_range, sizeof(rule->uid_range), state);
+                siphash24_compress_typesafe(rule->ipproto, state);
+                siphash24_compress_typesafe(rule->protocol, state);
+                siphash24_compress_typesafe(rule->sport, state);
+                siphash24_compress_typesafe(rule->dport, state);
+                siphash24_compress_typesafe(rule->uid_range, state);
 
                 siphash24_compress_string(rule->iif, state);
                 siphash24_compress_string(rule->oif, state);

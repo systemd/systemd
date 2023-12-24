@@ -90,7 +90,7 @@ static int neighbor_dup(const Neighbor *neighbor, Neighbor **ret) {
 static void neighbor_hash_func(const Neighbor *neighbor, struct siphash *state) {
         assert(neighbor);
 
-        siphash24_compress(&neighbor->family, sizeof(neighbor->family), state);
+        siphash24_compress_typesafe(neighbor->family, state);
 
         if (!IN_SET(neighbor->family, AF_INET, AF_INET6))
                 /* treat any other address family as AF_UNSPEC */
@@ -98,7 +98,7 @@ static void neighbor_hash_func(const Neighbor *neighbor, struct siphash *state) 
 
         /* Equality of neighbors are given by the destination address.
          * See neigh_lookup() in the kernel. */
-        siphash24_compress(&neighbor->in_addr, FAMILY_ADDRESS_SIZE(neighbor->family), state);
+        in_addr_hash_func(&neighbor->in_addr, neighbor->family, state);
 }
 
 static int neighbor_compare_func(const Neighbor *a, const Neighbor *b) {

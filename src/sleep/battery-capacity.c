@@ -68,7 +68,7 @@ static int siphash24_compress_id128(
         if (r < 0)
                 return log_debug_errno(r, "Failed to get %s ID: %m", name);
 
-        siphash24_compress(&id, sizeof(sd_id128_t), state);
+        siphash24_compress_typesafe(id, state);
         return 0;
 }
 

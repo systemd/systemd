@@ -192,9 +192,9 @@ static uint64_t timer_get_fixed_delay_hash(Timer *t) {
         }
 
         siphash24_init(&state, hash_key);
-        siphash24_compress(&machine_id, sizeof(sd_id128_t), &state);
+        siphash24_compress_typesafe(machine_id, &state);
         siphash24_compress_boolean(MANAGER_IS_SYSTEM(UNIT(t)->manager), &state);
-        siphash24_compress(&uid, sizeof(uid_t), &state);
+        siphash24_compress_typesafe(uid, &state);
         siphash24_compress_string(UNIT(t)->id, &state);
 
         return siphash24_finalize(&state);
