@@ -1320,24 +1320,24 @@ static int monitor(int argc, char **argv, int (*dump)(sd_bus_message *m, FILE *f
                 if (r < 0)
                         return log_error_errno(r, "Failed to process bus: %m");
 
-                if (!is_monitor) {
-                        const char *name;
-
-                        /* wait until we lose our unique name */
-                        if (sd_bus_message_is_signal(m, "org.freedesktop.DBus", "NameLost") <= 0)
-                                continue;
-
-                        r = sd_bus_message_read(m, "s", &name);
-                        if (r < 0)
-                                return bus_log_parse_error(r);
-
-                        if (streq(name, unique_name))
-                                is_monitor = true;
-
-                        continue;
-                }
-
                 if (m) {
+                        if (!is_monitor) {
+                                const char *name;
+
+                                /* wait until we lose our unique name */
+                                if (sd_bus_message_is_signal(m, "org.freedesktop.DBus", "NameLost") <= 0)
+                                        continue;
+
+                                r = sd_bus_message_read(m, "s", &name);
+                                if (r < 0)
+                                        return bus_log_parse_error(r);
+
+                                if (streq(name, unique_name))
+                                        is_monitor = true;
+
+                                continue;
+                        }
+
                         dump(m, stdout);
                         fflush(stdout);
 
