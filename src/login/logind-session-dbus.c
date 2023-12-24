@@ -828,10 +828,6 @@ int session_send_create_reply(Session *s, sd_bus_error *error) {
         if (fifo_fd < 0)
                 return fifo_fd;
 
-        r = session_watch_pidfd(s);
-        if (r < 0)
-                return r;
-
         /* Update the session state file before we notify the client about the result. */
         session_save(s);
 

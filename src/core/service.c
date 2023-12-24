@@ -903,12 +903,12 @@ static void service_dump_fdstore(Service *s, FILE *f, const char *prefix) {
                         "%s%s '%s' (type=%s; dev=" DEVNUM_FORMAT_STR "; inode=%" PRIu64 "; rdev=" DEVNUM_FORMAT_STR "; path=%s; access=%s)\n",
                         prefix, i == s->fd_store ? "File Descriptor Store Entry:" : "                            ",
                         i->fdname,
-                        inode_type_to_string(st.st_mode),
+                        strna(inode_type_to_string(st.st_mode)),
                         DEVNUM_FORMAT_VAL(st.st_dev),
                         (uint64_t) st.st_ino,
                         DEVNUM_FORMAT_VAL(st.st_rdev),
                         strna(path),
-                        accmode_to_string(flags));
+                        strna(accmode_to_string(flags)));
         }
 }
 
