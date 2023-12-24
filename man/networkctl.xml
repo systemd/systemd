@@ -576,6 +576,7 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
 
         <xi:include href="version-info.xml" xpointer="v254"/>
         </listitem>
+      </varlistentry>
 
       <varlistentry>
         <term><option>--runtime</option></term>
@@ -586,7 +587,6 @@ s - Service VLAN, m - Two-port MAC Relay (TPMR)
 
           <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
-      </varlistentry>
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="json" />
