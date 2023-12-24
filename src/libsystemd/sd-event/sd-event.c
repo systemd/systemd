@@ -2231,8 +2231,8 @@ static int inode_data_compare(const struct inode_data *x, const struct inode_dat
 static void inode_data_hash_func(const struct inode_data *d, struct siphash *state) {
         assert(d);
 
-        siphash24_compress(&d->dev, sizeof(d->dev), state);
-        siphash24_compress(&d->ino, sizeof(d->ino), state);
+        siphash24_compress_typesafe(d->dev, state);
+        siphash24_compress_typesafe(d->ino, state);
 }
 
 DEFINE_PRIVATE_HASH_OPS(inode_data_hash_ops, struct inode_data, inode_data_hash_func, inode_data_compare);

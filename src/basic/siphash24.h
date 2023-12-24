@@ -22,15 +22,16 @@ struct siphash {
 void siphash24_init(struct siphash *state, const uint8_t k[static 16]);
 void siphash24_compress(const void *in, size_t inlen, struct siphash *state);
 #define siphash24_compress_byte(byte, state) siphash24_compress((const uint8_t[]) { (byte) }, 1, (state))
+#define siphash24_compress_typesafe(in, state)                  \
+        siphash24_compress(&(in), sizeof(typeof(in)), (state))
 
 static inline void siphash24_compress_boolean(bool in, struct siphash *state) {
-        uint8_t i = in;
-        siphash24_compress(&i, sizeof i, state);
+        siphash24_compress_byte(in, state);
 }
 
 static inline void siphash24_compress_usec_t(usec_t in, struct siphash *state) {
         uint64_t u = htole64(in);
-        siphash24_compress(&u, sizeof u, state);
+        siphash24_compress_typesafe(u, state);
 }
 
 static inline void siphash24_compress_safe(const void *in, size_t inlen, struct siphash *state) {

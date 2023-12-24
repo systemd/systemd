@@ -45,8 +45,8 @@ static int bpf_foreign_key_compare_func(const BPFForeignKey *a, const BPFForeign
 }
 
 static void bpf_foreign_key_hash_func(const BPFForeignKey *p, struct siphash *h) {
-        siphash24_compress(&p->prog_id, sizeof(p->prog_id), h);
-        siphash24_compress(&p->attach_type, sizeof(p->attach_type), h);
+        siphash24_compress_typesafe(p->prog_id, h);
+        siphash24_compress_typesafe(p->attach_type, h);
 }
 
 DEFINE_PRIVATE_HASH_OPS_FULL(bpf_foreign_by_key_hash_ops,

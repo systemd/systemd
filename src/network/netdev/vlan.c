@@ -91,8 +91,8 @@ static int netdev_vlan_fill_message_create(NetDev *netdev, Link *link, sd_netlin
 }
 
 static void vlan_qos_maps_hash_func(const struct ifla_vlan_qos_mapping *x, struct siphash *state) {
-        siphash24_compress(&x->from, sizeof(x->from), state);
-        siphash24_compress(&x->to, sizeof(x->to), state);
+        siphash24_compress_typesafe(x->from, state);
+        siphash24_compress_typesafe(x->to, state);
 }
 
 static int vlan_qos_maps_compare_func(const struct ifla_vlan_qos_mapping *a, const struct ifla_vlan_qos_mapping *b) {

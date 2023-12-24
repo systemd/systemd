@@ -2550,7 +2550,7 @@ int dns_packet_patch_ttls(DnsPacket *p, usec_t timestamp) {
 static void dns_packet_hash_func(const DnsPacket *s, struct siphash *state) {
         assert(s);
 
-        siphash24_compress(&s->size, sizeof(s->size), state);
+        siphash24_compress_typesafe(s->size, state);
         siphash24_compress(DNS_PACKET_DATA((DnsPacket*) s), s->size, state);
 }
 

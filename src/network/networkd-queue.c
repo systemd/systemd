@@ -58,16 +58,16 @@ static void request_hash_func(const Request *req, struct siphash *state) {
         assert(req);
         assert(state);
 
-        siphash24_compress(&req->type, sizeof(req->type), state);
+        siphash24_compress_typesafe(req->type, state);
 
         if (req->type != REQUEST_TYPE_NEXTHOP) {
                 siphash24_compress_boolean(req->link, state);
                 if (req->link)
-                        siphash24_compress(&req->link->ifindex, sizeof(req->link->ifindex), state);
+                        siphash24_compress_typesafe(req->link->ifindex, state);
         }
 
-        siphash24_compress(&req->hash_func, sizeof(req->hash_func), state);
-        siphash24_compress(&req->compare_func, sizeof(req->compare_func), state);
+        siphash24_compress_typesafe(req->hash_func, state);
+        siphash24_compress_typesafe(req->compare_func, state);
 
         if (req->hash_func)
                 req->hash_func(req->userdata, state);

@@ -107,7 +107,7 @@ static void nexthop_hash_func(const NextHop *nexthop, struct siphash *state) {
         assert(nexthop);
         assert(state);
 
-        siphash24_compress(&nexthop->id, sizeof(nexthop->id), state);
+        siphash24_compress_typesafe(nexthop->id, state);
 }
 
 static int nexthop_compare_func(const NextHop *a, const NextHop *b) {
