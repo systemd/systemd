@@ -89,7 +89,7 @@
     file type. When a comment line or lines follow a line ending with a backslash, the comment block
     is ignored, so the continued line is concatenated with whatever follows the comment block.</para>
 
-    <example><programlisting>[Section A]
+    <informalexample><programlisting>[Section A]
 KeyOne=value 1
 KeyTwo=value 2
 
@@ -105,7 +105,7 @@ KeyThree=value 3\
 # this line is ignored
 ; this line is ignored too
        value 3 continued
-</programlisting></example>
+</programlisting></informalexample>
 
     <para>Boolean arguments used in configuration files can be written in
     various formats. For positive settings the strings
