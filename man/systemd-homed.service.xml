@@ -104,6 +104,22 @@
   </refsect1>
 
   <refsect1>
+    <title>Environment</title>
+
+    <variablelist class='environment-variables'>
+        <varlistentry>
+          <term><varname>$SYSTEMD_HOME_FREEZE_SESSION_DEFAULT</varname></term>
+
+          <listitem><para>If set, this environment variable overrides the default value for
+          <literal>freezeSession</literal> in the JSON user records (as defined in
+          <ulink url="https://systemd.io/USER_RECORD">JSON User Records</ulink>).</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+        </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
