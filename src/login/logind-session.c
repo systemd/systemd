@@ -101,6 +101,8 @@ static void session_reset_leader(Session *s, bool keep_fdstore) {
         if (!pidref_is_set(&s->leader))
                 return;
 
+        s->leader_pidfd_event_source = sd_event_source_disable_unref(s->leader_pidfd_event_source);
+
         assert_se(hashmap_remove_value(s->manager->sessions_by_leader, &s->leader, s));
 
         return pidref_done(&s->leader);
@@ -199,6 +201,10 @@ int session_set_leader_consume(Session *s, PidRef _leader) {
         session_reset_leader(s, /* keep_fdstore = */ false);
 
         s->leader = TAKE_PIDREF(pidref);
+
+        r = session_watch_pidfd(s);
+        if (r < 0)
+                return log_error_errno(r, "Failed to watch leader pidfd for session '%s': %m", s->id);
 
         r = hashmap_ensure_put(&s->manager->sessions_by_leader, &pidref_hash_ops, &s->leader, s);
         if (r < 0)
@@ -1268,7 +1274,7 @@ static int session_dispatch_leader_pidfd(sd_event_source *es, int fd, uint32_t r
         return 1;
 }
 
-int session_watch_pidfd(Session *s) {
+static int session_watch_pidfd(Session *s) {
         int r;
 
         assert(s);
