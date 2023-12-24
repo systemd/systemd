@@ -293,8 +293,8 @@ static void dns_resource_key_hash_func(const DnsResourceKey *k, struct siphash *
         assert(k);
 
         dns_name_hash_func(dns_resource_key_name(k), state);
-        siphash24_compress(&k->class, sizeof(k->class), state);
-        siphash24_compress(&k->type, sizeof(k->type), state);
+        siphash24_compress_typesafe(k->class, state);
+        siphash24_compress_typesafe(k->type, state);
 }
 
 static int dns_resource_key_compare_func(const DnsResourceKey *x, const DnsResourceKey *y) {
@@ -1327,9 +1327,9 @@ void dns_resource_record_hash_func(const DnsResourceRecord *rr, struct siphash *
         switch (rr->unparsable ? _DNS_TYPE_INVALID : rr->key->type) {
 
         case DNS_TYPE_SRV:
-                siphash24_compress(&rr->srv.priority, sizeof(rr->srv.priority), state);
-                siphash24_compress(&rr->srv.weight, sizeof(rr->srv.weight), state);
-                siphash24_compress(&rr->srv.port, sizeof(rr->srv.port), state);
+                siphash24_compress_typesafe(rr->srv.priority, state);
+                siphash24_compress_typesafe(rr->srv.weight, state);
+                siphash24_compress_typesafe(rr->srv.port, state);
                 dns_name_hash_func(rr->srv.name, state);
                 break;
 
@@ -1358,59 +1358,59 @@ void dns_resource_record_hash_func(const DnsResourceRecord *rr, struct siphash *
         }
 
         case DNS_TYPE_A:
-                siphash24_compress(&rr->a.in_addr, sizeof(rr->a.in_addr), state);
+                siphash24_compress_typesafe(rr->a.in_addr, state);
                 break;
 
         case DNS_TYPE_AAAA:
-                siphash24_compress(&rr->aaaa.in6_addr, sizeof(rr->aaaa.in6_addr), state);
+                siphash24_compress_typesafe(rr->aaaa.in6_addr, state);
                 break;
 
         case DNS_TYPE_SOA:
                 dns_name_hash_func(rr->soa.mname, state);
                 dns_name_hash_func(rr->soa.rname, state);
-                siphash24_compress(&rr->soa.serial, sizeof(rr->soa.serial), state);
-                siphash24_compress(&rr->soa.refresh, sizeof(rr->soa.refresh), state);
-                siphash24_compress(&rr->soa.retry, sizeof(rr->soa.retry), state);
-                siphash24_compress(&rr->soa.expire, sizeof(rr->soa.expire), state);
-                siphash24_compress(&rr->soa.minimum, sizeof(rr->soa.minimum), state);
+                siphash24_compress_typesafe(rr->soa.serial, state);
+                siphash24_compress_typesafe(rr->soa.refresh, state);
+                siphash24_compress_typesafe(rr->soa.retry, state);
+                siphash24_compress_typesafe(rr->soa.expire, state);
+                siphash24_compress_typesafe(rr->soa.minimum, state);
                 break;
 
         case DNS_TYPE_MX:
-                siphash24_compress(&rr->mx.priority, sizeof(rr->mx.priority), state);
+                siphash24_compress_typesafe(rr->mx.priority, state);
                 dns_name_hash_func(rr->mx.exchange, state);
                 break;
 
         case DNS_TYPE_LOC:
-                siphash24_compress(&rr->loc.version, sizeof(rr->loc.version), state);
-                siphash24_compress(&rr->loc.size, sizeof(rr->loc.size), state);
-                siphash24_compress(&rr->loc.horiz_pre, sizeof(rr->loc.horiz_pre), state);
-                siphash24_compress(&rr->loc.vert_pre, sizeof(rr->loc.vert_pre), state);
-                siphash24_compress(&rr->loc.latitude, sizeof(rr->loc.latitude), state);
-                siphash24_compress(&rr->loc.longitude, sizeof(rr->loc.longitude), state);
-                siphash24_compress(&rr->loc.altitude, sizeof(rr->loc.altitude), state);
+                siphash24_compress_typesafe(rr->loc.version, state);
+                siphash24_compress_typesafe(rr->loc.size, state);
+                siphash24_compress_typesafe(rr->loc.horiz_pre, state);
+                siphash24_compress_typesafe(rr->loc.vert_pre, state);
+                siphash24_compress_typesafe(rr->loc.latitude, state);
+                siphash24_compress_typesafe(rr->loc.longitude, state);
+                siphash24_compress_typesafe(rr->loc.altitude, state);
                 break;
 
         case DNS_TYPE_SSHFP:
-                siphash24_compress(&rr->sshfp.algorithm, sizeof(rr->sshfp.algorithm), state);
-                siphash24_compress(&rr->sshfp.fptype, sizeof(rr->sshfp.fptype), state);
+                siphash24_compress_typesafe(rr->sshfp.algorithm, state);
+                siphash24_compress_typesafe(rr->sshfp.fptype, state);
                 siphash24_compress_safe(rr->sshfp.fingerprint, rr->sshfp.fingerprint_size, state);
                 break;
 
         case DNS_TYPE_DNSKEY:
-                siphash24_compress(&rr->dnskey.flags, sizeof(rr->dnskey.flags), state);
-                siphash24_compress(&rr->dnskey.protocol, sizeof(rr->dnskey.protocol), state);
-                siphash24_compress(&rr->dnskey.algorithm, sizeof(rr->dnskey.algorithm), state);
+                siphash24_compress_typesafe(rr->dnskey.flags, state);
+                siphash24_compress_typesafe(rr->dnskey.protocol, state);
+                siphash24_compress_typesafe(rr->dnskey.algorithm, state);
                 siphash24_compress_safe(rr->dnskey.key, rr->dnskey.key_size, state);
                 break;
 
         case DNS_TYPE_RRSIG:
-                siphash24_compress(&rr->rrsig.type_covered, sizeof(rr->rrsig.type_covered), state);
-                siphash24_compress(&rr->rrsig.algorithm, sizeof(rr->rrsig.algorithm), state);
-                siphash24_compress(&rr->rrsig.labels, sizeof(rr->rrsig.labels), state);
-                siphash24_compress(&rr->rrsig.original_ttl, sizeof(rr->rrsig.original_ttl), state);
-                siphash24_compress(&rr->rrsig.expiration, sizeof(rr->rrsig.expiration), state);
-                siphash24_compress(&rr->rrsig.inception, sizeof(rr->rrsig.inception), state);
-                siphash24_compress(&rr->rrsig.key_tag, sizeof(rr->rrsig.key_tag), state);
+                siphash24_compress_typesafe(rr->rrsig.type_covered, state);
+                siphash24_compress_typesafe(rr->rrsig.algorithm, state);
+                siphash24_compress_typesafe(rr->rrsig.labels, state);
+                siphash24_compress_typesafe(rr->rrsig.original_ttl, state);
+                siphash24_compress_typesafe(rr->rrsig.expiration, state);
+                siphash24_compress_typesafe(rr->rrsig.inception, state);
+                siphash24_compress_typesafe(rr->rrsig.key_tag, state);
                 dns_name_hash_func(rr->rrsig.signer, state);
                 siphash24_compress_safe(rr->rrsig.signature, rr->rrsig.signature_size, state);
                 break;
@@ -1423,30 +1423,30 @@ void dns_resource_record_hash_func(const DnsResourceRecord *rr, struct siphash *
                 break;
 
         case DNS_TYPE_DS:
-                siphash24_compress(&rr->ds.key_tag, sizeof(rr->ds.key_tag), state);
-                siphash24_compress(&rr->ds.algorithm, sizeof(rr->ds.algorithm), state);
-                siphash24_compress(&rr->ds.digest_type, sizeof(rr->ds.digest_type), state);
+                siphash24_compress_typesafe(rr->ds.key_tag, state);
+                siphash24_compress_typesafe(rr->ds.algorithm, state);
+                siphash24_compress_typesafe(rr->ds.digest_type, state);
                 siphash24_compress_safe(rr->ds.digest, rr->ds.digest_size, state);
                 break;
 
         case DNS_TYPE_NSEC3:
-                siphash24_compress(&rr->nsec3.algorithm, sizeof(rr->nsec3.algorithm), state);
-                siphash24_compress(&rr->nsec3.flags, sizeof(rr->nsec3.flags), state);
-                siphash24_compress(&rr->nsec3.iterations, sizeof(rr->nsec3.iterations), state);
+                siphash24_compress_typesafe(rr->nsec3.algorithm, state);
+                siphash24_compress_typesafe(rr->nsec3.flags, state);
+                siphash24_compress_typesafe(rr->nsec3.iterations, state);
                 siphash24_compress_safe(rr->nsec3.salt, rr->nsec3.salt_size, state);
                 siphash24_compress_safe(rr->nsec3.next_hashed_name, rr->nsec3.next_hashed_name_size, state);
                 /* FIXME: We leave the bitmaps out */
                 break;
 
         case DNS_TYPE_TLSA:
-                siphash24_compress(&rr->tlsa.cert_usage, sizeof(rr->tlsa.cert_usage), state);
-                siphash24_compress(&rr->tlsa.selector, sizeof(rr->tlsa.selector), state);
-                siphash24_compress(&rr->tlsa.matching_type, sizeof(rr->tlsa.matching_type), state);
+                siphash24_compress_typesafe(rr->tlsa.cert_usage, state);
+                siphash24_compress_typesafe(rr->tlsa.selector, state);
+                siphash24_compress_typesafe(rr->tlsa.matching_type, state);
                 siphash24_compress_safe(rr->tlsa.data, rr->tlsa.data_size, state);
                 break;
 
         case DNS_TYPE_CAA:
-                siphash24_compress(&rr->caa.flags, sizeof(rr->caa.flags), state);
+                siphash24_compress_typesafe(rr->caa.flags, state);
                 string_hash_func(rr->caa.tag, state);
                 siphash24_compress_safe(rr->caa.value, rr->caa.value_size, state);
                 break;

@@ -922,12 +922,19 @@ int in_addr_prefix_from_string_auto_internal(
 
 }
 
+void in_addr_hash_func(const union in_addr_union *u, int family, struct siphash *state) {
+        assert(u);
+        assert(state);
+
+        siphash24_compress(u->bytes, FAMILY_ADDRESS_SIZE(family), state);
+}
+
 void in_addr_data_hash_func(const struct in_addr_data *a, struct siphash *state) {
         assert(a);
         assert(state);
 
-        siphash24_compress(&a->family, sizeof(a->family), state);
-        siphash24_compress(&a->address, FAMILY_ADDRESS_SIZE(a->family), state);
+        siphash24_compress_typesafe(a->family, state);
+        in_addr_hash_func(&a->address, a->family, state);
 }
 
 int in_addr_data_compare_func(const struct in_addr_data *x, const struct in_addr_data *y) {
@@ -960,7 +967,7 @@ void in6_addr_hash_func(const struct in6_addr *addr, struct siphash *state) {
         assert(addr);
         assert(state);
 
-        siphash24_compress(addr, sizeof(*addr), state);
+        siphash24_compress_typesafe(*addr, state);
 }
 
 int in6_addr_compare_func(const struct in6_addr *a, const struct in6_addr *b) {

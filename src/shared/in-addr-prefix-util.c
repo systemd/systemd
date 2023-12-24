@@ -59,9 +59,9 @@ static void in_addr_prefix_hash_func(const struct in_addr_prefix *a, struct siph
         assert(a);
         assert(state);
 
-        siphash24_compress(&a->family, sizeof(a->family), state);
-        siphash24_compress(&a->prefixlen, sizeof(a->prefixlen), state);
-        siphash24_compress(&a->address, FAMILY_ADDRESS_SIZE(a->family), state);
+        siphash24_compress_typesafe(a->family, state);
+        siphash24_compress_typesafe(a->prefixlen, state);
+        in_addr_hash_func(&a->address, a->family, state);
 }
 
 static int in_addr_prefix_compare_func(const struct in_addr_prefix *x, const struct in_addr_prefix *y) {

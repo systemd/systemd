@@ -191,11 +191,11 @@ int id128_write_at(int dir_fd, const char *path, Id128Flag f, sd_id128_t id) {
 }
 
 void id128_hash_func(const sd_id128_t *p, struct siphash *state) {
-        siphash24_compress(p, sizeof(sd_id128_t), state);
+        siphash24_compress_typesafe(*p, state);
 }
 
 int id128_compare_func(const sd_id128_t *a, const sd_id128_t *b) {
-        return memcmp(a, b, 16);
+        return memcmp(a, b, sizeof(sd_id128_t));
 }
 
 sd_id128_t id128_make_v4_uuid(sd_id128_t id) {

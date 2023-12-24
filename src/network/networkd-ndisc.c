@@ -635,7 +635,7 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
 }
 
 static void ndisc_rdnss_hash_func(const NDiscRDNSS *x, struct siphash *state) {
-        siphash24_compress(&x->address, sizeof(x->address), state);
+        siphash24_compress_typesafe(x->address, state);
 }
 
 static int ndisc_rdnss_compare_func(const NDiscRDNSS *a, const NDiscRDNSS *b) {
@@ -941,8 +941,8 @@ static int ndisc_router_process_captive_portal(Link *link, sd_ndisc_router *rt) 
 static void ndisc_pref64_hash_func(const NDiscPREF64 *x, struct siphash *state) {
         assert(x);
 
-        siphash24_compress(&x->prefix_len, sizeof(x->prefix_len), state);
-        siphash24_compress(&x->prefix, sizeof(x->prefix), state);
+        siphash24_compress_typesafe(x->prefix_len, state);
+        siphash24_compress_typesafe(x->prefix, state);
 }
 
 static int ndisc_pref64_compare_func(const NDiscPREF64 *a, const NDiscPREF64 *b) {

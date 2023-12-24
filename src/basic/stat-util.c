@@ -476,8 +476,8 @@ int xstatfsat(int dir_fd, const char *path, struct statfs *ret) {
 }
 
 void inode_hash_func(const struct stat *q, struct siphash *state) {
-        siphash24_compress(&q->st_dev, sizeof(q->st_dev), state);
-        siphash24_compress(&q->st_ino, sizeof(q->st_ino), state);
+        siphash24_compress_typesafe(q->st_dev, state);
+        siphash24_compress_typesafe(q->st_ino, state);
 }
 
 int inode_compare_func(const struct stat *a, const struct stat *b) {

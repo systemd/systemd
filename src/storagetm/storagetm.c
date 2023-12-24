@@ -587,7 +587,7 @@ static uint16_t calculate_start_port(const char *name, int ip_family) {
         /* Use some fixed key Lennart pulled from /dev/urandom, so that we are deterministic */
         siphash24_init(&state, SD_ID128_MAKE(d1,0b,67,b5,e2,b7,4a,91,8d,6b,27,b6,35,c1,9f,d9).bytes);
         siphash24_compress_string(name, &state);
-        siphash24_compress(&ip_family, sizeof(ip_family), &state);
+        siphash24_compress_typesafe(ip_family, &state);
 
         nr = 1024U + siphash24_finalize(&state) % (0xFFFFU - 1024U);
         SET_FLAG(nr, 1, ip_family == AF_INET6); /* Lowest bit reflects family */
@@ -790,8 +790,8 @@ static void device_hash_func(const struct stat *q, struct siphash *state) {
 
         if (S_ISBLK(q->st_mode) || S_ISCHR(q->st_mode)) {
                 mode_t m = q->st_mode & S_IFMT;
-                siphash24_compress(&m, sizeof(m), state);
-                siphash24_compress(&q->st_rdev, sizeof(q->st_rdev), state);
+                siphash24_compress_typesafe(m, state);
+                siphash24_compress_typesafe(q->st_rdev, state);
                 return;
         }
 

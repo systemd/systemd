@@ -303,7 +303,7 @@ bool pidref_is_self(const PidRef *pidref) {
 }
 
 static void pidref_hash_func(const PidRef *pidref, struct siphash *state) {
-        siphash24_compress(&pidref->pid, sizeof(pidref->pid), state);
+        siphash24_compress_typesafe(pidref->pid, state);
 }
 
 static int pidref_compare_func(const PidRef *a, const PidRef *b) {
