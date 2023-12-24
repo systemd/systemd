@@ -1,16 +1,17 @@
 <?xml version="1.0"?>
-<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!DOCTYPE refsect1 PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 
 <!--
   SPDX-License-Identifier: LGPL-2.1-or-later
 -->
 
 <refsect1>
+  <title/>
 
-<para id="singular">This option cannot be bypassed by prefixing <literal>+</literal> to the executable path
-in the service unit, as it applies to the whole control group.</para>
+  <para id="singular">This option cannot be bypassed by prefixing <literal>+</literal> to the executable path
+  in the service unit, as it applies to the whole control group.</para>
 
-<para id="plural">These options cannot be bypassed by prefixing <literal>+</literal> to the executable path
-in the service unit, as it applies to the whole control group.</para>
+  <para id="plural">These options cannot be bypassed by prefixing <literal>+</literal> to the executable path
+  in the service unit, as it applies to the whole control group.</para>
 
 </refsect1>

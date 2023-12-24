@@ -1,23 +1,24 @@
 <?xml version="1.0"?>
-<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+<!DOCTYPE refsect1 PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
   "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refsect1>
+  <title/>
 
-<para id="strict">All functions listed here are thread-agnostic and only a single specific thread may operate on a
-given object during its entire lifetime. It's safe to allocate multiple independent objects and use each from a
-specific thread in parallel. However, it's not safe to allocate such an object in one thread, and operate or free it
-from any other, even if locking is used to ensure these threads don't operate on it at the very same time.</para>
+  <para id="strict">All functions listed here are thread-agnostic and only a single specific thread may operate on a
+  given object during its entire lifetime. It's safe to allocate multiple independent objects and use each from a
+  specific thread in parallel. However, it's not safe to allocate such an object in one thread, and operate or free it
+  from any other, even if locking is used to ensure these threads don't operate on it at the very same time.</para>
 
-<para id="safe">All functions listed here are thread-safe and may be called in parallel from multiple threads.</para>
+  <para id="safe">All functions listed here are thread-safe and may be called in parallel from multiple threads.</para>
 
-<para id='getenv'>The code described here uses
-<citerefentry project='man-pages'><refentrytitle>getenv</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
-which is declared to be not multi-thread-safe. This means that the code calling the functions described
-here must not call
-<citerefentry project='man-pages'><refentrytitle>setenv</refentrytitle><manvolnum>3</manvolnum></citerefentry>
-from a parallel thread. It is recommended to only do calls to <function>setenv()</function>
-from an early phase of the program when no other threads have been started.</para>
+  <para id='getenv'>The code described here uses
+  <citerefentry project='man-pages'><refentrytitle>getenv</refentrytitle><manvolnum>3</manvolnum></citerefentry>,
+  which is declared to be not multi-thread-safe. This means that the code calling the functions described
+  here must not call
+  <citerefentry project='man-pages'><refentrytitle>setenv</refentrytitle><manvolnum>3</manvolnum></citerefentry>
+  from a parallel thread. It is recommended to only do calls to <function>setenv()</function>
+  from an early phase of the program when no other threads have been started.</para>
 
 </refsect1>

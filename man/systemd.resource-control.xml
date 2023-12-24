@@ -33,31 +33,35 @@
   <refsect1>
     <title>Description</title>
 
-    <para>Unit configuration files for services, slices, scopes, sockets, mount points, and swap devices share a subset
-    of configuration options for resource control of spawned processes. Internally, this relies on the Linux Control
-    Groups (cgroups) kernel concept for organizing processes in a hierarchical tree of named groups for the purpose of
-    resource management.</para>
+    <refsect2>
+      <title/>
 
-    <para>This man page lists the configuration options shared by
-    those six unit types. See
-    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for the common options of all unit configuration files, and
-    <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-    <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-    <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-    <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-    <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-    and
-    <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-    for more information on the specific unit configuration files. The
-    resource control configuration options are configured in the
-    [Slice], [Scope], [Service], [Socket], [Mount], or [Swap]
-    sections, depending on the unit type.</para>
+      <para>Unit configuration files for services, slices, scopes, sockets, mount points, and swap devices share a subset
+      of configuration options for resource control of spawned processes. Internally, this relies on the Linux Control
+      Groups (cgroups) kernel concept for organizing processes in a hierarchical tree of named groups for the purpose of
+      resource management.</para>
 
-    <para>In addition, options which control resources available to programs
-    <emphasis>executed</emphasis> by systemd are listed in
-    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
-    Those options complement options listed here.</para>
+      <para>This man page lists the configuration options shared by
+      those six unit types. See
+      <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      for the common options of all unit configuration files, and
+      <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.scope</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.socket</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.mount</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      and
+      <citerefentry><refentrytitle>systemd.swap</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+      for more information on the specific unit configuration files. The
+      resource control configuration options are configured in the
+      [Slice], [Scope], [Service], [Socket], [Mount], or [Swap]
+      sections, depending on the unit type.</para>
+
+      <para>In addition, options which control resources available to programs
+      <emphasis>executed</emphasis> by systemd are listed in
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
+      Those options complement options listed here.</para>
+    </refsect2>
 
     <refsect2>
       <title>Enabling and disabling controllers</title>
@@ -151,10 +155,13 @@ CPUWeight=20   DisableControllers=cpu              /          \
       applies to all user slices.</para>
     </refsect2>
 
-    <para>See the <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface">New
-    Control Group Interfaces</ulink> for an introduction on how to make
-    use of resource control APIs from programs.</para>
+    <refsect2>
+      <title/>
+      <para>See the <ulink
+      url="https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface">New
+      Control Group Interfaces</ulink> for an introduction on how to make
+      use of resource control APIs from programs.</para>
+    </refsect2>
   </refsect1>
 
   <refsect1>
@@ -174,7 +181,10 @@ CPUWeight=20   DisableControllers=cpu              /          \
   <refsect1>
     <title>Options</title>
 
-    <para>Units of the types listed above can have settings for resource control configuration:</para>
+    <refsect2>
+      <title/>
+      <para>Units of the types listed above can have settings for resource control configuration:</para>
+    </refsect2>
 
     <refsect2><title>CPU Accounting and Control</title>
 

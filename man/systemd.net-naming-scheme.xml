@@ -97,8 +97,8 @@
 
     <variablelist>
         <varlistentry>
-          <term><varname>ID_NET_NAME_ONBOARD=<replaceable>prefix</replaceable><constant>o</constant><replaceable>number</replaceable></varname></term>
-          <term><varname>ID_NET_NAME_ONBOARD=<replaceable>prefix</replaceable><constant>d</constant><replaceable>number</replaceable></varname></term>
+          <term><varname>ID_NET_NAME_ONBOARD=</varname><replaceable>prefix</replaceable><constant>o</constant><replaceable>number</replaceable></term>
+          <term><varname>ID_NET_NAME_ONBOARD=</varname><replaceable>prefix</replaceable><constant>d</constant><replaceable>number</replaceable></term>
 
           <listitem><para>This name is set based on the numeric ordering information given by the firmware
           for on-board devices. Different schemes are used depending on the firmware type, as described in
@@ -135,7 +135,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><varname>ID_NET_LABEL_ONBOARD=<replaceable>prefix</replaceable> <replaceable>label</replaceable></varname></term>
+          <term><varname>ID_NET_LABEL_ONBOARD=</varname><replaceable>prefix</replaceable> <replaceable>label</replaceable></term>
 
           <listitem><para>This property is set based on textual label given by the firmware for on-board
           devices. The name consists of the prefix concatenated with the label. This is only available for
@@ -147,7 +147,7 @@
         </varlistentry>
 
         <varlistentry>
-          <term><varname>ID_NET_NAME_MAC=<replaceable>prefix</replaceable><constant>x</constant><replaceable>AABBCCDDEEFF</replaceable></varname></term>
+          <term><varname>ID_NET_NAME_MAC=</varname><replaceable>prefix</replaceable><constant>x</constant><replaceable>AABBCCDDEEFF</replaceable></term>
 
           <listitem><para>This name consists of the prefix, letter <constant>x</constant>, and 12 hexadecimal
           digits of the MAC address. It is available if the device has a fixed MAC address. Because this name
@@ -159,13 +159,13 @@
         </varlistentry>
 
         <varlistentry>
-          <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]</varname></term>
-          <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable><constant>v</constant><replaceable>slot</replaceable></varname></term>
-          <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable><constant>x</constant><replaceable>slot</replaceable></varname></term>
-          <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>b</constant><replaceable>number</replaceable></varname></term>
-          <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>u</constant><replaceable>port</replaceable>…[<constant>c</constant><replaceable>config</replaceable>][<constant>i</constant><replaceable>interface</replaceable>]</varname></term>
-          <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>v</constant><replaceable>slot</replaceable></varname></term>
-          <term><varname>ID_NET_NAME_SLOT=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>r</constant><replaceable>slot</replaceable></varname></term>
+          <term><varname>ID_NET_NAME_SLOT=</varname><replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]</term>
+          <term><varname>ID_NET_NAME_SLOT=</varname><replaceable>prefix</replaceable><constant>v</constant><replaceable>slot</replaceable></term>
+          <term><varname>ID_NET_NAME_SLOT=</varname><replaceable>prefix</replaceable><constant>x</constant><replaceable>slot</replaceable></term>
+          <term><varname>ID_NET_NAME_SLOT=</varname><replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>b</constant><replaceable>number</replaceable></term>
+          <term><varname>ID_NET_NAME_SLOT=</varname><replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>u</constant><replaceable>port</replaceable>…[<constant>c</constant><replaceable>config</replaceable>][<constant>i</constant><replaceable>interface</replaceable>]</term>
+          <term><varname>ID_NET_NAME_SLOT=</varname><replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>v</constant><replaceable>slot</replaceable></term>
+          <term><varname>ID_NET_NAME_SLOT=</varname><replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>r</constant><replaceable>slot</replaceable></term>
 
           <listitem><para>This property describes the slot position. Different schemes are used depending on
           the bus type, as described in the table below. In case of USB, BCMA, and SR-VIO devices, the full
@@ -223,7 +223,7 @@
           </table>
 
           <para>The PCI domain is only prepended when it is not 0. All multi-function PCI devices will carry
-          the <constant>f<replaceable>function</replaceable></constant> number in the device name, including
+          the <constant>f</constant><replaceable>function</replaceable> number in the device name, including
           the function 0 device. For non-multi-function devices, the number is suppressed if 0. The port name
           <replaceable>port_name</replaceable> is used, or the port number
           <constant>d</constant><replaceable>dev_port</replaceable> if the name is not known.</para>
@@ -251,13 +251,13 @@
         </varlistentry>
 
         <varlistentry>
-          <term><varname>ID_NET_NAME_PATH=<replaceable>prefix</replaceable><constant>c</constant><replaceable>bus_id</replaceable></varname></term>
-          <term><varname>ID_NET_NAME_PATH=<replaceable>prefix</replaceable><constant>a</constant><replaceable>vendor</replaceable><replaceable>model</replaceable><constant>i</constant><replaceable>instance</replaceable></varname></term>
-          <term><varname>ID_NET_NAME_PATH=<replaceable>prefix</replaceable><constant>i</constant><replaceable>address</replaceable><constant>n</constant><replaceable>port_name</replaceable></varname></term>
-          <term><varname>ID_NET_NAME_PATH=<replaceable>prefix</replaceable><constant>u</constant><replaceable>port</replaceable>…</varname></term>
-          <term><varname>ID_NET_NAME_PATH=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>p</constant><replaceable>bus</replaceable><constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>phys_port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]</varname></term>
-          <term><varname>ID_NET_NAME_PATH=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>p</constant><replaceable>bus</replaceable><constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>phys_port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>b</constant><replaceable>number</replaceable></varname></term>
-          <term><varname>ID_NET_NAME_PATH=<replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>p</constant><replaceable>bus</replaceable><constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>phys_port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>u</constant><replaceable>port</replaceable>…[<constant>c</constant><replaceable>config</replaceable>][<constant>i</constant><replaceable>interface</replaceable>]</varname></term>
+          <term><varname>ID_NET_NAME_PATH=</varname><replaceable>prefix</replaceable><constant>c</constant><replaceable>bus_id</replaceable></term>
+          <term><varname>ID_NET_NAME_PATH=</varname><replaceable>prefix</replaceable><constant>a</constant><replaceable>vendor</replaceable><replaceable>model</replaceable><constant>i</constant><replaceable>instance</replaceable></term>
+          <term><varname>ID_NET_NAME_PATH=</varname><replaceable>prefix</replaceable><constant>i</constant><replaceable>address</replaceable><constant>n</constant><replaceable>port_name</replaceable></term>
+          <term><varname>ID_NET_NAME_PATH=</varname><replaceable>prefix</replaceable><constant>u</constant><replaceable>port</replaceable>…</term>
+          <term><varname>ID_NET_NAME_PATH=</varname><replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>p</constant><replaceable>bus</replaceable><constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>phys_port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]</term>
+          <term><varname>ID_NET_NAME_PATH=</varname><replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>p</constant><replaceable>bus</replaceable><constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>phys_port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>b</constant><replaceable>number</replaceable></term>
+          <term><varname>ID_NET_NAME_PATH=</varname><replaceable>prefix</replaceable>[<constant>P</constant><replaceable>domain</replaceable>]<constant>p</constant><replaceable>bus</replaceable><constant>s</constant><replaceable>slot</replaceable>[<constant>f</constant><replaceable>function</replaceable>][<constant>n</constant><replaceable>phys_port_name</replaceable>|<constant>d</constant><replaceable>dev_port</replaceable>]<constant>u</constant><replaceable>port</replaceable>…[<constant>c</constant><replaceable>config</replaceable>][<constant>i</constant><replaceable>interface</replaceable>]</term>
 
           <listitem><para>This property describes the device installation location. Different schemes are
           used depending on the bus type, as described in the table below. For BCMA and USB devices, PCI path
@@ -542,7 +542,7 @@
 
     <variablelist>
       <varlistentry>
-        <term><varname>ID_NET_NAME_ALLOW=<replaceable>BOOL</replaceable></varname></term>
+        <term><varname>ID_NET_NAME_ALLOW=</varname><replaceable>BOOL</replaceable></term>
 
         <listitem><para>This udev property sets a fallback policy for reading a sysfs attribute.
         If set to <constant>0</constant> udev will not read any sysfs attribute by default, unless it is
