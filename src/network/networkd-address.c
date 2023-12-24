@@ -1087,20 +1087,17 @@ static int address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
         return 1;
 }
 
-int address_remove(Address *address) {
+int address_remove(Address *address, Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         Request *req;
-        Link *link;
         int r;
 
         assert(address);
         assert(IN_SET(address->family, AF_INET, AF_INET6));
-        assert(address->link);
-        assert(address->link->ifindex > 0);
-        assert(address->link->manager);
-        assert(address->link->manager->rtnl);
-
-        link = address->link;
+        assert(link);
+        assert(link->ifindex > 0);
+        assert(link->manager);
+        assert(link->manager->rtnl);
 
         log_address_debug(address, "Removing", link);
 
@@ -1132,13 +1129,13 @@ int address_remove(Address *address) {
 }
 
 int address_remove_and_drop(Address *address) {
-        if (!address)
+        if (!address || !address->link)
                 return 0;
 
         address_cancel_request(address);
 
         if (address_exists(address))
-                return address_remove(address);
+                return address_remove(address, address->link);
 
         return address_drop(address);
 }
@@ -1260,7 +1257,7 @@ int link_drop_ipv6ll_addresses(Link *link) {
                         existing = TAKE_PTR(a);
                 }
 
-                r = address_remove(existing);
+                r = address_remove(existing, link);
                 if (r < 0)
                         return r;
         }
@@ -1320,7 +1317,7 @@ int link_drop_foreign_addresses(Link *link) {
                 if (!address_is_marked(address))
                         continue;
 
-                RET_GATHER(r, address_remove(address));
+                RET_GATHER(r, address_remove(address, link));
         }
 
         return r;
@@ -1341,7 +1338,7 @@ int link_drop_managed_addresses(Link *link) {
                 if (!address_exists(address))
                         continue;
 
-                RET_GATHER(r, address_remove(address));
+                RET_GATHER(r, address_remove(address, link));
         }
 
         return r;
