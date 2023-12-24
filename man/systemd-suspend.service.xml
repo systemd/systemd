@@ -118,6 +118,33 @@
   </refsect1>
 
   <refsect1>
+    <title>Environment</title>
+
+    <variablelist class='environment-variables'>
+        <varlistentry>
+          <term><varname>$SYSTEMD_SLEEP_FREEZE_USER_SESSIONS</varname></term>
+
+          <listitem><para>By default, these services freeze <filename>user.slice</filename> while
+          they run. This prevents the execution of any process in any of the user sessions while the
+          system is coming into and going out of a suspended state. Thus, this prevents the hooks
+          in <filename>/usr/lib/systemd/system-sleep/</filename>, or any process for that matter, from
+          communicating with any user session process during suspend.</para>
+
+          <para>This environment variable takes a boolean argument. When false, <filename>user.slice</filename>
+          will not be frozen during suspend. Defaults to true.</para>
+
+          <para>Note: We recommend against disabling this freezing behavior for
+          <filename>systemd-suspend-then-hibernate.service</filename>. The system will briefly resume some
+          time after suspending to transition into a hibernation state, and without freezing
+          <filename>user.slice</filename> the user sessions will be allowed to execute for that brief
+          moment.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+        </varlistentry>
+    </variablelist>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd-sleep.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>

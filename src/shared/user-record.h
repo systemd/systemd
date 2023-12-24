@@ -342,6 +342,7 @@ typedef struct UserRecord {
 
         uint64_t stop_delay_usec;   /* How long to leave systemd --user around on log-out */
         int kill_processes;         /* Whether to kill user processes forcibly on log-out */
+        int freeze_session;         /* Whether to freeze user session on lock */
 
         /* The following exist mostly so that we can cover the full /etc/shadow set of fields */
         uint64_t password_change_min_usec;       /* maps to .sp_min */
