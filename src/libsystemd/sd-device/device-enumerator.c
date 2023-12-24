@@ -662,10 +662,8 @@ static int enumerator_add_parent_devices(
                         continue;
 
                 r = device_enumerator_add_device(enumerator, device);
-                if (r < 0)
+                if (r <= 0) /* r == 0 means the device already exists, then no need to go further up. */
                         return r;
-                if (r == 0) /* Exists already? Then no need to go further up. */
-                        return 0;
         }
 }
 
