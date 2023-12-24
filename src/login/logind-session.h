@@ -145,7 +145,6 @@ void session_set_type(Session *s, SessionType t);
 int session_set_display(Session *s, const char *display);
 int session_set_tty(Session *s, const char *tty);
 int session_create_fifo(Session *s);
-int session_watch_pidfd(Session *s);
 int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error);
 int session_stop(Session *s, bool force);
 int session_finalize(Session *s);
