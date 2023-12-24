@@ -612,7 +612,7 @@ static void client_context_try_shrink_to(Server *s, size_t limit) {
                         if (pid_is_unwaited(c->pid) == 0)
                                 client_context_free(s, c);
                         else
-                                idx ++;
+                                idx++;
                 }
 
                 s->last_cache_pid_flush = t;

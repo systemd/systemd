@@ -547,7 +547,7 @@ int sockaddr_pretty(
                         } else {
                                 if (path[path_len - 1] == '\0')
                                         /* We expect a terminating NUL and don't print it */
-                                        path_len --;
+                                        path_len--;
 
                                 p = cescape_length(path, path_len);
                         }

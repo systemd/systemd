@@ -35,7 +35,7 @@ TEST(mempool_trim) {
                 assert_se(!a[x] || a[x]->value == x);
 
                 if (a[x])
-                        n_freed ++;
+                        n_freed++;
 
                 a[x] = mempool_free_tile(&test_mempool, a[x]);
         }
@@ -46,7 +46,7 @@ TEST(mempool_trim) {
         for (size_t i = 2; i < NN; i += 3) {
                 assert_se(!a[i] || a[i]->value == i);
                 if (a[i])
-                        n_freed ++;
+                        n_freed++;
                 a[i] = mempool_free_tile(&test_mempool, a[i]);
         }
 
@@ -66,7 +66,7 @@ TEST(mempool_trim) {
         for (size_t i = 0; i < NN; i += 1) {
                 assert_se(!a[i] || a[i]->value == i);
                 if (a[i])
-                        n_freed ++;
+                        n_freed++;
                 a[i] = mempool_free_tile(&test_mempool, a[i]);
         }
 
@@ -77,7 +77,7 @@ TEST(mempool_trim) {
         for (size_t i = 0; i < NN; i += 1) {
                 assert_se(!b[i] || b[i]->value == ~(uint64_t) i);
                 if (b[i])
-                        n_freed ++;
+                        n_freed++;
                 b[i] = mempool_free_tile(&test_mempool, b[i]);
         }
 
