@@ -2003,7 +2003,7 @@ static const char *table_data_format(Table *t, TableData *d, bool avoid_uppercas
                 if (d->mode == MODE_INVALID)
                         return table_ersatz_string(t);
 
-                return inode_type_to_string(d->mode);
+                return inode_type_to_string(d->mode) ?: table_ersatz_string(t);
 
         case TABLE_DEVNUM:
                 if (devnum_is_zero(d->devnum))
