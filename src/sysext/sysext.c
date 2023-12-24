@@ -756,7 +756,7 @@ static int merge_subprocess(Hashmap *images, const char *workspace) {
                 if (r < 0)
                         return log_oom();
 
-                n_extensions ++;
+                n_extensions++;
         }
 
         /* Nothing left? Then shortcut things */

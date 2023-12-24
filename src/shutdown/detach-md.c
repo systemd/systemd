@@ -153,7 +153,7 @@ static int md_points_list_detach(RaidDevice **head, bool *changed, bool last_try
                 if ((major(rootdev) != 0 && rootdev == m->devnum) ||
                     (major(usrdev) != 0 && usrdev == m->devnum)) {
                         log_debug("Not detaching MD %s that backs the OS itself, skipping.", m->path);
-                        n_failed ++;
+                        n_failed++;
                         continue;
                 }
 

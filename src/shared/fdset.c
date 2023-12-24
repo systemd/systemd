@@ -246,7 +246,7 @@ int fdset_new_listen_fds(FDSet **ret, bool unset) {
                 return -ENOMEM;
 
         n = sd_listen_fds(unset);
-        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd ++) {
+        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++) {
                 r = fdset_put(s, fd);
                 if (r < 0)
                         return r;

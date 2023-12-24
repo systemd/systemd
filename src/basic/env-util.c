@@ -683,7 +683,7 @@ int replace_env_full(
         pu = ret_unset_variables ? &unset_variables : NULL;
         pb = ret_bad_variables ? &bad_variables : NULL;
 
-        for (e = format, i = 0; *e && i < n; e ++, i ++)
+        for (e = format, i = 0; *e && i < n; e++, i++)
                 switch (state) {
 
                 case WORD:

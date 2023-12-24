@@ -166,7 +166,7 @@ static int show_menu(char **x, unsigned n_columns, unsigned width, unsigned perc
 
         for (i = 0; i < per_column; i++) {
 
-                for (j = 0; j < n_columns; j ++) {
+                for (j = 0; j < n_columns; j++) {
                         _cleanup_free_ char *e = NULL;
 
                         if (j * per_column + i >= n)

@@ -25,7 +25,7 @@ static int search_policy_hash(
         if (hash_size == 0)
                 return 0;
 
-        for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token ++) {
+        for (int token = 0; token < sym_crypt_token_max(CRYPT_LUKS2); token++) {
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
                 _cleanup_free_ void *thash = NULL;
                 size_t thash_size = 0;

@@ -484,7 +484,7 @@ static int import_file(struct trie *trie, const char *filename, uint16_t file_pr
                 if (r == 0)
                         break;
 
-                line_number ++;
+                line_number++;
 
                 /* comment line */
                 if (line[0] == '#')

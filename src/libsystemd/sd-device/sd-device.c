@@ -2488,7 +2488,7 @@ _public_ int sd_device_set_sysattr_value(sd_device *device, const char *sysattr,
 
         /* drop trailing newlines */
         while (len > 0 && strchr(NEWLINE, _value[len - 1]))
-                len --;
+                len--;
 
         /* value length is limited to 4k */
         if (len > 4096)

@@ -2632,7 +2632,7 @@ int table_print(Table *t, FILE *f) {
                         }
 
                         fputc('\n', f);
-                        n_subline ++;
+                        n_subline++;
                 } while (more_sublines);
         }
 

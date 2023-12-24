@@ -40,7 +40,7 @@ CompareOperator parse_compare_operator(const char **s, CompareOperatorParseFlags
                   * parse_compare_operator() are use on the same string? */
                 return _COMPARE_OPERATOR_INVALID;
 
-        for (size_t i = 0; i < ELEMENTSOF(table); i ++) {
+        for (size_t i = 0; i < ELEMENTSOF(table); i++) {
                 const char *e;
 
                 if (table[i].need_mask != 0 && !FLAGS_SET(flags, table[i].need_mask))

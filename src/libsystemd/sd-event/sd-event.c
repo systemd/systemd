@@ -1165,10 +1165,10 @@ static int source_set_pending(sd_event_source *s, bool b) {
                 assert(s->inotify.inode_data->inotify_data);
 
                 if (b)
-                        s->inotify.inode_data->inotify_data->n_pending ++;
+                        s->inotify.inode_data->inotify_data->n_pending++;
                 else {
                         assert(s->inotify.inode_data->inotify_data->n_pending > 0);
-                        s->inotify.inode_data->inotify_data->n_pending --;
+                        s->inotify.inode_data->inotify_data->n_pending--;
                 }
         }
 
@@ -4000,7 +4000,7 @@ static int process_inotify(sd_event *e) {
                 if (r < 0)
                         return r;
                 if (r > 0)
-                        done ++;
+                        done++;
         }
 
         return done;
