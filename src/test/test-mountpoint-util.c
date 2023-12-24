@@ -69,7 +69,7 @@ TEST(mnt_id) {
                 assert_se(sscanf(line, "%i %*s %*s %*s %ms", &mnt_id, &path) == 2);
 #if HAS_FEATURE_MEMORY_SANITIZER
                 /* We don't know the length of the string, so we need to unpoison it one char at a time */
-                for (const char *c = path; ;c++) {
+                for (const char *c = path; ; c++) {
                         msan_unpoison(c, 1);
                         if (!*c)
                                 break;

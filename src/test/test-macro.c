@@ -306,7 +306,7 @@ TEST(FOREACH_VA_ARGS) {
         i = 0;
         uint8_t u8, u8_1 = 1, u8_2 = 2, u8_3 = 3;
         VA_ARGS_FOREACH(u8, u8_2, 8, 0xff, u8_1, u8_3, 0, 1) {
-                switch(i++) {
+                switch (i++) {
                 case 0: assert_se(u8 == u8_2); break;
                 case 1: assert_se(u8 == 8); break;
                 case 2: assert_se(u8 == 0xff); break;
@@ -336,7 +336,7 @@ TEST(FOREACH_VA_ARGS) {
         i = 0;
         uint32_t u32, u32_1 = 0xffff0000, u32_2 = 10, u32_3 = 0xffff;
         VA_ARGS_FOREACH(u32, 1, 100, u32_2, 1000, u32_3, u32_1, 1, 0) {
-                switch(i++) {
+                switch (i++) {
                 case 0: assert_se(u32 == 1); break;
                 case 1: assert_se(u32 == 100); break;
                 case 2: assert_se(u32 == u32_2); break;
@@ -367,7 +367,7 @@ TEST(FOREACH_VA_ARGS) {
         i = 0;
         uint64_t u64, u64_1 = 0xffffffffffffffff, u64_2 = 50, u64_3 = 0xffff;
         VA_ARGS_FOREACH(u64, 44, 0, u64_3, 100, u64_2, u64_1, 50000) {
-                switch(i++) {
+                switch (i++) {
                 case 0: assert_se(u64 == 44); break;
                 case 1: assert_se(u64 == 0); break;
                 case 2: assert_se(u64 == u64_3); break;
@@ -406,7 +406,7 @@ TEST(FOREACH_VA_ARGS) {
                 s_3 = { .a = 0xff, .b = 'q', },
                 s_4 = { .a = 1, .b = 'x', };
         VA_ARGS_FOREACH(s, s_1, (struct test){ .a = 10, .b = 'd', }, s_2, (struct test){}, s_3, s_4) {
-                switch(i++) {
+                switch (i++) {
                 case 0: assert_se(s.a == 0     ); assert_se(s.b == 'c'); break;
                 case 1: assert_se(s.a == 10    ); assert_se(s.b == 'd'); break;
                 case 2: assert_se(s.a == 100000); assert_se(s.b == 'z'); break;
@@ -430,7 +430,7 @@ TEST(FOREACH_VA_ARGS) {
         i = 0;
         struct test *p, *p_1 = &s_1, *p_2 = &s_2, *p_3 = &s_3, *p_4 = &s_4;
         VA_ARGS_FOREACH(p, p_1, NULL, p_2, p_3, NULL, p_4, NULL) {
-                switch(i++) {
+                switch (i++) {
                 case 0: assert_se(p == p_1); break;
                 case 1: assert_se(p == NULL); break;
                 case 2: assert_se(p == p_2); break;
@@ -455,7 +455,7 @@ TEST(FOREACH_VA_ARGS) {
         void *v, *v_1 = p_1, *v_2 = p_2, *v_3 = p_3;
         uint32_t *u32p = &u32;
         VA_ARGS_FOREACH(v, v_1, NULL, u32p, v_3, p_2, p_4, v_2, NULL) {
-                switch(i++) {
+                switch (i++) {
                 case 0: assert_se(v == v_1); break;
                 case 1: assert_se(v == NULL); break;
                 case 2: assert_se(v == u32p); break;

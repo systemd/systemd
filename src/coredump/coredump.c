@@ -1479,7 +1479,7 @@ static int forward_coredump_to_container(Context *context) {
                         char buf[DECIMAL_STR_MAX(pid_t)];
                         const char *t = context->meta[i];
 
-                        switch(i) {
+                        switch (i) {
 
                         case META_ARGV_PID:
                                 xsprintf(buf, PID_FMT, ucred.pid);

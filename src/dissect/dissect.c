@@ -684,7 +684,7 @@ static int parse_argv_as_mount_helper(int argc, char *argv[]) {
         /* Implements util-linux "external helper" command line interface, as per mount(8) man page. */
 
         while ((c = getopt(argc, argv, "sfnvN:o:t:")) >= 0) {
-                switch(c) {
+                switch (c) {
 
                 case 'f':
                         fake = true;

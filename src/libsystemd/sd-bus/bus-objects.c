@@ -1701,7 +1701,7 @@ static bool names_are_valid(const char *signature, const char **names, names_fla
         if ((*flags & NAMES_FIRST_PART || *flags & NAMES_SINGLE_PART) && **names != '\0')
                 *flags |= NAMES_PRESENT;
 
-        for (;*flags & NAMES_PRESENT;) {
+        while (*flags & NAMES_PRESENT) {
                 size_t l;
 
                 if (!*signature)
