@@ -47,14 +47,16 @@
         const char *message;
         …
 } sd_bus_error;</funcsynopsisinfo>
+    </funcsynopsis>
 
-      <para>
-        <constant>SD_BUS_ERROR_MAKE_CONST(<replaceable>name</replaceable>, <replaceable>message</replaceable>)</constant>
-      </para>
-      <para>
-        <constant>SD_BUS_ERROR_NULL</constant>
-      </para>
+    <para>
+      <constant>SD_BUS_ERROR_MAKE_CONST(<replaceable>name</replaceable>, <replaceable>message</replaceable>)</constant>
+    </para>
+    <para>
+      <constant>SD_BUS_ERROR_NULL</constant>
+    </para>
 
+    <funcsynopsis>
       <funcprototype>
         <funcdef>void <function>sd_bus_error_free</function></funcdef>
         <paramdef>sd_bus_error *<parameter>e</parameter></paramdef>
@@ -145,11 +147,11 @@
         <paramdef>const sd_bus_error *<parameter>e</parameter></paramdef>
         <paramdef>...</paramdef>
       </funcprototype>
-
-      <para>
-        &#35;define sd_bus_error_has_names(e, ...) sd_bus_error_has_names_sentinel(e, ..., NULL)
-      </para>
     </funcsynopsis>
+
+    <para>
+      &#35;define sd_bus_error_has_names(e, ...) sd_bus_error_has_names_sentinel(e, ..., NULL)
+    </para>
 
   </refsynopsisdiv>
 
