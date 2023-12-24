@@ -557,6 +557,15 @@ automatically killed when the user logs out. This is enforced by
 [`systemd-logind.service`](https://www.freedesktop.org/software/systemd/man/systemd-logind.service.html). If
 false any processes left around when the user logs out are left running.
 
+`freezeSession` → A boolean. If true the user's session is frozen whenever the home
+directory is locked (i.e. whenever the contents of the user's home directory are made
+inaccessible until the user re-authenticates). If false the user's session will not be
+frozen whenever the home directory is locked, but the kernel may still freeze any task
+that tries to access files in the user's home directory. This can lead to edge-cases that
+may lead to data loss (for example: the display server starts killing apps frozen by the
+kernel because it sees them as unresponsive). Thus, we recommend that this setting is
+left unset or is set to true.
+
 `passwordChangeMinUSec`/`passwordChangeMaxUSec` → An unsigned 64-bit integer,
 encoding how much time has to pass at least/at most between password changes of
 the user. This corresponds with the `sp_min` and `sp_max` fields of `struct
@@ -755,7 +764,7 @@ that may be used in this section are identical to the equally named ones in the
 `luksPbkdfType`, `luksPbkdfForceIterations`, `luksPbkdfTimeCostUSec`, `luksPbkdfMemoryCost`,
 `luksPbkdfParallelThreads`, `luksSectorSize`, `autoResizeMode`, `rebalanceWeight`,
 `rateLimitIntervalUSec`, `rateLimitBurst`, `enforcePasswordPolicy`,
-`autoLogin`, `stopDelayUSec`, `killProcesses`, `passwordChangeMinUSec`,
+`autoLogin`, `stopDelayUSec`, `killProcesses`, `freezeSession`, `passwordChangeMinUSec`,
 `passwordChangeMaxUSec`, `passwordChangeWarnUSec`,
 `passwordChangeInactiveUSec`, `passwordChangeNow`, `pkcs11TokenUri`,
 `fido2HmacCredential`.
