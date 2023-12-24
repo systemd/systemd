@@ -520,8 +520,6 @@ static int manager_enumerate_sessions(Manager *m) {
                                 RET_GATHER(ret, log_warning_errno(r,
                                                                   "Failed to attach leader pidfd for session '%s', ignoring: %m",
                                                                   id));
-
-                        // FIXME: Maybe call session_watch_pidfd() here?
                 }
 
                 continue;
