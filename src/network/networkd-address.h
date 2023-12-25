@@ -94,7 +94,7 @@ int address_get(Link *link, const Address *in, Address **ret);
 int address_get_harder(Link *link, const Address *in, Address **ret);
 int address_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg);
 int address_remove(Address *address, Link *link);
-int address_remove_and_drop(Address *address);
+int address_remove_and_cancel(Address *address, Link *link);
 int address_dup(const Address *src, Address **ret);
 bool address_is_ready(const Address *a);
 bool link_check_addresses_ready(Link *link, NetworkConfigSource source);
@@ -118,7 +118,6 @@ static inline int link_get_ipv4_address(Link *link, const struct in_addr *addres
 int manager_get_address(Manager *manager, int family, const union in_addr_union *address, unsigned char prefixlen, Address **ret);
 bool manager_has_address(Manager *manager, int family, const union in_addr_union *address, bool check_ready);
 
-void address_cancel_request(Address *address);
 int link_request_address(
                 Link *link,
                 const Address *address,
