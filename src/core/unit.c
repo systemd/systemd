@@ -2398,26 +2398,30 @@ static int unit_log_resources(Unit *u) {
         }
 
         for (CGroupMemoryAccountingMetric metric = 0; metric <= _CGROUP_MEMORY_ACCOUNTING_METRIC_CACHED_LAST; metric++) {
-                uint64_t v = UINT64_MAX;
+                uint64_t value = UINT64_MAX;
 
                 assert(memory_fields[metric].journal_field);
                 assert(memory_fields[metric].message_suffix);
 
-                (void) unit_get_memory_accounting(u, metric, &v);
-                if (v == UINT64_MAX)
+                (void) unit_get_memory_accounting(u, metric, &value);
+                if (value == UINT64_MAX)
                         continue;
 
-                if (asprintf(&t, "%s=%" PRIu64, memory_fields[metric].journal_field, v) < 0)
+                if (asprintf(&t, "%s=%" PRIu64, memory_fields[metric].journal_field, value) < 0)
                         return log_oom();
                 iovec[n_iovec++] = IOVEC_MAKE_STRING(TAKE_PTR(t));
 
+                /* If value is 0, we don't log it in the MESSAGE= field. */
+                if (value == 0)
+                        continue;
+
                 if (strextendf_with_separator(&message, ", ", "%s %s",
-                                              FORMAT_BYTES(v), memory_fields[metric].message_suffix) < 0)
+                                              FORMAT_BYTES(value), memory_fields[metric].message_suffix) < 0)
                         return log_oom();
 
                 log_level = raise_level(log_level,
-                                        v > MENTIONWORTHY_MEMORY_BYTES,
-                                        v > NOTICEWORTHY_MEMORY_BYTES);
+                                        value > MENTIONWORTHY_MEMORY_BYTES,
+                                        value > NOTICEWORTHY_MEMORY_BYTES);
         }
 
         for (CGroupIOAccountingMetric k = 0; k < _CGROUP_IO_ACCOUNTING_METRIC_MAX; k++) {
@@ -2433,6 +2437,10 @@ static int unit_log_resources(Unit *u) {
                 if (asprintf(&t, "%s=%" PRIu64, io_fields[k].journal_field, value) < 0)
                         return log_oom();
                 iovec[n_iovec++] = IOVEC_MAKE_STRING(TAKE_PTR(t));
+
+                /* If value is 0, we don't log it in the MESSAGE= field. */
+                if (value == 0)
+                        continue;
 
                 /* Format the IO accounting data for inclusion in the human language message string, but only
                  * for the bytes counters (and not for the operations counters) */
@@ -2460,6 +2468,10 @@ static int unit_log_resources(Unit *u) {
                 if (asprintf(&t, "%s=%" PRIu64, ip_fields[m].journal_field, value) < 0)
                         return log_oom();
                 iovec[n_iovec++] = IOVEC_MAKE_STRING(TAKE_PTR(t));
+
+                /* If value is 0, we don't log it in the MESSAGE= field. */
+                if (value == 0)
+                        continue;
 
                 /* Format the IP accounting data for inclusion in the human language message string, but only
                  * for the bytes counters (and not for the packets counters) */
