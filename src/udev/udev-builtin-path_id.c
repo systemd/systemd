@@ -632,7 +632,7 @@ static int find_real_nvme_parent(sd_device *dev, sd_device **ret) {
                 return -ENXIO;
 
         end += strspn(end, DIGITS);
-        sysname = strndupa(sysname, end - sysname);
+        sysname = strndupa_safe(sysname, end - sysname);
 
         r = sd_device_new_from_subsystem_sysname(&nvme, "nvme", sysname);
         if (r < 0)
