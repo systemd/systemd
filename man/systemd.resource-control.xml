@@ -1672,7 +1672,7 @@ DeviceAllow=/dev/loop-control
       <member><citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-oomd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member>The documentation for control groups and specific controllers in the Linux kernel:
-      <member><ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html">Control Groups v2</ulink></member></member>
+      <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html">Control Groups v2</ulink></member>
     </simplelist></para>
   </refsect1>
 </refentry>
