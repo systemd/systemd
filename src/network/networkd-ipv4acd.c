@@ -92,6 +92,8 @@ static int static_ipv4acd_address_remove(Link *link, Address *address, bool on_c
         else
                 log_link_debug(link, "Removing address %s, as the ACD client is stopped.", IN4_ADDR_TO_STRING(&address->in_addr.in));
 
+        /* Do not call address_remove_and_cancel() here. Otherwise, the request is cancelled, and the
+         * interface may be in configured state without the address. */
         r = address_remove(address, link);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to remove address %s: %m", IN4_ADDR_TO_STRING(&address->in_addr.in));

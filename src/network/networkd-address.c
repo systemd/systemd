@@ -1089,7 +1089,6 @@ static int address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
 
 int address_remove(Address *address, Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        Request *req;
         int r;
 
         assert(address);
@@ -1119,8 +1118,6 @@ int address_remove(Address *address, Link *link) {
         link_ref(link);
 
         address_enter_removing(address);
-        if (address_get_request(link, address, &req) >= 0)
-                address_enter_removing(req->userdata);
 
         /* The operational state is determined by address state and carrier state. Hence, if we remove
          * an address, the operational state may be changed. */
@@ -1128,16 +1125,30 @@ int address_remove(Address *address, Link *link) {
         return 0;
 }
 
-int address_remove_and_drop(Address *address) {
-        if (!address || !address->link)
-                return 0;
+int address_remove_and_cancel(Address *address, Link *link) {
+        bool waiting = false;
+        Request *req;
 
-        address_cancel_request(address);
+        assert(address);
+        assert(link);
+        assert(link->manager);
 
-        if (address_exists(address))
-                return address_remove(address, address->link);
+        /* If the address is remembered by the link, then use the remembered object. */
+        (void) address_get(link, address, &address);
 
-        return address_drop(address);
+        /* Cancel the request for the address.  If the request is already called but we have not received the
+         * notification about the request, then explicitly remove the address. */
+        if (address_get_request(link, address, &req) >= 0) {
+                waiting = req->waiting_reply;
+                request_detach(link->manager, req);
+                address_cancel_requesting(address);
+        }
+
+        /* If we know the address will come or already exists, remove it. */
+        if (waiting || (address->link && address_exists(address)))
+                return address_remove(address, link);
+
+        return 0;
 }
 
 bool link_address_is_dynamic(const Link *link, const Address *address) {
@@ -1630,27 +1641,6 @@ int link_request_static_addresses(Link *link) {
         }
 
         return 0;
-}
-
-void address_cancel_request(Address *address) {
-        Request req;
-
-        assert(address);
-        assert(address->link);
-
-        if (!address_is_requesting(address))
-                return;
-
-        req = (Request) {
-                .link = address->link,
-                .type = REQUEST_TYPE_ADDRESS,
-                .userdata = address,
-                .hash_func = (hash_func_t) address_hash_func,
-                .compare_func = (compare_func_t) address_compare_func,
-        };
-
-        request_detach(address->link->manager, &req);
-        address_cancel_requesting(address);
 }
 
 int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
