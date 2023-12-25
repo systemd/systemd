@@ -5038,7 +5038,7 @@ _public_ int sd_event_set_watchdog(sd_event *e, int b) {
                 }
         }
 
-        e->watchdog = !!b;
+        e->watchdog = b;
         return e->watchdog;
 
 fail:
