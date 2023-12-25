@@ -71,7 +71,7 @@ static int dhcp6_remove(Link *link, bool only_marked) {
                 if (only_marked && !address_is_marked(address))
                         continue;
 
-                RET_GATHER(ret, address_remove_and_drop(address));
+                RET_GATHER(ret, address_remove_and_cancel(address, link));
         }
 
         return ret;
