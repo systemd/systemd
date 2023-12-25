@@ -87,22 +87,23 @@ int bus_job_method_get_waiting_jobs(sd_bus_message *message, void *userdata, sd_
         if (r < 0)
                 return r;
 
-        for (int i = 0; i < n; i++) {
+        FOREACH_ARRAY(i, list, n) {
                 _cleanup_free_ char *unit_path = NULL, *job_path = NULL;
+                Job *job = *i;
 
-                job_path = job_dbus_path(list[i]);
+                job_path = job_dbus_path(job);
                 if (!job_path)
                         return -ENOMEM;
 
-                unit_path = unit_dbus_path(list[i]->unit);
+                unit_path = unit_dbus_path(job->unit);
                 if (!unit_path)
                         return -ENOMEM;
 
                 r = sd_bus_message_append(reply, "(usssoo)",
-                                          list[i]->id,
-                                          list[i]->unit->id,
-                                          job_type_to_string(list[i]->type),
-                                          job_state_to_string(list[i]->state),
+                                          job->id,
+                                          job->unit->id,
+                                          job_type_to_string(job->type),
+                                          job_state_to_string(job->state),
                                           job_path,
                                           unit_path);
                 if (r < 0)
