@@ -23,10 +23,10 @@
 
   <refsynopsisdiv>
     <cmdsynopsis>
-      <command>systemd-cat <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>COMMAND</arg> <arg choice="opt" rep="repeat">ARGUMENTS</arg></command>
+      <command>systemd-cat</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>COMMAND</arg> <arg choice="opt" rep="repeat">ARGUMENTS</arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>systemd-cat <arg choice="opt" rep="repeat">OPTIONS</arg></command>
+      <command>systemd-cat</command> <arg choice="opt" rep="repeat">OPTIONS</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
