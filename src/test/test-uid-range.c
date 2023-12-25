@@ -99,7 +99,7 @@ TEST(load_userns) {
         int r;
 
         r = uid_range_load_userns(&p, NULL);
-        if (r < 0 && ERRNO_IS_NOT_SUPPORTED(r))
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
                 return;
 
         assert_se(r >= 0);
