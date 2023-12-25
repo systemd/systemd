@@ -2529,7 +2529,7 @@ static void service_enter_restart(Service *s) {
         /* Count the jobs we enqueue for restarting. This counter is maintained as long as the unit isn't
          * fully stopped, i.e. as long as it remains up or remains in auto-start states. The user can reset
          * the counter explicitly however via the usual "systemctl reset-failure" logic. */
-        s->n_restarts ++;
+        s->n_restarts++;
         s->flush_n_restarts = false;
 
         s->notify_access_override = _NOTIFY_ACCESS_INVALID;

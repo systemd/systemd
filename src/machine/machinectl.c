@@ -2740,7 +2740,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 /* If we already found the "shell" verb on the command line, and now found the next
                                  * non-option argument, then this is the machine name and we should stop processing
                                  * further arguments.  */
-                                optind --; /* don't process this argument, go one step back */
+                                optind--; /* don't process this argument, go one step back */
                                 goto done;
                         }
                         if (streq(optarg, "shell"))

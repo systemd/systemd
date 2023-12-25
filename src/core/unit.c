@@ -2314,7 +2314,7 @@ void unit_start_on_failure(
                         log_unit_warning_errno(
                                         u, r, "Failed to enqueue %s job, ignoring: %s",
                                         dependency_name, bus_error_message(&error, r));
-                n_jobs ++;
+                n_jobs++;
         }
 
         if (n_jobs >= 0)

@@ -314,7 +314,7 @@ static int enumerate_dir(
                         dirs[n_dirs] = strdup(de->d_name);
                         if (!dirs[n_dirs])
                                 return -ENOMEM;
-                        n_dirs ++;
+                        n_dirs++;
                 }
 
                 if (!dirent_is_file(de))
@@ -326,7 +326,7 @@ static int enumerate_dir(
                 files[n_files] = strdup(de->d_name);
                 if (!files[n_files])
                         return -ENOMEM;
-                n_files ++;
+                n_files++;
         }
 
         strv_sort(dirs);

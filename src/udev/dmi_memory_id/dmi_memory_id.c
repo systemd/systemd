@@ -96,7 +96,7 @@ static const char *dmi_string(const struct dmi_header *dm, uint8_t s) {
                 return "Not Specified";
 
         bp += dm->length;
-        for (;s > 1 && !isempty(bp); s--)
+        for (; s > 1 && !isempty(bp); s--)
                 bp += strlen(bp) + 1;
 
         if (isempty(bp))

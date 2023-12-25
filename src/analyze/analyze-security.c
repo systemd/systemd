@@ -1651,7 +1651,7 @@ static uint64_t access_weight(const struct security_assessor *a, JsonVariant *po
         assert(a);
 
         val = security_assessor_find_in_policy(a, policy, "weight");
-        if  (val) {
+        if (val) {
                 if (json_variant_is_unsigned(val))
                         return json_variant_unsigned(val);
                 log_debug("JSON field 'weight' of policy for %s is not an unsigned integer, ignoring.", a->id);
@@ -1666,7 +1666,7 @@ static uint64_t access_range(const struct security_assessor *a, JsonVariant *pol
         assert(a);
 
         val = security_assessor_find_in_policy(a, policy, "range");
-        if  (val) {
+        if (val) {
                 if (json_variant_is_unsigned(val))
                         return json_variant_unsigned(val);
                 log_debug("JSON field 'range' of policy for %s is not an unsigned integer, ignoring.", a->id);
@@ -1681,7 +1681,7 @@ static const char *access_description_na(const struct security_assessor *a, Json
         assert(a);
 
         val = security_assessor_find_in_policy(a, policy, "description_na");
-        if  (val) {
+        if (val) {
                 if (json_variant_is_string(val))
                         return json_variant_string(val);
                 log_debug("JSON field 'description_na' of policy for %s is not a string, ignoring.", a->id);
@@ -1696,7 +1696,7 @@ static const char *access_description_good(const struct security_assessor *a, Js
         assert(a);
 
         val = security_assessor_find_in_policy(a, policy, "description_good");
-        if  (val) {
+        if (val) {
                 if (json_variant_is_string(val))
                         return json_variant_string(val);
                 log_debug("JSON field 'description_good' of policy for %s is not a string, ignoring.", a->id);
@@ -1711,7 +1711,7 @@ static const char *access_description_bad(const struct security_assessor *a, Jso
         assert(a);
 
         val = security_assessor_find_in_policy(a, policy, "description_bad");
-        if  (val) {
+        if (val) {
                 if (json_variant_is_string(val))
                         return json_variant_string(val);
                 log_debug("JSON field 'description_bad' of policy for %s is not a string, ignoring.", a->id);

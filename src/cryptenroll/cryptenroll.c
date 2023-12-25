@@ -571,7 +571,7 @@ static int check_for_homed(struct crypt_device *cd) {
         /* Politely refuse operating on homed volumes. The enrolled tokens for the user record and the LUKS2
          * volume should not get out of sync. */
 
-        for (int token = 0; token < crypt_token_max(CRYPT_LUKS2); token ++) {
+        for (int token = 0; token < crypt_token_max(CRYPT_LUKS2); token++) {
                 r = cryptsetup_get_token_as_json(cd, token, "systemd-homed", NULL);
                 if (IN_SET(r, -ENOENT, -EINVAL, -EMEDIUMTYPE))
                         continue;

@@ -87,7 +87,7 @@ int bus_job_method_get_waiting_jobs(sd_bus_message *message, void *userdata, sd_
         if (r < 0)
                 return r;
 
-        for (int i = 0; i < n; i ++) {
+        for (int i = 0; i < n; i++) {
                 _cleanup_free_ char *unit_path = NULL, *job_path = NULL;
 
                 job_path = job_dbus_path(list[i]);
