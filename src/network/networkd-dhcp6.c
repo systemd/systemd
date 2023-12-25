@@ -48,7 +48,7 @@ static DHCP6ClientStartMode link_get_dhcp6_client_start_mode(Link *link) {
 static int dhcp6_remove(Link *link, bool only_marked) {
         Address *address;
         Route *route;
-        int k, r = 0;
+        int ret = 0;
 
         assert(link);
 
@@ -61,10 +61,7 @@ static int dhcp6_remove(Link *link, bool only_marked) {
                 if (only_marked && !route_is_marked(route))
                         continue;
 
-                k = route_remove(route);
-                if (k < 0)
-                        r = k;
-
+                RET_GATHER(ret, route_remove(route));
                 route_cancel_request(route, link);
         }
 
@@ -74,12 +71,10 @@ static int dhcp6_remove(Link *link, bool only_marked) {
                 if (only_marked && !address_is_marked(address))
                         continue;
 
-                k = address_remove_and_drop(address);
-                if (k < 0)
-                        r = k;
+                RET_GATHER(ret, address_remove_and_drop(address));
         }
 
-        return r;
+        return ret;
 }
 
 static int dhcp6_address_ready_callback(Address *address) {

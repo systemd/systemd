@@ -243,7 +243,7 @@ static int dhcp4_find_gateway_for_destination(
 static int dhcp4_remove_address_and_routes(Link *link, bool only_marked) {
         Address *address;
         Route *route;
-        int k, r = 0;
+        int ret = 0;
 
         assert(link);
 
@@ -253,10 +253,7 @@ static int dhcp4_remove_address_and_routes(Link *link, bool only_marked) {
                 if (only_marked && !route_is_marked(route))
                         continue;
 
-                k = route_remove(route);
-                if (k < 0)
-                        r = k;
-
+                RET_GATHER(ret, route_remove(route));
                 route_cancel_request(route, link);
         }
 
@@ -266,12 +263,10 @@ static int dhcp4_remove_address_and_routes(Link *link, bool only_marked) {
                 if (only_marked && !address_is_marked(address))
                         continue;
 
-                k = address_remove_and_drop(address);
-                if (k < 0)
-                        r = k;
+                RET_GATHER(ret, address_remove_and_drop(address));
         }
 
-        return r;
+        return ret;
 }
 
 static int dhcp4_address_get(Link *link, Address **ret) {
@@ -835,7 +830,7 @@ static int dhcp_reset_hostname(Link *link) {
 }
 
 int dhcp4_lease_lost(Link *link) {
-        int k, r = 0;
+        int r = 0;
 
         assert(link);
         assert(link->dhcp_lease);
@@ -849,17 +844,9 @@ int dhcp4_lease_lost(Link *link) {
             sd_dhcp_lease_has_6rd(link->dhcp_lease))
                 dhcp4_pd_prefix_lost(link);
 
-        k = dhcp4_remove_address_and_routes(link, /* only_marked = */ false);
-        if (k < 0)
-                r = k;
-
-        k = dhcp_reset_mtu(link);
-        if (k < 0)
-                r = k;
-
-        k = dhcp_reset_hostname(link);
-        if (k < 0)
-                r = k;
+        RET_GATHER(r, dhcp4_remove_address_and_routes(link, /* only_marked = */ false));
+        RET_GATHER(r, dhcp_reset_mtu(link));
+        RET_GATHER(r, dhcp_reset_hostname(link));
 
         link->dhcp_lease = sd_dhcp_lease_unref(link->dhcp_lease);
         link_dirty(link);
