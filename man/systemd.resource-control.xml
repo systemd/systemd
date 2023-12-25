@@ -151,10 +151,13 @@ CPUWeight=20   DisableControllers=cpu              /          \
       applies to all user slices.</para>
     </refsect2>
 
-    <para>See the <ulink
-    url="https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface">New
-    Control Group Interfaces</ulink> for an introduction on how to make
-    use of resource control APIs from programs.</para>
+    <refsect2>
+      <title/>
+      <para>See the <ulink
+      url="https://www.freedesktop.org/wiki/Software/systemd/ControlGroupInterface">New
+      Control Group Interfaces</ulink> for an introduction on how to make
+      use of resource control APIs from programs.</para>
+    </refsect2>
   </refsect1>
 
   <refsect1>
@@ -1669,7 +1672,7 @@ DeviceAllow=/dev/loop-control
       <member><citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-oomd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member>The documentation for control groups and specific controllers in the Linux kernel:
-      <member><ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html">Control Groups v2</ulink></member></member>
+      <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html">Control Groups v2</ulink></member>
     </simplelist></para>
   </refsect1>
 </refentry>
