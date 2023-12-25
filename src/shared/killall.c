@@ -257,7 +257,7 @@ static int killall(int sig, Set *pids, bool send_sighup) {
 
                 r = pidref_kill(&pidref, sig);
                 if (r < 0) {
-                        if (errno != -ESRCH)
+                        if (errno != ESRCH)
                                 log_warning_errno(errno, "Could not kill " PID_FMT ", ignoring: %m", pidref.pid);
                 } else {
                         n_killed++;
