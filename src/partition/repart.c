@@ -4172,8 +4172,7 @@ static int sign_verity_roothash(
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert PKCS7 signature to DER: %s",
                                        ERR_error_string(ERR_get_error(), NULL));
 
-        ret_signature->iov_base = TAKE_PTR(sig);
-        ret_signature->iov_len = sigsz;
+        *ret_signature = IOVEC_MAKE(TAKE_PTR(sig), sigsz);
 
         return 0;
 #else
