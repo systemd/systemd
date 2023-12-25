@@ -88,7 +88,7 @@ Request *request_ref(Request *req);
 Request *request_unref(Request *req);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Request*, request_unref);
 
-void request_detach(Manager *manager, Request *req);
+bool request_detach(Manager *manager, Request *req);
 
 int netdev_queue_request(
                 NetDev *netdev,
