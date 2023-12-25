@@ -82,7 +82,7 @@ TEST(fd_acl_make_read_only) {
         (void) fd_add_uid_acl_permission(fd, 1, ACL_READ|ACL_WRITE|ACL_EXECUTE);
 
         assert_se(fstat(fd, &st) >= 0);
-        assert_se((st.st_mode & 0200) == 0200);
+        assert_se(FLAGS_SET(st.st_mode, 0200));
 
         cmd = strjoina("getfacl -p ", fn);
         assert_se(system(cmd) == 0);
