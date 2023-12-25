@@ -31,18 +31,24 @@ static Request *request_free(Request *req) {
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(Request, request, request_free);
 
-void request_detach(Manager *manager, Request *req) {
+bool request_detach(Manager *manager, Request *req) {
+        bool waiting_reply;
+
         assert(manager);
 
         if (!req)
-                return;
+                return false;
 
         req = ordered_set_remove(manager->request_queue, req);
         if (!req)
-                return;
+                return false;
 
         req->manager = NULL;
+
+        waiting_reply = req->waiting_reply;
         request_unref(req);
+
+        return waiting_reply;
 }
 
 static void request_destroy_callback(Request *req) {
