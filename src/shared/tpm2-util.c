@@ -5965,7 +5965,7 @@ int tpm2_list_devices(void) {
                 }
         }
 
-        if (table_get_rows(t) <= 1) {
+        if (table_isempty(t)) {
                 log_info("No suitable TPM2 devices found.");
                 return 0;
         }

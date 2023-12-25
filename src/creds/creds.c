@@ -232,7 +232,7 @@ static int verb_list(int argc, char **argv, void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(ENXIO), "No credentials passed. (i.e. $CREDENTIALS_DIRECTORY not set.)");
         }
 
-        if ((arg_json_format_flags & JSON_FORMAT_OFF) && table_get_rows(t) <= 1) {
+        if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF) && table_isempty(t)) {
                 log_info("No credentials");
                 return 0;
         }
