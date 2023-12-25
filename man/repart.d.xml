@@ -734,6 +734,38 @@
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>MountPoint=</varname></term>
+
+        <listitem><para>Specifies where and how the partition should be mounted. Takes at least one and at
+        most two fields separated with a colon (<literal>:</literal>). The first field specifies where the
+        partition should be mounted. The second field specifies extra mount options to append to the default
+        mount options. This setting may be specified multiple times to mount the partition multiple times.
+        This can be used to add mounts for different btrfs subvolumes located on the same btrfs
+        partition.</para>
+
+        <para>Note that this setting is only taken into account when <option>--generate-fstab=</option> is
+        specified on the <command>systemd-repart</command> command line.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>EncryptedVolume=</varname></term>
+
+        <listitem><para>Specify how the encrypted partition should be set up. Takes at least one and at most
+        three fields separated with a colon (<literal>:</literal>). The first field specifies the encrypted
+        volume name under <filename>/dev/mapper/</filename>. If not specified, <literal>luks-UUID</literal>
+        will be used where <literal>UUID</literal> is the LUKS UUID. The second field specifies the keyfile
+        to use following the same format as specified in crypttab. The third field specifies a
+        comma-delimited list of crypttab options.</para>
+
+        <para>Note that this setting is only taken into account when <option>--generate-crypttab=</option>
+        is specified on the <command>systemd-repart</command> command line.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
