@@ -6,6 +6,7 @@
 -->
 
 <refsect1>
+  <title/>
 
 <para id="singular">This option is only available for system services, or for services running in per-user
  instances of the service manager in which case <varname>PrivateUsers=</varname> is implicitly enabled

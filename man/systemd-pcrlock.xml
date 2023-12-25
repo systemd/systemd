@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 <refentry id="systemd-pcrlock" xmlns:xi="http://www.w3.org/2001/XInclude" conditional='HAVE_TPM2'>
 
@@ -29,7 +29,7 @@
 
   <refsynopsisdiv>
     <cmdsynopsis>
-      <command>/usr/lib/systemd/systemd-pcrlock <arg choice="opt" rep="repeat">OPTIONS</arg></command>
+      <command>/usr/lib/systemd/systemd-pcrlock</command> <arg choice="opt" rep="repeat">OPTIONS</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
@@ -266,7 +266,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>lock-gpt</command> <arg choice="opt"><replaceable>DEVICE</replaceable></arg></term>
+        <term><command>lock-gpt</command> <optional><replaceable>DEVICE</replaceable></optional></term>
         <term><command>unlock-gpt</command></term>
 
         <listitem><para>Generates/removes a <filename>.pcrlock</filename> file based on the GPT partition
@@ -282,7 +282,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>lock-pe</command> <arg choice="opt"><replaceable>BINARY</replaceable></arg></term>
+        <term><command>lock-pe</command> <optional><replaceable>BINARY</replaceable></optional></term>
         <term><command>unlock-pe</command></term>
 
         <listitem><para>Generates/removes a <filename>.pcrlock</filename> file based on the specified PE
@@ -301,7 +301,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>lock-uki</command> <arg choice="opt"><replaceable>UKI</replaceable></arg></term>
+        <term><command>lock-uki</command> <optional><replaceable>UKI</replaceable></optional></term>
         <term><command>unlock-uki</command></term>
 
         <listitem><para>Generates/removes a <filename>.pcrlock</filename> file based on the specified UKI PE
@@ -336,8 +336,8 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>lock-file-system</command> <arg choice="opt"><replaceable>PATH</replaceable></arg></term>
-        <term><command>unlock-file-system</command> <arg choice="opt"><replaceable>PATH</replaceable></arg></term>
+        <term><command>lock-file-system</command> <optional><replaceable>PATH</replaceable></optional></term>
+        <term><command>unlock-file-system</command> <optional><replaceable>PATH</replaceable></optional></term>
 
         <listitem><para>Generates/removes a <filename>.pcrlock</filename> file based on file system
         identity. This is useful for predicting measurements
@@ -353,7 +353,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>lock-kernel-cmdline</command> <arg choice="opt"><replaceable>FILE</replaceable></arg></term>
+        <term><command>lock-kernel-cmdline</command> <optional><replaceable>FILE</replaceable></optional></term>
         <term><command>unlock-kernel-cmdline</command></term>
 
         <listitem><para>Generates/removes a <filename>.pcrlock</filename> file based on
@@ -384,7 +384,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><command>lock-raw</command> <arg choice="opt"><replaceable>FILE</replaceable></arg></term>
+        <term><command>lock-raw</command> <optional><replaceable>FILE</replaceable></optional></term>
         <term><command>unlock-raw</command></term>
 
         <listitem><para>Generates/removes a <filename>.pcrlock</filename> file based on raw binary data. The
