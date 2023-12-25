@@ -113,10 +113,10 @@
         <listitem><para>Do a dry run of <command>systemd-oomd</command>: when a kill is triggered, print it
         to the log instead of killing the cgroup.</para></listitem>
       </varlistentry>
-    </variablelist>
 
-    <xi:include href="standard-options.xml" xpointer="help" />
-    <xi:include href="standard-options.xml" xpointer="version" />
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
   </refsect1>
 
   <refsect1>
