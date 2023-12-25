@@ -578,6 +578,28 @@
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--generate-fstab=</option><replaceable>PATH</replaceable></term>
+
+        <listitem><para>Specifies a path where to write fstab entries for the mountpoints configured with
+        <option>MountPoint=</option> in the root directory specified with <option>--copy-source=</option> or
+        <option>--root=</option> or in the host's root directory if neither is specified. Disabled by
+        default.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--generate-crypttab=</option><replaceable>PATH</replaceable></term>
+
+        <listitem><para>Specifies a path where to write crypttab entries for the encrypted volumes configured
+        with <option>EncryptedVolume=</option> in the root directory specified with
+        <option>--copy-source=</option> or <option>--root=</option> or in the host's root directory if
+        neither is specified. Disabled by default.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
