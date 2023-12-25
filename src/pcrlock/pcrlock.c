@@ -2570,17 +2570,17 @@ static int verb_list_components(int argc, char *argv[], void *userdata) {
                 }
         }
 
-        if (table_get_rows(table) > 1 || !FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
+        if (!table_isempty(table) || !FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
                 r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, /* show_header= */ true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to output table: %m");
         }
 
         if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
-                if (table_get_rows(table) > 1)
-                        printf("\n%zu components listed.\n", table_get_rows(table) - 1);
-                else
+                if (table_isempty(table))
                         printf("No components defined.\n");
+                else
+                        printf("\n%zu components listed.\n", table_get_rows(table) - 1);
         }
 
         return 0;
