@@ -26,6 +26,8 @@ extern const char *(*sym_p11_kit_strerror)(CK_RV rv);
 extern int (*sym_p11_kit_uri_format)(P11KitUri *uri, P11KitUriType uri_type, char **string);
 extern void (*sym_p11_kit_uri_free)(P11KitUri *uri);
 extern CK_ATTRIBUTE_PTR (*sym_p11_kit_uri_get_attributes)(P11KitUri *uri, CK_ULONG *n_attrs);
+extern CK_ATTRIBUTE_PTR (*sym_p11_kit_uri_get_attribute)(P11KitUri *uri, CK_ATTRIBUTE_TYPE attr_type);
+extern int (*sym_p11_kit_uri_set_attribute)(P11KitUri *uri, CK_ATTRIBUTE_PTR attr);
 extern CK_INFO_PTR (*sym_p11_kit_uri_get_module_info)(P11KitUri *uri);
 extern CK_SLOT_INFO_PTR (*sym_p11_kit_uri_get_slot_info)(P11KitUri *uri);
 extern CK_TOKEN_INFO_PTR (*sym_p11_kit_uri_get_token_info)(P11KitUri *uri);
