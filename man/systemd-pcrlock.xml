@@ -29,7 +29,7 @@
 
   <refsynopsisdiv>
     <cmdsynopsis>
-      <command>/usr/lib/systemd/systemd-pcrlock <arg choice="opt" rep="repeat">OPTIONS</arg></command>
+      <command>/usr/lib/systemd/systemd-pcrlock</command> <arg choice="opt" rep="repeat">OPTIONS</arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
