@@ -2059,7 +2059,7 @@ int tpm2_create_primary(
                         session ? session->esys_handle : ESYS_TR_PASSWORD,
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
-                        sensitive ? sensitive : &(TPM2B_SENSITIVE_CREATE) {},
+                        sensitive ?: &(TPM2B_SENSITIVE_CREATE) {},
                         template,
                         /* outsideInfo= */ NULL,
                         &(TPML_PCR_SELECTION) {},
@@ -5891,10 +5891,7 @@ int tpm2_unseal_data(
                                        "Failed to unseal data: %s", sym_Tss2_RC_Decode(rc));
 
         _cleanup_(iovec_done) struct iovec d = {};
-        d = (struct iovec) {
-                .iov_base = memdup(unsealed->buffer, unsealed->size),
-                .iov_len = unsealed->size,
-        };
+        d = IOVEC_MAKE(memdup(unsealed->buffer, unsealed->size), unsealed->size);
 
         explicit_bzero_safe(unsealed->buffer, unsealed->size);
 

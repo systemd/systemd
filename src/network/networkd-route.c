@@ -2869,7 +2869,7 @@ int config_parse_route_tcp_rto(
                 return 0;
         }
 
-        if (IN_SET(usec, 0, USEC_INFINITY) ||
+        if (!timestamp_is_set(usec) ||
             DIV_ROUND_UP(usec, USEC_PER_MSEC) > UINT32_MAX) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Route TCP retransmission timeout (RTO) must be in the range 0…%"PRIu32"ms, ignoring assignment: %s", UINT32_MAX, rvalue);

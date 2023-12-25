@@ -247,13 +247,11 @@ static int find_paths_to_edit(
                         return r; /* Already logged by unit_find_paths() */
 
                 if (!path) {
-                        if (!arg_force) {
-                                log_info("Run 'systemctl edit%s --force --full %s' to create a new unit.",
-                                         arg_runtime_scope == RUNTIME_SCOPE_GLOBAL ? " --global" :
-                                         arg_runtime_scope == RUNTIME_SCOPE_USER ? " --user" : "",
-                                         *name);
-                                return -ENOENT;
-                        }
+                        if (!arg_force)
+                                return log_info_errno(SYNTHETIC_ERRNO(ENOENT),
+                                                      "Run 'systemctl edit %s --force --full %s' to create a new unit.",
+                                                      runtime_scope_cmdline_option_to_string(arg_runtime_scope),
+                                                      *name);
 
                         /* Create a new unit from scratch */
                         r = unit_file_create_new(
