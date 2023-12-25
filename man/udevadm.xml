@@ -550,14 +550,16 @@
             <para>Typically, it is essential that applications which intend to use such a match, make
             sure a suitable udev rule is installed that sets at least one property on devices that
             shall be matched. See also Initialized Devices section below for more details.</para>
-            <para>WARNING: <option>--initialized-nomatch</option> can potentially save a significant
-            amount of time compared to re-triggering all devices in the system and e.g. can be used to
-            optimize boot time. However, this is not safe to be used in a boot sequence in general.
-            Especially, when udev rules for a device depend on its parent devices (e.g.
-            <literal>ATTRS</literal> or <literal>IMPORT{parent}</literal> keys, see
-            <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry>
-            for more details), the final state of the device becomes easily unstable with this option.
-            </para>
+            <warning>
+              <para><option>--initialized-nomatch</option> can potentially save a significant
+              amount of time compared to re-triggering all devices in the system and e.g. can be used to
+              optimize boot time. However, this is not safe to be used in a boot sequence in general.
+              Especially, when udev rules for a device depend on its parent devices (e.g.
+              <literal>ATTRS</literal> or <literal>IMPORT{parent}</literal> keys, see
+              <citerefentry><refentrytitle>udev</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+              for more details), the final state of the device becomes easily unstable with this option.
+              </para>
+            </warning>
 
             <xi:include href="version-info.xml" xpointer="v251"/>
           </listitem>

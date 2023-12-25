@@ -41,19 +41,19 @@ This is based on crypttab(5).
     verity protected block device. Fields are delimited by
     white space.</para>
 
-    <para>Each line is in the form<programlisting><replaceable>volume-name</replaceable> <replaceable>data-device</replaceable> <replaceable>hash-device</replaceable> <replaceable>roothash</replaceable> <replaceable>options</replaceable></programlisting>
+    <para>Each line is in the form<programlisting><replaceable>volume-name</replaceable> <replaceable>data-device</replaceable> <replaceable>hash-device</replaceable> <replaceable>roothash</replaceable> <optional><replaceable>options</replaceable></optional></programlisting>
     The first four fields are mandatory, the remaining one is optional.</para>
 
     <para>The first field contains the name of the resulting verity volume; its block device is set up
     below <filename>/dev/mapper/</filename>.</para>
 
     <para>The second field contains a path to the underlying block data device, or a specification of a block device via
-    <literal>UUID=</literal> followed by the UUID.</para>
+    <varname>UUID=</varname> followed by the <replaceable>UUID</replaceable>.</para>
 
     <para>The third field contains a path to the underlying block hash device, or a specification of a block device via
-    <literal>UUID=</literal> followed by the UUID.</para>
+    <varname>UUID=</varname> followed by the <replaceable>UUID</replaceable>.</para>
 
-    <para>The fourth field is the <literal>roothash</literal> in hexadecimal.</para>
+    <para>The fourth field is the <replaceable>roothash</replaceable> in hexadecimal.</para>
 
     <para>The fifth field, if present, is a comma-delimited list of options. The following options are
     recognized:</para>
@@ -71,7 +71,7 @@ This is based on crypttab(5).
       <varlistentry>
         <term><option>format=<replaceable>NUMBER</replaceable></option></term>
 
-        <listitem><para>Specifies the hash version type. Format type 0 is original Chrome OS version. Format type 1 is
+        <listitem><para>Specifies the hash version type. Format type <literal>0</literal> is original Chrome OS version. Format type <literal>1</literal> is
         modern version.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
@@ -117,7 +117,7 @@ This is based on crypttab(5).
         <term><option>salt=<replaceable>HEX</replaceable></option></term>
 
         <listitem><para>Salt used for format or verification. Format is a hexadecimal string; 256 bytes long maximum;
-        <literal>-</literal>is the special value for empty.</para>
+        <literal>-</literal> is the special value for empty.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
@@ -125,8 +125,8 @@ This is based on crypttab(5).
       <varlistentry>
         <term><option>uuid=<replaceable>UUID</replaceable></option></term>
 
-        <listitem><para>Use the provided UUID for format command instead of generating new one. The UUID must be
-        provided in standard UUID format, e.g. 12345678-1234-1234-1234-123456789abc.</para>
+        <listitem><para>Use the provided <replaceable>UUID</replaceable> for format command instead of generating new one. The <replaceable>UUID</replaceable> must be
+        provided in standard <acronym>UUID</acronym> format, e.g. <literal>12345678-1234-1234-1234-123456789abc</literal>.</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
@@ -137,9 +137,9 @@ This is based on crypttab(5).
         <term><option>panic-on-corruption</option></term>
 
         <listitem><para>Defines what to do if a data verity problem is detected (data corruption). Without these
-        options kernel fails the IO operation with I/O error. With <literal>--ignore-corruption</literal> option the
-        corruption is only logged. With <literal>--restart-on-corruption</literal> or
-        <literal>--panic-on-corruption</literal> the kernel is restarted (panicked) immediately.
+        options kernel fails the <acronym>IO</acronym> operation with <acronym>I/O</acronym> error. With <option>--ignore-corruption</option> option the
+        corruption is only logged. With <option>--restart-on-corruption</option> or
+        <option>--panic-on-corruption</option> the kernel is restarted (panicked) immediately.
 
         (You have to provide way how to avoid restart loops.)</para>
 
@@ -150,10 +150,11 @@ This is based on crypttab(5).
         <term><option>ignore-zero-blocks</option></term>
 
         <listitem><para>Instruct kernel to not verify blocks that are expected to contain zeroes and always directly
-        return zeroes instead.
+        return zeroes instead.</para>
 
-        WARNING: Use this option only in very specific cases. This option is available since Linux kernel version 4.5.
-        </para>
+        <warning>
+          <para>Use this option only in very specific cases. This option is available since Linux kernel version 4.5.</para>
+        </warning>
 
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
@@ -162,11 +163,12 @@ This is based on crypttab(5).
         <term><option>check-at-most-once</option></term>
 
         <listitem><para>Instruct kernel to verify blocks only the first time they are read from the data device, rather
-        than every time.
+        than every time.</para>
 
-        WARNING: It provides a reduced level of security because only offline tampering of the data device's content
-        will be detected, not online tampering. This option is available since Linux kernel version 4.17.
-        </para>
+        <warning>
+          <para>It provides a reduced level of security because only offline tampering of the data device's content
+          will be detected, not online tampering. This option is available since Linux kernel version 4.17.</para>
+        </warning>
 
         <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
@@ -183,7 +185,7 @@ This is based on crypttab(5).
       <varlistentry>
         <term><option>fec-device=<replaceable>PATH</replaceable></option></term>
 
-        <listitem><para>Use forward error correction (FEC) to recover from corruption if hash verification fails. Use
+        <listitem><para>Use forward error correction (<acronym>FEC</acronym>) to recover from corruption if hash verification fails. Use
         encoding data from the specified device. The fec device argument can be block device or file image. For format,
         if fec device path doesn't exist, it will be created as file. Note: block sizes for data and hash devices must
         match. Also, if the verity data_device is encrypted the fec_device should be too.</para>
@@ -194,7 +196,7 @@ This is based on crypttab(5).
       <varlistentry>
         <term><option>fec-offset=<replaceable>BYTES</replaceable></option></term>
 
-        <listitem><para>This is the offset, in bytes, from the start of the FEC device to the beginning of the encoding
+        <listitem><para>This is the offset, in bytes, from the start of the <acronym>FEC</acronym> device to the beginning of the encoding
         data. (Aligned on 512 bytes.)</para>
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
