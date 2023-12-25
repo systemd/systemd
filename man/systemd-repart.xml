@@ -578,6 +578,18 @@
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--generate-tabs=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>Specifies whether to write entries configured with <option>FSTab=</option> and
+        <option>CryptTab=</option> to respectively <filename>/etc/fstab</filename> and
+        <filename>/etc/crypttab</filename> in the root directory specified with
+        <option>--copy-source=</option> or <option>--root=</option> or in the host's root directory if
+        neither is specified. Takes a boolean value. Disabled by default.</para></listitem>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
