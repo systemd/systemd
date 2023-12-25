@@ -458,10 +458,12 @@
         <citerefentry project='man-pages'><refentrytitle>mkswap</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
         This option implies <option>plain</option>.</para>
 
-        <para>WARNING: Using the <option>swap</option> option will
-        destroy the contents of the named partition during every boot,
-        so make sure the underlying block device is specified
-        correctly.</para>
+        <warning>
+          <para>Using the <option>swap</option> option will
+          destroy the contents of the named partition during every boot,
+          so make sure the underlying block device is specified
+          correctly.</para>
+        </warning>
 
         <xi:include href="version-info.xml" xpointer="v186"/></listitem>
       </varlistentry>
@@ -591,8 +593,10 @@
         <literal>btrfs</literal>. If no argument is specified defaults to <literal>ext4</literal>. This
         option implies <option>plain</option>.</para>
 
-        <para>WARNING: Using the <option>tmp</option> option will destroy the contents of the named partition
-        during every boot, so make sure the underlying block device is specified correctly.</para>
+        <warning>
+          <para>Using the <option>tmp</option> option will destroy the contents of the named partition
+          during every boot, so make sure the underlying block device is specified correctly.</para>
+        </warning>
 
         <xi:include href="version-info.xml" xpointer="v186"/></listitem>
       </varlistentry>

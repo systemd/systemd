@@ -2478,11 +2478,15 @@ Jan 12 10:46:45 example.com bluetoothd[8900]: gatt-time-server: Input/output err
           processes will be killed forcibly and all file systems are unmounted or remounted read-only. This is hence a
           drastic but relatively safe option to request an immediate reboot. If <option>--force</option> is specified
           twice for these operations (with the exception of <command>kexec</command>), they will be executed
-          immediately, without terminating any processes or unmounting any file systems. Warning: specifying
-          <option>--force</option> twice with any of these operations might result in data loss. Note that when
-          <option>--force</option> is specified twice the selected operation is executed by
-          <command>systemctl</command> itself, and the system manager is not contacted. This means the command should
-          succeed even when the system manager has crashed.</para>
+          immediately, without terminating any processes or unmounting any file systems.</para>
+
+          <warning>
+            <para>Specifying
+            <option>--force</option> twice with any of these operations might result in data loss. Note that when
+            <option>--force</option> is specified twice the selected operation is executed by
+            <command>systemctl</command> itself, and the system manager is not contacted. This means the command should
+            succeed even when the system manager has crashed.</para>
+          </warning>
         </listitem>
       </varlistentry>
 
