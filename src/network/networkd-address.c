@@ -1203,7 +1203,6 @@ int link_drop_ipv6ll_addresses(Link *link) {
                 _cleanup_(address_freep) Address *a = NULL;
                 unsigned char flags, prefixlen;
                 struct in6_addr address;
-                Address *existing;
                 int ifindex;
 
                 /* NETLINK_GET_STRICT_CHK socket option is supported since kernel 4.20. To support
@@ -1249,15 +1248,7 @@ int link_drop_ipv6ll_addresses(Link *link) {
                 a->prefixlen = prefixlen;
                 a->flags = flags;
 
-                if (address_get(link, a, &existing) < 0) {
-                        r = address_add(link, a);
-                        if (r < 0)
-                                return r;
-
-                        existing = TAKE_PTR(a);
-                }
-
-                r = address_remove(existing, link);
+                r = address_remove(a, link);
                 if (r < 0)
                         return r;
         }
