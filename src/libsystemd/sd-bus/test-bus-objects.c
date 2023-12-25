@@ -494,10 +494,9 @@ static int client(struct context *c) {
                         }
                         assert_se(sd_bus_message_exit_container(reply) >= 0);
 
-                        if (streq(path, "/value/a")) {
+                        if (streq(path, "/value/a"))
                                 /* ObjectManager must be here */
                                 assert_se(found_object_manager_interface);
-                        }
 
                 } else
                         assert_se(sd_bus_message_skip(reply, "a{sa{sv}}") >= 0);
