@@ -627,7 +627,7 @@ static int message_new_reply(
                         return r;
         }
 
-        t->dont_send = !!(call->header->flags & BUS_MESSAGE_NO_REPLY_EXPECTED);
+        t->dont_send = FLAGS_SET(call->header->flags, BUS_MESSAGE_NO_REPLY_EXPECTED);
         t->enforced_reply_signature = call->enforced_reply_signature;
 
         /* let's copy the sensitive flag over. Let's do that as a safety precaution to keep a transaction
