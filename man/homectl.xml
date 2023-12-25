@@ -920,6 +920,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--freeze-session=</option><replaceable>BOOL</replaceable></term>
+
+        <listitem><para>Configures whether to freeze the user session whenever the home directory is locked. Defaults
+        to on.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--auto-login=</option><replaceable>BOOL</replaceable></term>
 
         <listitem><para>Takes a boolean argument. Configures whether the graphical UI of the system should

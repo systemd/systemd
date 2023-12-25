@@ -2602,6 +2602,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_RATE_LIMIT_BURST,
                 ARG_STOP_DELAY,
                 ARG_KILL_PROCESSES,
+                ARG_FREEZE_SESSION,
                 ARG_ENFORCE_PASSWORD_POLICY,
                 ARG_PASSWORD_CHANGE_NOW,
                 ARG_PASSWORD_CHANGE_MIN,
@@ -2694,6 +2695,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "rate-limit-burst",            required_argument, NULL, ARG_RATE_LIMIT_BURST            },
                 { "stop-delay",                  required_argument, NULL, ARG_STOP_DELAY                  },
                 { "kill-processes",              required_argument, NULL, ARG_KILL_PROCESSES              },
+                { "freeze-session",              required_argument, NULL, ARG_FREEZE_SESSION              },
                 { "enforce-password-policy",     required_argument, NULL, ARG_ENFORCE_PASSWORD_POLICY     },
                 { "password-change-now",         required_argument, NULL, ARG_PASSWORD_CHANGE_NOW         },
                 { "password-change-min",         required_argument, NULL, ARG_PASSWORD_CHANGE_MIN         },
@@ -3147,6 +3149,7 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_NOEXEC:
                 case ARG_LOCKED:
                 case ARG_KILL_PROCESSES:
+                case ARG_FREEZE_SESSION:
                 case ARG_ENFORCE_PASSWORD_POLICY:
                 case ARG_AUTO_LOGIN:
                 case ARG_PASSWORD_CHANGE_NOW: {
@@ -3156,6 +3159,7 @@ static int parse_argv(int argc, char *argv[]) {
                                                   c == ARG_NODEV ? "mountNoDevices" :
                                                  c == ARG_NOEXEC ? "mountNoExecute" :
                                          c == ARG_KILL_PROCESSES ? "killProcesses" :
+                                         c == ARG_FREEZE_SESSION ? "freezeSession" :
                                 c == ARG_ENFORCE_PASSWORD_POLICY ? "enforcePasswordPolicy" :
                                              c == ARG_AUTO_LOGIN ? "autoLogin" :
                                     c == ARG_PASSWORD_CHANGE_NOW ? "passwordChangeNow" :
