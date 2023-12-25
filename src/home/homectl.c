@@ -189,7 +189,7 @@ static int list_homes(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        if (table_get_rows(table) > 1 || !FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
+        if (!table_isempty(table) || !FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
                 r = table_set_sort(table, (size_t) 0);
                 if (r < 0)
                         return table_log_sort_error(r);
@@ -199,11 +199,11 @@ static int list_homes(int argc, char *argv[], void *userdata) {
                         return r;
         }
 
-        if (arg_legend && (arg_json_format_flags & JSON_FORMAT_OFF)) {
-                if (table_get_rows(table) > 1)
-                        printf("\n%zu home areas listed.\n", table_get_rows(table) - 1);
-                else
+        if (arg_legend && !FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
+                if (table_isempty(table))
                         printf("No home areas.\n");
+                else
+                        printf("\n%zu home areas listed.\n", table_get_rows(table) - 1);
         }
 
         return 0;

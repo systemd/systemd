@@ -402,7 +402,7 @@ static int show_table(Table *table, const char *word) {
         assert(table);
         assert(word);
 
-        if (table_get_rows(table) > 1) {
+        if (!table_isempty(table)) {
                 table_set_header(table, arg_legend);
 
                 if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
@@ -414,10 +414,10 @@ static int show_table(Table *table, const char *word) {
         }
 
         if (arg_legend) {
-                if (table_get_rows(table) > 1)
-                        printf("\n%zu %s listed.\n", table_get_rows(table) - 1, word);
-                else
+                if (table_isempty(table))
                         printf("No %s.\n", word);
+                else
+                        printf("\n%zu %s listed.\n", table_get_rows(table) - 1, word);
         }
 
         return 0;

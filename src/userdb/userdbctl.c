@@ -440,7 +440,7 @@ static int display_user(int argc, char *argv[], void *userdata) {
                 if (uid_map_lines < 0)
                         return uid_map_lines;
 
-                if (table_get_rows(table) > 1) {
+                if (!table_isempty(table)) {
                         r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
                         if (r < 0)
                                 return table_log_print_error(r);
@@ -743,7 +743,7 @@ static int display_group(int argc, char *argv[], void *userdata) {
                 if (gid_map_lines < 0)
                         return gid_map_lines;
 
-                if (table_get_rows(table) > 1) {
+                if (!table_isempty(table)) {
                         r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
                         if (r < 0)
                                 return table_log_print_error(r);
@@ -891,17 +891,17 @@ static int display_memberships(int argc, char *argv[], void *userdata) {
         }
 
         if (table) {
-                if (table_get_rows(table) > 1) {
+                if (!table_isempty(table)) {
                         r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
                         if (r < 0)
                                 return table_log_print_error(r);
                 }
 
                 if (arg_legend) {
-                        if (table_get_rows(table) > 1)
-                                printf("\n%zu memberships listed.\n", table_get_rows(table) - 1);
-                        else
+                        if (table_isempty(table))
                                 printf("No memberships.\n");
+                        else
+                                printf("\n%zu memberships listed.\n", table_get_rows(table) - 1);
                 }
         }
 
@@ -956,17 +956,17 @@ static int display_services(int argc, char *argv[], void *userdata) {
                         return table_log_add_error(r);
         }
 
-        if (table_get_rows(t) > 1) {
+        if (!table_isempty(t)) {
                 r = table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
                 if (r < 0)
                         return table_log_print_error(r);
         }
 
         if (arg_legend && arg_output != OUTPUT_JSON) {
-                if (table_get_rows(t) > 1)
-                        printf("\n%zu services listed.\n", table_get_rows(t) - 1);
-                else
+                if (table_isempty(t))
                         printf("No services.\n");
+                else
+                        printf("\n%zu services listed.\n", table_get_rows(t) - 1);
         }
 
         return 0;
