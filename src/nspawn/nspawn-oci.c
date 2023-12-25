@@ -1837,10 +1837,8 @@ static int oci_seccomp_syscalls(const char *name, JsonVariant *v, JsonDispatchFl
                 if (r < 0)
                         return r;
 
-                if (strv_isempty(rule.names)) {
-                        json_log(e, flags, 0, "System call name list is empty.");
-                        return -EINVAL;
-                }
+                if (strv_isempty(rule.names))
+                        return json_log(e, flags, SYNTHETIC_ERRNO(EINVAL), "System call name list is empty.");
 
                 STRV_FOREACH(i, rule.names) {
                         int nr;
