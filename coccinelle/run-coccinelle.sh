@@ -7,7 +7,6 @@ set -e
 #     that TEST(xsetxattr) yields test_xsetxattr() and uses just xsetxattr() in this case, which then conflicts
 #     with the tested xsetxattr() function, leading up to the whole test case getting skipped due to
 #     conflicting typedefs
-#   - something keeps pulling in src/boot/efi/*.h stuff, even though it's excluded
 #   - Coccinelle has issues with some of our more complex macros
 
 # Exclude following paths from the Coccinelle transformations
@@ -73,7 +72,9 @@ for script in "${SCRIPTS[@]}"; do
     # definitions (--include-headers-for-types) - otherwise we'd start formating them as well, which might be
     # unwanted, especially for includes we fetch verbatim from third-parties
     #
-    # 4) Use cache, since generating the full AST is _very_ expensive, i.e. the uncached run takes 15 - 30
+    # 4) Explicitly undefine the SD_BOOT symbol, so Coccinelle ignores includes guarded by #if SD_BOOT
+    #
+    # 5) Use cache, since generating the full AST is _very_ expensive, i.e. the uncached run takes 15 - 30
     # minutes (for one rule(!)), vs 30 - 90 seconds when the cache is populated. One major downside of the
     # cache is that it's quite big - ATTOW the cache takes around 15 GiB, but the performance boost is
     # definitely worth it
@@ -82,6 +83,7 @@ for script in "${SCRIPTS[@]}"; do
                -I src \
                --recursive-includes \
                --include-headers-for-types \
+               --undefined SD_BOOT \
                --smpl-spacing \
                --sp-file "$script" \
                "${ARGS[@]}" ::: "${FILES[@]}" \
