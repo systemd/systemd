@@ -2411,6 +2411,10 @@ static int unit_log_resources(Unit *u) {
                         return log_oom();
                 iovec[n_iovec++] = IOVEC_MAKE_STRING(TAKE_PTR(t));
 
+                /* If value is 0, we don't log it in the MESSAGE= field. */
+                if (v == 0)
+                        continue;
+
                 if (strextendf_with_separator(&message, ", ", "%s %s",
                                               FORMAT_BYTES(v), memory_fields[metric].message_suffix) < 0)
                         return log_oom();
@@ -2433,6 +2437,10 @@ static int unit_log_resources(Unit *u) {
                 if (asprintf(&t, "%s=%" PRIu64, io_fields[k].journal_field, value) < 0)
                         return log_oom();
                 iovec[n_iovec++] = IOVEC_MAKE_STRING(TAKE_PTR(t));
+
+                /* If value is 0, we don't log it in the MESSAGE= field. */
+                if (value == 0)
+                        continue;
 
                 /* Format the IO accounting data for inclusion in the human language message string, but only
                  * for the bytes counters (and not for the operations counters) */
@@ -2460,6 +2468,10 @@ static int unit_log_resources(Unit *u) {
                 if (asprintf(&t, "%s=%" PRIu64, ip_fields[m].journal_field, value) < 0)
                         return log_oom();
                 iovec[n_iovec++] = IOVEC_MAKE_STRING(TAKE_PTR(t));
+
+                /* If value is 0, we don't log it in the MESSAGE= field. */
+                if (value == 0)
+                        continue;
 
                 /* Format the IP accounting data for inclusion in the human language message string, but only
                  * for the bytes counters (and not for the packets counters) */
