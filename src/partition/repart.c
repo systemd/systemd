@@ -168,6 +168,7 @@ static int arg_offline = -1;
 static char **arg_copy_from = NULL;
 static char *arg_copy_source = NULL;
 static char *arg_make_ddi = NULL;
+static bool arg_generate_tabs = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -213,6 +214,39 @@ typedef enum MinimizeMode {
         _MINIMIZE_MODE_MAX,
         _MINIMIZE_MODE_INVALID = -EINVAL,
 } MinimizeMode;
+
+typedef struct PartitionFSTab {
+        char *where;
+        char *options;
+} PartitionFSTab;
+
+static void partition_fstab_free_many(PartitionFSTab *f, size_t n) {
+        assert(f || n == 0);
+
+        FOREACH_ARRAY(i, f, n) {
+                free(i->where);
+                free(i->options);
+        }
+
+        free(f);
+}
+
+typedef struct PartitionCryptTab {
+        char *volume;
+        char *keyfile;
+        char *options;
+} PartitionCryptTab;
+
+static PartitionCryptTab* partition_crypttab_free(PartitionCryptTab *c) {
+        if (!c)
+                return NULL;
+
+        free(c->volume);
+        free(c->keyfile);
+        free(c->options);
+
+        return mfree(c);
+}
 
 typedef struct Partition {
         char *definition_path;
@@ -275,6 +309,11 @@ typedef struct Partition {
 
         char *split_name_format;
         char *split_path;
+
+        PartitionFSTab *fstab;
+        size_t n_fstab;
+
+        PartitionCryptTab *crypttab;
 
         struct Partition *siblings[_VERITY_MODE_MAX];
 
@@ -425,6 +464,9 @@ static Partition* partition_free(Partition *p) {
         free(p->split_name_format);
         unlink_and_free(p->split_path);
 
+        CLEANUP_ARRAY(p->fstab, p->n_fstab, partition_fstab_free_many);
+        partition_crypttab_free(p->crypttab);
+
         return mfree(p);
 }
 
@@ -460,6 +502,12 @@ static void partition_foreignize(Partition *p) {
         p->read_only = -1;
         p->growfs = -1;
         p->verity = VERITY_OFF;
+
+        partition_fstab_free_many(p->fstab, p->n_fstab);
+        p->fstab = NULL;
+        p->n_fstab = 0;
+
+        p->crypttab = partition_crypttab_free(p->crypttab);
 }
 
 static bool partition_type_exclude(const GptPartitionType *type) {
@@ -1677,6 +1725,126 @@ static int config_parse_uuid(
         return 0;
 }
 
+static int config_parse_fstab(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *where = NULL, *options = NULL;
+        Partition *p = ASSERT_PTR(data);
+        int r;
+
+        if (isempty(rvalue)) {
+                CLEANUP_ARRAY(p->fstab, p->n_fstab, partition_fstab_free_many);
+                return 0;
+        }
+
+        const char *q = rvalue;
+        r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_DONT_COALESCE_SEPARATORS|EXTRACT_UNQUOTE,
+                               &where, &options, NULL);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Invalid syntax in %s=, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+        if (r < 1) {
+                log_syntax(unit, LOG_WARNING, filename , line, r,
+                           "Too few arguments in %s=, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+        if (!isempty(q)) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Too many arguments in %s=, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        r = path_simplify_and_warn(where, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+        if (r < 0)
+                return 0;
+
+        if (!GREEDY_REALLOC(p->fstab, p->n_fstab + 1))
+                return log_oom();
+
+        p->fstab[p->n_fstab++] = (PartitionFSTab) {
+                .where = TAKE_PTR(where),
+                .options = TAKE_PTR(options),
+        };
+
+        return 0;
+}
+
+static int config_parse_crypttab(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *volume = NULL, *keyfile = NULL, *options = NULL;
+        Partition *p = ASSERT_PTR(data);
+        int r;
+
+        if (isempty(rvalue)) {
+                p->crypttab = mfree(p->crypttab);
+                return 0;
+        }
+
+        const char *q = rvalue;
+        r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_DONT_COALESCE_SEPARATORS|EXTRACT_UNQUOTE,
+                               &volume, &keyfile, &options, NULL);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Invalid syntax in %s=, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+        if (r < 1) {
+                log_syntax(unit, LOG_WARNING, filename , line, r,
+                           "Too few arguments in %s=, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+        if (!isempty(q)) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Too many arguments in %s=, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        if (!filename_is_valid(volume)) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0,
+                           "Volume name %s is not valid, ignoring", volume);
+                return 0;
+        }
+
+        partition_crypttab_free(p->crypttab);
+
+        p->crypttab = new(PartitionCryptTab, 1);
+        if (!p->crypttab)
+                return log_oom();
+
+        *p->crypttab = (PartitionCryptTab) {
+                .volume = TAKE_PTR(volume),
+                .keyfile = TAKE_PTR(keyfile),
+                .options = TAKE_PTR(options),
+        };
+
+        return 0;
+}
+
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_verity, verity_mode, VerityMode, VERITY_OFF, "Invalid verity mode");
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_minimize, minimize_mode, MinimizeMode, MINIMIZE_OFF, "Invalid minimize mode");
 
@@ -1712,6 +1880,8 @@ static int partition_read_definition(Partition *p, const char *path, const char 
                 { "Partition", "Subvolumes",               config_parse_make_dirs,     0, &p->subvolumes              },
                 { "Partition", "VerityDataBlockSizeBytes", config_parse_block_size,    0, &p->verity_data_block_size  },
                 { "Partition", "VerityHashBlockSizeBytes", config_parse_block_size,    0, &p->verity_hash_block_size  },
+                { "Partition", "FSTab",                    config_parse_fstab,         0, p                           },
+                { "Partition", "CryptTab",                 config_parse_crypttab,      0, p                           },
                 {}
         };
         int r;
@@ -6113,6 +6283,172 @@ static int fd_apparent_size(int fd, uint64_t *ret) {
         return 0;
 }
 
+static bool need_fstab_one(const Partition *p) {
+        assert(p);
+
+        if (p->dropped)
+                return false;
+
+        if (!p->format)
+                return false;
+
+        if (p->n_fstab == 0)
+                return false;
+
+        return true;
+
+}
+
+static bool need_fstab(const Context *context) {
+        assert(context);
+
+        if (!arg_generate_tabs)
+                return false;
+
+        LIST_FOREACH(partitions, p, context->partitions)
+                if (need_fstab_one(p))
+                        return true;
+
+        return false;
+}
+
+static int context_fstab(Context *context) {
+        _cleanup_(unlink_and_freep) char *t = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        assert(context);
+
+        if (!need_fstab(context))
+                return 0;
+
+        path = path_join(arg_copy_source, "/etc/fstab");
+        if (!path)
+                return log_oom();
+
+        r = fopen_tmpfile_linkable(path, O_WRONLY|O_CLOEXEC, &t, &f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open temporary file for %s: %m", path);
+
+        fprintf(f, "# Automatically generated by systemd-repart\n\n");
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                _cleanup_free_ char *what = NULL, *options = NULL;
+
+                if (!need_fstab_one(p))
+                        continue;
+
+                what = strjoin("UUID=", SD_ID128_TO_UUID_STRING(p->fs_uuid));
+                if (!what)
+                        return log_oom();
+
+                FOREACH_ARRAY(fstab, p->fstab, p->n_fstab) {
+                        r = partition_pick_mount_options(
+                                        p->type.designator,
+                                        p->format,
+                                        /* rw= */ true,
+                                        /* discard= */ !IN_SET(p->type.designator, PARTITION_ESP, PARTITION_XBOOTLDR),
+                                        &options,
+                                        NULL);
+                        if (r < 0)
+                                return r;
+
+                        if (!strextend_with_separator(&options, ",", fstab->options))
+                                return log_oom();
+
+                        fprintf(f, "%s %s %s %s 0 %i\n",
+                                what,
+                                fstab->where,
+                                p->format,
+                                options,
+                                p->type.designator == PARTITION_ROOT ? 1 : 2);
+                }
+        }
+
+        r = flink_tmpfile(f, t, path, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to link temporary file to %s: %m", path);
+
+        log_info("%s written.", path);
+
+        return 0;
+}
+
+static bool need_crypttab_one(const Partition *p) {
+        assert(p);
+
+        if (p->dropped)
+                return false;
+
+        if (p->encrypt == ENCRYPT_OFF)
+                return false;
+
+        if (!p->crypttab)
+                return false;
+
+        return true;
+}
+
+static bool need_crypttab(Context *context) {
+        assert(context);
+
+        if (!arg_generate_tabs)
+                return false;
+
+        LIST_FOREACH(partitions, p, context->partitions)
+                if (need_crypttab_one(p))
+                        return true;
+
+        return false;
+}
+
+static int context_crypttab(Context *context) {
+        _cleanup_(unlink_and_freep) char *t = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        assert(context);
+
+        if (!need_crypttab(context))
+                return 0;
+
+        path = path_join(arg_copy_source, "/etc/crypttab");
+        if (!path)
+                return log_oom();
+
+        r = fopen_tmpfile_linkable(path, O_WRONLY|O_CLOEXEC, &t, &f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open temporary file for %s: %m", path);
+
+        fprintf(f, "# Automatically generated by systemd-repart\n\n");
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                _cleanup_free_ char *volume = NULL;
+
+                if (!need_crypttab_one(p))
+                        continue;
+
+                if (!p->crypttab->volume && asprintf(&volume, "luks-%s", SD_ID128_TO_UUID_STRING(p->luks_uuid)) < 0)
+                        return log_oom();
+
+                fprintf(f, "%s UUID=%s %s %s\n",
+                        p->crypttab->volume ?: volume,
+                        SD_ID128_TO_UUID_STRING(p->luks_uuid),
+                        isempty(p->crypttab->keyfile) ? "-" : p->crypttab->keyfile,
+                        strempty(p->crypttab->options));
+        }
+
+        r = flink_tmpfile(f, t, path, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to link temporary file to %s: %m", path);
+
+        log_info("%s written.", path);
+
+        return 0;
+}
+
 static int context_minimize(Context *context) {
         const char *vt = NULL;
         int r;
@@ -6479,6 +6815,7 @@ static int help(void) {
                "  -S --make-ddi=sysext    Make a system extension DDI\n"
                "  -C --make-ddi=confext   Make a configuration extension DDI\n"
                "  -P --make-ddi=portable  Make a portable service DDI\n"
+               "     --generate-tabs=BOOL Whether to generate /etc/fstab and /etc/crypttab\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -6527,6 +6864,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_OFFLINE,
                 ARG_COPY_FROM,
                 ARG_MAKE_DDI,
+                ARG_GENERATE_TABS,
         };
 
         static const struct option options[] = {
@@ -6567,6 +6905,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "copy-from",            required_argument, NULL, ARG_COPY_FROM            },
                 { "copy-source",          required_argument, NULL, 's'                      },
                 { "make-ddi",             required_argument, NULL, ARG_MAKE_DDI             },
+                { "generate-tabs",        required_argument, NULL, ARG_GENERATE_TABS        },
                 {}
         };
 
@@ -6948,6 +7287,14 @@ static int parse_argv(int argc, char *argv[]) {
                         r = free_and_strdup_warn(&arg_make_ddi, "portable");
                         if (r < 0)
                                 return r;
+                        break;
+
+                case ARG_GENERATE_TABS:
+                        r = parse_boolean(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --generate-tabs= parameter: %s", optarg);
+
+                        arg_generate_tabs = r;
                         break;
 
                 case '?':
@@ -7660,6 +8007,14 @@ static int run(int argc, char *argv[]) {
                         loop_device ? loop_device->devno :         /* if --image= is specified, only allow partitions on the loopback device */
                                       arg_root && !arg_image ? 0 : /* if --root= is specified, don't accept any block device */
                                       (dev_t) -1);                 /* if neither is specified, make no restrictions */
+        if (r < 0)
+                return r;
+
+        r = context_fstab(context);
+        if (r < 0)
+                return r;
+
+        r = context_crypttab(context);
         if (r < 0)
                 return r;
 
