@@ -135,8 +135,8 @@ bool mount_point_is_api(const char *path) {
         /* Checks if this mount point is considered "API", and hence
          * should be ignored */
 
-        for (size_t i = 0; i < ELEMENTSOF(mount_table); i++)
-                if (path_equal(path, mount_table[i].where))
+        FOREACH_ARRAY(i, mount_table, ELEMENTSOF(mount_table))
+                if (path_equal(path, i->where))
                         return true;
 
         return path_startswith(path, "/sys/fs/cgroup/");
