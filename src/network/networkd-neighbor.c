@@ -195,7 +195,7 @@ static int neighbor_get_request(Link *link, const Neighbor *neighbor, Request **
         return 0;
 }
 
-static int neighbor_get(Link *link, const Neighbor *in, Neighbor **ret) {
+int neighbor_get(Link *link, const Neighbor *in, Neighbor **ret) {
         Neighbor *existing;
 
         assert(link);
@@ -430,18 +430,14 @@ static int neighbor_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Remo
         return 1;
 }
 
-static int neighbor_remove(Neighbor *neighbor) {
+int neighbor_remove(Neighbor *neighbor, Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        Request *req;
-        Link *link;
         int r;
 
         assert(neighbor);
-        assert(neighbor->link);
-        assert(neighbor->link->manager);
-        assert(neighbor->link->manager->rtnl);
-
-        link = neighbor->link;
+        assert(link);
+        assert(link->manager);
+        assert(link->manager->rtnl);
 
         log_neighbor_debug(neighbor, "Removing", link);
 
@@ -459,9 +455,6 @@ static int neighbor_remove(Neighbor *neighbor) {
                 return log_link_error_errno(link, r, "Could not queue rtnetlink message: %m");
 
         neighbor_enter_removing(neighbor);
-        if (neighbor_get_request(neighbor->link, neighbor, &req) >= 0)
-                neighbor_enter_removing(req->userdata);
-
         return 0;
 }
 
@@ -497,7 +490,7 @@ int link_drop_foreign_neighbors(Link *link) {
                 if (!neighbor_is_marked(neighbor))
                         continue;
 
-                RET_GATHER(r, neighbor_remove(neighbor));
+                RET_GATHER(r, neighbor_remove(neighbor, link));
         }
 
         return r;
@@ -518,7 +511,7 @@ int link_drop_managed_neighbors(Link *link) {
                 if (!neighbor_exists(neighbor))
                         continue;
 
-                RET_GATHER(r, neighbor_remove(neighbor));
+                RET_GATHER(r, neighbor_remove(neighbor, link));
         }
 
         return r;
