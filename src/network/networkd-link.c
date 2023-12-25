@@ -962,6 +962,13 @@ static int link_drop_requests(Link *link) {
                                         RET_GATHER(ret, neighbor_remove(neighbor, link));
                                 break;
                         }
+                        case REQUEST_TYPE_NEXTHOP: {
+                                NextHop *nexthop = ASSERT_PTR(req->userdata);
+
+                                if (nexthop_get_by_id(link->manager, nexthop->id, NULL) < 0)
+                                        RET_GATHER(ret, nexthop_remove(nexthop, link->manager));
+                                break;
+                        }
                         default:
                                 ;
                         }
