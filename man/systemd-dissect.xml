@@ -27,37 +27,37 @@
       <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <option>--mount</option> <arg choice="plain"><replaceable>IMAGE</replaceable></arg> <arg choice="plain"><replaceable>PATH</replaceable></arg>
+      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--mount</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg> <arg choice="plain"><replaceable>PATH</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <option>--umount</option> <arg choice="plain"><replaceable>PATH</replaceable></arg>
+      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--umount</arg> <arg choice="plain"><replaceable>PATH</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <option>--attach</option> <arg choice="plain"><replaceable>IMAGE</replaceable></arg>
+      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--attach</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <option>--detach</option> <arg choice="plain"><replaceable>PATH</replaceable></arg>
+      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--detach</arg> <arg choice="plain"><replaceable>PATH</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <option>--list</option> <arg choice="plain"><replaceable>IMAGE</replaceable></arg>
+      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--list</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <option>--mtree</option> <arg choice="plain"><replaceable>IMAGE</replaceable></arg>
+      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--mtree</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <option>--with</option> <arg choice="plain"><replaceable>IMAGE</replaceable></arg> <arg choice="opt" rep="repeat"><replaceable>COMMAND</replaceable></arg>
+      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--with</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg> <arg choice="opt" rep="repeat"><replaceable>COMMAND</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <option>--copy-from</option> <arg choice="plain"><replaceable>IMAGE</replaceable></arg> <arg choice="plain"><replaceable>PATH</replaceable></arg> <arg choice="opt"><replaceable>TARGET</replaceable></arg>
+      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--copy-from</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg> <arg choice="plain"><replaceable>PATH</replaceable></arg> <arg choice="opt"><replaceable>TARGET</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <option>--copy-to</option> <arg choice="plain"><replaceable>IMAGE</replaceable></arg> <arg choice="opt"><replaceable>SOURCE</replaceable></arg> <arg choice="plain"><replaceable>PATH</replaceable></arg>
+      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--copy-to</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg> <arg choice="opt"><replaceable>SOURCE</replaceable></arg> <arg choice="plain"><replaceable>PATH</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <option>--discover</option>
+      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--discover</arg>
     </cmdsynopsis>
     <cmdsynopsis>
-      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <option>--validate</option> <arg choice="plain"><replaceable>IMAGE</replaceable></arg>
+      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--validate</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg>
     </cmdsynopsis>
   </refsynopsisdiv>
 
