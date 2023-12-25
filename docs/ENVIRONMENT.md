@@ -541,6 +541,9 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   `mkfs` when formatting LUKS home directories. There's one variable for each
   of the supported file systems for the LUKS home directory backend.
 
+* `$SYSTEMD_HOME_FREEZE_SESSION_OVERRIDE_DEFAULT` - overrides the default value of `freezeSession`
+  as defined in [JSON User Records](USER_RECORD.md).
+
 `kernel-install`:
 
 * `$KERNEL_INSTALL_BYPASS` – If set to "1", execution of kernel-install is skipped
@@ -603,3 +606,12 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   latter two via the environment variable unless `systemd-storagetm` is invoked
   to expose a single device only, since those identifiers better should be kept
   unique.
+
+`systemd-sleep`:
+
+* `$SYSTEMD_SLEEP_SKIP_FREEZE_USER_SESSIONS` - Takes a boolean. When true, `user.slice`
+  will not be frozen during sleep. We recommend against disabling this freezing
+  behavior for `systemd-suspend-then-hibernate.service`: the system will breifly
+  resume some time after suspending to transition into hibernation, and without
+  freezing `user.slice` the user sessions will be allowed to execute for that
+  brief moment and potentially lead to some unexpected behavior.

@@ -90,6 +90,11 @@
     <filename>sleep.conf.d</filename> file. See
     <citerefentry><refentrytitle>systemd-sleep.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
+
+    <para>Note that by default these services freeze <filename>user.slice</filename> while they run. This prevents
+    the execution of any process in any of the user sessions while the system is coming into and going out of a
+    suspended state. Thus, this prevents the hooks in <filename>/usr/lib/systemd/system-sleep/</filename>, or any
+    other process for that matter, from communicating with any user session process during suspend.</para>
   </refsect1>
 
   <refsect1>
