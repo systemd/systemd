@@ -145,7 +145,7 @@ static int dhcp_pd_get_assigned_subnet_prefix(Link *link, const struct in6_addr 
 }
 
 int dhcp_pd_remove(Link *link, bool only_marked) {
-        int k, r = 0;
+        int ret = 0;
 
         assert(link);
         assert(link->manager);
@@ -170,10 +170,7 @@ int dhcp_pd_remove(Link *link, bool only_marked) {
 
                         link_remove_dhcp_pd_subnet_prefix(link, &route->dst.in6);
 
-                        k = route_remove(route);
-                        if (k < 0)
-                                r = k;
-
+                        RET_GATHER(ret, route_remove(route));
                         route_cancel_request(route, link);
                 }
         } else {
@@ -195,13 +192,11 @@ int dhcp_pd_remove(Link *link, bool only_marked) {
 
                         link_remove_dhcp_pd_subnet_prefix(link, &prefix);
 
-                        k = address_remove_and_drop(address);
-                        if (k < 0)
-                                r = k;
+                        RET_GATHER(ret, address_remove_and_drop(address));
                 }
         }
 
-        return r;
+        return ret;
 }
 
 static int dhcp_pd_check_ready(Link *link);
