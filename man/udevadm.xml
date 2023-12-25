@@ -83,8 +83,8 @@
     </variablelist>
 
     <refsect2><title>udevadm info
-      <arg choice="opt"><replaceable>options</replaceable></arg>
-      <arg choice="opt" rep="repeat"><replaceable>devpath</replaceable>|<replaceable>file</replaceable>|<replaceable>unit</replaceable></arg>
+      <optional><replaceable>options</replaceable></optional>
+      <optional><replaceable>devpath</replaceable>|<replaceable>file</replaceable>|<replaceable>unit</replaceable></optional>
     </title>
 
       <para>Query the udev database for device information.</para>
@@ -382,8 +382,8 @@
     </refsect2>
 
     <refsect2><title>udevadm trigger
-      <arg choice="opt"><replaceable>options</replaceable></arg>
-      <arg choice="opt"><replaceable>devpath</replaceable>|<replaceable>file</replaceable>|<replaceable>unit</replaceable></arg>
+      <optional><replaceable>options</replaceable></optional>
+      <optional><replaceable>devpath</replaceable>|<replaceable>file</replaceable>|<replaceable>unit</replaceable></optional>
       </title>
       <para>Request device events from the kernel. Primarily used to replay events at system coldplug time.</para>
 
@@ -607,7 +607,7 @@
     </refsect2>
 
     <refsect2><title>udevadm settle
-      <arg choice="opt"><replaceable>options</replaceable></arg>
+      <optional><replaceable>options</replaceable></optional>
     </title>
       <para>Watches the udev event queue, and exits if all current events are handled.</para>
       <variablelist>
@@ -730,7 +730,7 @@
     </refsect2>
 
     <refsect2><title>udevadm monitor
-      <arg choice="opt"><replaceable>options</replaceable></arg>
+      <optional><replaceable>options</replaceable></optional>
     </title>
       <para>Listens to the kernel uevents and events sent out by a udev rule
       and prints the devpath of the event to the console. It can be used to analyze the
@@ -782,8 +782,8 @@
     </refsect2>
 
     <refsect2><title>udevadm test
-      <arg choice="opt"><replaceable>options</replaceable></arg>
-      <arg choice="opt"><replaceable>devpath</replaceable>|<replaceable>file</replaceable>|<replaceable>unit</replaceable></arg>
+      <optional><replaceable>options</replaceable></optional>
+      <optional><replaceable>devpath</replaceable>|<replaceable>file</replaceable>|<replaceable>unit</replaceable></optional>
     </title>
       <para>Simulate a udev event run for the given device, and print debug output.</para>
       <variablelist>
@@ -819,9 +819,9 @@
     </refsect2>
 
     <refsect2><title>udevadm test-builtin
-      <arg choice="opt"><replaceable>options</replaceable></arg>
-      <arg><replaceable>command</replaceable></arg>
-      <arg choice="opt"><replaceable>devpath</replaceable>|<replaceable>file</replaceable>|<replaceable>unit</replaceable></arg>
+      <optional><replaceable>options</replaceable></optional>
+      <replaceable>command</replaceable>
+      <optional><replaceable>devpath</replaceable>|<replaceable>file</replaceable>|<replaceable>unit</replaceable></optional>
     </title>
       <para>Run a built-in command <replaceable>COMMAND</replaceable>
       for device <replaceable>DEVPATH</replaceable>, and print debug
@@ -848,8 +848,8 @@
 
     <refsect2>
       <title>udevadm verify
-      <arg choice="opt"><replaceable>options</replaceable></arg>
-      <arg choice="opt" rep="repeat"><replaceable>file</replaceable></arg>
+      <optional><replaceable>options</replaceable></optional>
+      <optional><replaceable>file</replaceable></optional>
       …
       </title>
 
@@ -913,8 +913,8 @@
 
     <refsect2>
       <title>udevadm wait
-      <arg choice="opt"><replaceable>options</replaceable></arg>
-      <arg choice="opt"><replaceable>device|syspath</replaceable></arg>
+      <optional><replaceable>options</replaceable></optional>
+      <optional><replaceable>device|syspath</replaceable></optional>
       …
       </title>
 
@@ -977,8 +977,8 @@
 
     <refsect2>
       <title>udevadm lock
-      <arg choice="opt"><replaceable>options</replaceable></arg>
-      <arg choice="opt"><replaceable>command</replaceable></arg>
+      <optional><replaceable>options</replaceable></optional>
+      <optional><replaceable>command</replaceable></optional>
       …
       </title>
 
