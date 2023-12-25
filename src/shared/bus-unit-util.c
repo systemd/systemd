@@ -10,6 +10,7 @@
 #include "cgroup-setup.h"
 #include "cgroup-util.h"
 #include "condition.h"
+#include "constants.h"
 #include "coredump-util.h"
 #include "cpu-set-util.h"
 #include "dissect-image.h"
@@ -2936,4 +2937,70 @@ int bus_service_manager_reload(sd_bus *bus) {
                 return log_error_errno(r, "Failed to reload service manager: %s", bus_error_message(&error, r));
 
         return 0;
+}
+
+int unit_freezer_recover(const char *name, UnitFreezer *ret) {
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_free_ char *namedup = NULL;
+        int r;
+
+        assert(name);
+        assert(ret);
+
+        namedup = strdup(name);
+        if (!namedup)
+                return log_oom_debug();
+
+        r = bus_connect_system_systemd(&bus);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to open connection to systemd: %m");
+
+        (void) sd_bus_set_method_call_timeout(bus, FREEZE_TIMEOUT);
+
+        *ret = (UnitFreezer) {
+                .name = TAKE_PTR(namedup),
+                .bus = TAKE_PTR(bus),
+        };
+        return 0;
+}
+
+void unit_freezer_clear(UnitFreezer *f) {
+        if (!f)
+                return;
+
+        f->name = mfree(f->name);
+        f->bus = sd_bus_flush_close_unref(f->bus);
+}
+
+int unit_freezer_freeze(const char *name, UnitFreezer *ret) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(unit_freezer_clear) UnitFreezer f = UNIT_FREEZER_NULL;
+        int r;
+
+        assert(ret);
+
+        r = unit_freezer_recover(name, &f);
+        if (r < 0)
+                return r;
+
+        r = bus_call_method(f.bus, bus_systemd_mgr, "FreezeUnit", &error, NULL, "s", f.name);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to freeze unit %s: %s", f.name, bus_error_message(&error, r));
+
+        *ret = TAKE_STRUCT(f);
+        return 1;
+}
+
+int unit_freezer_thaw(UnitFreezer *_f) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(unit_freezer_clearp) UnitFreezer *f = TAKE_PTR(_f);
+        int r;
+
+        if (!f)
+                return 0;
+
+        r = bus_call_method(f->bus, bus_systemd_mgr, "ThawUnit", &error, NULL, "s", f->name);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to thaw unit %s: %s", f->name, bus_error_message(&error, r));
+        return 1;
 }
