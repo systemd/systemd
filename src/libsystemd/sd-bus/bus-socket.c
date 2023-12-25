@@ -217,7 +217,7 @@ static int bus_socket_auth_verify_client(sd_bus *b) {
         /* And possibly check the third line, too */
         if (b->accept_fd) {
                 l = lines[i++];
-                b->can_fds = !!memory_startswith(l, lines[i] - l, "AGREE_UNIX_FD");
+                b->can_fds = memory_startswith(l, lines[i] - l, "AGREE_UNIX_FD");
         }
 
         assert(i == n);

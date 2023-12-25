@@ -1311,7 +1311,7 @@ int bus_set_transient_exec_command(
         int r;
 
         /* Drop Ex from the written setting. E.g. ExecStart=, not ExecStartEx=. */
-        const char *written_name = is_ex_prop ? strndupa(name, strlen(name) - 2) : name;
+        const char *written_name = is_ex_prop ? strndupa_safe(name, strlen(name) - 2) : name;
 
         r = sd_bus_message_enter_container(message, 'a', is_ex_prop ? "(sasas)" : "(sasb)");
         if (r < 0)
