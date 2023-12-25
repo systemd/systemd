@@ -172,10 +172,8 @@ static int run(int argc, char *argv[]) {
                 log_warning_errno(r, "Failed to parse kernel command line, ignoring: %m");
 
         ctx = kmod_new(NULL, NULL);
-        if (!ctx) {
-                log_error("Failed to allocate memory for kmod.");
-                return -ENOMEM;
-        }
+        if (!ctx)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOMEM), "Failed to allocate memory for kmod.");
 
         kmod_load_resources(ctx);
         kmod_set_log_fn(ctx, systemd_kmod_log, NULL);
