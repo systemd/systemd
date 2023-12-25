@@ -879,7 +879,7 @@ static int request_handler_machine(
                      SD_ID128_FORMAT_VAL(bid),
                      hostname_cleanup(hostname),
                      os_release_pretty_name(pretty_name, os_name),
-                     v ? v : "bare",
+                     v ?: "bare",
                      usage,
                      cutoff_from,
                      cutoff_to);

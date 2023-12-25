@@ -2059,7 +2059,7 @@ int tpm2_create_primary(
                         session ? session->esys_handle : ESYS_TR_PASSWORD,
                         ESYS_TR_NONE,
                         ESYS_TR_NONE,
-                        sensitive ? sensitive : &(TPM2B_SENSITIVE_CREATE) {},
+                        sensitive ?: &(TPM2B_SENSITIVE_CREATE) {},
                         template,
                         /* outsideInfo= */ NULL,
                         &(TPML_PCR_SELECTION) {},
