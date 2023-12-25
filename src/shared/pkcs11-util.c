@@ -1530,7 +1530,7 @@ int pkcs11_list_tokens(void) {
         if (r < 0 && r != -EAGAIN)
                 return r;
 
-        if (table_get_rows(t) <= 1) {
+        if (table_isempty(t)) {
                 log_info("No suitable PKCS#11 tokens found.");
                 return 0;
         }

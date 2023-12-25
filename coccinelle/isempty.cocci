@@ -132,3 +132,13 @@ expression s;
 - prioq_size(s) != 0
 + !prioq_isempty(s)
 )
+@@
+expression s;
+@@
+(
+- table_get_rows(s) <= 1
++ table_isempty(s)
+|
+- table_get_rows(s) > 1
++ !table_isempty(s)
+)
