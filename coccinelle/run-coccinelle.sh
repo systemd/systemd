@@ -43,10 +43,6 @@ fi
 
 mkdir -p "$CACHE_DIR"
 echo "--x-- Using Coccinelle cache directory: $CACHE_DIR"
-echo "--x--"
-echo "--x-- Note: running spatch for the first time without populated cache takes"
-echo "--x--       a _long_ time (15-30 minutes). Also, the cache is quite large"
-echo "--x--       (~15 GiB), so make sure you have enough free space."
 echo
 
 for script in "${SCRIPTS[@]}"; do
@@ -69,10 +65,8 @@ for script in "${SCRIPTS[@]}"; do
     #
     # 4) Explicitly undefine the SD_BOOT symbol, so Coccinelle ignores includes guarded by #if SD_BOOT
     #
-    # 5) Use cache, since generating the full AST is _very_ expensive, i.e. the uncached run takes 15 - 30
-    # minutes (for one rule(!)), vs 30 - 90 seconds when the cache is populated. One major downside of the
-    # cache is that it's quite big - ATTOW the cache takes around 15 GiB, but the performance boost is
-    # definitely worth it
+    # 5) Use cache, since generating the full AST is expensive. With cache we can do that only once and then
+    #    reuse the cached ASTs for other rules. This cuts down the time needed to run each rule by ~60%.
     parallel --halt now,fail=1 --keep-order --noswap --max-args=10 \
         spatch --cache-prefix "$CACHE_DIR" \
                -I src \
