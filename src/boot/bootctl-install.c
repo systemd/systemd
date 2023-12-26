@@ -1020,7 +1020,7 @@ static int remove_loader_variables(void) {
                        EFI_LOADER_VARIABLE(LoaderEntryDefault),
                        EFI_LOADER_VARIABLE(LoaderEntryLastBooted),
                        EFI_LOADER_VARIABLE(LoaderEntryOneShot),
-                       EFI_LOADER_VARIABLE(LoaderSystemToken)){
+                       EFI_LOADER_VARIABLE(LoaderSystemToken)) {
 
                 int q;
 
