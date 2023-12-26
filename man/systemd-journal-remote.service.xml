@@ -1,6 +1,6 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 <!ENTITY % entities SYSTEM "custom-entities.ent" >
 %entities;
 ]>
@@ -87,7 +87,7 @@
 
     <variablelist>
       <varlistentry>
-        <term><arg choice="opt" rep="repeat">SOURCES</arg></term>
+        <term><optional>SOURCES</optional></term>
 
         <listitem><para>When <option>-</option> is given as a
         positional argument, events will be read from standard input.
@@ -113,7 +113,7 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--getter='<replaceable>PROG</replaceable> <arg choice="opt" rep="repeat">OPTIONS</arg>'</option></term>
+        <term><option>--getter='<replaceable>PROG</replaceable> <optional>OPTIONS</optional>'</option></term>
 
         <listitem><para>Program to invoke to retrieve data. The journal
         event stream must be generated on standard output.</para>
