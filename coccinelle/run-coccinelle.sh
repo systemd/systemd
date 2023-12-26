@@ -70,8 +70,8 @@ for script in "${SCRIPTS[@]}"; do
     # 2) Make sure spatch can find our includes via -I <dir>, similarly as we do when compiling stuff
     #
     # 3) Make sure to include includes from includes (--recursive-includes), but use them only to get type
-    # definitions (--include-headers-for-types) - otherwise we'd start formating them as well, which might be
-    # unwanted, especially for includes we fetch verbatim from third-parties
+    # definitions (--include-headers-for-types) - otherwise we'd start formatting them as well, which might
+    # be unwanted, especially for includes we fetch verbatim from third-parties
     #
     # 4) Use cache, since generating the full AST is _very_ expensive, i.e. the uncached run takes 15 - 30
     # minutes (for one rule(!)), vs 30 - 90 seconds when the cache is populated. One major downside of the
