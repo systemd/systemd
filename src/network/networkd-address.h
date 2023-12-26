@@ -112,7 +112,7 @@ static inline int link_get_ipv4_address(Link *link, const struct in_addr *addres
         return link_get_address(link, AF_INET, &(union in_addr_union) { .in = *address }, prefixlen, ret);
 }
 int manager_get_address(Manager *manager, int family, const union in_addr_union *address, unsigned char prefixlen, Address **ret);
-bool manager_has_address(Manager *manager, int family, const union in_addr_union *address, bool check_ready);
+bool manager_has_address(Manager *manager, int family, const union in_addr_union *address);
 
 void address_cancel_request(Address *address);
 int link_request_address(
