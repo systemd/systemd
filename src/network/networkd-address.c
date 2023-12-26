@@ -978,7 +978,7 @@ int manager_get_address(Manager *manager, int family, const union in_addr_union 
         return -ENOENT;
 }
 
-bool manager_has_address(Manager *manager, int family, const union in_addr_union *address, bool check_ready) {
+bool manager_has_address(Manager *manager, int family, const union in_addr_union *address) {
         Address *a;
 
         assert(manager);
@@ -988,7 +988,7 @@ bool manager_has_address(Manager *manager, int family, const union in_addr_union
         if (manager_get_address(manager, family, address, 0, &a) < 0)
                 return false;
 
-        return check_ready ? address_is_ready(a) : (address_exists(a) && address_lifetime_is_valid(a));
+        return address_is_ready(a);
 }
 
 const char* format_lifetime(char *buf, size_t l, usec_t lifetime_usec) {
