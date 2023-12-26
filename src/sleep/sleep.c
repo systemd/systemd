@@ -176,7 +176,7 @@ static int lock_all_homes(void) {
         /* Let's synchronously lock all home directories managed by homed that have been marked for it. This
          * way the key material required to access these volumes is hopefully removed from memory. */
 
-        r = bus_connect_system_systemd(&bus);
+        r = sd_bus_open_system(&bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to system bus: %m");
 
