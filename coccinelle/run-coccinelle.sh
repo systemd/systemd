@@ -2,13 +2,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
-# FIXME:
-#   - Coccinelle doesn't like our TEST() macros, which then causes name conflicts; i.e. Cocci can't process
-#     that TEST(xsetxattr) yields test_xsetxattr() and uses just xsetxattr() in this case, which then conflicts
-#     with the tested xsetxattr() function, leading up to the whole test case getting skipped due to
-#     conflicting typedefs
-#   - Coccinelle has issues with some of our more complex macros
-
 # Exclude following paths from the Coccinelle transformations
 EXCLUDED_PATHS=(
     "src/boot/efi/*"
@@ -87,6 +80,7 @@ for script in "${SCRIPTS[@]}"; do
                --recursive-includes \
                --include-headers-for-types \
                --undefined SD_BOOT \
+               --macro-file-builtins "coccinelle/parsing_hacks.h" \
                --smpl-spacing \
                --sp-file "$script" \
                "${ARGS[@]}" ::: "${FILES[@]}" \
