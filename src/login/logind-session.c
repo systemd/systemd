@@ -93,7 +93,7 @@ static void session_reset_leader(Session *s) {
         if (!pidref_is_set(&s->leader))
                 return;
 
-        assert_se(hashmap_remove_value(s->manager->sessions_by_leader, &s->leader, s));
+        (void) hashmap_remove_value(s->manager->sessions_by_leader, &s->leader, s);
 
         return pidref_done(&s->leader);
 }
