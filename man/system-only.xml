@@ -8,10 +8,10 @@
 <refsect1>
   <title/>
 
-<para id="singular">This option is only available for system services and is not supported for services
-running in per-user instances of the service manager.</para>
+  <para id="singular">This option is only available for system services and is not supported for services
+  running in per-user instances of the service manager.</para>
 
-<para id="plural">These options are only available for system services and are not supported for services
-running in per-user instances of the service manager.</para>
+  <para id="plural">These options are only available for system services and are not supported for services
+  running in per-user instances of the service manager.</para>
 
 </refsect1>
