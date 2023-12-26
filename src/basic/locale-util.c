@@ -221,7 +221,7 @@ int get_locales(char ***ret) {
         locales = set_free(locales);
 
         r = getenv_bool("SYSTEMD_LIST_NON_UTF8_LOCALES");
-        if (r == -ENXIO || r == 0) {
+        if (IN_SET(r, -ENXIO, 0)) {
                 char **a, **b;
 
                 /* Filter out non-UTF-8 locales, because it's 2019, by default */
