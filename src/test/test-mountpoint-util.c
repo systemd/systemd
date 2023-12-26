@@ -328,23 +328,23 @@ TEST(mount_option_supported) {
 
         r = mount_option_supported("tmpfs", "size", "64M");
         log_info("tmpfs supports size=64M: %s (%i)", r < 0 ? "don't know" : yes_no(r), r);
-        assert_se(r > 0 || r == -EAGAIN || (r < 0 && ERRNO_IS_PRIVILEGE(r)));
+        assert_se(r > 0 || r == -EAGAIN || ERRNO_IS_NEG_PRIVILEGE(r));
 
         r = mount_option_supported("ext4", "discard", NULL);
         log_info("ext4 supports discard: %s (%i)", r < 0 ? "don't know" : yes_no(r), r);
-        assert_se(r > 0 || r == -EAGAIN || (r < 0 && ERRNO_IS_PRIVILEGE(r)));
+        assert_se(r > 0 || r == -EAGAIN || ERRNO_IS_NEG_PRIVILEGE(r));
 
         r = mount_option_supported("tmpfs", "idontexist", "64M");
         log_info("tmpfs supports idontexist: %s (%i)", r < 0 ? "don't know" : yes_no(r), r);
-        assert_se(r == 0 || r == -EAGAIN || (r < 0 && ERRNO_IS_PRIVILEGE(r)));
+        assert_se(IN_SET(r, 0, -EAGAIN) || ERRNO_IS_NEG_PRIVILEGE(r));
 
         r = mount_option_supported("tmpfs", "ialsodontexist", NULL);
         log_info("tmpfs supports ialsodontexist: %s (%i)", r < 0 ? "don't know" : yes_no(r), r);
-        assert_se(r == 0 || r == -EAGAIN || (r < 0 && ERRNO_IS_PRIVILEGE(r)));
+        assert_se(IN_SET(r, 0, -EAGAIN) || ERRNO_IS_NEG_PRIVILEGE(r));
 
         r = mount_option_supported("proc", "hidepid", "1");
         log_info("proc supports hidepid=1: %s (%i)", r < 0 ? "don't know" : yes_no(r), r);
-        assert_se(r >= 0 || r == -EAGAIN || (r < 0 && ERRNO_IS_PRIVILEGE(r)));
+        assert_se(r >= 0 || r == -EAGAIN || ERRNO_IS_NEG_PRIVILEGE(r));
 }
 
 TEST(fstype_can_discard) {
