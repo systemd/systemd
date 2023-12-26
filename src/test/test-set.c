@@ -141,7 +141,7 @@ TEST(set_ensure_allocated) {
         assert_se(set_ensure_allocated(&m, &string_hash_ops) == 1);
         assert_se(set_ensure_allocated(&m, &string_hash_ops) == 0);
         assert_se(set_ensure_allocated(&m, NULL) == 0);
-        assert_se(set_size(m) == 0);
+        assert_se(set_isempty(m));
 }
 
 TEST(set_copy) {
