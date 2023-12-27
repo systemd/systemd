@@ -597,7 +597,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (streq_ptr(argv[optind], "condition") && arg_unit && optind < argc - 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No conditions can be passed if --unit= is used.");
 
-        if ((!arg_legend && !streq_ptr(argv[optind], "plot")) ||
+        if ((!arg_legend && !STRPTR_IN_SET(argv[optind], "plot", "architectures")) ||
            (streq_ptr(argv[optind], "plot") && !arg_legend && !arg_table && FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --no-legend is only supported for plot with either --table or --json=.");
 
