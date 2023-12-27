@@ -7569,7 +7569,7 @@ int tpm2_util_pbkdf2_hmac_sha256(const void *pass,
                     size_t saltlen,
                     uint8_t ret_key[static SHA256_DIGEST_SIZE]) {
 
-        uint8_t _cleanup_(erase_and_freep) *buffer = NULL;
+        _cleanup_(erase_and_freep) uint8_t *buffer = NULL;
         uint8_t u[SHA256_DIGEST_SIZE];
 
         /* To keep this simple, since derived KeyLen (dkLen in docs)

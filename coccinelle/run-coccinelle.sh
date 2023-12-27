@@ -2,14 +2,6 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 set -e
 
-# FIXME:
-#   - Coccinelle doesn't like our TEST() macros, which then causes name conflicts; i.e. Cocci can't process
-#     that TEST(xsetxattr) yields test_xsetxattr() and uses just xsetxattr() in this case, which then conflicts
-#     with the tested xsetxattr() function, leading up to the whole test case getting skipped due to
-#     conflicting typedefs
-#   - something keeps pulling in src/boot/efi/*.h stuff, even though it's excluded
-#   - Coccinelle has issues with some of our more complex macros
-
 # Exclude following paths from the Coccinelle transformations
 EXCLUDED_PATHS=(
     "src/boot/efi/*"
@@ -51,10 +43,6 @@ fi
 
 mkdir -p "$CACHE_DIR"
 echo "--x-- Using Coccinelle cache directory: $CACHE_DIR"
-echo "--x--"
-echo "--x-- Note: running spatch for the first time without populated cache takes"
-echo "--x--       a _long_ time (15-30 minutes). Also, the cache is quite large"
-echo "--x--       (~15 GiB), so make sure you have enough free space."
 echo
 
 for script in "${SCRIPTS[@]}"; do
@@ -67,21 +55,26 @@ for script in "${SCRIPTS[@]}"; do
     # at once one spatch process can take around 2.5 GiB of RAM, which can easily eat up all available RAM
     # when paired together with parallel
     #
-    # 2) Make sure spatch can find our includes via -I <dir>, similarly as we do when compiling stuff
+    # 2) Make sure spatch can find our includes via -I <dir>, similarly as we do when compiling stuff.
+    #    Also, include the system include path as well, since we're not kernel and we make use of the stdlib
+    #    (and other libraries).
     #
     # 3) Make sure to include includes from includes (--recursive-includes), but use them only to get type
     # definitions (--include-headers-for-types) - otherwise we'd start formatting them as well, which might
     # be unwanted, especially for includes we fetch verbatim from third-parties
     #
-    # 4) Use cache, since generating the full AST is _very_ expensive, i.e. the uncached run takes 15 - 30
-    # minutes (for one rule(!)), vs 30 - 90 seconds when the cache is populated. One major downside of the
-    # cache is that it's quite big - ATTOW the cache takes around 15 GiB, but the performance boost is
-    # definitely worth it
+    # 4) Explicitly undefine the SD_BOOT symbol, so Coccinelle ignores includes guarded by #if SD_BOOT
+    #
+    # 5) Use cache, since generating the full AST is expensive. With cache we can do that only once and then
+    #    reuse the cached ASTs for other rules. This cuts down the time needed to run each rule by ~60%.
     parallel --halt now,fail=1 --keep-order --noswap --max-args=10 \
         spatch --cache-prefix "$CACHE_DIR" \
                -I src \
+               -I /usr/include \
                --recursive-includes \
                --include-headers-for-types \
+               --undefined SD_BOOT \
+               --macro-file-builtins "coccinelle/parsing_hacks.h" \
                --smpl-spacing \
                --sp-file "$script" \
                "${ARGS[@]}" ::: "${FILES[@]}" \
