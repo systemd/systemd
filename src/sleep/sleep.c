@@ -253,10 +253,8 @@ static int execute(
                                 return r;
 
                         r = write_resume_config(hibernation_device.devno, hibernation_device.offset, hibernation_device.path);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to write hibernation device to /sys/power/resume or /sys/power/resume_offset: %m");
+                        if (r < 0)
                                 goto fail;
-                        }
                 }
 
                 r = write_mode(sleep_config->modes[operation]);
