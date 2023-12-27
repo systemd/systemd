@@ -433,6 +433,7 @@ static int manager_connect_rtnl(Manager *m, int fd) {
 static int manager_post_handler(sd_event_source *s, void *userdata) {
         Manager *manager = ASSERT_PTR(userdata);
 
+        (void) manager_process_remove_requests(manager);
         (void) manager_process_requests(manager);
         (void) manager_clean_all(manager);
         return 0;
@@ -603,6 +604,7 @@ Manager* manager_free(Manager *m) {
                 (void) link_stop_engines(link, true);
 
         m->request_queue = ordered_set_free(m->request_queue);
+        m->remove_request_queue = ordered_set_free(m->remove_request_queue);
 
         m->dirty_links = set_free_with_destructor(m->dirty_links, link_unref);
         m->new_wlan_ifindices = set_free(m->new_wlan_ifindices);

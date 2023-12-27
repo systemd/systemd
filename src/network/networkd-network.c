@@ -187,7 +187,7 @@ int network_verify(Network *network) {
                         log_warning("%s: Cannot set routes when Bond= is specified, ignoring routes.",
                                     network->filename);
 
-                network->addresses_by_section = ordered_hashmap_free_with_destructor(network->addresses_by_section, address_free);
+                network->addresses_by_section = ordered_hashmap_free(network->addresses_by_section);
                 network->routes_by_section = hashmap_free_with_destructor(network->routes_by_section, route_free);
         }
 
@@ -782,12 +782,12 @@ static Network *network_free(Network *network) {
 
         /* static configs */
         set_free_free(network->ipv6_proxy_ndp_addresses);
-        ordered_hashmap_free_with_destructor(network->addresses_by_section, address_free);
+        ordered_hashmap_free(network->addresses_by_section);
         hashmap_free_with_destructor(network->routes_by_section, route_free);
-        ordered_hashmap_free_with_destructor(network->nexthops_by_section, nexthop_free);
+        ordered_hashmap_free(network->nexthops_by_section);
         hashmap_free_with_destructor(network->bridge_fdb_entries_by_section, bridge_fdb_free);
         hashmap_free_with_destructor(network->bridge_mdb_entries_by_section, bridge_mdb_free);
-        ordered_hashmap_free_with_destructor(network->neighbors_by_section, neighbor_free);
+        ordered_hashmap_free(network->neighbors_by_section);
         hashmap_free_with_destructor(network->address_labels_by_section, address_label_free);
         hashmap_free_with_destructor(network->prefixes_by_section, prefix_free);
         hashmap_free_with_destructor(network->route_prefixes_by_section, route_prefix_free);
