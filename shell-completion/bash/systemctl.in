@@ -236,6 +236,8 @@ _systemctl () {
         [MACHINES]='list-machines'
         [LOG_LEVEL]='log-level'
         [LOG_TARGET]='log-target'
+        [SERVICE_LOG_LEVEL]='service-log-level'
+        [SERVICE_LOG_TARGET]='service-log-target'
         [SERVICE_WATCHDOGS]='service-watchdogs'
     )
 
@@ -365,6 +367,22 @@ _systemctl () {
         comps='debug info notice warning err crit alert emerg'
     elif __contains_word "$verb" ${VERBS[LOG_TARGET]}; then
         comps='console journal kmsg journal-or-kmsg null'
+    elif __contains_word "$verb" ${VERBS[SERVICE_LOG_LEVEL]}; then
+        if __contains_word "$prev" ${VERBS[SERVICE_LOG_LEVEL]}; then
+            comps=$( __get_all_unit_files $mode "$cur" )
+        elif __contains_word "$prev" debug info notice warning err crit alert emerg; then
+            return 0
+        else
+            comps='debug info notice warning err crit alert emerg'
+        fi
+    elif __contains_word "$verb" ${VERBS[SERVICE_LOG_TARGET]}; then
+        if __contains_word "$prev" ${VERBS[SERVICE_LOG_TARGET]}; then
+            comps=$( __get_all_unit_files $mode "$cur" )
+        elif __contains_word "$prev" console journal kmsg journal-or-kmsg null; then
+            return 0
+        else
+            comps='console journal kmsg journal-or-kmsg null'
+        fi
     elif __contains_word "$verb" ${VERBS[SERVICE_WATCHDOGS]}; then
         comps='on off'
     fi
