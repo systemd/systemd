@@ -388,12 +388,24 @@ int find_suitable_hibernation_device_full(HibernationDevice *ret_device, uint64_
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOSPC), "Cannot find swap entry corresponding to /sys/power/resume.");
         }
 
-        if (ret_device)
+        if (ret_device) {
+                char *path;
+
+                if (entry->swapfile) {
+                        r = device_path_make_canonical(S_IFBLK, entry->devno, &path);
+                        if (r < 0)
+                                return log_debug_errno(r,
+                                                       "Failed to format canonical device path for devno '" DEVNUM_FORMAT_STR "': %m",
+                                                       DEVNUM_FORMAT_VAL(entry->devno));
+                } else
+                        path = TAKE_PTR(entry->path);
+
                 *ret_device = (HibernationDevice) {
                         .devno = entry->devno,
                         .offset = entry->offset,
-                        .path = TAKE_PTR(entry->path),
+                        .path = path,
                 };
+        }
 
         if (ret_size) {
                 *ret_size = entry->size;
