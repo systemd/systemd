@@ -2945,6 +2945,7 @@ static int machinectl_main(int argc, char *argv[], sd_bus *bus) {
                 { "show-image",      VERB_ANY, VERB_ANY, 0,            show_image        },
                 { "terminate",       2,        VERB_ANY, 0,            terminate_machine },
                 { "reboot",          2,        VERB_ANY, 0,            reboot_machine    },
+                { "restart",         2,        VERB_ANY, 0,            reboot_machine    }, /* Convenience alias */
                 { "poweroff",        2,        VERB_ANY, 0,            poweroff_machine  },
                 { "stop",            2,        VERB_ANY, 0,            poweroff_machine  }, /* Convenience alias */
                 { "kill",            2,        VERB_ANY, 0,            kill_machine      },

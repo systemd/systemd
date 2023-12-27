@@ -279,7 +279,8 @@
         trigger a reboot by sending SIGINT to the container's init
         process, which is roughly equivalent to pressing Ctrl+Alt+Del
         on a non-containerized system, and is compatible with
-        containers running any system manager.</para>
+        containers running any system manager. Use <command>restart</command> as alias 
+        for <command>reboot</command>.</para>
 
         <xi:include href="version-info.xml" xpointer="v209"/></listitem>
       </varlistentry>
