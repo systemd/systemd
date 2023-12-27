@@ -1,6 +1,6 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="systemd-oomd.service" conditional='ENABLE_OOMD'
@@ -115,10 +115,10 @@
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
-    </variablelist>
 
-    <xi:include href="standard-options.xml" xpointer="help" />
-    <xi:include href="standard-options.xml" xpointer="version" />
+      <xi:include href="standard-options.xml" xpointer="help" />
+      <xi:include href="standard-options.xml" xpointer="version" />
+    </variablelist>
   </refsect1>
 
   <refsect1>
