@@ -62,6 +62,8 @@ __get_template_names () { __systemctl $1 list-unit-files "$2*" \
                               | { while read -r a b; do [[ $a =~ @\. ]] && echo " ${a%%@.*}@"; done; }; }
 __get_active_units   () { __systemctl $1 list-units "$2*"      \
                               | { while read -r a b; do echo " $a"; done; }; }
+__get_active_services() { __systemctl $1 list-units "$2*.service" \
+                              | { while read -r a b; do echo " $a"; done; }; }
 
 __get_not_masked_unit_files() {
     # filter out masked, not-found, or template units.
@@ -231,12 +233,15 @@ _systemctl () {
                              list-timers list-units list-unit-files poweroff
                              reboot rescue show-environment suspend get-default
                              is-system-running preset-all list-automounts list-paths'
-        [FILE]='link switch-root bind mount-image'
+        [FILE]='link switch-root'
         [TARGETS]='set-default'
         [MACHINES]='list-machines'
         [LOG_LEVEL]='log-level'
         [LOG_TARGET]='log-target'
+        [SERVICE_LOG_LEVEL]='service-log-level'
+        [SERVICE_LOG_TARGET]='service-log-target'
         [SERVICE_WATCHDOGS]='service-watchdogs'
+        [MOUNT]='bind mount-image'
     )
 
     for ((i=0; i < COMP_CWORD; i++)); do
@@ -365,8 +370,33 @@ _systemctl () {
         comps='debug info notice warning err crit alert emerg'
     elif __contains_word "$verb" ${VERBS[LOG_TARGET]}; then
         comps='console journal kmsg journal-or-kmsg null'
+    elif __contains_word "$verb" ${VERBS[SERVICE_LOG_LEVEL]}; then
+        if __contains_word "$prev" ${VERBS[SERVICE_LOG_LEVEL]}; then
+            comps=$( __get_all_unit_files $mode "$cur" )
+        elif __contains_word "$prev" debug info notice warning err crit alert emerg; then
+            return 0
+        else
+            comps='debug info notice warning err crit alert emerg'
+        fi
+    elif __contains_word "$verb" ${VERBS[SERVICE_LOG_TARGET]}; then
+        if __contains_word "$prev" ${VERBS[SERVICE_LOG_TARGET]}; then
+            comps=$( __get_all_unit_files $mode "$cur" )
+        elif __contains_word "$prev" console journal kmsg journal-or-kmsg null; then
+            return 0
+        else
+            comps='console journal kmsg journal-or-kmsg null'
+        fi
     elif __contains_word "$verb" ${VERBS[SERVICE_WATCHDOGS]}; then
         comps='on off'
+    elif __contains_word "$verb" ${VERBS[MOUNT]}; then
+        if __contains_word "$prev" ${VERBS[MOUNT]}; then
+            comps=$( __get_active_services $mode "$cur" )
+        elif [[ "$prev" =~ .service ]]; then
+            comps=$( compgen -A file -- "$cur" )
+            compopt -o filenames
+        else
+            return 0
+        fi
     fi
 
     COMPREPLY=( $(compgen -o filenames -W '$comps' -- "$cur_orig") )
