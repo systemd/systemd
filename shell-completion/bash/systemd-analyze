@@ -51,6 +51,10 @@ __get_syscall_sets() {
     done
 }
 
+__get_architectures() {
+    systemd-analyze --no-legend --no-pager architectures | { while read -r a b; do echo " $a"; done }
+}
+
 _systemd_analyze() {
     local i verb comps mode
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]} words cword
@@ -73,6 +77,7 @@ _systemd_analyze() {
         [CONDITION]='condition'
         [INSPECT_ELF]='inspect-elf'
         [PLOT]='plot'
+        [ARCHITECTURES]='architectures'
     )
 
     local CONFIGS='systemd/bootchart.conf systemd/coredump.conf systemd/journald.conf
@@ -197,6 +202,13 @@ _systemd_analyze() {
     elif __contains_word "$verb" ${VERBS[PLOT]}; then
         if [[ $cur = -* ]]; then
             comps='--help --version --system --user --global --no-pager --json=off --json=pretty --json=short --table --no-legend'
+        fi
+
+    elif __contains_word "$verb" ${VERBS[ARCHITECTURES]}; then
+        if [[ $cur = -* ]]; then
+            comps='--help --version --no-pager --json=off --json=pretty --json=short --no-legend'
+        else
+            comps=$( __get_architectures )
         fi
     fi
 
