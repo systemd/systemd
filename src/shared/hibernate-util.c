@@ -475,21 +475,14 @@ int hibernation_is_safe(void) {
 
 int write_resume_config(dev_t devno, uint64_t offset, const char *device) {
         char offset_str[DECIMAL_STR_MAX(uint64_t)];
-        _cleanup_free_ char *path = NULL;
         const char *devno_str;
         int r;
 
+        assert(devno > 0);
+        assert(device);
+
         devno_str = FORMAT_DEVNUM(devno);
         xsprintf(offset_str, "%" PRIu64, offset);
-
-        if (!device) {
-                r = device_path_make_canonical(S_IFBLK, devno, &path);
-                if (r < 0)
-                        return log_error_errno(r,
-                                               "Failed to format canonical device path for devno '" DEVNUM_FORMAT_STR "': %m",
-                                               DEVNUM_FORMAT_VAL(devno));
-                device = path;
-        }
 
         /* We write the offset first since it's safer. Note that this file is only available in 4.17+, so
          * fail gracefully if it doesn't exist and we're only overwriting it with 0. */
@@ -497,8 +490,8 @@ int write_resume_config(dev_t devno, uint64_t offset, const char *device) {
         if (r == -ENOENT) {
                 if (offset != 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
-                                               "Can't configure hibernation offset %" PRIu64 ", kernel does not support /sys/power/resume_offset. Refusing.",
-                                               offset);
+                                               "Can't configure swap file offset %s, kernel does not support /sys/power/resume_offset. Refusing.",
+                                               offset_str);
 
                 log_warning_errno(r, "/sys/power/resume_offset is unavailable, skipping writing swap file offset.");
         } else if (r < 0)
