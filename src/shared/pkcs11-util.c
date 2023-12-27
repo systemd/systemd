@@ -665,7 +665,7 @@ int pkcs11_token_find_private_key(
                 optional_attributes[1].ulValueLen = sizeof(derive_value);
 
                 rv = m->C_GetAttributeValue(session, candidate, optional_attributes, ELEMENTSOF(optional_attributes));
-                if (rv != CKR_OK && rv != CKR_ATTRIBUTE_TYPE_INVALID)
+                if (!IN_SET(rv, CKR_OK, CKR_ATTRIBUTE_TYPE_INVALID))
                         return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                 "Failed to get attributes of a selected private key: %s", sym_p11_kit_strerror(rv));
 
@@ -737,7 +737,7 @@ int pkcs11_token_find_related_object(
         CK_RV rv;
 
         rv = m->C_GetAttributeValue(session, prototype, attributes, ELEMENTSOF(attributes));
-        if (rv != CKR_OK && rv != CKR_ATTRIBUTE_TYPE_INVALID)
+        if (!IN_SET(rv, CKR_OK, CKR_ATTRIBUTE_TYPE_INVALID))
                 return log_debug_errno(SYNTHETIC_ERRNO(EIO), "Failed to retrieve length of attributes: %s", sym_p11_kit_strerror(rv));
 
         if (attributes[0].ulValueLen != CK_UNAVAILABLE_INFORMATION) {
@@ -812,7 +812,7 @@ static int ecc_convert_to_compressed(
         int r;
 
         rv = m->C_GetAttributeValue(session, object, &ec_params_attr, 1);
-        if (rv != CKR_OK && rv != CKR_ATTRIBUTE_TYPE_INVALID)
+        if (!IN_SET(rv, CKR_OK, CKR_ATTRIBUTE_TYPE_INVALID))
                 return log_error_errno(SYNTHETIC_ERRNO(EIO),
                         "Failed to retrieve length of CKA_EC_PARAMS: %s", sym_p11_kit_strerror(rv));
 
@@ -834,7 +834,7 @@ static int ecc_convert_to_compressed(
 
                 ec_params_attr.ulValueLen = 0;
                 rv = m->C_GetAttributeValue(session, public_key, &ec_params_attr, 1);
-                if (rv != CKR_OK && rv != CKR_ATTRIBUTE_TYPE_INVALID)
+                if (!IN_SET(rv, CKR_OK, CKR_ATTRIBUTE_TYPE_INVALID))
                         return log_error_errno(SYNTHETIC_ERRNO(EIO),
                                 "Failed to retrieve length of CKA_EC_PARAMS: %s", sym_p11_kit_strerror(rv));
 
