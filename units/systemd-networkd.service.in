@@ -50,6 +50,8 @@ SystemCallErrorNumber=EPERM
 SystemCallFilter=@system-service
 Type=notify-reload
 User=systemd-network
+
+ImportCredential=network.wireguard.*
 {{SERVICE_WATCHDOG}}
 
 [Install]

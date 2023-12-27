@@ -27,6 +27,7 @@ network_unit_dir = '/run/systemd/network'
 networkd_conf_dropin_dir = '/run/systemd/networkd.conf.d'
 networkd_ci_temp_dir = '/run/networkd-ci'
 udev_rules_dir = '/run/udev/rules.d'
+credstore_dir = '/run/credstore'
 
 dnsmasq_pid_file = '/run/networkd-ci/test-dnsmasq.pid'
 dnsmasq_log_file = '/run/networkd-ci/test-dnsmasq.log'
@@ -1784,6 +1785,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
     @expectedFailureIfModuleIsNotAvailable('wireguard')
     def test_wireguard(self):
+        mkdir_p(credstore_dir)
+        cp(os.path.join(networkd_ci_temp_dir, '25-wireguard-preshared-key-peer2-cred.txt'),
+           os.path.join(credstore_dir, 'network.wireguard.peer2.psk'))
+
         copy_network_unit('25-wireguard.netdev', '25-wireguard.network',
                           '25-wireguard-23-peers.netdev', '25-wireguard-23-peers.network',
                           '25-wireguard-preshared-key.txt', '25-wireguard-private-key.txt',
