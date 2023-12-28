@@ -114,7 +114,8 @@ static int sd_drmdropmaster(int fd) {
 }
 
 static int session_device_open(SessionDevice *sd, bool active) {
-        int fd, r;
+        _cleanup_close_ int fd = -EBADF;
+        int r;
 
         assert(sd);
         assert(sd->type != DEVICE_TYPE_UNKNOWN);
@@ -132,10 +133,8 @@ static int session_device_open(SessionDevice *sd, bool active) {
                         /* Weird legacy DRM semantics might return an error even though we're master. No way to detect
                          * that so fail at all times and let caller retry in inactive state. */
                         r = sd_drmsetmaster(fd);
-                        if (r < 0) {
-                                (void) close_nointr(fd);
+                        if (r < 0)
                                 return r;
-                        }
                 } else
                         /* DRM-Master is granted to the first user who opens a device automatically (ughh,
                          * racy!). Hence, we just drop DRM-Master in case we were the first. */
@@ -153,7 +152,7 @@ static int session_device_open(SessionDevice *sd, bool active) {
                 break;
         }
 
-        return fd;
+        return TAKE_FD(fd);
 }
 
 static int session_device_start(SessionDevice *sd) {
