@@ -21,16 +21,25 @@ at_exit() {
     fi
 }
 
+add_suppression() {
+    local interface="${1:?}"
+    local suppression="${2:?}"
+
+    sed -i "/\[$interface\]/a${suppression//\//\\\/}" /etc/dfuzzer.conf
+}
+
 trap at_exit EXIT
 
 systemctl log-level info
 
 # FIXME: systemd-run doesn't play well with daemon-reexec
 # See: https://github.com/systemd/systemd/issues/27204
-sed -i '/\[org.freedesktop.systemd1\]/aorg.freedesktop.systemd1.Manager:Reexecute FIXME' /etc/dfuzzer.conf
+add_suppression "org.freedesktop.systemd1" "org.freedesktop.systemd1.Manager:Reexecute FIXME"
 
-sed -i '/\[org.freedesktop.systemd1\]/aorg.freedesktop.systemd1.Manager:SoftReboot destructive' /etc/dfuzzer.conf
-sed -i '/\[org.freedesktop.login1\]/aSleep destructive' /etc/dfuzzer.conf
+add_suppression "org.freedesktop.systemd1" "org.freedesktop.systemd1.Manager:SoftReboot destructive"
+add_suppression "org.freedesktop.login1" "Sleep destructive"
+
+cat /etc/dfuzzer.conf
 
 # TODO
 #   * check for possibly newly introduced buses?
