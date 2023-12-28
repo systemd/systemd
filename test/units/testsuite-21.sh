@@ -21,16 +21,32 @@ at_exit() {
     fi
 }
 
+add_suppression() {
+    local interface="${1:?}"
+    local suppression="${2:?}"
+
+    sed -i "/\[$interface\]/a${suppression//\//\\\/}" /etc/dfuzzer.conf
+}
+
 trap at_exit EXIT
 
 systemctl log-level info
 
 # FIXME: systemd-run doesn't play well with daemon-reexec
 # See: https://github.com/systemd/systemd/issues/27204
-sed -i '/\[org.freedesktop.systemd1\]/aorg.freedesktop.systemd1.Manager:Reexecute FIXME' /etc/dfuzzer.conf
+add_suppression "org.freedesktop.systemd1" "org.freedesktop.systemd1.Manager:Reexecute FIXME"
 
-sed -i '/\[org.freedesktop.systemd1\]/aorg.freedesktop.systemd1.Manager:SoftReboot destructive' /etc/dfuzzer.conf
-sed -i '/\[org.freedesktop.login1\]/aSleep destructive' /etc/dfuzzer.conf
+add_suppression "org.freedesktop.systemd1" "org.freedesktop.systemd1.Manager:SoftReboot destructive"
+add_suppression "org.freedesktop.login1" "Sleep destructive"
+
+# Skip calling start and stop methods on unit objects, as doing that is not only time consuming, but it also
+# starts/stops units that interfere with the machine state. The actual code paths should be covered (to some
+# degree) by the respective method counterparts on the manager object.
+for method in Start Stop Restart ReloadOrRestart Kill; do
+    add_suppression "org.freedesktop.systemd1" "org.freedesktop.systemd1.Unit:$method"
+done
+
+cat /etc/dfuzzer.conf
 
 # TODO
 #   * check for possibly newly introduced buses?
