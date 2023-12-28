@@ -1,19 +1,21 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # A S Alam <amanpreet.alam@gmail.com>, 2020, 2021, 2023.
+# A S Alam <aalam@users.noreply.translate.fedoraproject.org>, 2023.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2023-11-14 21:25+0000\n"
-"PO-Revision-Date: 2023-03-14 02:20+0000\n"
-"Last-Translator: A S Alam <amanpreet.alam@gmail.com>\n"
-"Language-Team: Punjabi <https://translate.fedoraproject.org/projects/systemd/master/pa/>\n"
+"PO-Revision-Date: 2023-12-28 15:36+0000\n"
+"Last-Translator: A S Alam <aalam@users.noreply.translate.fedoraproject.org>\n"
+"Language-Team: Punjabi <https://translate.fedoraproject.org/projects/systemd/"
+"master/pa/>\n"
 "Language: pa\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 4.15.2\n"
+"X-Generator: Weblate 5.3\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -66,19 +68,19 @@ msgstr "systemd ਹਾਲਤ ਲੋਡ ਕਰਨ ਲਈ ਪਰਮਾਣਕਿਤ
 
 #: src/home/org.freedesktop.home1.policy:13
 msgid "Create a home area"
-msgstr ""
+msgstr "ਹੋਮ ਖੇਤਰ ਬਣਾਓ"
 
 #: src/home/org.freedesktop.home1.policy:14
 msgid "Authentication is required to create a user's home area."
-msgstr ""
+msgstr "ਵਰਤੋਂਕਾਰ ਦੇ ਹੋਮ ਖੇਤਰ ਨੂੰ ਬਣਾਉਣ ਲਈ ਪਰਮਾਣਿਕਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
 #: src/home/org.freedesktop.home1.policy:23
 msgid "Remove a home area"
-msgstr ""
+msgstr "ਹੋਮ ਖੇਤਰ ਨੂੰ ਹਟਾਓ"
 
 #: src/home/org.freedesktop.home1.policy:24
 msgid "Authentication is required to remove a user's home area."
-msgstr ""
+msgstr "ਵਰਤੋਂਕਾਰ ਦੇ ਹੋਮ ਖੇਤਰ ਨੂੰ ਹਟਾਉਣ ਲਈ ਪਰਮਾਣਿਕਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
 #: src/home/org.freedesktop.home1.policy:33
 msgid "Check credentials of a home area"
@@ -90,27 +92,27 @@ msgstr ""
 
 #: src/home/org.freedesktop.home1.policy:43
 msgid "Update a home area"
-msgstr ""
+msgstr "ਹੋਮ ਖੇਤਰ ਨੂੰ ਅੱਪਡੇਟ ਕਰੋ"
 
 #: src/home/org.freedesktop.home1.policy:44
 msgid "Authentication is required to update a user's home area."
-msgstr ""
+msgstr "ਵਰਤੋਂਕਾਰ ਦੇ ਹੋਮ ਖੇਤਰ ਨੂੰ ਅੱਪਡੇਟ ਕਰਨ ਲਈ ਪਰਮਾਣਿਕਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
 #: src/home/org.freedesktop.home1.policy:53
 msgid "Resize a home area"
-msgstr ""
+msgstr "ਹੋਮ ਖੇਤਰ ਦਾ ਆਕਾਰ ਬਦਲੋ"
 
 #: src/home/org.freedesktop.home1.policy:54
 msgid "Authentication is required to resize a user's home area."
-msgstr ""
+msgstr "ਵਰਤੋਂਕਾਰ ਦੇ ਹੋਮ ਖੇਤਰ ਦੇ ਆਕਰ ਨੂੰ ਬਦਲਣ ਲਈ ਪਰਮਾਣਿਕਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
 #: src/home/org.freedesktop.home1.policy:63
 msgid "Change password of a home area"
-msgstr ""
+msgstr "ਹੋਮ ਖੇਤਰ ਲਈ ਪਾਸਵਰਡ ਬਦਲੋ"
 
 #: src/home/org.freedesktop.home1.policy:64
 msgid "Authentication is required to change the password of a user's home area."
-msgstr ""
+msgstr "ਵਰਤੋਂਕਾਰ ਦੇ ਹੋਮ ਖੇਤਰ ਲਈ ਪਾਸਵਰਡ ਨੂੰ ਬਦਲਣ ਲਈ ਪਰਮਾਣਿਕਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
 #: src/home/pam_systemd_home.c:287
 #, c-format
@@ -121,32 +123,34 @@ msgstr ""
 #, c-format
 msgid "Too frequent login attempts for user %s, try again later."
 msgstr ""
+"ਵਰਤੋਂਕਾਰ %s ਲਈ ਬਹੁਤ ਛੇਤੀ ਛੇਤੀ ਲਾਗਇਨ ਕੋਸ਼ਿਸ਼ਾਂ ਕੀਤੀਆਂ, ਬਾਅਦ ਵਿੱਚ ਕੋਸ਼ਿਸ਼ ਕਰਿਓ।"
 
 #: src/home/pam_systemd_home.c:304
 msgid "Password: "
-msgstr ""
+msgstr "ਪਾਸਵਰਡ: "
 
 #: src/home/pam_systemd_home.c:306
 #, c-format
 msgid "Password incorrect or not sufficient for authentication of user %s."
-msgstr ""
+msgstr "ਵਰਤੋਂਕਾਰ %s ਦੀ ਪਰਮਾਣਿਕਤਾ ਲਈ ਪਾਸਵਰਡ ਗਲਤ ਹੈ ਜਾਂ ਕਾਫ਼ੀ ਨਹੀਂ ਹੈ।"
 
 #: src/home/pam_systemd_home.c:307
 msgid "Sorry, try again: "
-msgstr ""
+msgstr "ਅਫ਼ਸੋਸ, ਫੇਰ ਕੋਸ਼ਿਸ਼ ਕਰਿਓ: "
 
 #: src/home/pam_systemd_home.c:329
 msgid "Recovery key: "
-msgstr ""
+msgstr "ਰਿਕਵਰੀ ਕੁੰਜੀ: "
 
 #: src/home/pam_systemd_home.c:331
 #, c-format
 msgid "Password/recovery key incorrect or not sufficient for authentication of user %s."
 msgstr ""
+"ਵਰਤੋਂਕਾਰ %s ਦੀ ਪਰਮਾਣਿਕਤਾ ਲਈ ਪਾਸਵਰਡ/ਰਿਕਵਰੀ ਕੁੰਜੀ ਗਲਤ ਹੈ ਜਾਂ ਕਾਫ਼ੀ ਨਹੀਂ ਹੈ।"
 
 #: src/home/pam_systemd_home.c:332
 msgid "Sorry, reenter recovery key: "
-msgstr ""
+msgstr "ਅਫ਼ਸੋਸ, ਰਿਕਵਰੀ ਕੁੰਜੀ ਫੇਰ ਭਰਿਓ: "
 
 #: src/home/pam_systemd_home.c:352
 #, c-format
@@ -155,7 +159,7 @@ msgstr ""
 
 #: src/home/pam_systemd_home.c:353 src/home/pam_systemd_home.c:356
 msgid "Try again with password: "
-msgstr ""
+msgstr "ਪਾਸਵਰਡ ਨਾਲ ਫੇਰ ਕੋਸ਼ਿਸ਼ ਕਰਿਓ: "
 
 #: src/home/pam_systemd_home.c:355
 #, c-format
@@ -164,7 +168,7 @@ msgstr ""
 
 #: src/home/pam_systemd_home.c:376
 msgid "Security token PIN: "
-msgstr ""
+msgstr "ਸੁਰੱਖਿਆ ਟੋਕਨ ਪਿੰਨ: "
 
 #: src/home/pam_systemd_home.c:393
 #, c-format
@@ -214,6 +218,7 @@ msgstr ""
 #, c-format
 msgid "Home of user %s is currently locked, please unlock locally first."
 msgstr ""
+"%s ਵਰਤੋਂਕਾਰ ਦਾ ਹੋਮ ਇਸ ਵੇਲੇ ਲਾਕ ਹੈ, ਪਹਿਲਾਂ ਇਸ ਨੂੰ ਲੋਕਲ ਰੂਪ ਵਿੱਚ ਅਣ-ਲਾਕ ਕਰੋ।"
 
 #: src/home/pam_systemd_home.c:645
 #, c-format
@@ -222,7 +227,7 @@ msgstr ""
 
 #: src/home/pam_systemd_home.c:868
 msgid "User record is blocked, prohibiting access."
-msgstr ""
+msgstr "ਵਰਤੋਂਕਾਰ ਰਿਕਾਰਡ ਉੱਤੇ ਪਾਬੰਦੀ ਲਾਈ ਹੈ, ਪਹੁੰਚ ਤੋਂ ਰੋਕਿਆ ਜਾ ਰਿਹਾ ਹੈ।"
 
 #: src/home/pam_systemd_home.c:872
 msgid "User record is not valid yet, prohibiting access."
@@ -239,31 +244,32 @@ msgstr ""
 #: src/home/pam_systemd_home.c:893
 #, c-format
 msgid "Too many logins, try again in %s."
-msgstr ""
+msgstr "ਬਹੁਤ ਸਾਰੀਆਂ ਕੋਸ਼ਿਸ ਕੀਤੀਆਂ, %s ਵਿੱਚ ਫੇਰ ਕੋਸ਼ਿਸ਼ ਕਰੋ।"
 
 #: src/home/pam_systemd_home.c:904
 msgid "Password change required."
-msgstr ""
+msgstr "ਪਾਸਵਰਡ ਬਦਲਣ ਦੀ ਲੋੜ ਹੈ।"
 
 #: src/home/pam_systemd_home.c:908
 msgid "Password expired, change required."
-msgstr ""
+msgstr "ਪਾਸਵਰਡ ਦੀ ਮਿਆਦ ਪੁੱਗੀ ਹੈ, ਇਹ ਬਦਲਣ ਦੀ ਲੋੜ ਹੈ।"
 
 #: src/home/pam_systemd_home.c:914
 msgid "Password is expired, but can't change, refusing login."
 msgstr ""
+"ਪਾਸਵਰਡ ਦੀ ਮਿਆਦ ਪੁੱਗੀ, ਪਰ ਬਦਲਿਆ ਨਹੀਂ ਜਾ ਸਕਦਾ, ਲਾਗਇਨ ਤੋਂ ਇਨਕਾਰ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ।"
 
 #: src/home/pam_systemd_home.c:918
 msgid "Password will expire soon, please change."
-msgstr ""
+msgstr "ਪਾਸਵਰਡ ਦੀ ਮਿਆਦ ਛੇਤੀ ਹੀ ਪੁੱਗ ਜਾਵੇਗੀ, ਇਸ ਨੂੰ ਬਦਲ ਲਵੋ।"
 
 #: src/hostname/org.freedesktop.hostname1.policy:20
 msgid "Set hostname"
-msgstr ""
+msgstr "ਹੋਸਟ ਨਾਂ ਸੈੱਟ ਕਰੋ"
 
 #: src/hostname/org.freedesktop.hostname1.policy:21
 msgid "Authentication is required to set the local hostname."
-msgstr ""
+msgstr "ਲੋਕਲ ਹੋਸਟ-ਨਾਂ ਸੈੱਟ ਕਰਨ ਲਈ ਪਰਮਾਣਿਕਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
 #: src/hostname/org.freedesktop.hostname1.policy:30
 msgid "Set static hostname"
@@ -275,11 +281,11 @@ msgstr ""
 
 #: src/hostname/org.freedesktop.hostname1.policy:41
 msgid "Set machine information"
-msgstr ""
+msgstr "ਮਸ਼ੀਨ ਜਾਣਕਾਰੀ ਸੈੱਟ ਕਰੋ"
 
 #: src/hostname/org.freedesktop.hostname1.policy:42
 msgid "Authentication is required to set local machine information."
-msgstr ""
+msgstr "ਲੋਕਲ ਮਸ਼ੀਨ ਜਾਣਕਾਰੀ ਸੈੱਟ ਕਰਨ ਲਈ ਪਰਮਾਣਿਕਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
 #: src/hostname/org.freedesktop.hostname1.policy:51
 msgid "Get product UUID"
@@ -291,21 +297,19 @@ msgstr ""
 
 #: src/hostname/org.freedesktop.hostname1.policy:61
 msgid "Get hardware serial number"
-msgstr ""
+msgstr "ਹਾਰਡਵੇਅਰ ਲੜੀ ਨੰਬਰ ਲਵੋ"
 
 #: src/hostname/org.freedesktop.hostname1.policy:62
-#, fuzzy
 msgid "Authentication is required to get hardware serial number."
-msgstr "ਸਿਸਟਮ ਸੇਵਾਵਾਂ ਜਾਂ ਯੂਨਿਟ ਫ਼ਾਇਲਾਂ ਦਾ ਇੰਤਜ਼ਾਮ ਕਰਨ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
+msgstr "ਹਾਰਡਵੇਅਰ ਲੜੀ ਨੰਬਰ ਲੈਣ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
 #: src/hostname/org.freedesktop.hostname1.policy:71
 msgid "Get system description"
-msgstr ""
+msgstr "ਸਿਸਟਮ ਜਾਣਕਾਰੀ ਲਵੋ"
 
 #: src/hostname/org.freedesktop.hostname1.policy:72
-#, fuzzy
 msgid "Authentication is required to get system description."
-msgstr "ਸਿਸਟਮ ਸੇਵਾਵਾਂ ਜਾਂ ਯੂਨਿਟ ਫ਼ਾਇਲਾਂ ਦਾ ਇੰਤਜ਼ਾਮ ਕਰਨ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
+msgstr "ਸਿਸਟਮ ਜਾਣਕਾਰੀ ਲੈਣ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
 #: src/import/org.freedesktop.import1.policy:22
 msgid "Import a VM or container image"
@@ -333,19 +337,19 @@ msgstr ""
 
 #: src/locale/org.freedesktop.locale1.policy:22
 msgid "Set system locale"
-msgstr ""
+msgstr "ਸਿਸਟਮ ਲੋਕੇਲ ਸੈੱਟ ਕਰੋ"
 
 #: src/locale/org.freedesktop.locale1.policy:23
 msgid "Authentication is required to set the system locale."
-msgstr ""
+msgstr "ਸਿਸਟਮ ਲੋਕੇਲ ਸੈੱਟ ਕਰਨ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
 #: src/locale/org.freedesktop.locale1.policy:33
 msgid "Set system keyboard settings"
-msgstr ""
+msgstr "ਸਿਸਟਮ ਕੀਬੋਰਡ ਸੈਟਿੰਗਾਂ ਸੈੱਟ ਕਰੋ"
 
 #: src/locale/org.freedesktop.locale1.policy:34
 msgid "Authentication is required to set the system keyboard settings."
-msgstr ""
+msgstr "ਸਿਸਟਮ ਕੀਬੋਰਡ ਸੈਟਿੰਗਾਂ ਸੈੱਟ ਕਰਨ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
 #: src/login/org.freedesktop.login1.policy:22
 msgid "Allow applications to inhibit system shutdown"
@@ -357,7 +361,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:33
 msgid "Allow applications to delay system shutdown"
-msgstr ""
+msgstr "ਐਪਲੀਕੇਸ਼ਨਾਂ ਨੂੰ ਸਿਸਟਮ ਬੰਦ ਕਰਨ ਵਿੱਚ ਦੇਰੀ ਕਰਨ ਦੀ ਇਜਾਜ਼ਤ"
 
 #: src/login/org.freedesktop.login1.policy:34
 msgid "Authentication is required for an application to delay system shutdown."
@@ -534,7 +538,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:268
 msgid "Suspend the system"
-msgstr ""
+msgstr "ਸਿਸਟਮ ਨੂੰ ਸਸਪੈਂਡ"
 
 #: src/login/org.freedesktop.login1.policy:269
 msgid "Authentication is required to suspend the system."
@@ -558,7 +562,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:300
 msgid "Hibernate the system"
-msgstr ""
+msgstr "ਸਿਸਟਮ ਨੂੰ ਹਾਈਬਰਨੇਟ"
 
 #: src/login/org.freedesktop.login1.policy:301
 msgid "Authentication is required to hibernate the system."
@@ -590,7 +594,7 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:342
 msgid "Lock or unlock active sessions"
-msgstr ""
+msgstr "ਸਰਗਰਮ ਸ਼ੈਸ਼ਨਾਂ ਨੂੰ ਲਾਕ ਜਾਂ ਅਣ-ਲਾਕ"
 
 #: src/login/org.freedesktop.login1.policy:343
 msgid "Authentication is required to lock or unlock active sessions."
@@ -638,27 +642,27 @@ msgstr ""
 
 #: src/login/org.freedesktop.login1.policy:406
 msgid "Change Session"
-msgstr ""
+msgstr "ਸ਼ੈਸ਼ਨ ਨੂੰ ਬਦਲੋ"
 
 #: src/login/org.freedesktop.login1.policy:407
 msgid "Authentication is required to change the virtual terminal."
-msgstr ""
+msgstr "ਵਰਚੁਅਲ ਟਰਮੀਨਲ ਨੂੰ ਬਦਲਣ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
 #: src/machine/org.freedesktop.machine1.policy:22
 msgid "Log into a local container"
-msgstr ""
+msgstr "ਲੋਕਲ ਕਨਟੇਨਰ ਵਿੱਚ ਲਾਗਇਨ ਕਰੋ"
 
 #: src/machine/org.freedesktop.machine1.policy:23
 msgid "Authentication is required to log into a local container."
-msgstr ""
+msgstr "ਲੋਕਲ ਕਨਟੇਨਰ ਵਿੱਚ ਲਾਗਇਨ ਕਰਨ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
 #: src/machine/org.freedesktop.machine1.policy:32
 msgid "Log into the local host"
-msgstr ""
+msgstr "ਲੋਕਲ ਹੋਸਟ ਵਿੱਚ ਲਾਗਇਨ ਕਰੋ"
 
 #: src/machine/org.freedesktop.machine1.policy:33
 msgid "Authentication is required to log into the local host."
-msgstr ""
+msgstr "ਲੋਕਲ ਹੋਸਟ ਵਿੱਚ ਲਾਗ ਇਨ ਕਰਨ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
 #: src/machine/org.freedesktop.machine1.policy:42
 msgid "Acquire a shell in a local container"
