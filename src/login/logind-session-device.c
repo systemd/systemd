@@ -133,7 +133,7 @@ static int session_device_open(SessionDevice *sd, bool active) {
                          * that so fail at all times and let caller retry in inactive state. */
                         r = sd_drmsetmaster(fd);
                         if (r < 0) {
-                                (void) close_nointr(fd);
+                                (void) close(fd);
                                 return r;
                         }
                 } else
