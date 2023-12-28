@@ -8,15 +8,14 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Sync Home Area Bulk Directory
+Description=Monitor Home Area Bulk Directory
 Documentation=man:systemd-homed.service(8)
 ConditionEnvironment=SYSTEMD_HOME=1
 AssertPathIsDirectory={{LOCALSTATEDIR}}/cache/homed/%u/
 
-[Service]
-Type=notify
-ExecStart={{LIBEXECDIR}}/systemd-homed-sync-bulk
-Restart=on-failure
+[Path]
+PathModified={{LOCALSTATEDIR}}/cache/homed/%u/
+PathModified=TODO
 
 [Install]
 WantedBy=default.target

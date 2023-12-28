@@ -7,6 +7,7 @@
 #include <fcntl.h>
 
 #include "alloc-util.h"
+#include "constants.h"
 #include "common-signal.h"
 #include "copy.h"
 #include "fileio.h"
@@ -25,11 +26,6 @@ typedef struct Context {
         /* Timestamp of our last sync */
         const char *timestamp_path;
         usec_t last_sync;
-
-        /* Event loop */
-        sd_event *event;
-        sd_event_source *sys_inotify;
-        sd_event_source *home_inotify;
 } Context;
 
 static Context *context_free(Context *c) {
@@ -38,13 +34,7 @@ static Context *context_free(Context *c) {
 
         c->sys_dfd = safe_close(c->sys_dfd);
         c->home_dfd = safe_close(c->home_dfd);
-        
         c->timestamp_path = mfree(c->timestamp_path);
-
-        c->sys_inotify = sd_event_source_disable_unref(c->sys_inotify);
-        c->home_inotify = sd_event_source_disable_unref(c->home_inotify);
-        c->event = sd_event_unref(c->event);
-
         return mfree(c);
 }
 
@@ -98,15 +88,7 @@ static int context_sync(Context *c) {
         int r;
 
         assert(c);
-
-        /* Disable the inotify event sources so we don't immediately get called again */
-        // TODO: Does this actually do anything? There doesn't seem to be any kind of way to skip inotify events
-        // TODO: if this does work, switch to oneshot inotify and then turn it back on at the end of sync
-        r = sd_event_source_set_enabled(c->sys_inotify, SD_EVENT_OFF);
-        if (r >= 0)
-                r = sd_event_source_set_enabled(c->home_inotify, SD_EVENT_OFF);
-        if (r < 0)
-                return log_error_errno(r, "Failed to disable inotify event sources: %m");
+        sd_notify(false, "STATUS=Syncing bulk dirs");
 
         /* Lock the directories while we sync them */
         sys_locked = fd_lock(c->sys_dfd);
@@ -138,24 +120,47 @@ static int context_sync(Context *c) {
         if (r < 0)
                 return log_error_errno(r, "Failed to save last sync timestamp: %m");
 
-        /* Now that we're done, re-enable inotify */
-        r = sd_event_source_set_enabled(c->sys_inotify, SD_EVENT_ON);
-        if (r >= 0)
-                r = sd_event_source_set_enabled(c->home_inotify, SD_EVENT_ON);
-        if (r < 0)
-                return log_error_errno(r, "Failed to disable inotify event sources: %m");
-
+        sd_notify(false, "STATUS=Waiting for inotify events");
         return 0;
 }
 
 static int handle_inotify(sd_event_source *src, const struct inotify_event *evt, void *userdata) {
         Context *c = userdata;
+
         log_info("Received inotify event. Syncing...");
         (void) context_sync(c);
 }
 
+static int event_loop_with_timeout(sd_event *e, usec_t timeout) {
+        int r, exit;
+
+        for (;;) {
+                r = sd_event_get_state(e);
+                if (r < 0)
+                        return r;
+                if (r == SD_EVENT_FINISHED)
+                        break;
+
+                r = sd_event_run(e, timeout);
+                if (r < 0)
+                        return r;
+
+                if (r == 0) {
+                        sd_notify(false, "STOPPING=1");
+                        log_info("Quitting due to idle.");
+                        return 0;
+                }
+        }
+
+        r = sd_event_get_exit_code(e, &exit);
+        if (r < 0)
+                return r;
+        return exit;
+}
+
 static int run(int argc, char *argv[]) {
         _cleanup_(context_freep) Context *c = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         int r;
 
         log_setup();
@@ -173,43 +178,52 @@ static int run(int argc, char *argv[]) {
                 return log_error_errno(c->home_dfd, "Failed to open home bulk dir: %m");
 
         /* Load the timestamp */
-        r = xdg_user_config_dir(&c->timestamp_path, "/sd-homed-bulk-sync-timestamp");
+        r = xdg_user_state_dir(&c->timestamp_path, "/sd-homed-bulk-sync-timestamp");
         if (r < 0)
                 return log_error_errno(r, "Failed to construct path of timestamp file: %m");
         r = read_timestamp_file(c->timestamp_path, &c->last_sync);
         if (r < 0)
                 return log_error_errno(r, "Failed to load timestamp from %s: %m", c->timestamp_path);
 
-        /* Set up the event loop */
-        r = sd_event_new(&c->event);
+        /* Set up the event loop
+         *
+         * This service is automatically started by the service manager whenever a sync needs
+         * to be performed, via a .path unit that set up inotify watches on the two directories
+         * we're interested in. However, while this service is running, more events might come in
+         * that we need to handle; the .path unit will do nothing in this case since the service
+         * is already running. Hence, we run our own event loop with our own inotify watches: this
+         * allows us to wait for activity in the directory to "stabilize"
+         */
+        r = sd_event_new(&event);
         if (r < 0)
                 return log_error_errno(r, "Failed to obtain event loop: %m");
 
-        (void) sd_event_set_watchdog(c->event, true);
-        (void) sd_event_add_signal(c->event, NULL, SIGINT|SD_EVENT_SIGNAL_PROCMASK, NULL, INT_TO_PTR(0));
-        (void) sd_event_add_signal(c->event, NULL, SIGTERM|SD_EVENT_SIGNAL_PROCMASK, NULL, INT_TO_PTR(0));
-        (void) sd_event_add_signal(c->event, NULL, SIGRTMIN+18|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, NULL);
+        (void) sd_event_add_signal(event, NULL, SIGINT|SD_EVENT_SIGNAL_PROCMASK, NULL, INT_TO_PTR(0));
+        (void) sd_event_add_signal(event, NULL, SIGTERM|SD_EVENT_SIGNAL_PROCMASK, NULL, INT_TO_PTR(0));
+        (void) sd_event_add_signal(event, NULL, SIGRTMIN+18|SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, NULL);
 
         /* Set up inotify watch for the directories */
-        r = sd_event_add_inotify_fd(c->event, &c->sys_inotify, c->sys_dfd,
+        r = sd_event_add_inotify_fd(event, NULL, c->sys_dfd,
                                     IN_CREATE|IN_DELETE|IN_MODIFY|IN_MOVE|IN_ONLYDIR,
                                     handle_inotify, c);
         if (r < 0)
                 return log_error_errno(r, "Failed to set up inotify for system bulk dir: %m");
-        r = sd_event_add_inotify_fd(c->event, &c->home_inotify, c->home_dfd,
+        r = sd_event_add_inotify_fd(event, NULL, c->home_dfd,
                                     IN_CREATE|IN_DELETE|IN_MODIFY|IN_MOVE|IN_ONLYDIR,
                                     handle_inotify, c);
         if (r < 0)
                 return log_error_errno(r, "Failed to set up inotify for home bulk dir: %m");
 
-        /* Sync in case things have changed */
+        /* Tell the service manager that we're all set up */
+        sd_notify(false, "READY=1");
+
+        /* Perform the sync we were started to do */
         r = context_sync(c);
         if (r < 0)
-                return log_error_errno(r, "Failed to perform first sync: %m");
+                return log_error_errno(r, "Failed to sync: %m");
 
         /* Run the loop */
-        return sd_event_loop(c->event);
-        
+        return event_loop_with_timeout(event, DEFAULT_EXIT_USEC);
 }
 
 DEFINE_MAIN_FUNCTION(run);
