@@ -2,12 +2,11 @@
 
 /* FIXME
  *  - issues with parsing stuff like
- *      * int foo[ELEMENTSOF(bar)] = {};
- *      * validchars = UPPERCASE_LETTERS DIGITS;
- *      * multiline compound literals (some instances)
- *      * compound literals in function calls (some instances)
- *      * keywords in macro invocations like FOREACH_DIRENT_ALL(de, d, return -errno)
- *        (also, see FIXME in the TEST stuff below)
+ *      - validchars = UPPERCASE_LETTERS DIGITS;
+ *          - see: https://github.com/coccinelle/coccinelle/issues/341
+ *      - keywords in macro invocations like FOREACH_DIRENT_ALL(de, d, return -errno)
+ *          - see: https://github.com/coccinelle/coccinelle/issues/340
+ *          - also see the FIXME in the TEST() stuff below
  */
 
 /* This file contains parsing hacks for Coccinelle (spatch), to make it happy with some of our more complex
@@ -62,8 +61,9 @@
 /* Coccinelle doesn't know this keyword, so just drop it, since it's not important for any of our rules. */
 #define thread_local
 
-/* Coccinelle fails to get this one from the included headers, so let's just drop it. */
+/* Coccinelle fails to parse these from the included headers, so let's just drop them. */
 #define PAM_EXTERN
+#define STACK_OF(x)
 
 /* Mark a couple of iterator explicitly as iterators, otherwise Coccinelle gets a bit confused. Coccinelle
  * can usually infer this information automagically, but in these specific cases it needs a bit of help. */
@@ -74,7 +74,9 @@
 #define LIST_FOREACH(name, i, head) YACFE_ITERATOR
 #define ORDERED_HASHMAP_FOREACH(e, h) YACFE_ITERATOR
 #define SET_FOREACH(e, s) YACFE_ITERATOR
+#define STRV_FOREACH_BACKWARDS YACFE_ITERATOR
 
 /* Coccinelle really doesn't like multiline macros that are not in the "usual" do { ... } while(0) format, so
  * let's help it a little here by providing simplified one-line versions. */
 #define CMSG_BUFFER_TYPE(x) union { uint8_t align_check[(size) >= CMSG_SPACE(0) && (size) == CMSG_ALIGN(size) ? 1 : -1]; }
+#define SD_ID128_MAKE(...) ((const sd_id128) {})
