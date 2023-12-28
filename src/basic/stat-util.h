@@ -12,6 +12,7 @@
 #include "macro.h"
 #include "missing_stat.h"
 #include "siphash24.h"
+#include "time-util.h"
 
 int is_symlink(const char *path);
 int is_dir_full(int atfd, const char *fname, bool follow);
@@ -108,6 +109,13 @@ int xstatfsat(int dir_fd, const char *path, struct statfs *ret);
                 struct new_statx nsx;           \
         } var
 #endif
+
+static inline usec_t statx_timestamp_load(const struct statx_timestamp *ts) {
+        return timespec_load(&(const struct timespec) { .tv_sec = ts->tv_sec, .tv_nsec = ts->tv_nsec });
+}
+static inline nsec_t statx_timestamp_load_nsec(const struct statx_timestamp *ts) {
+        return timespec_load_nsec(&(const struct timespec) { .tv_sec = ts->tv_sec, .tv_nsec = ts->tv_nsec });
+}
 
 void inode_hash_func(const struct stat *q, struct siphash *state);
 int inode_compare_func(const struct stat *a, const struct stat *b);
