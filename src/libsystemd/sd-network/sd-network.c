@@ -394,7 +394,7 @@ int sd_network_monitor_new(sd_network_monitor **m, const char *category) {
 
 sd_network_monitor* sd_network_monitor_unref(sd_network_monitor *m) {
         if (m)
-                (void) close_nointr(MONITOR_TO_FD(m));
+                (void) close(MONITOR_TO_FD(m));
 
         return NULL;
 }
