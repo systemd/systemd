@@ -27,7 +27,22 @@ if conf.get('ENABLE_XDG_AUTOSTART') == 1
         units += 'xdg-desktop-autostart.target'
 endif
 
+if conf.get('ENABLE_HOMED') == 1
+        units += 'systemd-homed-sync-bulk.service.in'
+endif
+
 foreach file : units
-        install_data(file,
-                     install_dir : userunitdir)
+        if file.endswith('.in')
+                name = file.substring(0, -3)
+                assert(name + '.in' == file)
+                custom_target(
+                        name,
+                        input : file,
+                        output : name,
+                        command : [jinja2_cmdline, '@INPUT@', '@OUTPUT@'],
+                        install_dir : userunitdir)
+        else
+                install_data(file,
+                             install_dir : userunitdir)
+        endif
 endforeach
