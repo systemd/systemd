@@ -92,6 +92,11 @@ executables += [
                         threads,
                 ],
         },
+        libexec_template + {
+                'name' : 'systemd-homed-sync-bulk',
+                'conditions' : ['ENABLE_HOMED'],
+                'sources' : files('sync-bulk.c'),
+        },
         executable_template + {
                 'name' : 'homectl',
                 'public' : true,
