@@ -39,6 +39,13 @@ add_suppression "org.freedesktop.systemd1" "org.freedesktop.systemd1.Manager:Ree
 add_suppression "org.freedesktop.systemd1" "org.freedesktop.systemd1.Manager:SoftReboot destructive"
 add_suppression "org.freedesktop.login1" "Sleep destructive"
 
+# Skip calling start and stop methods on unit objects, as doing that is not only time consuming, but it also
+# starts/stops units that interfere with the machine state. The actual code paths should be covered (to some
+# degree) by the respective method counterparts on the manager object.
+for method in Start Stop Restart ReloadOrRestart ReloadOrTryRestart Kill; do
+    add_suppression "org.freedesktop.systemd1" "org.freedesktop.systemd1.Unit:$method"
+done
+
 cat /etc/dfuzzer.conf
 
 # TODO
