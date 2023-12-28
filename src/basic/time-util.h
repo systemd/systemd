@@ -112,10 +112,15 @@ static inline bool triple_timestamp_is_set(const triple_timestamp *ts) {
 usec_t triple_timestamp_by_clock(triple_timestamp *ts, clockid_t clock);
 
 usec_t timespec_load(const struct timespec *ts) _pure_;
+_pure_ static inline usec_t statx_timestamp_load(const struct statx_timestamp *ts) {
+        return timespec_load(&(const struct timespec) { .tv_sec = ts->tv_sec, .tv_nsec = ts->tv_nsec });
+}
 nsec_t timespec_load_nsec(const struct timespec *ts) _pure_;
+_pure_ static inline nsec_t statx_timestamp_load_nsec(const struct statx_timestamp *ts) {
+        return timespec_load_nsec(&(const struct timespec) { .tv_sec = ts->tv_sec, .tv_nsec = ts->tv_nsec });
+}
 struct timespec* timespec_store(struct timespec *ts, usec_t u);
 struct timespec* timespec_store_nsec(struct timespec *ts, nsec_t n);
-
 #define TIMESPEC_STORE(u) timespec_store(&(struct timespec) {}, (u))
 
 usec_t timeval_load(const struct timeval *tv) _pure_;
