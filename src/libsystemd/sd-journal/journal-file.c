@@ -2460,6 +2460,11 @@ int journal_file_enable_post_change_timer(JournalFile *f, sd_event *e, usec_t t)
         assert(e);
         assert(t);
 
+        /* If we are already going down, we cannot install the timer.
+         * In such case, the caller needs to call journal_file_post_change() explicitly. */
+        if (IN_SET(sd_event_get_state(e), SD_EVENT_EXITING, SD_EVENT_FINISHED))
+                return 0;
+
         r = sd_event_add_time(e, &timer, CLOCK_MONOTONIC, 0, 0, post_change_thunk, f);
         if (r < 0)
                 return r;
@@ -2471,7 +2476,7 @@ int journal_file_enable_post_change_timer(JournalFile *f, sd_event *e, usec_t t)
         f->post_change_timer = TAKE_PTR(timer);
         f->post_change_timer_period = t;
 
-        return r;
+        return 1;
 }
 
 static int entry_item_cmp(const EntryItem *a, const EntryItem *b) {
