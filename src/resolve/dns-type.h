@@ -60,6 +60,7 @@ enum {
         DNS_TYPE_NSEC3,
         DNS_TYPE_NSEC3PARAM,
         DNS_TYPE_TLSA,
+        DNS_TYPE_SMIMEA, /* RFC 8162 */
 
         DNS_TYPE_HIP        = 0x37,
         DNS_TYPE_NINFO,
@@ -68,8 +69,16 @@ enum {
         DNS_TYPE_CDS,
         DNS_TYPE_CDNSKEY,
         DNS_TYPE_OPENPGPKEY,
+        DNS_TYPE_CSYNC,
+        DNS_TYPE_ZONEMD,
+        DNS_TYPE_SVCB, /* RFC 9460 */
+        DNS_TYPE_HTTPS, /* RFC 9460 */
 
         DNS_TYPE_SPF        = 0x63,
+        DNS_TYPE_UINFO,
+        DNS_TYPE_UID,
+        DNS_TYPE_GID,
+        DNS_TYPE_UNSPEC,
         DNS_TYPE_NID,
         DNS_TYPE_L32,
         DNS_TYPE_L64,
@@ -86,6 +95,10 @@ enum {
         DNS_TYPE_ANY,
         DNS_TYPE_URI,
         DNS_TYPE_CAA,
+        DNS_TYPE_AVC,
+        DNS_TYPE_DOA,
+        DNS_TYPE_AMTRELAY,
+        DNS_TYPE_RESINFO,
         DNS_TYPE_TA         = 0x8000,
         DNS_TYPE_DLV,
 
