@@ -11,10 +11,10 @@
 Description=Sync Home Area Bulk Directory
 Documentation=man:systemd-homed.service(8)
 ConditionEnvironment=SYSTEMD_HOME=1
-AssertPathIsDirectory={{LOCALSTATEDIR}}/cache/homed/%u/
+AssertPathIsDirectory=/var/cache/homed/%u/
 
 [Service]
-Type=notify
+Type=oneshot
 ExecStart={{LIBEXECDIR}}/systemd-homed-sync-bulk
 Restart=on-failure
 

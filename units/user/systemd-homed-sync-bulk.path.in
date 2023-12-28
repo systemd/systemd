@@ -11,11 +11,11 @@
 Description=Monitor Home Area Bulk Directory
 Documentation=man:systemd-homed.service(8)
 ConditionEnvironment=SYSTEMD_HOME=1
-AssertPathIsDirectory={{LOCALSTATEDIR}}/cache/homed/%u/
+AssertPathIsDirectory=/var/cache/homed/%u/
 
 [Path]
-PathModified={{LOCALSTATEDIR}}/cache/homed/%u/
-PathModified=TODO
+PathModified=/var/cache/homed/%u/
+PathModified=%TODO/homed/
 
 [Install]
 WantedBy=default.target

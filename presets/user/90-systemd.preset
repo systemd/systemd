@@ -13,3 +13,6 @@
 
 enable systemd-tmpfiles-setup.service
 enable systemd-tmpfiles-clean.timer
+
+enable systemd-homed-sync-bulk.service
+enable systemd-homed-sync-bulk.path
