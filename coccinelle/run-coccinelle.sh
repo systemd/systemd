@@ -74,6 +74,7 @@ for script in "${SCRIPTS[@]}"; do
                --recursive-includes \
                --include-headers-for-types \
                --undefined SD_BOOT \
+               --undefined ENABLE_DEBUG_HASHMAP \
                --macro-file-builtins "coccinelle/parsing_hacks.h" \
                --smpl-spacing \
                --sp-file "$script" \
