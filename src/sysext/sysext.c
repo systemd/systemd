@@ -661,6 +661,8 @@ static const ImagePolicy *pick_image_policy(const Image *img) {
 
         if (in_initrd() && path_startswith(img->path, "/.extra/sysext/"))
                 return &image_policy_sysext_strict;
+        else if (in_initrd() && path_startswith(img->path, "/.extra/confext/"))
+                return &image_policy_confext_strict;
 
         return image_class_info[img->class].default_image_policy;
 }
