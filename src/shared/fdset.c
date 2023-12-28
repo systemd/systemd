@@ -71,7 +71,7 @@ void fdset_close(FDSet *s) {
                         log_debug("Closing set fd %i (%s)", fd, strna(path));
                 }
 
-                (void) close_nointr(fd);
+                (void) close(fd);
         }
 }
 
