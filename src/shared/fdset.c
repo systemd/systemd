@@ -40,8 +40,8 @@ int fdset_new_array(FDSet **ret, const int fds[], size_t n_fds) {
         if (!s)
                 return -ENOMEM;
 
-        for (size_t i = 0; i < n_fds; i++) {
-                r = fdset_put(s, fds[i]);
+        FOREACH_ARRAY(fd, fds, n_fds) {
+                r = fdset_put(s, *fd);
                 if (r < 0)
                         return r;
         }
