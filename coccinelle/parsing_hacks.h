@@ -18,7 +18,7 @@
  * special cases in which the parser incorrectly infers information that then causes issues in valid code
  * later down the line.
  *
- * Inspired by a similarly named file [0] from the Coccinelle sources, and the original bultin macros [1].
+ * Inspired by a similarly named file [0] from the Coccinelle sources, and the original builtin macros [1].
  *
  * [0] https://github.com/coccinelle/coccinelle/blob/master/parsing_c/parsing_hacks.ml
  * [1] https://github.com/coccinelle/coccinelle/blob/master/standard.h
