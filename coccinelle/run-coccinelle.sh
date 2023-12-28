@@ -52,16 +52,16 @@ for script in "${SCRIPTS[@]}"; do
     # A couple of notes:
     #
     # 1) Limit this to 10 files at once, as processing the ASTs is _very_ memory hungry - e.g. with 20 files
-    # at once one spatch process can take around 2.5 GiB of RAM, which can easily eat up all available RAM
-    # when paired together with parallel
+    #    at once one spatch process can take around 2.5 GiB of RAM, which can easily eat up all available RAM
+    #    when paired together with parallel
     #
     # 2) Make sure spatch can find our includes via -I <dir>, similarly as we do when compiling stuff.
     #    Also, include the system include path as well, since we're not kernel and we make use of the stdlib
     #    (and other libraries).
     #
     # 3) Make sure to include includes from includes (--recursive-includes), but use them only to get type
-    # definitions (--include-headers-for-types) - otherwise we'd start formatting them as well, which might
-    # be unwanted, especially for includes we fetch verbatim from third-parties
+    #    definitions (--include-headers-for-types) - otherwise we'd start formatting them as well, which might
+    #    be unwanted, especially for includes we fetch verbatim from third-parties
     #
     # 4) Explicitly undefine the SD_BOOT symbol, so Coccinelle ignores includes guarded by #if SD_BOOT
     #
