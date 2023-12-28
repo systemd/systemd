@@ -52,10 +52,6 @@ struct sync_delete_userdata {
         usec_t last_sync;
 }
 
-static inline usec_t statx_timestamp_load(const struct statx_timestamp *ts) {
-        return timespec_load(&(const struct timespec) { .tv_sec = ts->tv_sec, .tv_nsec = ts->tv_nsec });
-}
-
 static int sync_delete_callback(
                 RecurseDirEvent *event, 
                 const char *path, 
