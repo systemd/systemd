@@ -74,8 +74,12 @@ static void dns_transaction_close_connection(
          * and the reply we might still get from the server will be eaten up instead of resulting in an ICMP
          * port unreachable error message. */
 
-        /* Skip the graveyard stuff when we're shutting down, since that requires running event loop */
-        if (!t->scope->manager->event || sd_event_get_state(t->scope->manager->event) == SD_EVENT_FINISHED)
+        /* Skip the graveyard stuff when we're shutting down, since that requires running event loop.
+         * Note that this is also called from dns_transaction_free(). In that case, scope may be NULL. */
+        if (!t->scope ||
+            !t->scope->manager ||
+            !t->scope->manager->event ||
+            sd_event_get_state(t->scope->manager->event) == SD_EVENT_FINISHED)
                 use_graveyard = false;
 
         if (use_graveyard && t->dns_udp_fd >= 0 && t->sent && !t->received) {
