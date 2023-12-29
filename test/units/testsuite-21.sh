@@ -125,4 +125,4 @@ for bus in "${SESSION_BUS_LIST[@]}"; do
     systemctl --machine 'testuser@.host' --user daemon-reexec
 done
 
-touch /testok
+exit 1
