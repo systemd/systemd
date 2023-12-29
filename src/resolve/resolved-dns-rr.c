@@ -469,6 +469,12 @@ static DnsResourceRecord* dns_resource_record_free(DnsResourceRecord *rr) {
                         free(rr->tlsa.data);
                         break;
 
+                case DNS_TYPE_SVCB:
+                case DNS_TYPE_HTTPS:
+                        free(rr->svcb.target_name);
+                        dns_svc_param_free_all(rr->svcb.params);
+                        break;
+
                 case DNS_TYPE_CAA:
                         free(rr->caa.tag);
                         free(rr->caa.value);
@@ -675,6 +681,12 @@ int dns_resource_record_payload_equal(const DnsResourceRecord *a, const DnsResou
                        a->tlsa.selector == b->tlsa.selector &&
                        a->tlsa.matching_type == b->tlsa.matching_type &&
                        FIELD_EQUAL(a->tlsa, b->tlsa, data);
+
+        case DNS_TYPE_SVCB:
+        case DNS_TYPE_HTTPS:
+                return a->svcb.priority == b->svcb.priority &&
+                       dns_name_equal(a->svcb.target_name, b->svcb.target_name) &&
+                       dns_svc_params_equal(a->svcb.params, b->svcb.params);
 
         case DNS_TYPE_CAA:
                 return a->caa.flags == b->caa.flags &&
@@ -1658,6 +1670,17 @@ DnsResourceRecord *dns_resource_record_copy(DnsResourceRecord *rr) {
                 copy->caa.value_size = rr->caa.value_size;
                 break;
 
+        case DNS_TYPE_SVCB:
+        case DNS_TYPE_HTTPS:
+                copy->svcb.priority = rr->svcb.priority;
+                copy->svcb.target_name = strdup(rr->svcb.target_name);
+                if (!copy->svcb.target_name)
+                        return NULL;
+                copy->svcb.params = dns_svc_params_copy(rr->svcb.params);
+                if (!copy->svcb.params)
+                        return NULL;
+                break;
+
         case DNS_TYPE_OPT:
         default:
                 copy->generic.data = memdup(rr->generic.data, rr->generic.data_size);
@@ -1772,6 +1795,13 @@ DnsTxtItem *dns_txt_item_free_all(DnsTxtItem *first) {
         return NULL;
 }
 
+DnsSvcParam *dns_svc_param_free_all(DnsSvcParam *first) {
+        LIST_FOREACH(params, i, first)
+                free(i);
+
+        return NULL;
+}
+
 bool dns_txt_item_equal(DnsTxtItem *a, DnsTxtItem *b) {
         DnsTxtItem *bb = b;
 
@@ -1805,6 +1835,43 @@ DnsTxtItem *dns_txt_item_copy(DnsTxtItem *first) {
                 end = j;
         }
 
+        return copy;
+}
+
+bool dns_svc_params_equal(DnsSvcParam *a, DnsSvcParam *b) {
+        DnsSvcParam *bb = b;
+
+        if (a == b)
+                return true;
+
+        LIST_FOREACH(params, aa, a) {
+                if (!bb)
+                        return false;
+
+                if (aa->key != bb->key)
+                        return false;
+
+                if (memcmp_nn(aa->value, aa->length, bb->value, bb->length) != 0)
+                        return false;
+
+                bb = bb->params_next;
+        }
+
+        return !bb;
+}
+
+DnsSvcParam *dns_svc_params_copy(DnsSvcParam *first) {
+        DnsSvcParam *copy = NULL, *end = NULL;
+        LIST_FOREACH(params, i, first) {
+                DnsSvcParam *j;
+
+                j = memdup(i, offsetof(DnsSvcParam, value) + i->length + 1);
+                if (!j)
+                        return dns_svc_param_free_all(copy);
+
+                LIST_INSERT_AFTER(params, copy, end, j);
+                end = j;
+        }
         return copy;
 }
 
