@@ -107,6 +107,7 @@ int builtin_main(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 log_debug_errno(r, "Builtin command '%s' fails: %m", arg_command);
 
+        r = 0;
 finish:
         udev_builtin_exit();
         return r;
