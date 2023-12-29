@@ -140,6 +140,7 @@ static UserRecord* user_record_free(UserRecord *h) {
         erase_and_free(h->password_hint);
         free(h->location);
         free(h->icon_name);
+        free(h->avatar_path);
 
         free(h->shell);
 
@@ -1174,6 +1175,7 @@ static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDisp
                 { "matchMachineId",             _JSON_VARIANT_TYPE_INVALID, NULL,                                 0,                                                   0         },
                 { "matchHostname",              _JSON_VARIANT_TYPE_INVALID, NULL,                                 0,                                                   0         },
                 { "iconName",                   JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, icon_name),                     JSON_SAFE },
+                { "avatarPath",                 JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, avatar_path),                   JSON_SAFE },
                 { "location",                   JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, location),                      0         },
                 { "shell",                      JSON_VARIANT_STRING,        json_dispatch_filename_or_path,       offsetof(UserRecord, shell),                         0         },
                 { "umask",                      JSON_VARIANT_UNSIGNED,      json_dispatch_umask,                  offsetof(UserRecord, umask),                         0         },
@@ -1526,6 +1528,7 @@ int user_record_load(UserRecord *h, JsonVariant *v, UserRecordLoadFlags load_fla
                 { "realName",                   JSON_VARIANT_STRING,        json_dispatch_gecos,                  offsetof(UserRecord, real_name),                     0         },
                 { "emailAddress",               JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, email_address),                 JSON_SAFE },
                 { "iconName",                   JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, icon_name),                     JSON_SAFE },
+                { "avatarPath",                 JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, avatar_path),                   JSON_SAFE },
                 { "location",                   JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, location),                      0         },
                 { "disposition",                JSON_VARIANT_STRING,        json_dispatch_user_disposition,       offsetof(UserRecord, disposition),                   0         },
                 { "lastChangeUSec",             _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,                 offsetof(UserRecord, last_change_usec),              0         },
