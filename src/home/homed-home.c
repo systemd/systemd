@@ -33,6 +33,7 @@
 #include "process-util.h"
 #include "quota-util.h"
 #include "resize-fs.h"
+#include "rm-rf.h"
 #include "set.h"
 #include "signal-util.h"
 #include "stat-util.h"
@@ -161,6 +162,12 @@ int home_new(Manager *m, UserRecord *hr, const char *sysfs, Home **ret) {
         r = user_record_clone(hr, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_PERMISSIVE, &home->record);
         if (r < 0)
                 return r;
+
+        r = mkdir_safe(strjoina(home_system_bulk_dir(), "/", hr->user_name),
+                       0755, hr->uid, user_record_gid(hr),
+                       MKDIR_IGNORE_EXISTING);
+        if (r < 0)
+                log_warning_errno(r, "Failed to create bulk dir for user '%s': %m", home->user_name);
 
         (void) bus_manager_emit_auto_login_changed(m);
         (void) bus_home_emit_change(home);
@@ -323,6 +330,7 @@ int home_save_record(Home *h) {
 
 int home_unlink_record(Home *h) {
         const char *fn;
+        int r;
 
         assert(h);
 
@@ -333,6 +341,11 @@ int home_unlink_record(Home *h) {
         fn = strjoina("/run/systemd/home/", h->user_name, ".ref");
         if (unlink(fn) < 0 && errno != ENOENT)
                 return -errno;
+
+        fn = strjoina(home_system_bulk_dir(), "/", h->user_name);
+        r = rm_rf(fn, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_MISSING_OK);
+        if (r < 0)
+                return r;
 
         return 0;
 }
