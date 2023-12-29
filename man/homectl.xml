@@ -236,13 +236,14 @@
       </varlistentry>
 
       <varlistentry>
-        <term><option>--icon-name=</option><replaceable>ICON</replaceable></term>
+        <term><option>--avatar-path=</option><replaceable>PATH</replaceable></term>
 
-        <listitem><para>Takes an icon name to associate with the user, following the scheme defined by the <ulink
-        url="https://standards.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html">Icon Naming
-        Specification</ulink>.</para>
+        <listitem><para>Takes a file path to an avatar image to associate with the user. The file
+        must exist. If the path is absolute, it must not be inside <filename>/home/</filename> or
+        in the bulk directories. If the path is relative, it will be resolved relative to the
+        bulk directories. The file must be world-readable.</para>
 
-        <xi:include href="version-info.xml" xpointer="v245"/></listitem>
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -1263,6 +1264,7 @@ homectl update nihilbaxter --fido2-device=auto</programlisting>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-homed-bulk-sync.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>homed.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>userdbctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry project='man-pages'><refentrytitle>useradd</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>

@@ -694,6 +694,7 @@ static int manager_setup_prefix(Manager *m) {
                 [EXEC_DIRECTORY_CACHE] =         { SD_PATH_SYSTEM_STATE_CACHE,   NULL },
                 [EXEC_DIRECTORY_LOGS] =          { SD_PATH_SYSTEM_STATE_LOGS,    NULL },
                 [EXEC_DIRECTORY_CONFIGURATION] = { SD_PATH_SYSTEM_CONFIGURATION, NULL },
+                [EXEC_DIRECTORY_SHARED] =        { SD_PATH_SYSTEM_SHARED,        NULL },
         };
 
         static const struct table_entry paths_user[_EXEC_DIRECTORY_TYPE_MAX] = {
@@ -702,6 +703,7 @@ static int manager_setup_prefix(Manager *m) {
                 [EXEC_DIRECTORY_CACHE] =         { SD_PATH_USER_STATE_CACHE,   NULL  },
                 [EXEC_DIRECTORY_LOGS] =          { SD_PATH_USER_STATE_PRIVATE, "log" },
                 [EXEC_DIRECTORY_CONFIGURATION] = { SD_PATH_USER_CONFIGURATION, NULL  },
+                [EXEC_DIRECTORY_SHARED] =        { SD_PATH_USER_SHARED,        NULL  },
         };
 
         assert(m);

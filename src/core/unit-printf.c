@@ -208,6 +208,7 @@ int unit_full_printf_full(const Unit *u, const char *format, size_t max_length, 
          *
          * %C: the cache directory root (e.g. /var/cache or $XDG_CACHE_HOME)
          * %d: the credentials directory ($CREDENTIALS_DIRECTORY)
+         * %D: the shared data root (e.g. /usr/share or $XDG_DATA_HOME)
          * %E: the configuration directory root (e.g. /etc or $XDG_CONFIG_HOME)
          * %L: the log directory root (e.g. /var/log or $XDG_STATE_HOME/log)
          * %S: the state directory root (e.g. /var/lib or $XDG_STATE_HOME)
@@ -245,6 +246,7 @@ int unit_full_printf_full(const Unit *u, const char *format, size_t max_length, 
 
                 { 'C', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_CACHE) },
                 { 'd', specifier_credentials_dir,          NULL },
+                { 'D', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_SHARED) },
                 { 'E', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_CONFIGURATION) },
                 { 'L', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_LOGS) },
                 { 'S', specifier_special_directory,        UINT_TO_PTR(EXEC_DIRECTORY_STATE) },
