@@ -32,10 +32,6 @@ trap at_exit EXIT
 
 systemctl log-level info
 
-# FIXME: systemd-run doesn't play well with daemon-reexec
-# See: https://github.com/systemd/systemd/issues/27204
-add_suppression "org.freedesktop.systemd1" "org.freedesktop.systemd1.Manager:Reexecute FIXME"
-
 add_suppression "org.freedesktop.systemd1" "org.freedesktop.systemd1.Manager:SoftReboot destructive"
 add_suppression "org.freedesktop.login1" "Sleep destructive"
 
@@ -103,26 +99,22 @@ mount -t tmpfs -o size=50M tmpfs /var/lib/machines
 # Fuzz both the system and the session buses (where applicable)
 for bus in "${BUS_LIST[@]}"; do
     echo "Bus: $bus (system)"
-    systemd-run --pipe --wait \
+    systemd-run --scope \
                 -- dfuzzer -b "$PAYLOAD_MAX" -n "$bus"
 
     # Let's reload the systemd daemon to test (de)serialization as well
     systemctl daemon-reload
-    # FIXME: explicitly trigger reexecute until systemd/systemd#27204 is resolved
-    systemctl daemon-reexec
 done
 
 umount /var/lib/machines
 
 for bus in "${SESSION_BUS_LIST[@]}"; do
     echo "Bus: $bus (session)"
-    systemd-run --machine 'testuser@.host' --user --pipe --wait \
+    systemd-run --scope --machine 'testuser@.host' --user \
                 -- dfuzzer -b "$PAYLOAD_MAX" -n "$bus"
 
     # Let's reload the systemd user daemon to test (de)serialization as well
     systemctl --machine 'testuser@.host' --user daemon-reload
-    # FIXME: explicitly trigger reexecute until systemd/systemd#27204 is resolved
-    systemctl --machine 'testuser@.host' --user daemon-reexec
 done
 
 touch /testok
