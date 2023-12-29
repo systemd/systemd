@@ -74,6 +74,10 @@ the following extensions are envisioned:
 Similar to JSON User Records there are also
 [JSON Group Records](GROUP_RECORD.md) that encapsulate UNIX groups.
 
+JSON User Records may refer to files in a special "bulk directory". See
+[`systemd-homed-sync-bulk.service(8)`](https://www.freedesktop.org/software/systemd/man/systemd-homed-sync-bulk.service.html)
+for more details.
+
 JSON User Records may be transferred or written to disk in various protocols
 and formats. To inquire about such records defined on the local system use the
 [User/Group Lookup API via Varlink](USER_GROUP_API.md). User/group records may
@@ -248,6 +252,13 @@ sessions.
 purpose of an avatar. This must be a string, and should follow the semantics
 defined in the [Icon Naming
 Specification](https://standards.freedesktop.org/icon-naming-spec/icon-naming-spec-latest.html).
+You should probably use `avatarPath` instead.
+
+`avatarPath` → The path to a file containing the user's avatar image, a string.
+If the path is relative, it will be resolved relative to the user's bulk
+directory. The file referenced by this setting should be world-readable
+(i.e. should have a mode of 0644). If both `avatarPath` and `iconName` are
+set, `avatarPath` should take priority.
 
 `location` → A free-form location string describing the location of the user,
 if that is applicable. It's probably wise to use a location string processable

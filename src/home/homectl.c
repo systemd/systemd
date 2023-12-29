@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <sys/stat.h>
 
 #include "sd-bus.h"
 
@@ -32,6 +33,7 @@
 #include "parse-argument.h"
 #include "parse-util.h"
 #include "password-quality-util.h"
+#include "path-lookup.h"
 #include "path-util.h"
 #include "percent-util.h"
 #include "pkcs11-util.h"
@@ -63,6 +65,7 @@ static JsonVariant *arg_identity_extra_this_machine = NULL;
 static JsonVariant *arg_identity_extra_rlimits = NULL;
 static char **arg_identity_filter = NULL; /* this one is also applied to 'privileged' and 'thisMachine' subobjects */
 static char **arg_identity_filter_rlimits = NULL;
+static const char *arg_avatar_path = NULL;
 static uint64_t arg_disk_size = UINT64_MAX;
 static uint64_t arg_disk_size_relative = UINT64_MAX;
 static char **arg_pkcs11_token_uri = NULL;
@@ -1073,6 +1076,79 @@ static int apply_identity_changes(JsonVariant **_v) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to update resource limits of identity: %m");
                 }
+        }
+
+        if (!isempty(arg_avatar_path)) {
+                struct stat st;
+
+                if (path_is_absolute(arg_avatar_path)) {
+                        if (path_startswith(arg_avatar_path, get_home_root()))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Avatar path must not be in a home directory.");
+
+                        if (path_startswith(arg_avatar_path, home_system_bulk_dir()))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Absolute avatar path cannot be in a bulk directory. Use a relative path.");
+
+                        r = RET_NERRNO(stat(arg_avatar_path, &st));
+                        if (r == -ENOENT)
+                                return log_error_errno(r, "Specified avatar path does not exist.");
+                } else { /* It's a relative path, and we'll store it verbatim in the user record. We just want to stat it in the bulk dirs */
+                        JsonVariant *un;
+                        const char *username;
+                        _cleanup_free_ char *bulk_path = NULL;
+
+                        un = json_variant_by_key(v, "userName");
+                        if (!un || !json_variant_is_string(un) || !suitable_user_name(json_variant_string(un)))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Identity does not contain a valid userName");
+                        username = json_variant_string(un);
+
+                        bulk_path = path_join(home_system_bulk_dir(), username, arg_avatar_path);
+                        if (!bulk_path)
+                                return log_oom();
+
+                        if (access(bulk_path, F_OK) < 0) {
+                                if (errno != ENOENT)
+                                        return log_error_errno(errno, "Failed to determine whether %s exists: %m", bulk_path);
+
+                                bulk_path = mfree(bulk_path);
+
+                                r = is_this_me(username);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to check if current user is %s: %m", username);
+                                else if (r == 0)
+                                        log_warning("Specified avatar path does not exist in system bulk dir, and we cannot resolve user bulk dir. Relaxing checks.");
+                                else { /* We're currently running as the user in question, so we can resolve the user bulk dir */
+                                        _cleanup_free_ char *home_bulk_dir = NULL;
+
+                                        r = xdg_user_data_dir(&home_bulk_dir, "homed");
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to resolve user bulk dir: %m");
+
+                                        bulk_path = path_join(home_bulk_dir, arg_avatar_path);
+                                        if (!bulk_path)
+                                                return log_oom();
+                                }
+                        }
+
+                        r = bulk_path ? RET_NERRNO(stat(bulk_path, &st)) : ECANCELED;
+                        if (r == -ENOENT)
+                                return log_error_errno(r, "Specified avatar path does not exist in bulk dirs.");
+                }
+                /* Here, r = RET_NERRNO(stat(...)), or ECANCELED if we skipped it */
+
+                if (r != ECANCELED) {
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to stat avatar path: %m");
+
+                        if (!S_ISREG(st.st_mode))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Avatar is not a regular file.");
+
+                        if (!FLAGS_SET(st.st_mode, 0444))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Avatar is not world-readable.");
+                }
+
+                r = json_variant_set_field_string(&v, "avatarPath", arg_avatar_path);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set avatarPath field: %m");
         }
 
         json_variant_unref(*_v);
@@ -2423,7 +2499,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --realm=REALM             Realm to create user in\n"
                "     --email-address=EMAIL     Email address for user\n"
                "     --location=LOCATION       Set location of user on earth\n"
-               "     --icon-name=NAME          Icon name for user\n"
+               "     --avatar-path=PATH        Path to user's avatar image\n"
                "  -d --home-dir=PATH           Home directory\n"
                "  -u --uid=UID                 Numeric UID for user\n"
                "  -G --member-of=GROUP         Add user to group\n"
@@ -2571,6 +2647,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SSH_AUTHORIZED_KEYS,
                 ARG_LOCATION,
                 ARG_ICON_NAME,
+                ARG_AVATAR_PATH,
                 ARG_PASSWORD_HINT,
                 ARG_NICE,
                 ARG_RLIMIT,
@@ -2644,6 +2721,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "location",                    required_argument, NULL, ARG_LOCATION                    },
                 { "password-hint",               required_argument, NULL, ARG_PASSWORD_HINT               },
                 { "icon-name",                   required_argument, NULL, ARG_ICON_NAME                   },
+                { "avatar-path",                 required_argument, NULL, ARG_AVATAR_PATH                 },
                 { "home-dir",                    required_argument, NULL, 'd'                             }, /* Compatible with useradd(8) */
                 { "uid",                         required_argument, NULL, 'u'                             }, /* Compatible with useradd(8) */
                 { "member-of",                   required_argument, NULL, 'G'                             },
@@ -2829,6 +2907,17 @@ static int parse_argv(int argc, char *argv[]) {
                         r = json_variant_set_field_string(&arg_identity_extra, "realm", optarg);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to set realm field: %m");
+                        break;
+
+                case ARG_AVATAR_PATH:
+                        arg_avatar_path = optarg;
+
+                        if (isempty(optarg)) {
+                                r = drop_from_identity("avatarPath");
+                                if (r < 0)
+                                        return r;
+                        }
+
                         break;
 
                 case ARG_EMAIL_ADDRESS:
