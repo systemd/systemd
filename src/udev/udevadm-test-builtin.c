@@ -104,9 +104,12 @@ int builtin_main(int argc, char *argv[], void *userdata) {
         }
 
         r = udev_builtin_run(event, cmd, arg_command, true);
-        if (r < 0)
+        if (r < 0) {
                 log_debug_errno(r, "Builtin command '%s' fails: %m", arg_command);
+                goto finish;
+        }
 
+        r = 0;
 finish:
         udev_builtin_exit();
         return r;
