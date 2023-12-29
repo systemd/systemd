@@ -2129,6 +2129,42 @@ finalize:
         return r;
 }
 
+static int svc_params_to_json(DnsSvcParam *params, JsonVariant **ret) {
+        JsonVariant **elements = NULL;
+        size_t n = 0;
+        int r;
+
+        assert(ret);
+
+        LIST_FOREACH(params, i, params) {
+                char *param;
+                if (!GREEDY_REALLOC(elements, n + 1)) {
+                        r = -ENOMEM;
+                        goto finalize;
+                }
+
+                param = format_svc_param(i);
+                if (!param) {
+                        r = -ENOMEM;
+                        goto finalize;
+                }
+
+                r = json_variant_new_string(elements + n, param);
+                if (r < 0)
+                        goto finalize;
+
+                n++;
+        }
+
+        r = json_variant_new_array(ret, elements, n);
+finalize:
+        for (size_t i = 0; i < n; i++)
+                json_variant_unref(elements[i]);
+
+        free(elements);
+        return r;
+}
+
 int dns_resource_record_to_json(DnsResourceRecord *rr, JsonVariant **ret) {
         _cleanup_(json_variant_unrefp) JsonVariant *k = NULL;
         int r;
@@ -2303,6 +2339,21 @@ int dns_resource_record_to_json(DnsResourceRecord *rr, JsonVariant **ret) {
                                                   JSON_BUILD_PAIR("selector", JSON_BUILD_UNSIGNED(rr->tlsa.selector)),
                                                   JSON_BUILD_PAIR("matchingType", JSON_BUILD_UNSIGNED(rr->tlsa.matching_type)),
                                                   JSON_BUILD_PAIR("data", JSON_BUILD_HEX(rr->tlsa.data, rr->tlsa.data_size))));
+
+        case DNS_TYPE_SVCB:
+        case DNS_TYPE_HTTPS: {
+                _cleanup_(json_variant_unrefp) JsonVariant *p = NULL;
+                r = svc_params_to_json(rr->svcb.params, &p);
+                if (r < 0)
+                        return r;
+
+                return json_build(ret,
+                                  JSON_BUILD_OBJECT(
+                                                  JSON_BUILD_PAIR("key", JSON_BUILD_VARIANT(k)),
+                                                  JSON_BUILD_PAIR("priority", JSON_BUILD_UNSIGNED(rr->svcb.priority)),
+                                                  JSON_BUILD_PAIR("target", JSON_BUILD_STRING(rr->svcb.target_name)),
+                                                  JSON_BUILD_PAIR("params", JSON_BUILD_VARIANT(p))));
+        }
 
         case DNS_TYPE_CAA:
                 return json_build(ret,
