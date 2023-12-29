@@ -469,6 +469,12 @@ static DnsResourceRecord* dns_resource_record_free(DnsResourceRecord *rr) {
                         free(rr->tlsa.data);
                         break;
 
+                case DNS_TYPE_SVCB:
+                case DNS_TYPE_HTTPS:
+                        free(rr->svcb.target_name);
+                        dns_svc_param_free_all(rr->svcb.params);
+                        break;
+
                 case DNS_TYPE_CAA:
                         free(rr->caa.tag);
                         free(rr->caa.value);
@@ -1767,6 +1773,13 @@ int dns_resource_record_get_cname_target(DnsResourceKey *key, DnsResourceRecord 
 
 DnsTxtItem *dns_txt_item_free_all(DnsTxtItem *first) {
         LIST_FOREACH(items, i, first)
+                free(i);
+
+        return NULL;
+}
+
+DnsSvcParam *dns_svc_param_free_all(DnsSvcParam *first) {
+        LIST_FOREACH(params, i, first)
                 free(i);
 
         return NULL;
