@@ -241,6 +241,7 @@ typedef struct UserRecord {
         char *email_address;
         char *password_hint;
         char *icon_name;
+        char *avatar_path;
         char *location;
 
         UserDisposition disposition;
