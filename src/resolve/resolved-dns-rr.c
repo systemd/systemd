@@ -15,6 +15,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "terminal-util.h"
+#include "unaligned.h"
 
 DnsResourceKey* dns_resource_key_new(uint16_t class, uint16_t type, const char *name) {
         DnsResourceKey *k;
@@ -469,6 +470,12 @@ static DnsResourceRecord* dns_resource_record_free(DnsResourceRecord *rr) {
                         free(rr->tlsa.data);
                         break;
 
+                case DNS_TYPE_SVCB:
+                case DNS_TYPE_HTTPS:
+                        free(rr->svcb.target_name);
+                        dns_svc_param_free_all(rr->svcb.params);
+                        break;
+
                 case DNS_TYPE_CAA:
                         free(rr->caa.tag);
                         free(rr->caa.value);
@@ -814,6 +821,117 @@ static char *format_txt(DnsTxtItem *first) {
         return s;
 }
 
+static char *format_svc_param_value(DnsSvcParam *i) {
+        char *value = NULL;
+        int r;
+
+        switch (i->key) {
+        case DNS_SVC_PARAM_KEY_ALPN: {
+                size_t sz = 0, offset = 0;
+                _cleanup_strv_free_ char **values_strv = NULL;
+                while (offset < i->length) {
+                        char *alpn;
+                        sz = (uint8_t) i->value[offset++];
+                        alpn = strndup((char *)&i->value[offset], sz);
+                        if (!alpn)
+                                return NULL;
+                        strv_push(&values_strv, alpn);
+                        offset += sz;
+                }
+                value = strv_join(values_strv, ",");
+                break;
+        }
+        case DNS_SVC_PARAM_KEY_PORT: {
+                uint16_t port = unaligned_read_be16(i->value);
+                r = asprintf(&value, "%" PRIu16, port);
+                if (r < 0)
+                        return NULL;
+                break;
+        }
+        case DNS_SVC_PARAM_KEY_IPV4HINT: {
+                const struct in_addr *addrs = (struct in_addr*) &i->value;
+                _cleanup_strv_free_ char **values_strv = NULL;
+                for (size_t n = 0; n < i->length / sizeof (struct in_addr); n++) {
+                        char *addr;
+                        r = in_addr_to_string(AF_INET, (const union in_addr_union*) &addrs[n], &addr);
+                        if (r < 0)
+                                return NULL;
+                        strv_push(&values_strv, addr);
+                }
+                value = strv_join(values_strv, ",");
+                if (!value)
+                        return NULL;
+                break;
+        }
+        case DNS_SVC_PARAM_KEY_IPV6HINT: {
+                const struct in6_addr *addrs = (struct in6_addr*) &i->value;
+                _cleanup_strv_free_ char **values_strv = NULL;
+                for (size_t n = 0; n < i->length / sizeof (struct in6_addr); n++) {
+                        char *addr;
+                        r = in_addr_to_string(AF_INET6, (const union in_addr_union*) &addrs[n], &addr);
+                        if (r < 0)
+                                return NULL;
+                        strv_push(&values_strv, addr);
+                }
+                value = strv_join(values_strv, ",");
+                if (!value)
+                        return NULL;
+                break;
+        }
+        default: {
+                char *p;
+                p = value = new(char, 4 * i->length + 3);
+                *(p++) = '"';
+                for (size_t j = 0; j < i->length; j++) {
+                        if (i->value[j] < ' ' || IN_SET(i->value[j], ',', '\\', '"') ||
+                            i->value[j] >= 127) {
+                                *(p++) = '\\';
+                                *(p++) = '0' + (i->value[j] / 100);
+                                *(p++) = '0' + ((i->value[j] / 10) % 10);
+                                *(p++) = '0' + (i->value[j] % 10);
+                        } else
+                                *(p++) = i->value[j];
+                }
+                *(p++) = '"';
+                *p = '\0';
+                break;
+        }
+        }
+
+        return value;
+}
+
+static char *format_svc_param(DnsSvcParam *i) {
+        char *s;
+        const char *key = FORMAT_DNS_SVC_PARAM_KEY(i->key);
+
+        _cleanup_free_ char *value = NULL;
+
+        if (!i->length) {
+                s = strdup(key);
+                if (!s)
+                        return NULL;
+        }
+
+        value = format_svc_param_value(i);
+
+        s = strjoin(key, "=", value);
+        return s;
+}
+
+static char *format_svc_params(DnsSvcParam *first) {
+        _cleanup_strv_free_ char **params = NULL;
+
+        LIST_FOREACH(params, i, first) {
+                char *param = format_svc_param(i);
+                if (!param)
+                        return NULL;
+                strv_push(&params, param);
+        }
+
+        return strv_join(params, " ");
+}
+
 const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
         _cleanup_free_ char *s = NULL, *t = NULL;
         char k[DNS_RESOURCE_KEY_STRING_MAX];
@@ -1119,6 +1237,19 @@ const char *dns_resource_record_to_string(DnsResourceRecord *rr) {
                              rr->caa.flags & CAA_FLAG_CRITICAL ? " critical" : "",
                              rr->caa.flags & ~CAA_FLAG_CRITICAL ? " " : "",
                              rr->caa.flags & ~CAA_FLAG_CRITICAL);
+                if (r < 0)
+                        return NULL;
+
+                break;
+
+        case DNS_TYPE_SVCB:
+        case DNS_TYPE_HTTPS:
+                t = format_svc_params(rr->svcb.params);
+                if (!t)
+                        return NULL;
+                r = asprintf(&s, "%s %d %s %s", k, rr->svcb.priority,
+                             isempty(rr->svcb.target_name) ? "." : rr->svcb.target_name,
+                             t);
                 if (r < 0)
                         return NULL;
 
@@ -1772,6 +1903,13 @@ DnsTxtItem *dns_txt_item_free_all(DnsTxtItem *first) {
         return NULL;
 }
 
+DnsSvcParam *dns_svc_param_free_all(DnsSvcParam *first) {
+        LIST_FOREACH(params, i, first)
+                free(i);
+
+        return NULL;
+}
+
 bool dns_txt_item_equal(DnsTxtItem *a, DnsTxtItem *b) {
         DnsTxtItem *bb = b;
 
@@ -1929,6 +2067,40 @@ static int txt_to_json(DnsTxtItem *items, JsonVariant **ret) {
 
         r = json_variant_new_array(ret, elements, n);
 
+finalize:
+        for (size_t i = 0; i < n; i++)
+                json_variant_unref(elements[i]);
+
+        free(elements);
+        return r;
+}
+
+static int svc_params_to_json(DnsSvcParam *params, JsonVariant **ret) {
+        JsonVariant **elements = NULL;
+        size_t n = 0;
+        int r;
+
+        assert(ret);
+
+        LIST_FOREACH(params, i, params) {
+                char *param;
+                if (!GREEDY_REALLOC(elements, n + 1)) {
+                        r = -ENOMEM;
+                        goto finalize;
+                }
+
+                param = format_svc_param(i);
+                if (!param) {
+                        r = -ENOMEM;
+                        goto finalize;
+                }
+
+                r = json_variant_new_string(elements + n, param);
+                if (r < 0)
+                        goto finalize;
+        }
+
+        r = json_variant_new_array(ret, elements, n);
 finalize:
         for (size_t i = 0; i < n; i++)
                 json_variant_unref(elements[i]);
@@ -2111,6 +2283,21 @@ int dns_resource_record_to_json(DnsResourceRecord *rr, JsonVariant **ret) {
                                                   JSON_BUILD_PAIR("selector", JSON_BUILD_UNSIGNED(rr->tlsa.selector)),
                                                   JSON_BUILD_PAIR("matchingType", JSON_BUILD_UNSIGNED(rr->tlsa.matching_type)),
                                                   JSON_BUILD_PAIR("data", JSON_BUILD_HEX(rr->tlsa.data, rr->tlsa.data_size))));
+
+        case DNS_TYPE_SVCB:
+        case DNS_TYPE_HTTPS: {
+                _cleanup_(json_variant_unrefp) JsonVariant *p = NULL;
+                r = svc_params_to_json(rr->svcb.params, &p);
+                if (r < 0)
+                        return r;
+
+                return json_build(ret,
+                                  JSON_BUILD_OBJECT(
+                                                  JSON_BUILD_PAIR("key", JSON_BUILD_VARIANT(k)),
+                                                  JSON_BUILD_PAIR("priority", JSON_BUILD_UNSIGNED(rr->svcb.priority)),
+                                                  JSON_BUILD_PAIR("target", JSON_BUILD_STRING(rr->svcb.target_name)),
+                                                  JSON_BUILD_PAIR("params", JSON_BUILD_VARIANT(p))));
+        }
 
         case DNS_TYPE_CAA:
                 return json_build(ret,
