@@ -187,7 +187,7 @@ int fd_cloexec(int fd, bool cloexec) {
 }
 
 int fd_cloexec_many(const int fds[], size_t n_fds, bool cloexec) {
-        int ret = 0, r;
+        int r = 0;
 
         assert(fds || n_fds == 0);
 
@@ -195,14 +195,13 @@ int fd_cloexec_many(const int fds[], size_t n_fds, bool cloexec) {
                 if (*fd < 0) /* Skip gracefully over already invalidated fds */
                         continue;
 
-                r = fd_cloexec(*fd, cloexec);
-                if (r < 0) /* Continue going, but return first error */
-                        RET_GATHER(ret, r);
-                else
-                        ret = 1; /* report if we did anything */
+                RET_GATHER(r, fd_cloexec(*fd, cloexec));
+
+                if (r >= 0)
+                        r = 1; /* report if we did anything */
         }
 
-        return ret;
+        return r;
 }
 
 static bool fd_in_set(int fd, const int fds[], size_t n_fds) {
