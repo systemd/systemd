@@ -21,16 +21,28 @@ at_exit() {
     fi
 }
 
+add_suppression() {
+    local interface="${1:?}"
+    local suppression="${2:?}"
+
+    sed -i "\%\[$interface\]%a$suppression" /etc/dfuzzer.conf
+}
+
 trap at_exit EXIT
 
 systemctl log-level info
 
-# FIXME: systemd-run doesn't play well with daemon-reexec
-# See: https://github.com/systemd/systemd/issues/27204
-sed -i '/\[org.freedesktop.systemd1\]/aorg.freedesktop.systemd1.Manager:Reexecute FIXME' /etc/dfuzzer.conf
+add_suppression "org.freedesktop.systemd1" "org.freedesktop.systemd1.Manager:SoftReboot destructive"
+add_suppression "org.freedesktop.login1" "Sleep destructive"
 
-sed -i '/\[org.freedesktop.systemd1\]/aorg.freedesktop.systemd1.Manager:SoftReboot destructive' /etc/dfuzzer.conf
-sed -i '/\[org.freedesktop.login1\]/aSleep destructive' /etc/dfuzzer.conf
+# Skip calling start and stop methods on unit objects, as doing that is not only time consuming, but it also
+# starts/stops units that interfere with the machine state. The actual code paths should be covered (to some
+# degree) by the respective method counterparts on the manager object.
+for method in Start Stop Restart ReloadOrRestart Kill; do
+    add_suppression "org.freedesktop.systemd1" "org.freedesktop.systemd1.Unit:$method"
+done
+
+cat /etc/dfuzzer.conf
 
 # TODO
 #   * check for possibly newly introduced buses?
@@ -87,26 +99,22 @@ mount -t tmpfs -o size=50M tmpfs /var/lib/machines
 # Fuzz both the system and the session buses (where applicable)
 for bus in "${BUS_LIST[@]}"; do
     echo "Bus: $bus (system)"
-    systemd-run --pipe --wait \
+    systemd-run --scope \
                 -- dfuzzer -b "$PAYLOAD_MAX" -n "$bus"
 
     # Let's reload the systemd daemon to test (de)serialization as well
     systemctl daemon-reload
-    # FIXME: explicitly trigger reexecute until systemd/systemd#27204 is resolved
-    systemctl daemon-reexec
 done
 
 umount /var/lib/machines
 
 for bus in "${SESSION_BUS_LIST[@]}"; do
     echo "Bus: $bus (session)"
-    systemd-run --machine 'testuser@.host' --user --pipe --wait \
+    systemd-run --scope --machine 'testuser@.host' --user \
                 -- dfuzzer -b "$PAYLOAD_MAX" -n "$bus"
 
     # Let's reload the systemd user daemon to test (de)serialization as well
     systemctl --machine 'testuser@.host' --user daemon-reload
-    # FIXME: explicitly trigger reexecute until systemd/systemd#27204 is resolved
-    systemctl --machine 'testuser@.host' --user daemon-reexec
 done
 
 touch /testok
