@@ -1,0 +1,84 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+
+<!--
+  SPDX-License-Identifier: LGPL-2.1-or-later
+
+  Copyright © 2023 GNOME Foundation Inc.
+        Original Author: Adrian Vovk
+-->
+
+<refentry id="systemd-homed-sync-bulk.service" conditional='ENABLE_HOMED'
+          xmlns:xi="http://www.w3.org/2001/XInclude">
+
+  <refentryinfo>
+    <title>systemd-homed-sync-bulk.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-homed-sync-bulk.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-homed-bulk-sync.service</refname>
+    <refpurpose>Home Area Bulk Directory Sync</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-homed-bulk-sync.service</filename></para>
+    <para><filename>systemd-homed-bulk-sync.path</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-homed-sync-bulk</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-homed-sync-bulk</command> is a user service that synchronizes a user's
+    bulk directory between two locations: one in the user's home directory, and another belonging
+    to the system. It is run at login and whenever the contents of either directory change.</para>
+
+    <para>The bulk directory is for storing data that conceptually belongs to the user's identity (i.e. their
+    <ulink url="https://systemd.io/USER_RECORD/">JSON User Record</ulink>), but is too large to embed directly
+    into the JSON. For example: the bulk directory should be used to store a custom profile picture for the user.
+    Another example: the bulk directory could be used to store the user's wallpaper, which will then allow the
+    system's login UI to display it.</para>
+
+    <para>As mentioned above, there are two copies of the bulk directory that are kept in sync. The first is
+    <filename>$XDG_DATA_HOME/homed/</filename> or <filename>$HOME/.local/share/homed/</filename>, which we will
+    call the "home bulk" directory. The home bulk directory is only accessible while the user is in an active
+    state (i.e. logged in and unlocked). The other copy is found in
+    <filename>/var/cache/homed/<replaceable>username</replaceable>/</filename>,
+    which we will call the "system bulk" directory. The system bulk directory is only populated a little while
+    after a user logs into the system for the first time.</para>
+
+    <para>External software is free to access either the home or system bulk directories, but should prefer to
+    access the system bulk directory. This helps avoid situations where files are missing because the two directories
+    are synchronized in the background. However, it should still be prepared for missing files; their presence is
+    best-effort. Before writing to either directory, exernal software MUST take a <constant>LOCK_EX</constant> BSD file
+    lock (<citerefentry project='man-pages'><refentrytitle>flock</refentrytitle><manvolnum>2</manvolnum></citerefentry>)
+    on the directory to avoid conflicts with <command>systemd-homed-sync-bulk</command>. If taking locks on both
+    directories at the same time, external software MUST lock the system bulk directory before the home bulk
+    directory to avoid deadlock.</para>
+
+    <para>Nothing sensitive should be stored in the bulk directories. They are world-readable, and the files inside of
+    them should be too. Data deleted from the system directory will still remain in the home directory until the next
+    synchronization. Any destructive change such as overwritten or even deleted files might be undone if something
+    goes wrong in <command>systemd-homed-sync-bulk</command>, which avoids deleting or overwriting data if it cannot
+    determine what it should do. If you wish to be absolutely certain that a destructive change is persisted, you
+    should take simultaneous locks on both directories and then make your change in both directories. This, however,
+    should not be generally necessary or even recommended: in normal operation, <command>systemd-homed-sync-bulk</command>
+    will keep the directories in sync.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-homed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>homectl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>
