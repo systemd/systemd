@@ -16,6 +16,7 @@
 typedef struct DnsResourceKey DnsResourceKey;
 typedef struct DnsResourceRecord DnsResourceRecord;
 typedef struct DnsTxtItem DnsTxtItem;
+typedef struct DnsSvcParam DnsSvcParam;
 
 /* DNSKEY RR flags */
 #define DNSKEY_FLAG_SEP            (UINT16_C(1) << 0)
@@ -88,6 +89,13 @@ struct DnsTxtItem {
         size_t length;
         LIST_FIELDS(DnsTxtItem, items);
         uint8_t data[];
+};
+
+struct DnsSvcParam {
+        uint16_t key;
+        size_t length;
+        LIST_FIELDS(DnsSvcParam, params);
+        uint8_t value[];
 };
 
 struct DnsResourceRecord {
@@ -243,6 +251,13 @@ struct DnsResourceRecord {
                         uint8_t matching_type;
                 } tlsa;
 
+                /* https://tools.ietf.org/html/rfc9460 */
+                struct {
+                        uint16_t priority;
+                        char *target_name;
+                        DnsSvcParam *params;
+                } svcb, https;
+
                 /* https://tools.ietf.org/html/rfc6844 */
                 struct {
                         char *tag;
@@ -367,6 +382,10 @@ DnsTxtItem *dns_txt_item_free_all(DnsTxtItem *i);
 bool dns_txt_item_equal(DnsTxtItem *a, DnsTxtItem *b);
 DnsTxtItem *dns_txt_item_copy(DnsTxtItem *i);
 int dns_txt_item_new_empty(DnsTxtItem **ret);
+
+DnsSvcParam *dns_svc_param_free_all(DnsSvcParam *i);
+bool dns_svc_params_equal(DnsSvcParam *a, DnsSvcParam *b);
+DnsSvcParam *dns_svc_params_copy(DnsSvcParam *first);
 
 int dns_resource_record_new_from_raw(DnsResourceRecord **ret, const void *data, size_t size);
 
