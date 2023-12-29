@@ -238,4 +238,17 @@ assert_rc 124 timeout 5 udevadm wait --removed /sys/class/net/$netdev
 udevadm wait --settle /sys/class/net/$netdev
 udevadm wait -h
 
+udevadm lock --help
+udevadm lock --version
+for i in /dev/block/*; do
+    udevadm lock --device "$i" --print
+    udevadm lock --device "$i" true
+    (! udevadm lock --device "$i" false)
+done
+for i in / /usr; do
+    udevadm lock --backing "$i" --print
+    udevadm lock --backing "$i" true
+    (! udevadm lock --backing "$i" false)
+done
+
 exit 0
