@@ -396,6 +396,11 @@ EOF
 
     udevadm control --reload
 
+    # initialize partition table
+    for disk in {0..9}; do
+        echo 'label: gpt' | udevadm lock --device="${devices[$disk]}" sfdisk -q "${devices[$disk]}"
+    done
+
     # Delete the partitions, immediately recreate them, wait for udev to settle
     # down, and then check if we have any dangling symlinks in /dev/disk/. Rinse
     # and repeat.
