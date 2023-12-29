@@ -537,18 +537,6 @@ static DIR* opendir_nomod(const char *path) {
         return xopendirat_nomod(AT_FDCWD, path);
 }
 
-static nsec_t load_statx_timestamp_nsec(const struct statx_timestamp *ts) {
-        assert(ts);
-
-        if (ts->tv_sec < 0)
-                return NSEC_INFINITY;
-
-        if ((nsec_t) ts->tv_sec >= (UINT64_MAX - ts->tv_nsec) / NSEC_PER_SEC)
-                return NSEC_INFINITY;
-
-        return ts->tv_sec * NSEC_PER_SEC + ts->tv_nsec;
-}
-
 static bool needs_cleanup(
                 nsec_t atime,
                 nsec_t btime,
@@ -691,10 +679,10 @@ static int dir_cleanup(
                         }
                 }
 
-                atime_nsec = FLAGS_SET(sx.stx_mask, STATX_ATIME) ? load_statx_timestamp_nsec(&sx.stx_atime) : 0;
-                mtime_nsec = FLAGS_SET(sx.stx_mask, STATX_MTIME) ? load_statx_timestamp_nsec(&sx.stx_mtime) : 0;
-                ctime_nsec = FLAGS_SET(sx.stx_mask, STATX_CTIME) ? load_statx_timestamp_nsec(&sx.stx_ctime) : 0;
-                btime_nsec = FLAGS_SET(sx.stx_mask, STATX_BTIME) ? load_statx_timestamp_nsec(&sx.stx_btime) : 0;
+                atime_nsec = FLAGS_SET(sx.stx_mask, STATX_ATIME) ? statx_timestamp_load_nsec(&sx.stx_atime) : 0;
+                mtime_nsec = FLAGS_SET(sx.stx_mask, STATX_MTIME) ? statx_timestamp_load_nsec(&sx.stx_mtime) : 0;
+                ctime_nsec = FLAGS_SET(sx.stx_mask, STATX_CTIME) ? statx_timestamp_load_nsec(&sx.stx_ctime) : 0;
+                btime_nsec = FLAGS_SET(sx.stx_mask, STATX_BTIME) ? statx_timestamp_load_nsec(&sx.stx_btime) : 0;
 
                 sub_path = path_join(p, de->d_name);
                 if (!sub_path) {
@@ -2988,8 +2976,8 @@ static int clean_item_instance(
         }
 
         return dir_cleanup(c, i, instance, d,
-                           load_statx_timestamp_nsec(&sx.stx_atime),
-                           load_statx_timestamp_nsec(&sx.stx_mtime),
+                           statx_timestamp_load_nsec(&sx.stx_atime),
+                           statx_timestamp_load_nsec(&sx.stx_mtime),
                            cutoff * NSEC_PER_USEC,
                            sx.stx_dev_major, sx.stx_dev_minor, mountpoint,
                            MAX_DEPTH, i->keep_first_level,
