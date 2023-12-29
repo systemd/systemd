@@ -927,6 +927,7 @@ static bool device_is_allowed(sd_device *d) {
 static int device_added(Context *c, sd_device *device) {
         _cleanup_close_ int fd = -EBADF;
         int r;
+        dev_t devnum;
 
         assert(c);
         assert(device);
@@ -950,9 +951,10 @@ static int device_added(Context *c, sd_device *device) {
                 .st_mode = S_IFBLK,
         };
 
-        r = sd_device_get_devnum(device, &lookup_key.st_rdev);
+        r = sd_device_get_devnum(device, &devnum);
         if (r < 0)
                 return log_device_error_errno(device, r, "Failed to get major/minor from device: %m");
+        lookup_key.st_rdev = devnum;
 
         if (hashmap_contains(c->subsystems, &lookup_key)) {
                 log_debug("Device '%s' already seen.", devname);
