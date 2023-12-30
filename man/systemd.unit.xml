@@ -2303,6 +2303,11 @@
             <entry>This is the value of the <literal>$CREDENTIALS_DIRECTORY</literal> environment variable if available. See section "Credentials" in <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for more information.</entry>
           </row>
           <row>
+            <entry><literal>%D</literal></entry>
+            <entry>Shared data directory</entry>
+            <entry>This is either <filename>/usr/share/</filename> (for the system manager) or the path <literal>$XDG_DATA_HOME</literal> resolves to (for user managers).</entry>
+          </row>
+          <row>
             <entry><literal>%E</literal></entry>
             <entry>Configuration directory root</entry>
             <entry>This is either <filename>/etc/</filename> (for the system manager) or the path <literal>$XDG_CONFIG_HOME</literal> resolves to (for user managers).</entry>
