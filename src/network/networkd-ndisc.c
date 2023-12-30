@@ -244,7 +244,7 @@ static int ndisc_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
 }
 
 static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
-        _cleanup_(address_freep) Address *address = in;
+        _cleanup_(address_unrefp) Address *address = in;
         struct in6_addr router;
         bool is_new;
         int r;
@@ -432,7 +432,7 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
                 return log_link_warning_errno(link, r, "Failed to generate SLAAC addresses: %m");
 
         SET_FOREACH(a, addresses) {
-                _cleanup_(address_freep) Address *address = NULL;
+                _cleanup_(address_unrefp) Address *address = NULL;
 
                 r = address_new(&address);
                 if (r < 0)
@@ -1137,7 +1137,7 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
                 if (address->lifetime_valid_usec >= timestamp_usec)
                         continue; /* the address is still valid */
 
-                r = address_remove_and_drop(address);
+                r = address_remove_and_cancel(address, link);
                 if (r < 0)
                         RET_GATHER(ret, log_link_warning_errno(link, r, "Failed to remove outdated SLAAC address, ignoring: %m"));
         }

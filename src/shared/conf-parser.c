@@ -795,12 +795,12 @@ bool stats_by_path_equal(Hashmap *a, Hashmap *b) {
         return true;
 }
 
-static void config_section_hash_func(const ConfigSection *c, struct siphash *state) {
+void config_section_hash_func(const ConfigSection *c, struct siphash *state) {
         siphash24_compress_string(c->filename, state);
         siphash24_compress_typesafe(c->line, state);
 }
 
-static int config_section_compare_func(const ConfigSection *x, const ConfigSection *y) {
+int config_section_compare_func(const ConfigSection *x, const ConfigSection *y) {
         int r;
 
         r = strcmp(x->filename, y->filename);
