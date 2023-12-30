@@ -582,7 +582,7 @@ static void path_enter_waiting(Path *p, bool initial, bool from_trigger_notify) 
 
         /* If the triggered unit is already running, so are we */
         trigger = UNIT_TRIGGER(UNIT(p));
-        if (trigger && !UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(trigger))) {
+        if (trigger && !UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(trigger))) {
                 path_set_state(p, PATH_RUNNING);
                 path_unwatch(p);
                 return;
@@ -853,11 +853,11 @@ static void path_trigger_notify_impl(Unit *u, Unit *other, bool on_defer) {
                 return;
 
         if (p->state == PATH_RUNNING &&
-            UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(other))) {
+            UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other))) {
                 if (!on_defer)
                         log_unit_debug(u, "Got notified about unit deactivation.");
         } else if (p->state == PATH_WAITING &&
-                   !UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(other))) {
+                   !UNIT_IS_INACTIVE_OR_DEACTIVATING(unit_active_state(other))) {
                 if (!on_defer)
                         log_unit_debug(u, "Got notified about unit activation.");
         } else
