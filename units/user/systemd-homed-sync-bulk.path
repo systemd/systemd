@@ -7,12 +7,15 @@
 #  the Free Software Foundation; either version 2.1 of the License, or
 #  (at your option) any later version.
 
-# Settings for systemd units distributed with systemd itself. These should be
-# enabled by default, even if the distribution follows a general default-off
-# policy.
+[Unit]
+Description=Monitor Home Area Bulk Directory
+Documentation=man:systemd-homed.service(8)
+ConditionEnvironment=SYSTEMD_HOME=1
+AssertPathIsDirectory=/var/cache/homed/%u/
 
-enable systemd-tmpfiles-setup.service
-enable systemd-tmpfiles-clean.timer
+[Path]
+PathModified=/var/cache/homed/%u/
+PathModified=%D/homed/
 
-enable systemd-homed-sync-bulk.service
-enable systemd-homed-sync-bulk.path
+[Install]
+WantedBy=default.target

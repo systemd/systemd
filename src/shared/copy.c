@@ -1170,8 +1170,24 @@ static int fd_copy_tree_generic(
 
         r = fd_copy_leaf(df, from, st, dt, to, override_uid, override_gid, copy_flags, hardlink_context, display_path, progress_bytes, userdata);
         /* We just tried to copy a leaf node of the tree. If it failed because the node already exists *and* the COPY_REPLACE flag has been provided, we should unlink the node and re-copy. */
-        if (r == -EEXIST && (copy_flags & COPY_REPLACE)) {
-                /* This codepath is us trying to address an error to copy, if the unlink fails, lets just return the original error. */
+        if (r == -EEXIST && (copy_flags & (COPY_REPLACE|COPY_REPLACE_UPDATED))) {
+                /* This codepath is us trying to address an error to copy, if we fail, let's just return the original error. */
+
+                if (copy_flags & COPY_REPLACE_UPDATED) {
+                        nsec_t orig_ts = NSEC_INFINITY, replace_ts = NSEC_INFINITY;
+                        struct stat buf;
+
+                        replace_ts = timespec_load_nsec(&st->st_mtim);
+                        if (fstatat(dt, to, &buf, AT_SYMLINK_NOFOLLOW) >= 0)
+                                orig_ts = timespec_load_nsec(&buf.st_mtim);
+
+                        if (orig_ts == NSEC_INFINITY || replace_ts == NSEC_INFINITY)
+                                return r; /* If we couldn't get both modification times, play it safe and don't overwrite. */
+
+                        if (orig_ts >= replace_ts)
+                                return r; /* If the original file is newer than the replacement, don't overwrite */
+                }
+
                 if (unlinkat(dt, to, 0) < 0)
                         return r;
 
@@ -1454,6 +1470,26 @@ int copy_file_atomic_at_full(
         assert(from);
         assert(to);
         assert(!FLAGS_SET(copy_flags, COPY_LOCK_BSD));
+
+        if (copy_flags & COPY_REPLACE_UPDATED) {
+                struct stat buf;
+                nsec_t orig_ts, replace_ts;
+
+                if (fstatat(dir_fdf, from, &buf, AT_SYMLINK_NOFOLLOW) < 0)
+                        return -errno;
+                replace_ts = timespec_load_nsec(&buf.st_mtim);
+
+                if (fstatat(dir_fdt, to, &buf, AT_SYMLINK_NOFOLLOW) < 0)
+                        return -errno;
+                orig_ts = timespec_load_nsec(&buf.st_mtim);
+
+                assert(orig_ts != NSEC_INFINITY);
+                assert(replace_ts != NSEC_INFINITY);
+
+                if (orig_ts < replace_ts)
+                        copy_flags |= COPY_REPLACE;
+                copy_flags &= ~COPY_REPLACE_UPDATED;
+        }
 
         if (copy_flags & COPY_MAC_CREATE) {
                 r = mac_selinux_create_file_prepare_at(dir_fdt, to, S_IFREG);

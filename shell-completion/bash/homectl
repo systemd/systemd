@@ -50,7 +50,7 @@ _homectl() {
                         --realm
                         --email-address
                         --location
-                        --icon-name
+                        --avatar-path
                      -d --home-dir
                         --uid
                      -G --member-of
