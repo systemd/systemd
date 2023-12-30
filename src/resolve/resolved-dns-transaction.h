@@ -20,6 +20,7 @@ enum DnsTransactionState {
         DNS_TRANSACTION_PENDING,
         DNS_TRANSACTION_VALIDATING,
         DNS_TRANSACTION_RCODE_FAILURE,
+        DNS_TRANSACTION_UPSTREAM_DNSSEC_FAILURE,
         DNS_TRANSACTION_SUCCESS,
         DNS_TRANSACTION_NO_SERVERS,
         DNS_TRANSACTION_TIMEOUT,
@@ -61,6 +62,8 @@ struct DnsTransaction {
 
         DnsAnswer *answer;
         int answer_rcode;
+        int answer_ede_rcode;
+        char *answer_ede_msg;
         DnssecResult answer_dnssec_result;
         DnsTransactionSource answer_source;
         uint32_t answer_nsec_ttl;
