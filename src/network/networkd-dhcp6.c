@@ -51,18 +51,18 @@ static int dhcp6_remove(Link *link, bool only_marked) {
         int ret = 0;
 
         assert(link);
+        assert(link->manager);
 
         if (!only_marked)
                 link->dhcp6_configured = false;
 
-        SET_FOREACH(route, link->routes) {
+        SET_FOREACH(route, link->manager->routes) {
                 if (route->source != NETWORK_CONFIG_SOURCE_DHCP6)
                         continue;
                 if (only_marked && !route_is_marked(route))
                         continue;
 
-                RET_GATHER(ret, route_remove(route));
-                route_cancel_request(route, link);
+                RET_GATHER(ret, route_remove_and_cancel(route, link->manager));
         }
 
         SET_FOREACH(address, link->addresses) {
@@ -71,7 +71,7 @@ static int dhcp6_remove(Link *link, bool only_marked) {
                 if (only_marked && !address_is_marked(address))
                         continue;
 
-                RET_GATHER(ret, address_remove_and_drop(address));
+                RET_GATHER(ret, address_remove_and_cancel(address, link));
         }
 
         return ret;
@@ -191,7 +191,7 @@ static int dhcp6_request_address(
                 usec_t lifetime_preferred_usec,
                 usec_t lifetime_valid_usec) {
 
-        _cleanup_(address_freep) Address *addr = NULL;
+        _cleanup_(address_unrefp) Address *addr = NULL;
         Address *existing;
         int r;
 
@@ -292,7 +292,7 @@ static int dhcp6_lease_ip_acquired(sd_dhcp6_client *client, Link *link) {
         int r;
 
         link_mark_addresses(link, NETWORK_CONFIG_SOURCE_DHCP6);
-        link_mark_routes(link, NETWORK_CONFIG_SOURCE_DHCP6);
+        manager_mark_routes(link->manager, NULL, NETWORK_CONFIG_SOURCE_DHCP6);
 
         r = sd_dhcp6_client_get_lease(client, &lease);
         if (r < 0)

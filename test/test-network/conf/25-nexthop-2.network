@@ -6,36 +6,45 @@ Name=veth99
 IPv6AcceptRA=no
 Address=2001:1234:5:8f63::1/120
 Address=192.168.5.10/24
+
+# Commented out lines are specified in 25-nexthop.network
+
+[NextHop]
+#Id=1
+Id=6
 Gateway=192.168.5.1
 
 [NextHop]
-Id=1
-Gateway=192.168.5.1
-
-[NextHop]
-Id=2
+#Id=2
+Id=7
 Gateway=2001:1234:5:8f63::2
 
 [NextHop]
-Id=3
+#Id=3
+Id=4
 Family=ipv6
 
 [NextHop]
-Id=4
+#Id=4
+Id=3
 Family=ipv4
 
 [NextHop]
 Id=5
-Gateway=192.168.10.1
-OnLink=yes
+#Gateway=192.168.10.1
+#OnLink=yes
+Gateway=192.168.5.3
+OnLink=no
 
 [NextHop]
-Id=6
+#Id=6
+Id=1
 Family=ipv4
 Blackhole=yes
 
 [NextHop]
-Id=7
+#Id=7
+Id=2
 Family=ipv6
 Blackhole=yes
 
@@ -55,15 +64,18 @@ Family=ipv6
 Blackhole=yes
 
 [Route]
-NextHop=1
+#NextHop=1
+NextHop=6
 Destination=10.10.10.10
 
 [Route]
-NextHop=2
+#NextHop=2
+NextHop=7
 Destination=10.10.10.11
 
 [Route]
-NextHop=2
+#NextHop=2
+NextHop=7
 Destination=2001:1234:5:8f62::1
 
 [Route]
@@ -71,13 +83,16 @@ NextHop=5
 Destination=10.10.10.12
 
 [Route]
-NextHop=6
+#NextHop=6
+NextHop=1
 Destination=10.10.10.13
 
 [Route]
-NextHop=7
+#NextHop=7
+NextHop=2
 Destination=2001:1234:5:8f62::2
 
 [Route]
-NextHop=21
+#NextHop=21
+NextHop=20
 Destination=10.10.10.14
