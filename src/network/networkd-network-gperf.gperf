@@ -206,7 +206,7 @@ Route.TCPAdvertisedMaximumSegmentSize,       config_parse_tcp_advmss,           
 Route.TCPCongestionControlAlgorithm,         config_parse_tcp_congestion,                              0,                             0
 Route.QuickAck,                              config_parse_route_boolean,                               0,                             0
 Route.FastOpenNoCookie,                      config_parse_route_boolean,                               0,                             0
-Route.TTLPropagate,                          config_parse_route_boolean,                               0,                             0
+Route.TTLPropagate,                          config_parse_warn_compat,                                 DISABLED_LEGACY,               0
 Route.MultiPathRoute,                        config_parse_multipath_route,                             0,                             0
 Route.NextHop,                               config_parse_route_nexthop,                               0,                             0
 NextHop.Id,                                  config_parse_nexthop_id,                                  0,                             0
