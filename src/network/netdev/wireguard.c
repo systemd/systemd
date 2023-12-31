@@ -1103,7 +1103,7 @@ static int wireguard_verify(NetDev *netdev, const char *filename) {
                         continue;
 
                 LIST_FOREACH(ipmasks, ipmask, peer->ipmasks) {
-                        _cleanup_(route_freep) Route *route = NULL;
+                        _cleanup_(route_unrefp) Route *route = NULL;
 
                         r = route_new(&route);
                         if (r < 0)
