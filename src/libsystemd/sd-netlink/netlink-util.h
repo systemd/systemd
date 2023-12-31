@@ -10,6 +10,9 @@
 #include "ordered-set.h"
 #include "socket-util.h"
 
+#define RTA_FLAGS(rta) ((rta)->rta_type & ~NLA_TYPE_MASK)
+#define RTA_TYPE(rta)  ((rta)->rta_type & NLA_TYPE_MASK)
+
 /* See struct rtvia in rtnetlink.h */
 typedef struct RouteVia {
         uint16_t family;
