@@ -36,7 +36,6 @@ struct Route {
         uint32_t gw_weight;
         int quickack;
         int fast_open_no_cookie;
-        int ttl_propagate;
 
         unsigned char dst_prefixlen;
         unsigned char src_prefixlen;
