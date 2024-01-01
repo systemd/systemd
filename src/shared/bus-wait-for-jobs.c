@@ -43,7 +43,7 @@ BusWaitForJobs* bus_wait_for_jobs_free(BusWaitForJobs *d) {
 static int match_disconnected(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         assert(m);
 
-        log_error("Warning! D-Bus connection terminated.");
+        log_warning("D-Bus connection terminated while waiting for jobs.");
         sd_bus_close(sd_bus_message_get_bus(m));
 
         return 0;
