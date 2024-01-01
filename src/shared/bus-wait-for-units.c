@@ -114,7 +114,7 @@ static int match_disconnected(sd_bus_message *m, void *userdata, sd_bus_error *e
         bus_wait_for_units_clear(d);
 
         if (d->ready_callback)
-                d->ready_callback(d, false, d->userdata);
+                d->ready_callback(d, BUS_WAIT_FAILURE, d->userdata);
         else /* If no ready callback is specified close the connection so that the event loop exits */
                 sd_bus_close(sd_bus_message_get_bus(m));
 
