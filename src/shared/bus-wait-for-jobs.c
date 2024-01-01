@@ -23,6 +23,23 @@ typedef struct BusWaitForJobs {
         sd_bus_slot *slot_disconnected;
 } BusWaitForJobs;
 
+BusWaitForJobs* bus_wait_for_jobs_free(BusWaitForJobs *d) {
+        if (!d)
+                return NULL;
+
+        set_free(d->jobs);
+
+        sd_bus_slot_unref(d->slot_disconnected);
+        sd_bus_slot_unref(d->slot_job_removed);
+
+        sd_bus_unref(d->bus);
+
+        free(d->name);
+        free(d->result);
+
+        return mfree(d);
+}
+
 static int match_disconnected(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         assert(m);
 
@@ -58,23 +75,6 @@ static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *er
         (void) free_and_strdup(&d->name, empty_to_null(unit));
 
         return 0;
-}
-
-BusWaitForJobs* bus_wait_for_jobs_free(BusWaitForJobs *d) {
-        if (!d)
-                return NULL;
-
-        set_free(d->jobs);
-
-        sd_bus_slot_unref(d->slot_disconnected);
-        sd_bus_slot_unref(d->slot_job_removed);
-
-        sd_bus_unref(d->bus);
-
-        free(d->name);
-        free(d->result);
-
-        return mfree(d);
 }
 
 int bus_wait_for_jobs_new(sd_bus *bus, BusWaitForJobs **ret) {
