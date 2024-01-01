@@ -1741,26 +1741,13 @@ static int action_detach(const char *path) {
 
                 FOREACH_DEVICE(e, d) {
                         _cleanup_(loop_device_unrefp) LoopDevice *entry_loop = NULL;
-                        const char *name, *devtype;
 
-                        r = sd_device_get_sysname(d, &name);
-                        if (r < 0) {
-                                log_warning_errno(r, "Failed to get enumerated device's sysname, skipping: %m");
-                                continue;
-                        }
-
-                        r = sd_device_get_devtype(d, &devtype);
-                        if (r < 0) {
-                                log_warning_errno(r, "Failed to get devtype of '%s', skipping: %m", name);
-                                continue;
-                        }
-
-                        if (!streq(devtype, "disk")) /* Filter out partition block devices */
+                        if (!device_is_devtype(d, "disk")) /* Filter out partition block devices */
                                 continue;
 
                         r = loop_device_open(d, O_RDONLY, LOCK_SH, &entry_loop);
                         if (r < 0) {
-                                log_warning_errno(r, "Failed to open loopback block device '%s', skipping: %m", name);
+                                log_device_warning_errno(d, r, "Failed to open loopback block device, skipping: %m");
                                 continue;
                         }
 

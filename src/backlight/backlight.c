@@ -87,8 +87,8 @@ static int has_multiple_graphics_cards(void) {
 }
 
 static int find_pci_or_platform_parent(sd_device *device, sd_device **ret) {
-        const char *subsystem, *sysname, *value;
         sd_device *parent;
+        const char *s;
         int r;
 
         assert(device);
@@ -98,34 +98,29 @@ static int find_pci_or_platform_parent(sd_device *device, sd_device **ret) {
         if (r < 0)
                 return r;
 
-        r = sd_device_get_subsystem(parent, &subsystem);
-        if (r < 0)
-                return r;
+        if (device_in_subsystem(parent, "drm")) {
 
-        r = sd_device_get_sysname(parent, &sysname);
-        if (r < 0)
-                return r;
+                r = sd_device_get_sysname(parent, &s);
+                if (r < 0)
+                        return r;
 
-        if (streq(subsystem, "drm")) {
-                const char *c;
-
-                c = startswith(sysname, "card");
-                if (!c)
+                s = startswith(s, "card");
+                if (!s)
                         return -ENODATA;
 
-                c += strspn(c, DIGITS);
-                if (*c == '-' && !STARTSWITH_SET(c, "-LVDS-", "-Embedded DisplayPort-", "-eDP-"))
+                s += strspn(s, DIGITS);
+                if (*s == '-' && !STARTSWITH_SET(s, "-LVDS-", "-Embedded DisplayPort-", "-eDP-"))
                         /* A connector DRM device, let's ignore all but LVDS and eDP! */
                         return -EOPNOTSUPP;
 
-        } else if (streq(subsystem, "pci") &&
-                   sd_device_get_sysattr_value(parent, "class", &value) >= 0) {
+        } else if (device_in_subsystem(parent, "pci") &&
+                   sd_device_get_sysattr_value(parent, "class", &s)) {
+
                 unsigned long class;
 
-                r = safe_atolu(value, &class);
+                r = safe_atolu(s, &class);
                 if (r < 0)
-                        return log_warning_errno(r, "Cannot parse PCI class '%s' of device %s:%s: %m",
-                                                 value, subsystem, sysname);
+                        return log_device_warning_errno(parent, r, "Cannot parse PCI class '%s': %m", s);
 
                 /* Graphics card */
                 if (class == PCI_CLASS_GRAPHICS_CARD) {
@@ -133,7 +128,7 @@ static int find_pci_or_platform_parent(sd_device *device, sd_device **ret) {
                         return 0;
                 }
 
-        } else if (streq(subsystem, "platform")) {
+        } else if (device_in_subsystem(parent, "platform")) {
                 *ret = parent;
                 return 0;
         }
@@ -172,7 +167,7 @@ static int same_device(sd_device *a, sd_device *b) {
 
 static int validate_device(sd_device *device) {
         _cleanup_(sd_device_enumerator_unrefp) sd_device_enumerator *enumerate = NULL;
-        const char *v, *sysname, *subsystem;
+        const char *v, *sysname;
         sd_device *parent;
         int r;
 
@@ -191,11 +186,8 @@ static int validate_device(sd_device *device) {
         if (r < 0)
                 return log_device_debug_errno(device, r, "Failed to get sysname: %m");
 
-        r = sd_device_get_subsystem(device, &subsystem);
-        if (r < 0)
-                return log_device_debug_errno(device, r, "Failed to get subsystem: %m");
-        if (!streq(subsystem, "backlight"))
-                return true;
+        if (!device_in_subsystem(device, "backlight"))
+                return true; /* We assume LED device is always valid. */
 
         r = sd_device_get_sysattr_value(device, "type", &v);
         if (r < 0)
@@ -207,15 +199,12 @@ static int validate_device(sd_device *device) {
         if (r < 0)
                 return log_device_debug_errno(device, r, "Failed to find PCI or platform parent: %m");
 
-        r = sd_device_get_subsystem(parent, &subsystem);
-        if (r < 0)
-                return log_device_debug_errno(parent, r, "Failed to get subsystem: %m");
-
         if (DEBUG_LOGGING) {
-                const char *s = NULL;
+                const char *s = NULL, *subsystem = NULL;
 
                 (void) sd_device_get_syspath(parent, &s);
-                log_device_debug(device, "Found %s parent device: %s", subsystem, strna(s));
+                (void) sd_device_get_subsystem(parent, &subsystem);
+                log_device_debug(device, "Found %s parent device: %s", strna(subsystem), strna(s));
         }
 
         r = sd_device_enumerator_new(&enumerate);
@@ -242,7 +231,7 @@ static int validate_device(sd_device *device) {
         if (r < 0)
                 return log_debug_errno(r, "Failed to add sysattr match: %m");
 
-        if (streq(subsystem, "pci")) {
+        if (device_in_subsystem(parent, "pci")) {
                 r = has_multiple_graphics_cards();
                 if (r < 0)
                         return log_debug_errno(r, "Failed to check if the system has multiple graphics cards: %m");
@@ -260,7 +249,6 @@ static int validate_device(sd_device *device) {
         }
 
         FOREACH_DEVICE(enumerate, other) {
-                const char *other_subsystem;
                 sd_device *other_parent;
 
                 /* OK, so there's another backlight device, and it's a platform or firmware device.
@@ -285,13 +273,7 @@ static int validate_device(sd_device *device) {
                         return false;
                 }
 
-                r = sd_device_get_subsystem(other_parent, &other_subsystem);
-                if (r < 0) {
-                        log_device_debug_errno(other_parent, r, "Failed to get subsystem, ignoring: %m");
-                        continue;
-                }
-
-                if (streq(other_subsystem, "platform") && streq(subsystem, "pci")) {
+                if (device_in_subsystem(other_parent, "platform") && device_in_subsystem(parent, "pci")) {
                         /* The other is connected to the platform bus and we are a PCI device, that also means we are out. */
                         if (DEBUG_LOGGING) {
                                 const char *other_sysname = NULL, *other_type = NULL;
@@ -347,8 +329,6 @@ static int clamp_brightness(
                 unsigned *brightness) {
 
         unsigned new_brightness, min_brightness;
-        const char *subsystem;
-        int r;
 
         assert(device);
         assert(brightness);
@@ -358,11 +338,7 @@ static int clamp_brightness(
          * avoids preserving an unreadably dim screen, which would otherwise force the user to disable
          * state restoration. */
 
-        r = sd_device_get_subsystem(device, &subsystem);
-        if (r < 0)
-                return log_device_warning_errno(device, r, "Failed to get device subsystem: %m");
-
-        if (streq(subsystem, "backlight"))
+        if (device_in_subsystem(device, "backlight"))
                 min_brightness = MAX(1U, (unsigned) ((double) max_brightness * percent / 100));
         else
                 min_brightness = 0;
@@ -413,18 +389,14 @@ static bool shall_clamp(sd_device *d, unsigned *ret) {
 }
 
 static int read_brightness(sd_device *device, unsigned max_brightness, unsigned *ret_brightness) {
-        const char *subsystem, *value;
+        const char *value;
         unsigned brightness;
         int r;
 
         assert(device);
         assert(ret_brightness);
 
-        r = sd_device_get_subsystem(device, &subsystem);
-        if (r < 0)
-                return log_device_debug_errno(device, r, "Failed to get subsystem: %m");
-
-        if (streq(subsystem, "backlight")) {
+        if (device_in_subsystem(device, "backlight")) {
                 r = sd_device_get_sysattr_value(device, "actual_brightness", &value);
                 if (r == -ENOENT) {
                         log_device_debug_errno(device, r, "Failed to read 'actual_brightness' attribute, "
