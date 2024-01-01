@@ -4011,7 +4011,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
 
         if (m->action_job && streq(m->action_job, path)) {
                 assert(m->delayed_action);
-                log_info("Operation '%s' finished.", inhibit_what_to_string(m->delayed_action->inhibit_what));
+                log_info("Operation '%s' finished.", handle_action_to_string(m->delayed_action->handle));
 
                 /* Tell people that they now may take a lock again */
                 (void) send_prepare_for(m, m->delayed_action, false);
