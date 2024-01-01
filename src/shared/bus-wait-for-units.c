@@ -109,7 +109,7 @@ static int match_disconnected(sd_bus_message *m, void *userdata, sd_bus_error *e
 
         assert(m);
 
-        log_error("Warning! D-Bus connection terminated.");
+        log_warning("D-Bus connection terminated while waiting for unit.");
 
         bus_wait_for_units_clear(d);
 
