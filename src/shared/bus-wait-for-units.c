@@ -63,7 +63,7 @@ static WaitForItem *wait_for_item_free(WaitForItem *item) {
                                 log_debug_errno(r, "Failed to drop reference to unit %s, ignoring: %m", item->bus_path);
                 }
 
-                assert_se(hashmap_remove(item->parent->items, item->bus_path) == item);
+                assert_se(hashmap_remove_value(item->parent->items, item->bus_path, item));
 
                 if (item->parent->current == item)
                         item->parent->current = NULL;
