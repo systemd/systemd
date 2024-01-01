@@ -44,15 +44,14 @@ static void sigbus_push(void *addr) {
         for (;;) {
                 sig_atomic_t c;
 
-                __atomic_thread_fence(__ATOMIC_SEQ_CST);
-                c = n_sigbus_queue;
+                c = __atomic_load_n(&n_sigbus_queue, __ATOMIC_SEQ_CST);
 
-                if (c > SIGBUS_QUEUE_MAX) /* already overflow */
+                if (c >= SIGBUS_QUEUE_MAX) /* already overflow */
                         return;
 
                 /* OK if we clobber c here, since we either immediately return
                  * or it will be immediately reinitialized on next loop */
-                if (__atomic_compare_exchange_n(&n_sigbus_queue, &c, c + SIGBUS_QUEUE_MAX, false,
+                if (__atomic_compare_exchange_n(&n_sigbus_queue, &c, c + SIGBUS_QUEUE_MAX, true,
                                                 __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
                         return;
         }
@@ -64,8 +63,7 @@ int sigbus_pop(void **ret) {
         for (;;) {
                 unsigned u, c;
 
-                __atomic_thread_fence(__ATOMIC_SEQ_CST);
-                c = n_sigbus_queue;
+                c = __atomic_load_n(&n_sigbus_queue, __ATOMIC_SEQ_CST);
 
                 if (_likely_(c == 0))
                         return 0;
