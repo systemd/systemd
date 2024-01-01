@@ -213,41 +213,52 @@ extra:
 }
 
 static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const char* const* extra_args) {
+        int r;
+
         assert(d);
         assert(d->name);
         assert(d->result);
 
+        if (streq(d->result, "done")) {
+                if (FLAGS_SET(flags, BUS_WAIT_JOBS_LOG_SUCCESS))
+                        log_info("Job for %s finished.", d->name);
+
+                return 0;
+        } else if (streq(d->result, "skipped")) {
+                if (FLAGS_SET(flags, BUS_WAIT_JOBS_LOG_SUCCESS))
+                        log_info("Job for %s was skipped.", d->name);
+
+                return 0;
+        }
+
         if (FLAGS_SET(flags, BUS_WAIT_JOBS_LOG_ERROR)) {
                 if (streq(d->result, "canceled"))
-                        log_error("Job for %s canceled.", strna(d->name));
+                        log_error("Job for %s canceled.", d->name);
                 else if (streq(d->result, "timeout"))
-                        log_error("Job for %s timed out.", strna(d->name));
+                        log_error("Job for %s timed out.", d->name);
                 else if (streq(d->result, "dependency"))
-                        log_error("A dependency job for %s failed. See 'journalctl -xe' for details.", strna(d->name));
+                        log_error("A dependency job for %s failed. See 'journalctl -xe' for details.", d->name);
                 else if (streq(d->result, "invalid"))
-                        log_error("%s is not active, cannot reload.", strna(d->name));
+                        log_error("%s is not active, cannot reload.", d->name);
                 else if (streq(d->result, "assert"))
-                        log_error("Assertion failed on job for %s.", strna(d->name));
+                        log_error("Assertion failed on job for %s.", d->name);
                 else if (streq(d->result, "unsupported"))
-                        log_error("Operation on or unit type of %s not supported on this system.", strna(d->name));
+                        log_error("Operation on or unit type of %s not supported on this system.", d->name);
                 else if (streq(d->result, "collected"))
-                        log_error("Queued job for %s was garbage collected.", strna(d->name));
+                        log_error("Queued job for %s was garbage collected.", d->name);
                 else if (streq(d->result, "once"))
-                        log_error("Unit %s was started already once and can't be started again.", strna(d->name));
-                else if (!STR_IN_SET(d->result, "done", "skipped")) {
+                        log_error("Unit %s was started already once and can't be started again.", d->name);
+                else if (endswith(d->name, ".service")) {
+                        /* Job result is unknown. For services, let's also try Result property. */
+                        _cleanup_free_ char *result = NULL;
 
-                        if (d->name && endswith(d->name, ".service")) {
-                                _cleanup_free_ char *result = NULL;
-                                int q;
+                        r = bus_job_get_service_result(d, &result);
+                        if (r < 0)
+                                log_debug_errno(r, "Failed to get Result property of unit %s: %m", d->name);
 
-                                q = bus_job_get_service_result(d, &result);
-                                if (q < 0)
-                                        log_debug_errno(q, "Failed to get Result property of unit %s: %m", d->name);
-
-                                log_job_error_with_service_result(d->name, result, extra_args);
-                        } else
-                                log_error("Job failed. See \"journalctl -xe\" for details.");
-                }
+                        log_job_error_with_service_result(d->name, result, extra_args);
+                } else /* Otherwise we just show a generic message. */
+                        log_error("Job failed. See \"journalctl -xe\" for details.");
         }
 
         if (STR_IN_SET(d->result, "canceled", "collected"))
@@ -264,18 +275,10 @@ static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const cha
                 return -EOPNOTSUPP;
         else if (streq(d->result, "once"))
                 return -ESTALE;
-        else if (streq(d->result, "done")) {
-                if (FLAGS_SET(flags, BUS_WAIT_JOBS_LOG_SUCCESS))
-                        log_info("Job for %s finished.", strna(d->name));
-                return 0;
-        } else if (streq(d->result, "skipped")) {
-                if (FLAGS_SET(flags, BUS_WAIT_JOBS_LOG_SUCCESS))
-                        log_info("Job for %s was skipped.", strna(d->name));
-                return 0;
-        }
 
-        return log_debug_errno(SYNTHETIC_ERRNO(EIO),
-                               "Unexpected job result, assuming server side newer than us: %s", d->result);
+        return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
+                               "Unexpected job result '%s' for unit '%s', assuming server side newer than us.",
+                               d->result, d->name);
 }
 
 int bus_wait_for_jobs(BusWaitForJobs *d, WaitJobsFlags flags, const char* const* extra_args) {
@@ -292,13 +295,11 @@ int bus_wait_for_jobs(BusWaitForJobs *d, WaitJobsFlags flags, const char* const*
 
                 if (d->name && d->result) {
                         q = check_wait_response(d, flags, extra_args);
-                        /* Return the first error as it is most likely to be
-                         * meaningful. */
-                        if (q < 0 && r == 0)
-                                r = q;
+                        /* Return the first error as it is most likely to be meaningful. */
+                        RET_GATHER(r, q);
 
                         log_full_errno_zerook(LOG_DEBUG, q,
-                                              "Got result %s/%m for job %s", d->result, d->name);
+                                              "Got result %s/%m for job %s.", d->result, d->name);
                 }
 
                 d->name = mfree(d->name);
