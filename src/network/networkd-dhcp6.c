@@ -827,7 +827,7 @@ int link_serialize_dhcp6_client(Link *link, FILE *f) {
         if (r >= 0)
                 fprintf(f, "DHCP6_CLIENT_IAID=0x%x\n", iaid);
 
-        r = sd_dhcp6_client_duid_as_string(link->dhcp6_client, &duid);
+        r = sd_dhcp6_client_get_duid_as_string(link->dhcp6_client, &duid);
         if (r >= 0)
                 fprintf(f, "DHCP6_CLIENT_DUID=%s\n", duid);
 
