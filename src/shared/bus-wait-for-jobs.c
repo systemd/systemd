@@ -50,29 +50,25 @@ static int match_disconnected(sd_bus_message *m, void *userdata, sd_bus_error *e
 }
 
 static int match_job_removed(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        const char *path, *unit, *result;
         BusWaitForJobs *d = ASSERT_PTR(userdata);
-        uint32_t id;
-        char *found;
+        _clenaup_free_ char *job_found = NULL;
+        const char *path, *unit, *result;
         int r;
 
         assert(m);
 
-        r = sd_bus_message_read(m, "uoss", &id, &path, &unit, &result);
+        r = sd_bus_message_read(m, "uoss", /* id = */ NULL, &path, &unit, &result);
         if (r < 0) {
                 bus_log_parse_error(r);
                 return 0;
         }
 
-        found = set_remove(d->jobs, (char*) path);
-        if (!found)
+        job_found = set_remove(d->jobs, (char*) path);
+        if (!job_found)
                 return 0;
 
-        free(found);
-
-        (void) free_and_strdup(&d->result, empty_to_null(result));
-
         (void) free_and_strdup(&d->name, empty_to_null(unit));
+        (void) free_and_strdup(&d->result, empty_to_null(result));
 
         return 0;
 }
@@ -92,9 +88,8 @@ int bus_wait_for_jobs_new(sd_bus *bus, BusWaitForJobs **ret) {
                 .bus = sd_bus_ref(bus),
         };
 
-        /* When we are a bus client we match by sender. Direct
-         * connections OTOH have no initialized sender field, and
-         * hence we ignore the sender then */
+        /* When we are a bus client we match by sender. Direct connections OTOH have no initialized sender
+         * field, and hence we ignore the sender then */
         r = sd_bus_match_signal_async(
                         bus,
                         &d->slot_job_removed,
@@ -138,7 +133,7 @@ static int bus_process_wait(sd_bus *bus) {
         }
 }
 
-static int bus_job_get_service_result(BusWaitForJobs *d, char **result) {
+static int bus_job_get_service_result(BusWaitForJobs *d, char **ret) {
         _cleanup_free_ char *dbus_path = NULL;
 
         assert(d);
@@ -158,67 +153,57 @@ static int bus_job_get_service_result(BusWaitForJobs *d, char **result) {
                                           "org.freedesktop.systemd1.Service",
                                           "Result",
                                           NULL,
-                                          result);
+                                          ret);
 }
 
 static void log_job_error_with_service_result(const char* service, const char *result, const char* const* extra_args) {
-        _cleanup_free_ char *service_shell_quoted = NULL;
-        const char *systemctl = "systemctl", *journalctl = "journalctl";
 
         static const struct {
                 const char *result, *explanation;
         } explanations[] = {
-                { "resources",   "of unavailable resources or another system error" },
+                { "resources",   "of unavailable resources or another system error"                      },
                 { "protocol",    "the service did not take the steps required by its unit configuration" },
-                { "timeout",     "a timeout was exceeded" },
-                { "exit-code",   "the control process exited with error code" },
-                { "signal",      "a fatal signal was delivered to the control process" },
+                { "timeout",     "a timeout was exceeded"                                                },
+                { "exit-code",   "the control process exited with error code"                            },
+                { "signal",      "a fatal signal was delivered to the control process"                   },
                 { "core-dump",   "a fatal signal was delivered causing the control process to dump core" },
-                { "watchdog",    "the service failed to send watchdog ping" },
-                { "start-limit", "start of the service was attempted too often" }
+                { "watchdog",    "the service failed to send watchdog ping"                              },
+                { "start-limit", "start of the service was attempted too often"                          },
         };
+
+        _cleanup_free_ char *service_shell_quoted = NULL;
+        const char *systemctl = "systemctl", *journalctl = "journalctl";
 
         assert(service);
 
         service_shell_quoted = shell_maybe_quote(service, 0);
 
-        if (!strv_isempty((char**) extra_args)) {
+        if (!strv_isempty((char* const*) extra_args)) {
                 _cleanup_free_ char *t = NULL;
 
-                t = strv_join((char**) extra_args, " ");
+                t = strv_join((char* const*) extra_args, " ");
                 systemctl = strjoina("systemctl ", t ?: "<args>");
                 journalctl = strjoina("journalctl ", t ?: "<args>");
         }
 
-        if (!isempty(result)) {
-                size_t i;
-
-                for (i = 0; i < ELEMENTSOF(explanations); ++i)
-                        if (streq(result, explanations[i].result))
-                                break;
-
-                if (i < ELEMENTSOF(explanations)) {
-                        log_error("Job for %s failed because %s.\n"
-                                  "See \"%s status %s\" and \"%s -xeu %s\" for details.\n",
-                                  service,
-                                  explanations[i].explanation,
-                                  systemctl,
-                                  service_shell_quoted ?: "<service>",
-                                  journalctl,
-                                  service_shell_quoted ?: "<service>");
-                        goto finish;
-                }
-        }
+        if (!isempty(result))
+                FOREACH_ARRAY(i, explainations, ELEMENTSOF(explanations))
+                        if (streq(result, i->result)) {
+                                log_error("Job for %s failed because %s.\n"
+                                          "See \"%s status %s\" and \"%s -xeu %s\" for details.\n",
+                                          service, i->explanation,
+                                          systemctl, service_shell_quoted ?: "<service>",
+                                          journalctl, service_shell_quoted ?: "<service>");
+                                goto extra;
+                        }
 
         log_error("Job for %s failed.\n"
                   "See \"%s status %s\" and \"%s -xeu %s\" for details.\n",
                   service,
-                  systemctl,
-                  service_shell_quoted ?: "<service>",
-                  journalctl,
-                  service_shell_quoted ?: "<service>");
+                  systemctl, service_shell_quoted ?: "<service>",
+                  journalctl, service_shell_quoted ?: "<service>");
 
-finish:
+extra:
         /* For some results maybe additional explanation is required */
         if (streq_ptr(result, "start-limit"))
                 log_info("To force a start use \"%1$s reset-failed %2$s\"\n"
