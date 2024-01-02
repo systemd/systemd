@@ -7,7 +7,7 @@
  *   Copyright (C) 2020 Bastien Nocera <hadess@hadess.net>
  *
  * Unless specified otherwise, all references are aimed at the "System
- * Management BIOS Reference Specification, Version 3.2.0" document,
+ * Management BIOS Reference Specification, Version 3.7.0" document,
  * available from http://www.dmtf.org/standards/smbios.
  *
  * Note to contributors:
@@ -145,7 +145,7 @@ static void dmi_memory_array_location(uint8_t code) {
                 [0x01] = "PC-98/C24 Add-on Card",       /* 0xA1 */
                 [0x02] = "PC-98/E Add-on Card",         /* 0xA2 */
                 [0x03] = "PC-98/Local Bus Add-on Card", /* 0xA3 */
-                [0x04] = "CXL Flexbus 1.0",             /* 0xA4 */
+                [0x04] = "CXL Add-on Card",             /* 0xA4 */
         };
         const char *str = OUT_OF_SPEC_STR;
 
@@ -301,6 +301,9 @@ static void dmi_memory_device_type(unsigned slot_num, uint8_t code) {
                 [0x1F] = "Logical non-volatile device",
                 [0x20] = "HBM",
                 [0x21] = "HBM2",
+                [0x22] = "DDR5",
+                [0x23] = "LPDDR5",
+                [0x24] = "HBM3",
         };
 
         printf("MEMORY_DEVICE_%u_TYPE=%s\n", slot_num,
@@ -315,7 +318,7 @@ static void dmi_memory_device_type_detail(unsigned slot_num, uint16_t code) {
                 [3]  = "Fast-paged",
                 [4]  = "Static Column",
                 [5]  = "Pseudo-static",
-                [6]  = "RAMBus",
+                [6]  = "RAMBUS",
                 [7]  = "Synchronous",
                 [8]  = "CMOS",
                 [9]  = "EDO",
@@ -358,7 +361,7 @@ static void dmi_memory_device_technology(unsigned slot_num, uint8_t code) {
                 [0x04] = "NVDIMM-N",
                 [0x05] = "NVDIMM-F",
                 [0x06] = "NVDIMM-P",
-                [0x07] = "Intel Optane DC persistent memory",
+                [0x07] = "Intel Optane persistent memory",
         };
 
         printf("MEMORY_DEVICE_%u_MEMORY_TECHNOLOGY=%s\n", slot_num,
