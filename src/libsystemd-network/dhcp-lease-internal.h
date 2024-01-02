@@ -8,6 +8,7 @@
 #include "sd-dhcp-client.h"
 
 #include "alloc-util.h"
+#include "dhcp-client-id-internal.h"
 #include "dhcp-option.h"
 #include "list.h"
 #include "time-util.h"
@@ -67,8 +68,7 @@ struct sd_dhcp_lease {
         char *root_path;
         char *captive_portal;
 
-        void *client_id;
-        size_t client_id_len;
+        sd_dhcp_client_id client_id;
 
         void *vendor_specific;
         size_t vendor_specific_len;
@@ -92,7 +92,7 @@ int dhcp_lease_insert_private_option(sd_dhcp_lease *lease, uint8_t tag, const vo
 
 void dhcp_lease_set_timestamp(sd_dhcp_lease *lease, const triple_timestamp *timestamp);
 int dhcp_lease_set_default_subnet_mask(sd_dhcp_lease *lease);
-int dhcp_lease_set_client_id(sd_dhcp_lease *lease, const void *client_id, size_t client_id_len);
+int dhcp_lease_set_client_id(sd_dhcp_lease *lease, const sd_dhcp_client_id *client_id);
 
 #define dhcp_lease_unref_and_replace(a, b)                              \
         unref_and_replace_full(a, b, sd_dhcp_lease_ref, sd_dhcp_lease_unref)

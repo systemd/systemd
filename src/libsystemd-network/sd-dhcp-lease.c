@@ -420,7 +420,6 @@ static sd_dhcp_lease *dhcp_lease_free(sd_dhcp_lease *lease) {
 
         free(lease->static_routes);
         free(lease->classless_routes);
-        free(lease->client_id);
         free(lease->vendor_specific);
         strv_free(lease->search_domains);
         free(lease->sixrd_br_addresses);
@@ -1066,8 +1065,8 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         _cleanup_fclose_ FILE *f = NULL;
         struct in_addr address;
         const struct in_addr *addresses;
-        const void *client_id, *data;
-        size_t client_id_len, data_len;
+        const void *data;
+        size_t data_len;
         const char *string;
         uint16_t mtu;
         _cleanup_free_ sd_dhcp_route **routes = NULL;
@@ -1183,11 +1182,10 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
         if (r >= 0)
                 fprintf(f, "TIMEZONE=%s\n", string);
 
-        r = sd_dhcp_lease_get_client_id(lease, &client_id, &client_id_len);
-        if (r >= 0) {
+        if (sd_dhcp_client_id_is_set(&lease->client_id)) {
                 _cleanup_free_ char *client_id_hex = NULL;
 
-                client_id_hex = hexmem(client_id, client_id_len);
+                client_id_hex = hexmem(lease->client_id.raw, lease->client_id.size);
                 if (!client_id_hex)
                         return -ENOMEM;
                 fprintf(f, "CLIENTID=%s\n", client_id_hex);
@@ -1478,9 +1476,16 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
         }
 
         if (client_id_hex) {
-                r = unhexmem(client_id_hex, SIZE_MAX, &lease->client_id, &lease->client_id_len);
+                _cleanup_free_ void *data = NULL;
+                size_t data_size;
+
+                r = unhexmem(client_id_hex, SIZE_MAX, &data, &data_size);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse client ID %s, ignoring: %m", client_id_hex);
+
+                r = sd_dhcp_client_id_set_raw(&lease->client_id, data, data_size);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to assign client ID, ignoring: %m");
         }
 
         if (vendor_specific_hex) {
@@ -1537,36 +1542,25 @@ int dhcp_lease_set_default_subnet_mask(sd_dhcp_lease *lease) {
         return 0;
 }
 
-int sd_dhcp_lease_get_client_id(sd_dhcp_lease *lease, const void **client_id, size_t *client_id_len) {
+int sd_dhcp_lease_get_client_id(sd_dhcp_lease *lease, const sd_dhcp_client_id **ret) {
         assert_return(lease, -EINVAL);
-        assert_return(client_id, -EINVAL);
-        assert_return(client_id_len, -EINVAL);
+        assert_return(ret, -EINVAL);
 
-        if (!lease->client_id)
+        if (!sd_dhcp_client_id_is_set(&lease->client_id))
                 return -ENODATA;
 
-        *client_id = lease->client_id;
-        *client_id_len = lease->client_id_len;
+        *ret = &lease->client_id;
 
         return 0;
 }
 
-int dhcp_lease_set_client_id(sd_dhcp_lease *lease, const void *client_id, size_t client_id_len) {
+int dhcp_lease_set_client_id(sd_dhcp_lease *lease, const sd_dhcp_client_id *client_id) {
         assert_return(lease, -EINVAL);
-        assert_return(client_id || client_id_len <= 0, -EINVAL);
 
-        if (client_id_len <= 0)
-                lease->client_id = mfree(lease->client_id);
-        else {
-                void *p;
+        if (!sd_dhcp_client_id_is_set(client_id))
+                return sd_dhcp_client_id_clear(&lease->client_id);
 
-                p = memdup(client_id, client_id_len);
-                if (!p)
-                        return -ENOMEM;
-
-                free_and_replace(lease->client_id, p);
-                lease->client_id_len = client_id_len;
-        }
+        lease->client_id = *client_id;
 
         return 0;
 }
