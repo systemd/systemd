@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "dns-resolver.h"
 #include "dns-type.h"
 #include "escape.h"
 #include "hexdecoct.h"
