@@ -270,7 +270,7 @@ int dhcp_identifier_set_iaid(
         if (legacy_unstable_byteorder)
                 /* for historical reasons (a bug), the bits were swapped and thus
                  * the result was endianness dependent. Preserve that behavior. */
-                id32 = bswap_32(id32);
+                id32 = __builtin_bswap32(id32);
         else
                 /* the fixed behavior returns a stable byte order. Since LE is expected
                  * to be more common, swap the bytes on LE to give the same as legacy

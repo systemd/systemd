@@ -126,15 +126,15 @@ static inline bool BUS_MESSAGE_NEED_BSWAP(sd_bus_message *m) {
 }
 
 static inline uint16_t BUS_MESSAGE_BSWAP16(sd_bus_message *m, uint16_t u) {
-        return BUS_MESSAGE_NEED_BSWAP(m) ? bswap_16(u) : u;
+        return BUS_MESSAGE_NEED_BSWAP(m) ? __builtin_bswap16(u) : u;
 }
 
 static inline uint32_t BUS_MESSAGE_BSWAP32(sd_bus_message *m, uint32_t u) {
-        return BUS_MESSAGE_NEED_BSWAP(m) ? bswap_32(u) : u;
+        return BUS_MESSAGE_NEED_BSWAP(m) ? __builtin_bswap32(u) : u;
 }
 
 static inline uint64_t BUS_MESSAGE_BSWAP64(sd_bus_message *m, uint64_t u) {
-        return BUS_MESSAGE_NEED_BSWAP(m) ? bswap_64(u) : u;
+        return BUS_MESSAGE_NEED_BSWAP(m) ? __builtin_bswap64(u) : u;
 }
 
 static inline uint64_t BUS_MESSAGE_COOKIE(sd_bus_message *m) {
