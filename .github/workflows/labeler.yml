@@ -27,7 +27,7 @@ jobs:
       with:
         repo-token: "${{ secrets.GITHUB_TOKEN }}"
         configuration-path: .github/labeler.yml
-        sync-labels: "" # This is a workaround for issue 18671
+        sync-labels: false
 
     - name: Set or remove labels based on systemd development workflow
       uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
