@@ -137,11 +137,8 @@ static int request_new(
         assert(process);
 
         req = new(Request, 1);
-        if (!req) {
-                if (free_func)
-                        free_func(userdata);
+        if (!req)
                 return -ENOMEM;
-        }
 
         *req = (Request) {
                 .n_ref = 1,
@@ -183,12 +180,19 @@ int netdev_queue_request(
                 request_process_func_t process,
                 Request **ret) {
 
+        int r;
+
         assert(netdev);
 
-        return request_new(netdev->manager, NULL, REQUEST_TYPE_NETDEV_INDEPENDENT,
-                           netdev_ref(netdev), (mfree_func_t) netdev_unref,
-                           trivial_hash_func, trivial_compare_func,
-                           process, NULL, NULL, ret);
+        r = request_new(netdev->manager, NULL, REQUEST_TYPE_NETDEV_INDEPENDENT,
+                        netdev, (mfree_func_t) netdev_unref,
+                        trivial_hash_func, trivial_compare_func,
+                        process, NULL, NULL, ret);
+        if (r <= 0)
+                return r;
+
+        netdev_ref(netdev);
+        return 1;
 }
 
 int link_queue_request_full(
