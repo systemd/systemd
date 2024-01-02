@@ -157,7 +157,7 @@ static void test_dhcp_identifier_set_iaid(void) {
 #if __BYTE_ORDER == __LITTLE_ENDIAN
         assert_se(iaid == iaid_legacy);
 #else
-        assert_se(iaid == bswap_32(iaid_legacy));
+        assert_se(iaid == __builtin_bswap32(iaid_legacy));
 #endif
 }
 
