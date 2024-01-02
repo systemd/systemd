@@ -246,15 +246,17 @@ static int dhcp4_remove_address_and_routes(Link *link, bool only_marked) {
         int ret = 0;
 
         assert(link);
+        assert(link->manager);
 
-        SET_FOREACH(route, link->routes) {
+        SET_FOREACH(route, link->manager->routes) {
                 if (route->source != NETWORK_CONFIG_SOURCE_DHCP4)
+                        continue;
+                if (route->nexthop.ifindex != 0 && route->nexthop.ifindex != link->ifindex)
                         continue;
                 if (only_marked && !route_is_marked(route))
                         continue;
 
-                RET_GATHER(ret, route_remove(route));
-                route_cancel_request(route, link);
+                RET_GATHER(ret, route_remove_and_cancel(route, link->manager));
         }
 
         SET_FOREACH(address, link->addresses) {
@@ -263,7 +265,7 @@ static int dhcp4_remove_address_and_routes(Link *link, bool only_marked) {
                 if (only_marked && !address_is_marked(address))
                         continue;
 
-                RET_GATHER(ret, address_remove_and_drop(address));
+                RET_GATHER(ret, address_remove_and_cancel(address, link));
         }
 
         return ret;
@@ -356,14 +358,14 @@ static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request 
         return 1;
 }
 
-static int dhcp4_request_route(Route *in, Link *link) {
-        _cleanup_(route_freep) Route *route = in;
+static int dhcp4_request_route(Route *route, Link *link) {
         struct in_addr server;
         Route *existing;
         int r;
 
         assert(route);
         assert(link);
+        assert(link->manager);
         assert(link->network);
         assert(link->dhcp_lease);
 
@@ -374,28 +376,40 @@ static int dhcp4_request_route(Route *in, Link *link) {
         route->source = NETWORK_CONFIG_SOURCE_DHCP4;
         route->provider.in = server;
         route->family = AF_INET;
+        route->nexthop.ifindex = link->ifindex;
         if (!route->protocol_set)
                 route->protocol = RTPROT_DHCP;
         if (!route->priority_set)
                 route->priority = link->network->dhcp_route_metric;
         if (!route->table_set)
                 route->table = link_get_dhcp4_route_table(link);
-        if (route->mtu == 0)
-                route->mtu = link->network->dhcp_route_mtu;
-        if (route->quickack < 0)
-                route->quickack = link->network->dhcp_quickack;
-        if (route->initcwnd == 0)
-                route->initcwnd = link->network->dhcp_initial_congestion_window;
-        if (route->initrwnd == 0)
-                route->initrwnd = link->network->dhcp_advertised_receive_window;
+        if (link->network->dhcp_route_mtu != 0) {
+                r = route_set_metric(route, RTAX_MTU, link->network->dhcp_route_mtu);
+                if (r < 0)
+                        return r;
+        }
+        if (link->network->dhcp_quickack) {
+                r = route_set_metric(route, RTAX_QUICKACK, link->network->dhcp_quickack);
+                if (r < 0)
+                        return r;
+        }
+        if (link->network->dhcp_initial_congestion_window > 0) {
+                r = route_set_metric(route, RTAX_INITCWND, link->network->dhcp_initial_congestion_window);
+                if (r < 0)
+                        return r;
+        }
+        if (link->network->dhcp_advertised_receive_window > 0) {
+                r = route_set_metric(route, RTAX_INITRWND, link->network->dhcp_advertised_receive_window);
+                if (r < 0)
+                        return r;
+        }
 
-        if (route_get(NULL, link, route, &existing) < 0) /* This is a new route. */
+        if (route_get(link->manager, route, &existing) < 0) /* This is a new route. */
                 link->dhcp4_configured = false;
         else
                 route_unmark(existing);
 
-        return link_request_route(link, TAKE_PTR(route), true, &link->dhcp4_messages,
-                                  dhcp4_route_handler, NULL);
+        return link_request_route(link, route, &link->dhcp4_messages, dhcp4_route_handler, NULL);
 }
 
 static bool link_prefixroute(Link *link) {
@@ -404,7 +418,7 @@ static bool link_prefixroute(Link *link) {
 }
 
 static int dhcp4_request_prefix_route(Link *link) {
-        _cleanup_(route_freep) Route *route = NULL;
+        _cleanup_(route_unrefp) Route *route = NULL;
         int r;
 
         assert(link);
@@ -428,11 +442,11 @@ static int dhcp4_request_prefix_route(Link *link) {
         if (r < 0)
                 return r;
 
-        return dhcp4_request_route(TAKE_PTR(route), link);
+        return dhcp4_request_route(route, link);
 }
 
 static int dhcp4_request_route_to_gateway(Link *link, const struct in_addr *gw) {
-        _cleanup_(route_freep) Route *route = NULL;
+        _cleanup_(route_unrefp) Route *route = NULL;
         struct in_addr address;
         int r;
 
@@ -453,15 +467,14 @@ static int dhcp4_request_route_to_gateway(Link *link, const struct in_addr *gw) 
         route->prefsrc.in = address;
         route->scope = RT_SCOPE_LINK;
 
-        return dhcp4_request_route(TAKE_PTR(route), link);
+        return dhcp4_request_route(route, link);
 }
 
 static int dhcp4_request_route_auto(
-                Route *in,
+                Route *route,
                 Link *link,
                 const struct in_addr *gw) {
 
-        _cleanup_(route_freep) Route *route = in;
         struct in_addr address;
         int r;
 
@@ -481,8 +494,8 @@ static int dhcp4_request_route_auto(
                                        IPV4_ADDRESS_FMT_VAL(route->dst.in), route->dst_prefixlen, IPV4_ADDRESS_FMT_VAL(*gw));
 
                 route->scope = RT_SCOPE_HOST;
-                route->gw_family = AF_UNSPEC;
-                route->gw = IN_ADDR_NULL;
+                route->nexthop.family = AF_UNSPEC;
+                route->nexthop.gw = IN_ADDR_NULL;
                 route->prefsrc = IN_ADDR_NULL;
 
         } else if (in4_addr_equal(&route->dst.in, &address)) {
@@ -492,8 +505,8 @@ static int dhcp4_request_route_auto(
                                        IPV4_ADDRESS_FMT_VAL(route->dst.in), route->dst_prefixlen, IPV4_ADDRESS_FMT_VAL(*gw));
 
                 route->scope = RT_SCOPE_HOST;
-                route->gw_family = AF_UNSPEC;
-                route->gw = IN_ADDR_NULL;
+                route->nexthop.family = AF_UNSPEC;
+                route->nexthop.gw = IN_ADDR_NULL;
                 route->prefsrc.in = address;
 
         } else if (in4_addr_is_null(gw)) {
@@ -515,8 +528,8 @@ static int dhcp4_request_route_auto(
                 }
 
                 route->scope = RT_SCOPE_LINK;
-                route->gw_family = AF_UNSPEC;
-                route->gw = IN_ADDR_NULL;
+                route->nexthop.family = AF_UNSPEC;
+                route->nexthop.gw = IN_ADDR_NULL;
                 route->prefsrc.in = address;
 
         } else {
@@ -525,12 +538,12 @@ static int dhcp4_request_route_auto(
                         return r;
 
                 route->scope = RT_SCOPE_UNIVERSE;
-                route->gw_family = AF_INET;
-                route->gw.in = *gw;
+                route->nexthop.family = AF_INET;
+                route->nexthop.gw.in = *gw;
                 route->prefsrc.in = address;
         }
 
-        return dhcp4_request_route(TAKE_PTR(route), link);
+        return dhcp4_request_route(route, link);
 }
 
 static int dhcp4_request_classless_static_or_static_routes(Link *link) {
@@ -551,7 +564,7 @@ static int dhcp4_request_classless_static_or_static_routes(Link *link) {
                 return r;
 
         FOREACH_ARRAY(e, routes, n_routes) {
-                _cleanup_(route_freep) Route *route = NULL;
+                _cleanup_(route_unrefp) Route *route = NULL;
                 struct in_addr gw;
 
                 r = route_new(&route);
@@ -570,7 +583,7 @@ static int dhcp4_request_classless_static_or_static_routes(Link *link) {
                 if (r < 0)
                         return r;
 
-                r = dhcp4_request_route_auto(TAKE_PTR(route), link, &gw);
+                r = dhcp4_request_route_auto(route, link, &gw);
                 if (r < 0)
                         return r;
         }
@@ -579,7 +592,7 @@ static int dhcp4_request_classless_static_or_static_routes(Link *link) {
 }
 
 static int dhcp4_request_default_gateway(Link *link) {
-        _cleanup_(route_freep) Route *route = NULL;
+        _cleanup_(route_unrefp) Route *route = NULL;
         struct in_addr address, router;
         int r;
 
@@ -618,11 +631,11 @@ static int dhcp4_request_default_gateway(Link *link) {
                 return r;
 
         /* Next, add a default gateway. */
-        route->gw_family = AF_INET;
-        route->gw.in = router;
+        route->nexthop.family = AF_INET;
+        route->nexthop.gw.in = router;
         route->prefsrc.in = address;
 
-        return dhcp4_request_route(TAKE_PTR(route), link);
+        return dhcp4_request_route(route, link);
 }
 
 static int dhcp4_request_semi_static_routes(Link *link) {
@@ -634,13 +647,13 @@ static int dhcp4_request_semi_static_routes(Link *link) {
         assert(link->network);
 
         HASHMAP_FOREACH(rt, link->network->routes_by_section) {
-                _cleanup_(route_freep) Route *route = NULL;
+                _cleanup_(route_unrefp) Route *route = NULL;
                 struct in_addr gw;
 
                 if (!rt->gateway_from_dhcp_or_ra)
                         continue;
 
-                if (rt->gw_family != AF_INET)
+                if (rt->nexthop.family != AF_INET)
                         continue;
 
                 assert(rt->family == AF_INET);
@@ -658,13 +671,13 @@ static int dhcp4_request_semi_static_routes(Link *link) {
                 if (r < 0)
                         return r;
 
-                r = route_dup(rt, &route);
+                r = route_dup(rt, NULL, &route);
                 if (r < 0)
                         return r;
 
-                route->gw.in = gw;
+                route->nexthop.gw.in = gw;
 
-                r = dhcp4_request_route(TAKE_PTR(route), link);
+                r = dhcp4_request_route(route, link);
                 if (r < 0)
                         return r;
         }
@@ -685,7 +698,7 @@ static int dhcp4_request_routes_to_servers(
         assert(servers || n_servers == 0);
 
         FOREACH_ARRAY(dst, servers, n_servers) {
-                _cleanup_(route_freep) Route *route = NULL;
+                _cleanup_(route_unrefp) Route *route = NULL;
                 struct in_addr gw;
 
                 if (in4_addr_is_null(dst))
@@ -707,7 +720,7 @@ static int dhcp4_request_routes_to_servers(
                 route->dst.in = *dst;
                 route->dst_prefixlen = 32;
 
-                r = dhcp4_request_route_auto(TAKE_PTR(route), link, &gw);
+                r = dhcp4_request_route_auto(route, link, &gw);
                 if (r < 0)
                         return r;
         }
@@ -879,7 +892,7 @@ static int dhcp4_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
 }
 
 static int dhcp4_request_address(Link *link, bool announce) {
-        _cleanup_(address_freep) Address *addr = NULL;
+        _cleanup_(address_unrefp) Address *addr = NULL;
         struct in_addr address, server;
         uint8_t prefixlen;
         Address *existing;
@@ -984,7 +997,7 @@ static int dhcp4_request_address_and_routes(Link *link, bool announce) {
         assert(link);
 
         link_mark_addresses(link, NETWORK_CONFIG_SOURCE_DHCP4);
-        link_mark_routes(link, NETWORK_CONFIG_SOURCE_DHCP4);
+        manager_mark_routes(link->manager, link, NETWORK_CONFIG_SOURCE_DHCP4);
 
         r = dhcp4_request_address(link, announce);
         if (r < 0)
