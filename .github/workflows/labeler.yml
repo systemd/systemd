@@ -7,6 +7,11 @@ name: "Pull Request Labeler"
 on:
   pull_request_target:
     types: [opened, synchronize, reopened, ready_for_review, closed]
+  # Allow testing changes made to the labeler configuration
+  pull_request:
+    paths:
+      - '.github/labeler.yml'
+      - '.github/workflows/labeler.yml'
   issue_comment:
     types: [created]
 
@@ -21,17 +26,21 @@ jobs:
       pull-requests: write
 
     steps:
+    - name: Repository checkout
+      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
+      if: github.even_name == 'pull_request'
+
     - name: Label PR based on policy in labeler.yml
       uses: actions/labeler@8558fd74291d67161a8a78ce36a881fa63b766a9
-      if: github.event_name == 'pull_request_target' && github.event.action != 'closed'
+      if: startsWith(github.event_name, 'pull_request') && github.event.action != 'closed'
       with:
         repo-token: "${{ secrets.GITHUB_TOKEN }}"
         configuration-path: .github/labeler.yml
-        sync-labels: "" # This is a workaround for issue 18671
+        sync-labels: false
 
     - name: Set or remove labels based on systemd development workflow
       uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
-      if: github.event_name == 'pull_request_target' && github.event.action != 'closed' && !github.event.pull_request.draft
+      if: startsWith(github.event_name, 'pull_request') && github.event.action != 'closed' && !github.event.pull_request.draft
       with:
         script: |
           response = await github.rest.issues.listLabelsOnIssue({
@@ -88,7 +97,7 @@ jobs:
 
     - name: Remove specific labels when PR is closed or merged
       uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
-      if: github.event_name == 'pull_request_target' && github.event.action == 'closed'
+      if: startsWith(github.event_name, 'pull_request') && github.event.action == 'closed'
       with:
         script: |
           for (const label of ["please-review",
