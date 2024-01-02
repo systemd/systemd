@@ -18,6 +18,7 @@ RequiresMountsFor=/var/lib/systemd/tpm2-srk-public-key.pem
 ConditionSecurity=measured-uki
 ConditionSecurity=tpm2
 ConditionPathExists=!/etc/initrd-release
+After=tpm2.target
 
 [Service]
 Type=oneshot

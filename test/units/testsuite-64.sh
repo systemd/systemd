@@ -148,7 +148,7 @@ check_device_units() {(
         if ! check_device_unit "$log_level" "$path"; then
            return 1
         fi
-    done < <(systemctl list-units --all --type=device --no-legend dev-* | awk '$1 !~ /dev-tty.+/ { print $1 }' | sed -e 's/\.device$//')
+    done < <(systemctl list-units --all --type=device --no-legend dev-* | awk '$1 !~ /dev-tty.+/ && $4 == "plugged" { print $1 }' | sed -e 's/\.device$//')
 
     return 0
 )}
