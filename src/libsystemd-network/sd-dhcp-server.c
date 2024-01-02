@@ -22,6 +22,7 @@
 #include "memory-util.h"
 #include "network-common.h"
 #include "ordered-set.h"
+#include "path-util.h"
 #include "siphash24.h"
 #include "string-util.h"
 #include "unaligned.h"
@@ -29,6 +30,19 @@
 
 #define DHCP_DEFAULT_LEASE_TIME_USEC USEC_PER_HOUR
 #define DHCP_MAX_LEASE_TIME_USEC (USEC_PER_HOUR*12)
+
+static void server_on_lease_change(sd_dhcp_server *server) {
+        int r;
+
+        assert(server);
+
+        r = dhcp_server_save_leases(server);
+        if (r < 0)
+                log_dhcp_server_errno(server, r, "Failed to save leases, ignoring: %m");
+
+        if (server->callback)
+                server->callback(server, SD_DHCP_SERVER_EVENT_LEASE_CHANGED, server->callback_userdata);
+}
 
 /* configures the server's address and subnet, and optionally the pool's size and offset into the subnet
  * the whole pool must fit into the subnet, and may not contain the first (any) nor last (broadcast) address
@@ -129,6 +143,8 @@ static sd_dhcp_server *dhcp_server_free(sd_dhcp_server *server) {
 
         free(server->agent_circuit_id);
         free(server->agent_remote_id);
+
+        free(server->lease_file);
 
         free(server->ifname);
         return mfree(server);
@@ -979,8 +995,7 @@ static int server_ack_request(sd_dhcp_server *server, DHCPRequest *req, be32_t a
 
         log_dhcp_server(server, "ACK (0x%x)", be32toh(req->message->xid));
 
-        if (server->callback)
-                server->callback(server, SD_DHCP_SERVER_EVENT_LEASE_CHANGED, server->callback_userdata);
+        server_on_lease_change(server);
 
         return DHCP_ACK;
 }
@@ -1186,8 +1201,7 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
 
                 sd_dhcp_server_lease_unref(existing_lease);
 
-                if (server->callback)
-                        server->callback(server, SD_DHCP_SERVER_EVENT_LEASE_CHANGED, server->callback_userdata);
+                server_on_lease_change(server);
 
                 return 0;
         }}
@@ -1340,6 +1354,10 @@ int sd_dhcp_server_start(sd_dhcp_server *server) {
                 if (r < 0)
                         goto on_error;
         }
+
+        r = dhcp_server_load_leases(server);
+        if (r < 0)
+                log_dhcp_server(server, "Failed to load lease file %s, ignoring: %m", strna(server->lease_file));
 
         log_dhcp_server(server, "STARTED");
 
@@ -1564,4 +1582,19 @@ int sd_dhcp_server_set_relay_agent_information(
         free_and_replace(server->agent_circuit_id, circuit_id_dup);
         free_and_replace(server->agent_remote_id, remote_id_dup);
         return 0;
+}
+
+int sd_dhcp_server_set_lease_file(sd_dhcp_server *server, const char *path) {
+        assert_return(server, -EINVAL);
+        assert_return(!sd_dhcp_server_is_running(server), -EBUSY);
+
+        if (!path) {
+                server->lease_file = mfree(server->lease_file);
+                return 0;
+        }
+
+        if (!path_is_safe(path))
+                return -EINVAL;
+
+        return free_and_strdup(&server->lease_file, path);
 }
