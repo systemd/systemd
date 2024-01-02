@@ -25,20 +25,6 @@ typedef enum DHCPRawOption {
         _DHCP_RAW_OPTION_DATA_INVALID,
 } DHCPRawOption;
 
-typedef struct DHCPLease {
-        sd_dhcp_server *server;
-
-        sd_dhcp_client_id client_id;
-
-        uint8_t htype; /* e.g. ARPHRD_ETHER */
-        uint8_t hlen;  /* e.g. ETH_ALEN */
-        be32_t address;
-        be32_t gateway;
-        uint8_t chaddr[16];
-        usec_t expiration;
-        char *hostname;
-} DHCPLease;
-
 struct sd_dhcp_server {
         unsigned n_ref;
 
@@ -109,16 +95,11 @@ typedef struct DHCPRequest {
         triple_timestamp timestamp;
 } DHCPRequest;
 
-extern const struct hash_ops dhcp_lease_hash_ops;
-
 int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message,
                                size_t length, const triple_timestamp *timestamp);
 int dhcp_server_send_packet(sd_dhcp_server *server,
                             DHCPRequest *req, DHCPPacket *packet,
                             int type, size_t optoffset);
-
-DHCPLease *dhcp_lease_free(DHCPLease *lease);
-DEFINE_TRIVIAL_CLEANUP_FUNC(DHCPLease*, dhcp_lease_free);
 
 #define log_dhcp_server_errno(server, error, fmt, ...)          \
         log_interface_prefix_full_errno(                        \

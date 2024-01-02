@@ -3,7 +3,7 @@
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-util.h"
-#include "dhcp-server-internal.h"
+#include "dhcp-server-lease-internal.h"
 #include "networkd-dhcp-server-bus.h"
 #include "networkd-link-bus.h"
 #include "networkd-manager.h"
@@ -19,7 +19,7 @@ static int property_get_leases(
                 sd_bus_error *error) {
         Link *l = ASSERT_PTR(userdata);
         sd_dhcp_server *s;
-        DHCPLease *lease;
+        sd_dhcp_server_lease *lease;
         int r;
 
         assert(reply);
