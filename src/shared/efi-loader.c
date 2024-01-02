@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "efi-api.h"
 #include "efi-loader.h"
 #include "env-util.h"
 #include "parse-util.h"
@@ -247,8 +248,8 @@ int efi_measured_uki(int log_level) {
         if (cached >= 0)
                 return cached;
 
-        /* Checks if we are booted on a kernel with sd-stub which measured the kernel into PCR 11. Or in
-         * other words, if we are running on a TPM enabled UKI.
+        /* Checks if we are booted on a kernel with sd-stub which measured the kernel into PCR 11 on a TPM2
+         * chip. Or in other words, if we are running on a TPM enabled UKI. (TPM 1.2 situations are ignored.)
          *
          * Returns == 0 and > 0 depending on the result of the test. Returns -EREMOTE if we detected a stub
          * being used, but it measured things into a different PCR than we are configured for in
@@ -261,7 +262,7 @@ int efi_measured_uki(int log_level) {
         if (r != -ENXIO)
                 log_debug_errno(r, "Failed to parse $SYSTEMD_FORCE_MEASURE, ignoring: %m");
 
-        if (!is_efi_boot())
+        if (!efi_has_tpm2())
                 return (cached = 0);
 
         r = efi_get_variable_string(EFI_LOADER_VARIABLE(StubPcrKernelImage), &pcr_string);
