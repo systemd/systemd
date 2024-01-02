@@ -424,17 +424,14 @@ static int nexthop_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
         return 1;
 }
 
-static int nexthop_remove(NextHop *nexthop) {
+int nexthop_remove(NextHop *nexthop, Manager *manager) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        Manager *manager;
         Link *link = NULL;
-        Request *req;
         int r;
 
         assert(nexthop);
         assert(nexthop->id > 0);
-
-        manager = ASSERT_PTR(nexthop->manager);
+        assert(manager);
 
         /* link may be NULL. */
         (void) link_get_by_index(manager, nexthop->ifindex, &link);
@@ -457,9 +454,6 @@ static int nexthop_remove(NextHop *nexthop) {
         link_ref(link); /* link may be NULL, link_ref() is OK with that */
 
         nexthop_enter_removing(nexthop);
-        if (nexthop_get_request_by_id(manager, nexthop->id, &req) >= 0)
-                nexthop_enter_removing(req->userdata);
-
         return 0;
 }
 
@@ -780,7 +774,7 @@ int link_drop_nexthops(Link *link, bool foreign) {
                 if (!nexthop_is_marked(nexthop))
                         continue;
 
-                RET_GATHER(r, nexthop_remove(nexthop));
+                RET_GATHER(r, nexthop_remove(nexthop, link->manager));
         }
 
         return r;
