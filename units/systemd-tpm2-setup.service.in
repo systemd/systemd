@@ -16,7 +16,6 @@ After=systemd-tpm2-setup-early.service systemd-remount-fs.service
 Before=sysinit.target shutdown.target
 RequiresMountsFor=/var/lib/systemd/tpm2-srk-public-key.pem
 ConditionSecurity=measured-uki
-ConditionSecurity=tpm2
 ConditionPathExists=!/etc/initrd-release
 
 [Service]
