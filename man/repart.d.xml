@@ -734,6 +734,33 @@
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>FSTab=</varname></term>
+
+        <listitem><para>Specifies an fstab entry to add to <filename>/etc/fstab</filename> if
+        <option>--generate-tabs=</option> is enabled. Takes at least one and at most two fields separated
+        with a colon (<literal>:</literal>). The first field specifies where the partition should be mounted.
+        The second field specifies extra mount options to append to the default mount options. This setting
+        may be specified multiple times to add multiple entries. This can be used to add individual entries
+        for different btrfs subvolumes located on the same btrfs filesystem.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><varname>CryptTab=</varname></term>
+
+        <listitem><para>Specifies a crypttab entry to add to <filename>/etc/crypttab</filename> if
+        <option>--generate-tabs=</option> is enabled. Takes at least one and at most three fields separated
+        with a colon (<literal>:</literal>). The first field specifies where the volume name under
+        <filename>/dev/mapper</filename>. If not specified, <literal>luks-UUID</literal> will be used where
+        <literal>UUID</literal> is the LUKS UUID. The second field specifies the keyfile to use following the
+        same format as specified in crypttab. The third field specifies a comma-delimited list of
+        options.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
