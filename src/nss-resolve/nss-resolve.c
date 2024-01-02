@@ -158,36 +158,18 @@ typedef struct AddressParameters {
 static int json_dispatch_address(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         AddressParameters *p = ASSERT_PTR(userdata);
         union in_addr_union buf = {};
-        JsonVariant *i;
-        size_t n, k = 0;
+        size_t n;
+        int r;
 
-        assert(variant);
+        r = json_dispatch_byte_array(name, variant, flags, buf.bytes, 4, 16, &n);
+        if (r < 0)
+                return r;
 
-        if (!json_variant_is_array(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
-
-        n = json_variant_elements(variant);
         if (!IN_SET(n, 4, 16))
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is array of unexpected size.", strna(name));
 
-        JSON_VARIANT_ARRAY_FOREACH(i, variant) {
-                int64_t b;
-
-                if (!json_variant_is_integer(i))
-                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Element %zu of JSON field '%s' is not an integer.", k, strna(name));
-
-                b = json_variant_integer(i);
-                if (b < 0 || b > 0xff)
-                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
-                                        "Element %zu of JSON field '%s' is out of range 0%s255.",
-                                        k, strna(name), special_glyph(SPECIAL_GLYPH_ELLIPSIS));
-
-                buf.bytes[k++] = (uint8_t) b;
-        }
-
         p->address = buf;
-        p->address_size = k;
-
+        p->address_size = n;
         return 0;
 }
 
