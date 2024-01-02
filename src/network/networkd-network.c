@@ -785,7 +785,7 @@ static Network *network_free(Network *network) {
         ordered_hashmap_free_with_destructor(network->nexthops_by_section, nexthop_free);
         hashmap_free_with_destructor(network->bridge_fdb_entries_by_section, bridge_fdb_free);
         hashmap_free_with_destructor(network->bridge_mdb_entries_by_section, bridge_mdb_free);
-        ordered_hashmap_free_with_destructor(network->neighbors_by_section, neighbor_free);
+        ordered_hashmap_free(network->neighbors_by_section);
         hashmap_free_with_destructor(network->address_labels_by_section, address_label_free);
         hashmap_free_with_destructor(network->prefixes_by_section, prefix_free);
         hashmap_free_with_destructor(network->route_prefixes_by_section, route_prefix_free);
