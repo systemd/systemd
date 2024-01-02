@@ -917,6 +917,10 @@ DNS=192.168.5.1
 {dhopts}
 EOF
 
+# For the networkd instance invoked below cannot support varlink connection.
+# Hence, the DHCP server cannot start with 'networkctl dhcp-server start'.
+export SYSTEMD_NETWORK_DHCP_SERVER_CAN_START=1
+
 # run networkd as in systemd-networkd.service
 exec $(systemctl cat systemd-networkd.service | sed -n '/^ExecStart=/ {{ s/^.*=//; s/^[@+-]//; s/^!*//; p}}')
 '''.format(ifr=self.if_router,

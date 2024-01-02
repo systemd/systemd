@@ -7,6 +7,8 @@
 typedef struct Link Link;
 typedef struct Network Network;
 
+bool dhcp4_server_can_start(void);
+
 int network_adjust_dhcp_server(Network *network, Set **addresses);
 
 bool link_dhcp4_server_enabled(Link *link);
