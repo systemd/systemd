@@ -184,14 +184,14 @@ int journal_file_set_offline_thread_join(JournalFile *f) {
 
         assert(f);
 
-        if (f->offline_state == OFFLINE_JOINED)
+        if (__atomic_load_n(&f->offline_state, __ATOMIC_ACQUIRE) == OFFLINE_JOINED)
                 return 0;
 
         r = pthread_join(f->offline_thread, NULL);
         if (r)
                 return -r;
 
-        f->offline_state = OFFLINE_JOINED;
+        __atomic_store_n(&f->offline_state, OFFLINE_JOINED, __ATOMIC_RELEASE);
 
         if (mmap_cache_fd_got_sigbus(f->cache_fd))
                 return -EIO;
@@ -211,7 +211,7 @@ static int journal_file_set_online(JournalFile *f) {
                 return -EINVAL;
 
         while (wait) {
-                switch (f->offline_state) {
+                switch (__atomic_load_n(&f->offline_state, __ATOMIC_ACQUIRE)) {
                 case OFFLINE_JOINED:
                         /* No offline thread, no need to wait. */
                         wait = false;
@@ -220,7 +220,7 @@ static int journal_file_set_online(JournalFile *f) {
                 case OFFLINE_SYNCING: {
                                 OfflineState tmp_state = OFFLINE_SYNCING;
                                 if (!__atomic_compare_exchange_n(&f->offline_state, &tmp_state, OFFLINE_CANCEL,
-                                    false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
+                                    true, __ATOMIC_RELEASE, __ATOMIC_RELAXED))
                                         continue;
                         }
                         /* Canceled syncing prior to offlining, no need to wait. */
@@ -230,7 +230,7 @@ static int journal_file_set_online(JournalFile *f) {
                 case OFFLINE_AGAIN_FROM_SYNCING: {
                                 OfflineState tmp_state = OFFLINE_AGAIN_FROM_SYNCING;
                                 if (!__atomic_compare_exchange_n(&f->offline_state, &tmp_state, OFFLINE_CANCEL,
-                                    false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
+                                    true, __ATOMIC_RELEASE, __ATOMIC_RELAXED))
                                         continue;
                         }
                         /* Canceled restart from syncing, no need to wait. */
@@ -240,7 +240,7 @@ static int journal_file_set_online(JournalFile *f) {
                 case OFFLINE_AGAIN_FROM_OFFLINING: {
                                 OfflineState tmp_state = OFFLINE_AGAIN_FROM_OFFLINING;
                                 if (!__atomic_compare_exchange_n(&f->offline_state, &tmp_state, OFFLINE_CANCEL,
-                                    false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
+                                    true, __ATOMIC_RELEASE, __ATOMIC_RELAXED))
                                         continue;
                         }
                         /* Canceled restart from offlining, must wait for offlining to complete however. */
