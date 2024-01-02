@@ -707,6 +707,8 @@ def read_networkd_log(invocation_id=None, since=None):
         invocation_id = networkd_invocation_id()
     command = [
         'journalctl',
+        '--no-hostname',
+        '--output=short-monotonic',
         f'_SYSTEMD_INVOCATION_ID={invocation_id}',
     ]
     if since:
