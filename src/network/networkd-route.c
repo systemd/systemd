@@ -2814,7 +2814,7 @@ int config_parse_route_mtu(
         }
 
         r = config_parse_mtu(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &n->mtu, userdata);
-        if (r < 0)
+        if (r <= 0)
                 return r;
 
         TAKE_PTR(n);
