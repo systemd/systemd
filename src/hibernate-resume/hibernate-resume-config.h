@@ -5,24 +5,8 @@
 
 #include "sd-id128.h"
 
-typedef struct KernelHibernateLocation {
-        char *device;
-        uint64_t offset;
-        bool offset_set;
-} KernelHibernateLocation;
-
-typedef struct EFIHibernateLocation {
-        char *device;
-
-        sd_id128_t uuid;
-        uint64_t offset;
-
-        char *kernel_version;
-        char *id;
-        char *image_id;
-        char *version_id;
-        char *image_version;
-} EFIHibernateLocation;
+typedef struct KernelHibernateLocation KernelHibernateLocation;
+typedef struct EFIHibernateLocation EFIHibernateLocation;
 
 typedef struct HibernateInfo {
         const char *device;
