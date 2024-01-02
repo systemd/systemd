@@ -228,11 +228,14 @@ static int tpm2_get_capability(
                         count,
                         &more,
                         &capabilities);
+        if (rc == TPM2_RC_VALUE)
+                return log_debug_errno(SYNTHETIC_ERRNO(ENXIO),
+                                       "Requested TPM2 capability 0x%04" PRIx32 " property 0x%04" PRIx32 " apparently doesn't exist: %s",
+                                       capability, property, sym_Tss2_RC_Decode(rc));
         if (rc != TSS2_RC_SUCCESS)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "Failed to get TPM2 capability 0x%04" PRIx32 " property 0x%04" PRIx32 ": %s",
                                        capability, property, sym_Tss2_RC_Decode(rc));
-
         if (capabilities->capability != capability)
                 return log_debug_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
                                        "TPM provided wrong capability: 0x%04" PRIx32 " instead of 0x%04" PRIx32 ".",
@@ -333,6 +336,8 @@ static int tpm2_cache_capabilities(Tpm2Context *c) {
                                 current_ecc_curve,
                                 TPM2_MAX_ECC_CURVES,
                                 &capability);
+                if (r == -ENXIO) /* If the TPM doesn't support ECC, it might return TPM2_RC_VALUE rather than capability.eccCurves == 0 */
+                        break;
                 if (r < 0)
                         return r;
 
