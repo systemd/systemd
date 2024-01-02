@@ -338,10 +338,9 @@ static int clamp_brightness(
          * avoids preserving an unreadably dim screen, which would otherwise force the user to disable
          * state restoration. */
 
+        min_brightness = (unsigned) ((double) max_brightness * percent / 100);
         if (device_in_subsystem(device, "backlight"))
-                min_brightness = MAX(1U, (unsigned) ((double) max_brightness * percent / 100));
-        else
-                min_brightness = 0;
+                min_brightness = MAX(1U, min_brightness);
 
         new_brightness = CLAMP(*brightness, min_brightness, max_brightness);
         if (new_brightness != *brightness)
@@ -356,19 +355,28 @@ static int clamp_brightness(
         return 0;
 }
 
-static bool shall_clamp(sd_device *d, unsigned *ret) {
-        const char *s;
+static bool shall_clamp(sd_device *device, unsigned *ret) {
+        const char *property, *s;
+        unsigned default_percent;
         int r;
 
-        assert(d);
+        assert(device);
         assert(ret);
 
-        r = sd_device_get_property_value(d, "ID_BACKLIGHT_CLAMP", &s);
+        if (device_in_subsystem(device, "backlight")) {
+                property = "ID_BACKLIGHT_CLAMP";
+                default_percent = 5;
+        } else {
+                property = "ID_LEDS_CLAMP";
+                default_percent = 0;
+        }
+
+        r = sd_device_get_property_value(device, property, &s);
         if (r < 0) {
                 if (r != -ENOENT)
-                        log_device_debug_errno(d, r, "Failed to get ID_BACKLIGHT_CLAMP property, ignoring: %m");
-                *ret = 5; /* defaults to 5% */
-                return true;
+                        log_device_debug_errno(device, r, "Failed to get %s property, ignoring: %m", property);
+                *ret = default_percent;
+                return default_percent > 0;
         }
 
         r = parse_boolean(s);
@@ -379,9 +387,9 @@ static bool shall_clamp(sd_device *d, unsigned *ret) {
 
         r = parse_percent(s);
         if (r < 0) {
-                log_device_debug_errno(d, r, "Failed to parse ID_BACKLIGHT_CLAMP property, ignoring: %m");
-                *ret = 5;
-                return true;
+                log_device_debug_errno(device, r, "Failed to parse %s property, ignoring: %m", property);
+                *ret = default_percent;
+                return default_percent > 0;
         }
 
         *ret = r;
