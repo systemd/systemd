@@ -2,7 +2,7 @@
 
 #include <linux/nexthop.h>
 
-#include "dhcp-server-internal.h"
+#include "dhcp-server-lease-internal.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
 #include "dns-domain.h"
@@ -890,67 +890,6 @@ static int pref64_append_json(Link *link, JsonVariant **v) {
         return json_variant_set_field_non_null(v, "NDisc", w);
 }
 
-static int dhcp_server_offered_leases_append_json(Link *link, JsonVariant **v) {
-        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
-        DHCPLease *lease;
-        int r;
-
-        assert(link);
-        assert(v);
-
-        if (!link->dhcp_server)
-                return 0;
-
-        HASHMAP_FOREACH(lease, link->dhcp_server->bound_leases_by_client_id) {
-                struct in_addr address = { .s_addr = lease->address };
-
-                r = json_variant_append_arrayb(
-                                &array,
-                                JSON_BUILD_OBJECT(
-                                                JSON_BUILD_PAIR_BYTE_ARRAY(
-                                                                "ClientId",
-                                                                lease->client_id.data,
-                                                                lease->client_id.length),
-                                                JSON_BUILD_PAIR_IN4_ADDR_NON_NULL("Address", &address),
-                                                JSON_BUILD_PAIR_STRING_NON_EMPTY("Hostname", lease->hostname),
-                                                JSON_BUILD_PAIR_FINITE_USEC(
-                                                                "ExpirationUSec", lease->expiration)));
-                if (r < 0)
-                        return r;
-        }
-
-        return json_variant_set_field_non_null(v, "Leases", array);
-}
-
-static int dhcp_server_static_leases_append_json(Link *link, JsonVariant **v) {
-        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
-        DHCPLease *lease;
-        int r;
-
-        assert(link);
-        assert(v);
-
-        if (!link->dhcp_server)
-                return 0;
-
-        HASHMAP_FOREACH(lease, link->dhcp_server->static_leases_by_client_id) {
-                struct in_addr address = { .s_addr = lease->address };
-
-                r = json_variant_append_arrayb(
-                               &array,
-                               JSON_BUILD_OBJECT(
-                                               JSON_BUILD_PAIR_BYTE_ARRAY(
-                                                               "ClientId",
-                                                               lease->client_id.data,
-                                                               lease->client_id.length),
-                                               JSON_BUILD_PAIR_IN4_ADDR_NON_NULL("Address", &address)));
-                if (r < 0)
-                        return r;
-        }
-
-        return json_variant_set_field_non_null(v, "StaticLeases", array);
-}
-
 static int dhcp_server_append_json(Link *link, JsonVariant **v) {
         _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
         int r;
@@ -968,11 +907,11 @@ static int dhcp_server_append_json(Link *link, JsonVariant **v) {
         if (r < 0)
                 return r;
 
-        r = dhcp_server_offered_leases_append_json(link, &w);
+        r = dhcp_server_bound_leases_append_json(link->dhcp_server, &w);
         if (r < 0)
                 return r;
 
-        r = dhcp_server_static_leases_append_json(link, &w);
+        r = dhcp_server_static_leases_append_json(link->dhcp_server, &w);
         if (r < 0)
                 return r;
 

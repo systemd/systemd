@@ -14,6 +14,7 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "float.h"
+#include "glyph-util.h"
 #include "hexdecoct.h"
 #include "json-internal.h"
 #include "json.h"
@@ -4958,6 +4959,50 @@ int json_dispatch_unbase64_iovec(const char *name, JsonVariant *variant, JsonDis
 
         free_and_replace(iov->iov_base, buffer);
         iov->iov_len = sz;
+        return 0;
+}
+
+int json_dispatch_byte_array(
+                        const char *name,
+                        JsonVariant *variant,
+                        JsonDispatchFlags flags,
+                        uint8_t *buf,
+                        size_t min_size,
+                        size_t max_size,
+                        size_t *ret_size) {
+
+        size_t n, k = 0;
+
+        assert(variant);
+        assert(buf);
+
+        if (!json_variant_is_array(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
+
+        n = json_variant_elements(variant);
+        if (n < min_size || n > max_size)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is array of unexpected size.", strna(name));
+
+        JsonVariant *i;
+        JSON_VARIANT_ARRAY_FOREACH(i, variant) {
+                uint64_t b;
+
+                if (!json_variant_is_unsigned(i))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Element %zu of JSON field '%s' is not an unsigned integer.", k, strna(name));
+
+                b = json_variant_unsigned(i);
+                if (b > 0xff)
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
+                                        "Element %zu of JSON field '%s' is out of range 0%s255.",
+                                        k, strna(name), special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+
+                buf[k++] = (uint8_t) b;
+        }
+        assert(k == n);
+
+        if (ret_size)
+                *ret_size = n;
+
         return 0;
 }
 
