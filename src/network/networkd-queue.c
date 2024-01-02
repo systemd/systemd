@@ -60,7 +60,7 @@ static void request_hash_func(const Request *req, struct siphash *state) {
 
         siphash24_compress_typesafe(req->type, state);
 
-        if (req->type != REQUEST_TYPE_NEXTHOP) {
+        if (!IN_SET(req->type, REQUEST_TYPE_NEXTHOP, REQUEST_TYPE_ROUTE)) {
                 siphash24_compress_boolean(req->link, state);
                 if (req->link)
                         siphash24_compress_typesafe(req->link->ifindex, state);
@@ -83,7 +83,7 @@ static int request_compare_func(const struct Request *a, const struct Request *b
         if (r != 0)
                 return r;
 
-        if (a->type != REQUEST_TYPE_NEXTHOP) {
+        if (!IN_SET(a->type, REQUEST_TYPE_NEXTHOP, REQUEST_TYPE_ROUTE)) {
                 r = CMP(!!a->link, !!b->link);
                 if (r != 0)
                         return r;
@@ -137,11 +137,8 @@ static int request_new(
         assert(process);
 
         req = new(Request, 1);
-        if (!req) {
-                if (free_func)
-                        free_func(userdata);
+        if (!req)
                 return -ENOMEM;
-        }
 
         *req = (Request) {
                 .n_ref = 1,
@@ -183,12 +180,19 @@ int netdev_queue_request(
                 request_process_func_t process,
                 Request **ret) {
 
+        int r;
+
         assert(netdev);
 
-        return request_new(netdev->manager, NULL, REQUEST_TYPE_NETDEV_INDEPENDENT,
-                           netdev_ref(netdev), (mfree_func_t) netdev_unref,
-                           trivial_hash_func, trivial_compare_func,
-                           process, NULL, NULL, ret);
+        r = request_new(netdev->manager, NULL, REQUEST_TYPE_NETDEV_INDEPENDENT,
+                        netdev, (mfree_func_t) netdev_unref,
+                        trivial_hash_func, trivial_compare_func,
+                        process, NULL, NULL, ret);
+        if (r <= 0)
+                return r;
+
+        netdev_ref(netdev);
+        return 1;
 }
 
 int link_queue_request_full(
@@ -214,6 +218,10 @@ int manager_process_requests(Manager *manager) {
         int r;
 
         assert(manager);
+
+        /* Process only when no remove request is queued. */
+        if (!ordered_set_isempty(manager->remove_request_queue))
+                return 0;
 
         for (;;) {
                 bool processed = false;
@@ -333,3 +341,112 @@ static const char *const request_type_table[_REQUEST_TYPE_MAX] = {
 };
 
 DEFINE_STRING_TABLE_LOOKUP_TO_STRING(request_type, RequestType);
+
+static RemoveRequest* remove_request_free(RemoveRequest *req) {
+        if (!req)
+                return NULL;
+
+        if (req->manager)
+                ordered_set_remove(req->manager->remove_request_queue, req);
+
+        if (req->unref_func)
+                req->unref_func(req->userdata);
+
+        link_unref(req->link);
+        sd_netlink_unref(req->netlink);
+        sd_netlink_message_unref(req->message);
+
+        return mfree(req);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(RemoveRequest*, remove_request_free);
+DEFINE_TRIVIAL_DESTRUCTOR(remove_request_destroy_callback, RemoveRequest, remove_request_free);
+DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+                remove_request_hash_ops,
+                void,
+                trivial_hash_func,
+                trivial_compare_func,
+                remove_request_free);
+
+int remove_request_add(
+                Manager *manager,
+                Link *link,
+                void *userdata,
+                mfree_func_t unref_func,
+                sd_netlink *netlink,
+                sd_netlink_message *message,
+                remove_request_netlink_handler_t netlink_handler) {
+
+        _cleanup_(remove_request_freep) RemoveRequest *req = NULL;
+        int r;
+
+        assert(manager);
+        assert(userdata);
+        assert(netlink);
+        assert(message);
+
+        req = new(RemoveRequest, 1);
+        if (!req) {
+                if (unref_func)
+                        unref_func(userdata);
+                return -ENOMEM;
+        }
+
+        *req = (RemoveRequest) {
+                .manager = manager,
+                .link = link_ref(link), /* link may be NULL, but link_ref() handles it gracefully. */
+                .userdata = userdata,
+                .unref_func = unref_func,
+                .netlink = sd_netlink_ref(netlink),
+                .message = sd_netlink_message_ref(message),
+                .netlink_handler = netlink_handler,
+        };
+
+        r = ordered_set_ensure_put(&manager->remove_request_queue, &remove_request_hash_ops, req);
+        if (r < 0)
+                return r;
+        assert(r > 0);
+
+        TAKE_PTR(req);
+        return 0;
+}
+
+int manager_process_remove_requests(Manager *manager) {
+        RemoveRequest *req;
+        int r;
+
+        assert(manager);
+
+        while ((req = ordered_set_first(manager->remove_request_queue))) {
+
+                /* Do not make the reply callback queue in sd-netlink full. */
+                if (netlink_get_reply_callback_count(req->netlink) >= REPLY_CALLBACK_COUNT_THRESHOLD)
+                        return 0;
+
+                r = netlink_call_async(
+                                req->netlink, NULL, req->message,
+                                req->netlink_handler,
+                                remove_request_destroy_callback,
+                                req);
+                if (r < 0) {
+                        _cleanup_(link_unrefp) Link *link = link_ref(req->link);
+
+                        log_link_warning_errno(link, r, "Failed to call netlink message: %m");
+
+                        /* First free the request. */
+                        remove_request_free(req);
+
+                        /* Then, make the link enter the failed state. */
+                        if (link)
+                                link_enter_failed(link);
+
+                } else {
+                        /* On success, netlink needs to be unref()ed. Otherwise, the netlink and remove
+                         * request may not freed on shutting down. */
+                        req->netlink = sd_netlink_unref(req->netlink);
+                        ordered_set_remove(manager->remove_request_queue, req);
+                }
+        }
+
+        return 0;
+}
