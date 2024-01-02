@@ -102,6 +102,7 @@ struct Manager {
 
         bool request_queue_restart;
         OrderedSet *request_queue;
+        OrderedSet *remove_request_queue;
 
         Hashmap *tuntap_fds_by_name;
 };
