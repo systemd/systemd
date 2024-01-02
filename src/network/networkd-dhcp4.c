@@ -263,7 +263,7 @@ static int dhcp4_remove_address_and_routes(Link *link, bool only_marked) {
                 if (only_marked && !address_is_marked(address))
                         continue;
 
-                RET_GATHER(ret, address_remove_and_drop(address));
+                RET_GATHER(ret, address_remove_and_cancel(address, link));
         }
 
         return ret;
