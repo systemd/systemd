@@ -3448,10 +3448,25 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         for i in range(1, 5):
             self.assertRegex(output, f'2607:5300:203:5215:{i}::1 *proxy')
 
-    def test_neighbor_section(self):
-        copy_network_unit('25-neighbor-section.network', '12-dummy.netdev', copy_dropins=False)
+    def test_neighbor(self):
+        copy_network_unit('12-dummy.netdev', '25-neighbor-dummy.network', '25-neighbor-dummy.network.d/10-step1.conf',
+                          '25-gre-tunnel-remote-any.netdev', '25-neighbor-ip.network',
+                          '25-ip6gre-tunnel-remote-any.netdev', '25-neighbor-ipv6.network',
+                          copy_dropins=False)
         start_networkd()
-        self.wait_online(['dummy98:degraded'])
+        self.wait_online(['dummy98:degraded', 'gretun97:routable', 'ip6gretun97:routable'])
+
+        print('### ip neigh list dev gretun97')
+        output = check_output('ip neigh list dev gretun97')
+        print(output)
+        self.assertIn('10.0.0.22 lladdr 10.65.223.239 PERMANENT', output)
+        self.assertNotIn('10.0.0.23', output)
+
+        print('### ip neigh list dev ip6gretun97')
+        output = check_output('ip neigh list dev ip6gretun97')
+        print(output)
+        self.assertRegex(output, '2001:db8:0:f102::17 lladdr 2a:?00:ff:?de:45:?67:ed:?de:[0:]*:49:?88 PERMANENT')
+        self.assertNotIn('2001:db8:0:f102::18', output)
 
         print('### ip neigh list dev dummy98')
         output = check_output('ip neigh list dev dummy98')
@@ -3465,59 +3480,38 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output(*networkctl_cmd, '--json=short', 'status', env=env)
         check_json(output)
 
-        copy_network_unit('25-neighbor-section.network.d/override.conf')
+        # Here, 10-step1.conf is intendedly kept, to verify that 10-step2.conf overrides
+        # the valid configurations in 10-step1.conf.
+        copy_network_unit('25-neighbor-dummy.network.d/10-step2.conf')
         networkctl_reload()
         self.wait_online(['dummy98:degraded'])
 
-        print('### ip neigh list dev dummy98 (after reloading)')
+        print('### ip neigh list dev dummy98')
         output = check_output('ip neigh list dev dummy98')
         print(output)
         self.assertIn('192.168.10.1 lladdr 00:00:5e:00:03:65 PERMANENT', output)
         self.assertIn('2004:da8:1::1 lladdr 00:00:5e:00:03:66 PERMANENT', output)
         self.assertNotIn('2004:da8:1:0::2', output)
         self.assertNotIn('192.168.10.2', output)
-        self.assertNotIn('00:00:5e:00:02', output)
-
-    def test_neighbor_reconfigure(self):
-        copy_network_unit('25-neighbor-section.network', '12-dummy.netdev', copy_dropins=False)
-        start_networkd()
-        self.wait_online(['dummy98:degraded'])
-
-        print('### ip neigh list dev dummy98')
-        output = check_output('ip neigh list dev dummy98')
-        print(output)
-        self.assertIn('192.168.10.1 lladdr 00:00:5e:00:02:65 PERMANENT', output)
-        self.assertIn('2004:da8:1::1 lladdr 00:00:5e:00:02:66 PERMANENT', output)
-
-        remove_network_unit('25-neighbor-section.network')
-        copy_network_unit('25-neighbor-next.network')
-        networkctl_reload()
-        self.wait_online(['dummy98:degraded'])
-        print('### ip neigh list dev dummy98')
-        output = check_output('ip neigh list dev dummy98')
-        print(output)
-        self.assertNotIn('00:00:5e:00:02:65', output)
-        self.assertIn('192.168.10.1 lladdr 00:00:5e:00:02:66 PERMANENT', output)
-        self.assertNotIn('2004:da8:1::1', output)
-
-    def test_neighbor_gre(self):
-        copy_network_unit('25-neighbor-ip.network', '25-neighbor-ipv6.network', '25-neighbor-ip-dummy.network',
-                          '12-dummy.netdev', '25-gre-tunnel-remote-any.netdev', '25-ip6gre-tunnel-remote-any.netdev')
-        start_networkd()
-        self.wait_online(['dummy98:degraded', 'gretun97:routable', 'ip6gretun97:routable'], timeout='40s')
-
-        output = check_output('ip neigh list dev gretun97')
-        print(output)
-        self.assertIn('10.0.0.22 lladdr 10.65.223.239 PERMANENT', output)
-        self.assertNotIn('10.0.0.23', output)
-
-        output = check_output('ip neigh list dev ip6gretun97')
-        print(output)
-        self.assertRegex(output, '2001:db8:0:f102::17 lladdr 2a:?00:ff:?de:45:?67:ed:?de:[0:]*:49:?88 PERMANENT')
-        self.assertNotIn('2001:db8:0:f102::18', output)
+        self.assertNotIn('00:00:5e:00:02:67', output)
 
         output = check_output(*networkctl_cmd, '--json=short', 'status', env=env)
         check_json(output)
+
+        remove_network_unit('25-neighbor-dummy.network.d/10-step1.conf',
+                            '25-neighbor-dummy.network.d/10-step2.conf')
+        copy_network_unit('25-neighbor-dummy.network.d/10-step3.conf')
+        networkctl_reload()
+        self.wait_online(['dummy98:degraded'])
+
+        print('### ip neigh list dev dummy98')
+        output = check_output('ip neigh list dev dummy98')
+        print(output)
+        self.assertIn('192.168.10.1 lladdr 00:00:5e:00:03:66 PERMANENT', output)
+        self.assertNotIn('00:00:5e:00:02:65', output)
+        self.assertNotIn('00:00:5e:00:02:66', output)
+        self.assertNotIn('00:00:5e:00:03:65', output)
+        self.assertNotIn('2004:da8:1::1', output)
 
     def test_link_local_addressing(self):
         copy_network_unit('25-link-local-addressing-yes.network', '11-dummy.netdev',
