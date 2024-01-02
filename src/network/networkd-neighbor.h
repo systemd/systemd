@@ -28,6 +28,9 @@ typedef struct Neighbor {
 
 Neighbor *neighbor_free(Neighbor *neighbor);
 
+int neighbor_get(Link *link, const Neighbor *in, Neighbor **ret);
+int neighbor_remove(Neighbor *neighbor, Link *link);
+
 int network_drop_invalid_neighbors(Network *network);
 
 int link_drop_managed_neighbors(Link *link);
