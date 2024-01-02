@@ -1,140 +1,183 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
+# vi: sw=2 ts=2 et:
 
 apparmor:
-  - '**/*apparmor*'
+  - changed-files:
+    - any-glob-to-any-file: '**/*apparmor*'
 binfmt:
-  - '**/*binfmt*'
+  - changed-files:
+    - any-glob-to-any-file: '**/*binfmt*'
 btrfs:
-  - '**/*btrfs*'
+  - changed-files:
+    - any-glob-to-any-file: '**/*btrfs*'
 build-system:
-  - meson_options.txt
-  - '**/meson.build'
-  - Makefile
-  - configure
+  - changed-files:
+    - any-glob-to-any-file: ['meson_options.txt', '**/meson.build', 'Makefile', 'configure']
 busctl:
-  - '**/*busctl*'
+  - changed-files:
+    - any-glob-to-any-file: '**/*busctl*'
 cgls:
-  - '**/*cgls*'
+  - changed-files:
+    - any-glob-to-any-file: '**/*cgls*'
 cgtop:
-  - '**/*cgtop*'
+  - changed-files:
+    - any-glob-to-any-file: '**/*cgtop*'
 ci:
-  - '.github/*'
+  - changed-files:
+    - any-glob-to-any-file: '.github/*'
 coccinelle:
-  - coccinelle/*
+  - changed-files:
+    - any-glob-to-any-file: 'coccinelle/*'
 coredump:
-  - '**/*coredump*'
+  - changed-files:
+    - any-glob-to-any-file: '**/*coredump*'
 documentation:
-  - NEWS
-  - README*
-  - docs/*
-  - man/*
+  - changed-files:
+    - any-glob-to-any-file: ['NEWS', 'README*', 'docs/*', 'man/*']
 env-generator:
-  - '**/*environment*generator*'
+  - changed-files:
+    - any-glob-to-any-file: '**/*environment*generator*'
 debug-generator:
-  - '**/debug-generator*'
+  - changed-files:
+    - any-glob-to-any-file: '**/debug-generator*'
 fstab-generator:
-  - '**/*fstab-generator*'
+  - changed-files:
+    - any-glob-to-any-file: '**/*fstab-generator*'
 growfs:
-  - '**/*growfs*'
+  - changed-files:
+    - any-glob-to-any-file: '**/*growfs*'
 hwdb:
-  - hwdb.d/**/*
+  - changed-files:
+    - any-glob-to-any-file: 'hwdb.d/**/*'
 journal:
-  - src/journal/*
-  - src/libsystemd/sd-journal/*
+  - changed-files:
+    - any-glob-to-any-file: ['src/journal/*', 'src/libsystemd/sd-journal/*']
 journal-remote:
-  - src/journal-remote/*
+  - changed-files:
+    - any-glob-to-any-file: 'src/journal-remote/*'
 meson:
-  - meson_options.txt
-  - '**/meson.build'
+  - changed-files:
+    - any-glob-to-any-file: ['meson_options.txt', '**/meson.build']
 mkosi:
-  - .mkosi/*
-  - mkosi.build
+  - changed-files:
+    - any-glob-to-any-file: ['.mkosi/*', 'mkosi.build']
 network:
-  - src/libsystemd-network/**/*
-  - src/network/**/*
+  - changed-files:
+    - any-glob-to-any-file: ['src/libsystemd-network/**/*', 'src/network/**/*']
 portable:
-  - src/portable/**/*
+  - changed-files:
+    - any-glob-to-any-file: 'src/portable/**/*'
 rc-local-generator:
-  - src/rc-local-generator/*
+  - changed-files:
+    - any-glob-to-any-file: 'src/rc-local-generator/*'
 repart:
-  - '**/*repart*'
+  - changed-files:
+    - any-glob-to-any-file: '**/*repart*'
 resolve:
-  - '**/*resolve*'
+  - changed-files:
+    - any-glob-to-any-file: '**/*resolve*'
 rfkill:
-  - '**/*rfkill*'
+  - changed-files:
+    - any-glob-to-any-file: '**/*rfkill*'
 rpm:
-  - src/rpm/*
+  - changed-files:
+    - any-glob-to-any-file: 'src/rpm/*'
 run:
-  - src/run/*
-  - man/systemd-run*
+  - changed-files:
+    - any-glob-to-any-file: ['src/run/*', 'man/systemd-run*']
 sd-boot/sd-stub/bootctl:
-  - src/boot/**/*
-  - man/bootctl*
-  - man/systemd-boot.xml
+  - changed-files:
+    - any-glob-to-any-file: ['src/boot/**/*', 'man/bootctl*', 'man/systemd-boot.xml']
 sd-bus:
-  - '**/sd-bus*/**'
+  - changed-files:
+    - any-glob-to-any-file: '**/sd-bus*/**'
 sd-daemon:
-  - '**/sd-daemon*/**'
+  - changed-files:
+    - any-glob-to-any-file: '**/sd-daemon*/**'
 sd-device:
-  - '**/sd-device*/**'
+  - changed-files:
+    - any-glob-to-any-file: '**/sd-device*/**'
 sd-event:
-  - '**/sd-event*/**'
+  - changed-files:
+    - any-glob-to-any-file: '**/sd-event*/**'
 sd-hwdb:
-  - '**/sd-hwdb*/**'
+  - changed-files:
+    - any-glob-to-any-file: '**/sd-hwdb*/**'
 sd-id128:
-  - '**/sd-id128*/**'
+  - changed-files:
+    - any-glob-to-any-file: '**/sd-id128*/**'
 sd-netlink:
-  - '**/sd-netlink*/**'
+  - changed-files:
+    - any-glob-to-any-file: '**/sd-netlink*/**'
 sd-path:
-  - '**/sd-path*/**'
+  - changed-files:
+    - any-glob-to-any-file: '**/sd-path*/**'
 sd-resolve:
-  - '**/sd-resolve*/**'
+  - changed-files:
+    - any-glob-to-any-file: '**/sd-resolve*/**'
 selinux:
-  - '**/*selinux*'
+  - changed-files:
+    - any-glob-to-any-file: '**/*selinux*'
 sleep:
-  - '**/*sleep*'
+  - changed-files:
+    - any-glob-to-any-file: ['src/shared/*sleep*', 'src/sleep/*']
 smack:
-  - '**/*smack*'
+  - changed-files:
+    - any-glob-to-any-file: '**/*smack*'
 socket-proxy:
-  - '**/*socket-proxy*'
+  - changed-files:
+    - any-glob-to-any-file: '**/*socket-proxy*'
 sysv-generator:
-  - '**/*sysv-generator*'
+  - changed-files:
+    - any-glob-to-any-file: '**/*sysv-generator*'
 systemctl:
-  - '**/systemctl*'
+  - changed-files:
+    - any-glob-to-any-file: '**/systemctl*'
 sysupdate:
-  - '**/*sysupdate*'
+  - changed-files:
+    - any-glob-to-any-file: '**/*sysupdate*'
 sysvcompat:
-  - '**/*sysv*'
+  - changed-files:
+    - any-glob-to-any-file: '**/*sysv*'
 sysctl:
-  - '**/*sysctl*'
+  - changed-files:
+    - any-glob-to-any-file: '**/*sysctl*'
 timedate:
-  - '**/*timedate*'
+  - changed-files:
+    - any-glob-to-any-file: '**/*timedate*'
 timesync:
-  - '**/*timesync*'
+  - changed-files:
+    - any-glob-to-any-file: '**/*timesync*'
 tests:
-  - src/test/**/*
-  - src/fuzz/**/*
-  - test/**/*
-  - '**/test-*'
-  - .github/workflows/*
+  - changed-files:
+    - any-glob-to-any-file: [
+      'src/test/**/*',
+      'src/fuzz/**/*',
+      'test/**/*',
+      '**/test-*',
+      '.github/workflows/*'
+  ]
 tpm2:
-  - '**/*tpm2*'
-  - '**/*tpm-*'
+  - changed-files:
+    - any-glob-to-any-file: ['**/*tpm2*', '**/*tpm-*']
 udev:
-  - src/udev/**/*
-  - src/libudev/*
-  - man/*udev*
+  - changed-files:
+    - any-glob-to-any-file: ['src/udev/**/*', 'src/libudev/*', 'man/*udev*']
 uki:
-  - '**/ukify*'
+  - changed-files:
+    - any-glob-to-any-file: '**/ukify*'
 units:
-  - units/**/*
+  - changed-files:
+    - any-glob-to-any-file: 'units/**/*'
 userdb:
-  - '**/*userdb*'
+  - changed-files:
+    - any-glob-to-any-file: '**/*userdb*'
 util-lib:
-  - src/fundamental/**/*
-  - src/basic/**/*
-  - src/shared/**/*
+  - changed-files:
+    - any-glob-to-any-file: ['src/fundamental/**/*', 'src/basic/**/*', 'src/shared/**/*']
 vconsole:
-  - '**/*vconsole*'
+  - changed-files:
+    - any-glob-to-any-file: '**/*vconsole*'
 xdg-autostart:
-  - '**/**xdg-autostart-generator*'
+  - changed-files:
+    - any-glob-to-any-file: '**/**xdg-autostart-generator*'
