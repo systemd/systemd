@@ -246,6 +246,20 @@ int device_is_renaming(sd_device *dev) {
         return true;
 }
 
+int device_is_processing(sd_device *dev) {
+        int r;
+
+        assert(dev);
+
+        r = sd_device_get_property_value(dev, "ID_PROCESSING", NULL);
+        if (r == -ENOENT)
+                return false;
+        if (r < 0)
+                return r;
+
+        return true;
+}
+
 bool device_for_action(sd_device *dev, sd_device_action_t a) {
         sd_device_action_t b;
 
