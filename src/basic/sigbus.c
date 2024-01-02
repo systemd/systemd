@@ -47,7 +47,7 @@ static void sigbus_push(void *addr) {
                 __atomic_thread_fence(__ATOMIC_SEQ_CST);
                 c = n_sigbus_queue;
 
-                if (c > SIGBUS_QUEUE_MAX) /* already overflow */
+                if (c >= SIGBUS_QUEUE_MAX) /* already overflow */
                         return;
 
                 /* OK if we clobber c here, since we either immediately return
