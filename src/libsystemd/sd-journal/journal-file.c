@@ -2244,7 +2244,6 @@ static int journal_file_link_entry(
         f->header->tail_entry_monotonic = o->entry.monotonic;
         if (JOURNAL_HEADER_CONTAINS(f->header, tail_entry_offset))
                 f->header->tail_entry_offset = htole64(offset);
-        f->newest_mtime = 0; /* we have a new tail entry now, explicitly invalidate newest boot id/timestamp info */
 
         /* Link up the items */
         for (uint64_t i = 0; i < n_items; i++) {
