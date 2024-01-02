@@ -421,6 +421,8 @@ int json_dispatch_user_group_name(const char *name, JsonVariant *variant, JsonDi
 int json_dispatch_id128(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 int json_dispatch_unsupported(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 int json_dispatch_unbase64_iovec(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
+int json_dispatch_byte_array_iovec(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
+int json_dispatch_in_addr(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
 
 assert_cc(sizeof(uint32_t) == sizeof(unsigned));
 #define json_dispatch_uint json_dispatch_uint32

@@ -14,7 +14,9 @@
 #include "fd-util.h"
 #include "fileio.h"
 #include "float.h"
+#include "glyph-util.h"
 #include "hexdecoct.h"
+#include "iovec-util.h"
 #include "json-internal.h"
 #include "json.h"
 #include "macro.h"
@@ -4963,6 +4965,60 @@ int json_dispatch_unbase64_iovec(const char *name, JsonVariant *variant, JsonDis
 
         free_and_replace(iov->iov_base, buffer);
         iov->iov_len = sz;
+        return 0;
+}
+
+int json_dispatch_byte_array_iovec(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        _cleanup_free_ uint8_t *buffer = NULL;
+        struct iovec *iov = ASSERT_PTR(userdata);
+        size_t sz, k = 0;
+
+        assert(variant);
+
+        if (!json_variant_is_array(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
+
+        sz = json_variant_elements(variant);
+
+        buffer = new(uint8_t, sz);
+        if (!buffer)
+                return json_log(variant, flags, SYNTHETIC_ERRNO(ENOMEM), "Out of memory.");
+
+        JsonVariant *i;
+        JSON_VARIANT_ARRAY_FOREACH(i, variant) {
+                uint64_t b;
+
+                if (!json_variant_is_unsigned(i))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Element %zu of JSON field '%s' is not an unsigned integer.", k, strna(name));
+
+                b = json_variant_unsigned(i);
+                if (b > 0xff)
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL),
+                                        "Element %zu of JSON field '%s' is out of range 0%s255.",
+                                        k, strna(name), special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+
+                buffer[k++] = (uint8_t) b;
+        }
+        assert(k == sz);
+
+        free_and_replace(iov->iov_base, buffer);
+        iov->iov_len = sz;
+        return 0;
+}
+
+int json_dispatch_in_addr(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        struct in_addr *address = ASSERT_PTR(userdata);
+        _cleanup_(iovec_done) struct iovec iov = {};
+        int r;
+
+        r = json_dispatch_byte_array_iovec(name, variant, flags, &iov);
+        if (r < 0)
+                return r;
+
+        if (iov.iov_len != sizeof(struct in_addr))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is array of unexpected size.", strna(name));
+
+        memcpy(address, iov.iov_base, iov.iov_len);
         return 0;
 }
 
