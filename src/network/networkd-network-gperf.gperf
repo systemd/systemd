@@ -193,8 +193,8 @@ Route.Scope,                                 config_parse_route_scope,          
 Route.PreferredSource,                       config_parse_preferred_src,                               0,                             0
 Route.Table,                                 config_parse_route_table,                                 0,                             0
 Route.MTUBytes,                              config_parse_route_mtu,                                   AF_UNSPEC,                     0
-Route.GatewayOnLink,                         config_parse_route_boolean,                               0,                             0
-Route.GatewayOnlink,                         config_parse_route_boolean,                               0,                             0
+Route.GatewayOnLink,                         config_parse_route_gateway_onlink,                        0,                             0
+Route.GatewayOnlink,                         config_parse_route_gateway_onlink,                        0,                             0
 Route.IPv6Preference,                        config_parse_ipv6_route_preference,                       0,                             0
 Route.Protocol,                              config_parse_route_protocol,                              0,                             0
 Route.Type,                                  config_parse_route_type,                                  0,                             0
@@ -204,8 +204,8 @@ Route.InitialCongestionWindow,               config_parse_route_tcp_window,     
 Route.InitialAdvertisedReceiveWindow,        config_parse_route_tcp_window,                            0,                             0
 Route.TCPAdvertisedMaximumSegmentSize,       config_parse_tcp_advmss,                                  0,                             0
 Route.TCPCongestionControlAlgorithm,         config_parse_tcp_congestion,                              0,                             0
-Route.QuickAck,                              config_parse_route_boolean,                               0,                             0
-Route.FastOpenNoCookie,                      config_parse_route_boolean,                               0,                             0
+Route.QuickAck,                              config_parse_route_metric_boolean,                        RTAX_QUICKACK,                 0
+Route.FastOpenNoCookie,                      config_parse_route_metric_boolean,                        RTAX_FASTOPEN_NO_COOKIE,       0
 Route.TTLPropagate,                          config_parse_warn_compat,                                 DISABLED_LEGACY,               0
 Route.MultiPathRoute,                        config_parse_multipath_route,                             0,                             0
 Route.NextHop,                               config_parse_route_nexthop,                               0,                             0
