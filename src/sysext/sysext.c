@@ -659,8 +659,16 @@ static const ImagePolicy *pick_image_policy(const Image *img) {
          * picked up from an untrusted ESP. Thus, require a stricter policy by default for them. (For the
          * other directories we assume the appropriate level of trust was already established already.  */
 
-        if (in_initrd() && path_startswith(img->path, "/.extra/sysext/"))
-                return &image_policy_sysext_strict;
+        if (in_initrd()) {
+                if (path_startswith(img->path, "/.extra/sysext/"))
+                        return &image_policy_sysext_strict;
+                else if (path_startswith(img->path, "/.extra/confext/"))
+                        return &image_policy_confext_strict;
+
+                /* Better safe than sorry, refuse everything else passed in via the untrusted /.extra/ dir */
+                if (path_startswith(img->path, "/.extra/"))
+                        return &image_policy_deny;
+        }
 
         return image_class_info[img->class].default_image_policy;
 }
