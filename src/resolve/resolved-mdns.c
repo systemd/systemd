@@ -36,7 +36,7 @@ int manager_mdns_start(Manager *m) {
         if (r < 0)
                 return r;
 
-        if (socket_ipv6_is_supported()) {
+        if (socket_ipv6_is_enabled()) {
                 r = manager_mdns_ipv6_fd(m);
                 if (r == -EADDRINUSE)
                         goto eaddrinuse;
