@@ -1458,7 +1458,7 @@ static int dump_dhcp_leases(Table *table, const char *prefix, sd_bus *bus, const
                 if (r < 0)
                         return bus_log_parse_error(r);
 
-                r = sd_dhcp_client_id_to_string(client_id, client_id_sz, &id);
+                r = sd_dhcp_client_id_to_string_from_raw(client_id, client_id_sz, &id);
                 if (r < 0)
                         return bus_log_parse_error(r);
 
@@ -2288,7 +2288,7 @@ static int link_status_one(
                 if (r >= 0) {
                         _cleanup_free_ char *id = NULL;
 
-                        r = sd_dhcp_client_id_to_string(client_id, client_id_len, &id);
+                        r = sd_dhcp_client_id_to_string_from_raw(client_id, client_id_len, &id);
                         if (r >= 0) {
                                 r = table_add_many(table,
                                                    TABLE_FIELD, "DHCP4 Client ID",

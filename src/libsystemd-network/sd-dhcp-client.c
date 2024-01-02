@@ -150,60 +150,6 @@ static int client_receive_message_udp(
                 void *userdata);
 static void client_stop(sd_dhcp_client *client, int error);
 
-int sd_dhcp_client_id_to_string(const void *data, size_t len, char **ret) {
-        _cleanup_free_ char *t = NULL;
-        sd_dhcp_client_id client_id;
-        int r;
-
-        assert_return(data, -EINVAL);
-        assert_return(client_id_size_is_valid(len), -EINVAL);
-        assert_return(ret, -EINVAL);
-
-        r = sd_dhcp_client_id_set_raw(&client_id, data, len);
-        if (r < 0)
-                return r;
-
-        len--;
-
-        switch (client_id.id.type) {
-        case 0:
-                if (utf8_is_printable((char *) client_id.id.gen.data, len))
-                        r = asprintf(&t, "%.*s", (int) len, client_id.id.gen.data);
-                else
-                        r = asprintf(&t, "DATA");
-                break;
-        case 1:
-                if (len == sizeof_field(sd_dhcp_client_id, id.eth))
-                        r = asprintf(&t, "%02x:%02x:%02x:%02x:%02x:%02x",
-                                     client_id.id.eth.haddr[0],
-                                     client_id.id.eth.haddr[1],
-                                     client_id.id.eth.haddr[2],
-                                     client_id.id.eth.haddr[3],
-                                     client_id.id.eth.haddr[4],
-                                     client_id.id.eth.haddr[5]);
-                else
-                        r = asprintf(&t, "ETHER");
-                break;
-        case 2 ... 254:
-                r = asprintf(&t, "ARP/LL");
-                break;
-        case 255:
-                if (len < sizeof(uint32_t))
-                        r = asprintf(&t, "IAID/DUID");
-                else {
-                        uint32_t iaid = be32toh(client_id.id.ns.iaid);
-                        /* TODO: check and stringify DUID */
-                        r = asprintf(&t, "IAID:0x%x/DUID", iaid);
-                }
-                break;
-        }
-        if (r < 0)
-                return -ENOMEM;
-
-        *ret = TAKE_PTR(t);
-        return 0;
-}
-
 int dhcp_client_set_state_callback(
                 sd_dhcp_client *client,
                 sd_dhcp_client_callback_t cb,

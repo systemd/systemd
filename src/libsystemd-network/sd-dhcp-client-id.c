@@ -93,3 +93,67 @@ int sd_dhcp_client_id_set_iaid_duid(
         client_id->size = offsetof(typeof(client_id->id), ns.duid) + duid->size;
         return 0;
 }
+
+int sd_dhcp_client_id_to_string(const sd_dhcp_client_id *client_id, char **ret) {
+        _cleanup_free_ char *t = NULL;
+        size_t len;
+        int r;
+
+        assert_return(sd_dhcp_client_id_is_set(client_id), -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        len = client_id->size - offsetof(typeof(client_id->id), data);
+
+        switch (client_id->id.type) {
+        case 0:
+                if (utf8_is_printable((char *) client_id->id.gen.data, len))
+                        r = asprintf(&t, "%.*s", (int) len, client_id->id.gen.data);
+                else
+                        r = asprintf(&t, "DATA");
+                break;
+        case 1:
+                if (len == sizeof_field(sd_dhcp_client_id, id.eth))
+                        r = asprintf(&t, "%02x:%02x:%02x:%02x:%02x:%02x",
+                                     client_id->id.eth.haddr[0],
+                                     client_id->id.eth.haddr[1],
+                                     client_id->id.eth.haddr[2],
+                                     client_id->id.eth.haddr[3],
+                                     client_id->id.eth.haddr[4],
+                                     client_id->id.eth.haddr[5]);
+                else
+                        r = asprintf(&t, "ETHER");
+                break;
+        case 2 ... 254:
+                r = asprintf(&t, "ARP/LL");
+                break;
+        case 255:
+                if (len < sizeof(uint32_t))
+                        r = asprintf(&t, "IAID/DUID");
+                else {
+                        uint32_t iaid = be32toh(client_id->id.ns.iaid);
+                        /* TODO: check and stringify DUID */
+                        r = asprintf(&t, "IAID:0x%x/DUID", iaid);
+                }
+                break;
+        }
+        if (r < 0)
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(t);
+        return 0;
+}
+
+int sd_dhcp_client_id_to_string_from_raw(const void *data, size_t data_size, char **ret) {
+        sd_dhcp_client_id client_id;
+        int r;
+
+        assert_return(data, -EINVAL);
+        assert_return(client_id_size_is_valid(data_size), -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        r = sd_dhcp_client_id_set_raw(&client_id, data, data_size);
+        if (r < 0)
+                return r;
+
+        return sd_dhcp_client_id_to_string(&client_id, ret);
+}
