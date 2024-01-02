@@ -20,6 +20,7 @@
 #include "networkd-queue.h"
 #include "networkd-route-util.h"
 #include "parse-util.h"
+#include "path-util.h"
 #include "socket-netlink.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -521,6 +522,14 @@ static int dhcp4_server_configure(Link *link) {
                 if (r < 0)
                         return log_link_error_errno(link, r, "Failed to set DHCPv4 static lease for DHCP server: %m");
         }
+
+        _cleanup_free_ char *lease_file = path_join("/var/lib/systemd/network/dhcp-server-lease/", link->ifname);
+        if (!lease_file)
+                return log_oom();
+
+        r = sd_dhcp_server_set_lease_file(link->dhcp_server, lease_file);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Failed to load DHCPv4 server leases, ignoring: %m");
 
         r = link_start_dhcp4_server(link);
         if (r < 0)
