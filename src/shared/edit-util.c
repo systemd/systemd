@@ -16,6 +16,15 @@
 #include "strv.h"
 #include "tmpfile-util-label.h"
 
+typedef struct EditFile {
+        EditFileContext *context;
+        char *path;
+        char *original_path;
+        char **comment_paths;
+        char *temp;
+        unsigned line;
+} EditFile;
+
 void edit_file_context_done(EditFileContext *context) {
         int r;
 
