@@ -449,6 +449,11 @@ static int journal_file_find_newest_for_boot_id(
                 r = journal_file_read_tail_timestamp(j, f);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to read tail timestamp while trying to find newest journal file for boot ID %s.", SD_ID128_TO_STRING(id));
+                if (r == 0) {
+                        /* No new entry found. */
+                        *ret = f;
+                        return 0;
+                }
 
                 /* Refreshing the timestamp we read might have reshuffled the prioq, hence let's check the
                  * prioq again and only use the information once we reached an equilibrium or hit a limit */
@@ -2488,6 +2493,16 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
         if (mo > rt) /* monotonic clock is further ahead than realtime? that's weird, refuse to use the data */
                 return -ENODATA;
 
+        if (offset == f->newest_entry_offset) {
+                /* Cached data and the current one should be equivalent. */
+                assert(sd_id128_equal(f->newest_boot_id, id));
+                assert(f->newest_monotonic_usec == mo);
+                assert(f->newest_realtime_usec == rt);
+                assert(sd_id128_equal(f->newest_machine_id, f->header->machine_id));
+
+                return 0; /* No new entry is added after we read last time. */
+        }
+
         if (!sd_id128_equal(f->newest_boot_id, id))
                 journal_file_unlink_newest_by_boot_id(j, f);
 
@@ -2502,7 +2517,7 @@ static int journal_file_read_tail_timestamp(sd_journal *j, JournalFile *f) {
         if (r < 0)
                 return r;
 
-        return 0;
+        return 1; /* Updated. */
 }
 
 _public_ int sd_journal_get_realtime_usec(sd_journal *j, uint64_t *ret) {
