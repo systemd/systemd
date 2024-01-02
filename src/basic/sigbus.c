@@ -70,7 +70,7 @@ int sigbus_pop(void **ret) {
                 if (_likely_(c == 0))
                         return 0;
 
-                if (_unlikely_(c >= SIGBUS_QUEUE_MAX))
+                if (_unlikely_(c > SIGBUS_QUEUE_MAX))
                         return -EOVERFLOW;
 
                 for (u = 0; u < SIGBUS_QUEUE_MAX; u++) {
