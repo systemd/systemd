@@ -81,6 +81,7 @@ int sd_dhcp_server_set_smtp(sd_dhcp_server *server, const struct in_addr smtp[],
 int sd_dhcp_server_add_option(sd_dhcp_server *server, sd_dhcp_option *v);
 int sd_dhcp_server_add_vendor_option(sd_dhcp_server *server, sd_dhcp_option *v);
 int sd_dhcp_server_set_static_lease(sd_dhcp_server *server, const struct in_addr *address, uint8_t *client_id, size_t client_id_size);
+int sd_dhcp_server_set_lease_file(sd_dhcp_server *server, const char *path);
 
 int sd_dhcp_server_set_max_lease_time(sd_dhcp_server *server, uint64_t t);
 int sd_dhcp_server_set_default_lease_time(sd_dhcp_server *server, uint64_t t);
