@@ -5,10 +5,9 @@
 name: "Pull Request Labeler"
 
 on:
-  pull_request_target:
-    types: [opened, synchronize, reopened, ready_for_review, closed]
   issue_comment:
     types: [created]
+  pull_request:
 
 permissions:
   contents: read
@@ -21,13 +20,14 @@ jobs:
       pull-requests: write
 
     steps:
+    - name: Repository checkout
+      uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
     - name: Label PR based on policy in labeler.yml
       uses: actions/labeler@8558fd74291d67161a8a78ce36a881fa63b766a9
-      if: github.event_name == 'pull_request_target' && github.event.action != 'closed'
       with:
         repo-token: "${{ secrets.GITHUB_TOKEN }}"
         configuration-path: .github/labeler.yml
-        sync-labels: "" # This is a workaround for issue 18671
+        sync-labels: false
 
     - name: Set or remove labels based on systemd development workflow
       uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
