@@ -23,6 +23,7 @@ typedef struct Spawn {
         usec_t timeout_usec;
         int timeout_signal;
         usec_t event_birth_usec;
+        usec_t cmd_birth_usec;
         bool accept_failure;
         int fd_stdout;
         int fd_stderr;
@@ -163,31 +164,20 @@ static int spawn_wait(Spawn *spawn) {
         if (r < 0)
                 return log_device_debug_errno(spawn->device, r, "Failed to allocate sd-event object: %m");
 
-        if (spawn->timeout_usec > 0) {
-                usec_t usec, age_usec;
-
-                usec = now(CLOCK_MONOTONIC);
-                age_usec = usec - spawn->event_birth_usec;
-                if (age_usec < spawn->timeout_usec) {
-                        if (spawn->timeout_warn_usec > 0 &&
-                            spawn->timeout_warn_usec < spawn->timeout_usec &&
-                            spawn->timeout_warn_usec > age_usec) {
-                                spawn->timeout_warn_usec -= age_usec;
-
-                                r = sd_event_add_time(e, NULL, CLOCK_MONOTONIC,
-                                                      usec + spawn->timeout_warn_usec, USEC_PER_SEC,
-                                                      on_spawn_timeout_warning, spawn);
-                                if (r < 0)
-                                        return log_device_debug_errno(spawn->device, r, "Failed to create timeout warning event source: %m");
-                        }
-
-                        spawn->timeout_usec -= age_usec;
-
+        if (spawn->timeout_usec != USEC_INFINITY) {
+                if (spawn->timeout_warn_usec < spawn->timeout_usec) {
                         r = sd_event_add_time(e, NULL, CLOCK_MONOTONIC,
-                                              usec + spawn->timeout_usec, USEC_PER_SEC, on_spawn_timeout, spawn);
+                                              usec_add(spawn->cmd_birth_usec, spawn->timeout_warn_usec), USEC_PER_SEC,
+                                              on_spawn_timeout_warning, spawn);
                         if (r < 0)
-                                return log_device_debug_errno(spawn->device, r, "Failed to create timeout event source: %m");
+                                return log_device_debug_errno(spawn->device, r, "Failed to create timeout warning event source: %m");
                 }
+
+                r = sd_event_add_time(e, NULL, CLOCK_MONOTONIC,
+                                      usec_add(spawn->cmd_birth_usec, spawn->timeout_usec), USEC_PER_SEC,
+                                      on_spawn_timeout, spawn);
+                if (r < 0)
+                        return log_device_debug_errno(spawn->device, r, "Failed to create timeout event source: %m");
         }
 
         if (spawn->fd_stdout >= 0) {
@@ -240,6 +230,13 @@ int udev_event_spawn(
 
         int timeout_signal = event->worker ? event->worker->timeout_signal : SIGKILL;
         usec_t timeout_usec = event->worker ? event->worker->timeout_usec : DEFAULT_WORKER_TIMEOUT_USEC;
+        usec_t now_usec = now(CLOCK_MONOTONIC);
+        usec_t age_usec = usec_sub_unsigned(now_usec, event->birth_usec);
+        usec_t cmd_timeout_usec = usec_sub_unsigned(timeout_usec, age_usec);
+        if (cmd_timeout_usec <= 0)
+                return log_device_warning_errno(event->dev, SYNTHETIC_ERRNO(ETIME),
+                                                "The event already takes longer (%s) than the timeout (%s), skipping execution of '%s'.",
+                                                FORMAT_TIMESPAN(age_usec, 1), FORMAT_TIMESPAN(timeout_usec, 1), cmd);
 
         /* pipes from child to parent */
         if (result || log_get_max_level() >= LOG_INFO)
@@ -300,10 +297,11 @@ int udev_event_spawn(
                 .cmd = cmd,
                 .pid = pid,
                 .accept_failure = accept_failure,
-                .timeout_warn_usec = udev_warn_timeout(timeout_usec),
-                .timeout_usec = timeout_usec,
+                .timeout_warn_usec = udev_warn_timeout(cmd_timeout_usec),
+                .timeout_usec = cmd_timeout_usec,
                 .timeout_signal = timeout_signal,
                 .event_birth_usec = event->birth_usec,
+                .cmd_birth_usec = now_usec,
                 .fd_stdout = outpipe[READ_END],
                 .fd_stderr = errpipe[READ_END],
                 .result = result,
