@@ -15,7 +15,7 @@ Documentation=https://www.freedesktop.org/wiki/Software/systemd/writing-network-
 Documentation=https://www.freedesktop.org/wiki/Software/systemd/writing-resolver-clients
 
 DefaultDependencies=no
-After=systemd-sysusers.service
+After=systemd-sysctl.service systemd-sysusers.service
 Before=sysinit.target network.target nss-lookup.target shutdown.target initrd-switch-root.target
 Conflicts=shutdown.target initrd-switch-root.target
 Wants=nss-lookup.target
