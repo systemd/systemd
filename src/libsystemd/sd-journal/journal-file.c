@@ -3512,7 +3512,6 @@ int journal_file_next_entry(
                 uint64_t *ret_offset) {
 
         uint64_t i, n, q;
-        Object *o;
         int r;
 
         assert(f);
@@ -3539,7 +3538,8 @@ int journal_file_next_entry(
                                  p,
                                  test_object_offset,
                                  direction,
-                                 ret_object ? &o : NULL, &q, &i);
+                                 NULL, &q, &i); /* Here, do not read entry object, as the result object
+                                                 * may not be the one we want, and it may be broken. */
         if (r <= 0)
                 return r;
 
@@ -3549,15 +3549,14 @@ int journal_file_next_entry(
          * the same offset, and the index needs to be shifted. Otherwise, use the found object as is,
          * as it is the nearest entry object from the input offset 'p'. */
 
-        if (p != q)
-                goto found;
-
-        r = bump_array_index(&i, direction, n);
-        if (r <= 0)
-                return r;
+        if (p == q) {
+                r = bump_array_index(&i, direction, n);
+                if (r <= 0)
+                        return r;
+        }
 
         /* And jump to it */
-        r = generic_array_get(f, le64toh(f->header->entry_array_offset), i, direction, ret_object ? &o : NULL, &q);
+        r = generic_array_get(f, le64toh(f->header->entry_array_offset), i, direction, ret_object, &q);
         if (r <= 0)
                 return r;
 
@@ -3566,9 +3565,7 @@ int journal_file_next_entry(
                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
                                        "%s: entry array not properly ordered at entry index %" PRIu64,
                                        f->path, i);
-found:
-        if (ret_object)
-                *ret_object = o;
+
         if (ret_offset)
                 *ret_offset = q;
 
