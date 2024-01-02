@@ -3162,10 +3162,21 @@ previous:
         if (direction == DIRECTION_DOWN)
                 return 0;
 
-        /* Indicate to go to the previous array later. Note, do not move to the previous array here,
-         * as that may invalidate the current array object in the mmap cache and
-         * journal_file_entry_array_item() below may read invalid address. */
-        i = UINT64_MAX;
+        /* Get the last entry of the previous array. */
+        r = bump_entry_array(f, NULL, a, first, DIRECTION_UP, &a);
+        if (r <= 0)
+                return r;
+
+        r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &array);
+        if (r < 0)
+                return r;
+
+        p = journal_file_entry_array_n_items(f, array);
+        if (p == 0 || t < p)
+                return -EBADMSG;
+
+        t -= p;
+        i = p - 1;
 
 found:
         p = journal_file_entry_array_item(f, array, 0);
@@ -3174,27 +3185,6 @@ found:
 
         /* Let's cache this item for the next invocation */
         chain_cache_put(f->chain_cache, ci, first, a, p, t, i);
-
-        if (i == UINT64_MAX) {
-                uint64_t m;
-
-                /* Get the last entry of the previous array. */
-
-                r = bump_entry_array(f, NULL, a, first, DIRECTION_UP, &a);
-                if (r <= 0)
-                        return r;
-
-                r = journal_file_move_to_object(f, OBJECT_ENTRY_ARRAY, a, &array);
-                if (r < 0)
-                        return r;
-
-                m = journal_file_entry_array_n_items(f, array);
-                if (m == 0 || t < m)
-                        return -EBADMSG;
-
-                t -= m;
-                i = m - 1;
-        }
 
         p = journal_file_entry_array_item(f, array, i);
         if (p == 0)
