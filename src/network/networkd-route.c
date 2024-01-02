@@ -38,7 +38,6 @@ int route_new(Route **ret) {
                 .quickack = -1,
                 .fast_open_no_cookie = -1,
                 .gateway_onlink = -1,
-                .ttl_propagate = -1,
         };
 
         *ret = TAKE_PTR(route);
@@ -1184,12 +1183,6 @@ static int route_configure(const Route *route, uint32_t lifetime_sec, Link *link
 
         if (lifetime_sec != UINT32_MAX) {
                 r = sd_netlink_message_append_u32(m, RTA_EXPIRES, lifetime_sec);
-                if (r < 0)
-                        return r;
-        }
-
-        if (route->ttl_propagate >= 0) {
-                r = sd_netlink_message_append_u8(m, RTA_TTL_PROPAGATE, route->ttl_propagate);
                 if (r < 0)
                         return r;
         }
@@ -2417,8 +2410,6 @@ int config_parse_route_boolean(
                 n->quickack = r;
         else if (streq(lvalue, "FastOpenNoCookie"))
                 n->fast_open_no_cookie = r;
-        else if (streq(lvalue, "TTLPropagate"))
-                n->ttl_propagate = r;
         else
                 assert_not_reached();
 
