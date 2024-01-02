@@ -267,8 +267,6 @@ int bridge_vlan_set_message(Link *link, sd_netlink_message *m, bool is_set) {
         return 0;
 }
 
-#define RTA_TYPE(rta) ((rta)->rta_type & NLA_TYPE_MASK)
-
 int link_update_bridge_vlan(Link *link, sd_netlink_message *m) {
         _cleanup_free_ void *data = NULL;
         size_t len;
