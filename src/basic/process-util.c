@@ -1309,14 +1309,13 @@ pid_t getpid_cached(void) {
 
                         if (pthread_atfork(NULL, NULL, reset_cached_pid) != 0) {
                                 /* OOM? Let's try again later */
-                                cached_pid = CACHED_PID_UNSET;
+                                __atomic_store_n(&cached_pid, CACHED_PID_UNSET, __ATOMIC_SEQ_CST);
                                 return new_pid;
                         }
 
                         installed = true;
                 }
-
-                cached_pid = new_pid;
+                __atomic_store_n(&cached_pid, new_pid, __ATOMIC_SEQ_CST);
                 return new_pid;
         }
 
