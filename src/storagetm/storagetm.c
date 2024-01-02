@@ -381,7 +381,7 @@ static int nvme_subsystem_add(const char *node, int consumed_fd, sd_device *devi
                 return log_error_errno(errno, "Failed to fstat '%s': %m", node);
         if (S_ISBLK(st.st_mode)) {
                 if (!device) {
-                        r = sd_device_new_from_devnum(&allocated_device, 'b', st.st_dev);
+                        r = sd_device_new_from_devnum(&allocated_device, 'b', st.st_rdev);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to get device information for device '%s': %m", node);
 
