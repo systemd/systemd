@@ -567,7 +567,41 @@ static int expected_result(uint64_t needle, const uint64_t *candidates, const ui
         }
 }
 
-static void verify(JournalFile *f, const uint64_t *seqnum, const uint64_t *offset, size_t n) {
+static int expected_result_next(uint64_t needle, const uint64_t *candidates, const uint64_t *offset, size_t n, direction_t direction, uint64_t *ret) {
+        switch (direction) {
+        case DIRECTION_DOWN:
+                for (size_t i = 0; i < n; i++)
+                        if (needle < offset[i]) {
+                                *ret = candidates[i];
+                                return candidates[i] > 0;
+                        }
+                *ret = 0;
+                return 0;
+
+        case DIRECTION_UP:
+                for (size_t i = 0; i < n; i++)
+                        if (needle <= offset[i]) {
+                                n = i;
+                                break;
+                        }
+
+                for (; n > 0 && candidates[n - 1] == 0; n--)
+                        ;
+
+                if (n == 0) {
+                        *ret = 0;
+                        return 0;
+                }
+
+                *ret = candidates[n - 1];
+                return candidates[n - 1] > 0;
+
+        default:
+                assert_not_reached();
+        }
+}
+
+static void verify(JournalFile *f, const uint64_t *seqnum, const uint64_t *offset_candidates, const uint64_t *offset, size_t n) {
         uint64_t p, q;
         int r, e;
 
@@ -664,12 +698,81 @@ static void verify(JournalFile *f, const uint64_t *seqnum, const uint64_t *offse
                 assert_se(r == e);
                 assert_se(p == q);
         }
+
+        /* by journal_file_next_entry() */
+        for (size_t i = 0; i < n; i++) {
+                p = 0;
+                r = journal_file_next_entry(f, offset[i] - 2, DIRECTION_DOWN, NULL, &p);
+                e = expected_result_next(offset[i] - 2, offset_candidates, offset, n, DIRECTION_DOWN, &q);
+                assert_se(e == 0 ? r <= 0 : r > 0);
+                assert_se(p == q);
+
+                p = 0;
+                r = journal_file_next_entry(f, offset[i] - 1, DIRECTION_DOWN, NULL, &p);
+                e = expected_result_next(offset[i] - 1, offset_candidates, offset, n, DIRECTION_DOWN, &q);
+                assert_se(e == 0 ? r <= 0 : r > 0);
+                assert_se(p == q);
+
+                p = 0;
+                r = journal_file_next_entry(f, offset[i], DIRECTION_DOWN, NULL, &p);
+                e = expected_result_next(offset[i], offset_candidates, offset, n, DIRECTION_DOWN, &q);
+                assert_se(e == 0 ? r <= 0 : r > 0);
+                assert_se(p == q);
+
+                p = 0;
+                r = journal_file_next_entry(f, offset[i] + 1, DIRECTION_DOWN, NULL, &p);
+                e = expected_result_next(offset[i] + 1, offset_candidates, offset, n, DIRECTION_DOWN, &q);
+                assert_se(e == 0 ? r <= 0 : r > 0);
+                assert_se(p == q);
+
+                p = 0;
+                r = journal_file_next_entry(f, offset[i] - 1, DIRECTION_UP, NULL, &p);
+                e = expected_result_next(offset[i] - 1, offset_candidates, offset, n, DIRECTION_UP, &q);
+                assert_se(e == 0 ? r <= 0 : r > 0);
+                assert_se(p == q);
+
+                p = 0;
+                r = journal_file_next_entry(f, offset[i], DIRECTION_UP, NULL, &p);
+                e = expected_result_next(offset[i], offset_candidates, offset, n, DIRECTION_UP, &q);
+                assert_se(e == 0 ? r <= 0 : r > 0);
+                assert_se(p == q);
+
+                p = 0;
+                r = journal_file_next_entry(f, offset[i] + 1, DIRECTION_UP, NULL, &p);
+                e = expected_result_next(offset[i] + 1, offset_candidates, offset, n, DIRECTION_UP, &q);
+                assert_se(e == 0 ? r <= 0 : r > 0);
+                assert_se(p == q);
+
+                p = 0;
+                r = journal_file_next_entry(f, offset[i] + 2, DIRECTION_UP, NULL, &p);
+                e = expected_result_next(offset[i] + 2, offset_candidates, offset, n, DIRECTION_UP, &q);
+                assert_se(e == 0 ? r <= 0 : r > 0);
+                assert_se(p == q);
+        }
+        for (size_t trial = 0; trial < 3 * n; trial++) {
+                uint64_t i = offset[0] - 1 + random_u64_range(offset[n-1] - offset[0] + 2);
+
+                p = 0;
+                r = journal_file_next_entry(f, i, DIRECTION_DOWN, NULL, &p);
+                e = expected_result_next(i, offset_candidates, offset, n, DIRECTION_DOWN, &q);
+                assert_se(e == 0 ? r <= 0 : r > 0);
+                assert_se(p == q);
+        }
+        for (size_t trial = 0; trial < 3 * n; trial++) {
+                uint64_t i = offset[0] - 1 + random_u64_range(offset[n-1] - offset[0] + 2);
+
+                p = 0;
+                r = journal_file_next_entry(f, i, DIRECTION_UP, NULL, &p);
+                e = expected_result_next(i, offset_candidates, offset, n, DIRECTION_UP, &q);
+                assert_se(e == 0 ? r <= 0 : r > 0);
+                assert_se(p == q);
+        }
 }
 
 static void test_generic_array_bisect_one(size_t n, size_t num_corrupted) {
         _cleanup_(mmap_cache_unrefp) MMapCache *m = NULL;
         char t[] = "/var/tmp/journal-seq-XXXXXX";
-        _cleanup_free_ uint64_t *seqnum = NULL, *offset = NULL;
+        _cleanup_free_ uint64_t *seqnum = NULL, *offset = NULL, *offset_candidates = NULL;
         JournalFile *f;
 
         log_info("/* %s(%zu, %zu) */", __func__, n, num_corrupted);
@@ -695,7 +798,9 @@ static void test_generic_array_bisect_one(size_t n, size_t num_corrupted) {
                 }
         }
 
-        verify(f, seqnum, offset, n);
+        assert_se(offset_candidates = newdup(uint64_t, offset, n));
+
+        verify(f, seqnum, offset_candidates, offset, n);
 
         /* Reset chain cache. */
         assert_se(journal_file_move_to_entry_by_offset(f, offset[0], DIRECTION_DOWN, NULL, NULL) > 0);
@@ -708,9 +813,10 @@ static void test_generic_array_bisect_one(size_t n, size_t num_corrupted) {
                 assert_se(o);
                 o->entry.seqnum = 0;
                 seqnum[i] = 0;
+                offset_candidates[i] = 0;
         }
 
-        verify(f, seqnum, offset, n);
+        verify(f, seqnum, offset_candidates, offset, n);
 
         test_close(f);
         test_done(t);
