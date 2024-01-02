@@ -40,14 +40,14 @@ static void sigbus_push(void *addr) {
         }
 
         /* If we can't, make sure the queue size is out of bounds, to
-         * mark it as overflow */
+         * mark it as overflowed */
         for (;;) {
                 sig_atomic_t c;
 
                 __atomic_thread_fence(__ATOMIC_SEQ_CST);
                 c = n_sigbus_queue;
 
-                if (c > SIGBUS_QUEUE_MAX) /* already overflow */
+                if (c > SIGBUS_QUEUE_MAX) /* already overflowed */
                         return;
 
                 /* OK if we clobber c here, since we either immediately return
@@ -70,7 +70,7 @@ int sigbus_pop(void **ret) {
                 if (_likely_(c == 0))
                         return 0;
 
-                if (_unlikely_(c >= SIGBUS_QUEUE_MAX))
+                if (_unlikely_(c > SIGBUS_QUEUE_MAX))
                         return -EOVERFLOW;
 
                 for (u = 0; u < SIGBUS_QUEUE_MAX; u++) {
