@@ -44,7 +44,7 @@ static int property_get_leases(
                 if (r < 0)
                         return r;
 
-                r = sd_bus_message_append_array(reply, 'y', lease->client_id.data, lease->client_id.length);
+                r = sd_bus_message_append_array(reply, 'y', lease->client_id.raw, lease->client_id.size);
                 if (r < 0)
                         return r;
 
