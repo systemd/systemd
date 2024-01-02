@@ -143,12 +143,10 @@ int enroll_tpm2(struct crypt_device *cd,
                 bool use_pin,
                 const char *pcrlock_path) {
 
-        _cleanup_(erase_and_freep) void *secret = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *signature_json = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
-        _cleanup_free_ void *srk_buf = NULL;
-        size_t secret_size, blob_size, pubkey_size = 0, srk_buf_size = 0;
-        _cleanup_free_ void *blob = NULL, *pubkey = NULL;
+        _cleanup_(iovec_done) struct iovec srk = {}, blob = {}, pubkey = {};
+        _cleanup_(iovec_done_erase) struct iovec secret = {};
         const char *node;
         _cleanup_(erase_and_freep) char *pin_str = NULL;
         ssize_t base64_encoded_size;
@@ -194,7 +192,7 @@ int enroll_tpm2(struct crypt_device *cd,
         }
 
         TPM2B_PUBLIC public = {};
-        r = tpm2_load_pcr_public_key(pubkey_path, &pubkey, &pubkey_size);
+        r = tpm2_load_pcr_public_key(pubkey_path, &pubkey.iov_base, &pubkey.iov_len);
         if (r < 0) {
                 if (pubkey_path || signature_path || r != -ENOENT)
                         return log_error_errno(r, "Failed to read TPM PCR public key: %m");
@@ -202,7 +200,7 @@ int enroll_tpm2(struct crypt_device *cd,
                 log_debug_errno(r, "Failed to read TPM2 PCR public key, proceeding without: %m");
                 pubkey_pcr_mask = 0;
         } else {
-                r = tpm2_tpm2b_public_from_pem(pubkey, pubkey_size, &public);
+                r = tpm2_tpm2b_public_from_pem(pubkey.iov_base, pubkey.iov_len, &public);
                 if (r < 0)
                         return log_error_errno(r, "Could not convert public key to TPM2B_PUBLIC: %m");
 
@@ -271,7 +269,7 @@ int enroll_tpm2(struct crypt_device *cd,
         r = tpm2_calculate_sealing_policy(
                         hash_pcr_values,
                         n_hash_pcr_values,
-                        pubkey ? &public : NULL,
+                        iovec_is_set(&pubkey) ? &public : NULL,
                         use_pin,
                         pcrlock_path ? &pcrlock_policy : NULL,
                         &policy);
@@ -283,21 +281,21 @@ int enroll_tpm2(struct crypt_device *cd,
                                 seal_key_handle,
                                 &device_key_public,
                                 /* attributes= */ NULL,
-                                /* secret= */ NULL, /* secret_size= */ 0,
+                                /* secret= */ NULL,
                                 &policy,
                                 pin_str,
-                                &secret, &secret_size,
-                                &blob, &blob_size,
-                                &srk_buf, &srk_buf_size);
+                                &secret,
+                                &blob,
+                                &srk);
         else
                 r = tpm2_seal(tpm2_context,
                               seal_key_handle,
                               &policy,
                               pin_str,
-                              &secret, &secret_size,
-                              &blob, &blob_size,
+                              &secret,
+                              &blob,
                               /* ret_primary_alg= */ NULL,
-                              &srk_buf, &srk_buf_size);
+                              &srk);
         if (r < 0)
                 return log_error_errno(r, "Failed to seal to TPM2: %m");
 
@@ -313,33 +311,32 @@ int enroll_tpm2(struct crypt_device *cd,
         }
 
         /* If possible, verify the sealed data object. */
-        if ((!pubkey || signature_json) && !any_pcr_value_specified && !device_key) {
-                _cleanup_(erase_and_freep) void *secret2 = NULL;
-                size_t secret2_size;
+        if ((!iovec_is_set(&pubkey) || signature_json) && !any_pcr_value_specified && !device_key) {
+                _cleanup_(iovec_done_erase) struct iovec secret2 = {};
 
                 log_debug("Unsealing for verification...");
                 r = tpm2_unseal(tpm2_context,
                                 hash_pcr_mask,
                                 hash_pcr_bank,
-                                pubkey, pubkey_size,
+                                &pubkey,
                                 pubkey_pcr_mask,
                                 signature_json,
                                 pin_str,
                                 pcrlock_path ? &pcrlock_policy : NULL,
                                 /* primary_alg= */ 0,
-                                blob, blob_size,
-                                policy.buffer, policy.size,
-                                srk_buf, srk_buf_size,
-                                &secret2, &secret2_size);
+                                &blob,
+                                &IOVEC_MAKE(policy.buffer, policy.size),
+                                &srk,
+                                &secret2);
                 if (r < 0)
                         return log_error_errno(r, "Failed to unseal secret using TPM2: %m");
 
-                if (memcmp_nn(secret, secret_size, secret2, secret2_size) != 0)
+                if (iovec_memcmp(&secret, &secret2) != 0)
                         return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "TPM2 seal/unseal verification failed.");
         }
 
         /* let's base64 encode the key to use, for compat with homed (and it's easier to every type it in by keyboard, if that might end up being necessary. */
-        base64_encoded_size = base64mem(secret, secret_size, &base64_encoded);
+        base64_encoded_size = base64mem(secret.iov_base, secret.iov_len, &base64_encoded);
         if (base64_encoded_size < 0)
                 return log_error_errno(base64_encoded_size, "Failed to base64 encode secret key: %m");
 
@@ -361,14 +358,14 @@ int enroll_tpm2(struct crypt_device *cd,
                         keyslot,
                         hash_pcr_mask,
                         hash_pcr_bank,
-                        pubkey, pubkey_size,
+                        &pubkey,
                         pubkey_pcr_mask,
                         /* primary_alg= */ 0,
-                        blob, blob_size,
-                        policy.buffer, policy.size,
-                        use_pin ? binary_salt : NULL,
-                        use_pin ? sizeof(binary_salt) : 0,
-                        srk_buf, srk_buf_size,
+                        &blob,
+                        &IOVEC_MAKE(policy.buffer, policy.size),
+                        use_pin ? &IOVEC_MAKE(binary_salt, sizeof(binary_salt)) : NULL,
+                        &srk,
+                        pcrlock_path ? &pcrlock_policy.nv_handle : NULL,
                         flags,
                         &v);
         if (r < 0)
