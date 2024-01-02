@@ -192,7 +192,7 @@ int dhcp_pd_remove(Link *link, bool only_marked) {
 
                         link_remove_dhcp_pd_subnet_prefix(link, &prefix);
 
-                        RET_GATHER(ret, address_remove_and_drop(address));
+                        RET_GATHER(ret, address_remove_and_cancel(address, link));
                 }
         }
 
