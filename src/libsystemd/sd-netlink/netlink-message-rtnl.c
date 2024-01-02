@@ -92,6 +92,20 @@ int sd_rtnl_message_route_set_src_prefixlen(sd_netlink_message *m, unsigned char
         return 0;
 }
 
+int sd_rtnl_message_route_set_tos(sd_netlink_message *m, unsigned char tos) {
+        struct rtmsg *rtm;
+
+        assert_return(m, -EINVAL);
+        assert_return(m->hdr, -EINVAL);
+        assert_return(rtnl_message_type_is_route(m->hdr->nlmsg_type), -EINVAL);
+
+        rtm = NLMSG_DATA(m->hdr);
+
+        rtm->rtm_tos = tos;
+
+        return 0;
+}
+
 int sd_rtnl_message_route_set_scope(sd_netlink_message *m, unsigned char scope) {
         struct rtmsg *rtm;
 
