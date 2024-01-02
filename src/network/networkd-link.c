@@ -954,6 +954,13 @@ static int link_drop_requests(Link *link) {
                                         RET_GATHER(ret, address_remove(address, link));
                                 break;
                         }
+                        case REQUEST_TYPE_NEIGHBOR: {
+                                Neighbor *neighbor = ASSERT_PTR(req->userdata);
+
+                                if (neighbor_get(link, neighbor, NULL) < 0)
+                                        RET_GATHER(ret, neighbor_remove(neighbor, link));
+                                break;
+                        }
                         default:
                                 ;
                         }
