@@ -437,7 +437,7 @@ static int journal_file_find_newest_for_boot_id(
 
                 assert_se(f = prioq_peek(q)); /* we delete hashmap entries once the prioq is empty, so this must hold */
 
-                if (f == prev || n_tries >= 5) {
+                if (f == prev || n_tries >= 5 || FLAGS_SET(j->flags, SD_JOURNAL_READ_TAIL_TIMESTAMP_ONCE)) {
                         /* This was already the best answer in the previous run, or we tried too often, use it */
                         *ret = f;
                         return 0;
@@ -812,7 +812,8 @@ static int next_beyond_location(sd_journal *j, JournalFile *f, direction_t direc
         assert(j);
         assert(f);
 
-        (void) journal_file_read_tail_timestamp(j, f);
+        if (!FLAGS_SET(j->flags, SD_JOURNAL_READ_TAIL_TIMESTAMP_ONCE))
+                (void) journal_file_read_tail_timestamp(j, f);
 
         n_entries = le64toh(f->header->n_entries);
 
@@ -2092,7 +2093,8 @@ static sd_journal *journal_new(int flags, const char *path, const char *namespac
          SD_JOURNAL_SYSTEM |                            \
          SD_JOURNAL_CURRENT_USER |                      \
          SD_JOURNAL_ALL_NAMESPACES |                    \
-         SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE)
+         SD_JOURNAL_INCLUDE_DEFAULT_NAMESPACE |         \
+         SD_JOURNAL_READ_TAIL_TIMESTAMP_ONCE)
 
 _public_ int sd_journal_open_namespace(sd_journal **ret, const char *namespace, int flags) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
@@ -2118,7 +2120,9 @@ _public_ int sd_journal_open(sd_journal **ret, int flags) {
 }
 
 #define OPEN_CONTAINER_ALLOWED_FLAGS                    \
-        (SD_JOURNAL_LOCAL_ONLY | SD_JOURNAL_SYSTEM)
+        (SD_JOURNAL_LOCAL_ONLY |                        \
+         SD_JOURNAL_SYSTEM |                            \
+         SD_JOURNAL_READ_TAIL_TIMESTAMP_ONCE)
 
 _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, int flags) {
         _cleanup_free_ char *root = NULL, *class = NULL;
@@ -2162,7 +2166,9 @@ _public_ int sd_journal_open_container(sd_journal **ret, const char *machine, in
 
 #define OPEN_DIRECTORY_ALLOWED_FLAGS                    \
         (SD_JOURNAL_OS_ROOT |                           \
-         SD_JOURNAL_SYSTEM | SD_JOURNAL_CURRENT_USER )
+         SD_JOURNAL_SYSTEM |                            \
+         SD_JOURNAL_CURRENT_USER |                      \
+         SD_JOURNAL_READ_TAIL_TIMESTAMP_ONCE)
 
 _public_ int sd_journal_open_directory(sd_journal **ret, const char *path, int flags) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
@@ -2187,12 +2193,15 @@ _public_ int sd_journal_open_directory(sd_journal **ret, const char *path, int f
         return 0;
 }
 
+#define OPEN_FILES_ALLOWED_FLAGS                        \
+        (SD_JOURNAL_READ_TAIL_TIMESTAMP_ONCE)
+
 _public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int flags) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
         int r;
 
         assert_return(ret, -EINVAL);
-        assert_return(flags == 0, -EINVAL);
+        assert_return((flags & ~OPEN_FILES_ALLOWED_FLAGS) == 0, -EINVAL);
 
         j = journal_new(flags, NULL, NULL);
         if (!j)
@@ -2214,7 +2223,8 @@ _public_ int sd_journal_open_files(sd_journal **ret, const char **paths, int fla
         (SD_JOURNAL_OS_ROOT |                           \
          SD_JOURNAL_SYSTEM |                            \
          SD_JOURNAL_CURRENT_USER |                      \
-         SD_JOURNAL_TAKE_DIRECTORY_FD)
+         SD_JOURNAL_TAKE_DIRECTORY_FD |                 \
+         SD_JOURNAL_READ_TAIL_TIMESTAMP_ONCE)
 
 _public_ int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
@@ -2252,6 +2262,9 @@ _public_ int sd_journal_open_directory_fd(sd_journal **ret, int fd, int flags) {
         return 0;
 }
 
+#define OPEN_FILES_FD_ALLOWED_FLAGS                        \
+        (SD_JOURNAL_READ_TAIL_TIMESTAMP_ONCE)
+
 _public_ int sd_journal_open_files_fd(sd_journal **ret, int fds[], unsigned n_fds, int flags) {
         JournalFile *f;
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
@@ -2259,7 +2272,7 @@ _public_ int sd_journal_open_files_fd(sd_journal **ret, int fds[], unsigned n_fd
 
         assert_return(ret, -EINVAL);
         assert_return(n_fds > 0, -EBADF);
-        assert_return(flags == 0, -EINVAL);
+        assert_return((flags & ~OPEN_FILES_FD_ALLOWED_FLAGS) == 0, -EINVAL);
 
         j = journal_new(flags, NULL, NULL);
         if (!j)
