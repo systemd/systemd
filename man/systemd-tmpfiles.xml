@@ -146,6 +146,14 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--purge-owned</option></term>
+        <listitem><para>If this option is passed, all files and directories created by a tmpfiles.d entry
+        will be deleted.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--user</option></term>
         <listitem><para>Execute "user" configuration, i.e. <filename>tmpfiles.d</filename>
         files in user configuration directories.</para>
