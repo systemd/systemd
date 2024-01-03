@@ -3,10 +3,13 @@
 #include "alloc-util.h"
 #include "ask-password-api.h"
 #include "cryptenroll-tpm2.h"
+#include "cryptsetup-tpm2.h"
 #include "env-util.h"
+#include "errno-util.h"
 #include "fileio.h"
 #include "hexdecoct.h"
 #include "json.h"
+#include "log.h"
 #include "memory-util.h"
 #include "random-util.h"
 #include "sha256.h"
@@ -127,6 +130,115 @@ static int get_pin(char **ret_pin_str, TPM2Flags *ret_flags) {
         *ret_pin_str = TAKE_PTR(pin_str);
 
         return 0;
+}
+
+int load_volume_key_tpm2(
+                struct crypt_device *cd,
+                const char *cd_node,
+                const char *device,
+                void *ret_vk,
+                size_t *ret_vks) {
+
+        _cleanup_(erase_and_freep) void *decrypted_key = NULL;
+        _cleanup_(erase_and_freep) char *passphrase = NULL;
+        size_t decrypted_key_size;
+        ssize_t passphrase_size;
+        int r;
+
+        assert_se(cd);
+        assert_se(cd_node);
+        assert_se(ret_vk);
+        assert_se(ret_vks);
+
+        bool found_some = false;
+        int token = 0; /* first token to look at */
+
+        for (;;) {
+                _cleanup_free_ void *blob = NULL, *policy_hash = NULL;
+                _cleanup_free_ void *pubkey = NULL, *salt = NULL, *srk_buf = NULL;
+                size_t pubkey_size = 0, salt_size = 0, srk_buf_size = 0;
+                size_t blob_size = 0, policy_hash_size = 0;
+                uint32_t hash_pcr_mask, pubkey_pcr_mask;
+                uint16_t pcr_bank, primary_alg;
+                TPM2Flags tpm2_flags;
+                int keyslot;
+
+                r = find_tpm2_auto_data(
+                                cd,
+                                UINT32_MAX,
+                                token,
+                                &hash_pcr_mask,
+                                &pcr_bank,
+                                &pubkey, &pubkey_size,
+                                &pubkey_pcr_mask,
+                                &primary_alg,
+                                &blob, &blob_size,
+                                &policy_hash, &policy_hash_size,
+                                &salt, &salt_size,
+                                &srk_buf, &srk_buf_size,
+                                &tpm2_flags,
+                                &keyslot,
+                                &token);
+                if (r == -ENXIO)
+                        return log_full_errno(LOG_NOTICE,
+                                              SYNTHETIC_ERRNO(EAGAIN),
+                                              found_some
+                                              ? "No TPM2 metadata matching the current system state found in LUKS2 header."
+                                              : "No TPM2 metadata enrolled in LUKS2 header.");
+                if (ERRNO_IS_NEG_NOT_SUPPORTED(r))
+                        /* TPM2 support not compiled in? */
+                        return log_debug_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 support not available.");
+                if (r < 0)
+                        return r;
+
+                found_some = true;
+
+                r = acquire_tpm2_key(
+                        cd_node,
+                        device,
+                        hash_pcr_mask,
+                        pcr_bank,
+                        pubkey, pubkey_size,
+                        pubkey_pcr_mask,
+                        /* signature_path= */ NULL,
+                        /* pcrlock_path= */ NULL,
+                        primary_alg,
+                        /* key_file= */ NULL, /* key_file_size= */ 0, /* key_file_offset= */ 0, /* no key file */
+                        blob, blob_size,
+                        policy_hash, policy_hash_size,
+                        salt, salt_size,
+                        srk_buf, srk_buf_size,
+                        tpm2_flags,
+                        /* until= */ 0,
+                        /* headless= */ false,
+                        /* ask_password_flags */ false,
+                        &decrypted_key, &decrypted_key_size);
+                if (IN_SET(r, -EACCES, -ENOLCK))
+                        return log_notice_errno(SYNTHETIC_ERRNO(EAGAIN), "TPM2 PIN unlock failed");
+                if (r != -EPERM)
+                        break;
+
+                token++; /* try a different token next time */
+        }
+
+        if (r < 0)
+                return log_error_errno(r, "Unlocking via TPM2 device failed: %m");
+
+        passphrase_size = base64mem(decrypted_key, decrypted_key_size, &passphrase);
+        if (passphrase_size < 0)
+                return log_oom();
+
+        r = crypt_volume_key_get(
+                        cd,
+                        CRYPT_ANY_SLOT,
+                        ret_vk,
+                        ret_vks,
+                        passphrase,
+                        passphrase_size);
+        if (r < 0)
+                return log_error_errno(r, "Unlocking via TPM2 device failed: %m");
+
+        return r;
 }
 
 int enroll_tpm2(struct crypt_device *cd,

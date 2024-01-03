@@ -222,10 +222,10 @@
     <title>Limitations</title>
 
     <para>Note that currently when enrolling a new key of one of the five supported types listed above, it is
-    required to first provide a passphrase, a recovery key or a FIDO2 token. It's currently not supported to
-    unlock a device with a TPM2/PKCS#11 key in order to enroll a new TPM2/PKCS#11 key. Thus, if in future key
-    roll-over is desired it's generally recommended to ensure a passphrase, a recovery key or a FIDO2 token
-    is always enrolled.</para>
+    required to first provide a passphrase, a recovery key, a FIDO2 token, or a TPM2 key. It's currently not
+    supported to unlock a device with a PKCS#11 key in order to enroll a new PKCS#11 key. Thus, if in future
+    key roll-over is desired it's generally recommended to ensure a passphrase, a recovery key, a FIDO2
+    token, or a TPM2 key is always enrolled.</para>
 
     <para>Also note that support for enrolling multiple FIDO2 tokens is currently limited. When multiple FIDO2
     tokens are enrolled, <command>systemd-cryptseup</command> will perform pre-flight requests to attempt to
@@ -308,6 +308,17 @@
         <option>--fido2-device=</option> option is also specified.</para>
 
         <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--unlock-tpm2-device=</option><replaceable>PATH</replaceable></term>
+
+        <listitem><para>Use a TPM2 device insteaad of a password/passhprase read from stdin to unlock the
+        volume. Expects a device node path referring to the TPM2 chip (e.g. <filename>/dev/tpmrm0</filename>).
+        Alternatively the special value <literal>auto</literal> may be specified, in order to automatically
+        determine the device node of a currently discovered TPM2 device (of which there must be exactly one).
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
       <varlistentry>
