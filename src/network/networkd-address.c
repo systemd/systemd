@@ -1087,20 +1087,16 @@ static int address_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link 
         return 1;
 }
 
-int address_remove(Address *address) {
+int address_remove(Address *address, Link *link) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        Request *req;
-        Link *link;
         int r;
 
         assert(address);
         assert(IN_SET(address->family, AF_INET, AF_INET6));
-        assert(address->link);
-        assert(address->link->ifindex > 0);
-        assert(address->link->manager);
-        assert(address->link->manager->rtnl);
-
-        link = address->link;
+        assert(link);
+        assert(link->ifindex > 0);
+        assert(link->manager);
+        assert(link->manager->rtnl);
 
         log_address_debug(address, "Removing", link);
 
@@ -1122,8 +1118,6 @@ int address_remove(Address *address) {
         link_ref(link);
 
         address_enter_removing(address);
-        if (address_get_request(link, address, &req) >= 0)
-                address_enter_removing(req->userdata);
 
         /* The operational state is determined by address state and carrier state. Hence, if we remove
          * an address, the operational state may be changed. */
@@ -1131,16 +1125,30 @@ int address_remove(Address *address) {
         return 0;
 }
 
-int address_remove_and_drop(Address *address) {
-        if (!address)
-                return 0;
+int address_remove_and_cancel(Address *address, Link *link) {
+        bool waiting = false;
+        Request *req;
 
-        address_cancel_request(address);
+        assert(address);
+        assert(link);
+        assert(link->manager);
 
-        if (address_exists(address))
-                return address_remove(address);
+        /* If the address is remembered by the link, then use the remembered object. */
+        (void) address_get(link, address, &address);
 
-        return address_drop(address);
+        /* Cancel the request for the address.  If the request is already called but we have not received the
+         * notification about the request, then explicitly remove the address. */
+        if (address_get_request(link, address, &req) >= 0) {
+                waiting = req->waiting_reply;
+                request_detach(link->manager, req);
+                address_cancel_requesting(address);
+        }
+
+        /* If we know the address will come or already exists, remove it. */
+        if (waiting || (address->link && address_exists(address)))
+                return address_remove(address, link);
+
+        return 0;
 }
 
 bool link_address_is_dynamic(const Link *link, const Address *address) {
@@ -1206,7 +1214,6 @@ int link_drop_ipv6ll_addresses(Link *link) {
                 _cleanup_(address_freep) Address *a = NULL;
                 unsigned char flags, prefixlen;
                 struct in6_addr address;
-                Address *existing;
                 int ifindex;
 
                 /* NETLINK_GET_STRICT_CHK socket option is supported since kernel 4.20. To support
@@ -1252,15 +1259,7 @@ int link_drop_ipv6ll_addresses(Link *link) {
                 a->prefixlen = prefixlen;
                 a->flags = flags;
 
-                if (address_get(link, a, &existing) < 0) {
-                        r = address_add(link, a);
-                        if (r < 0)
-                                return r;
-
-                        existing = TAKE_PTR(a);
-                }
-
-                r = address_remove(existing);
+                r = address_remove(a, link);
                 if (r < 0)
                         return r;
         }
@@ -1320,7 +1319,7 @@ int link_drop_foreign_addresses(Link *link) {
                 if (!address_is_marked(address))
                         continue;
 
-                RET_GATHER(r, address_remove(address));
+                RET_GATHER(r, address_remove(address, link));
         }
 
         return r;
@@ -1341,7 +1340,7 @@ int link_drop_managed_addresses(Link *link) {
                 if (!address_exists(address))
                         continue;
 
-                RET_GATHER(r, address_remove(address));
+                RET_GATHER(r, address_remove(address, link));
         }
 
         return r;
@@ -1642,27 +1641,6 @@ int link_request_static_addresses(Link *link) {
         }
 
         return 0;
-}
-
-void address_cancel_request(Address *address) {
-        Request req;
-
-        assert(address);
-        assert(address->link);
-
-        if (!address_is_requesting(address))
-                return;
-
-        req = (Request) {
-                .link = address->link,
-                .type = REQUEST_TYPE_ADDRESS,
-                .userdata = address,
-                .hash_func = (hash_func_t) address_hash_func,
-                .compare_func = (compare_func_t) address_compare_func,
-        };
-
-        request_detach(address->link->manager, &req);
-        address_cancel_requesting(address);
 }
 
 int manager_rtnl_process_address(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
