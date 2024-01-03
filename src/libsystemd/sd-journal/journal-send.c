@@ -49,11 +49,11 @@
 static int fd_plus_one = 0;
 
 static int journal_fd(void) {
-        int fd;
+        int fd, temp_var;
 
-retry:
-        if (fd_plus_one > 0)
-                return fd_plus_one - 1;
+        temp_var = __atomic_load_n(&fd_plus_one, __ATOMIC_RELAXED);
+        if (temp_var > 0)
+                return temp_var - 1;
 
         fd = socket(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0);
         if (fd < 0)
@@ -61,10 +61,11 @@ retry:
 
         fd_inc_sndbuf(fd, SNDBUF_SIZE);
 
-        if (!__atomic_compare_exchange_n(&fd_plus_one, &(int){0}, fd+1,
-                false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
+        temp_var = 0;
+        if (!__atomic_compare_exchange_n(&fd_plus_one, &temp_var, fd+1,
+                false, __ATOMIC_SEQ_CST, __ATOMIC_RELAXED)) {
                 safe_close(fd);
-                goto retry;
+                fd = temp_var - 1;
         }
 
         return fd;
