@@ -240,16 +240,16 @@ int session_save(Session *s) {
                 "# This is private data. Do not parse.\n"
                 "UID="UID_FMT"\n"
                 "USER=%s\n"
-                "ACTIVE=%i\n"
-                "IS_DISPLAY=%i\n"
+                "ACTIVE=%s\n"
+                "IS_DISPLAY=%s\n"
                 "STATE=%s\n"
-                "REMOTE=%i\n",
+                "REMOTE=%s\n",
                 s->user->user_record->uid,
                 s->user->user_record->user_name,
-                session_is_active(s),
-                s->user->display == s,
+                one_zero(session_is_active(s)),
+                one_zero(s->user->display == s),
                 session_state_to_string(session_get_state(s)),
-                s->remote);
+                one_zero(s->remote));
 
         if (s->type >= 0)
                 fprintf(f, "TYPE=%s\n", session_type_to_string(s->type));
