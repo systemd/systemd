@@ -59,6 +59,11 @@ systemd-cryptenroll --fido2-with-user-verification=false "$IMAGE"
 systemd-cryptenroll --tpm2-pcrs=8 "$IMAGE"
 systemd-cryptenroll --tpm2-pcrs=boot-loader-code+boot-loader-config "$IMAGE"
 
+# Unlocking using TPM2
+PASSWORD=foo systemd-cryptenroll --tpm2-device=auto "$IMAGE"
+systemd-cryptenroll --unlock-tpm2-device=auto --recovery-key "$IMAGE"
+systemd-cryptenroll --unlock-tpm2-device=auto --tpm2-device=auto --wipe-slot=tpm2 "$IMAGE"
+
 (! systemd-cryptenroll --fido2-with-client-pin=false)
 (! systemd-cryptenroll --fido2-with-user-presence=f "$IMAGE" /tmp/foo)
 (! systemd-cryptenroll --fido2-with-client-pin=1234 "$IMAGE")
