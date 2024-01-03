@@ -184,7 +184,7 @@ static void test_message_handler(void) {
         assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL) == 0);
         test.option_server_id.address = htobe32(INADDR_LOOPBACK);
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 4);
-        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL) == 0);
+        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL) == DHCP_ACK);
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 3);
         assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL) == DHCP_ACK);
 
@@ -200,7 +200,7 @@ static void test_message_handler(void) {
         assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL) == DHCP_ACK);
 
         test.option_requested_ip.address = htobe32(INADDR_LOOPBACK + 30);
-        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL) == 0);
+        assert_se(dhcp_server_handle_message(server, (DHCPMessage*)&test, sizeof(test), NULL) == DHCP_ACK);
 
         /* request address reserved for static lease (unmatching client ID) */
         test.option_client_id.id[6] = 'H';

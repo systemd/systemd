@@ -87,13 +87,6 @@ int sd_dhcp_server_configure_pool(
                 server->address = address->s_addr;
                 server->netmask = netmask;
                 server->subnet = address->s_addr & netmask;
-
-                /* Drop any leases associated with the old address range */
-                hashmap_clear(server->bound_leases_by_address);
-                hashmap_clear(server->bound_leases_by_client_id);
-
-                if (server->callback)
-                        server->callback(server, SD_DHCP_SERVER_EVENT_LEASE_CHANGED, server->callback_userdata);
         }
 
         return 0;
@@ -1050,10 +1043,19 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
                         return 0;
 
                 /* for now pick a random free address from the pool */
-                if (static_lease)
+                if (static_lease) {
+                        if (existing_lease != hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(static_lease->address)))
+                                /* The address is already assigned to another host. Refusing. */
+                                return 0;
+
+                        /* Found a matching static lease. */
                         address = static_lease->address;
-                else if (existing_lease)
+
+                } else if (existing_lease && address_is_in_pool(server, existing_lease->address))
+
+                        /* If we previously assigned an address to the host, then reuse it. */
                         address = existing_lease->address;
+
                 else {
                         struct siphash state;
                         uint64_t hash;
@@ -1151,30 +1153,24 @@ int dhcp_server_handle_message(sd_dhcp_server *server, DHCPMessage *message, siz
                 /* Silently ignore Rapid Commit option in REQUEST message. */
                 req->rapid_commit = false;
 
-                /* disallow our own address */
-                if (address == server->address)
-                        return 0;
-
                 if (static_lease) {
-                        /* Found a static lease for the client ID. */
-
                         if (static_lease->address != address)
-                                /* The client requested an address which is different from the static lease. Refuse. */
+                                /* The client requested an address which is different from the static lease. Refusing. */
                                 return server_send_nak_or_ignore(server, init_reboot, req);
 
+                        if (existing_lease != hashmap_get(server->bound_leases_by_address, UINT32_TO_PTR(address)))
+                                /* The requested address is already assigned to another host. Refusing. */
+                                return server_send_nak_or_ignore(server, init_reboot, req);
+
+                        /* Found a static lease for the client ID. */
                         return server_ack_request(server, req, address);
                 }
 
-                if (address_is_in_pool(server, address)) {
+                if (address_is_in_pool(server, address))
                         /* The requested address is in the pool. */
-
-                        if (existing_lease && existing_lease->address != address)
-                                /* We previously assigned an address, but the client requested another one. Refuse. */
-                                return server_send_nak_or_ignore(server, init_reboot, req);
-
                         return server_ack_request(server, req, address);
-                }
 
+                /* Refuse otherwise. */
                 return server_send_nak_or_ignore(server, init_reboot, req);
         }
 
