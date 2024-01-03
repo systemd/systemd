@@ -455,7 +455,7 @@ static inline uint64_t ALIGN_OFFSET_U64(uint64_t l, uint64_t ali) {
 #define SET_FLAG(v, flag, b) \
         (v) = UPDATE_FLAG(v, flag, b)
 #define FLAGS_SET(v, flags) \
-        ((~(v) & (flags)) == 0)
+        (((v) & (flags)) != 0)
 
 /* A wrapper for 'func' to return void.
  * Only useful when a void-returning function is required by some API. */
