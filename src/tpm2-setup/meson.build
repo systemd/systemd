@@ -13,4 +13,10 @@ executables += [
                         libopenssl,
                 ],
         },
+
+        generator_template + {
+                'name' : 'systemd-tpm2-generator',
+                'sources' : files('tpm2-generator.c'),
+        },
+
 ]
