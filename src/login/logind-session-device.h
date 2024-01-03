@@ -27,7 +27,7 @@ struct SessionDevice {
         LIST_FIELDS(struct SessionDevice, sd_by_device);
 };
 
-int session_device_new(Session *s, dev_t dev, bool open_device, SessionDevice **out);
+int session_device_new(Session *s, dev_t dev, bool open_device, SessionDevice **ret);
 SessionDevice *session_device_free(SessionDevice *sd);
 DEFINE_TRIVIAL_CLEANUP_FUNC(SessionDevice*, session_device_free);
 
