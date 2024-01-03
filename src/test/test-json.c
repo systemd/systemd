@@ -105,6 +105,17 @@ static void test_variant_one(const char *data, Test test) {
         assert_se(json_variant_equal(v, w));
 
         s = mfree(s);
+        r = json_variant_format(w, JSON_FORMAT_REFUSE_SENSITIVE, &s);
+        assert_se(r == -EPERM);
+        assert_se(!s);
+
+        s = mfree(s);
+        r = json_variant_format(w, JSON_FORMAT_PRETTY, &s);
+        assert_se(r >= 0);
+        assert_se(s);
+        assert_se((size_t) r == strlen(s));
+
+        s = mfree(s);
         w = json_variant_unref(w);
 
         r = json_variant_format(v, JSON_FORMAT_PRETTY, &s);
@@ -811,6 +822,100 @@ TEST(json_dispatch) {
         assert_se(foobar.j == UINT16_MAX);
         assert_se(foobar.k == INT16_MIN);
         assert_se(foobar.l == INT16_MIN);
+}
+
+TEST(json_sensitive) {
+        _cleanup_(json_variant_unrefp) JsonVariant *a = NULL, *b = NULL, *v = NULL;
+        _cleanup_free_ char *s = NULL;
+        int r;
+
+        assert_se(json_build(&a, JSON_BUILD_STRV(STRV_MAKE("foo", "bar", "baz", "bar", "baz", "foo", "qux", "baz"))) >= 0);
+        assert_se(json_build(&b, JSON_BUILD_STRV(STRV_MAKE("foo", "bar", "baz", "qux"))) >= 0);
+
+        json_variant_sensitive(a);
+
+        assert_se(json_variant_format(a, JSON_FORMAT_REFUSE_SENSITIVE, &s) == -EPERM);
+        assert_se(!s);
+
+        r = json_variant_format(b, JSON_FORMAT_REFUSE_SENSITIVE, &s);
+        assert_se(r >= 0);
+        assert_se(s);
+        assert_se((size_t) r == strlen(s));
+        s = mfree(s);
+
+        assert_se(json_build(&v, JSON_BUILD_OBJECT(
+                                             JSON_BUILD_PAIR("c", JSON_BUILD_INTEGER(INT64_MIN)),
+                                             JSON_BUILD_PAIR("d", JSON_BUILD_STRING("-9223372036854775808")),
+                                             JSON_BUILD_PAIR("e", JSON_BUILD_EMPTY_OBJECT))) >= 0);
+        json_variant_dump(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, NULL, NULL);
+
+        r = json_variant_format(v, JSON_FORMAT_REFUSE_SENSITIVE, &s);
+        assert_se(r >= 0);
+        assert_se(s);
+        assert_se((size_t) r == strlen(s));
+        s = mfree(s);
+        v = json_variant_unref(v);
+
+        assert_se(json_build(&v, JSON_BUILD_OBJECT(
+                                             JSON_BUILD_PAIR_VARIANT("b", b),
+                                             JSON_BUILD_PAIR("c", JSON_BUILD_INTEGER(INT64_MIN)),
+                                             JSON_BUILD_PAIR("d", JSON_BUILD_STRING("-9223372036854775808")),
+                                             JSON_BUILD_PAIR("e", JSON_BUILD_EMPTY_OBJECT))) >= 0);
+        json_variant_dump(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, NULL, NULL);
+
+        r = json_variant_format(v, JSON_FORMAT_REFUSE_SENSITIVE, &s);
+        assert_se(r >= 0);
+        assert_se(s);
+        assert_se((size_t) r == strlen(s));
+        s = mfree(s);
+        v = json_variant_unref(v);
+
+        assert_se(json_build(&v, JSON_BUILD_OBJECT(
+                                             JSON_BUILD_PAIR_VARIANT("b", b),
+                                             JSON_BUILD_PAIR_VARIANT("a", a),
+                                             JSON_BUILD_PAIR("c", JSON_BUILD_INTEGER(INT64_MIN)),
+                                             JSON_BUILD_PAIR("d", JSON_BUILD_STRING("-9223372036854775808")),
+                                             JSON_BUILD_PAIR("e", JSON_BUILD_EMPTY_OBJECT))) >= 0);
+        json_variant_dump(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, NULL, NULL);
+
+        assert_se(json_variant_format(v, JSON_FORMAT_REFUSE_SENSITIVE, &s) == -EPERM);
+        assert_se(!s);
+        v = json_variant_unref(v);
+
+        assert_se(json_build(&v, JSON_BUILD_OBJECT(
+                                             JSON_BUILD_PAIR_VARIANT("b", b),
+                                             JSON_BUILD_PAIR("c", JSON_BUILD_INTEGER(INT64_MIN)),
+                                             JSON_BUILD_PAIR_VARIANT("a", a),
+                                             JSON_BUILD_PAIR("d", JSON_BUILD_STRING("-9223372036854775808")),
+                                             JSON_BUILD_PAIR("e", JSON_BUILD_EMPTY_OBJECT))) >= 0);
+        json_variant_dump(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, NULL, NULL);
+
+        assert_se(json_variant_format(v, JSON_FORMAT_REFUSE_SENSITIVE, &s) == -EPERM);
+        assert_se(!s);
+        v = json_variant_unref(v);
+
+        assert_se(json_build(&v, JSON_BUILD_OBJECT(
+                                             JSON_BUILD_PAIR_VARIANT("b", b),
+                                             JSON_BUILD_PAIR("c", JSON_BUILD_INTEGER(INT64_MIN)),
+                                             JSON_BUILD_PAIR("d", JSON_BUILD_STRING("-9223372036854775808")),
+                                             JSON_BUILD_PAIR_VARIANT("a", a),
+                                             JSON_BUILD_PAIR("e", JSON_BUILD_EMPTY_OBJECT))) >= 0);
+        json_variant_dump(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, NULL, NULL);
+
+        assert_se(json_variant_format(v, JSON_FORMAT_REFUSE_SENSITIVE, &s) == -EPERM);
+        assert_se(!s);
+        v = json_variant_unref(v);
+
+        assert_se(json_build(&v, JSON_BUILD_OBJECT(
+                                             JSON_BUILD_PAIR_VARIANT("b", b),
+                                             JSON_BUILD_PAIR("c", JSON_BUILD_INTEGER(INT64_MIN)),
+                                             JSON_BUILD_PAIR("d", JSON_BUILD_STRING("-9223372036854775808")),
+                                             JSON_BUILD_PAIR("e", JSON_BUILD_EMPTY_OBJECT),
+                                             JSON_BUILD_PAIR_VARIANT("a", a))) >= 0);
+        json_variant_dump(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, NULL, NULL);
+
+        assert_se(json_variant_format(v, JSON_FORMAT_REFUSE_SENSITIVE, &s) == -EPERM);
+        assert_se(!s);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

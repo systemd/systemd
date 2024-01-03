@@ -4,6 +4,7 @@
 #include "sd-event.h"
 
 #include "json.h"
+#include "pidref.h"
 #include "time-util.h"
 #include "varlink-idl.h"
 
@@ -116,6 +117,12 @@ int varlink_error_errno(Varlink *v, int error);
 int varlink_notify(Varlink *v, JsonVariant *parameters);
 int varlink_notifyb(Varlink *v, ...);
 
+/* Ask for the current message to be dispatched again */
+int varlink_dispatch_again(Varlink *v);
+
+/* Get the currently processed incoming message */
+int varlink_get_current_parameters(Varlink *v, JsonVariant **ret);
+
 /* Parsing incoming data via json_dispatch() and generate a nice error on parse errors */
 int varlink_dispatch(Varlink *v, JsonVariant *parameters, const JsonDispatch table[], void *userdata);
 
@@ -139,6 +146,7 @@ void* varlink_get_userdata(Varlink *v);
 
 int varlink_get_peer_uid(Varlink *v, uid_t *ret);
 int varlink_get_peer_pid(Varlink *v, pid_t *ret);
+int varlink_get_peer_pidref(Varlink *v, PidRef *ret);
 
 int varlink_set_relative_timeout(Varlink *v, usec_t usec);
 
@@ -213,6 +221,9 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(VarlinkServer *, varlink_server_unref);
 
 /* This one we invented, and use for generically propagating system errors (errno) to clients */
 #define VARLINK_ERROR_SYSTEM "io.systemd.System"
+
+/* This one we invented and is a weaker version of "org.varlink.service.PermissionDenied", and indicates that if user would allow interactive auth, we might allow access */
+#define VARLINK_ERROR_INTERACTIVE_AUTHENTICATION_REQUIRED "io.systemd.InteractiveAuthenticationRequired"
 
 /* These are errors defined in the Varlink spec */
 #define VARLINK_ERROR_INTERFACE_NOT_FOUND "org.varlink.service.InterfaceNotFound"
