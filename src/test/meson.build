@@ -600,4 +600,8 @@ executables += [
                         libudev_basic,
                 ],
         },
+        test_template + {
+                'sources' : files('test-aux-scope.c'),
+                'type' : 'manual',
+        },
 ]
