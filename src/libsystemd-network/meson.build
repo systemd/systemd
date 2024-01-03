@@ -15,6 +15,7 @@ sources = files(
         'ndisc-router.c',
         'network-common.c',
         'network-internal.c',
+        'sd-dhcp-client-id.c',
         'sd-dhcp-client.c',
         'sd-dhcp-duid.c',
         'sd-dhcp-lease.c',

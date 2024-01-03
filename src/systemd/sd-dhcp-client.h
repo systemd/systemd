@@ -26,6 +26,7 @@
 #include <stdbool.h>
 
 #include "sd-device.h"
+#include "sd-dhcp-client-id.h"
 #include "sd-dhcp-lease.h"
 #include "sd-dhcp-option.h"
 #include "sd-event.h"
@@ -75,6 +76,9 @@ int sd_dhcp_client_set_mac(
                 const uint8_t *bcast_addr,
                 size_t addr_len,
                 uint16_t arp_type);
+int sd_dhcp_client_get_client_id(
+                sd_dhcp_client *client,
+                const sd_dhcp_client_id **ret);
 int sd_dhcp_client_set_client_id(
                 sd_dhcp_client *client,
                 uint8_t type,
@@ -107,11 +111,6 @@ __extension__ int sd_dhcp_client_set_iaid_duid_raw(
 __extension__ int sd_dhcp_client_set_rapid_commit(
                 sd_dhcp_client *client,
                 bool rapid_commit);
-int sd_dhcp_client_get_client_id(
-                sd_dhcp_client *client,
-                uint8_t *ret_type,
-                const uint8_t **ret_data,
-                size_t *ret_data_len);
 int sd_dhcp_client_set_mtu(
                 sd_dhcp_client *client,
                 uint32_t mtu);
@@ -164,8 +163,6 @@ sd_dhcp_client *sd_dhcp_client_unref(sd_dhcp_client *client);
 /* NOTE: anonymize parameter is used to initialize PRL memory with different
  * options when using RFC7844 Anonymity Profiles */
 int sd_dhcp_client_new(sd_dhcp_client **ret, int anonymize);
-
-int sd_dhcp_client_id_to_string(const void *data, size_t len, char **ret);
 
 int sd_dhcp_client_attach_event(
                 sd_dhcp_client *client,
