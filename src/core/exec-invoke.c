@@ -59,6 +59,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "utmp-wtmp.h"
+#include "vpick.h"
 
 #define IDLE_TIMEOUT_USEC (5*USEC_PER_SEC)
 #define IDLE_TIMEOUT2_USEC (1*USEC_PER_SEC)
@@ -2859,12 +2860,32 @@ static bool insist_on_sandboxing(
         return false;
 }
 
-static int setup_ephemeral(const ExecContext *context, ExecRuntime *runtime) {
+static int setup_ephemeral(
+                const ExecContext *context,
+                ExecRuntime *runtime,
+                char **root_image,            /* both input and output! modified if ephemeral logic enabled */
+                char **root_directory) {      /* ditto */
+
         _cleanup_close_ int fd = -EBADF;
+        _cleanup_free_ char *new_root = NULL;
         int r;
+
+        assert(context);
+        assert(root_image);
+        assert(root_directory);
+
+        if (!*root_image && !*root_directory)
+                return 0;
 
         if (!runtime || !runtime->ephemeral_copy)
                 return 0;
+
+        assert(runtime->ephemeral_storage_socket[0] >= 0);
+        assert(runtime->ephemeral_storage_socket[1] >= 0);
+
+        new_root = strdup(runtime->ephemeral_copy);
+        if (!new_root)
+                return log_oom_debug();
 
         r = posix_lock(runtime->ephemeral_storage_socket[0], LOCK_EX);
         if (r < 0)
@@ -2876,28 +2897,23 @@ static int setup_ephemeral(const ExecContext *context, ExecRuntime *runtime) {
         if (fd >= 0)
                 /* We got an fd! That means ephemeral has already been set up, so nothing to do here. */
                 return 0;
-
         if (fd != -EAGAIN)
                 return log_debug_errno(fd, "Failed to receive file descriptor queued on ephemeral storage socket: %m");
 
-        log_debug("Making ephemeral snapshot of %s to %s",
-                  context->root_image ?: context->root_directory, runtime->ephemeral_copy);
+        if (*root_image) {
+                log_debug("Making ephemeral copy of %s to %s", *root_image, new_root);
 
-        if (context->root_image)
-                fd = copy_file(context->root_image, runtime->ephemeral_copy, O_EXCL, 0600,
-                               COPY_LOCK_BSD|COPY_REFLINK|COPY_CRTIME);
-        else
-                fd = btrfs_subvol_snapshot_at(AT_FDCWD, context->root_directory,
-                                              AT_FDCWD, runtime->ephemeral_copy,
-                                              BTRFS_SNAPSHOT_FALLBACK_COPY |
-                                              BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
-                                              BTRFS_SNAPSHOT_RECURSIVE |
-                                              BTRFS_SNAPSHOT_LOCK_BSD);
-        if (fd < 0)
-                return log_debug_errno(fd, "Failed to snapshot %s to %s: %m",
-                                       context->root_image ?: context->root_directory, runtime->ephemeral_copy);
+                fd = copy_file(*root_image,
+                               new_root,
+                               O_EXCL,
+                               0600,
+                               COPY_LOCK_BSD|
+                               COPY_REFLINK|
+                               COPY_CRTIME);
+                if (fd < 0)
+                        return log_debug_errno(fd, "Failed to copy image %s to %s: %m",
+                                               *root_image, new_root);
 
-        if (context->root_image) {
                 /* A root image might be subject to lots of random writes so let's try to disable COW on it
                  * which tends to not perform well in combination with lots of random writes.
                  *
@@ -2906,12 +2922,34 @@ static int setup_ephemeral(const ExecContext *context, ExecRuntime *runtime) {
                  */
                 r = chattr_fd(fd, FS_NOCOW_FL, FS_NOCOW_FL, NULL);
                 if (r < 0)
-                        log_debug_errno(fd, "Failed to disable copy-on-write for %s, ignoring: %m", runtime->ephemeral_copy);
+                        log_debug_errno(fd, "Failed to disable copy-on-write for %s, ignoring: %m", new_root);
+        } else {
+                assert(*root_directory);
+
+                log_debug("Making ephemeral snapshot of %s to %s", *root_directory, new_root);
+
+                fd = btrfs_subvol_snapshot_at(
+                                AT_FDCWD, *root_directory,
+                                AT_FDCWD, new_root,
+                                BTRFS_SNAPSHOT_FALLBACK_COPY |
+                                BTRFS_SNAPSHOT_FALLBACK_DIRECTORY |
+                                BTRFS_SNAPSHOT_RECURSIVE |
+                                BTRFS_SNAPSHOT_LOCK_BSD);
+                if (fd < 0)
+                        return log_debug_errno(fd, "Failed to snapshot directory %s to %s: %m",
+                                               *root_directory, new_root);
         }
 
         r = send_one_fd(runtime->ephemeral_storage_socket[1], fd, MSG_DONTWAIT);
         if (r < 0)
                 return log_debug_errno(r, "Failed to queue file descriptor on ephemeral storage socket: %m");
+
+        if (*root_image)
+                free_and_replace(*root_image, new_root);
+        else {
+                assert(*root_directory);
+                free_and_replace(*root_directory, new_root);
+        }
 
         return 1;
 }
@@ -2972,6 +3010,63 @@ static int verity_settings_prepare(
         return 0;
 }
 
+static int pick_versions(
+                const ExecContext *context,
+                const ExecParameters *params,
+                char **ret_root_image,
+                char **ret_root_directory) {
+
+        int r;
+
+        assert(context);
+        assert(params);
+        assert(ret_root_image);
+        assert(ret_root_directory);
+
+        if (context->root_image) {
+                _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+
+                r = path_pick(/* toplevel_path= */ NULL,
+                              /* toplevel_fd= */ AT_FDCWD,
+                              context->root_image,
+                              &pick_filter_image_raw,
+                              PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
+                              &result);
+                if (r < 0)
+                        return r;
+
+                if (!result.path)
+                        return log_exec_debug_errno(context, params, SYNTHETIC_ERRNO(ENOENT), "No matching entry in .v/ directory %s found.", context->root_image);
+
+                *ret_root_image = TAKE_PTR(result.path);
+                *ret_root_directory = NULL;
+                return r;
+        }
+
+        if (context->root_directory) {
+                _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+
+                r = path_pick(/* toplevel_path= */ NULL,
+                              /* toplevel_fd= */ AT_FDCWD,
+                              context->root_directory,
+                              &pick_filter_image_dir,
+                              PICK_ARCHITECTURE|PICK_TRIES|PICK_RESOLVE,
+                              &result);
+                if (r < 0)
+                        return r;
+
+                if (!result.path)
+                        return log_exec_debug_errno(context, params, SYNTHETIC_ERRNO(ENOENT), "No matching entry in .v/ directory %s found.", context->root_directory);
+
+                *ret_root_image = NULL;
+                *ret_root_directory = TAKE_PTR(result.path);
+                return r;
+        }
+
+        *ret_root_image = *ret_root_directory = NULL;
+        return 0;
+}
+
 static int apply_mount_namespace(
                 ExecCommandFlags command_flags,
                 const ExecContext *context,
@@ -2984,8 +3079,8 @@ static int apply_mount_namespace(
         _cleanup_strv_free_ char **empty_directories = NULL, **symlinks = NULL,
                         **read_write_paths_cleanup = NULL;
         _cleanup_free_ char *creds_path = NULL, *incoming_dir = NULL, *propagate_dir = NULL,
-                        *extension_dir = NULL, *host_os_release_stage = NULL;
-        const char *root_dir = NULL, *root_image = NULL, *tmp_dir = NULL, *var_tmp_dir = NULL;
+                *extension_dir = NULL, *host_os_release_stage = NULL, *root_image = NULL, *root_dir = NULL;
+        const char *tmp_dir = NULL, *var_tmp_dir = NULL;
         char **read_write_paths;
         bool needs_sandboxing, setup_os_release_symlink;
         BindMount *bind_mounts = NULL;
@@ -2997,14 +3092,21 @@ static int apply_mount_namespace(
         CLEANUP_ARRAY(bind_mounts, n_bind_mounts, bind_mount_free_many);
 
         if (params->flags & EXEC_APPLY_CHROOT) {
-                r = setup_ephemeral(context, runtime);
+                r = pick_versions(
+                                context,
+                                params,
+                                &root_image,
+                                &root_dir);
                 if (r < 0)
                         return r;
 
-                if (context->root_image)
-                        root_image = (runtime ? runtime->ephemeral_copy : NULL) ?: context->root_image;
-                else
-                        root_dir = (runtime ? runtime->ephemeral_copy : NULL) ?: context->root_directory;
+                r = setup_ephemeral(
+                                context,
+                                runtime,
+                                &root_image,
+                                &root_dir);
+                if (r < 0)
+                        return r;
         }
 
         r = compile_bind_mounts(context, params, &bind_mounts, &n_bind_mounts, &empty_directories);

@@ -155,6 +155,10 @@
           <programlisting>BindReadOnlyPaths=/dev/log /run/systemd/journal/socket /run/systemd/journal/stdout</programlisting>
         </example>
 
+        <para>In place of the directory path a <literal>.v/</literal> versioned directory may be specified,
+        see <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details.</para>
+
         <xi:include href="system-or-user-ns.xml" xpointer="singular"/></listitem>
       </varlistentry>
 
@@ -190,6 +194,10 @@
         It will be updated automatically on soft reboot (see:
         <citerefentry><refentrytitle>systemd-soft-reboot.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>),
         in case the service is configured to survive it.</para>
+
+        <para>In place of the image path a <literal>.v/</literal> versioned directory may be specified, see
+        <citerefentry><refentrytitle>systemd.v</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+        details.</para>
 
         <xi:include href="system-only.xml" xpointer="singular"/>
 
