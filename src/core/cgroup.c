@@ -33,6 +33,7 @@
 #include "process-util.h"
 #include "procfs-util.h"
 #include "restrict-ifaces.h"
+#include "set.h"
 #include "special.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -187,6 +188,313 @@ void cgroup_context_init(CGroupContext *c) {
                 .memory_pressure_watch = _CGROUP_PRESSURE_WATCH_INVALID,
                 .memory_pressure_threshold_usec = USEC_INFINITY,
         };
+}
+
+int cgroup_context_add_io_device_weight_dup(CGroupContext *c, CGroupIODeviceWeight *w) {
+        _cleanup_free_ CGroupIODeviceWeight *n = NULL;
+
+        assert(c);
+        assert(w);
+
+        n = new0(CGroupIODeviceWeight, 1);
+        if (!n)
+                return -ENOMEM;
+
+        n->path = strdup(w->path);
+        if (!n->path)
+                return -ENOMEM;
+        n->weight = w->weight;
+
+        LIST_PREPEND(device_weights, c->io_device_weights, TAKE_PTR(n));
+        return 0;
+}
+
+int cgroup_context_add_io_device_limit_dup(CGroupContext *c, CGroupIODeviceLimit *l) {
+        _cleanup_free_ CGroupIODeviceLimit *n = NULL;
+
+        assert(c);
+        assert(l);
+
+        n = new0(CGroupIODeviceLimit, 1);
+        if (!l)
+                return -ENOMEM;
+
+        n->path = strdup(l->path);
+        if (!n->path)
+                return -ENOMEM;
+
+        for (CGroupIOLimitType type = 0; type < _CGROUP_IO_LIMIT_TYPE_MAX; type++)
+                n->limits[type] = l->limits[type];
+
+        LIST_PREPEND(device_limits, c->io_device_limits, TAKE_PTR(n));
+        return 0;
+}
+
+int cgroup_context_add_io_device_latency_dup(CGroupContext *c, CGroupIODeviceLatency *l) {
+        _cleanup_free_ CGroupIODeviceLatency *n = NULL;
+
+        assert(c);
+        assert(l);
+
+        n = new0(CGroupIODeviceLatency, 1);
+        if (!n)
+                return -ENOMEM;
+
+        n->path = strdup(l->path);
+        if (!n->path)
+                return -ENOMEM;
+
+        n->target_usec = l->target_usec;
+
+        LIST_PREPEND(device_latencies, c->io_device_latencies, TAKE_PTR(n));
+        return 0;
+}
+
+int cgroup_context_add_block_io_device_weight_dup(CGroupContext *c, CGroupBlockIODeviceWeight *w) {
+        _cleanup_free_ CGroupBlockIODeviceWeight *n = NULL;
+
+        assert(c);
+        assert(w);
+
+        n = new0(CGroupBlockIODeviceWeight, 1);
+        if (!n)
+                return -ENOMEM;
+
+        n->path = strdup(w->path);
+        if (!n->path)
+                return -ENOMEM;
+
+        n->weight = w->weight;
+
+        LIST_PREPEND(device_weights, c->blockio_device_weights, TAKE_PTR(n));
+        return 0;
+}
+
+int cgroup_context_add_block_io_device_bandwidth_dup(CGroupContext *c, CGroupBlockIODeviceBandwidth *b) {
+        _cleanup_free_ CGroupBlockIODeviceBandwidth *n = NULL;
+
+        assert(c);
+        assert(b);
+
+        n = new0(CGroupBlockIODeviceBandwidth, 1);
+        if (!n)
+                return -ENOMEM;
+
+        *n = (CGroupBlockIODeviceBandwidth) {
+                .rbps = b->rbps,
+                .wbps = b->wbps,
+        };
+
+        LIST_PREPEND(device_bandwidths, c->blockio_device_bandwidths, TAKE_PTR(n));
+        return 0;
+}
+
+int cgroup_context_add_device_allow_dup(CGroupContext *c, CGroupDeviceAllow *a) {
+        _cleanup_free_ CGroupDeviceAllow *n = NULL;
+
+        assert(c);
+        assert(a);
+
+        n = new0(CGroupDeviceAllow, 1);
+        if (!n)
+                return -ENOMEM;
+
+        n->path = strdup(a->path);
+        if (!n->path)
+                return -ENOMEM;
+
+        n->permissions = a->permissions;
+
+        LIST_PREPEND(device_allow, c->device_allow, TAKE_PTR(n));
+        return 0;
+}
+
+static int cgroup_context_add_socket_bind_item_dup(CGroupContext *c, CGroupSocketBindItem *i, CGroupSocketBindItem *h) {
+        _cleanup_free_ CGroupSocketBindItem *n = NULL;
+
+        assert(c);
+        assert(i);
+
+        n = new0(CGroupSocketBindItem, 1);
+        if (!n)
+                return -ENOMEM;
+
+        *n = (CGroupSocketBindItem) {
+                .address_family = i->address_family,
+                .ip_protocol    = i->ip_protocol,
+                .nr_ports       = i->nr_ports,
+                .port_min       = i->port_min,
+        };
+
+        LIST_PREPEND(socket_bind_items, h, TAKE_PTR(n));
+        return 0;
+}
+
+int cgroup_context_add_socket_bind_item_allow_dup(CGroupContext *c, CGroupSocketBindItem *i) {
+        return cgroup_context_add_socket_bind_item_dup(c, i, c->socket_bind_allow);
+}
+
+int cgroup_context_add_socket_bind_item_deny_dup(CGroupContext *c, CGroupSocketBindItem *i) {
+        return cgroup_context_add_socket_bind_item_dup(c, i, c->socket_bind_deny);
+}
+
+int cgroup_context_copy(CGroupContext *dst, const CGroupContext *src) {
+        struct in_addr_prefix *i;
+        char *iface;
+        int r;
+
+        assert(src);
+        assert(dst);
+
+        dst->cpu_accounting = src->cpu_accounting;
+        dst->io_accounting = src->io_accounting;
+        dst->blockio_accounting = src->blockio_accounting;
+        dst->memory_accounting = src->memory_accounting;
+        dst->tasks_accounting = src->tasks_accounting;
+        dst->ip_accounting = src->ip_accounting;
+
+        dst->memory_oom_group = dst->memory_oom_group;
+
+        dst->cpu_weight = src->cpu_weight;
+        dst->startup_cpu_weight = src->startup_cpu_weight;
+        dst->cpu_quota_per_sec_usec = src->cpu_quota_per_sec_usec;
+        dst->cpu_quota_period_usec = src->cpu_quota_period_usec;
+
+        dst->cpuset_cpus = src->cpuset_cpus;
+        dst->startup_cpuset_cpus = src->startup_cpuset_cpus;
+        dst->cpuset_mems = src->cpuset_mems;
+        dst->startup_cpuset_mems = src->startup_cpuset_mems;
+
+        dst->io_weight = src->io_weight;
+        dst->startup_io_weight = src->startup_io_weight;
+
+        LIST_FOREACH_BACKWARDS(device_weights, w, LIST_FIND_TAIL(device_weights, src->io_device_weights)) {
+                r = cgroup_context_add_io_device_weight_dup(dst, w);
+                if (r < 0)
+                        return r;
+        }
+
+        LIST_FOREACH_BACKWARDS(device_limits, l, LIST_FIND_TAIL(device_limits, src->io_device_limits)) {
+                r = cgroup_context_add_io_device_limit_dup(dst, l);
+                if (r < 0)
+                        return r;
+        }
+
+        LIST_FOREACH_BACKWARDS(device_latencies, l, LIST_FIND_TAIL(device_latencies, src->io_device_latencies)) {
+                r = cgroup_context_add_io_device_latency_dup(dst, l);
+                if (r < 0)
+                        return r;
+        }
+
+        dst->default_memory_min = src->default_memory_min;
+        dst->default_memory_low = src->default_memory_low;
+        dst->default_startup_memory_low = src->default_startup_memory_low;
+        dst->memory_min = src->memory_min;
+        dst->memory_low = src->memory_low;
+        dst->startup_memory_low = src->startup_memory_low;
+        dst->memory_high = src->memory_high;
+        dst->startup_memory_high = src->startup_memory_high;
+        dst->memory_max = src->memory_max;
+        dst->startup_memory_max = src->startup_memory_max;
+        dst->memory_swap_max = src->memory_swap_max;
+        dst->startup_memory_swap_max = src->startup_memory_swap_max;
+        dst->memory_zswap_max = src->memory_zswap_max;
+        dst->startup_memory_zswap_max = src->startup_memory_zswap_max;
+
+        dst->default_memory_min_set = src->default_memory_min_set;
+        dst->default_memory_low_set = src->default_memory_low_set;
+        dst->default_startup_memory_low_set = src->default_startup_memory_low_set;
+        dst->memory_min_set = src->memory_min_set;
+        dst->memory_low_set = src->memory_low_set;
+        dst->startup_memory_low_set = src->startup_memory_low_set;
+        dst->startup_memory_high_set = src->startup_memory_high_set;
+        dst->startup_memory_max_set = src->startup_memory_max_set;
+        dst->startup_memory_swap_max_set = src->startup_memory_swap_max_set;
+        dst->startup_memory_zswap_max_set = src->startup_memory_zswap_max_set;
+
+        SET_FOREACH(i, src->ip_address_allow) {
+                r = in_addr_prefix_add(&dst->ip_address_allow, i);
+                if (r < 0)
+                        return r;
+        }
+
+        SET_FOREACH(i, src->ip_address_deny) {
+                r = in_addr_prefix_add(&dst->ip_address_deny, i);
+                if (r < 0)
+                        return r;
+        }
+
+        dst->ip_address_allow_reduced = src->ip_address_allow_reduced;
+        dst->ip_address_deny_reduced = src->ip_address_deny_reduced;
+
+        if (!strv_isempty(src->ip_filters_ingress)) {
+                dst->ip_filters_ingress = strv_copy(src->ip_filters_ingress);
+                if (!dst->ip_filters_ingress)
+                        return -ENOMEM;
+        }
+
+        if (!strv_isempty(src->ip_filters_egress)) {
+                dst->ip_filters_egress = strv_copy(src->ip_filters_egress);
+                if (!dst->ip_filters_egress)
+                        return -ENOMEM;
+        }
+
+        LIST_FOREACH_BACKWARDS(programs, l, LIST_FIND_TAIL(programs, src->bpf_foreign_programs)) {
+                r = cgroup_context_add_bpf_foreign_program_dup(dst, l);
+                if (r < 0)
+                        return r;
+        }
+
+        SET_FOREACH(iface, src->restrict_network_interfaces) {
+                r = set_put_strdup(&dst->restrict_network_interfaces, iface);
+                if (r < 0)
+                        return r;
+        }
+        dst->restrict_network_interfaces_is_allow_list = src->restrict_network_interfaces_is_allow_list;
+
+        dst->cpu_shares = src->cpu_shares;
+        dst->startup_cpu_shares = src->startup_cpu_shares;
+
+        dst->blockio_weight = src->blockio_weight;
+        dst->startup_blockio_weight = src->startup_blockio_weight;
+
+        LIST_FOREACH_BACKWARDS(device_weights, l, LIST_FIND_TAIL(device_weights, src->blockio_device_weights)) {
+                r = cgroup_context_add_block_io_device_weight_dup(dst, l);
+                if (r < 0)
+                        return r;
+        }
+
+        LIST_FOREACH_BACKWARDS(device_bandwidths, l, LIST_FIND_TAIL(device_bandwidths, src->blockio_device_bandwidths)) {
+                r = cgroup_context_add_block_io_device_bandwidth_dup(dst, l);
+                if (r < 0)
+                        return r;
+        }
+
+        dst->memory_limit = src->memory_limit;
+
+        dst->device_policy = src->device_policy;
+        LIST_FOREACH_BACKWARDS(device_allow, l, LIST_FIND_TAIL(device_allow, src->device_allow)) {
+                r = cgroup_context_add_device_allow_dup(dst, l);
+                if (r < 0)
+                        return r;
+        }
+
+        LIST_FOREACH_BACKWARDS(socket_bind_items, l, LIST_FIND_TAIL(socket_bind_items, src->socket_bind_allow)) {
+                r = cgroup_context_add_socket_bind_item_allow_dup(dst, l);
+                if (r < 0)
+                        return r;
+
+        }
+
+        LIST_FOREACH_BACKWARDS(socket_bind_items, l, LIST_FIND_TAIL(socket_bind_items, src->socket_bind_deny)) {
+                r = cgroup_context_add_socket_bind_item_deny_dup(dst, l);
+                if (r < 0)
+                        return r;
+        }
+
+        dst->tasks_max = src->tasks_max;
+
+        return 0;
 }
 
 void cgroup_context_free_device_allow(CGroupContext *c, CGroupDeviceAllow *a) {
