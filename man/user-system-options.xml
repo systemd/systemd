@@ -55,4 +55,15 @@
       implied.</para>
     </listitem>
   </varlistentry>
+
+  <varlistentry id='capsule'>
+    <term><option>-C</option></term>
+    <term><option>--capsule=</option></term>
+
+    <listitem id='capsule-text'>
+      <para>Execute operation on a capsule. Specify a capsule name to connect to. See
+      <citerefentry><refentrytitle>capsule@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+      details about capsules.</para>
+    </listitem>
+  </varlistentry>
 </variablelist>
