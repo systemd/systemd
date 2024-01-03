@@ -1103,26 +1103,39 @@ static int wireguard_verify(NetDev *netdev, const char *filename) {
                         continue;
 
                 LIST_FOREACH(ipmasks, ipmask, peer->ipmasks) {
-                        _cleanup_(route_freep) Route *route = NULL;
+                        _cleanup_(route_unrefp) Route *route = NULL;
 
                         r = route_new(&route);
                         if (r < 0)
                                 return log_oom();
 
+                        /* For route_section_verify() below. */
+                        r = config_section_new(peer->section->filename, peer->section->line, &route->section);
+                        if (r < 0)
+                                return log_oom();
+
+                        route->source = NETWORK_CONFIG_SOURCE_STATIC;
                         route->family = ipmask->family;
                         route->dst = ipmask->ip;
                         route->dst_prefixlen = ipmask->cidr;
-                        route->scope = RT_SCOPE_UNIVERSE;
                         route->protocol = RTPROT_STATIC;
+                        route->protocol_set = true;
                         route->table = peer->route_table_set ? peer->route_table : w->route_table;
+                        route->table_set = true;
                         route->priority = peer->route_priority_set ? peer->route_priority : w->route_priority;
-                        if (route->priority == 0 && route->family == AF_INET6)
-                                route->priority = IP6_RT_PRIO_USER;
-                        route->source = NETWORK_CONFIG_SOURCE_STATIC;
+                        route->priority_set = true;
 
-                        r = set_ensure_consume(&w->routes, &route_hash_ops, TAKE_PTR(route));
+                        if (route_section_verify(route, NULL) < 0)
+                                continue;
+
+                        r = set_ensure_put(&w->routes, &route_hash_ops, route);
                         if (r < 0)
                                 return log_oom();
+                        if (r == 0)
+                                continue;
+
+                        route->wireguard = w;
+                        TAKE_PTR(route);
                 }
         }
 
