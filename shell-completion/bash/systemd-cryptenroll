@@ -52,6 +52,7 @@ _systemd-cryptenroll() {
                      --password --recovery-key'
         [ARG]='--unlock-key-file
                --unlock-fido2-device
+               --unlock-tpm2-device
                --pkcs11-token-uri
                --fido2-credential-algorithm
                --fido2-device
@@ -77,6 +78,9 @@ _systemd-cryptenroll() {
                 ;;
             --unlock-fido2-device)
                 comps="auto $(__get_fido2_devices)"
+                ;;
+            --unlock-tpm2-device)
+                comps="auto $(__get_tpm2_devices)"
                 ;;
             --pkcs11-token-uri)
                 comps='auto list pkcs11:'
