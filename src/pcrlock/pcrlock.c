@@ -4504,6 +4504,7 @@ static int verb_make_policy(int argc, char *argv[], void *userdata) {
                                 srk_handle,
                                 encryption_session,
                                 &authnv_policy_digest,
+                                /* uses_pin= */ true,
                                 &pin_public,
                                 &pin_private);
                 if (r < 0)

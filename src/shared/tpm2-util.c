@@ -5233,7 +5233,7 @@ int tpm2_seal(Tpm2Context *c,
         TPMT_PUBLIC hmac_template = {
                 .type = TPM2_ALG_KEYEDHASH,
                 .nameAlg = TPM2_ALG_SHA256,
-                .objectAttributes = TPMA_OBJECT_FIXEDTPM | TPMA_OBJECT_FIXEDPARENT,
+                .objectAttributes = TPMA_OBJECT_FIXEDTPM | TPMA_OBJECT_FIXEDPARENT | (pin ? 0 : TPMA_OBJECT_NODA),
                 .parameters.keyedHashDetail.scheme.scheme = TPM2_ALG_NULL,
                 .unique.keyedHash.size = SHA256_DIGEST_SIZE,
                 .authPolicy = policy ? *policy : TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE),
@@ -5791,6 +5791,7 @@ int tpm2_seal_data(
                 const Tpm2Handle *primary_handle,
                 const Tpm2Handle *encryption_session,
                 const TPM2B_DIGEST *policy,
+                bool uses_pin,
                 struct iovec *ret_public,
                 struct iovec *ret_private) {
 
@@ -5810,7 +5811,7 @@ int tpm2_seal_data(
         TPMT_PUBLIC hmac_template = {
                 .type = TPM2_ALG_KEYEDHASH,
                 .nameAlg = TPM2_ALG_SHA256,
-                .objectAttributes = TPMA_OBJECT_FIXEDTPM | TPMA_OBJECT_FIXEDPARENT,
+                .objectAttributes = TPMA_OBJECT_FIXEDTPM | TPMA_OBJECT_FIXEDPARENT | (uses_pin ? 0 : TPMA_OBJECT_NODA),
                 .parameters.keyedHashDetail.scheme.scheme = TPM2_ALG_NULL,
                 .unique.keyedHash.size = data->iov_len,
                 .authPolicy = policy ? *policy : TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE),
