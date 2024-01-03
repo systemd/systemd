@@ -257,7 +257,6 @@ node /org/freedesktop/login1 {
       readonly (st) ScheduledShutdown = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b Docked = ...;
-      @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b LidClosed = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("false")
       readonly b OnExternalPower = ...;
