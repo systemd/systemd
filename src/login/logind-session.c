@@ -377,33 +377,27 @@ static int session_load_devices(Session *s, const char *devices) {
 
         for (const char *p = devices;;) {
                 _cleanup_free_ char *word = NULL;
-                SessionDevice *sd;
                 dev_t dev;
                 int k;
 
                 k = extract_first_word(&p, &word, NULL, 0);
-                if (k == 0)
-                        break;
-                if (k < 0) {
-                        r = k;
+                if (k <= 0) {
+                        RET_GATHER(r, k);
                         break;
                 }
 
                 k = parse_devnum(word, &dev);
                 if (k < 0) {
-                        r = k;
+                        RET_GATHER(r, k);
                         continue;
                 }
 
                 /* The file descriptors for loaded devices will be reattached later. */
-                k = session_device_new(s, dev, false, &sd);
-                if (k < 0)
-                        r = k;
+                RET_GATHER(r, session_device_new(s, dev, /* open_device = */ false, /* ret = */ NULL));
         }
 
         if (r < 0)
-                log_error_errno(r, "Loading session devices for session %s failed: %m", s->id);
-
+                log_error_errno(r, "Failed to load some session devices for session '%s': %m", s->id);
         return r;
 }
 
