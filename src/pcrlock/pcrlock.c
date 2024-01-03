@@ -4505,7 +4505,8 @@ static int verb_make_policy(int argc, char *argv[], void *userdata) {
                                 encryption_session,
                                 &authnv_policy_digest,
                                 &pin_public,
-                                &pin_private);
+                                &pin_private,
+                                /* uses_pin= */ true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to seal PIN to NV auth policy: %m");
 
