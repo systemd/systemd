@@ -2,6 +2,7 @@
 
 #include "glyph-util.h"
 #include "in-addr-util.h"
+#include "resolved-dns-browse-services.h"
 #include "resolved-dns-synthesize.h"
 #include "resolved-varlink.h"
 #include "socket-netlink.h"
@@ -17,9 +18,24 @@ typedef struct LookupParameters {
         char *name;
 } LookupParameters;
 
+typedef struct LookupParametersMdnsBrowse {
+        char *domainName;
+        char *name;
+        char *type;
+        int ifindex;
+        uint64_t flags;
+} LookupParametersMdnsBrowse;
+
 static void lookup_parameters_destroy(LookupParameters *p) {
         assert(p);
         free(p->name);
+}
+
+static void lookup_parameters_mdns_destroy(LookupParametersMdnsBrowse *p) {
+        assert(p);
+        free(p->domainName);
+        free(p->name);
+        free(p->type);
 }
 
 static int reply_query_state(DnsQuery *q) {
@@ -87,9 +103,16 @@ static int reply_query_state(DnsQuery *q) {
 
 static void vl_on_disconnect(VarlinkServer *s, Varlink *link, void *userdata) {
         DnsQuery *q;
-
+        Manager *m;
         assert(s);
         assert(link);
+
+        m = varlink_server_get_userdata(s);
+        if (!m)
+                return;
+
+        DnsServiceBrowser *sb = hashmap_remove(m->dns_service_browsers, link);
+        dns_service_browser_free(sb);
 
         q = varlink_get_userdata(link);
         if (!q)
@@ -530,6 +553,43 @@ static int vl_method_resolve_address(Varlink *link, JsonVariant *parameters, Var
         return 1;
 }
 
+static int vl_method_start_browse(Varlink* link, JsonVariant* parameters, VarlinkMethodFlags flags, void* userdata) {
+        static const JsonDispatch dispatch_table[] = {
+                { "domainName", JSON_VARIANT_STRING,   json_dispatch_string, offsetof(LookupParametersMdnsBrowse, domainName), JSON_MANDATORY },
+                { "name",       JSON_VARIANT_STRING,   json_dispatch_string, offsetof(LookupParametersMdnsBrowse, name),       JSON_MANDATORY },
+                { "type",       JSON_VARIANT_STRING,   json_dispatch_string, offsetof(LookupParametersMdnsBrowse, type),       JSON_MANDATORY },
+                { "ifindex",    JSON_VARIANT_INTEGER,  json_dispatch_int,    offsetof(LookupParametersMdnsBrowse, ifindex),    JSON_MANDATORY },
+                { "flags",      JSON_VARIANT_UNSIGNED, json_dispatch_uint64, offsetof(LookupParametersMdnsBrowse, flags),      JSON_MANDATORY },
+                {}
+        };
+
+        _cleanup_(lookup_parameters_mdns_destroy) LookupParametersMdnsBrowse p = {};
+        Manager *m;
+        int r = 0;
+
+        assert(link);
+
+        /* if the client didn't set the more flag, it is using us incorrectly */
+        if (!FLAGS_SET(flags, VARLINK_METHOD_MORE))
+                return varlink_error_invalid_parameter(link, NULL);
+
+        m = varlink_server_get_userdata(varlink_get_server(link));
+        assert(m);
+
+        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r < 0)
+                return log_error_errno(r, "vl_method_start_browse json_dispatch fail: %m");
+
+        if (!validate_and_mangle_flags(NULL, &p.flags, 0))
+                return varlink_error_invalid_parameter(link, JSON_VARIANT_STRING_CONST("flags"));
+
+        r = dns_subscribe_browse_service(m, link, p.domainName, p.name, p.type, p.ifindex, p.flags);
+        if (r < 0)
+                return varlink_error_errno(link, r);
+
+        return 1;
+}
+
 static int vl_method_subscribe_query_results(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
         Manager *m;
         int r;
@@ -754,7 +814,8 @@ static int varlink_main_server_init(Manager *m) {
         r = varlink_server_bind_method_many(
                         s,
                         "io.systemd.Resolve.ResolveHostname",  vl_method_resolve_hostname,
-                        "io.systemd.Resolve.ResolveAddress", vl_method_resolve_address);
+                        "io.systemd.Resolve.ResolveAddress", vl_method_resolve_address,
+                        "io.systemd.Resolve.StartBrowse", vl_method_start_browse);
         if (r < 0)
                 return log_error_errno(r, "Failed to register varlink methods: %m");
 
