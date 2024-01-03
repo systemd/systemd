@@ -277,6 +277,15 @@ typedef enum CGroupMemoryAccountingMetric {
         _CGROUP_MEMORY_ACCOUNTING_METRIC_INVALID = -EINVAL,
 } CGroupMemoryAccountingMetric;
 
+/* Used for limits whose value sets have infimum */
+typedef enum CGroupLimitType {
+        CGROUP_LIMIT_MEMORY_MAX,
+        CGROUP_LIMIT_MEMORY_HIGH,
+        CGROUP_LIMIT_TASKS_MAX,
+        _CGROUP_LIMIT_TYPE_MAX,
+        _CGROUP_LIMIT_INVALID = -EINVAL,
+} CGroupLimitType;
+
 typedef struct Unit Unit;
 typedef struct Manager Manager;
 typedef enum ManagerState ManagerState;
@@ -388,6 +397,7 @@ int unit_get_tasks_current(Unit *u, uint64_t *ret);
 int unit_get_cpu_usage(Unit *u, nsec_t *ret);
 int unit_get_io_accounting(Unit *u, CGroupIOAccountingMetric metric, bool allow_cache, uint64_t *ret);
 int unit_get_ip_accounting(Unit *u, CGroupIPAccountingMetric metric, uint64_t *ret);
+int unit_get_effective_limit(Unit *u, CGroupLimitType type, uint64_t *ret);
 
 int unit_reset_cpu_accounting(Unit *u);
 void unit_reset_memory_accounting_last(Unit *u);
@@ -438,6 +448,9 @@ CGroupIPAccountingMetric cgroup_ip_accounting_metric_from_string(const char *s) 
 
 const char* cgroup_io_accounting_metric_to_string(CGroupIOAccountingMetric m) _const_;
 CGroupIOAccountingMetric cgroup_io_accounting_metric_from_string(const char *s) _pure_;
+
+const char* cgroup_limit_type_to_string(CGroupLimitType m) _const_;
+CGroupLimitType cgroup_limit_type_from_string(const char *s) _pure_;
 
 const char* cgroup_memory_accounting_metric_to_string(CGroupMemoryAccountingMetric m) _const_;
 CGroupMemoryAccountingMetric cgroup_memory_accounting_metric_from_string(const char *s) _pure_;

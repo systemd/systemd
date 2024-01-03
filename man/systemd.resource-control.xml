@@ -409,7 +409,9 @@ CPUWeight=20   DisableControllers=cpu              /          \
           system. If assigned the
           special value <literal>infinity</literal>, no memory throttling is applied. This controls the
           <literal>memory.high</literal> control group attribute. For details about this control group attribute, see
-          <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html#memory-interface-files">Memory Interface Files</ulink>.</para>
+          <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html#memory-interface-files">Memory Interface Files</ulink>.
+          The effective configuration is reported as <varname>EffectiveMemoryHigh=</varname>
+          (see also <varname>EffectiveMemoryMax=</varname>).</para>
 
           <para>While <varname>StartupMemoryHigh=</varname> applies to the startup and shutdown phases of the system,
           <varname>MemoryHigh=</varname> applies to normal runtime of the system, and if the former is not set also to
@@ -437,7 +439,9 @@ CPUWeight=20   DisableControllers=cpu              /          \
           percentage value may be specified, which is taken relative to the installed physical memory on the system. If
           assigned the special value <literal>infinity</literal>, no memory limit is applied. This controls the
           <literal>memory.max</literal> control group attribute. For details about this control group attribute, see
-          <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html#memory-interface-files">Memory Interface Files</ulink>.</para>
+          <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html#memory-interface-files">Memory Interface Files</ulink>.
+          The effective configuration is reported as <varname>EffectiveMemoryMax=</varname> (the value is
+          the most stringent limit of the unit and parent slices and it is capped by physical memory).</para>
 
           <para>While <varname>StartupMemoryMax=</varname> applies to the startup and shutdown phases of the system,
           <varname>MemoryMax=</varname> applies to normal runtime of the system, and if the former is not set also to
@@ -563,7 +567,8 @@ CPUWeight=20   DisableControllers=cpu              /          \
           limit is applied. This controls the <literal>pids.max</literal> control group attribute. For
           details about this control group attribute, the
           <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#pid">pids controller
-          </ulink>.</para>
+          </ulink>.
+          The effective configuration is reported as <varname>EffectiveTasksMax=</varname>.</para>
 
           <para>The system default for this setting may be controlled with
           <varname>DefaultTasksMax=</varname> in
