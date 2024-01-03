@@ -2,7 +2,7 @@
 
 #include <linux/nexthop.h>
 
-#include "dhcp-server-internal.h"
+#include "dhcp-server-lease-internal.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
 #include "dns-domain.h"
@@ -892,7 +892,7 @@ static int pref64_append_json(Link *link, JsonVariant **v) {
 
 static int dhcp_server_offered_leases_append_json(Link *link, JsonVariant **v) {
         _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
-        DHCPLease *lease;
+        sd_dhcp_server_lease *lease;
         int r;
 
         assert(link);
@@ -909,8 +909,8 @@ static int dhcp_server_offered_leases_append_json(Link *link, JsonVariant **v) {
                                 JSON_BUILD_OBJECT(
                                                 JSON_BUILD_PAIR_BYTE_ARRAY(
                                                                 "ClientId",
-                                                                lease->client_id.data,
-                                                                lease->client_id.length),
+                                                                lease->client_id.raw,
+                                                                lease->client_id.size),
                                                 JSON_BUILD_PAIR_IN4_ADDR_NON_NULL("Address", &address),
                                                 JSON_BUILD_PAIR_STRING_NON_EMPTY("Hostname", lease->hostname),
                                                 JSON_BUILD_PAIR_FINITE_USEC(
@@ -924,7 +924,7 @@ static int dhcp_server_offered_leases_append_json(Link *link, JsonVariant **v) {
 
 static int dhcp_server_static_leases_append_json(Link *link, JsonVariant **v) {
         _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
-        DHCPLease *lease;
+        sd_dhcp_server_lease *lease;
         int r;
 
         assert(link);
@@ -941,8 +941,8 @@ static int dhcp_server_static_leases_append_json(Link *link, JsonVariant **v) {
                                JSON_BUILD_OBJECT(
                                                JSON_BUILD_PAIR_BYTE_ARRAY(
                                                                "ClientId",
-                                                               lease->client_id.data,
-                                                               lease->client_id.length),
+                                                               lease->client_id.raw,
+                                                               lease->client_id.size),
                                                JSON_BUILD_PAIR_IN4_ADDR_NON_NULL("Address", &address)));
                 if (r < 0)
                         return r;
