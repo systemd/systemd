@@ -8,6 +8,9 @@ NSPAWN_ARGUMENTS="--private-network"
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
 
+# (Hopefully) a temporary workaround for https://github.com/systemd/systemd/issues/30573
+KERNEL_APPEND="${KERNEL_APPEND:-} SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_BURST=100"
+
 test_append_files() {
     local workspace="${1:?}"
 
