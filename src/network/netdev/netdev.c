@@ -198,14 +198,6 @@ static void netdev_detach_from_manager(NetDev *netdev) {
 static NetDev *netdev_free(NetDev *netdev) {
         assert(netdev);
 
-        netdev_detach_from_manager(netdev);
-
-        free(netdev->filename);
-
-        free(netdev->description);
-        free(netdev->ifname);
-        condition_free_list(netdev->conditions);
-
         /* Invoke the per-kind done() destructor, but only if the state field is initialized. We conditionalize that
          * because we parse .netdev files twice: once to determine the kind (with a short, minimal NetDev structure
          * allocation, with no room for per-kind fields), and once to read the kind's properties (with a full,
@@ -217,6 +209,13 @@ static NetDev *netdev_free(NetDev *netdev) {
             NETDEV_VTABLE(netdev) &&
             NETDEV_VTABLE(netdev)->done)
                 NETDEV_VTABLE(netdev)->done(netdev);
+
+        netdev_detach_from_manager(netdev);
+
+        condition_free_list(netdev->conditions);
+        free(netdev->filename);
+        free(netdev->description);
+        free(netdev->ifname);
 
         return mfree(netdev);
 }
