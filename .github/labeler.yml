@@ -55,6 +55,12 @@ journal:
 journal-remote:
   - changed-files:
     - any-glob-to-any-file: 'src/journal-remote/*'
+login:
+  - changed-files:
+    - any-glob-to-any-file: '**/sd-login*/**'
+logind:
+  - changed-files:
+    - any-glob-to-any-file: 'src/login/*'
 meson:
   - changed-files:
     - any-glob-to-any-file: ['meson_options.txt', '**/meson.build']
