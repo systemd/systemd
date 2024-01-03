@@ -1,0 +1,60 @@
+<?xml version="1.0"?>
+<!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" [
+<!ENTITY % entities SYSTEM "custom-entities.ent" >
+%entities;
+]>
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+<refentry id="systemd-tpm2-generator">
+
+  <refentryinfo>
+    <title>systemd-tpm2-generator</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-tpm2-generator</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-tpm2-generator</refname>
+    <refpurpose>Generator for inserting TPM2 synchronization point in the boot process</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>/usr/lib/systemd/system-generators/systemd-tpm2-generator</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><filename>systemd-tpm2-generator</filename> is a generator that adds a <varname>Wants=</varname>
+    dependency from <filename>sysinit.target</filename> to <filename>tpm2.target</filename> when it detects
+    that the firmware discovered a TPM2 device but the OS kernel so far did
+    not. <filename>tpm2.target</filename> is supposed to act as synchronization point for all services that
+    require TPM2 device access. See
+    <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry> for
+    details.</para>
+
+    <para>The <option>systemd.tpm2_wait=</option> kernel command line option may be used to override
+    behaviour of the generator. It accepts a boolean value: if true then <filename>tpm2.target</filename>
+    will be added as synchronization point even if the firmware has not detected a TPM2 device. If false, the
+    target will not be inserted even if firmware reported a device but the OS kernel doesn't expose a device
+    for it yet. The latter might be useful in environments where a suitable TPM2 driver for the available
+    hardware is not available.</para>
+
+    <para><filename>systemd-tpm2-generator</filename> implements
+    <citerefentry><refentrytitle>systemd.generator</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>kernel-command-line</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+    </simplelist></para>
+  </refsect1>
+</refentry>
