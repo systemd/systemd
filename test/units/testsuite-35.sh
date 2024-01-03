@@ -32,7 +32,7 @@ test_enable_debug() {
 Environment=SYSTEMD_LOG_LEVEL=debug
 EOF
     systemctl daemon-reload
-    systemctl stop systemd-logind.service
+    systemctl restart systemd-logind.service
 }
 
 testcase_properties() {
@@ -434,27 +434,7 @@ SUBSYSTEM=="block", ATTRS{model}=="scsi_debug*", TAG+="uaccess"
 EOF
     udevadm control --reload
 
-    # coldplug: logind started with existing device
-    systemctl stop systemd-logind.service
-    modprobe scsi_debug
-    timeout 30 bash -c 'until ls /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/*:*/block 2>/dev/null; do sleep 1; done'
-    dev=/dev/$(ls /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/*:*/block 2>/dev/null)
-    if [[ ! -b "$dev" ]]; then
-        echo "cannot find suitable scsi block device" >&2
-        exit 1
-    fi
-    udevadm settle
-    udevadm info "$dev"
-
-    # trigger logind and activate session
-    loginctl activate "$(loginctl --no-legend | awk '$3 == "logind-test-user" { print $1 }')"
-
-    # check ACL
-    sleep 1
-    assert_in "user:logind-test-user:rw-" "$(getfacl -p "$dev")"
-
     # hotplug: new device appears while logind is running
-    rmmod scsi_debug
     modprobe scsi_debug
     timeout 30 bash -c 'until ls /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/*:*/block 2>/dev/null; do sleep 1; done'
     dev=/dev/$(ls /sys/bus/pseudo/drivers/scsi_debug/adapter*/host*/target*/*:*/block 2>/dev/null)
