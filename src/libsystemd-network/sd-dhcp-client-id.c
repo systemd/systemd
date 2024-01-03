@@ -157,3 +157,18 @@ int sd_dhcp_client_id_to_string_from_raw(const void *data, size_t data_size, cha
 
         return sd_dhcp_client_id_to_string(&client_id, ret);
 }
+
+void client_id_hash_func(const sd_dhcp_client_id *client_id, struct siphash *state) {
+        assert(sd_dhcp_client_id_is_set(client_id));
+        assert(state);
+
+        siphash24_compress_typesafe(client_id->size, state);
+        siphash24_compress(client_id->raw, client_id->size, state);
+}
+
+int client_id_compare_func(const sd_dhcp_client_id *a, const sd_dhcp_client_id *b) {
+        assert(sd_dhcp_client_id_is_set(a));
+        assert(sd_dhcp_client_id_is_set(b));
+
+        return memcmp_nn(a->raw, a->size, b->raw, b->size);
+}
