@@ -321,24 +321,25 @@ static int session_device_verify(SessionDevice *sd) {
         return 0;
 }
 
-int session_device_new(Session *s, dev_t dev, bool open_device, SessionDevice **out) {
+int session_device_new(Session *s, dev_t dev, bool open_device, SessionDevice **ret) {
         SessionDevice *sd;
         int r;
 
         assert(s);
-        assert(out);
 
         if (!s->seat)
                 return -EPERM;
 
-        sd = new0(SessionDevice, 1);
+        sd = new(SessionDevice, 1);
         if (!sd)
                 return -ENOMEM;
 
-        sd->session = s;
-        sd->dev = dev;
-        sd->fd = -EBADF;
-        sd->type = DEVICE_TYPE_UNKNOWN;
+        *sd = (SessionDevice) {
+                .session = s,
+                .dev = dev,
+                .fd = -EBADF,
+                .type = DEVICE_TYPE_UNKNOWN,
+        };
 
         r = session_device_verify(sd);
         if (r < 0)
@@ -369,7 +370,9 @@ int session_device_new(Session *s, dev_t dev, bool open_device, SessionDevice **
 
         LIST_PREPEND(sd_by_device, sd->device->session_devices, sd);
 
-        *out = sd;
+        if (ret)
+                *ret = sd;
+
         return 0;
 
 error:
