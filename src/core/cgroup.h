@@ -129,6 +129,7 @@ typedef enum CGroupPressureWatch {
         _CGROUP_PRESSURE_WATCH_INVALID = -EINVAL,
 } CGroupPressureWatch;
 
+/* When adding members make sure to update cgroup_context_copy() accordingly */
 struct CGroupContext {
         bool cpu_accounting;
         bool io_accounting;
@@ -285,6 +286,7 @@ uint64_t cgroup_context_cpu_weight(CGroupContext *c, ManagerState state);
 usec_t cgroup_cpu_adjust_period(usec_t period, usec_t quota, usec_t resolution, usec_t max_period);
 
 void cgroup_context_init(CGroupContext *c);
+int cgroup_context_copy(CGroupContext *dst, const CGroupContext *src);
 void cgroup_context_done(CGroupContext *c);
 void cgroup_context_dump(Unit *u, FILE* f, const char *prefix);
 void cgroup_context_dump_socket_bind_item(const CGroupSocketBindItem *item, FILE *f);
@@ -309,6 +311,18 @@ static inline bool cgroup_context_want_memory_pressure(const CGroupContext *c) {
 int cgroup_context_add_device_allow(CGroupContext *c, const char *dev, CGroupDevicePermissions p);
 int cgroup_context_add_or_update_device_allow(CGroupContext *c, const char *dev, CGroupDevicePermissions p);
 int cgroup_context_add_bpf_foreign_program(CGroupContext *c, uint32_t attach_type, const char *path);
+int cgroup_context_add_io_device_limit_dup(CGroupContext *c, CGroupIODeviceLimit *l);
+int cgroup_context_add_io_device_weight_dup(CGroupContext *c, CGroupIODeviceWeight *w);
+int cgroup_context_add_io_device_latency_dup(CGroupContext *c, CGroupIODeviceLatency *l);
+int cgroup_context_add_block_io_device_weight_dup(CGroupContext *c, CGroupBlockIODeviceWeight *w);
+int cgroup_context_add_block_io_device_bandwidth_dup(CGroupContext *c, CGroupBlockIODeviceBandwidth *b);
+int cgroup_context_add_device_allow_dup(CGroupContext *c, CGroupDeviceAllow *a);
+int cgroup_context_add_socket_bind_item_allow_dup(CGroupContext *c, CGroupSocketBindItem *i);
+int cgroup_context_add_socket_bind_item_deny_dup(CGroupContext *c, CGroupSocketBindItem *i);
+
+static inline int cgroup_context_add_bpf_foreign_program_dup(CGroupContext *c, CGroupBPFForeignProgram *p) {
+        return cgroup_context_add_bpf_foreign_program(c, p->attach_type, p->bpffs_path);
+}
 
 void unit_modify_nft_set(Unit *u, bool add);
 
