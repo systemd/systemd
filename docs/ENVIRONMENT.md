@@ -253,7 +253,8 @@ All tools:
   udev manager process waits for a worker process kills slow programs specified
   by IMPORT{program}=, PROGRAM=, or RUN=, and finalizes the processing event.
   If the worker process cannot finalize the event within the specified timespan,
-  the worker process is killed by the manager process. Defaults to 10 seconds.
+  the worker process is killed by the manager process. Defaults to 10 seconds,
+  maximum allowed is 5 hours.
 
 `udevadm` and `systemd-hwdb`:
 

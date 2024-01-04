@@ -216,7 +216,7 @@ int cgroup_context_add_io_device_limit_dup(CGroupContext *c, CGroupIODeviceLimit
         assert(l);
 
         n = new0(CGroupIODeviceLimit, 1);
-        if (!l)
+        if (!n)
                 return -ENOMEM;
 
         n->path = strdup(l->path);
@@ -353,7 +353,7 @@ int cgroup_context_copy(CGroupContext *dst, const CGroupContext *src) {
         dst->tasks_accounting = src->tasks_accounting;
         dst->ip_accounting = src->ip_accounting;
 
-        dst->memory_oom_group = dst->memory_oom_group;
+        dst->memory_oom_group = src->memory_oom_group;
 
         dst->cpu_weight = src->cpu_weight;
         dst->startup_cpu_weight = src->startup_cpu_weight;
@@ -4573,6 +4573,7 @@ static uint64_t unit_get_effective_limit_one(Unit *u, CGroupLimitType type) {
                 }
 
         cc = unit_get_cgroup_context(u);
+        assert(cc);
         switch (type) {
                 /* Note: on legacy/hybrid hierarchies memory_max stays CGROUP_LIMIT_MAX unless configured
                  * explicitly. Effective value of MemoryLimit= (cgroup v1) is not implemented. */
