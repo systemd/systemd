@@ -64,6 +64,13 @@ PASSWORD=foo systemd-cryptenroll --tpm2-device=auto "$IMAGE"
 systemd-cryptenroll --unlock-tpm2-device=auto --recovery-key "$IMAGE"
 systemd-cryptenroll --unlock-tpm2-device=auto --tpm2-device=auto --wipe-slot=tpm2 "$IMAGE"
 
+# Add PIN to TPM2 enrollment
+NEWPIN=1234 systemd-cryptenroll --unlock-tpm2-device=auto --tpm2-device=auto --tpm2-with-pin=yes "$IMAGE"
+
+# Change PIN on TPM2 enrollment
+PIN=1234 NEWPIN=4321 systemd-cryptenroll --unlock-tpm2-device=auto --tpm2-device=auto --tpm2-with-pin=yes "$IMAGE"
+PIN=4321 systemd-cryptenroll --unlock-tpm2-device=auto --recovery-key "$IMAGE"
+
 (! systemd-cryptenroll --fido2-with-client-pin=false)
 (! systemd-cryptenroll --fido2-with-user-presence=f "$IMAGE" /tmp/foo)
 (! systemd-cryptenroll --fido2-with-client-pin=1234 "$IMAGE")
