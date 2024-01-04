@@ -168,6 +168,10 @@ static int request_new(
         if (req->counter)
                 (*req->counter)++;
 
+        /* If this is called in the ORDERED_SET_FOREACH() loop of manager_process_requests(), we need to
+         * restart the loop, due to the limitation of the iteration on OrderedSet. */
+        manager->request_queue_restart = true;
+
         if (ret)
                 *ret = req;
 
@@ -220,6 +224,8 @@ int manager_process_requests(Manager *manager) {
 
         assert(manager);
 
+        manager->request_queue_restart = false;
+
         ORDERED_SET_FOREACH(req, manager->request_queue) {
                 _cleanup_(link_unrefp) Link *link = link_ref(req->link);
 
@@ -236,8 +242,11 @@ int manager_process_requests(Manager *manager) {
                         return 0;
 
                 r = req->process(req, link, req->userdata);
-                if (r == 0)
-                        continue; /* The request is not ready. */
+                if (r == 0) { /* The request is not ready. */
+                        if (manager->request_queue_restart)
+                                break; /* a new request is added during processing the request. */
+                        continue;
+                }
 
                 /* If the request sends netlink message, e.g. for Address or so, the Request object is
                  * referenced by the netlink slot, and will be detached later by its destroy callback.
@@ -251,6 +260,9 @@ int manager_process_requests(Manager *manager) {
                          * hence we need to exit from the loop. */
                         break;
                 }
+
+                if (manager->request_queue_restart)
+                        break;
         }
 
         return 0;
