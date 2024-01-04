@@ -4174,7 +4174,7 @@ static int verb_make_policy(int argc, char *argv[], void *userdata) {
          * policies).
          *
          * Whenever we want to lock an encrypted object (for example FDE) against this policy, we'll use a
-         * PolicyAuthorizeNV epxression that pins the NV index in the policy, and permits access to any
+         * PolicyAuthorizeNV expression that pins the NV index in the policy, and permits access to any
          * policies matching the current NV index contents.
          *
          * We grant world-readable read access to the NV index. Write access is controlled by a PIN (which we
