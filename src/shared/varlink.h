@@ -138,6 +138,7 @@ void* varlink_set_userdata(Varlink *v, void *userdata);
 void* varlink_get_userdata(Varlink *v);
 
 int varlink_get_peer_uid(Varlink *v, uid_t *ret);
+int varlink_get_peer_gid(Varlink *v, gid_t *ret);
 int varlink_get_peer_pid(Varlink *v, pid_t *ret);
 
 int varlink_set_relative_timeout(Varlink *v, usec_t usec);
@@ -200,6 +201,8 @@ typedef enum VarlinkInvocationFlags {
 } VarlinkInvocationFlags;
 
 int varlink_invocation(VarlinkInvocationFlags flags);
+
+int varlink_error_to_errno(const char *error, JsonVariant *parameters);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_close_unref);
