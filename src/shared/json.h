@@ -376,15 +376,16 @@ int json_buildv(JsonVariant **ret, va_list ap);
  * entry, as well the bitmask specified for json_log() calls */
 typedef enum JsonDispatchFlags {
         /* The following three may be set in JsonDispatch's .flags field or the json_dispatch() flags parameter  */
-        JSON_PERMISSIVE = 1 << 0, /* Shall parsing errors be considered fatal for this property? */
-        JSON_MANDATORY  = 1 << 1, /* Should existence of this property be mandatory? */
-        JSON_LOG        = 1 << 2, /* Should the parser log about errors? */
-        JSON_SAFE       = 1 << 3, /* Don't accept "unsafe" strings in json_dispatch_string() + json_dispatch_string() */
-        JSON_RELAX      = 1 << 4, /* Use relaxed user name checking in json_dispatch_user_group_name */
+        JSON_PERMISSIVE       = 1 << 0, /* Shall parsing errors be considered fatal for this property? */
+        JSON_MANDATORY        = 1 << 1, /* Should existence of this property be mandatory? */
+        JSON_LOG              = 1 << 2, /* Should the parser log about errors? */
+        JSON_SAFE             = 1 << 3, /* Don't accept "unsafe" strings in json_dispatch_string() + json_dispatch_string() */
+        JSON_RELAX            = 1 << 4, /* Use relaxed user name checking in json_dispatch_user_group_name */
+        JSON_ALLOW_EXTENSIONS = 1 << 5, /* Subset of JSON_PERMISSIVE: allow addition fields, but no other permissive handling */
 
         /* The following two may be passed into log_json() in addition to those above */
-        JSON_DEBUG      = 1 << 5, /* Indicates that this log message is a debug message */
-        JSON_WARNING    = 1 << 6, /* Indicates that this log message is a warning message */
+        JSON_DEBUG            = 1 << 6, /* Indicates that this log message is a debug message */
+        JSON_WARNING          = 1 << 7, /* Indicates that this log message is a warning message */
 } JsonDispatchFlags;
 
 typedef int (*JsonDispatchCallback)(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);
@@ -427,6 +428,28 @@ assert_cc(sizeof(uint32_t) == sizeof(unsigned));
 
 assert_cc(sizeof(int32_t) == sizeof(int));
 #define json_dispatch_int json_dispatch_int32
+
+#define JSON_DISPATCH_ENUM_DEFINE(type, func)                           \
+        int json_dispatch_##func(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) { \
+                type *c = ASSERT_PTR(userdata);                         \
+                                                                        \
+                assert(variant);                                        \
+                                                                        \
+                if (json_variant_is_null(variant)) {                    \
+                        *c = (type) -EINVAL;                            \
+                        return 0;                                       \
+                }                                                       \
+                                                                        \
+                if (!json_variant_is_string(variant))                   \
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name)); \
+                                                                        \
+                type cc = func(json_variant_string(variant));           \
+                if (cc < 0)                                             \
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "Value of JSON field '%s' not recognized.", strna(name)); \
+                                                                        \
+                *c = cc;                                                \
+                return 0;                                               \
+        }
 
 static inline int json_dispatch_level(JsonDispatchFlags flags) {
 
