@@ -139,6 +139,18 @@
       </varlistentry>
 
       <varlistentry>
+        <term><varname>systemd.ssh_auto=</varname></term>
+        <term><varname>systemd.ssh_listen=</varname></term>
+        <listitem>
+          <para>These parameters are interpreted by
+          <citerefentry><refentrytitle>systemd-ssh-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          and may be used to control SSH sockets the system shall be reachable on.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>systemd.volatile=</varname></term>
         <listitem>
           <para>This parameter controls whether the system shall boot up in volatile mode. Takes a boolean argument, or
