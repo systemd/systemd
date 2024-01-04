@@ -135,6 +135,8 @@ int sd_dhcp_client_id_to_string(const sd_dhcp_client_id *client_id, char **ret) 
                         r = asprintf(&t, "IAID:0x%x/DUID", iaid);
                 }
                 break;
+        default:
+                assert_not_reached();
         }
         if (r < 0)
                 return -ENOMEM;
