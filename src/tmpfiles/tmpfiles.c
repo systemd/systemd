@@ -381,20 +381,20 @@ static int user_config_paths(char*** ret) {
 static bool needs_glob(ItemType t) {
         return IN_SET(t,
                       WRITE_FILE,
-                      IGNORE_PATH,
-                      IGNORE_DIRECTORY_PATH,
-                      REMOVE_PATH,
-                      RECURSIVE_REMOVE_PATH,
                       EMPTY_DIRECTORY,
-                      ADJUST_MODE,
-                      RELABEL_PATH,
-                      RECURSIVE_RELABEL_PATH,
                       SET_XATTR,
                       RECURSIVE_SET_XATTR,
                       SET_ACL,
                       RECURSIVE_SET_ACL,
                       SET_ATTRIBUTE,
-                      RECURSIVE_SET_ATTRIBUTE);
+                      RECURSIVE_SET_ATTRIBUTE,
+                      IGNORE_PATH,
+                      IGNORE_DIRECTORY_PATH,
+                      REMOVE_PATH,
+                      RECURSIVE_REMOVE_PATH,
+                      RELABEL_PATH,
+                      RECURSIVE_RELABEL_PATH,
+                      ADJUST_MODE);
 }
 
 static bool takes_ownership(ItemType t) {
@@ -402,7 +402,6 @@ static bool takes_ownership(ItemType t) {
                       CREATE_FILE,
                       TRUNCATE_FILE,
                       CREATE_DIRECTORY,
-                      EMPTY_DIRECTORY,
                       TRUNCATE_DIRECTORY,
                       CREATE_SUBVOLUME,
                       CREATE_SUBVOLUME_INHERIT_QUOTA,
@@ -413,6 +412,7 @@ static bool takes_ownership(ItemType t) {
                       CREATE_BLOCK_DEVICE,
                       COPY_FILES,
                       WRITE_FILE,
+                      EMPTY_DIRECTORY,
                       IGNORE_PATH,
                       IGNORE_DIRECTORY_PATH,
                       REMOVE_PATH,
@@ -3005,16 +3005,16 @@ static int clean_item(Context *c, Item *i) {
         switch (i->type) {
 
         case CREATE_DIRECTORY:
+        case TRUNCATE_DIRECTORY:
         case CREATE_SUBVOLUME:
         case CREATE_SUBVOLUME_INHERIT_QUOTA:
         case CREATE_SUBVOLUME_NEW_QUOTA:
-        case TRUNCATE_DIRECTORY:
-        case IGNORE_PATH:
         case COPY_FILES:
                 clean_item_instance(c, i, i->path, CREATION_EXISTING);
                 return 0;
 
         case EMPTY_DIRECTORY:
+        case IGNORE_PATH:
         case IGNORE_DIRECTORY_PATH:
                 return glob_item(c, i, clean_item_instance);
 
