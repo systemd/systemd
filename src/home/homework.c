@@ -1,14 +1,18 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <sys/mount.h>
 
 #include "blockdev-util.h"
+#include "bus-unit-util.h"
 #include "chown-recursive.h"
 #include "copy.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "filesystems.h"
+#include "format-util.h"
 #include "fs-util.h"
 #include "home-util.h"
 #include "homework-cifs.h"
@@ -1795,8 +1799,38 @@ static int home_inspect(UserRecord *h, UserRecord **ret_home) {
         return 1;
 }
 
+static int user_session_freezer(uid_t uid, bool freeze, UnitFreezer *ret) {
+        _cleanup_free_ char *unit = NULL;
+        int r;
+
+        r = getenv_bool("SYSTEMD_HOME_LOCK_SKIP_FREEZE_SESSION");
+        if (r < 0 && r != -ENXIO)
+                log_warning_errno(r, "Cannot parse value of $SYSTEMD_HOME_LOCK_SKIP_FREEZE_SESSION, ignoring.");
+        else if (r > 0)
+                return 0;
+
+        // TODO: Figure out if we should be freezing:
+        //   user@<UID>.service, OR
+        //   user-<UID>.slice
+        //
+        // Freezing the slice breaks GDM re-authentication, because it
+        // contains session-<ID>.scope, which contains gdm-session-worker.
+        // This is used by GDM to re-authenticate and unlock a session. Thus,
+        // if we freeze the whole user-<UID>.slice, there's no reauth worker.
+        // HOWEVER, I think conceptually it makes more sense to freeze the whole
+        // slice. Will need to discuss w/ GDM maintainers
+        if (asprintf(&unit, "user@" UID_FMT ".service", uid) < 0)
+                return log_oom();
+
+        if (freeze)
+                return unit_freezer_freeze(unit, ret);
+        else
+                return unit_freezer_restore(unit, ret);
+}
+
 static int home_lock(UserRecord *h) {
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
+        _cleanup_(unit_freezer_thaw) UnitFreezer freezer = UNIT_FREEZER_NULL;
         int r;
 
         assert(h);
@@ -1812,9 +1846,19 @@ static int home_lock(UserRecord *h) {
         if (r != USER_TEST_MOUNTED)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOEXEC), "Home directory of %s is not mounted, can't lock.", h->user_name);
 
+        r = user_session_freezer(h->uid, true, &freezer);
+        if (r < 0)
+                log_warning_errno(r, "Failed to freeze user session, ignoring: %m");
+        else if (r == 0)
+                log_info("User session freeze disabled, skipping.");
+        else
+                log_info("Froze user session.");
+
         r = home_lock_luks(h, &setup);
         if (r < 0)
                 return r;
+
+        unit_freezer_cancel(&freezer); /* Don't thaw the user session. */
 
         log_info("Everything completed.");
         return 1;
@@ -1822,6 +1866,7 @@ static int home_lock(UserRecord *h) {
 
 static int home_unlock(UserRecord *h) {
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
+        _cleanup_(unit_freezer_thaw) UnitFreezer freezer = UNIT_FREEZER_NULL;
         _cleanup_(password_cache_free) PasswordCache cache = {};
         int r;
 
@@ -1842,6 +1887,11 @@ static int home_unlock(UserRecord *h) {
         r = home_unlock_luks(h, &setup, &cache);
         if (r < 0)
                 return r;
+
+        /* We want to thaw the session only after it's safe to access $HOME */
+        r = user_session_freezer(h->uid, false, &freezer);
+        if (r < 0)
+                log_warning_errno(r, "Failed to recover freezer for user session, ignoring: %m");
 
         log_info("Everything completed.");
         return 1;

@@ -547,6 +547,12 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   `mkfs` when formatting LUKS home directories. There's one variable for each
   of the supported file systems for the LUKS home directory backend.
 
+* `$SYSTEMD_HOME_LOCK_SKIP_FREEZE_SESSION` - Takes a boolean. When true, the user's
+  session will not be frozen when the home directory is locked. Note that the kernel
+  may still freeze any task that tries to access data from the user's locked home
+  directory. This can lead to edge-cases that may lead to data loss. Thus, we recommend
+  that this variable isn't used.
+
 `kernel-install`:
 
 * `$KERNEL_INSTALL_BYPASS` – If set to "1", execution of kernel-install is skipped
@@ -609,3 +615,11 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   latter two via the environment variable unless `systemd-storagetm` is invoked
   to expose a single device only, since those identifiers better should be kept
   unique.
+
+`systemd-sleep`:
+
+* `$SYSTEMD_SLEEP_SKIP_FREEZE_USER_SESSIONS` - Takes a boolean. When true,
+  `user.slice` will not be frozen during sleep. We recommend against using this
+  variable, because it can lead to unexpected behavior. This is especially true
+  for systems that use home directory encryption and for
+  `systemd-suspend-then-hibernate.service`.
