@@ -2000,20 +2000,18 @@ static int link_update_master(Link *link, sd_netlink_message *message) {
         if (master_ifindex == link->ifindex)
                 master_ifindex = 0;
 
-        if (master_ifindex == link->master_ifindex)
-                return 0;
+        if (master_ifindex != link->master_ifindex) {
+                if (link->master_ifindex == 0)
+                        log_link_debug(link, "Attached to master interface: %i", master_ifindex);
+                else if (master_ifindex == 0)
+                        log_link_debug(link, "Detached from master interface: %i", link->master_ifindex);
+                else
+                        log_link_debug(link, "Master interface changed: %i %s %i", link->master_ifindex,
+                                       special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), master_ifindex);
 
-        if (link->master_ifindex == 0)
-                log_link_debug(link, "Attached to master interface: %i", master_ifindex);
-        else if (master_ifindex == 0)
-                log_link_debug(link, "Detached from master interface: %i", link->master_ifindex);
-        else
-                log_link_debug(link, "Master interface changed: %i %s %i", link->master_ifindex,
-                               special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), master_ifindex);
-
-        link_drop_from_master(link);
-
-        link->master_ifindex = master_ifindex;
+                link_drop_from_master(link);
+                link->master_ifindex = master_ifindex;
+        }
 
         r = link_append_to_master(link);
         if (r < 0)
