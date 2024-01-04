@@ -626,8 +626,7 @@ static int append_tmpfs_mounts(MountList *ml, const TemporaryFileSystem *tmpfs, 
                         return log_debug_errno(r, "Failed to parse mount option '%s': %m", str);
 
                 ro = flags & MS_RDONLY;
-                if (ro)
-                        flags ^= MS_RDONLY;
+                flags &= ~MS_RDONLY;
 
                 MountEntry *me = mount_list_extend(ml);
                 if (!me)
