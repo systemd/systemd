@@ -10,6 +10,15 @@ CHANGES WITH 256 in spe:
           section, then all assigned VLAN IDs on the interface that are not
           configured in the .network file are removed.
 
+        * The behavior of systemd-sleep and systemd-homed has been updated to
+          freeze user sessions when entering the various sleep modes or when
+          locking a homed-managed home area. This is known to cause issues with
+          the proprietary NVIDIA drivers. Packagers of the NVIDIA proprietary
+          drivers may want to add drop-in configuration files that set
+          SYSTEMD_SLEEP_SKIP_FREEZE_USER_SESSION=true for systemd-suspend.service
+          and related services, and SYSTEMD_HOME_LOCK_SKIP_FREEZE_SESSION=true
+          for systemd-homed.service.
+
         Network Management:
 
         * systemd-networkd's proxy support gained a new option to configure
