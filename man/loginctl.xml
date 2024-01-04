@@ -358,12 +358,10 @@
       <varlistentry>
         <term><option>--kill-whom=</option></term>
 
-        <listitem><para>When used with
-        <command>kill-session</command>, choose which processes to
-        kill. Must be one of <option>leader</option>, or
-        <option>all</option> to select whether to kill only the leader
-        process of the session or all processes of the session. If
-        omitted, defaults to <option>all</option>.</para>
+        <listitem><para>When used with <command>kill-session</command>, choose which processes to kill.
+        Takes one of <literal>leader</literal> or <literal>all</literal>, to select whether to kill only
+        the leader process of the session or all processes of the session. If omitted, defaults to
+        <option>all</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
