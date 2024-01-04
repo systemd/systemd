@@ -4573,6 +4573,7 @@ static uint64_t unit_get_effective_limit_one(Unit *u, CGroupLimitType type) {
                 }
 
         cc = unit_get_cgroup_context(u);
+        assert(cc);
         switch (type) {
                 /* Note: on legacy/hybrid hierarchies memory_max stays CGROUP_LIMIT_MAX unless configured
                  * explicitly. Effective value of MemoryLimit= (cgroup v1) is not implemented. */
