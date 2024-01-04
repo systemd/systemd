@@ -995,7 +995,7 @@ create_asan_wrapper() {
 
     [[ -z "$ASAN_RT_PATH" ]] && dfatal "ASAN_RT_PATH is empty, but it shouldn't be"
 
-    default_asan_options="${ASAN_OPTIONS:-strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1}"
+    default_asan_options="${ASAN_OPTIONS:-strict_string_checks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1:disable_coredump=0:use_madv_dontdump=1}"
     default_ubsan_options="${UBSAN_OPTIONS:-print_stacktrace=1:print_summary=1:halt_on_error=1}"
 
     if [[ "$ASAN_COMPILER" == "clang" ]]; then
