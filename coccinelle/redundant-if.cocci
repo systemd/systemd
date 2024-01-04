@@ -53,3 +53,54 @@ expression r;
 -         return r;
 + if (r != 0)
 +         return r;
+
+@@
+expression e, x;
+@@
+- if (e & x)
+-       e &= ~x;
+- else
+-       e |= x;
++ e ^= x;
+
+@@
+expression e, x;
+@@
+- if (!(e & x))
+-       e |= x;
+- else
+-       e &= ~x;
++ e ^= x;
+
+@@
+expression e, x;
+@@
+- if (e & x)
+-       e ^= x;
+-
++ e &= ~x;
++
+
+@@
+expression e, x;
+@@
+- if (e & x)
+(
+  e &= ~x;
+)
+
+@@
+expression e, x;
+@@
+- if (e & ~x)
+(
+  e &= x;
+)
+
+@@
+expression e, x;
+@@
+- if (e != x)
+(
+  e = x;
+)
