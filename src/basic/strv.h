@@ -159,6 +159,11 @@ static inline void strv_print(char * const *l) {
         strv_print_full(l, NULL);
 }
 
+char* startswith_strv(const char *s, char * const *l);
+
+#define STARTSWITH_SET(p, ...)                                  \
+        startswith_strv(p, STRV_MAKE(__VA_ARGS__))
+
 #define strv_from_stdarg_alloca(first)                          \
         ({                                                      \
                 char **_l;                                      \
