@@ -1277,20 +1277,14 @@ static int route_is_ready_to_configure(const Route *route, Link *link) {
                 struct nexthop_grp *nhg;
                 NextHop *nh;
 
-                if (nexthop_get_by_id(link->manager, route->nexthop_id, &nh) < 0)
-                        return false;
-
-                if (!nexthop_exists(nh))
-                        return false;
+                r = nexthop_is_ready(link->manager, route->nexthop_id, &nh);
+                if (r <= 0)
+                        return r;
 
                 HASHMAP_FOREACH(nhg, nh->group) {
-                        NextHop *g;
-
-                        if (nexthop_get_by_id(link->manager, nhg->id, &g) < 0)
-                                return false;
-
-                        if (!nexthop_exists(g))
-                                return false;
+                        r = nexthop_is_ready(link->manager, nhg->id, NULL);
+                        if (r <= 0)
+                                return r;
                 }
         }
 
