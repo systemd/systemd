@@ -1776,9 +1776,6 @@ static bool json_variant_is_sensitive_recursive(JsonVariant *v) {
                 return false;
         if (json_variant_is_sensitive(v))
                 return true;
-        if (v == JSON_VARIANT_MAGIC_EMPTY_ARRAY ||
-            v == JSON_VARIANT_MAGIC_EMPTY_OBJECT)
-                return false;
         if (!json_variant_is_regular(v))
                 return false;
         if (!IN_SET(v->type, JSON_VARIANT_ARRAY, JSON_VARIANT_OBJECT))
