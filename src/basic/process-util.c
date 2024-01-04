@@ -1188,8 +1188,10 @@ int pidref_is_alive(const PidRef *pidref) {
                 return -ESRCH;
 
         result = pid_is_alive(pidref->pid);
-        if (result < 0)
+        if (result < 0) {
+                assert(result != -ESRCH);
                 return result;
+        }
 
         r = pidref_verify(pidref);
         if (r == -ESRCH)
