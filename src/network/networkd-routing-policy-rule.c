@@ -1408,7 +1408,7 @@ int config_parse_routing_policy_rule_port_range(
         if (r < 0)
                 return log_oom();
 
-        r = parse_ip_port_range(rvalue, &low, &high);
+        r = parse_ip_port_range(rvalue, &low, &high, /* allow_zero = */ false);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse routing policy rule port range '%s'", rvalue);
                 return 0;
