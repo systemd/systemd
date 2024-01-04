@@ -102,6 +102,8 @@ static int parse_ip_ports_token(
                 uint16_t *nr_ports,
                 uint16_t *port_min) {
 
+        int r;
+
         assert(token);
         assert(nr_ports);
         assert(port_min);
@@ -110,7 +112,7 @@ static int parse_ip_ports_token(
                 *nr_ports = *port_min = 0;
         else {
                 uint16_t mn = 0, mx = 0;
-                int r = parse_ip_port_range(token, &mn, &mx);
+                r = parse_ip_port_range(token, &mn, &mx, /* allow_zero = */ true);
                 if (r < 0)
                         return r;
 
