@@ -870,17 +870,17 @@ int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error) {
         user_elect_display(s->user);
 
         /* Save data */
-        session_save(s);
-        user_save(s->user);
+        (void) session_save(s);
+        (void) user_save(s->user);
         if (s->seat)
-                seat_save(s->seat);
+                (void) seat_save(s->seat);
 
         /* Send signals */
         session_send_signal(s, true);
         user_send_changed(s->user, "Display", NULL);
 
         if (s->seat && s->seat->active == s)
-                seat_send_changed(s->seat, "ActiveSession", NULL);
+                (void) seat_send_changed(s->seat, "ActiveSession", NULL);
 
         return 0;
 }
@@ -966,8 +966,8 @@ int session_stop(Session *s, bool force) {
 
         user_elect_display(s->user);
 
-        session_save(s);
-        user_save(s->user);
+        (void) session_save(s);
+        (void) user_save(s->user);
 
         return r;
 }
@@ -1015,8 +1015,8 @@ int session_finalize(Session *s) {
 
         session_reset_leader(s, /* keep_fdstore = */ false);
 
-        user_save(s->user);
-        user_send_changed(s->user, "Display", NULL);
+        (void) user_save(s->user);
+        (void) user_send_changed(s->user, "Display", NULL);
 
         return 0;
 }
@@ -1192,9 +1192,8 @@ void session_set_type(Session *s, SessionType t) {
                 return;
 
         s->type = t;
-        session_save(s);
-
-        session_send_changed(s, "Type", NULL);
+        (void) session_save(s);
+        (void) session_send_changed(s, "Type", NULL);
 }
 
 int session_set_display(Session *s, const char *display) {
@@ -1207,9 +1206,8 @@ int session_set_display(Session *s, const char *display) {
         if (r <= 0)  /* 0 means the strings were equal */
                 return r;
 
-        session_save(s);
-
-        session_send_changed(s, "Display", NULL);
+        (void) session_save(s);
+        (void) session_send_changed(s, "Display", NULL);
 
         return 1;
 }
@@ -1224,9 +1222,8 @@ int session_set_tty(Session *s, const char *tty) {
         if (r <= 0)  /* 0 means the strings were equal */
                 return r;
 
-        session_save(s);
-
-        session_send_changed(s, "TTY", NULL);
+        (void) session_save(s);
+        (void) session_send_changed(s, "TTY", NULL);
 
         return 1;
 }
@@ -1600,7 +1597,7 @@ int session_set_controller(Session *s, const char *sender, bool force, bool prep
 
         session_release_controller(s, true);
         s->controller = TAKE_PTR(name);
-        session_save(s);
+        (void) session_save(s);
 
         return 0;
 }
@@ -1614,7 +1611,7 @@ void session_drop_controller(Session *s) {
         s->track = sd_bus_track_unref(s->track);
         session_set_type(s, s->original_type);
         session_release_controller(s, false);
-        session_save(s);
+        (void) session_save(s);
         session_restore_vt(s);
 }
 

@@ -317,6 +317,10 @@ static int generic_home_method(
         Home *h;
         int r;
 
+        assert(m);
+        assert(message);
+        assert(handler);
+
         r = sd_bus_message_read(message, "s", &user_name);
         if (r < 0)
                 return r;
