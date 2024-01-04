@@ -269,6 +269,9 @@ static int nexthop_get_request_by_id(Manager *manager, uint32_t id, Request **re
 
         assert(manager);
 
+        if (id == 0)
+                return -EINVAL;
+
         req = ordered_set_get(
                         manager->request_queue,
                         &(Request) {
