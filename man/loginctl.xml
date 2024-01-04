@@ -71,16 +71,15 @@
       <varlistentry>
         <term><command>show-session</command> <optional><replaceable>ID</replaceable>…</optional></term>
 
-        <listitem><para>Show properties of one or more sessions or the
-        manager itself. If no argument is specified, properties of the
-        manager will be shown. If a session ID is specified,
-        properties of the session are shown. By default, empty
-        properties are suppressed. Use <option>--all</option> to show
-        those too. To select specific properties to show, use
-        <option>--property=</option>. This command is intended to be
-        used whenever computer-parsable output is required. Use
-        <command>session-status</command> if you are looking for
-        formatted human-readable output.</para>
+        <listitem><para>Show properties of one or more sessions or the manager itself. If no argument is
+        specified, properties of the manager will be shown. If a session ID is specified, properties of
+        the session are shown. Specially, if the given ID is <literal>self</literal>, the session to which
+        the <command>loginctl</command> process belongs is used. If <literal>auto</literal>, the current
+        session is used as with <literal>self</literal> if exists, and falls back to the current user's
+        graphical session. By default, empty properties are suppressed. Use <option>--all</option> to show
+        those too. To select specific properties to show, use <option>--property=</option>. This command
+        is intended to be used whenever computer-parsable output is required. Use <command>session-status</command>
+        if you are looking for formatted human-readable output.</para>
 
         <xi:include href="version-info.xml" xpointer="v233"/></listitem>
       </varlistentry>
@@ -358,12 +357,10 @@
       <varlistentry>
         <term><option>--kill-whom=</option></term>
 
-        <listitem><para>When used with
-        <command>kill-session</command>, choose which processes to
-        kill. Must be one of <option>leader</option>, or
-        <option>all</option> to select whether to kill only the leader
-        process of the session or all processes of the session. If
-        omitted, defaults to <option>all</option>.</para>
+        <listitem><para>When used with <command>kill-session</command>, choose which processes to kill.
+        Takes one of <literal>leader</literal> or <literal>all</literal>, to select whether to kill only
+        the leader process of the session or all processes of the session. If omitted, defaults to
+        <option>all</option>.</para>
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
       </varlistentry>
