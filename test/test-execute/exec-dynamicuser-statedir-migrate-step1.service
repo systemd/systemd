@@ -11,7 +11,7 @@ ExecStart=test -d %S/test-dynamicuser-migrate
 ExecStart=test -d %S/test-dynamicuser-migrate2/hoge
 ExecStart=touch %S/test-dynamicuser-migrate/yay
 ExecStart=touch %S/test-dynamicuser-migrate2/hoge/yayyay
-ExecStart=/bin/sh -x -c 'test "$$STATE_DIRECTORY" = "%S/test-dynamicuser-migrate:%S/test-dynamicuser-migrate2/hoge"'
+ExecStart=sh -x -c 'test "$$STATE_DIRECTORY" = "%S/test-dynamicuser-migrate:%S/test-dynamicuser-migrate2/hoge"'
 
 Type=oneshot
 DynamicUser=no

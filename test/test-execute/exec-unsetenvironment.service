@@ -3,7 +3,7 @@
 Description=Test for UnsetEnvironment
 
 [Service]
-ExecStart=/bin/sh -x -c 'test "$$FOO" = "bar" && test "$${QUUX-X}" = "X" && test "$$VAR3" = "value3" && test "$${VAR4-X}" = "X" && test "$$VAR5" = "value5" && test "$${X%b-X}" = "X"'
+ExecStart=sh -x -c 'test "$$FOO" = "bar" && test "$${QUUX-X}" = "X" && test "$$VAR3" = "value3" && test "$${VAR4-X}" = "X" && test "$$VAR5" = "value5" && test "$${X%b-X}" = "X"'
 Type=oneshot
 Environment=FOO=bar QUUX=waldo VAR3=value3 VAR4=value4 VAR5=value5 X%b=%U
 UnsetEnvironment=QUUX=waldo VAR3=somethingelse VAR4 X%b=%U

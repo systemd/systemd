@@ -3,6 +3,6 @@
 Description=Test for PrivateTmp=no
 
 [Service]
-ExecStart=/bin/sh -x -c 'test -f /tmp/test-exec_privatetmp'
+ExecStart=sh -x -c 'test -f /tmp/test-exec_privatetmp'
 Type=oneshot
 PrivateTmp=no

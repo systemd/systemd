@@ -7,7 +7,7 @@ systemd-analyze log-level debug
 
 cat > /run/systemd/system/floodme@.service <<EOF
 [Service]
-ExecStart=/bin/true
+ExecStart=true
 EOF
 
 cat > /run/systemd/system/floodme.socket <<EOF

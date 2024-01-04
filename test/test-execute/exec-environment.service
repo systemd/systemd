@@ -3,6 +3,6 @@
 Description=Test for Environment
 
 [Service]
-ExecStart=/bin/sh -x -c 'test "$$VAR1" = "word1 word2" && test "$$VAR2" = word3 && test "$$VAR3" = "\\$$word 5 6"'
+ExecStart=sh -x -c 'test "$$VAR1" = "word1 word2" && test "$$VAR2" = word3 && test "$$VAR3" = "\\$$word 5 6"'
 Type=oneshot
 Environment="VAR1=word1 word2" VAR2=word3 "VAR3=$word 5 6"

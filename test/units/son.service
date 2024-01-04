@@ -5,5 +5,5 @@ Description=Son Service
 [Service]
 Slice=parent.slice
 Type=oneshot
-ExecStart=/bin/true
+ExecStart=true
 CPUShares=100

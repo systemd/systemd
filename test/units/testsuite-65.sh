@@ -107,7 +107,7 @@ ConditionKernelVersion=>1.0
 ConditionPathExists=/etc/os-release
 
 [Service]
-ExecStart=/bin/true
+ExecStart=true
 EOF
 systemctl daemon-reload
 systemd-analyze condition --unit="$UNIT_NAME"

@@ -3,6 +3,6 @@
 Description=Test for Personality=aarch64
 
 [Service]
-ExecStart=/bin/sh -c 'echo $(uname -m); exit $(test $(uname -m) = "aarch64")'
+ExecStart=sh -c 'echo $(uname -m); exit $(test $(uname -m) = "aarch64")'
 Type=oneshot
 Personality=aarch64
