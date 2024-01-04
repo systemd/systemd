@@ -190,26 +190,28 @@ void cgroup_context_init(CGroupContext *c) {
         };
 }
 
-int cgroup_context_add_io_device_weight_dup(CGroupContext *c, CGroupIODeviceWeight *w) {
+int cgroup_context_add_io_device_weight_dup(CGroupContext *c, const CGroupIODeviceWeight *w) {
         _cleanup_free_ CGroupIODeviceWeight *n = NULL;
 
         assert(c);
         assert(w);
 
-        n = new0(CGroupIODeviceWeight, 1);
+        n = new(CGroupIODeviceWeight, 1);
         if (!n)
                 return -ENOMEM;
 
-        n->path = strdup(w->path);
+        *n = (CGroupIODeviceWeight) {
+                .path = strdup(w->path),
+                .weight = w->weight,
+        };
         if (!n->path)
                 return -ENOMEM;
-        n->weight = w->weight;
 
         LIST_PREPEND(device_weights, c->io_device_weights, TAKE_PTR(n));
         return 0;
 }
 
-int cgroup_context_add_io_device_limit_dup(CGroupContext *c, CGroupIODeviceLimit *l) {
+int cgroup_context_add_io_device_limit_dup(CGroupContext *c, const CGroupIODeviceLimit *l) {
         _cleanup_free_ CGroupIODeviceLimit *n = NULL;
 
         assert(c);
@@ -230,53 +232,55 @@ int cgroup_context_add_io_device_limit_dup(CGroupContext *c, CGroupIODeviceLimit
         return 0;
 }
 
-int cgroup_context_add_io_device_latency_dup(CGroupContext *c, CGroupIODeviceLatency *l) {
+int cgroup_context_add_io_device_latency_dup(CGroupContext *c, const CGroupIODeviceLatency *l) {
         _cleanup_free_ CGroupIODeviceLatency *n = NULL;
 
         assert(c);
         assert(l);
 
-        n = new0(CGroupIODeviceLatency, 1);
+        n = new(CGroupIODeviceLatency, 1);
         if (!n)
                 return -ENOMEM;
 
-        n->path = strdup(l->path);
+        *n = (CGroupIODeviceLatency) {
+                .path = strdup(l->path),
+                .target_usec = l->target_usec,
+        }
         if (!n->path)
                 return -ENOMEM;
-
-        n->target_usec = l->target_usec;
 
         LIST_PREPEND(device_latencies, c->io_device_latencies, TAKE_PTR(n));
         return 0;
 }
 
-int cgroup_context_add_block_io_device_weight_dup(CGroupContext *c, CGroupBlockIODeviceWeight *w) {
+int cgroup_context_add_block_io_device_weight_dup(CGroupContext *c, const CGroupBlockIODeviceWeight *w) {
         _cleanup_free_ CGroupBlockIODeviceWeight *n = NULL;
 
         assert(c);
         assert(w);
 
-        n = new0(CGroupBlockIODeviceWeight, 1);
+        n = new(CGroupBlockIODeviceWeight, 1);
         if (!n)
                 return -ENOMEM;
 
-        n->path = strdup(w->path);
+        *n = (CGroupBlockIODeviceWeight) {
+                .path = strdup(w->path),
+                .weight = w->weight,
+        };
         if (!n->path)
                 return -ENOMEM;
-
-        n->weight = w->weight;
 
         LIST_PREPEND(device_weights, c->blockio_device_weights, TAKE_PTR(n));
         return 0;
 }
 
-int cgroup_context_add_block_io_device_bandwidth_dup(CGroupContext *c, CGroupBlockIODeviceBandwidth *b) {
+int cgroup_context_add_block_io_device_bandwidth_dup(CGroupContext *c, const CGroupBlockIODeviceBandwidth *b) {
         _cleanup_free_ CGroupBlockIODeviceBandwidth *n = NULL;
 
         assert(c);
         assert(b);
 
-        n = new0(CGroupBlockIODeviceBandwidth, 1);
+        n = new(CGroupBlockIODeviceBandwidth, 1);
         if (!n)
                 return -ENOMEM;
 
@@ -289,33 +293,34 @@ int cgroup_context_add_block_io_device_bandwidth_dup(CGroupContext *c, CGroupBlo
         return 0;
 }
 
-int cgroup_context_add_device_allow_dup(CGroupContext *c, CGroupDeviceAllow *a) {
+int cgroup_context_add_device_allow_dup(CGroupContext *c, const CGroupDeviceAllow *a) {
         _cleanup_free_ CGroupDeviceAllow *n = NULL;
 
         assert(c);
         assert(a);
 
-        n = new0(CGroupDeviceAllow, 1);
+        n = new(CGroupDeviceAllow, 1);
         if (!n)
                 return -ENOMEM;
 
-        n->path = strdup(a->path);
+        *n = (CGroupDeviceAllow) {
+                .path = strdup(a->path),
+                .permissions = a->permissions,
+        };
         if (!n->path)
                 return -ENOMEM;
-
-        n->permissions = a->permissions;
 
         LIST_PREPEND(device_allow, c->device_allow, TAKE_PTR(n));
         return 0;
 }
 
-static int cgroup_context_add_socket_bind_item_dup(CGroupContext *c, CGroupSocketBindItem *i, CGroupSocketBindItem *h) {
+static int cgroup_context_add_socket_bind_item_dup(CGroupContext *c, const CGroupSocketBindItem *i, CGroupSocketBindItem *h) {
         _cleanup_free_ CGroupSocketBindItem *n = NULL;
 
         assert(c);
         assert(i);
 
-        n = new0(CGroupSocketBindItem, 1);
+        n = new(CGroupSocketBindItem, 1);
         if (!n)
                 return -ENOMEM;
 
@@ -330,11 +335,11 @@ static int cgroup_context_add_socket_bind_item_dup(CGroupContext *c, CGroupSocke
         return 0;
 }
 
-int cgroup_context_add_socket_bind_item_allow_dup(CGroupContext *c, CGroupSocketBindItem *i) {
+int cgroup_context_add_socket_bind_item_allow_dup(CGroupContext *c, const CGroupSocketBindItem *i) {
         return cgroup_context_add_socket_bind_item_dup(c, i, c->socket_bind_allow);
 }
 
-int cgroup_context_add_socket_bind_item_deny_dup(CGroupContext *c, CGroupSocketBindItem *i) {
+int cgroup_context_add_socket_bind_item_deny_dup(CGroupContext *c, const CGroupSocketBindItem *i) {
         return cgroup_context_add_socket_bind_item_dup(c, i, c->socket_bind_deny);
 }
 
