@@ -821,8 +821,8 @@ int mount_option_mangle(
 
                         if (!(ent->mask & MNT_INVERT))
                                 mount_flags |= ent->id;
-                        else if (mount_flags & ent->id)
-                                mount_flags ^= ent->id;
+                        else
+                                mount_flags &= ~ent->id;
 
                         break;
                 }
@@ -1756,8 +1756,7 @@ int make_fsmount(
 
                 eq = strchr(word, '=');
                 if (eq) {
-                        *eq = 0;
-                        eq++;
+                        *eq++ = 0;
 
                         if (fsconfig(fs_fd, FSCONFIG_SET_STRING, word, eq, 0) < 0)
                                 return log_full_errno(error_log_level, errno, "Failed to set mount option \"%s=%s\" for \"%s\": %m", word, eq, type);
