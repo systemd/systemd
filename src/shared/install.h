@@ -193,7 +193,11 @@ int unit_file_lookup_state(
                 UnitFileState *ret);
 
 int unit_file_get_state(RuntimeScope scope, const char *root_dir, const char *filename, UnitFileState *ret);
-int unit_file_exists(RuntimeScope scope, const LookupPaths *paths, const char *name);
+
+int unit_file_exists_full(RuntimeScope scope, const LookupPaths *paths, const char *name, char **ret_path);
+static inline int unit_file_exists(RuntimeScope scope, const LookupPaths *paths, const char *name) {
+        return unit_file_exists_full(scope, paths, name, NULL);
+}
 
 int unit_file_get_list(RuntimeScope scope, const char *root_dir, Hashmap *h, char **states, char **patterns);
 
