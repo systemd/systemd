@@ -212,6 +212,25 @@ static inline usec_t usec_sub_signed(usec_t timestamp, int64_t delta) {
         return usec_sub_unsigned(timestamp, (usec_t) delta);
 }
 
+/* Copy of negative_errno from errno_util.h */
+static inline int negative_errno0(void) {
+        /* This helper should be used to shut up gcc if you know 'errno' is
+         * negative. Instead of "return -errno;", use "return negative_errno();"
+         * It will suppress bogus gcc warnings in case it assumes 'errno' might
+         * be 0 and thus the caller's error-handling might not be triggered. */
+        assert_return(errno > 0, -EINVAL);
+        return -errno;
+}
+
+/* Copy of RET_NERRNO from errno_util.h */
+static inline int RET_NERRNO0(int ret) {
+
+        if (ret < 0)
+                return negative_errno0();
+
+        return ret;
+}
+
 static inline int usleep_safe(usec_t usec) {
         /* usleep() takes useconds_t that is (typically?) uint32_t. Also, usleep() may only support the
          * range [0, 1000000]. See usleep(3). Let's override usleep() with clock_nanosleep().
@@ -219,11 +238,14 @@ static inline int usleep_safe(usec_t usec) {
          * ⚠️ Note we are not using plain nanosleep() here, since that operates on CLOCK_REALTIME, not
          *    CLOCK_MONOTONIC! */
 
+        int r;
+
         if (usec == 0)
                 return 0;
 
-        // FIXME: use RET_NERRNO() macro here. Currently, this header cannot include errno-util.h.
-        return clock_nanosleep(CLOCK_MONOTONIC, 0, TIMESPEC_STORE(usec), NULL) < 0 ? -errno : 0;
+        r = clock_nanosleep(CLOCK_MONOTONIC, 0, TIMESPEC_STORE(usec), NULL);
+
+        return RET_NERRNO0(r);
 }
 
 /* The last second we can format is 31. Dec 9999, 1s before midnight, because otherwise we'd enter 5 digit
