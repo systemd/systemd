@@ -252,7 +252,8 @@ int enroll_tpm2(struct crypt_device *cd,
                 uint32_t pubkey_pcr_mask,
                 const char *signature_path,
                 bool use_pin,
-                const char *pcrlock_path) {
+                const char *pcrlock_path,
+                int *ret_slot_to_wipe) {
 
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *signature_json = NULL;
         _cleanup_(erase_and_freep) char *base64_encoded = NULL;
@@ -261,7 +262,7 @@ int enroll_tpm2(struct crypt_device *cd,
         const char *node;
         _cleanup_(erase_and_freep) char *pin_str = NULL;
         ssize_t base64_encoded_size;
-        int r, keyslot;
+        int r, keyslot, slot_to_wipe = -1;
         TPM2Flags flags = 0;
         uint8_t binary_salt[SHA256_DIGEST_SIZE] = {};
         /*
@@ -277,6 +278,7 @@ int enroll_tpm2(struct crypt_device *cd,
         assert(volume_key_size > 0);
         assert(tpm2_pcr_values_valid(hash_pcr_values, n_hash_pcr_values));
         assert(TPM2_PCR_MASK_VALID(pubkey_pcr_mask));
+        assert(ret_slot_to_wipe);
 
         assert_se(node = crypt_get_device_name(cd));
 
@@ -416,7 +418,10 @@ int enroll_tpm2(struct crypt_device *cd,
                 log_debug_errno(r, "PCR policy hash not yet enrolled, enrolling now.");
         else if (r < 0)
                 return r;
-        else {
+        else if (use_pin) {
+                log_debug("This PCR set is already enrolled, re-enrolling anyway to update PIN.");
+                slot_to_wipe = r;
+        } else {
                 log_info("This PCR set is already enrolled, executing no operation.");
                 return r; /* return existing keyslot, so that wiping won't kill it */
         }
@@ -487,5 +492,7 @@ int enroll_tpm2(struct crypt_device *cd,
                 return log_error_errno(r, "Failed to add TPM2 JSON token to LUKS2 header: %m");
 
         log_info("New TPM2 token enrolled as key slot %i.", keyslot);
+
+        *ret_slot_to_wipe = slot_to_wipe;
         return keyslot;
 }
