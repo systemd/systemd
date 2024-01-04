@@ -865,25 +865,19 @@ static int create_session(
                         c = SESSION_USER;
         }
 
-        /* Check if we are already in a logind session. Or if we are in user@.service
-         * which is a special PAM session that avoids creating a logind session. */
-        r = manager_get_user_by_pid(m, leader.pid, NULL);
+        /* Check if we are already in a logind session, and if so refuse. */
+        r = manager_get_session_by_pidref(m, &leader, /* ret_session= */ NULL);
         if (r < 0)
                 return r;
         if (r > 0)
                 return sd_bus_error_setf(error, BUS_ERROR_SESSION_BUSY,
                                          "Already running in a session or user slice");
 
-        /*
-         * Old gdm and lightdm start the user-session on the same VT as
-         * the greeter session. But they destroy the greeter session
-         * after the user-session and want the user-session to take
-         * over the VT. We need to support this for
-         * backwards-compatibility, so make sure we allow new sessions
-         * on a VT that a greeter is running on. Furthermore, to allow
-         * re-logins, we have to allow a greeter to take over a used VT for
-         * the exact same reasons.
-         */
+        /* Old gdm and lightdm start the user-session on the same VT as the greeter session. But they destroy
+         * the greeter session after the user-session and want the user-session to take over the VT. We need
+         * to support this for backwards-compatibility, so make sure we allow new sessions on a VT that a
+         * greeter is running on. Furthermore, to allow re-logins, we have to allow a greeter to take over a
+         * used VT for the exact same reasons. */
         if (c != SESSION_GREETER &&
             vtnr > 0 &&
             vtnr < MALLOC_ELEMENTSOF(m->seat0->positions) &&
@@ -943,9 +937,17 @@ static int create_session(
                 goto fail;
 
         session->original_type = session->type = t;
-        session->class = c;
         session->remote = remote;
         session->vtnr = vtnr;
+        session->class = c;
+
+        /* One the first session that is of a pinning class shows up we'll change the GC mode for the user
+         * from USER_GC_BY_ANY to USER_GC_BY_PIN, so that the user goes away once the last pinning session
+         * goes away. Background: we want that user@.service – when started manually – remains around (which
+         * itself is a non-pinning session), but gets stopped when the last pinning session goes away. */
+
+        if (SESSION_CLASS_PIN_USER(c))
+                user->gc_mode = USER_GC_BY_PIN;
 
         if (!isempty(tty)) {
                 session->tty = strdup(tty);
@@ -1017,8 +1019,11 @@ static int create_session(
 
         session->create_message = sd_bus_message_ref(message);
 
-        /* Now, let's wait until the slice unit and stuff got created. We send the reply back from
-         * session_send_create_reply(). */
+        /* Now call into session_send_create_reply(), which will reply to this call. Or it won't if we
+         * spawned a user service manager and/or a sessions scope, and it's not ready yet. */
+        r = session_send_create_reply(session, /* error= */ NULL);
+        if (r < 0)
+                return r;
 
         return 1;
 
@@ -3975,22 +3980,26 @@ const BusObjectImplementation manager_object = {
                                         &user_object),
 };
 
-static int session_jobs_reply(Session *s, uint32_t jid, const char *unit, const char *result) {
+static void session_jobs_reply(Session *s, uint32_t jid, const char *unit, const char *result) {
         assert(s);
         assert(unit);
 
         if (!s->started)
-                return 0;
+                return;
 
         if (result && !streq(result, "done")) {
                 _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
 
                 sd_bus_error_setf(&e, BUS_ERROR_JOB_FAILED,
                                   "Job %u for unit '%s' failed with '%s'", jid, unit, result);
-                return session_send_create_reply(s, &e);
+
+                (void) session_send_create_reply(s, &e);
+                (void) session_send_upgrade_reply(s, &e);
+                return;
         }
 
-        return session_send_create_reply(s, NULL);
+        session_send_create_reply(s, /* error= */ NULL);
+        session_send_upgrade_reply(s, /* error= */ NULL);
 }
 
 int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -4025,7 +4034,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
         if (session) {
                 if (streq_ptr(path, session->scope_job)) {
                         session->scope_job = mfree(session->scope_job);
-                        (void) session_jobs_reply(session, id, unit, result);
+                        session_jobs_reply(session, id, unit, result);
 
                         session_save(session);
                         user_save(session->user);
@@ -4040,7 +4049,7 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
                         user->service_job = mfree(user->service_job);
 
                         LIST_FOREACH(sessions_by_user, s, user->sessions)
-                                (void) session_jobs_reply(s, id, unit, NULL /* don't propagate user service failures to the client */);
+                                session_jobs_reply(s, id, unit, NULL /* don't propagate user service failures to the client */);
 
                         user_save(user);
                 }

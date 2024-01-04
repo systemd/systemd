@@ -203,8 +203,14 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                 printf("   Real Name: %s\n", hr->real_name);
 
         hd = user_record_home_directory(hr);
-        if (hd)
-                printf("   Directory: %s\n", hd);
+        if (hd) {
+                printf("   Directory: %s", hd);
+
+                if (hr->fallback_home_directory && hr->use_fallback)
+                        printf(" %s(fallback)%s", ansi_highlight_yellow(), ansi_normal());
+
+                printf("\n");
+        }
 
         storage = user_record_storage(hr);
         if (storage >= 0) /* Let's be political, and clarify which storage we like, and which we don't. About CIFS we don't complain. */
@@ -222,8 +228,14 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
                 printf("   Removable: %s\n", yes_no(b));
 
         shell = user_record_shell(hr);
-        if (shell)
-                printf("       Shell: %s\n", shell);
+        if (shell) {
+                printf("       Shell: %s", shell);
+
+                if (hr->fallback_shell && hr->use_fallback)
+                        printf(" %s(fallback)%s", ansi_highlight_yellow(), ansi_normal());
+
+                printf("\n");
+        }
 
         if (hr->email_address)
                 printf("       Email: %s\n", hr->email_address);

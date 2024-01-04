@@ -202,3 +202,69 @@ void pam_cleanup_free(pam_handle_t *handle, void *data, int error_status) {
         /* A generic destructor for pam_set_data() that just frees the specified data */
         free(data);
 }
+
+int pam_get_item_many_internal(pam_handle_t *handle, ...) {
+        va_list ap;
+        int r;
+
+        va_start(ap, handle);
+        for (;;) {
+                int item_type = va_arg(ap, int);
+
+                if (item_type <= 0) {
+                        r = PAM_SUCCESS;
+                        break;
+                }
+
+                const void **value = ASSERT_PTR(va_arg(ap, const void **));
+
+                r = pam_get_item(handle, item_type, value);
+                if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS))
+                        break;
+        }
+        va_end(ap);
+
+        return r;
+}
+
+int pam_prompt_graceful(pam_handle_t *handle, int style, char **ret_response, const char *fmt, ...) {
+        va_list args;
+        int r;
+
+        assert(handle);
+        assert(fmt);
+
+        /* This is just like pam_prompt(), but does not noisily (i.e. beyond LOG_DEBUG) log on its own, but leaves that to the caller */
+
+        _cleanup_free_ char *msg = NULL;
+        va_start(args, fmt);
+        r = vasprintf(&msg, fmt, args);
+        va_end(args);
+        if (r < 0)
+                return PAM_BUF_ERR;
+
+        const struct pam_conv *conv = NULL;
+        r = pam_get_item(handle, PAM_CONV, (const void**) &conv);
+        if (!IN_SET(r, PAM_SUCCESS, PAM_BAD_ITEM))
+                return pam_syslog_pam_error(handle, LOG_DEBUG, r, "Failed to get conversation function structure: @PAMERR@");
+        if (!conv || !conv->conv) {
+                pam_syslog(handle, LOG_DEBUG, "No conversation function.");
+                return PAM_SYSTEM_ERR;
+        }
+
+        struct pam_message message = {
+                .msg_style = style,
+                .msg = msg,
+        };
+        const struct pam_message *pmessage = &message;
+        _cleanup_free_ struct pam_response *response = NULL;
+        r = conv->conv(1, &pmessage, &response, conv->appdata_ptr);
+        _cleanup_free_ char *rr = response ? response->resp : NULL; /* make sure string is freed */
+        if (r != PAM_SUCCESS)
+                return pam_syslog_pam_error(handle, LOG_DEBUG, r, "Conversation function failed: @PAMERR@");
+
+        if (ret_response)
+                *ret_response = TAKE_PTR(rr);
+
+        return PAM_SUCCESS;
+}

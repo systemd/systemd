@@ -61,6 +61,53 @@ static int property_get_auto_login(
         return sd_bus_message_close_container(reply);
 }
 
+static int lookup_user_name(
+                Manager *m,
+                sd_bus_message *message,
+                const char *user_name,
+                sd_bus_error *error,
+                Home **ret) {
+
+        Home *h;
+        int r;
+
+        assert(m);
+        assert(message);
+        assert(user_name);
+        assert(ret);
+
+        if (isempty(user_name)) {
+                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+                uid_t uid;
+
+                /* If an empty user name is specified, then identify caller's EUID and find home by that. */
+
+                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID, &creds);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_creds_get_euid(creds, &uid);
+                if (r < 0)
+                        return r;
+
+                h = hashmap_get(m->homes_by_uid, UID_TO_PTR(uid));
+                if (!h)
+                        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_HOME, "Client's UID " UID_FMT " not managed.", uid);
+
+        } else {
+
+                if (!valid_user_group_name(user_name, 0))
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "User name %s is not valid", user_name);
+
+                h = hashmap_get(m->homes_by_name, user_name);
+                if (!h)
+                        return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_HOME, "No home for user %s known", user_name);
+        }
+
+        *ret = h;
+        return 0;
+}
+
 static int method_get_home_by_name(
                 sd_bus_message *message,
                 void *userdata,
@@ -77,12 +124,10 @@ static int method_get_home_by_name(
         r = sd_bus_message_read(message, "s", &user_name);
         if (r < 0)
                 return r;
-        if (!valid_user_group_name(user_name, 0))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "User name %s is not valid", user_name);
 
-        h = hashmap_get(m->homes_by_name, user_name);
-        if (!h)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_HOME, "No home for user %s known", user_name);
+        r = lookup_user_name(m, message, user_name, error, &h);
+        if (r < 0)
+                return r;
 
         r = bus_home_path(h, &path);
         if (r < 0)
@@ -204,12 +249,10 @@ static int method_get_user_record_by_name(
         r = sd_bus_message_read(message, "s", &user_name);
         if (r < 0)
                 return r;
-        if (!valid_user_group_name(user_name, 0))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "User name %s is not valid", user_name);
 
-        h = hashmap_get(m->homes_by_name, user_name);
-        if (!h)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_HOME, "No home for user %s known", user_name);
+        r = lookup_user_name(m, message, user_name, error, &h);
+        if (r < 0)
+                return r;
 
         r = bus_home_get_record_json(h, message, &json, &incomplete);
         if (r < 0)
@@ -274,16 +317,17 @@ static int generic_home_method(
         Home *h;
         int r;
 
+        assert(m);
+        assert(message);
+        assert(handler);
+
         r = sd_bus_message_read(message, "s", &user_name);
         if (r < 0)
                 return r;
 
-        if (!valid_user_group_name(user_name, 0))
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "User name %s is not valid", user_name);
-
-        h = hashmap_get(m->homes_by_name, user_name);
-        if (!h)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_HOME, "No home for user %s known", user_name);
+        r = lookup_user_name(m, message, user_name, error, &h);
+        if (r < 0)
+                return r;
 
         return handler(message, h, error);
 }
@@ -551,10 +595,7 @@ static int method_lock_all_homes(sd_bus_message *message, void *userdata, sd_bus
 
         HASHMAP_FOREACH(h, m->homes_by_name) {
 
-                /* Automatically suspend all homes that have at least one client referencing it that asked
-                 * for "please suspend", and no client that asked for "please do not suspend". */
-                if (h->ref_event_source_dont_suspend ||
-                    !h->ref_event_source_please_suspend)
+                if (!home_shall_suspend(h))
                         continue;
 
                 if (!o) {
@@ -683,7 +724,12 @@ static const sd_bus_vtable manager_vtable[] = {
                                 SD_BUS_ARGS("s", user_name, "s", secret),
                                 SD_BUS_NO_RESULT,
                                 method_activate_home,
-                                SD_BUS_VTABLE_SENSITIVE),
+                                SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
+        SD_BUS_METHOD_WITH_ARGS("ActivateHomeIfReferenced",
+                                SD_BUS_ARGS("s", user_name, "s", secret),
+                                SD_BUS_NO_RESULT,
+                                method_activate_home,
+                                SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
         SD_BUS_METHOD_WITH_ARGS("DeactivateHome",
                                 SD_BUS_ARGS("s", user_name),
                                 SD_BUS_NO_RESULT,
@@ -785,6 +831,11 @@ static const sd_bus_vtable manager_vtable[] = {
                                 method_acquire_home,
                                 SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
         SD_BUS_METHOD_WITH_ARGS("RefHome",
+                                SD_BUS_ARGS("s", user_name, "b", please_suspend),
+                                SD_BUS_RESULT("h", send_fd),
+                                method_ref_home,
+                                0),
+        SD_BUS_METHOD_WITH_ARGS("RefHomeUnrestricted",
                                 SD_BUS_ARGS("s", user_name, "b", please_suspend),
                                 SD_BUS_RESULT("h", send_fd),
                                 method_ref_home,

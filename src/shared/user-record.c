@@ -165,6 +165,9 @@ static UserRecord* user_record_free(UserRecord *h) {
         free(h->home_directory);
         free(h->home_directory_auto);
 
+        free(h->fallback_shell);
+        free(h->fallback_home_directory);
+
         strv_free(h->member_of);
         strv_free(h->capability_bounding_set);
         strv_free(h->capability_ambient_set);
@@ -1294,23 +1297,26 @@ static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDisp
 static int dispatch_status(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
 
         static const JsonDispatch status_dispatch_table[] = {
-                { "diskUsage",                  _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,      offsetof(UserRecord, disk_usage),                    0         },
-                { "diskFree",                   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,      offsetof(UserRecord, disk_free),                     0         },
-                { "diskSize",                   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,      offsetof(UserRecord, disk_size),                     0         },
-                { "diskCeiling",                _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,      offsetof(UserRecord, disk_ceiling),                  0         },
-                { "diskFloor",                  _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,      offsetof(UserRecord, disk_floor),                    0         },
-                { "state",                      JSON_VARIANT_STRING,        json_dispatch_string,      offsetof(UserRecord, state),                         JSON_SAFE },
-                { "service",                    JSON_VARIANT_STRING,        json_dispatch_string,      offsetof(UserRecord, service),                       JSON_SAFE },
-                { "signedLocally",              _JSON_VARIANT_TYPE_INVALID, json_dispatch_tristate,    offsetof(UserRecord, signed_locally),                0         },
-                { "goodAuthenticationCounter",  _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,      offsetof(UserRecord, good_authentication_counter),   0         },
-                { "badAuthenticationCounter",   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,      offsetof(UserRecord, bad_authentication_counter),    0         },
-                { "lastGoodAuthenticationUSec", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,      offsetof(UserRecord, last_good_authentication_usec), 0         },
-                { "lastBadAuthenticationUSec",  _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,      offsetof(UserRecord, last_bad_authentication_usec),  0         },
-                { "rateLimitBeginUSec",         _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,      offsetof(UserRecord, ratelimit_begin_usec),          0         },
-                { "rateLimitCount",             _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,      offsetof(UserRecord, ratelimit_count),               0         },
-                { "removable",                  JSON_VARIANT_BOOLEAN,       json_dispatch_boolean,     offsetof(UserRecord, removable),                     0         },
-                { "accessMode",                 JSON_VARIANT_UNSIGNED,      json_dispatch_access_mode, offsetof(UserRecord, access_mode),                   0         },
-                { "fileSystemType",             JSON_VARIANT_STRING,        json_dispatch_string,      offsetof(UserRecord, file_system_type),              JSON_SAFE },
+                { "diskUsage",                  _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,           offsetof(UserRecord, disk_usage),                    0         },
+                { "diskFree",                   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,           offsetof(UserRecord, disk_free),                     0         },
+                { "diskSize",                   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,           offsetof(UserRecord, disk_size),                     0         },
+                { "diskCeiling",                _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,           offsetof(UserRecord, disk_ceiling),                  0         },
+                { "diskFloor",                  _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,           offsetof(UserRecord, disk_floor),                    0         },
+                { "state",                      JSON_VARIANT_STRING,        json_dispatch_string,           offsetof(UserRecord, state),                         JSON_SAFE },
+                { "service",                    JSON_VARIANT_STRING,        json_dispatch_string,           offsetof(UserRecord, service),                       JSON_SAFE },
+                { "signedLocally",              _JSON_VARIANT_TYPE_INVALID, json_dispatch_tristate,         offsetof(UserRecord, signed_locally),                0         },
+                { "goodAuthenticationCounter",  _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,           offsetof(UserRecord, good_authentication_counter),   0         },
+                { "badAuthenticationCounter",   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,           offsetof(UserRecord, bad_authentication_counter),    0         },
+                { "lastGoodAuthenticationUSec", _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,           offsetof(UserRecord, last_good_authentication_usec), 0         },
+                { "lastBadAuthenticationUSec",  _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,           offsetof(UserRecord, last_bad_authentication_usec),  0         },
+                { "rateLimitBeginUSec",         _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,           offsetof(UserRecord, ratelimit_begin_usec),          0         },
+                { "rateLimitCount",             _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,           offsetof(UserRecord, ratelimit_count),               0         },
+                { "removable",                  JSON_VARIANT_BOOLEAN,       json_dispatch_boolean,          offsetof(UserRecord, removable),                     0         },
+                { "accessMode",                 JSON_VARIANT_UNSIGNED,      json_dispatch_access_mode,      offsetof(UserRecord, access_mode),                   0         },
+                { "fileSystemType",             JSON_VARIANT_STRING,        json_dispatch_string,           offsetof(UserRecord, file_system_type),              JSON_SAFE },
+                { "fallbackShell",              JSON_VARIANT_STRING,        json_dispatch_filename_or_path, offsetof(UserRecord, fallback_shell),                0         },
+                { "fallbackHomeDirectory",      JSON_VARIANT_STRING,        json_dispatch_home_directory,   offsetof(UserRecord, fallback_home_directory),       0         },
+                { "useFallback",                JSON_VARIANT_BOOLEAN,       json_dispatch_boolean,          offsetof(UserRecord, use_fallback),                  0         },
                 {},
         };
 
@@ -1720,7 +1726,7 @@ mode_t user_record_access_mode(UserRecord *h) {
         return h->access_mode != MODE_INVALID ? h->access_mode : 0700;
 }
 
-const char* user_record_home_directory(UserRecord *h) {
+static const char *user_record_home_directory_real(UserRecord *h) {
         assert(h);
 
         if (h->home_directory)
@@ -1735,6 +1741,15 @@ const char* user_record_home_directory(UserRecord *h) {
         return "/";
 }
 
+const char* user_record_home_directory(UserRecord *h) {
+        assert(h);
+
+        if (h->use_fallback && h->fallback_home_directory)
+                return h->fallback_home_directory;
+
+        return user_record_home_directory_real(h);
+}
+
 const char *user_record_image_path(UserRecord *h) {
         assert(h);
 
@@ -1743,7 +1758,9 @@ const char *user_record_image_path(UserRecord *h) {
         if (h->image_path_auto)
                 return h->image_path_auto;
 
-        return IN_SET(user_record_storage(h), USER_CLASSIC, USER_DIRECTORY, USER_SUBVOLUME, USER_FSCRYPT) ? user_record_home_directory(h) : NULL;
+        /* For some storage types the image is the home directory itself. (But let's ignore the fallback logic for it) */
+        return IN_SET(user_record_storage(h), USER_CLASSIC, USER_DIRECTORY, USER_SUBVOLUME, USER_FSCRYPT) ?
+                user_record_home_directory_real(h) : NULL;
 }
 
 const char *user_record_cifs_user_name(UserRecord *h) {
@@ -1760,7 +1777,7 @@ unsigned long user_record_mount_flags(UserRecord *h) {
                 (h->nodev ? MS_NODEV : 0);
 }
 
-const char *user_record_shell(UserRecord *h) {
+static const char *user_record_shell_real(UserRecord *h) {
         assert(h);
 
         if (h->shell)
@@ -1773,6 +1790,21 @@ const char *user_record_shell(UserRecord *h) {
                 return DEFAULT_USER_SHELL;
 
         return NOLOGIN;
+}
+
+const char *user_record_shell(UserRecord *h) {
+        const char *shell;
+
+        assert(h);
+
+        shell = user_record_shell_real(h);
+
+        /* Return fallback shall if we are told so — except if the primary shell is already a nologin shell,
+         * then let's not risk anything. */
+        if (h->use_fallback && h->fallback_shell)
+                return is_nologin_shell(shell) ? NOLOGIN : h->fallback_shell;
+
+        return shell;
 }
 
 const char *user_record_real_name(UserRecord *h) {

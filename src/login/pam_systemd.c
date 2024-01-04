@@ -525,6 +525,26 @@ static const char* getenv_harder(pam_handle_t *handle, const char *key, const ch
         return fallback;
 }
 
+static bool getenv_harder_bool(pam_handle_t *handle, const char *key, bool fallback) {
+        const char *v;
+        int r;
+
+        assert(handle);
+        assert(key);
+
+        v = getenv_harder(handle, key, NULL);
+        if (isempty(v))
+                return fallback;
+
+        r = parse_boolean(v);
+        if (r < 0) {
+                pam_syslog(handle, LOG_ERR, "Boolean environment variable value of '%s' is not valid: %s", key, v);
+                return fallback;
+        }
+
+        return r;
+}
+
 static int update_environment(pam_handle_t *handle, const char *key, const char *value) {
         int r;
 
@@ -900,7 +920,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
         int session_fd = -EBADF, existing, r;
-        bool debug = false, remote;
+        bool debug = false, remote, incomplete;
         uint32_t vtnr = 0;
         uid_t original_uid;
 
@@ -926,57 +946,39 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (!logind_running())
                 goto success;
 
-        /* Make sure we don't enter a loop by talking to
-         * systemd-logind when it is actually waiting for the
-         * background to finish start-up. If the service is
-         * "systemd-user" we simply set XDG_RUNTIME_DIR and
-         * leave. */
-
-        r = pam_get_item(handle, PAM_SERVICE, (const void**) &service);
-        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS))
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM service: @PAMERR@");
-        if (streq_ptr(service, "systemd-user")) {
-                char rt[STRLEN("/run/user/") + DECIMAL_STR_MAX(uid_t)];
-
-                xsprintf(rt, "/run/user/"UID_FMT, ur->uid);
-                r = configure_runtime_directory(handle, ur, rt);
-                if (r != PAM_SUCCESS)
-                        return r;
-
-                goto success;
-        }
-
-        /* Otherwise, we ask logind to create a session for us */
-
-        r = pam_get_item(handle, PAM_XDISPLAY, (const void**) &display);
-        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS))
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM_XDISPLAY: @PAMERR@");
-        r = pam_get_item(handle, PAM_TTY, (const void**) &tty);
-        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS))
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM_TTY: @PAMERR@");
-        r = pam_get_item(handle, PAM_RUSER, (const void**) &remote_user);
-        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS))
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM_RUSER: @PAMERR@");
-        r = pam_get_item(handle, PAM_RHOST, (const void**) &remote_host);
-        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS))
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM_RHOST: @PAMERR@");
+        r = pam_get_item_many(
+                        handle,
+                        PAM_SERVICE, &service,
+                        PAM_XDISPLAY, &display,
+                        PAM_TTY, &tty,
+                        PAM_RUSER, &remote_user,
+                        PAM_RHOST, &remote_host);
+        if (r != PAM_SUCCESS)
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM items: @PAMERR@");
 
         seat = getenv_harder(handle, "XDG_SEAT", NULL);
         cvtnr = getenv_harder(handle, "XDG_VTNR", NULL);
         type = getenv_harder(handle, "XDG_SESSION_TYPE", type_pam);
         class = getenv_harder(handle, "XDG_SESSION_CLASS", class_pam);
         desktop = getenv_harder(handle, "XDG_SESSION_DESKTOP", desktop_pam);
+        incomplete = getenv_harder_bool(handle, "XDG_SESSION_INCOMPLETE", NULL);
 
-        tty = strempty(tty);
+        if (streq_ptr(service, "systemd-user")) {
+                /* If we detect that we are running in the "systemd-user" PAM stack, then let's patch the class to
+                 * 'manager' if not set, simply for robustness reasons. */
+                type = "unspecified";
+                class = IN_SET(user_record_disposition(ur), USER_INTRINSIC, USER_SYSTEM, USER_DYNAMIC) ?
+                        "manager-early" : "manager";
+                tty = NULL;
 
-        if (strchr(tty, ':')) {
+        } else if (tty && strchr(tty, ':')) {
                 /* A tty with a colon is usually an X11 display, placed there to show up in utmp. We rearrange things
                  * and don't pretend that an X display was a tty. */
                 if (isempty(display))
                         display = tty;
                 tty = NULL;
 
-        } else if (streq(tty, "cron")) {
+        } else if (streq_ptr(tty, "cron")) {
                 /* cron is setting PAM_TTY to "cron" for some reason (the commit carries no information why, but
                  * probably because it wants to set it to something as pam_time/pam_access/… require PAM_TTY to be set
                  * (as they otherwise even try to update it!) — but cron doesn't actually allocate a TTY for its forked
@@ -985,10 +987,10 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 class = "background";
                 tty = NULL;
 
-        } else if (streq(tty, "ssh")) {
+        } else if (streq_ptr(tty, "ssh")) {
                 /* ssh has been setting PAM_TTY to "ssh" (for the same reason as cron does this, see above. For further
                  * details look for "PAM_TTY_KLUDGE" in the openssh sources). */
-                type ="tty";
+                type = "tty";
                 class = "user";
                 tty = NULL; /* This one is particularly sad, as this means that ssh sessions — even though usually
                              * associated with a pty — won't be tracked by their tty in logind. This is because ssh
@@ -996,7 +998,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                              * much later (this is because it doesn't know yet if it needs one at all, as whether to
                              * register a pty or not is negotiated much later in the protocol). */
 
-        } else
+        } else if (tty)
                 /* Chop off leading /dev prefix that some clients specify, but others do not. */
                 tty = skip_dev_prefix(tty);
 
@@ -1021,7 +1023,16 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                            !isempty(tty) ? "tty" : "unspecified";
 
         if (isempty(class))
-                class = streq(type, "unspecified") ? "background" : "user";
+                class = streq(type, "unspecified") ? "background" :
+                        ((IN_SET(user_record_disposition(ur), USER_INTRINSIC, USER_SYSTEM, USER_DYNAMIC) &&
+                         streq(type, "tty")) ? "user-early" : "user");
+
+        if (incomplete) {
+                if (streq(class, "user"))
+                        class = "user-incomplete";
+                else
+                        pam_syslog_pam_error(handle, LOG_WARNING, 0, "PAM session of class '%s' is incomplete, which is not supported, ignoring.", class);
+        }
 
         remote = !isempty(remote_host) && !is_localhost(remote_host);
 

@@ -151,5 +151,6 @@
 #define BUS_ERROR_HOME_CANT_AUTHENTICATE       "org.freedesktop.home1.HomeCantAuthenticate"
 #define BUS_ERROR_HOME_IN_USE                  "org.freedesktop.home1.HomeInUse"
 #define BUS_ERROR_REBALANCE_NOT_NEEDED         "org.freedesktop.home1.RebalanceNotNeeded"
+#define BUS_ERROR_HOME_NOT_REFERENCED          "org.freedesktop.home1.HomeNotReferenced"
 
 BUS_ERROR_MAP_ELF_USE(bus_common_errors);
