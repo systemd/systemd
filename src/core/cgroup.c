@@ -353,7 +353,7 @@ int cgroup_context_copy(CGroupContext *dst, const CGroupContext *src) {
         dst->tasks_accounting = src->tasks_accounting;
         dst->ip_accounting = src->ip_accounting;
 
-        dst->memory_oom_group = dst->memory_oom_group;
+        dst->memory_oom_group = src->memory_oom_group;
 
         dst->cpu_weight = src->cpu_weight;
         dst->startup_cpu_weight = src->startup_cpu_weight;
