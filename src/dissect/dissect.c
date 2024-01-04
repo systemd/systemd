@@ -1709,6 +1709,8 @@ static int action_detach(const char *path) {
         struct stat st;
         int r;
 
+        assert(path);
+
         fd = open(path, O_PATH|O_CLOEXEC);
         if (fd < 0)
                 return log_error_errno(errno, "Failed to open '%s': %m", path);
