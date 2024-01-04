@@ -18,12 +18,16 @@
 #include "bus-internal.h"
 #include "bus-label.h"
 #include "bus-util.h"
+#include "chase.h"
 #include "data-fd-util.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "memstream-util.h"
 #include "path-util.h"
+#include "capsule-util.h"
 #include "socket-util.h"
 #include "stdio-util.h"
+#include "uid-alloc-range.h"
 
 static int name_owner_change_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         sd_event *e = ASSERT_PTR(userdata);
@@ -267,6 +271,140 @@ int bus_connect_user_systemd(sd_bus **ret_bus) {
         return 0;
 }
 
+static int pin_capsule_socket(const char *capsule, const char *suffix, uid_t *ret_uid, gid_t *ret_gid) {
+        _cleanup_close_ int inode_fd = -EBADF;
+        _cleanup_free_ char *p = NULL;
+        struct stat st;
+        int r;
+
+        assert(capsule);
+        assert(suffix);
+
+        p = path_join("/run/capsules", capsule, suffix);
+        if (!p)
+                return -ENOMEM;
+
+        /* We enter territory owned by the user, hence let's be paranoid about symlinks and ownership */
+        r = chase(p, /* root= */ NULL, CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS, /* ret_path= */ NULL, &inode_fd);
+        if (r < 0)
+                return r;
+
+        if (fstat(inode_fd, &st) < 0)
+                return -errno;
+
+        /* Paranoid safety check */
+        if (uid_is_system(st.st_uid) || gid_is_system(st.st_gid))
+                return -EPERM;
+
+        *ret_uid = st.st_uid;
+        *ret_gid = st.st_gid;
+
+        return TAKE_FD(inode_fd);
+}
+
+int bus_connect_capsule_systemd(const char *capsule, sd_bus **ret_bus) {
+        _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_close_ int inode_fd = -EBADF;
+        _cleanup_free_ char *pp = NULL;
+        uid_t uid;
+        gid_t gid;
+        int r;
+
+        assert(capsule);
+        assert(ret_bus);
+
+        r = capsule_name_is_valid(capsule);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EINVAL;
+
+        /* Connects to a capsule's user bus. We need to do so under the capsule's UID/GID, otherwise the
+         * the service manager might refuse our connection. Hence fake it. */
+
+        inode_fd = pin_capsule_socket(capsule, "systemd/private", &uid, &gid);
+        if (inode_fd < 0)
+                return inode_fd;
+
+        pp = bus_address_escape(FORMAT_PROC_FD_PATH(inode_fd));
+        if (!pp)
+                return -ENOMEM;
+
+        r = sd_bus_new(&bus);
+        if (r < 0)
+                return r;
+
+        if (asprintf(&bus->address, "unix:path=%s,uid=" UID_FMT ",gid=" GID_FMT, pp, uid, gid) < 0)
+                return -ENOMEM;
+
+        r = sd_bus_start(bus);
+        if (r < 0)
+                return r;
+
+        *ret_bus = TAKE_PTR(bus);
+        return 0;
+}
+
+int bus_set_address_capsule_bus(sd_bus *bus, const char *capsule, int *ret_pin_fd) {
+        _cleanup_free_ char *pp = NULL;
+        _cleanup_close_ int inode_fd = -EBADF;
+        uid_t uid;
+        gid_t gid;
+        int r;
+
+        assert(bus);
+        assert(capsule);
+        assert(ret_pin_fd);
+
+        r = capsule_name_is_valid(capsule);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EINVAL;
+
+        inode_fd = pin_capsule_socket(capsule, "bus", &uid, &gid);
+        if (inode_fd < 0)
+                return inode_fd;
+
+        pp = bus_address_escape(FORMAT_PROC_FD_PATH(inode_fd));
+        if (!pp)
+                return -ENOMEM;
+
+        if (asprintf(&bus->address, "unix:path=%s,uid=" UID_FMT ",gid=" GID_FMT, pp, uid, gid) < 0)
+                return -ENOMEM;
+
+        *ret_pin_fd = TAKE_FD(inode_fd); /* This fd must be kept pinned until the connection has been established */
+        return 0;
+}
+
+int bus_connect_capsule_bus(const char *capsule, sd_bus **ret_bus) {
+        _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_close_ int inode_fd = -EBADF;
+        int r;
+
+        assert(capsule);
+        assert(ret_bus);
+
+        r = sd_bus_new(&bus);
+        if (r < 0)
+                return r;
+
+        r = bus_set_address_capsule_bus(bus, capsule, &inode_fd);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_set_bus_client(bus, true);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_start(bus);
+        if (r < 0)
+                return r;
+
+        *ret_bus = TAKE_PTR(bus);
+        return 0;
+}
+
 int bus_connect_transport(
                 BusTransport transport,
                 const char *host,
@@ -280,12 +418,10 @@ int bus_connect_transport(
         assert(transport < _BUS_TRANSPORT_MAX);
         assert(ret);
 
-        assert_return((transport == BUS_TRANSPORT_LOCAL) == !host, -EINVAL);
-        assert_return(transport != BUS_TRANSPORT_REMOTE || runtime_scope == RUNTIME_SCOPE_SYSTEM, -EOPNOTSUPP);
-
         switch (transport) {
 
         case BUS_TRANSPORT_LOCAL:
+                assert_return(!host, -EINVAL);
 
                 switch (runtime_scope) {
 
@@ -307,11 +443,12 @@ int bus_connect_transport(
                 break;
 
         case BUS_TRANSPORT_REMOTE:
+                assert_return(runtime_scope == RUNTIME_SCOPE_SYSTEM, -EOPNOTSUPP);
+
                 r = sd_bus_open_system_remote(&bus, host);
                 break;
 
         case BUS_TRANSPORT_MACHINE:
-
                 switch (runtime_scope) {
 
                 case RUNTIME_SCOPE_USER:
@@ -328,6 +465,12 @@ int bus_connect_transport(
 
                 break;
 
+        case BUS_TRANSPORT_CAPSULE:
+                assert_return(runtime_scope == RUNTIME_SCOPE_USER, -EINVAL);
+
+                r = bus_connect_capsule_bus(host, &bus);
+                break;
+
         default:
                 assert_not_reached();
         }
@@ -342,28 +485,32 @@ int bus_connect_transport(
         return 0;
 }
 
-int bus_connect_transport_systemd(BusTransport transport, const char *host, RuntimeScope runtime_scope, sd_bus **bus) {
+int bus_connect_transport_systemd(
+                BusTransport transport,
+                const char *host,
+                RuntimeScope runtime_scope,
+                sd_bus **ret_bus) {
+
         assert(transport >= 0);
         assert(transport < _BUS_TRANSPORT_MAX);
-        assert(bus);
-
-        assert_return((transport == BUS_TRANSPORT_LOCAL) == !host, -EINVAL);
-        assert_return(transport == BUS_TRANSPORT_LOCAL || runtime_scope == RUNTIME_SCOPE_SYSTEM, -EOPNOTSUPP);
+        assert(ret_bus);
 
         switch (transport) {
 
         case BUS_TRANSPORT_LOCAL:
+                assert_return(!host, -EINVAL);
+
                 switch (runtime_scope) {
 
                 case RUNTIME_SCOPE_USER:
-                        return bus_connect_user_systemd(bus);
+                        return bus_connect_user_systemd(ret_bus);
 
                 case RUNTIME_SCOPE_SYSTEM:
                         if (sd_booted() <= 0)
                                 /* Print a friendly message when the local system is actually not running systemd as PID 1. */
                                 return log_error_errno(SYNTHETIC_ERRNO(EHOSTDOWN),
                                                        "System has not been booted with systemd as init system (PID 1). Can't operate.");
-                        return bus_connect_system_systemd(bus);
+                        return bus_connect_system_systemd(ret_bus);
 
                 default:
                         assert_not_reached();
@@ -372,10 +519,16 @@ int bus_connect_transport_systemd(BusTransport transport, const char *host, Runt
                 break;
 
         case BUS_TRANSPORT_REMOTE:
-                return sd_bus_open_system_remote(bus, host);
+                assert_return(runtime_scope == RUNTIME_SCOPE_SYSTEM, -EOPNOTSUPP);
+                return sd_bus_open_system_remote(ret_bus, host);
 
         case BUS_TRANSPORT_MACHINE:
-                return sd_bus_open_system_machine(bus, host);
+                assert_return(runtime_scope == RUNTIME_SCOPE_SYSTEM, -EOPNOTSUPP);
+                return sd_bus_open_system_machine(ret_bus, host);
+
+        case BUS_TRANSPORT_CAPSULE:
+                assert_return(runtime_scope == RUNTIME_SCOPE_USER, -EINVAL);
+                return bus_connect_capsule_systemd(host, ret_bus);
 
         default:
                 assert_not_reached();

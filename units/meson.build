@@ -706,6 +706,8 @@ units = [
         { 'file' : 'user-runtime-dir@.service.in' },
         { 'file' : 'user.slice' },
         { 'file' : 'user@.service.in' },
+        { 'file' : 'capsule@.service.in' },
+        { 'file' : 'capsule.slice' },
         {
           'file' : 'var-lib-machines.mount',
           'conditions' : ['ENABLE_MACHINED'],
