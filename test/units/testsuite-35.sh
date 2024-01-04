@@ -25,14 +25,22 @@ setup_test_user() {
     trap cleanup_test_user EXIT
 }
 
-test_enable_debug() {
-    mkdir -p /run/systemd/system/systemd-logind.service.d
-    cat >/run/systemd/system/systemd-logind.service.d/debug.conf <<EOF
+test_write_dropin() {
+    systemctl edit --stdin systemd-logind.service --drop-in=debug.conf <<EOF
 [Service]
 Environment=SYSTEMD_LOG_LEVEL=debug
 EOF
-    systemctl daemon-reload
-    systemctl stop systemd-logind.service
+
+    # We test "coldplug" (completely stop and start logind) here. So we need to preserve
+    # the fdstore, which might contain session leader pidfds. This is extremely rare use case
+    # and shall not be considered fully supported.
+    # See also: https://github.com/systemd/systemd/pull/30610#discussion_r1440507850
+    systemctl edit --stdin systemd-logind.service --drop-in=fdstore-preserve.conf <<EOF
+[Service]
+FileDescriptorStorePreserve=yes
+EOF
+
+    systemctl restart systemd-logind.service
 }
 
 testcase_properties() {
@@ -673,7 +681,7 @@ EOF
 }
 
 setup_test_user
-test_enable_debug
+test_write_dropin
 run_testcases
 
 touch /testok
