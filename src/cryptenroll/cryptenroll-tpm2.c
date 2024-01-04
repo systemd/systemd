@@ -253,7 +253,8 @@ int enroll_tpm2(struct crypt_device *cd,
                 uint32_t pubkey_pcr_mask,
                 const char *signature_path,
                 bool use_pin,
-                const char *pcrlock_path) {
+                const char *pcrlock_path,
+                int *slot_to_wipe) {
 
         _cleanup_(erase_and_freep) void *secret = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *signature_json = NULL;
@@ -419,7 +420,10 @@ int enroll_tpm2(struct crypt_device *cd,
                 log_debug_errno(r, "PCR policy hash not yet enrolled, enrolling now.");
         else if (r < 0)
                 return r;
-        else {
+        else if (use_pin) {
+                log_debug("This PCR set is already enrolled, rotating PIN.");
+                *slot_to_wipe = r;
+        } else {
                 log_info("This PCR set is already enrolled, executing no operation.");
                 return r; /* return existing keyslot, so that wiping won't kill it */
         }
