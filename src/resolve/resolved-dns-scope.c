@@ -10,6 +10,7 @@
 #include "hostname-util.h"
 #include "missing_network.h"
 #include "random-util.h"
+#include "resolved-dns-browse-services.h"
 #include "resolved-dnssd.h"
 #include "resolved-dns-scope.h"
 #include "resolved-dns-zone.h"
@@ -117,6 +118,9 @@ DnsScope* dns_scope_free(DnsScope *s) {
 
         dns_cache_flush(&s->cache);
         dns_zone_flush(&s->zone);
+
+        /* Clear records of mDNS service browse subscriber, since cache bas been flushed */
+        dns_browse_services_purge(s->manager, s->family);
 
         LIST_REMOVE(scopes, s->manager->dns_scopes, s);
         return mfree(s);
