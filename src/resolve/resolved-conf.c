@@ -9,11 +9,13 @@
 #include "hexdecoct.h"
 #include "parse-util.h"
 #include "proc-cmdline.h"
+#include "openssl-util.h"
 #include "resolved-conf.h"
 #include "resolved-dns-search-domain.h"
 #include "resolved-dns-stub.h"
 #include "resolved-dnssd.h"
 #include "resolved-manager.h"
+#include "set.h"
 #include "socket-netlink.h"
 #include "specifier.h"
 #include "string-table.h"
@@ -126,6 +128,100 @@ int manager_parse_search_domains_and_warn(Manager *m, const char *string) {
                 if (r < 0)
                         log_warning_errno(r, "Failed to add search domain '%s', ignoring: %m", word);
         }
+}
+
+int manager_init_dnssec_algorithms(Manager *m) {
+        int r;
+
+        assert(m);
+
+        r = set_ensure_allocated(&m->dnssec_algorithms, NULL);
+        if (r < 0)
+                return r;
+
+#if HAVE_OPENSSL_OR_GCRYPT
+        for (int i = 0; i < _DNSSEC_ALGORITHM_MAX_DEFINED; i++) {
+                hash_md_t algorithm;
+
+                algorithm = algorithm_to_implementation_id(i);
+#if PREFER_OPENSSL
+                if (!algorithm)
+                        continue;
+#else
+                if (algorithm == -EOPNOTSUPP)
+                        continue;
+#endif
+                r = set_put(m->dnssec_algorithms, INT_TO_PTR(i));
+                if (r < 0)
+                        return r;
+        }
+#endif
+
+        return 0;
+}
+
+int manager_init_dnssec_digests(Manager *m) {
+        int r;
+
+        assert(m);
+
+        r = set_ensure_allocated(&m->dnssec_digests, NULL);
+        if (r < 0)
+                return r;
+
+#if HAVE_OPENSSL_OR_GCRYPT
+        for (int i = 0; i < _DNSSEC_DIGEST_MAX_DEFINED; i++) {
+                hash_md_t digest;
+
+                digest = digest_to_hash_md(i);
+#if PREFER_OPENSSL
+                if (!digest)
+                        continue;
+#else
+                if (digest == -EOPNOTSUPP)
+                        continue;
+#endif
+                r = set_put(m->dnssec_digests, INT_TO_PTR(i));
+                if (r < 0)
+                        return r;
+        }
+#endif
+
+        return 0;
+}
+
+static int dnssec_set_to_string(Set *set, char **ret, bool digest) {
+        _cleanup_free_ char *s = NULL;
+        void *e;
+        int r;
+
+        assert(ret);
+
+        if (set_isempty(set)) {
+                s = strdup("");
+                if (!s)
+                        return -ENOMEM;
+        } else {
+                SET_FOREACH(e, set) {
+                        _cleanup_free_ char *a = NULL;
+
+                        if (digest) {
+                                r = dnssec_digest_to_string_alloc(PTR_TO_INT(e), &a);
+                                if (r < 0)
+                                        return r;
+                        } else {
+                                r = dnssec_algorithm_to_string_alloc(PTR_TO_INT(e), &a);
+                                if (r < 0)
+                                        return r;
+                        }
+
+                        if (!strextend_with_separator(&s, ",", a))
+                                return -ENOMEM;
+                }
+        }
+
+        *ret = TAKE_PTR(s);
+        return 0;
 }
 
 int config_parse_dns_servers(
@@ -565,6 +661,96 @@ static void read_proc_cmdline(Manager *m) {
                 log_warning_errno(r, "Failed to read kernel command line, ignoring: %m");
 }
 
+int config_parse_dnssec_algorithms_digests(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Manager *m = ASSERT_PTR(userdata);
+        int (*from_string)(const char*);
+        int (*init)(Manager*);
+        bool negative = false;
+        const char *object;
+        Set **set;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (streq(lvalue, "DNSSECAlgorithms")) {
+                from_string = dnssec_algorithm_from_string;
+                init = manager_init_dnssec_algorithms;
+                set = &m->dnssec_algorithms;
+                object = "algorithm";
+        } else if (streq(lvalue, "DNSSECDigests")) {
+                from_string = dnssec_digest_from_string;
+                init = manager_init_dnssec_digests;
+                set = &m->dnssec_digests;
+                object = "digest";
+        } else
+                assert_not_reached();
+
+        r = set_ensure_allocated(set, NULL);
+        if (r < 0)
+                return r;
+
+        if (isempty(rvalue)) {
+                set_clear(*set);
+                return 0;
+        }
+
+        if (rvalue[0] == '~') {
+                negative = true;
+                rvalue++;
+        }
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&rvalue, &word, NULL, EXTRACT_UNQUOTE);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        break;
+
+                if (streq(word, "all")) {
+                        r = init(m);
+                        if (r < 0)
+                                return r;
+                        continue;
+                }
+
+                r = from_string(word);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Unknown DNSSEC %s '%s', ignoring.", object, word);
+                        continue;
+                }
+
+                if (negative) {
+                        void *e = set_remove(*set, INT_TO_PTR(r));
+                        if (!e)
+                                log_warning("Failed to remove DNSSEC %s '%s', ignoring.", object, word);
+                } else {
+                        r = set_put(*set, INT_TO_PTR(r));
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
+}
+
 int manager_parse_config_file(Manager *m) {
         int r;
 
@@ -598,6 +784,20 @@ int manager_parse_config_file(Manager *m) {
                 m->dns_over_tls_mode = DNS_OVER_TLS_NO;
         }
 #endif
-        return 0;
 
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *s = NULL;
+
+                r = dnssec_set_to_string(m->dnssec_algorithms, &s, false /* digest = */);
+                if (r >= 0)
+                        log_debug("Enabled DNSSEC algorithms: %s", s);
+
+                s = mfree(s);
+
+                r = dnssec_set_to_string(m->dnssec_digests, &s, true /* digest = */);
+                if (r >= 0)
+                        log_debug("Enabled DNSSEC digests: %s", s);
+        }
+
+        return 0;
 }
