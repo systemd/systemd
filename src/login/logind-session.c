@@ -746,7 +746,7 @@ static int session_setup_stop_on_idle_timer(Session *s) {
 
         assert(s);
 
-        if (s->manager->stop_idle_session_usec == USEC_INFINITY || IN_SET(s->class, SESSION_GREETER, SESSION_LOCK_SCREEN))
+        if (s->manager->stop_idle_session_usec == USEC_INFINITY || !SESSION_CLASS_CAN_STOP_ON_IDLE(s->class))
                 return 0;
 
         r = sd_event_add_time_relative(

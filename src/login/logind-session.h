@@ -55,6 +55,9 @@ typedef enum SessionClass {
 /* Which sessions are candidates to become "display" sessions */
 #define SESSION_CLASS_CAN_DISPLAY(class) (IN_SET((class), SESSION_USER, SESSION_USER_EARLY, SESSION_GREETER))
 
+/* Which sessions classes should be subject to stop-in-idle */
+#define SESSION_CLASS_CAN_STOP_ON_IDLE(class) (IN_SET((class), SESSION_USER, SESSION_USER_EARLY))
+
 typedef enum SessionType {
         SESSION_UNSPECIFIED,
         SESSION_TTY,
