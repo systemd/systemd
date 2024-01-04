@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <sys/mman.h>
 
 #include "ask-password-api.h"
 #include "build.h"
@@ -705,6 +706,9 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        /* A delicious drop of snake oil */
+        (void) mlockall(MCL_FUTURE);
 
         cryptsetup_enable_logging(NULL);
 
