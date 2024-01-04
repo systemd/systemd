@@ -110,7 +110,7 @@ static int parse_ip_ports_token(
                 *nr_ports = *port_min = 0;
         else {
                 uint16_t mn = 0, mx = 0;
-                int r = parse_ip_port_range(token, &mn, &mx);
+                int r = parse_ip_port_range(token, &mn, &mx, true);
                 if (r < 0)
                         return r;
 
