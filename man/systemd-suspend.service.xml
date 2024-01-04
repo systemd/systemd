@@ -66,7 +66,9 @@
     same executables are run, but the first argument is now
     <literal>post</literal>. All executables in this directory are
     executed in parallel, and execution of the action is not continued
-    until all executables have finished.</para>
+    until all executables have finished. Note that <filename>user.slice</filename> will
+    be frozen while the executables are running, so they should not attempt to
+    communicate with any user services expecting a reply.</para>
 
     <para>Note that scripts or binaries dropped in
     <filename>/usr/lib/systemd/system-sleep/</filename> are intended
@@ -90,6 +92,11 @@
     <filename>sleep.conf.d</filename> file. See
     <citerefentry><refentrytitle>systemd-sleep.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
+
+    <para>Note that by default these services freeze <filename>user.slice</filename> while they run. This prevents
+    the execution of any process in any of the user sessions while the system is coming into and going out of a
+    suspended state. Thus, this prevents the hooks in <filename>/usr/lib/systemd/system-sleep/</filename>, or any
+    other process for that matter, from communicating with any user session process during suspend.</para>
   </refsect1>
 
   <refsect1>
