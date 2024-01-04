@@ -4504,6 +4504,7 @@ static int verb_make_policy(int argc, char *argv[], void *userdata) {
                                 srk_handle,
                                 encryption_session,
                                 &authnv_policy_digest,
+                                /* uses_pin= */ true,
                                 &pin_public,
                                 &pin_private);
                 if (r < 0)
@@ -4560,7 +4561,7 @@ static int verb_make_policy(int argc, char *argv[], void *userdata) {
                         return r;
         }
 
-        log_info("Written new policy to '%s' and digest to TPM2 NV index 0x%" PRIu32 ".", path, nv_index);
+        log_info("Written new policy to '%s' and digest to TPM2 NV index 0x%x.", path, nv_index);
 
         log_info("Overall time spent: %s", FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), start_usec), 1));
 
