@@ -241,10 +241,10 @@ int main(int argc, char *argv[]) {
         assert_se( unit_has_dependency(manager_get_unit(m, "non-existing-on-failure.target"), UNIT_ATOM_ON_FAILURE_OF, a));
         assert_se( unit_has_dependency(a, UNIT_ATOM_ON_SUCCESS, manager_get_unit(m, "non-existing-on-success.target")));
         assert_se( unit_has_dependency(manager_get_unit(m, "non-existing-on-success.target"), UNIT_ATOM_ON_SUCCESS_OF, a));
-        assert_se(!unit_has_dependency(a, UNIT_ATOM_ON_FAILURE, manager_get_unit(m, "basic.target")));
-        assert_se(!unit_has_dependency(a, UNIT_ATOM_ON_SUCCESS, manager_get_unit(m, "basic.target")));
-        assert_se(!unit_has_dependency(a, UNIT_ATOM_ON_FAILURE_OF, manager_get_unit(m, "basic.target")));
-        assert_se(!unit_has_dependency(a, UNIT_ATOM_ON_SUCCESS_OF, manager_get_unit(m, "basic.target")));
+        assert_se(!unit_has_dependency(a, UNIT_ATOM_ON_FAILURE, manager_get_unit(m, SPECIAL_BASIC_TARGET)));
+        assert_se(!unit_has_dependency(a, UNIT_ATOM_ON_SUCCESS, manager_get_unit(m, SPECIAL_BASIC_TARGET)));
+        assert_se(!unit_has_dependency(a, UNIT_ATOM_ON_FAILURE_OF, manager_get_unit(m, SPECIAL_BASIC_TARGET)));
+        assert_se(!unit_has_dependency(a, UNIT_ATOM_ON_SUCCESS_OF, manager_get_unit(m, SPECIAL_BASIC_TARGET)));
         assert_se(!unit_has_dependency(a, UNIT_ATOM_PROPAGATES_RELOAD_TO, manager_get_unit(m, "non-existing-on-failure.target")));
 
         assert_se(unit_has_name(a, "a.service"));
