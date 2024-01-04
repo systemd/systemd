@@ -1,10 +1,10 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "generator.h"
+#include "parse-util.h"
 #include "proc-cmdline.h"
 #include "special.h"
 #include "tpm2-util.h"
-#include "parse-util.h"
 
 /* A small generator that enqueues tpm2.target as synchronization point if the TPM2 device hasn't shown up
  * yet, but the firmware reports it to exist. This is supposed to deal with systems where the TPM2 driver
