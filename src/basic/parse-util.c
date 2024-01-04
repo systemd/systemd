@@ -691,7 +691,7 @@ int parse_ip_port(const char *s, uint16_t *ret) {
         return 0;
 }
 
-int parse_ip_port_range(const char *s, uint16_t *low, uint16_t *high) {
+int parse_ip_port_range(const char *s, uint16_t *low, uint16_t *high, bool allow_zero) {
         unsigned l, h;
         int r;
 
@@ -700,6 +700,9 @@ int parse_ip_port_range(const char *s, uint16_t *low, uint16_t *high) {
                 return r;
 
         if (l <= 0 || l > 65535 || h <= 0 || h > 65535)
+                return -EINVAL;
+
+        if (!allow_zero && (l == 0 || h == 0))
                 return -EINVAL;
 
         if (h < l)
