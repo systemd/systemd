@@ -61,6 +61,7 @@ TEST(valid_items) {
         test_valid_item("ipv6:tcp:6666", AF_INET6, IPPROTO_TCP, 1, 6666);
         test_valid_item("ipv6:udp:6666-6667", AF_INET6, IPPROTO_UDP, 2, 6666);
         test_valid_item("ipv6:tcp:any", AF_INET6, IPPROTO_TCP, 0, 0);
+        test_valid_item("0", AF_UNSPEC, 0, 1, 0);
 }
 
 TEST(invalid_items) {
@@ -79,7 +80,6 @@ TEST(invalid_items) {
         test_invalid_item("ipv6:icmp");
         test_invalid_item("ipv6:tcp:0");
         test_invalid_item("65536");
-        test_invalid_item("0-65535");
         test_invalid_item("ipv6:tcp:6666-6665");
         test_invalid_item("ipv6:tcp:6666-100000");
         test_invalid_item("ipv6::6666");
