@@ -552,8 +552,38 @@ static int static_nexthop_handler(sd_netlink *rtnl, sd_netlink_message *m, Reque
         return 1;
 }
 
+int nexthop_is_ready(Manager *manager, uint32_t id, NextHop **ret) {
+        NextHop *nexthop;
+
+        assert(manager);
+
+        if (id == 0)
+                return -EINVAL;
+
+        if (nexthop_get_request_by_id(manager, id, NULL) >= 0)
+                goto not_ready;
+
+        if (nexthop_get_by_id(manager, id, &nexthop) < 0)
+                goto not_ready;
+
+        if (!nexthop_exists(nexthop))
+                goto not_ready;
+
+        if (ret)
+                *ret = nexthop;
+
+        return true;
+
+not_ready:
+        if (ret)
+                *ret = NULL;
+
+        return false;
+}
+
 static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
         struct nexthop_grp *nhg;
+        int r;
 
         assert(link);
         assert(nexthop);
@@ -576,13 +606,9 @@ static bool nexthop_is_ready_to_configure(Link *link, const NextHop *nexthop) {
 
         /* All group members must be configured first. */
         HASHMAP_FOREACH(nhg, nexthop->group) {
-                NextHop *g;
-
-                if (nexthop_get_by_id(link->manager, nhg->id, &g) < 0)
-                        return false;
-
-                if (!nexthop_exists(g))
-                        return false;
+                r = nexthop_is_ready(link->manager, nhg->id, NULL);
+                if (r <= 0)
+                        return r;
         }
 
         return gateway_is_ready(link, FLAGS_SET(nexthop->flags, RTNH_F_ONLINK), nexthop->family, &nexthop->gw);
