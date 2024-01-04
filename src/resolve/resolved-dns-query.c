@@ -902,7 +902,7 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                         if (t->answer_ede_msg) {
                                 answer_ede_msg = strdup(t->answer_ede_msg);
                                 if (!answer_ede_msg) {
-                                        log_oom();
+                                        r = log_oom();
                                         goto fail;
                                 }
                         }
