@@ -164,6 +164,11 @@ char* startswith_strv(const char *s, char * const *l);
 #define STARTSWITH_SET(p, ...)                                  \
         startswith_strv(p, STRV_MAKE(__VA_ARGS__))
 
+char* endswith_strv(const char *s, char * const *l);
+
+#define ENDSWITH_SET(p, ...)                                    \
+        endswith_strv(p, STRV_MAKE(__VA_ARGS__))
+
 #define strv_from_stdarg_alloca(first)                          \
         ({                                                      \
                 char **_l;                                      \
@@ -207,18 +212,6 @@ char* startswith_strv(const char *s, char * const *l);
                 _x && strv_contains_case(STRV_MAKE(__VA_ARGS__), _x); \
         })
 
-#define ENDSWITH_SET(p, ...)                                    \
-        ({                                                      \
-                const char *_p = (p);                           \
-                char *_found = NULL;                            \
-                STRV_FOREACH(_i, STRV_MAKE(__VA_ARGS__)) {      \
-                        _found = endswith(_p, *_i);             \
-                        if (_found)                             \
-                                break;                          \
-                }                                               \
-                _found;                                         \
-        })
-
 #define _FOREACH_STRING(uniq, x, y, ...)                                \
         for (const char *x, * const*UNIQ_T(l, uniq) = STRV_MAKE_CONST(({ x = y; }), ##__VA_ARGS__); \
              x;                                                         \
@@ -257,5 +250,3 @@ int _string_strv_hashmap_put(Hashmap **h, const char *key, const char *value  HA
 int _string_strv_ordered_hashmap_put(OrderedHashmap **h, const char *key, const char *value  HASHMAP_DEBUG_PARAMS);
 #define string_strv_hashmap_put(h, k, v) _string_strv_hashmap_put(h, k, v  HASHMAP_DEBUG_SRC_ARGS)
 #define string_strv_ordered_hashmap_put(h, k, v) _string_strv_ordered_hashmap_put(h, k, v  HASHMAP_DEBUG_SRC_ARGS)
-
-char* strv_endswith(const char *s, char **l);
