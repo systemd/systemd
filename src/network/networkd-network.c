@@ -274,10 +274,8 @@ int network_verify(Network *network) {
                 network->ignore_carrier_loss_usec = USEC_INFINITY;
         }
 
-        if (!network->ignore_carrier_loss_set) {
-                network->ignore_carrier_loss_set = true;
+        if (!network->ignore_carrier_loss_set) /* Set implied default. */
                 network->ignore_carrier_loss_usec = network->configure_without_carrier ? USEC_INFINITY : 0;
-        }
 
         if (IN_SET(network->activation_policy, ACTIVATION_POLICY_DOWN, ACTIVATION_POLICY_ALWAYS_DOWN, ACTIVATION_POLICY_MANUAL)) {
                 if (network->required_for_online < 0 ||
