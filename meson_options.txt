@@ -211,6 +211,8 @@ option('pamlibdir', type : 'string',
        description : 'directory for PAM modules')
 option('pamconfdir', type : 'string',
        description : 'directory for PAM configuration ["no" disables]')
+option('sshconfdir', type : 'string',
+       description : 'directory for SSH client configuration ["no" disables]')
 option('sshdconfdir', type : 'string',
        description : 'directory for SSH server configuration ["no" disables]')
 option('libcryptsetup-plugins-dir', type : 'string',
