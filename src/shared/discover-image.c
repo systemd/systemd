@@ -233,7 +233,7 @@ static int extract_image_basename(
                 return r;
 
         if (format_suffixes) {
-                char *e = strv_endswith(name, format_suffixes);
+                char *e = endswith_strv(name, format_suffixes);
                 if (!e) /* Format suffix is required */
                         return -EINVAL;
 
