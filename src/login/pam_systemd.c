@@ -1021,7 +1021,9 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                            !isempty(tty) ? "tty" : "unspecified";
 
         if (isempty(class))
-                class = streq(type, "unspecified") ? "background" : "user";
+                class = streq(type, "unspecified") ? "background" :
+                        ((IN_SET(user_record_disposition(ur), USER_INTRINSIC, USER_SYSTEM, USER_DYNAMIC) &&
+                         streq(type, "tty")) ? "user-early" : "user");
 
         remote = !isempty(remote_host) && !is_localhost(remote_host);
 

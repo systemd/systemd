@@ -20,13 +20,18 @@ typedef enum SessionState {
 } SessionState;
 
 typedef enum SessionClass {
-        SESSION_USER,
-        SESSION_GREETER,
-        SESSION_LOCK_SCREEN,
-        SESSION_BACKGROUND,
+        SESSION_USER,               /* A regular user session */
+        SESSION_USER_EARLY,         /* A user session, that is not odered after systemd-user-sessions.service (i.e. for root) */
+        SESSION_GREETER,            /* A login greeter pseudo-session */
+        SESSION_LOCK_SCREEN,        /* A lock screen */
+        SESSION_BACKGROUND,         /* Things like cron jobs, which are non-interactive */
         _SESSION_CLASS_MAX,
         _SESSION_CLASS_INVALID = -EINVAL,
 } SessionClass;
+
+/* Whether we shall allow sessions of this class to run before 'systemd-user-sessions.service'. For now,
+ * there's only one class we allow this for. It's generally set for root sessions, but noone else. */
+#define SESSION_CLASS_IS_EARLY(class) ((class) == SESSION_USER_EARLY)
 
 typedef enum SessionType {
         SESSION_UNSPECIFIED,
