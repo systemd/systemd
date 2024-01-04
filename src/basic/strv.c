@@ -716,6 +716,16 @@ char* startswith_strv(const char *s, char * const *l) {
         return NULL;
 }
 
+char* endswith_strv(const char *s, char * const *l) {
+        STRV_FOREACH(i, l) {
+                char *found = endswith(s, *i);
+                if (found)
+                        return found;
+        }
+
+        return NULL;
+}
+
 char** strv_reverse(char **l) {
         size_t n;
 
@@ -915,13 +925,3 @@ int _string_strv_ordered_hashmap_put(OrderedHashmap **h, const char *key, const 
 }
 
 DEFINE_HASH_OPS_FULL(string_strv_hash_ops, char, string_hash_func, string_compare_func, free, char*, strv_free);
-
-char* strv_endswith(const char *s, char **l) {
-        STRV_FOREACH(i, l) {
-                char *e = endswith(s, *i);
-                if (e)
-                        return (char*) e;
-        }
-
-        return NULL;
-}
