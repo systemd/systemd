@@ -6,10 +6,10 @@
 #include "macro.h"
 #include "main-func.h"
 
-int generator_open_unit_file_full(const char *dest, const char *source, const char *name, FILE **ret_file, char **ret_temp_path);
+int generator_open_unit_file_full(const char *dest, const char *source, const char *name, FILE **ret_file, char **ret_final_path, char **ret_temp_path);
 
 static inline int generator_open_unit_file(const char *dest, const char *source, const char *name, FILE **ret_file) {
-        return generator_open_unit_file_full(dest, source, name, ret_file, NULL);
+        return generator_open_unit_file_full(dest, source, name, ret_file, NULL, NULL);
 }
 
 int generator_add_symlink_full(const char *dir, const char *dst, const char *dep_type, const char *src, const char *instance);

@@ -29,6 +29,7 @@ int generator_open_unit_file_full(
                 const char *source,
                 const char *fn,
                 FILE **ret_file,
+                char **ret_final_path,
                 char **ret_temp_path) {
 
         _cleanup_free_ char *p = NULL;
@@ -72,6 +73,10 @@ int generator_open_unit_file_full(
                 program_invocation_short_name);
 
         *ret_file = f;
+
+        if (ret_final_path)
+                *ret_final_path = TAKE_PTR(p);
+
         return 0;
 }
 
