@@ -9,15 +9,18 @@
 
 #include "ask-password-api.h"
 #include "blockdev-util.h"
+#include "boot-entry.h"
 #include "build.h"
 #include "chase.h"
 #include "color-util.h"
 #include "conf-files.h"
+#include "creds-util.h"
 #include "efi-api.h"
 #include "env-util.h"
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "find-esp.h"
 #include "format-table.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -60,12 +63,15 @@ static TPM2_HANDLE arg_nv_index = 0;
 static bool arg_recovery_pin = false;
 static char *arg_policy_path = NULL;
 static bool arg_force = false;
+static BootEntryTokenType arg_entry_token_type = BOOT_ENTRY_TOKEN_AUTO;
+static char *arg_entry_token = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_components, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_pcrlock_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_location_start, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_location_end, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_policy_path, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_entry_token, freep);
 
 #define PCRLOCK_SECUREBOOT_POLICY_PATH      "/var/lib/pcrlock.d/240-secureboot-policy.pcrlock.d/generated.pcrlock"
 #define PCRLOCK_FIRMWARE_CODE_EARLY_PATH    "/var/lib/pcrlock.d/250-firmware-code-early.pcrlock.d/generated.pcrlock"
@@ -4164,6 +4170,127 @@ static int remove_policy_file(const char *path) {
         return 1;
 }
 
+static int determine_boot_policy_file(char **ret) {
+        _cleanup_free_ char *path = NULL, *fn = NULL, *joined = NULL;
+        sd_id128_t machine_id;
+        int r;
+
+        assert(ret);
+
+        r = find_xbootldr_and_warn(
+                        /* root= */ NULL,
+                        /* path= */ NULL,
+                        /* unprivileged_mode= */ false,
+                        &path,
+                        /* ret_uuid= */ NULL,
+                        /* ret_devid= */ NULL);
+        if (r < 0) {
+                if (r != -ENOKEY)
+                        return log_error_errno(r, "Failed to find XBOOTLDR partition: %m");
+
+                r = find_esp_and_warn(
+                                /* root= */ NULL,
+                                /* path= */ NULL,
+                                /* unprivileged_mode= */ false,
+                                &path,
+                                /* ret_part= */ NULL,
+                                /* ret_pstart= */ NULL,
+                                /* ret_psize= */ NULL,
+                                /* ret_uuid= */ NULL,
+                                /* ret_devid= */ NULL);
+                if (r < 0) {
+                        if (r != -ENOKEY)
+                                return log_error_errno(r, "Failed to find ESP partition: %m");
+
+                        *ret = NULL;
+                        return 0; /* not found! */
+                }
+        }
+
+        r = sd_id128_get_machine(&machine_id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to read machine ID: %m");
+
+        r = boot_entry_token_ensure(
+                        /* root= */ NULL,
+                        "/etc/kernel",
+                        machine_id,
+                        /* machine_id_is_random = */ false,
+                        &arg_entry_token_type,
+                        &arg_entry_token);
+        if (r < 0)
+                return r;
+
+        fn = strjoin("pcrlock.", arg_entry_token, ".cred");
+        if (!fn)
+                return log_oom();
+
+        if (!filename_is_valid(fn))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential name '%s' would not be a valid file name, refusing.", fn);
+
+        joined = path_join(path, "loader/credentials", fn);
+        if (!joined)
+                return log_oom();
+
+        *ret = TAKE_PTR(joined);
+        return 1; /* found! */
+}
+
+static int write_boot_policy_file(const char *json_text) {
+        _cleanup_free_ char *boot_policy_file = NULL;
+        int r;
+
+        assert(json_text);
+
+        r = determine_boot_policy_file(&boot_policy_file);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                log_info("Did not find XBOOTLDR/ESP partition, not writing boot policy file.");
+                return 0;
+        }
+
+        _cleanup_free_ char *c = NULL;
+        r = path_extract_filename(boot_policy_file, &c);
+        if (r < 0)
+                return log_error_errno(r, "Failed to extract file name from %s: %m", boot_policy_file);
+
+        ascii_strlower(c); /* lowercase this file, no matter what, since stored on VFAT, and we don't want to
+                            * run into case change incompatibilities */
+
+        _cleanup_(iovec_done) struct iovec encoded = {};
+        r = encrypt_credential_and_warn(
+                        CRED_AES256_GCM_BY_NULL,
+                        c,
+                        now(CLOCK_REALTIME),
+                        /* not_after= */ USEC_INFINITY,
+                        /* tpm2_device= */ NULL,
+                        /* tpm2_hash_pcr_mask= */ 0,
+                        /* tpm2_pubkey_path= */ NULL,
+                        /* tpm2_pubkey_path_mask= */ 0,
+                        &IOVEC_MAKE_STRING(json_text),
+                        CREDENTIAL_ALLOW_NULL,
+                        &encoded);
+        if (r < 0)
+                return log_error_errno(r, "Failed to encode policy as credential: %m");
+
+        _cleanup_free_ char *base64_buf = NULL;
+        ssize_t base64_size;
+        base64_size = base64mem_full(encoded.iov_base, encoded.iov_len, 79, &base64_buf);
+        if (base64_size < 0)
+                return base64_size;
+
+        r = write_string_file(
+                        boot_policy_file,
+                        base64_buf,
+                        WRITE_STRING_FILE_ATOMIC|WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_SYNC|WRITE_STRING_FILE_MKDIR_0755);
+        if (r < 0)
+                return log_error_errno(r, "Failed to write boot policy file to '%s': %m", boot_policy_file);
+
+        log_info("Written new boot policy to '%s'.", boot_policy_file);
+        return 1;
+}
+
 static int verb_make_policy(int argc, char *argv[], void *userdata) {
         int r;
 
@@ -4562,6 +4689,8 @@ static int verb_make_policy(int argc, char *argv[], void *userdata) {
 
         log_info("Written new policy to '%s' and digest to TPM2 NV index 0x%" PRIu32 ".", path, nv_index);
 
+        (void) write_boot_policy_file(text);
+
         log_info("Overall time spent: %s", FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), start_usec), 1));
 
         return 0;
@@ -4621,7 +4750,7 @@ static int undefine_policy_nv_index(
 }
 
 static int verb_remove_policy(int argc, char *argv[], void *userdata) {
-        int r;
+        int ret = 0, r;
 
         _cleanup_(tpm2_pcrlock_policy_done) Tpm2PCRLockPolicy policy = {};
         r = tpm2_pcrlock_policy_load(arg_policy_path, &policy);
@@ -4636,22 +4765,27 @@ static int verb_remove_policy(int argc, char *argv[], void *userdata) {
                 r = undefine_policy_nv_index(policy.nv_index, &policy.nv_handle, &policy.srk_handle);
                 if (r < 0)
                         log_notice("Failed to remove NV index, assuming data out of date, removing policy file.");
+
+                RET_GATHER(ret, r);
         }
 
-        if (arg_policy_path) {
-                r = remove_policy_file(arg_policy_path);
-                if (r < 0)
-                        return r;
-
-                return 0;
-        } else {
-                int ret = 0;
-
+        if (arg_policy_path)
+                RET_GATHER(ret, remove_policy_file(arg_policy_path));
+        else {
                 RET_GATHER(ret, remove_policy_file("/var/lib/systemd/pcrlock.json"));
                 RET_GATHER(ret, remove_policy_file("/run/systemd/pcrlock.json"));
-
-                return ret;
         }
+
+        _cleanup_free_ char *boot_policy_file = NULL;
+        r = determine_boot_policy_file(&boot_policy_file);
+        if (r == 0)
+                log_info("Did not find XBOOTLDR/ESP partition, not removing boot policy file.");
+        else if (r > 0) {
+                RET_GATHER(ret, remove_policy_file(boot_policy_file));
+        } else
+                RET_GATHER(ret, r);
+
+        return ret;
 }
 
 static int help(int argc, char *argv[], void *userdata) {
@@ -4711,6 +4845,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --pcrlock=PATH           .pcrlock file to write expected PCR measurement to\n"
                "     --policy=PATH            JSON file to write policy output to\n"
                "     --force                  Write policy even if it matches existing policy\n"
+               "     --entry-token=machine-id|os-id|os-image-id|auto|literal:…\n"
+               "                              Boot entry token to use for this installation\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -4736,6 +4872,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PCRLOCK,
                 ARG_POLICY,
                 ARG_FORCE,
+                ARG_ENTRY_TOKEN,
         };
 
         static const struct option options[] = {
@@ -4752,6 +4889,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "pcrlock",         required_argument, NULL, ARG_PCRLOCK         },
                 { "policy",          required_argument, NULL, ARG_POLICY          },
                 { "force",           no_argument,       NULL, ARG_FORCE           },
+                { "entry-token",     required_argument, NULL, ARG_ENTRY_TOKEN     },
                 {}
         };
 
@@ -4897,6 +5035,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_FORCE:
                         arg_force = true;
+                        break;
+
+                case ARG_ENTRY_TOKEN:
+                        r = parse_boot_entry_token_type(optarg, &arg_entry_token_type, &arg_entry_token);
+                        if (r < 0)
+                                return r;
                         break;
 
                 case '?':
