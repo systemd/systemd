@@ -335,6 +335,7 @@ static int on_event_timeout_warning(sd_event_source *s, uint64_t usec, void *use
 static usec_t extra_timeout_usec(void) {
         static usec_t saved = 10 * USEC_PER_SEC;
         static bool parsed = false;
+        usec_t timeout;
         const char *e;
         int r;
 
@@ -347,9 +348,14 @@ static usec_t extra_timeout_usec(void) {
         if (!e)
                 return saved;
 
-        r = parse_sec(e, &saved);
+        r = parse_sec(e, &timeout);
         if (r < 0)
                 log_debug_errno(r, "Failed to parse $SYSTEMD_UDEV_EXTRA_TIMEOUT_SEC=%s, ignoring: %m", e);
+
+        if (timeout > 5 * USEC_PER_HOUR) /* Add an arbitrary upper bound */
+                log_debug("Parsed $SYSTEMD_UDEV_EXTRA_TIMEOUT_SEC=%s is too large, ignoring.", e);
+        else
+                saved = timeout;
 
         return saved;
 }
