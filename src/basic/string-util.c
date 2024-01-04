@@ -1420,18 +1420,6 @@ char *find_line_startswith(const char *haystack, const char *needle) {
         return p + strlen(needle);
 }
 
-char *startswith_strv(const char *string, char **strv) {
-        char *found = NULL;
-
-        STRV_FOREACH(i, strv) {
-                found = startswith(string, *i);
-                if (found)
-                        break;
-        }
-
-        return found;
-}
-
 bool version_is_valid(const char *s) {
         if (isempty(s))
                 return false;
@@ -1537,7 +1525,7 @@ char *strrstr(const char *haystack, const char *needle) {
                 return strchr(haystack, 0);
 
         for (const char *p = haystack; *p; p++)
-                if (strncmp(p, needle, l) == 0)
+                if (strneq(p, needle, l))
                         f = p;
 
         return (char*) f;

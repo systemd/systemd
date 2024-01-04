@@ -1006,12 +1006,12 @@ TEST(strv_find_first_field) {
         assert_se(streq_ptr(strv_find_first_field(STRV_MAKE("i", "k", "l", "m", "d", "c", "a", "b"), haystack), "j"));
 }
 
-TEST(strv_endswith) {
-        assert_se(streq_ptr(strv_endswith("waldo", STRV_MAKE("xxx", "yyy", "ldo", "zzz")), "ldo"));
-        assert_se(streq_ptr(strv_endswith("waldo", STRV_MAKE("xxx", "yyy", "zzz")), NULL));
-        assert_se(streq_ptr(strv_endswith("waldo", STRV_MAKE("waldo")), "waldo"));
-        assert_se(streq_ptr(strv_endswith("waldo", STRV_MAKE("w", "o", "ldo")), "o"));
-        assert_se(streq_ptr(strv_endswith("waldo", STRV_MAKE("knurz", "", "waldo")), ""));
+TEST(endswith_strv) {
+        assert_se(streq_ptr(endswith_strv("waldo", STRV_MAKE("xxx", "yyy", "ldo", "zzz")), "ldo"));
+        assert_se(streq_ptr(endswith_strv("waldo", STRV_MAKE("xxx", "yyy", "zzz")), NULL));
+        assert_se(streq_ptr(endswith_strv("waldo", STRV_MAKE("waldo")), "waldo"));
+        assert_se(streq_ptr(endswith_strv("waldo", STRV_MAKE("w", "o", "ldo")), "o"));
+        assert_se(streq_ptr(endswith_strv("waldo", STRV_MAKE("knurz", "", "waldo")), ""));
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
