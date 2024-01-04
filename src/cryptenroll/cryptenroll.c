@@ -727,7 +727,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) void *vk = NULL;
         size_t vks;
-        int slot, r;
+        int slot, slot_to_wipe = -1, r;
 
         log_show_color(true);
         log_parse_environment();
@@ -768,9 +768,15 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case ENROLL_TPM2:
-                slot = enroll_tpm2(cd, vk, vks, arg_tpm2_device, arg_tpm2_seal_key_handle, arg_tpm2_device_key, arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, arg_tpm2_public_key, arg_tpm2_public_key_pcr_mask, arg_tpm2_signature, arg_tpm2_pin, arg_tpm2_pcrlock);
-                break;
+                slot = enroll_tpm2(cd, vk, vks, arg_tpm2_device, arg_tpm2_seal_key_handle, arg_tpm2_device_key, arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, arg_tpm2_public_key, arg_tpm2_public_key_pcr_mask, arg_tpm2_signature, arg_tpm2_pin, arg_tpm2_pcrlock, &slot_to_wipe);
 
+                if (slot >= 0 && slot_to_wipe >= 0) {
+                        /* Rotating PIN on an existing enrollment */
+                        r = wipe_slots(cd, &slot_to_wipe, 1, WIPE_EXPLICIT, 0, -1);
+                        if (r < 0)
+                                return r;
+                }
+                break;
         case _ENROLL_TYPE_INVALID:
                 /* List enrolled slots if we are called without anything to enroll or wipe */
                 if (!wipe_requested())
