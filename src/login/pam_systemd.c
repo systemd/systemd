@@ -926,15 +926,20 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (!logind_running())
                 goto success;
 
-        /* Make sure we don't enter a loop by talking to
-         * systemd-logind when it is actually waiting for the
-         * background to finish start-up. If the service is
-         * "systemd-user" we simply set XDG_RUNTIME_DIR and
+        r = pam_get_item_many(
+                        handle,
+                        PAM_SERVICE, &service,
+                        PAM_XDISPLAY, &display,
+                        PAM_TTY, &tty,
+                        PAM_RUSER, &remote_user,
+                        PAM_RHOST, &remote_host);
+        if (r != PAM_SUCCESS)
+                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM items: @PAMERR@");
+
+        /* Make sure we don't enter a loop by talking to systemd-logind when it is actually waiting for the
+         * background to finish start-up. If the service is "systemd-user" we simply set XDG_RUNTIME_DIR and
          * leave. */
 
-        r = pam_get_item(handle, PAM_SERVICE, (const void**) &service);
-        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS))
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM service: @PAMERR@");
         if (streq_ptr(service, "systemd-user")) {
                 char rt[STRLEN("/run/user/") + DECIMAL_STR_MAX(uid_t)];
 
@@ -947,19 +952,6 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         }
 
         /* Otherwise, we ask logind to create a session for us */
-
-        r = pam_get_item(handle, PAM_XDISPLAY, (const void**) &display);
-        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS))
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM_XDISPLAY: @PAMERR@");
-        r = pam_get_item(handle, PAM_TTY, (const void**) &tty);
-        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS))
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM_TTY: @PAMERR@");
-        r = pam_get_item(handle, PAM_RUSER, (const void**) &remote_user);
-        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS))
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM_RUSER: @PAMERR@");
-        r = pam_get_item(handle, PAM_RHOST, (const void**) &remote_host);
-        if (!IN_SET(r, PAM_BAD_ITEM, PAM_SUCCESS))
-                return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM_RHOST: @PAMERR@");
 
         seat = getenv_harder(handle, "XDG_SEAT", NULL);
         cvtnr = getenv_harder(handle, "XDG_VTNR", NULL);
