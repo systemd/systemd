@@ -38,7 +38,7 @@ typedef struct PickResult {
                 .tries_done = UINT_MAX,                 \
         }
 
-#define TAKE_PICK_RESULT(ptr) TAKE_GENERIC(ptr, PickResult, PICK_RESULT_NULL)
+#define TAKE_PICK_RESULT(pick) TAKE_GENERIC(pick, PickResult, PICK_RESULT_NULL)
 
 void pick_result_done(PickResult *p);
 
