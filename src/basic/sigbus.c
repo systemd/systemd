@@ -52,8 +52,8 @@ static void sigbus_push(void *addr) {
 
                 /* OK if we clobber c here, since we either immediately return
                  * or it will be immediately reinitialized on next loop */
-                if (__atomic_compare_exchange_n(&n_sigbus_queue, &c, c + SIGBUS_QUEUE_MAX, false,
-                                                __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
+                if (__atomic_compare_exchange_n(&n_sigbus_queue, &c, c + SIGBUS_QUEUE_MAX, true,
+                                                __ATOMIC_SEQ_CST, __ATOMIC_RELAXED))
                         return;
         }
 }
