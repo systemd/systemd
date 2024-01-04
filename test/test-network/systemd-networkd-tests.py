@@ -707,6 +707,8 @@ def read_networkd_log(invocation_id=None, since=None):
         invocation_id = networkd_invocation_id()
     command = [
         'journalctl',
+        '--no-hostname',
+        '--output=short-monotonic',
         f'_SYSTEMD_INVOCATION_ID={invocation_id}',
     ]
     if since:
@@ -3448,10 +3450,25 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         for i in range(1, 5):
             self.assertRegex(output, f'2607:5300:203:5215:{i}::1 *proxy')
 
-    def test_neighbor_section(self):
-        copy_network_unit('25-neighbor-section.network', '12-dummy.netdev', copy_dropins=False)
+    def test_neighbor(self):
+        copy_network_unit('12-dummy.netdev', '25-neighbor-dummy.network', '25-neighbor-dummy.network.d/10-step1.conf',
+                          '25-gre-tunnel-remote-any.netdev', '25-neighbor-ip.network',
+                          '25-ip6gre-tunnel-remote-any.netdev', '25-neighbor-ipv6.network',
+                          copy_dropins=False)
         start_networkd()
-        self.wait_online(['dummy98:degraded'])
+        self.wait_online(['dummy98:degraded', 'gretun97:routable', 'ip6gretun97:routable'])
+
+        print('### ip neigh list dev gretun97')
+        output = check_output('ip neigh list dev gretun97')
+        print(output)
+        self.assertIn('10.0.0.22 lladdr 10.65.223.239 PERMANENT', output)
+        self.assertNotIn('10.0.0.23', output)
+
+        print('### ip neigh list dev ip6gretun97')
+        output = check_output('ip neigh list dev ip6gretun97')
+        print(output)
+        self.assertRegex(output, '2001:db8:0:f102::17 lladdr 2a:?00:ff:?de:45:?67:ed:?de:[0:]*:49:?88 PERMANENT')
+        self.assertNotIn('2001:db8:0:f102::18', output)
 
         print('### ip neigh list dev dummy98')
         output = check_output('ip neigh list dev dummy98')
@@ -3465,59 +3482,38 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output(*networkctl_cmd, '--json=short', 'status', env=env)
         check_json(output)
 
-        copy_network_unit('25-neighbor-section.network.d/override.conf')
+        # Here, 10-step1.conf is intendedly kept, to verify that 10-step2.conf overrides
+        # the valid configurations in 10-step1.conf.
+        copy_network_unit('25-neighbor-dummy.network.d/10-step2.conf')
         networkctl_reload()
         self.wait_online(['dummy98:degraded'])
 
-        print('### ip neigh list dev dummy98 (after reloading)')
+        print('### ip neigh list dev dummy98')
         output = check_output('ip neigh list dev dummy98')
         print(output)
         self.assertIn('192.168.10.1 lladdr 00:00:5e:00:03:65 PERMANENT', output)
         self.assertIn('2004:da8:1::1 lladdr 00:00:5e:00:03:66 PERMANENT', output)
         self.assertNotIn('2004:da8:1:0::2', output)
         self.assertNotIn('192.168.10.2', output)
-        self.assertNotIn('00:00:5e:00:02', output)
-
-    def test_neighbor_reconfigure(self):
-        copy_network_unit('25-neighbor-section.network', '12-dummy.netdev', copy_dropins=False)
-        start_networkd()
-        self.wait_online(['dummy98:degraded'])
-
-        print('### ip neigh list dev dummy98')
-        output = check_output('ip neigh list dev dummy98')
-        print(output)
-        self.assertIn('192.168.10.1 lladdr 00:00:5e:00:02:65 PERMANENT', output)
-        self.assertIn('2004:da8:1::1 lladdr 00:00:5e:00:02:66 PERMANENT', output)
-
-        remove_network_unit('25-neighbor-section.network')
-        copy_network_unit('25-neighbor-next.network')
-        networkctl_reload()
-        self.wait_online(['dummy98:degraded'])
-        print('### ip neigh list dev dummy98')
-        output = check_output('ip neigh list dev dummy98')
-        print(output)
-        self.assertNotIn('00:00:5e:00:02:65', output)
-        self.assertIn('192.168.10.1 lladdr 00:00:5e:00:02:66 PERMANENT', output)
-        self.assertNotIn('2004:da8:1::1', output)
-
-    def test_neighbor_gre(self):
-        copy_network_unit('25-neighbor-ip.network', '25-neighbor-ipv6.network', '25-neighbor-ip-dummy.network',
-                          '12-dummy.netdev', '25-gre-tunnel-remote-any.netdev', '25-ip6gre-tunnel-remote-any.netdev')
-        start_networkd()
-        self.wait_online(['dummy98:degraded', 'gretun97:routable', 'ip6gretun97:routable'], timeout='40s')
-
-        output = check_output('ip neigh list dev gretun97')
-        print(output)
-        self.assertIn('10.0.0.22 lladdr 10.65.223.239 PERMANENT', output)
-        self.assertNotIn('10.0.0.23', output)
-
-        output = check_output('ip neigh list dev ip6gretun97')
-        print(output)
-        self.assertRegex(output, '2001:db8:0:f102::17 lladdr 2a:?00:ff:?de:45:?67:ed:?de:[0:]*:49:?88 PERMANENT')
-        self.assertNotIn('2001:db8:0:f102::18', output)
+        self.assertNotIn('00:00:5e:00:02:67', output)
 
         output = check_output(*networkctl_cmd, '--json=short', 'status', env=env)
         check_json(output)
+
+        remove_network_unit('25-neighbor-dummy.network.d/10-step1.conf',
+                            '25-neighbor-dummy.network.d/10-step2.conf')
+        copy_network_unit('25-neighbor-dummy.network.d/10-step3.conf')
+        networkctl_reload()
+        self.wait_online(['dummy98:degraded'])
+
+        print('### ip neigh list dev dummy98')
+        output = check_output('ip neigh list dev dummy98')
+        print(output)
+        self.assertIn('192.168.10.1 lladdr 00:00:5e:00:03:66 PERMANENT', output)
+        self.assertNotIn('00:00:5e:00:02:65', output)
+        self.assertNotIn('00:00:5e:00:02:66', output)
+        self.assertNotIn('00:00:5e:00:03:65', output)
+        self.assertNotIn('2004:da8:1::1', output)
 
     def test_link_local_addressing(self):
         copy_network_unit('25-link-local-addressing-yes.network', '11-dummy.netdev',
@@ -3858,23 +3854,34 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'inet 10.1.2.3/16 scope global dummy98')
         self.assertNotRegex(output, 'inet 10.2.3.4/16 scope global dynamic dummy98')
 
-    def check_nexthop(self, manage_foreign_nexthops):
+    def check_nexthop(self, manage_foreign_nexthops, first):
         self.wait_online(['veth99:routable', 'veth-peer:routable', 'dummy98:routable'])
 
         output = check_output('ip nexthop list dev veth99')
         print(output)
-        self.assertIn('id 1 via 192.168.5.1 dev veth99', output)
-        self.assertIn('id 2 via 2001:1234:5:8f63::2 dev veth99', output)
+        if first:
+            self.assertIn('id 1 via 192.168.5.1 dev veth99', output)
+            self.assertIn('id 2 via 2001:1234:5:8f63::2 dev veth99', output)
+        else:
+            self.assertIn('id 6 via 192.168.5.1 dev veth99', output)
+            self.assertIn('id 7 via 2001:1234:5:8f63::2 dev veth99', output)
         self.assertIn('id 3 dev veth99', output)
         self.assertIn('id 4 dev veth99', output)
-        self.assertRegex(output, 'id 5 via 192.168.10.1 dev veth99 .*onlink')
+        if first:
+            self.assertRegex(output, 'id 5 via 192.168.10.1 dev veth99 .*onlink')
+        else:
+            self.assertIn('id 5 via 192.168.5.3 dev veth99', output)
+            self.assertNotRegex(output, 'id 5 via 192.168.5.3 dev veth99 .*onlink')
         self.assertIn('id 8 via fe80:0:222:4dff:ff:ff:ff:ff dev veth99', output)
         if manage_foreign_nexthops:
             self.assertRegex(output, r'id [0-9]* via 192.168.5.2 dev veth99')
 
         output = check_output('ip nexthop list dev dummy98')
         print(output)
-        self.assertIn('id 20 via 192.168.20.1 dev dummy98', output)
+        if first:
+            self.assertIn('id 20 via 192.168.20.1 dev dummy98', output)
+        else:
+            self.assertIn('id 21 via 192.168.20.1 dev dummy98', output)
         if manage_foreign_nexthops:
             self.assertNotIn('id 42 via 192.168.20.2 dev dummy98', output)
         else:
@@ -3883,43 +3890,74 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         # kernel manages blackhole nexthops on lo
         output = check_output('ip nexthop list dev lo')
         print(output)
-        self.assertIn('id 6 blackhole', output)
-        self.assertIn('id 7 blackhole', output)
+        if first:
+            self.assertIn('id 6 blackhole', output)
+            self.assertIn('id 7 blackhole', output)
+        else:
+            self.assertIn('id 1 blackhole', output)
+            self.assertIn('id 2 blackhole', output)
 
         # group nexthops are shown with -0 option
-        output = check_output('ip -0 nexthop list id 21')
-        print(output)
-        self.assertRegex(output, r'id 21 group (1,3/20|20/1,3)')
+        if first:
+            output = check_output('ip -0 nexthop list id 21')
+            print(output)
+            self.assertRegex(output, r'id 21 group (1,3/20|20/1,3)')
+        else:
+            output = check_output('ip -0 nexthop list id 20')
+            print(output)
+            self.assertRegex(output, r'id 20 group (5,3/21|21/5,3)')
 
         output = check_output('ip route show dev veth99 10.10.10.10')
         print(output)
-        self.assertEqual('10.10.10.10 nhid 1 via 192.168.5.1 proto static', output)
+        if first:
+            self.assertEqual('10.10.10.10 nhid 1 via 192.168.5.1 proto static', output)
+        else:
+            self.assertEqual('10.10.10.10 nhid 6 via 192.168.5.1 proto static', output)
 
         output = check_output('ip route show dev veth99 10.10.10.11')
         print(output)
-        self.assertEqual('10.10.10.11 nhid 2 via inet6 2001:1234:5:8f63::2 proto static', output)
+        if first:
+            self.assertEqual('10.10.10.11 nhid 2 via inet6 2001:1234:5:8f63::2 proto static', output)
+        else:
+            self.assertEqual('10.10.10.11 nhid 7 via inet6 2001:1234:5:8f63::2 proto static', output)
 
         output = check_output('ip route show dev veth99 10.10.10.12')
         print(output)
-        self.assertEqual('10.10.10.12 nhid 5 via 192.168.10.1 proto static onlink', output)
+        if first:
+            self.assertEqual('10.10.10.12 nhid 5 via 192.168.10.1 proto static onlink', output)
+        else:
+            self.assertEqual('10.10.10.12 nhid 5 via 192.168.5.3 proto static', output)
 
         output = check_output('ip -6 route show dev veth99 2001:1234:5:8f62::1')
         print(output)
-        self.assertEqual('2001:1234:5:8f62::1 nhid 2 via 2001:1234:5:8f63::2 proto static metric 1024 pref medium', output)
+        if first:
+            self.assertEqual('2001:1234:5:8f62::1 nhid 2 via 2001:1234:5:8f63::2 proto static metric 1024 pref medium', output)
+        else:
+            self.assertEqual('2001:1234:5:8f62::1 nhid 7 via 2001:1234:5:8f63::2 proto static metric 1024 pref medium', output)
 
         output = check_output('ip route show 10.10.10.13')
         print(output)
-        self.assertEqual('blackhole 10.10.10.13 nhid 6 dev lo proto static', output)
+        if first:
+            self.assertEqual('blackhole 10.10.10.13 nhid 6 dev lo proto static', output)
+        else:
+            self.assertEqual('blackhole 10.10.10.13 nhid 1 dev lo proto static', output)
 
         output = check_output('ip -6 route show 2001:1234:5:8f62::2')
         print(output)
-        self.assertEqual('blackhole 2001:1234:5:8f62::2 nhid 7 dev lo proto static metric 1024 pref medium', output)
+        if first:
+            self.assertEqual('blackhole 2001:1234:5:8f62::2 nhid 7 dev lo proto static metric 1024 pref medium', output)
+        else:
+            self.assertEqual('blackhole 2001:1234:5:8f62::2 nhid 2 dev lo proto static metric 1024 pref medium', output)
 
         output = check_output('ip route show 10.10.10.14')
         print(output)
-        self.assertIn('10.10.10.14 nhid 21 proto static', output)
+        if first:
+            self.assertIn('10.10.10.14 nhid 21 proto static', output)
+            self.assertIn('nexthop via 192.168.5.1 dev veth99 weight 3', output)
+        else:
+            self.assertIn('10.10.10.14 nhid 20 proto static', output)
+            self.assertIn('nexthop via 192.168.5.3 dev veth99 weight 3', output)
         self.assertIn('nexthop via 192.168.20.1 dev dummy98 weight 1', output)
-        self.assertIn('nexthop via 192.168.5.1 dev veth99 weight 3', output)
 
         output = check_output(*networkctl_cmd, '--json=short', 'status', env=env)
         check_json(output)
@@ -3933,13 +3971,18 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         check_output('ip address add 192.168.20.20/24 dev dummy98')
         check_output('ip nexthop add id 42 via 192.168.20.2 dev dummy98')
 
-        copy_network_unit('25-nexthop.network', '25-veth.netdev', '25-veth-peer.network',
-                          '12-dummy.netdev', '25-nexthop-dummy.network')
+        copy_network_unit('25-nexthop-1.network', '25-veth.netdev', '25-veth-peer.network',
+                          '12-dummy.netdev', '25-nexthop-dummy-1.network')
         start_networkd()
 
-        self.check_nexthop(manage_foreign_nexthops)
+        self.check_nexthop(manage_foreign_nexthops, first=True)
 
-        remove_network_unit('25-nexthop.network')
+        remove_network_unit('25-nexthop-1.network', '25-nexthop-dummy-1.network')
+        copy_network_unit('25-nexthop-2.network', '25-nexthop-dummy-2.network')
+        networkctl_reload()
+        self.check_nexthop(manage_foreign_nexthops, first=False)
+
+        remove_network_unit('25-nexthop-2.network')
         copy_network_unit('25-nexthop-nothing.network')
         networkctl_reload()
         self.wait_online(['veth99:routable', 'veth-peer:routable'])
@@ -3951,12 +3994,11 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         self.assertEqual(output, '')
 
-        remove_network_unit('25-nexthop-nothing.network')
-        copy_network_unit('25-nexthop.network')
-        networkctl_reconfigure('dummy98')
+        remove_network_unit('25-nexthop-nothing.network', '25-nexthop-dummy-2.network')
+        copy_network_unit('25-nexthop-1.network', '25-nexthop-dummy-1.network')
         networkctl_reload()
 
-        self.check_nexthop(manage_foreign_nexthops)
+        self.check_nexthop(manage_foreign_nexthops, first=True)
 
         remove_link('veth99')
         time.sleep(2)
