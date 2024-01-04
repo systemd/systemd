@@ -304,7 +304,7 @@ void context_clear(Context *c) {
         c->x11_cache = sd_bus_message_unref(c->x11_cache);
         c->vc_cache = sd_bus_message_unref(c->vc_cache);
 
-        c->polkit_registry = bus_verify_polkit_async_registry_free(c->polkit_registry);
+        c->polkit_registry = hashmap_free(c->polkit_registry);
 };
 
 X11Context *context_get_x11_context(Context *c) {

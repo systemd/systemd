@@ -171,6 +171,7 @@ struct Varlink {
         JsonVariant *current;
         VarlinkSymbol *current_method;
 
+        int peer_pidfd;
         struct ucred ucred;
         bool ucred_acquired:1;
 
@@ -361,6 +362,8 @@ static int varlink_new(Varlink **ret) {
                 .timeout = VARLINK_DEFAULT_TIMEOUT_USEC,
 
                 .af = -1,
+
+                .peer_pidfd = -EBADF,
         };
 
         *ret = v;
@@ -638,6 +641,8 @@ static void varlink_clear(Varlink *v) {
                 sigterm_wait(v->exec_pid);
                 v->exec_pid = 0;
         }
+
+        v->peer_pidfd = safe_close(v->peer_pidfd);
 }
 
 static Varlink* varlink_destroy(Varlink *v) {
@@ -955,10 +960,6 @@ static int varlink_parse_message(Varlink *v) {
         }
 
         sz = e - begin + 1;
-
-        varlink_log(v, "New incoming message: %s", begin); /* FIXME: should we output the whole message here before validation?
-                                                            * This may produce a non-printable journal entry if the message
-                                                            * is invalid. We may also expose privileged information. */
 
         r = json_parse(begin, 0, &v->current, NULL, NULL);
         if (r < 0) {
@@ -1477,6 +1478,48 @@ finish:
         return r;
 }
 
+int varlink_dispatch_again(Varlink *v) {
+        int r;
+
+        assert_return(v, -EINVAL);
+
+        /* If a method call handler could not process the method call just yet (for example because it needed
+         * some Polkit authentication first), then it can leave the call unanswered, do its thing, and then
+         * ask to be dispatched a second time, via this call. It will then be called again, for the same
+         * message */
+
+        if (v->state == VARLINK_DISCONNECTED)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(ENOTCONN), "Not connected.");
+        if (v->state != VARLINK_PENDING_METHOD)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(EBUSY), "Connection has no pending method.");
+
+        varlink_set_state(v, VARLINK_IDLE_SERVER);
+
+        r = sd_event_source_set_enabled(v->defer_event_source, SD_EVENT_ON);
+        if (r < 0)
+                return varlink_log_errno(v, r, "Failed to enable deferred event source: %m");
+
+        return 0;
+}
+
+int varlink_get_current_parameters(Varlink *v, JsonVariant **ret) {
+        JsonVariant *p;
+
+        assert_return(v, -EINVAL);
+
+        if (!v->current)
+                return -ENODATA;
+
+        p = json_variant_by_key(v->current, "parameters");
+        if (!p)
+                return -ENODATA;
+
+        if (ret)
+                *ret = json_variant_ref(p);
+
+        return 0;
+}
+
 static void handle_revents(Varlink *v, int revents) {
         assert(v);
 
@@ -1721,12 +1764,17 @@ Varlink* varlink_flush_close_unref(Varlink *v) {
 
 static int varlink_format_json(Varlink *v, JsonVariant *m) {
         _cleanup_(erase_and_freep) char *text = NULL;
+        bool sensitive = false;
         int r;
 
         assert(v);
         assert(m);
 
-        r = json_variant_format(m, 0, &text);
+        r = json_variant_format(m, JSON_FORMAT_REFUSE_SENSITIVE, &text);
+        if (r == -EPERM) {
+                sensitive = true;
+                r = json_variant_format(m, /* flags= */ 0, &text);
+        }
         if (r < 0)
                 return r;
         assert(text[r] == '\0');
@@ -1734,7 +1782,7 @@ static int varlink_format_json(Varlink *v, JsonVariant *m) {
         if (v->output_buffer_size + r + 1 > VARLINK_BUFFER_MAX)
                 return -ENOBUFS;
 
-        varlink_log(v, "Sending message: %s", text);
+        varlink_log(v, "Sending message: %s", sensitive ? "<sensitive data>" : text);
 
         if (v->output_buffer_size == 0) {
 
@@ -1765,7 +1813,7 @@ static int varlink_format_json(Varlink *v, JsonVariant *m) {
                 v->output_buffer_index = 0;
         }
 
-        if (json_variant_is_sensitive(m))
+        if (sensitive)
                 v->output_buffer_sensitive = true; /* Propagate sensitive flag */
         else
                 text = mfree(text); /* No point in the erase_and_free() destructor declared above */
@@ -2589,6 +2637,54 @@ int varlink_get_peer_pid(Varlink *v, pid_t *ret) {
 
         *ret = v->ucred.pid;
         return 0;
+}
+
+static int varlink_acquire_pidfd(Varlink *v) {
+        assert(v);
+
+        if (v->peer_pidfd >= 0)
+                return 0;
+
+        v->peer_pidfd = getpeerpidfd(v->fd);
+        if (v->peer_pidfd < 0)
+                return v->peer_pidfd;
+
+        return 0;
+}
+
+int varlink_get_peer_pidref(Varlink *v, PidRef *ret) {
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        /* Returns r > 0 if we acquired the pidref via SO_PEERPIDFD (i.e. if we can use it for
+         * authentication). Returns == 0 if we didn't, and the pidref should not be used for
+         * authentication. */
+
+        r = varlink_acquire_pidfd(v);
+        if (r < 0)
+                return r;
+
+        if (v->peer_pidfd < 0) {
+                pid_t pid;
+
+                r = varlink_get_peer_pid(v, &pid);
+                if (r < 0)
+                        return r;
+
+                r = pidref_set_pid(ret, pid);
+                if (r < 0)
+                        return r;
+
+                return 0; /* didn't get pidfd securely */
+        }
+
+        r = pidref_set_pidfd(ret, v->peer_pidfd);
+        if (r < 0)
+                return r;
+
+        return 1; /* got pidfd securely */
 }
 
 int varlink_set_relative_timeout(Varlink *v, usec_t timeout) {
