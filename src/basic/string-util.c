@@ -1537,7 +1537,7 @@ char *strrstr(const char *haystack, const char *needle) {
                 return strchr(haystack, 0);
 
         for (const char *p = haystack; *p; p++)
-                if (strncmp(p, needle, l) == 0)
+                if (strneq(p, needle, l))
                         f = p;
 
         return (char*) f;
