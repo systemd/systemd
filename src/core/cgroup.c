@@ -216,7 +216,7 @@ int cgroup_context_add_io_device_limit_dup(CGroupContext *c, CGroupIODeviceLimit
         assert(l);
 
         n = new0(CGroupIODeviceLimit, 1);
-        if (!l)
+        if (!n)
                 return -ENOMEM;
 
         n->path = strdup(l->path);
