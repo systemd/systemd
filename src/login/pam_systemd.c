@@ -967,16 +967,14 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         class = getenv_harder(handle, "XDG_SESSION_CLASS", class_pam);
         desktop = getenv_harder(handle, "XDG_SESSION_DESKTOP", desktop_pam);
 
-        tty = strempty(tty);
-
-        if (strchr(tty, ':')) {
+        if (tty && strchr(tty, ':')) {
                 /* A tty with a colon is usually an X11 display, placed there to show up in utmp. We rearrange things
                  * and don't pretend that an X display was a tty. */
                 if (isempty(display))
                         display = tty;
                 tty = NULL;
 
-        } else if (streq(tty, "cron")) {
+        } else if (streq_ptr(tty, "cron")) {
                 /* cron is setting PAM_TTY to "cron" for some reason (the commit carries no information why, but
                  * probably because it wants to set it to something as pam_time/pam_access/… require PAM_TTY to be set
                  * (as they otherwise even try to update it!) — but cron doesn't actually allocate a TTY for its forked
@@ -985,10 +983,10 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 class = "background";
                 tty = NULL;
 
-        } else if (streq(tty, "ssh")) {
+        } else if (streq_ptr(tty, "ssh")) {
                 /* ssh has been setting PAM_TTY to "ssh" (for the same reason as cron does this, see above. For further
                  * details look for "PAM_TTY_KLUDGE" in the openssh sources). */
-                type ="tty";
+                type = "tty";
                 class = "user";
                 tty = NULL; /* This one is particularly sad, as this means that ssh sessions — even though usually
                              * associated with a pty — won't be tracked by their tty in logind. This is because ssh
@@ -996,7 +994,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                              * much later (this is because it doesn't know yet if it needs one at all, as whether to
                              * register a pty or not is negotiated much later in the protocol). */
 
-        } else
+        } else if (tty)
                 /* Chop off leading /dev prefix that some clients specify, but others do not. */
                 tty = skip_dev_prefix(tty);
 
