@@ -1665,7 +1665,7 @@ static int link_carrier_lost(Link *link) {
                 usec = 5 * USEC_PER_SEC;
 
         else
-                /* Otherwise, use the currently set value. */
+                /* Otherwise, use the implied default value. */
                 usec = link->network->ignore_carrier_loss_usec;
 
         if (usec == USEC_INFINITY)
