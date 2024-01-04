@@ -3005,16 +3005,16 @@ static int clean_item(Context *c, Item *i) {
         switch (i->type) {
 
         case CREATE_DIRECTORY:
+        case TRUNCATE_DIRECTORY:
         case CREATE_SUBVOLUME:
         case CREATE_SUBVOLUME_INHERIT_QUOTA:
         case CREATE_SUBVOLUME_NEW_QUOTA:
-        case TRUNCATE_DIRECTORY:
-        case IGNORE_PATH:
         case COPY_FILES:
                 clean_item_instance(c, i, i->path, CREATION_EXISTING);
                 return 0;
 
         case EMPTY_DIRECTORY:
+        case IGNORE_PATH:
         case IGNORE_DIRECTORY_PATH:
                 return glob_item(c, i, clean_item_instance);
 
