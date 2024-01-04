@@ -948,7 +948,7 @@ static int pkcs11_token_decrypt_data_ecc(
                 if (mechanism_info.flags & CKF_EC_COMPRESS) {
 #if HAVE_OPENSSL
                         log_debug("CKM_ECDH1_DERIVE accepts compressed EC points only, trying to convert.");
-                        size_t compressed_point_size;
+                        size_t compressed_point_size = 0; /* Explicit initialization to appease gcc */
                         r = ecc_convert_to_compressed(m, session, object, encrypted_data, encrypted_data_size, &compressed_point, &compressed_point_size);
                         if (r < 0)
                                 return r;

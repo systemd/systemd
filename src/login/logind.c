@@ -470,7 +470,7 @@ static int deliver_session_leader_fd_consume(Session *s, const char *fdname, int
 
 static int manager_attach_session_fd_one_consume(Manager *m, const char *fdname, int fd) {
         _cleanup_free_ char *id = NULL;
-        dev_t devno;
+        dev_t devno = 0; /* Explicit initialization to appease gcc */
         Session *s;
         int r;
 
