@@ -381,20 +381,20 @@ static int user_config_paths(char*** ret) {
 static bool needs_glob(ItemType t) {
         return IN_SET(t,
                       WRITE_FILE,
-                      IGNORE_PATH,
-                      IGNORE_DIRECTORY_PATH,
-                      REMOVE_PATH,
-                      RECURSIVE_REMOVE_PATH,
                       EMPTY_DIRECTORY,
-                      ADJUST_MODE,
-                      RELABEL_PATH,
-                      RECURSIVE_RELABEL_PATH,
                       SET_XATTR,
                       RECURSIVE_SET_XATTR,
                       SET_ACL,
                       RECURSIVE_SET_ACL,
                       SET_ATTRIBUTE,
-                      RECURSIVE_SET_ATTRIBUTE);
+                      RECURSIVE_SET_ATTRIBUTE,
+                      IGNORE_PATH,
+                      IGNORE_DIRECTORY_PATH,
+                      REMOVE_PATH,
+                      RECURSIVE_REMOVE_PATH,
+                      RELABEL_PATH,
+                      RECURSIVE_RELABEL_PATH,
+                      ADJUST_MODE);
 }
 
 static bool takes_ownership(ItemType t) {
@@ -402,7 +402,6 @@ static bool takes_ownership(ItemType t) {
                       CREATE_FILE,
                       TRUNCATE_FILE,
                       CREATE_DIRECTORY,
-                      EMPTY_DIRECTORY,
                       TRUNCATE_DIRECTORY,
                       CREATE_SUBVOLUME,
                       CREATE_SUBVOLUME_INHERIT_QUOTA,
@@ -413,6 +412,7 @@ static bool takes_ownership(ItemType t) {
                       CREATE_BLOCK_DEVICE,
                       COPY_FILES,
                       WRITE_FILE,
+                      EMPTY_DIRECTORY,
                       IGNORE_PATH,
                       IGNORE_DIRECTORY_PATH,
                       REMOVE_PATH,
