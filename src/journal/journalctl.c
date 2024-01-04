@@ -122,6 +122,7 @@ static bool arg_force = false;
 static usec_t arg_since = 0, arg_until = 0;
 static bool arg_since_set = false, arg_until_set = false;
 static char **arg_syslog_identifier = NULL;
+static char **arg_exclude_identifier = NULL;
 static char **arg_system_units = NULL;
 static char **arg_user_units = NULL;
 static const char *arg_field = NULL;
@@ -146,6 +147,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_file, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_facilities, set_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_verify_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_syslog_identifier, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_exclude_identifier, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_system_units, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_user_units, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
@@ -380,6 +382,8 @@ static int help(void) {
                "  -u --unit=UNIT             Show logs from the specified unit\n"
                "     --user-unit=UNIT        Show logs from the specified user unit\n"
                "  -t --identifier=STRING     Show entries with the specified syslog identifier\n"
+               "  -T --exclude-identifier=STRING\n"
+               "                             Hide entries with the specified syslog identifier\n"
                "  -p --priority=RANGE        Show entries with the specified priority\n"
                "     --facility=FACILITY...  Show entries with the specified facilities\n"
                "  -g --grep=PATTERN          Show entries with MESSAGE matching PATTERN\n"
@@ -519,6 +523,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "image-policy",         required_argument, NULL, ARG_IMAGE_POLICY         },
                 { "header",               no_argument,       NULL, ARG_HEADER               },
                 { "identifier",           required_argument, NULL, 't'                      },
+                { "exclude-identifier",   required_argument, NULL, 'T'                      },
                 { "priority",             required_argument, NULL, 'p'                      },
                 { "facility",             required_argument, NULL, ARG_FACILITY             },
                 { "grep",                 required_argument, NULL, 'g'                      },
@@ -564,7 +569,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:g:c:S:U:t:u:NF:xrM:i:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hefo:aln::qmb::kD:p:g:c:S:U:t:T:u:NF:xrM:i:", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -954,6 +959,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 't':
                         r = strv_extend(&arg_syslog_identifier, optarg);
+                        if (r < 0)
+                                return log_oom();
+                        break;
+
+                case 'T':
+                        r = strv_extend(&arg_exclude_identifier, optarg);
                         if (r < 0)
                                 return log_oom();
                         break;
@@ -1570,6 +1581,19 @@ static int add_syslog_identifier(sd_journal *j) {
                 return r;
 
         return 0;
+}
+
+static int add_exclude_identifier(sd_journal *j) {
+        _cleanup_set_free_ Set *excludes = NULL;
+        int r;
+
+        assert(j);
+
+        r = set_put_strdupv(&excludes, arg_exclude_identifier);
+        if (r < 0)
+                    return r;
+
+        return set_free_and_replace(j->exclude_syslog_identifiers, excludes);
 }
 
 #if HAVE_GCRYPT
@@ -2407,6 +2431,10 @@ static int run(int argc, char *argv[]) {
         r = add_syslog_identifier(j);
         if (r < 0)
                 return log_error_errno(r, "Failed to add filter for syslog identifiers: %m");
+
+        r = add_exclude_identifier(j);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add exclude filter for syslog identifiers: %m");
 
         r = add_priorities(j);
         if (r < 0)

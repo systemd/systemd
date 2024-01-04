@@ -523,6 +523,9 @@ static int output_short(
                 return 0;
         }
 
+        if (identifier && set_contains(j->exclude_syslog_identifiers, identifier))
+                return 0;
+
         if (!(flags & OUTPUT_SHOW_ALL))
                 strip_tab_ansi(&message, &message_len, highlight_shifted);
 
