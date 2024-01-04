@@ -5227,13 +5227,22 @@ int tpm2_seal(Tpm2Context *c,
 
         usec_t start = now(CLOCK_MONOTONIC);
 
+        TPMA_OBJECT hmac_attributes =
+                        TPMA_OBJECT_FIXEDTPM |
+                        TPMA_OBJECT_FIXEDPARENT;
+
+        /* If protected by PIN, a user-selected low-entropy password, enable DA protection.
+           Without a PIN, the key's left protected only by a PCR policy, which does not benefit
+           from DA protection. */
+        hmac_attributes |= pin ? 0 : TPMA_OBJECT_NODA;
+
         /* We use a keyed hash object (i.e. HMAC) to store the secret key we want to use for unlocking the
          * LUKS2 volume with. We don't ever use for HMAC/keyed hash operations however, we just use it
          * because it's a key type that is universally supported and suitable for symmetric binary blobs. */
         TPMT_PUBLIC hmac_template = {
                 .type = TPM2_ALG_KEYEDHASH,
                 .nameAlg = TPM2_ALG_SHA256,
-                .objectAttributes = TPMA_OBJECT_FIXEDTPM | TPMA_OBJECT_FIXEDPARENT,
+                .objectAttributes = hmac_attributes,
                 .parameters.keyedHashDetail.scheme.scheme = TPM2_ALG_NULL,
                 .unique.keyedHash.size = SHA256_DIGEST_SIZE,
                 .authPolicy = policy ? *policy : TPM2B_DIGEST_MAKE(NULL, TPM2_SHA256_DIGEST_SIZE),
