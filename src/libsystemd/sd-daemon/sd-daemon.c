@@ -287,7 +287,7 @@ _public_ int sd_is_socket_inet(int fd, int family, int type, int listening, uint
         if (port > 0) {
                 unsigned sa_port;
 
-                r = sockaddr_port(&sockaddr.sa, &sa_port);
+                r = sockaddr_port(&sockaddr, &sa_port);
                 if (r < 0)
                         return r;
 

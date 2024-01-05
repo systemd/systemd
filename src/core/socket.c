@@ -2323,7 +2323,7 @@ static void socket_enter_running(Socket *s, int cfd_in) {
                         if (r > 0 && p->n_ref > s->max_connections_per_source) {
                                 _cleanup_free_ char *t = NULL;
 
-                                (void) sockaddr_pretty(&p->peer.sa, p->peer_salen, true, false, &t);
+                                (void) sockaddr_pretty(&p->peer, p->peer_salen, true, false, &t);
 
                                 log_unit_warning(UNIT(s),
                                                  "Too many incoming connections (%u) from source %s, dropping connection.",
