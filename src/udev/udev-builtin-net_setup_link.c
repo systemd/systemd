@@ -43,7 +43,7 @@ static int builtin_net_setup_link(UdevEvent *event, int argc, char **argv, bool 
                 return 0;
         }
 
-        r = link_new(ctx, &event->rtnl, dev, &link);
+        r = link_new(ctx, &event->rtnl, dev, event->dev_db_clone, &link);
         if (r == -ENODEV) {
                 log_device_debug_errno(dev, r, "Link vanished while getting information, ignoring.");
                 return 0;
