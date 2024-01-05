@@ -23,28 +23,6 @@
 #include "udev-util.h"
 #include "utf8.h"
 
-int udev_set_max_log_level(char *str) {
-        size_t n;
-
-        /* This may modify input string. */
-
-        if (isempty(str))
-                return 0;
-
-        /* unquote */
-        n = strlen(str);
-        if (n >= 2 &&
-            ((str[0] == '"' && str[n - 1] == '"') ||
-             (str[0] == '\'' && str[n - 1] == '\''))) {
-                str[n - 1] = '\0';
-                str++;
-        }
-
-        /* we set the udev log level here explicitly, this is supposed
-         * to regulate the code in libudev/ and udev/. */
-        return log_set_max_level_from_string(str);
-}
-
 int udev_parse_config(void) {
         int r, log_val = -1;
         const ConfigTableItem config_table[] = {
