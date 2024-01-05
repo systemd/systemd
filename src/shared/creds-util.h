@@ -57,6 +57,10 @@ int get_credential_host_secret(CredentialSecretFlags flags, struct iovec *ret);
 
 int get_credential_user_password(const char *username, char **ret_password, bool *ret_is_hashed);
 
+typedef enum CredentialFlags {
+        CREDENTIAL_ALLOW_NULL = 1 << 0, /* allow decryption of NULL key, even if TPM is around */
+} CredentialFlags;
+
 /* The four modes we support: keyed only by on-disk key, only by TPM2 HMAC key, and by the combination of
  * both, as well as one with a fixed zero length key if TPM2 is missing (the latter of course provides no
  * authenticity or confidentiality, but is still useful for integrity protection, and makes things simpler
@@ -77,5 +81,5 @@ int get_credential_user_password(const char *username, char **ret_password, bool
 #define _CRED_AUTO                            SD_ID128_MAKE(a2,19,cb,07,85,b2,4c,04,b1,6d,18,ca,b9,d2,ee,01)
 #define _CRED_AUTO_INITRD                     SD_ID128_MAKE(02,dc,8e,de,3a,02,43,ab,a9,ec,54,9c,05,e6,a0,71)
 
-int encrypt_credential_and_warn(sd_id128_t with_key, const char *name, usec_t timestamp, usec_t not_after, const char *tpm2_device, uint32_t tpm2_hash_pcr_mask, const char *tpm2_pubkey_path, uint32_t tpm2_pubkey_pcr_mask, const struct iovec *input, struct iovec *ret);
-int decrypt_credential_and_warn(const char *validate_name, usec_t validate_timestamp, const char *tpm2_device, const char *tpm2_signature_path, const struct iovec *input, struct iovec *ret);
+int encrypt_credential_and_warn(sd_id128_t with_key, const char *name, usec_t timestamp, usec_t not_after, const char *tpm2_device, uint32_t tpm2_hash_pcr_mask, const char *tpm2_pubkey_path, uint32_t tpm2_pubkey_pcr_mask, const struct iovec *input, CredentialFlags flags, struct iovec *ret);
+int decrypt_credential_and_warn(const char *validate_name, usec_t validate_timestamp, const char *tpm2_device, const char *tpm2_signature_path, const struct iovec *input, CredentialFlags flags, struct iovec *ret);
