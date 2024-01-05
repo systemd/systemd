@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "alloc-util.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "escape.h"
 #include "errno-util.h"
@@ -20,6 +21,29 @@ static int builtin_net_setup_link(UdevEvent *event, int argc, char **argv, bool 
 
         if (argc > 1)
                 return log_device_error_errno(dev, SYNTHETIC_ERRNO(EINVAL), "This program takes no arguments.");
+
+        sd_device_action_t action;
+        r = sd_device_get_action(dev, &action);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to get action: %m");
+
+        if (!IN_SET(action, SD_DEVICE_ADD, SD_DEVICE_BIND, SD_DEVICE_MOVE)) {
+                log_device_debug(dev, "Skipping to apply .link settings on '%s' uevent.",
+                                 device_action_to_string(action));
+
+                /* Import previously assigned .link file name. */
+                const char *value;
+                if (sd_device_get_property_value(event->dev_db_clone, "ID_NET_LINK_FILE", &value) >= 0)
+                        (void) udev_builtin_add_property(dev, test, "ID_NET_LINK_FILE", value);
+                if (sd_device_get_property_value(event->dev_db_clone, "ID_NET_LINK_FILE_DROPINS", &value) >= 0)
+                        (void) udev_builtin_add_property(dev, test, "ID_NET_LINK_FILE_DROPINS", value);
+
+                /* Set ID_NET_NAME= with the current interface name. */
+                if (sd_device_get_sysname(dev, &value) >= 0)
+                        (void) udev_builtin_add_property(dev, test, "ID_NET_NAME", value);
+
+                return 0;
+        }
 
         r = link_new(ctx, &event->rtnl, dev, &link);
         if (r == -ENODEV) {
