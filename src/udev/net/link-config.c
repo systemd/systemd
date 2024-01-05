@@ -15,6 +15,7 @@
 #include "creds-util.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "env-util.h"
 #include "escape.h"
 #include "ethtool-util.h"
 #include "fd-util.h"
@@ -31,6 +32,7 @@
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "random-util.h"
+#include "specifier.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -55,6 +57,9 @@ static LinkConfig* link_config_free(LinkConfig *config) {
         condition_free_list(config->conditions);
 
         free(config->description);
+        strv_free(config->properties);
+        strv_free(config->import_properties);
+        strv_free(config->unset_properties);
         free(config->name_policy);
         free(config->name);
         strv_free(config->alternative_names);
@@ -365,18 +370,20 @@ Link *link_free(Link *link) {
                 return NULL;
 
         sd_device_unref(link->device);
+        sd_device_unref(link->device_db_clone);
         free(link->kind);
         strv_free(link->altnames);
         return mfree(link);
 }
 
-int link_new(LinkConfigContext *ctx, sd_netlink **rtnl, sd_device *device, Link **ret) {
+int link_new(LinkConfigContext *ctx, sd_netlink **rtnl, sd_device *device, sd_device *device_db_clone, Link **ret) {
         _cleanup_(link_freep) Link *link = NULL;
         int r;
 
         assert(ctx);
         assert(rtnl);
         assert(device);
+        assert(device_db_clone);
         assert(ret);
 
         link = new(Link, 1);
@@ -385,6 +392,7 @@ int link_new(LinkConfigContext *ctx, sd_netlink **rtnl, sd_device *device, Link 
 
         *link = (Link) {
                 .device = sd_device_ref(device),
+                .device_db_clone = sd_device_ref(device_db_clone),
         };
 
         r = sd_device_get_sysname(device, &link->ifname);
@@ -923,15 +931,108 @@ static int link_apply_sr_iov_config(Link *link, sd_netlink **rtnl) {
         return 0;
 }
 
+static int device_get_net_driver(sd_device *device, const char **ret) {
+        return sd_device_get_property_value(device, "ID_NET_DRIVER", ret);
+}
+
+#define DEFINE_DEVICE_SPECIFIER(name, getter)                           \
+        static int specifier_##name(                                    \
+                        char specifier,                                 \
+                        const void *data,                               \
+                        const char *root,                               \
+                        const void *userdata,                           \
+                        char **ret) {                                   \
+                                                                        \
+                sd_device *device = (sd_device*) ASSERT_PTR(userdata);  \
+                const char *val;                                        \
+                char *dup;                                              \
+                int r;                                                  \
+                                                                        \
+                r = getter(device, &val);                               \
+                if (r < 0)                                              \
+                        return r;                                       \
+                                                                        \
+                dup = strdup(val);                                      \
+                if (!dup)                                               \
+                        return -ENOMEM;                                 \
+                                                                        \
+                *ret = dup;                                             \
+                return 0;                                               \
+        }
+
+DEFINE_DEVICE_SPECIFIER(net_driver, device_get_net_driver);
+DEFINE_DEVICE_SPECIFIER(sysname, sd_device_get_sysname);
+DEFINE_DEVICE_SPECIFIER(devpath, sd_device_get_devpath);
+
+static int device_printf(sd_device *device, const char *format, char **ret) {
+        assert(device);
+        assert(format);
+        assert(ret);
+
+        const Specifier table[] = {
+                /* These are subset of specifiers supported in udev-format.c. */
+                { 'd', specifier_net_driver, NULL },
+                { 'k', specifier_sysname,    NULL },
+                { 'p', specifier_devpath,    NULL },
+
+                COMMON_SYSTEM_SPECIFIERS,
+                COMMON_TMP_SPECIFIERS,
+                {}
+        };
+
+        return specifier_printf(format, SIZE_MAX, table, NULL, device, ret);
+}
+
 static int link_apply_udev_properties(Link *link, bool test) {
         LinkConfig *config;
         sd_device *device;
+        int r;
 
         assert(link);
 
         config = ASSERT_PTR(link->config);
         device = ASSERT_PTR(link->device);
 
+        /* 1. apply ImportProperty=. */
+        STRV_FOREACH(p, config->import_properties)
+                (void) udev_builtin_import_property(device, link->device_db_clone, test, *p);
+
+        /* 2. apply Property=. */
+        STRV_FOREACH(p, config->properties) {
+                _cleanup_free_ char *key = NULL, *val = NULL;
+                const char *eq;
+
+                eq = strchr(*p, '=');
+                if (!eq)
+                        continue;
+
+                key = strndup(*p, eq - *p);
+                if (!key)
+                        return log_oom();
+
+                r = device_printf(device, eq + 1, &val);
+                if (r < 0) {
+                        log_device_debug_errno(device, r,
+                                               "Failed to apply format in property value, ignoring assignment: %s=%s",
+                                               key, eq + 1);
+                        continue;
+                }
+
+                if (!env_value_is_valid(val)) {
+                        log_device_debug(device,
+                                         "Invalid property value is specified, ignoring assignment: %s=%s",
+                                         key, val);
+                        continue;
+                }
+
+                (void) udev_builtin_add_property(device, test, key, val);
+        }
+
+        /* 3. apply UnsetProperty=. */
+        STRV_FOREACH(p, config->unset_properties)
+                (void) udev_builtin_add_property(device, test, *p, NULL);
+
+        /* 4. set the default properties. */
         (void) udev_builtin_add_property(device, test, "ID_NET_LINK_FILE", config->filename);
 
         _cleanup_free_ char *joined = NULL;
@@ -986,6 +1087,126 @@ int link_apply_config(LinkConfigContext *ctx, sd_netlink **rtnl, Link *link, boo
                 return r;
 
         return 0;
+}
+
+int config_parse_udev_property(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char ***properties = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                *properties = strv_free(*properties);
+                return 0;
+        }
+
+        for (const char *p = rvalue;; ) {
+                _cleanup_free_ char *word = NULL, *key = NULL;
+                const char *eq;
+
+                r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        return 0;
+
+                /* The restriction for udev property is not clear. Let's apply the one for environment variable here. */
+                if (!env_assignment_is_valid(word)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Invalid udev property, ignoring assignment: %s", word);
+                        continue;
+                }
+
+                assert_se(eq = strchr(word, '='));
+                key = strndup(word, eq - word);
+                if (!key)
+                        return log_oom();
+
+                if (!device_property_can_set(key)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Invalid udev property name '%s', ignoring assignment: %s", key, word);
+                        continue;
+                }
+
+                r = strv_env_replace_consume(properties, TAKE_PTR(word));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to update properties: %m");
+        }
+}
+
+int config_parse_udev_property_name(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char ***properties = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                *properties = strv_free(*properties);
+                return 0;
+        }
+
+        for (const char *p = rvalue;; ) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r, "Invalid syntax, ignoring: %s", rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        return 0;
+
+                /* The restriction for udev property is not clear. Let's apply the one for environment variable here. */
+                if (!env_name_is_valid(word)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Invalid udev property name, ignoring assignment: %s", word);
+                        continue;
+                }
+
+                if (!device_property_can_set(word)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Invalid udev property name, ignoring assignment: %s", word);
+                        continue;
+                }
+
+                r = strv_consume(properties, TAKE_PTR(word));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to update properties: %m");
+        }
 }
 
 int config_parse_ifalias(
