@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
+#include <sys/mount.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
 #include <sys/types.h>
@@ -2364,6 +2365,18 @@ static int setup_keyring(void) {
         return 0;
 }
 
+static int make_run_host(const char *root) {
+        int r;
+
+        assert(root);
+
+        r = userns_mkdir(root, "/run/host", 0755, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create /run/host: %m");
+
+        return 0;
+}
+
 static int setup_credentials(const char *root) {
         const char *q;
         int r;
@@ -2371,9 +2384,9 @@ static int setup_credentials(const char *root) {
         if (arg_credentials.n_credentials == 0)
                 return 0;
 
-        r = userns_mkdir(root, "/run/host", 0755, 0, 0);
+        r = make_run_host(root);
         if (r < 0)
-                return log_error_errno(r, "Failed to create /run/host: %m");
+                return r;
 
         r = userns_mkdir(root, "/run/host/credentials", 0700, 0, 0);
         if (r < 0)
@@ -2713,9 +2726,9 @@ static int mount_tunnel_dig(const char *root) {
         p = strjoina("/run/systemd/nspawn/propagate/", arg_machine);
         (void) mkdir_p(p, 0600);
 
-        r = userns_mkdir(root, "/run/host", 0755, 0, 0);
+        r = make_run_host(root);
         if (r < 0)
-                return log_error_errno(r, "Failed to create /run/host: %m");
+                return r;
 
         r = userns_mkdir(root, NSPAWN_MOUNT_TUNNEL, 0600, 0, 0);
         if (r < 0)
@@ -2737,6 +2750,55 @@ static int mount_tunnel_open(void) {
         int r;
 
         r = mount_follow_verbose(LOG_ERR, NULL, NSPAWN_MOUNT_TUNNEL, NULL, MS_SLAVE, NULL);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+static int setup_unix_export(const char *directory) {
+        _cleanup_free_ char *p = NULL, *q = NULL;
+        int r;
+
+        assert(directory);
+
+        /* Exposes the containers /run/host/unix-export/ dir of the container to the host, making it
+         * read-only there but writable in the container. The idea is that containers place AF_UNIX sockets
+         * there that the host can access. */
+
+        r = mkdir_p("/run/systemd/nspawn/unix-export/", 0755);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create /run/systemd/nspawn/unix-export/: %m");
+
+        p = path_join("/run/systemd/nspawn/unix-export/", arg_machine);
+        if (!p)
+                return log_oom();
+
+        r = mkdir_p(p, 0000); /* this will be overmounted, make the underlying inode inaccessible */
+        if (r < 0)
+                return log_error_errno(r, "Failed to create %s: %m", p);
+
+        /* If there's a left-over mount in place from a previous run, get rid of it */
+        (void) umount2(p, MNT_DETACH|UMOUNT_NOFOLLOW);
+
+        r = make_run_host(directory);
+        if (r < 0)
+                return r;
+
+        r = userns_mkdir(directory, "/run/host/unix-export", 0744, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create /run/host/unix-export: %m");
+
+        q = path_join(directory, "/run/host/unix-export");
+        if (!q)
+                return log_oom();
+
+        r = mount_nofollow_verbose(LOG_ERR, q, p, NULL, MS_BIND, NULL);
+        if (r < 0)
+                return r;
+
+        /* Make host side read-only, and otherwise minimally featured */
+        r = mount_nofollow_verbose(LOG_ERR, NULL, p, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|ms_nosymfollow_supported(), NULL);
         if (r < 0)
                 return r;
 
@@ -3581,7 +3643,8 @@ static int setup_notify_child(void) {
         (void) mkdir_parents(NSPAWN_NOTIFY_SOCKET_PATH, 0755);
         (void) sockaddr_un_unlink(&sa.un);
 
-        r = bind(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
+        WITH_UMASK(0577) /* only set "w" bit, which is all that's necessary for connecting from the container */
+                r = bind(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
         if (r < 0)
                 return log_error_errno(errno, "bind(" NSPAWN_NOTIFY_SOCKET_PATH ") failed: %m");
 
@@ -3905,6 +3968,10 @@ static int outer_child(
         if (r < 0)
                 return r;
 
+        r = setup_unix_export(directory);
+        if (r < 0)
+                return r;
+
         r = setup_keyring();
         if (r < 0)
                 return r;
@@ -3946,11 +4013,11 @@ static int outer_child(
 
         /* The same stuff as the $container env var, but nicely readable for the entire payload */
         p = prefix_roota(directory, "/run/host/container-manager");
-        (void) write_string_file(p, arg_container_service_name, WRITE_STRING_FILE_CREATE);
+        (void) write_string_file(p, arg_container_service_name, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MODE_0444);
 
         /* The same stuff as the $container_uuid env var */
         p = prefix_roota(directory, "/run/host/container-uuid");
-        (void) write_string_filef(p, WRITE_STRING_FILE_CREATE, SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(arg_uuid));
+        (void) write_string_filef(p, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MODE_0444, SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(arg_uuid));
 
         if (!arg_use_cgns) {
                 r = mount_cgroups(
@@ -5907,6 +5974,10 @@ finish:
 
                 p = strjoina("/run/systemd/nspawn/propagate/", arg_machine);
                 (void) rm_rf(p, REMOVE_ROOT);
+
+                p = strjoina("/run/systemd/nspawn/unix-export/", arg_machine);
+                (void) umount2(p, MNT_DETACH|UMOUNT_NOFOLLOW);
+                (void) rmdir(p);
         }
 
         expose_port_flush(&fw_ctx, arg_expose_ports, AF_INET,  &expose_args.address4);

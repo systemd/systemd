@@ -200,6 +200,19 @@ int write_string_stream_ts(
         return 0;
 }
 
+static mode_t write_string_file_flags_to_mode(WriteStringFileFlags flags) {
+
+        /* We support three different modes, that are the ones that really make sense for text files like this:
+         *
+         *     → 0600 (i.e. root-only)
+         *     → 0444 (i.e. read-only)
+         *     → 0644 (i.e. writable for root, readable for everyone else)
+         */
+
+        return FLAGS_SET(flags, WRITE_STRING_FILE_MODE_0600) ? 0600 :
+                FLAGS_SET(flags, WRITE_STRING_FILE_MODE_0444) ? 0444 : 0644;
+}
+
 static int write_string_file_atomic_at(
                 int dir_fd,
                 const char *fn,
@@ -225,7 +238,7 @@ static int write_string_file_atomic_at(
         if (r < 0)
                 goto fail;
 
-        r = fchmod_umask(fileno(f), FLAGS_SET(flags, WRITE_STRING_FILE_MODE_0600) ? 0600 : 0644);
+        r = fchmod_umask(fileno(f), write_string_file_flags_to_mode(flags));
         if (r < 0)
                 goto fail;
 
@@ -288,7 +301,7 @@ int write_string_file_ts_at(
                     (FLAGS_SET(flags, WRITE_STRING_FILE_CREATE) ? O_CREAT : 0) |
                     (FLAGS_SET(flags, WRITE_STRING_FILE_TRUNCATE) ? O_TRUNC : 0) |
                     (FLAGS_SET(flags, WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL) ? O_RDWR : O_WRONLY),
-                    (FLAGS_SET(flags, WRITE_STRING_FILE_MODE_0600) ? 0600 : 0666));
+                    write_string_file_flags_to_mode(flags));
         if (fd < 0) {
                 r = -errno;
                 goto fail;

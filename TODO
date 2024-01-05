@@ -132,6 +132,13 @@ Deprecations and removals:
 
 Features:
 
+* machined: make machine registration available via varlink to simplify
+  nspawn/vmspawn, and to have an extensible way to register VM/machine metadata
+
+* ssh-proxy: add support for "ssh machine/foobar" to automatically connect to
+  machined registered machine "foobar". Requires updating machined to track CID
+  and unix-export dir of containers.
+
 * In .link files add support for setting ID_NET_MANAGED_BY= udev field via some
   high-level setting. Possibly also add setting to add arbitrary udev fields.
 
@@ -298,15 +305,6 @@ Features:
   and then remains referenced by it. The new object should also carry an fd to
   the realized cgroup, to pin it (and later execute all cgroup operations over,
   once we drop cgroupv1 compat).
-
-* add new "systemd-ssh-generator", which allows basic ssh config via
-  credentials (host key). It generates sshd.socket for IP, but also
-  sshd-vsock.socket for listening on AF_VSOCK when running in a VM, and
-  sshd-unix.socket on AF_UNIX when running in a container. It also generates a
-  matching sshd.service file with a host key passed in on the cmdline via
-  credentials. Then, add a ssh_config drop-in that matches some suitable
-  hostname pattern and has a ProxyCommand set that allows connecting to any
-  local VM/container that way without any networking configured.
 
 * Varlinkification of the following command line tools, to open them up to
   other programs via IPC:
