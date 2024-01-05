@@ -31,6 +31,7 @@ typedef struct Link {
 
         LinkConfig *config;
         sd_device *device;
+        sd_device *device_db_clone;
         sd_device_action_t action;
 
         char *kind;
@@ -51,6 +52,9 @@ struct LinkConfig {
         LIST_HEAD(Condition, conditions);
 
         char *description;
+        char **properties;
+        char **import_properties;
+        char **unset_properties;
         struct hw_addr_data hw_addr;
         MACAddressPolicy mac_address_policy;
         NamePolicy *name_policy;
@@ -95,7 +99,7 @@ int link_load_one(LinkConfigContext *ctx, const char *filename);
 int link_config_load(LinkConfigContext *ctx);
 bool link_config_should_reload(LinkConfigContext *ctx);
 
-int link_new(LinkConfigContext *ctx, sd_netlink **rtnl, sd_device *device, Link **ret);
+int link_new(LinkConfigContext *ctx, sd_netlink **rtnl, sd_device *device, sd_device *device_db_clone, Link **ret);
 Link *link_free(Link *link);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_free);
 
@@ -108,6 +112,8 @@ MACAddressPolicy mac_address_policy_from_string(const char *p) _pure_;
 /* gperf lookup function */
 const struct ConfigPerfItem* link_config_gperf_lookup(const char *key, GPERF_LEN_TYPE length);
 
+CONFIG_PARSER_PROTOTYPE(config_parse_udev_property);
+CONFIG_PARSER_PROTOTYPE(config_parse_udev_property_name);
 CONFIG_PARSER_PROTOTYPE(config_parse_ifalias);
 CONFIG_PARSER_PROTOTYPE(config_parse_rx_tx_queues);
 CONFIG_PARSER_PROTOTYPE(config_parse_txqueuelen);
