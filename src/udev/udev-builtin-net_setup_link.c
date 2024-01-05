@@ -3,7 +3,6 @@
 #include "alloc-util.h"
 #include "device-private.h"
 #include "device-util.h"
-#include "escape.h"
 #include "errno-util.h"
 #include "link-config.h"
 #include "log.h"
@@ -16,7 +15,6 @@ static LinkConfigContext *ctx = NULL;
 static int builtin_net_setup_link(UdevEvent *event, int argc, char **argv, bool test) {
         sd_device *dev = ASSERT_PTR(ASSERT_PTR(event)->dev);
         _cleanup_(link_freep) Link *link = NULL;
-        _cleanup_free_ char *joined = NULL;
         int r;
 
         if (argc > 1)
@@ -63,30 +61,13 @@ static int builtin_net_setup_link(UdevEvent *event, int argc, char **argv, bool 
                 return log_device_error_errno(dev, r, "Failed to get link config: %m");
         }
 
-        r = link_apply_config(ctx, &event->rtnl, link);
+        r = link_apply_config(ctx, &event->rtnl, link, test);
         if (r == -ENODEV)
                 log_device_debug_errno(dev, r, "Link vanished while applying configuration, ignoring.");
         else if (r < 0)
                 log_device_warning_errno(dev, r, "Could not apply link configuration, ignoring: %m");
 
-        udev_builtin_add_property(dev, test, "ID_NET_LINK_FILE", link->config->filename);
-        if (link->new_name)
-                udev_builtin_add_property(dev, test, "ID_NET_NAME", link->new_name);
-
         event->altnames = TAKE_PTR(link->altnames);
-
-        STRV_FOREACH(d, link->config->dropins) {
-                _cleanup_free_ char *escaped = NULL;
-
-                escaped = xescape(*d, ":");
-                if (!escaped)
-                        return log_oom();
-
-                if (!strextend_with_separator(&joined, ":", escaped))
-                        return log_oom();
-        }
-
-        udev_builtin_add_property(dev, test, "ID_NET_LINK_FILE_DROPINS", joined);
 
         return 0;
 }

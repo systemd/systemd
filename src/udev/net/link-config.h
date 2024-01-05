@@ -100,7 +100,7 @@ Link *link_free(Link *link);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Link*, link_free);
 
 int link_get_config(LinkConfigContext *ctx, Link *link);
-int link_apply_config(LinkConfigContext *ctx, sd_netlink **rtnl, Link *link);
+int link_apply_config(LinkConfigContext *ctx, sd_netlink **rtnl, Link *link, bool test);
 
 const char *mac_address_policy_to_string(MACAddressPolicy p) _const_;
 MACAddressPolicy mac_address_policy_from_string(const char *p) _pure_;
