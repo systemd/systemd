@@ -1711,7 +1711,7 @@ static int service_spawn_internal(
                         char *t;
                         unsigned port;
 
-                        r = sockaddr_pretty(&sa.sa, salen, true, false, &addr);
+                        r = sockaddr_pretty(&sa, salen, true, false, &addr);
                         if (r < 0)
                                 return r;
 
@@ -1720,7 +1720,7 @@ static int service_spawn_internal(
                                 return -ENOMEM;
                         our_env[n_env++] = t;
 
-                        r = sockaddr_port(&sa.sa, &port);
+                        r = sockaddr_port(&sa, &port);
                         if (r < 0)
                                 return r;
 
