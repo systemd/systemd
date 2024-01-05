@@ -24,6 +24,8 @@ typedef struct NextHop {
         NetworkConfigSource source;
         NetworkConfigState state;
 
+        unsigned n_ref;
+
         uint8_t protocol;
         int ifindex;
         uint32_t id;
@@ -35,7 +37,10 @@ typedef struct NextHop {
         Hashmap *group;
 } NextHop;
 
-NextHop *nexthop_free(NextHop *nexthop);
+NextHop* nexthop_ref(NextHop *nexthop);
+NextHop* nexthop_unref(NextHop *nexthop);
+
+int nexthop_remove(NextHop *nexthop, Manager *manager);
 
 int network_drop_invalid_nexthops(Network *network);
 
@@ -51,6 +56,7 @@ void link_foreignize_nexthops(Link *link);
 int link_request_static_nexthops(Link *link, bool only_ipv4);
 
 int nexthop_get_by_id(Manager *manager, uint32_t id, NextHop **ret);
+int nexthop_is_ready(Manager *manager, uint32_t id, NextHop **ret);
 int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
 int manager_build_nexthop_ids(Manager *manager);
 
