@@ -25,6 +25,7 @@ int main(int argc, char *argv[]) {
         assert_se(mkdir_p(f, 0755) >= 0);
 
         assert_se(make_inaccessible_nodes(f, 1, 1) >= 0);
+        assert_se(make_inaccessible_nodes(f, 1, 1) >= 0); /* 2nd cal should be a clean NOP */
 
         f = prefix_roota(p, "/run/systemd/inaccessible/reg");
         assert_se(stat(f, &st) >= 0);
