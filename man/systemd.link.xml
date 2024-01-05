@@ -361,7 +361,7 @@
         <listitem>
           <para>A description of the device.</para>
 
-        <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -369,7 +369,7 @@
         <listitem>
           <para>The <varname>ifalias</varname> interface property is set to this value.</para>
 
-        <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
       <varlistentry>
