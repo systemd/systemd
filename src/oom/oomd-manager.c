@@ -30,30 +30,17 @@ static void managed_oom_message_destroy(ManagedOOMMessage *message) {
         free(message->property);
 }
 
-static int managed_oom_mode(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
-        ManagedOOMMode *mode = userdata, m;
-        const char *s;
-
-        assert(mode);
-        assert_se(s = json_variant_string(v));
-
-        m = managed_oom_mode_from_string(s);
-        if (m < 0)
-                return json_log(v, flags, m, "%s is not a valid ManagedOOMMode", s);
-
-        *mode = m;
-        return 0;
-}
+static JSON_DISPATCH_ENUM_DEFINE(dispatch_managed_oom_mode, ManagedOOMMode, managed_oom_mode_from_string);
 
 static int process_managed_oom_message(Manager *m, uid_t uid, JsonVariant *parameters) {
         JsonVariant *c, *cgroups;
         int r;
 
         static const JsonDispatch dispatch_table[] = {
-                { "mode",     JSON_VARIANT_STRING,        managed_oom_mode,     offsetof(ManagedOOMMessage, mode),     JSON_MANDATORY },
-                { "path",     JSON_VARIANT_STRING,        json_dispatch_string, offsetof(ManagedOOMMessage, path),     JSON_MANDATORY },
-                { "property", JSON_VARIANT_STRING,        json_dispatch_string, offsetof(ManagedOOMMessage, property), JSON_MANDATORY },
-                { "limit",    _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint32, offsetof(ManagedOOMMessage, limit),    0              },
+                { "mode",     JSON_VARIANT_STRING,        dispatch_managed_oom_mode, offsetof(ManagedOOMMessage, mode),     JSON_MANDATORY },
+                { "path",     JSON_VARIANT_STRING,        json_dispatch_string,      offsetof(ManagedOOMMessage, path),     JSON_MANDATORY },
+                { "property", JSON_VARIANT_STRING,        json_dispatch_string,      offsetof(ManagedOOMMessage, property), JSON_MANDATORY },
+                { "limit",    _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint32,      offsetof(ManagedOOMMessage, limit),    0              },
                 {},
         };
 
