@@ -107,6 +107,7 @@ simple_tests += files(
         'test-install-file.c',
         'test-install-root.c',
         'test-io-util.c',
+        'test-iovec-util.c',
         'test-journal-importer.c',
         'test-kbd-util.c',
         'test-limits-util.c',
