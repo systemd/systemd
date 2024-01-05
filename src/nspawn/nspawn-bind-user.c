@@ -388,9 +388,9 @@ int bind_user_setup(
         if (!c || c->n_data == 0)
                 return 0;
 
-        r = userns_mkdir(root, "/run/host", 0755, 0, 0);
+        r = make_run_host(root);
         if (r < 0)
-                return log_error_errno(r, "Failed to create /run/host: %m");
+                return r;
 
         r = userns_mkdir(root, "/run/host/home", 0755, 0, 0);
         if (r < 0)
