@@ -113,7 +113,7 @@ static int check_netns_match(void) {
                 {},
         };
 
-        r = json_dispatch(reply, dispatch_table, JSON_LOG, &id);
+        r = json_dispatch(reply, dispatch_table, JSON_LOG|JSON_ALLOW_EXTENSIONS, &id);
         if (r < 0)
                 return r;
 

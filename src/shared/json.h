@@ -376,15 +376,16 @@ int json_buildv(JsonVariant **ret, va_list ap);
  * entry, as well the bitmask specified for json_log() calls */
 typedef enum JsonDispatchFlags {
         /* The following three may be set in JsonDispatch's .flags field or the json_dispatch() flags parameter  */
-        JSON_PERMISSIVE = 1 << 0, /* Shall parsing errors be considered fatal for this property? */
-        JSON_MANDATORY  = 1 << 1, /* Should existence of this property be mandatory? */
-        JSON_LOG        = 1 << 2, /* Should the parser log about errors? */
-        JSON_SAFE       = 1 << 3, /* Don't accept "unsafe" strings in json_dispatch_string() + json_dispatch_string() */
-        JSON_RELAX      = 1 << 4, /* Use relaxed user name checking in json_dispatch_user_group_name */
+        JSON_PERMISSIVE       = 1 << 0, /* Shall parsing errors be considered fatal for this field or object? */
+        JSON_MANDATORY        = 1 << 1, /* Should existence of this property be mandatory? */
+        JSON_LOG              = 1 << 2, /* Should the parser log about errors? */
+        JSON_SAFE             = 1 << 3, /* Don't accept "unsafe" strings in json_dispatch_string() + json_dispatch_string() */
+        JSON_RELAX            = 1 << 4, /* Use relaxed user name checking in json_dispatch_user_group_name */
+        JSON_ALLOW_EXTENSIONS = 1 << 5, /* Subset of JSON_PERMISSIVE: allow additional fields, but no other permissive handling */
 
         /* The following two may be passed into log_json() in addition to those above */
-        JSON_DEBUG      = 1 << 5, /* Indicates that this log message is a debug message */
-        JSON_WARNING    = 1 << 6, /* Indicates that this log message is a warning message */
+        JSON_DEBUG            = 1 << 6, /* Indicates that this log message is a debug message */
+        JSON_WARNING          = 1 << 7, /* Indicates that this log message is a warning message */
 } JsonDispatchFlags;
 
 typedef int (*JsonDispatchCallback)(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);

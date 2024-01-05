@@ -192,7 +192,7 @@ static int get_efi_hibernate_location(EFIHibernateLocation **ret) {
         if (!e)
                 return log_oom();
 
-        r = json_dispatch(v, dispatch_table, JSON_LOG, e);
+        r = json_dispatch(v, dispatch_table, JSON_LOG|JSON_ALLOW_EXTENSIONS, e);
         if (r < 0)
                 return r;
 
