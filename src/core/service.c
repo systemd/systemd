@@ -1512,9 +1512,9 @@ static int service_allocate_exec_fd_event_source(
         if (r < 0)
                 return log_unit_error_errno(UNIT(s), r, "Failed to allocate exec_fd event source: %m");
 
-        /* This is a bit lower priority than SIGCHLD, as that carries a lot more interesting failure information */
+        /* This is a bit higher priority than SIGCHLD to avoid a race. See #28304 */
 
-        r = sd_event_source_set_priority(source, SD_EVENT_PRIORITY_NORMAL-3);
+        r = sd_event_source_set_priority(source, SD_EVENT_PRIORITY_NORMAL-8);
         if (r < 0)
                 return log_unit_error_errno(UNIT(s), r, "Failed to adjust priority of exec_fd event source: %m");
 
