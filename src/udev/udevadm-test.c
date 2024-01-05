@@ -95,6 +95,7 @@ int test_main(int argc, char *argv[], void *userdata) {
         int r;
 
         log_set_max_level(LOG_DEBUG);
+        log_parse_environment();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
