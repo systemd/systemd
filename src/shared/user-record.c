@@ -535,43 +535,8 @@ static int json_dispatch_environment(const char *name, JsonVariant *variant, Jso
         return strv_free_and_replace(*l, n);
 }
 
-int json_dispatch_user_disposition(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        UserDisposition *disposition = userdata, k;
-
-        if (json_variant_is_null(variant)) {
-                *disposition = _USER_DISPOSITION_INVALID;
-                return 0;
-        }
-
-        if (!json_variant_is_string(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
-
-        k = user_disposition_from_string(json_variant_string(variant));
-        if (k < 0)
-                return json_log(variant, flags, k, "Disposition type '%s' not known.", json_variant_string(variant));
-
-        *disposition = k;
-        return 0;
-}
-
-static int json_dispatch_storage(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
-        UserStorage *storage = userdata, k;
-
-        if (json_variant_is_null(variant)) {
-                *storage = _USER_STORAGE_INVALID;
-                return 0;
-        }
-
-        if (!json_variant_is_string(variant))
-                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
-
-        k = user_storage_from_string(json_variant_string(variant));
-        if (k < 0)
-                return json_log(variant, flags, k, "Storage type '%s' not known.", json_variant_string(variant));
-
-        *storage = k;
-        return 0;
-}
+JSON_DISPATCH_ENUM_DEFINE(json_dispatch_user_disposition, UserDisposition, user_disposition_from_string);
+static JSON_DISPATCH_ENUM_DEFINE(json_dispatch_user_storage, UserStorage, user_storage_from_string);
 
 static int json_dispatch_tasks_or_memory_max(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
         uint64_t *limit = userdata, k;
@@ -1055,7 +1020,7 @@ static int dispatch_binding(const char *name, JsonVariant *variant, JsonDispatch
                 { "fileSystemUuid",    JSON_VARIANT_STRING,        json_dispatch_id128,          offsetof(UserRecord, file_system_uuid),     0         },
                 { "uid",               JSON_VARIANT_UNSIGNED,      json_dispatch_uid_gid,        offsetof(UserRecord, uid),                  0         },
                 { "gid",               JSON_VARIANT_UNSIGNED,      json_dispatch_uid_gid,        offsetof(UserRecord, gid),                  0         },
-                { "storage",           JSON_VARIANT_STRING,        json_dispatch_storage,        offsetof(UserRecord, storage),              0         },
+                { "storage",           JSON_VARIANT_STRING,        json_dispatch_user_storage,   offsetof(UserRecord, storage),              0         },
                 { "fileSystemType",    JSON_VARIANT_STRING,        json_dispatch_string,         offsetof(UserRecord, file_system_type),     JSON_SAFE },
                 { "luksCipher",        JSON_VARIANT_STRING,        json_dispatch_string,         offsetof(UserRecord, luks_cipher),          JSON_SAFE },
                 { "luksCipherMode",    JSON_VARIANT_STRING,        json_dispatch_string,         offsetof(UserRecord, luks_cipher_mode),     JSON_SAFE },
@@ -1185,7 +1150,7 @@ static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDisp
                 { "locked",                     JSON_VARIANT_BOOLEAN,       json_dispatch_tristate,               offsetof(UserRecord, locked),                        0         },
                 { "notBeforeUSec",              _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,                 offsetof(UserRecord, not_before_usec),               0         },
                 { "notAfterUSec",               _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,                 offsetof(UserRecord, not_after_usec),                0         },
-                { "storage",                    JSON_VARIANT_STRING,        json_dispatch_storage,                offsetof(UserRecord, storage),                       0         },
+                { "storage",                    JSON_VARIANT_STRING,        json_dispatch_user_storage,           offsetof(UserRecord, storage),                       0         },
                 { "diskSize",                   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,                 offsetof(UserRecord, disk_size),                     0         },
                 { "diskSizeRelative",           _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,                 offsetof(UserRecord, disk_size_relative),            0         },
                 { "skeletonDirectory",          JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, skeleton_directory),            0         },
@@ -1540,7 +1505,7 @@ int user_record_load(UserRecord *h, JsonVariant *v, UserRecordLoadFlags load_fla
                 { "locked",                     JSON_VARIANT_BOOLEAN,       json_dispatch_tristate,               offsetof(UserRecord, locked),                        0         },
                 { "notBeforeUSec",              _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,                 offsetof(UserRecord, not_before_usec),               0         },
                 { "notAfterUSec",               _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,                 offsetof(UserRecord, not_after_usec),                0         },
-                { "storage",                    JSON_VARIANT_STRING,        json_dispatch_storage,                offsetof(UserRecord, storage),                       0         },
+                { "storage",                    JSON_VARIANT_STRING,        json_dispatch_user_storage,           offsetof(UserRecord, storage),                       0         },
                 { "diskSize",                   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,                 offsetof(UserRecord, disk_size),                     0         },
                 { "diskSizeRelative",           _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,                 offsetof(UserRecord, disk_size_relative),            0         },
                 { "skeletonDirectory",          JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, skeleton_directory),            0         },
