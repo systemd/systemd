@@ -1171,16 +1171,8 @@ Features:
   passwords, not just the first. i.e. if there are multiple defined, prefer
   unlocked over locked and prefer non-empty over empty.
 
-* homed: while a home dir is not activated generate slightly different NSS
-  records for it, that reports the home dir as "/" and the shell as some binary
-  provided by us. Then, when an SSH login happens and SSH permits it our binary
-  is invoked. This binary can then talk to homed and activate the homedir if
-  it's not around yet, prompting the user for a password. Once that succeeded
-  we'll switch to the real user record, i.e. home dir and shell, and our tool
-  exec()s the latter. Net effect: ssh'ing into a homed account will just work:
-  we'll neatly prompt for the homedir's password if its needed. –– Building on
-  this we could take this even further: since this tool will potentially have
-  access to the client's ssh-agent (if ssh-agent forwarding is enabled) we
+* homed: if the homed shell fallback thing has access to an SSH agent, try to
+  use it to unlock home dir (if ssh-agent forwarding is enabled). We
   could implement SSH unlocking of a homedir with that: when enrolling a new
   ssh pubkey in a user record we'd ask the ssh-agent to sign some random value
   with the privkey, then use that as luks key to unlock the home dir. Will not
@@ -1213,14 +1205,6 @@ Features:
 * portabled: when extracting unit files and copying to system.attached, if a
   .p7s is available in the image, use it to protect the system.attached copy
   with fs-verity, so that it cannot be tampered with
-
-* logind introduce two types of sessions: "heavy" and "light". The former would
-  be our current sessions. But the latter would be a new type of session that
-  is mostly the same but does not pull in user@.service or wait for it. Then,
-  allow configuration which type of session is desired via pam_systemd
-  parameters, and then make user@.service's session one of these "light" ones.
-  People could then choose to make FTP sessions and suchlike "light" if they
-  don't want the service manager to be started for that.
 
 * /etc/veritytab: allow that the roothash column can be specified as fs path
   including a path to an AF_UNIX path, similar to how we do things with the

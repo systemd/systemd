@@ -525,6 +525,26 @@ static const char* getenv_harder(pam_handle_t *handle, const char *key, const ch
         return fallback;
 }
 
+static bool getenv_harder_bool(pam_handle_t *handle, const char *key, bool fallback) {
+        const char *v;
+        int r;
+
+        assert(handle);
+        assert(key);
+
+        v = getenv_harder(handle, key, NULL);
+        if (isempty(v))
+                return fallback;
+
+        r = parse_boolean(v);
+        if (r < 0) {
+                pam_syslog(handle, LOG_ERR, "Boolean environment variable value of '%s' is not valid: %s", key, v);
+                return fallback;
+        }
+
+        return r;
+}
+
 static int update_environment(pam_handle_t *handle, const char *key, const char *value) {
         int r;
 
@@ -900,7 +920,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
         int session_fd = -EBADF, existing, r;
-        bool debug = false, remote;
+        bool debug = false, remote, incomplete;
         uint32_t vtnr = 0;
         uid_t original_uid;
 
@@ -936,30 +956,22 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         if (r != PAM_SUCCESS)
                 return pam_syslog_pam_error(handle, LOG_ERR, r, "Failed to get PAM items: @PAMERR@");
 
-        /* Make sure we don't enter a loop by talking to systemd-logind when it is actually waiting for the
-         * background to finish start-up. If the service is "systemd-user" we simply set XDG_RUNTIME_DIR and
-         * leave. */
-
-        if (streq_ptr(service, "systemd-user")) {
-                char rt[STRLEN("/run/user/") + DECIMAL_STR_MAX(uid_t)];
-
-                xsprintf(rt, "/run/user/"UID_FMT, ur->uid);
-                r = configure_runtime_directory(handle, ur, rt);
-                if (r != PAM_SUCCESS)
-                        return r;
-
-                goto success;
-        }
-
-        /* Otherwise, we ask logind to create a session for us */
-
         seat = getenv_harder(handle, "XDG_SEAT", NULL);
         cvtnr = getenv_harder(handle, "XDG_VTNR", NULL);
         type = getenv_harder(handle, "XDG_SESSION_TYPE", type_pam);
         class = getenv_harder(handle, "XDG_SESSION_CLASS", class_pam);
         desktop = getenv_harder(handle, "XDG_SESSION_DESKTOP", desktop_pam);
+        incomplete = getenv_harder_bool(handle, "XDG_SESSION_INCOMPLETE", NULL);
 
-        if (tty && strchr(tty, ':')) {
+        if (streq_ptr(service, "systemd-user")) {
+                /* If we detect that we are running in the "systemd-user" PAM stack, then let's patch the class to
+                 * 'manager' if not set, simply for robustness reasons. */
+                type = "unspecified";
+                class = IN_SET(user_record_disposition(ur), USER_INTRINSIC, USER_SYSTEM, USER_DYNAMIC) ?
+                        "manager-early" : "manager";
+                tty = NULL;
+
+        } else if (tty && strchr(tty, ':')) {
                 /* A tty with a colon is usually an X11 display, placed there to show up in utmp. We rearrange things
                  * and don't pretend that an X display was a tty. */
                 if (isempty(display))
@@ -1014,6 +1026,13 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                 class = streq(type, "unspecified") ? "background" :
                         ((IN_SET(user_record_disposition(ur), USER_INTRINSIC, USER_SYSTEM, USER_DYNAMIC) &&
                          streq(type, "tty")) ? "user-early" : "user");
+
+        if (incomplete) {
+                if (streq(class, "user"))
+                        class = "user-incomplete";
+                else
+                        pam_syslog_pam_error(handle, LOG_WARNING, 0, "PAM session of class '%s' is incomplete, which is not supported, ignoring.", class);
+        }
 
         remote = !isempty(remote_host) && !is_localhost(remote_host);
 

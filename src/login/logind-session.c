@@ -187,6 +187,7 @@ Session* session_free(Session *s) {
         session_reset_leader(s, /* keep_fdstore = */ true);
 
         sd_bus_message_unref(s->create_message);
+        sd_bus_message_unref(s->upgrade_message);
 
         free(s->tty);
         free(s->display);
@@ -722,8 +723,11 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
         assert(s);
         assert(s->user);
 
+        if (!SESSION_CLASS_WANTS_SCOPE(s->class))
+                return 0;
+
         if (!s->scope) {
-                _cleanup_strv_free_ char **after = NULL;
+                _cleanup_strv_free_ char **wants = NULL, **after = NULL;
                 _cleanup_free_ char *scope = NULL;
                 const char *description;
 
@@ -734,6 +738,12 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
                         return log_oom();
 
                 description = strjoina("Session ", s->id, " of User ", s->user->user_record->user_name);
+
+                /* These two have StopWhenUnneeded= set, hence add a dep towards them */
+                wants = strv_new(s->user->runtime_dir_service,
+                                 SESSION_CLASS_WANTS_SERVICE_MANAGER(s->class) ? s->user->service : STRV_IGNORE);
+                if (!wants)
+                        return log_oom();
 
                 /* We usually want to order session scopes after systemd-user-sessions.service since the
                  * latter unit is used as login session barrier for unprivileged users. However the barrier
@@ -754,9 +764,7 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
                                 &s->leader,
                                 s->user->slice,
                                 description,
-                                /* These two have StopWhenUnneeded= set, hence add a dep towards them */
-                                STRV_MAKE(s->user->runtime_dir_service,
-                                          s->user->service),
+                                wants,
                                 after,
                                 user_record_home_directory(s->user->user_record),
                                 properties,
@@ -810,7 +818,7 @@ static int session_setup_stop_on_idle_timer(Session *s) {
 
         assert(s);
 
-        if (s->manager->stop_idle_session_usec == USEC_INFINITY || IN_SET(s->class, SESSION_GREETER, SESSION_LOCK_SCREEN))
+        if (s->manager->stop_idle_session_usec == USEC_INFINITY || !SESSION_CLASS_CAN_STOP_ON_IDLE(s->class))
                 return 0;
 
         r = sd_event_add_time_relative(
@@ -1148,7 +1156,9 @@ found_atime:
 int session_set_idle_hint(Session *s, bool b) {
         assert(s);
 
-        if (!SESSION_TYPE_IS_GRAPHICAL(s->type))
+        if (!SESSION_CLASS_CAN_IDLE(s->class)) /* Only some session classes know the idle concept at all */
+                return -ENOTTY;
+        if (!SESSION_TYPE_IS_GRAPHICAL(s->type)) /* And only graphical session types can set the field explicitly */
                 return -ENOTTY;
 
         if (s->idle_hint == b)
@@ -1174,15 +1184,20 @@ int session_get_locked_hint(Session *s) {
         return s->locked_hint;
 }
 
-void session_set_locked_hint(Session *s, bool b) {
+int session_set_locked_hint(Session *s, bool b) {
         assert(s);
 
+        if (!SESSION_CLASS_CAN_LOCK(s->class))
+                return -ENOTTY;
+
         if (s->locked_hint == b)
-                return;
+                return 0;
 
         s->locked_hint = b;
+        (void) session_save(s);
+        (void) session_send_changed(s, "LockedHint", NULL);
 
-        session_send_changed(s, "LockedHint", NULL);
+        return 1;
 }
 
 void session_set_type(Session *s, SessionType t) {
@@ -1194,6 +1209,23 @@ void session_set_type(Session *s, SessionType t) {
         s->type = t;
         (void) session_save(s);
         (void) session_send_changed(s, "Type", NULL);
+}
+
+void session_set_class(Session *s, SessionClass c) {
+        assert(s);
+
+        if (s->class == c)
+                return;
+
+        s->class = c;
+        (void) session_save(s);
+        (void) session_send_changed(s, "Class", NULL);
+
+        if (SESSION_CLASS_PIN_USER(c))
+                s->user->gc_mode = USER_GC_BY_PIN;
+
+        /* This class change might mean we need the per-user session manager now. Try to start it */
+        user_start_service_manager(s->user);
 }
 
 int session_set_display(Session *s, const char *display) {
@@ -1632,11 +1664,15 @@ static const char* const session_type_table[_SESSION_TYPE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(session_type, SessionType);
 
 static const char* const session_class_table[_SESSION_CLASS_MAX] = {
-        [SESSION_USER]        = "user",
-        [SESSION_USER_EARLY]  = "user-early",
-        [SESSION_GREETER]     = "greeter",
-        [SESSION_LOCK_SCREEN] = "lock-screen",
-        [SESSION_BACKGROUND]  = "background",
+        [SESSION_USER]              = "user",
+        [SESSION_USER_EARLY]        = "user-early",
+        [SESSION_USER_INCOMPLETE]   = "user-incomplete",
+        [SESSION_GREETER]           = "greeter",
+        [SESSION_LOCK_SCREEN]       = "lock-screen",
+        [SESSION_BACKGROUND]        = "background",
+        [SESSION_BACKGROUND_LIGHT]  = "background-light",
+        [SESSION_MANAGER]           = "manager",
+        [SESSION_MANAGER_EARLY]     = "manager-early",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(session_class, SessionClass);

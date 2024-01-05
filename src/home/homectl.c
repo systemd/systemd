@@ -740,7 +740,6 @@ static int inspect_home(int argc, char *argv[], void *userdata) {
                         r = bus_call_method(bus, bus_mgr, "GetUserRecordByName", &error, &reply, "s", *i);
                 } else
                         r = bus_call_method(bus, bus_mgr, "GetUserRecordByUID", &error, &reply, "u", (uint32_t) uid);
-
                 if (r < 0) {
                         log_error_errno(r, "Failed to inspect home: %s", bus_error_message(&error, r));
                         if (ret == 0)
@@ -4054,6 +4053,197 @@ static int redirect_bus_mgr(void) {
         return 0;
 }
 
+static bool is_fallback_shell(const char *p) {
+        const char *q;
+
+        if (!p)
+                return false;
+
+        if (p[0] == '-') {
+                /* Skip over login shell dash */
+                p++;
+
+                if (streq(p, "ystemd-home-fallback-shell")) /* maybe the dash was used to override the binary name? */
+                        return true;
+        }
+
+        q = strrchr(p, '/'); /* Skip over path */
+        if (q)
+                p = q + 1;
+
+        return streq(p, "systemd-home-fallback-shell");
+}
+
+static int fallback_shell(int argc, char *argv[]) {
+        _cleanup_(user_record_unrefp) UserRecord *secret = NULL, *hr = NULL;
+        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_strv_free_ char **l = NULL;
+        _cleanup_free_ char *argv0 = NULL;
+        const char *json, *hd, *shell;
+        int r, incomplete;
+
+        /* So here's the deal: if users log into a system via ssh, and their homed-managed home directory
+         * wasn't activated yet, SSH will permit the access but the home directory isn't actually available
+         * yet. SSH doesn't allow us to ask authentication questions from the PAM session stack, and doesn't
+         * run the PAM authentication stack (because it authenticates via its own key management, after
+         * all). So here's our way to support this: homectl can be invoked as a multi-call binary under the
+         * name "systemd-home-fallback-shell". If so, it will chainload a login shell, but first try to
+         * unlock the home directory of the user it is invoked as. systemd-homed will then override the shell
+         * listed in user records whose home directory is not activated yet with this pseudo-shell. Net
+         * effect: one SSH auth succeeds this pseudo shell gets invoked, which will unlock the homedir
+         * (possibly asking for a passphrase) and then chainload the regular shell. Once the login is
+         * complete the user record will look like any other. */
+
+        r = acquire_bus(&bus);
+        if (r < 0)
+                return r;
+
+        for (unsigned n_tries = 0;; n_tries++) {
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+                _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+
+                if (n_tries >= 5)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE),
+                                               "Failed to activate home dir, even after %u tries.", n_tries);
+
+                /* Let's start by checking if this all is even necessary, i.e. if the useFallback boolean field is actually set. */
+                r = bus_call_method(bus, bus_mgr, "GetUserRecordByName", &error, &reply, "s", NULL); /* empty user string means: our calling user */
+                if (r < 0)
+                        return log_error_errno(r, "Failed to inspect home: %s", bus_error_message(&error, r));
+
+                r = sd_bus_message_read(reply, "sbo", &json, NULL, NULL);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+
+                r = json_parse(json, JSON_PARSE_SENSITIVE, &v, NULL, NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse JSON identity: %m");
+
+                hr = user_record_new();
+                if (!hr)
+                        return log_oom();
+
+                r = user_record_load(hr, v, USER_RECORD_LOAD_REFUSE_SECRET|USER_RECORD_LOG|USER_RECORD_PERMISSIVE);
+                if (r < 0)
+                        return r;
+
+                if (!hr->use_fallback) /* Nice! We are done, fallback logic not necessary */
+                        break;
+
+                if (!secret) {
+                        r = acquire_passed_secrets(hr->user_name, &secret);
+                        if (r < 0)
+                                return r;
+                }
+
+                for (;;) {
+                        _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+
+                        r = bus_message_new_method_call(bus, &m, bus_mgr, "ActivateHomeIfReferenced");
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_message_append(m, "s", NULL); /* empty user string means: our calling user */
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = bus_message_append_secret(m, secret);
+                        if (r < 0)
+                                return bus_log_create_error(r);
+
+                        r = sd_bus_call(bus, m, HOME_SLOW_BUS_CALL_TIMEOUT_USEC, &error, NULL);
+                        if (r < 0) {
+                                if (sd_bus_error_has_name(&error, BUS_ERROR_HOME_NOT_REFERENCED))
+                                        return log_error_errno(r, "Called without reference on home taken, can't operate.");
+
+                                r = handle_generic_user_record_error(hr->user_name, secret, &error, r, false);
+                                if (r < 0)
+                                        return r;
+
+                                sd_bus_error_free(&error);
+                        } else
+                                break;
+                }
+
+                /* Try again */
+                hr = user_record_unref(hr);
+        }
+
+        incomplete = getenv_bool("XDG_SESSION_INCOMPLETE"); /* pam_systemd_home reports this state via an environment variable to us. */
+        if (incomplete < 0 && incomplete != -ENXIO)
+                return log_error_errno(incomplete, "Failed to parse $XDG_SESSION_INCOMPLETE environment variable: %m");
+        if (incomplete > 0) {
+                /* We are still in an "incomplete" session here. Now upgrade it to a full one. This will make logind
+                 * start the user@.service instance for us. */
+                _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+                r = sd_bus_call_method(
+                                bus,
+                                "org.freedesktop.login1",
+                                "/org/freedesktop/login1/session/self",
+                                "org.freedesktop.login1.Session",
+                                "SetClass",
+                                &error,
+                                /* ret_reply= */ NULL,
+                                "s",
+                                "user");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to upgrade session: %s", bus_error_message(&error, r));
+
+                if (setenv("XDG_SESSION_CLASS", "user", /* overwrite= */ true) < 0) /* Update the XDG_SESSION_CLASS environment variable to match the above */
+                        return log_error_errno(errno, "Failed to set $XDG_SESSION_CLASS: %m");
+
+                if (unsetenv("XDG_SESSION_INCOMPLETE") < 0) /* Unset the 'incomplete' env var */
+                        return log_error_errno(errno, "Failed to unset $XDG_SESSION_INCOMPLETE: %m");
+        }
+
+        /* We are going to invoke execv() soon. Let's be extra accurate and flush/close our bus connection
+         * first, just to make sure anything queued is flushed out (though there shouldn't be anything) */
+        bus = sd_bus_flush_close_unref(bus);
+
+        assert(!hr->use_fallback);
+        assert_se(shell = user_record_shell(hr));
+        assert_se(hd = user_record_home_directory(hr));
+
+        /* Extra protection: avoid loops */
+        if (is_fallback_shell(shell))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTRECOVERABLE), "Primary shell of '%s' is fallback shell, refusing loop.", hr->user_name);
+
+        if (chdir(hd) < 0)
+                return log_error_errno(errno, "Failed to change directory to home directory '%s': %m", hd);
+
+        if (setenv("SHELL", shell, /* overwrite= */ true) < 0)
+                return log_error_errno(errno, "Failed to set $SHELL: %m");
+
+        if (setenv("HOME", hd, /* overwrite= */ true) < 0)
+                return log_error_errno(errno, "Failed to set $HOME: %m");
+
+        /* Paranoia: in case the client passed some passwords to us to help us unlock, unlock things now */
+        FOREACH_STRING(ue, "PASSWORD", "NEWPASSWORD", "PIN")
+                if (unsetenv(ue) < 0)
+                        return log_error_errno(errno, "Failed to unset $%s: %m", ue);
+
+        r = path_extract_filename(shell, &argv0);
+        if (r < 0)
+                return log_error_errno(r, "Unable to extract file name from '%s': %m", shell);
+        if (r == O_DIRECTORY)
+                return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Shell '%s' is a path to a directory, refusing.", shell);
+
+        /* Invoke this as login shell, by setting argv[0][0] to '-' (unless we ourselves weren't called as login shell) */
+        if (!argv || isempty(argv[0]) || argv[0][0] == '-')
+                argv0[0] = '-';
+
+        l = strv_new(argv0);
+        if (!l)
+                return log_oom();
+
+        if (strv_extend_strv(&l, strv_skip(argv, 1), /* filter_duplicates= */ false) < 0)
+                return log_oom();
+
+        execv(shell, l);
+        return log_error_errno(errno, "Failed to execute shell '%s': %m", shell);
+}
+
 static int run(int argc, char *argv[]) {
         static const Verb verbs[] = {
                 { "help",           VERB_ANY, VERB_ANY, 0,            help                 },
@@ -4084,6 +4274,9 @@ static int run(int argc, char *argv[]) {
         r = redirect_bus_mgr();
         if (r < 0)
                 return r;
+
+        if (is_fallback_shell(argv[0]))
+                return fallback_shell(argc, argv);
 
         r = parse_argv(argc, argv);
         if (r <= 0)
