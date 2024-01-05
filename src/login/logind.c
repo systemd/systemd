@@ -455,8 +455,6 @@ static int deliver_session_leader_fd_consume(Session *s, const char *fdname, int
                 return r;
         }
 
-        assert(pid_is_valid(s->deserialized_pid));
-
         if (leader_fdstore.pid != s->deserialized_pid)
                 log_warning("Leader from pidfd (" PID_FMT ") doesn't match with LEADER=" PID_FMT " for session '%s', proceeding anyway.",
                             leader_fdstore.pid, s->deserialized_pid, s->id);
@@ -497,6 +495,12 @@ static int manager_attach_session_fd_one_consume(Manager *m, const char *fdname,
                 if (r < 0)
                         goto fail_close;
                 return 0;
+        }
+
+        if (!pid_is_valid(s->deserialized_pid)) {
+                r = log_warning_errno(SYNTHETIC_ERRNO(EOWNERDEAD),
+                                      "Got leader pidfd for session '%s', but LEADER= is not set, refusing.", id);
+                goto fail_close;
         }
 
         /* Takes ownership of fd on both success and failure */
