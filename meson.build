@@ -199,6 +199,11 @@ if pamconfdir == ''
         pamconfdir = prefixdir / 'lib/pam.d'
 endif
 
+sshconfdir = get_option('sshconfdir')
+if sshconfdir == ''
+        sshconfdir = sysconfdir / 'ssh/ssh_config.d'
+endif
+
 sshdconfdir = get_option('sshdconfdir')
 if sshdconfdir == ''
         sshdconfdir = sysconfdir / 'ssh/sshd_config.d'
@@ -235,6 +240,7 @@ conf.set_quoted('PREFIX_NOSLASH',                             prefixdir_noslash)
 conf.set_quoted('RANDOM_SEED',                                randomseeddir / 'random-seed')
 conf.set_quoted('RANDOM_SEED_DIR',                            randomseeddir)
 conf.set_quoted('RC_LOCAL_PATH',                              get_option('rc-local'))
+conf.set_quoted('SSHCONFDIR',                                 sshconfdir)
 conf.set_quoted('SSHDCONFDIR',                                sshdconfdir)
 conf.set_quoted('SYSCONF_DIR',                                sysconfdir)
 conf.set_quoted('SYSCTL_DIR',                                 sysctldir)
@@ -2206,6 +2212,7 @@ subdir('src/shutdown')
 subdir('src/sleep')
 subdir('src/socket-activate')
 subdir('src/socket-proxy')
+subdir('src/ssh-generator')
 subdir('src/stdio-bridge')
 subdir('src/sulogin-shell')
 subdir('src/sysctl')
@@ -2688,7 +2695,8 @@ summary({
         'SysV rc?.d directories' :          sysvrcnd_path,
         'PAM modules directory' :           pamlibdir,
         'PAM configuration directory' :     pamconfdir,
-        'ssh configuration directory' :     sshdconfdir,
+        'ssh server configuration directory' : sshdconfdir,
+        'ssh client configuration directory' : sshconfdir,
         'libcryptsetup plugins directory' : libcryptsetup_plugins_dir,
         'RPM macros directory' :            rpmmacrosdir,
         'modprobe.d directory' :            modprobedir,
