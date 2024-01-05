@@ -83,16 +83,7 @@ static int manager_parse_udev_config(Manager *manager) {
                 {}
         };
 
-        r = config_parse_config_file_full(
-                        "udev.conf",
-                        "udev",
-                        /* sections = */ NULL,
-                        config_item_table_lookup,
-                        config_table,
-                        CONFIG_PARSE_WARN,
-                        /* userdata = */ NULL);
-        if (r == -ENOENT)
-                return 0;
+        r = udev_parse_config_full(config_table);
         if (r < 0)
                 return r;
 

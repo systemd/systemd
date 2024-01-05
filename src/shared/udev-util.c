@@ -5,7 +5,6 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
-#include "conf-parser.h"
 #include "device-nodes.h"
 #include "device-private.h"
 #include "device-util.h"
@@ -23,12 +22,10 @@
 #include "udev-util.h"
 #include "utf8.h"
 
-int udev_parse_config(void) {
-        int r, log_val = -1;
-        const ConfigTableItem config_table[] = {
-                { NULL, "udev_log", config_parse_log_level, 0, &log_val },
-                {}
-        };
+int udev_parse_config_full(const ConfigTableItem config_table[]) {
+        int r;
+
+        assert(config_table);
 
         r = config_parse_config_file_full(
                         "udev.conf",
@@ -40,6 +37,17 @@ int udev_parse_config(void) {
                         /* userdata = */ NULL);
         if (r == -ENOENT)
                 return 0;
+        return r;
+}
+
+int udev_parse_config(void) {
+        int r, log_val = -1;
+        const ConfigTableItem config_table[] = {
+                { NULL, "udev_log", config_parse_log_level, 0, &log_val },
+                {}
+        };
+
+        r = udev_parse_config_full(config_table);
         if (r < 0)
                 return r;
 
