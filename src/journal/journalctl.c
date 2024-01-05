@@ -28,6 +28,7 @@
 #include "chattr-util.h"
 #include "constants.h"
 #include "devnum-util.h"
+#include "dirent-util.h"
 #include "dissect-image.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -175,6 +176,7 @@ static enum {
         ACTION_ROTATE_AND_VACUUM,
         ACTION_LIST_FIELDS,
         ACTION_LIST_FIELD_NAMES,
+        ACTION_LIST_NAMESPACES,
 } arg_action = ACTION_SHOW;
 
 static int add_matches_for_device(sd_journal *j, const char *devpath) {
@@ -491,6 +493,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NO_HOSTNAME,
                 ARG_OUTPUT_FIELDS,
                 ARG_NAMESPACE,
+                ARG_LIST_NAMESPACES,
         };
 
         static const struct option options[] = {
@@ -561,6 +564,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "no-hostname",          no_argument,       NULL, ARG_NO_HOSTNAME          },
                 { "output-fields",        required_argument, NULL, ARG_OUTPUT_FIELDS        },
                 { "namespace",            required_argument, NULL, ARG_NAMESPACE            },
+                { "list-namespaces",      no_argument,       NULL, ARG_LIST_NAMESPACES      },
                 {}
         };
 
@@ -725,6 +729,10 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_namespace = optarg;
                         }
 
+                        break;
+
+                case ARG_LIST_NAMESPACES:
+                        arg_action = ACTION_LIST_NAMESPACES;
                         break;
 
                 case 'D':
@@ -1225,6 +1233,67 @@ static int add_matches(sd_journal *j, char **args) {
         if (!strv_isempty(args) && !have_term)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "\"+\" can only be used between terms");
+
+        return 0;
+}
+
+static int list_namespaces(const char *root) {
+        _cleanup_(table_unrefp) Table *table = NULL;
+        sd_id128_t machine;
+        char machine_id[SD_ID128_STRING_MAX];
+        int r;
+
+        r = sd_id128_get_machine(&machine);
+        if (r < 0)
+                return log_error_errno(r, "Failed to get machine ID: %m");
+
+        sd_id128_to_string(machine, machine_id);
+
+        table = table_new("namespace");
+        if (!table)
+                return log_oom();
+
+        (void) table_set_sort(table, (size_t) 0);
+
+        if (!root)
+                root = "/";
+
+        FOREACH_STRING(dir, "var/log/journal", "run/log/journal") {
+                _cleanup_free_ char *path = NULL;
+                _cleanup_closedir_ DIR *dirp = NULL;
+
+                path = path_join(root, dir);
+                if (!path)
+                        return log_oom();
+
+                dirp = opendir(path);
+                if (!dirp) {
+                        log_debug_errno(errno, "Failed to open directory %s, ignoring: %m", path);
+                        continue;
+                }
+
+                FOREACH_DIRENT(de, dirp, return log_error_errno(errno, "Failed to iterate through %s: %m", path)) {
+                        char *dot;
+
+                        if (!startswith(de->d_name, machine_id))
+                                continue;
+
+                        dot = strchr(de->d_name, '.');
+                        if (!dot)
+                                continue;
+
+                        if (!log_namespace_name_valid(dot + 1))
+                                continue;
+
+                        r = table_add_cell(table, NULL, TABLE_STRING, dot + 1);
+                        if (r < 0)
+                                return table_log_add_error(r);
+                }
+        }
+
+        r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, !arg_quiet);
+        if (r < 0)
+                return table_log_print_error(r);
 
         return 0;
 }
@@ -2287,6 +2356,9 @@ static int run(int argc, char *argv[]) {
 
         case ACTION_ROTATE:
                 return rotate();
+
+        case ACTION_LIST_NAMESPACES:
+                return list_namespaces(arg_root);
 
         case ACTION_SHOW:
         case ACTION_PRINT_HEADER:
