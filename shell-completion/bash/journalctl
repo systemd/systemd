@@ -28,7 +28,7 @@ __contains_word () {
 __get_machines() {
     local a b
     { machinectl list --full --max-addresses=0 --no-legend --no-pager 2>/dev/null; echo ".host"; } | \
-	{ while read a b; do echo " $a"; done; } | \
+        { while read a b; do echo " $a"; done; } | \
         sort -u
 }
 
@@ -45,10 +45,12 @@ _journalctl() {
                       --version --list-catalog --update-catalog --list-boots
                       --show-cursor --dmesg -k --pager-end -e -r --reverse
                       --utc -x --catalog --no-full --force --dump-catalog
-                      --flush --rotate --sync --no-hostname -N --fields'
+                      --flush --rotate --sync --no-hostname -N --fields
+                      --list-namespaces'
         [ARG]='-b --boot -D --directory --file -F --field -t --identifier
                       -T --exclude-identifier --facility -M --machine -o --output
-                      -u --unit --user-unit -p --priority --root --case-sensitive'
+                      -u --unit --user-unit -p --priority --root --case-sensitive
+                      --namespace'
         [ARGUNKNOWN]='-c --cursor --interval -n --lines -S --since -U --until
                       --after-cursor --cursor-file --verify-key -g --grep
                       --vacuum-size --vacuum-time --vacuum-files --output-fields'
@@ -112,6 +114,9 @@ _journalctl() {
                 ;;
             --case-sensitive)
                 comps='yes no'
+                ;;
+            --namespace)
+                comps=$(journalctl --list-namespaces --output=cat 2>/dev/null)
                 ;;
             *)
                 return 0
