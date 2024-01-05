@@ -6,6 +6,8 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include "sd-device.h"
+
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
@@ -28,10 +30,10 @@
 #include "os-util.h"
 #include "parse-util.h"
 #include "path-util.h"
-#include "sd-device.h"
 #include "selinux-util.h"
 #include "service-util.h"
 #include "signal-util.h"
+#include "socket-util.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "strv.h"
@@ -1033,6 +1035,22 @@ static int property_get_boot_id(
         return bus_property_get_id128(bus, path, interface, property, reply, &id, error);
 }
 
+static int property_get_vsock_cid(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        unsigned local_cid = VMADDR_CID_ANY;
+
+        (void) vsock_get_local_cid(&local_cid);
+
+        return sd_bus_message_append(reply, "u", (uint32_t) local_cid);
+}
+
 static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *error) {
         Context *c = ASSERT_PTR(userdata);
         const char *name;
@@ -1333,6 +1351,7 @@ static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *erro
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         sd_id128_t machine_id, boot_id, product_uuid = SD_ID128_NULL;
+        unsigned local_cid = VMADDR_CID_ANY;
         Context *c = ASSERT_PTR(userdata);
         bool privileged;
         struct utsname u;
@@ -1404,6 +1423,8 @@ static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *erro
         if (r < 0)
                 return log_error_errno(r, "Failed to get boot ID: %m");
 
+        (void) vsock_get_local_cid(&local_cid);
+
         r = json_build(&v, JSON_BUILD_OBJECT(
                                        JSON_BUILD_PAIR("Hostname", JSON_BUILD_STRING(hn)),
                                        JSON_BUILD_PAIR("StaticHostname", JSON_BUILD_STRING(c->data[PROP_STATIC_HOSTNAME])),
@@ -1430,7 +1451,8 @@ static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *erro
                                        JSON_BUILD_PAIR_ID128("MachineID", machine_id),
                                        JSON_BUILD_PAIR_ID128("BootID", boot_id),
                                        JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(product_uuid), "ProductUUID", JSON_BUILD_ID128(product_uuid)),
-                                       JSON_BUILD_PAIR_CONDITION(sd_id128_is_null(product_uuid), "ProductUUID", JSON_BUILD_NULL)));
+                                       JSON_BUILD_PAIR_CONDITION(sd_id128_is_null(product_uuid), "ProductUUID", JSON_BUILD_NULL),
+                                       JSON_BUILD_PAIR_CONDITION(local_cid != VMADDR_CID_ANY, "VSockCID", JSON_BUILD_UNSIGNED(local_cid))));
 
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON data: %m");
@@ -1475,6 +1497,7 @@ static const sd_bus_vtable hostname_vtable[] = {
         SD_BUS_PROPERTY("FirmwareDate", "t", property_get_firmware_date, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("MachineID", "ay", property_get_machine_id, 0, SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("BootID", "ay", property_get_boot_id, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("VSockCID", "u", property_get_vsock_cid, 0, SD_BUS_VTABLE_PROPERTY_CONST),
 
         SD_BUS_METHOD_WITH_ARGS("SetHostname",
                                 SD_BUS_ARGS("s", hostname, "b", interactive),
