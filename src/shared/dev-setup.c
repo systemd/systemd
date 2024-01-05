@@ -7,6 +7,7 @@
 #include "alloc-util.h"
 #include "dev-setup.h"
 #include "fd-util.h"
+#include "fs-util.h"
 #include "label-util.h"
 #include "lock-util.h"
 #include "log.h"
@@ -79,15 +80,11 @@ int make_inaccessible_nodes(
                 uid_t uid,
                 gid_t gid) {
 
-        static const struct {
-                const char *name;
-                mode_t mode;
-        } table[] = {
-                { "inaccessible",      S_IFDIR  | 0755 },
-                { "inaccessible/reg",  S_IFREG  | 0000 },
-                { "inaccessible/dir",  S_IFDIR  | 0000 },
-                { "inaccessible/fifo", S_IFIFO  | 0000 },
-                { "inaccessible/sock", S_IFSOCK | 0000 },
+        static const mode_t table[] = {
+                S_IFREG,
+                S_IFDIR,
+                S_IFIFO,
+                S_IFSOCK,
 
                 /* The following two are likely to fail if we lack the privs for it (for example in an userns
                  * environment, if CAP_SYS_MKNOD is missing, or if a device node policy prohibits creation of
@@ -95,10 +92,13 @@ int make_inaccessible_nodes(
                  * should implement falling back to use a different node then, for example
                  * <root>/inaccessible/sock, which is close enough in behaviour and semantics for most uses.
                  */
-                { "inaccessible/chr",  S_IFCHR  | 0000 },
-                { "inaccessible/blk",  S_IFBLK  | 0000 },
+                S_IFCHR,
+                S_IFBLK,
+
+                /* NB: S_IFLNK is not listed here, as there is no such thing as an inaccessible symlink */
         };
 
+        _cleanup_close_ int parent_fd = -EBADF, inaccessible_fd = -EBADF;
         int r;
 
         if (!parent_dir)
@@ -106,32 +106,48 @@ int make_inaccessible_nodes(
 
         BLOCK_WITH_UMASK(0000);
 
+        parent_fd = open(parent_dir, O_DIRECTORY|O_CLOEXEC|O_PATH, 0);
+        if (parent_fd < 0)
+                return -errno;
+
+        inaccessible_fd = open_mkdir_at(parent_fd, "inaccessible", O_CLOEXEC, 0755);
+        if (inaccessible_fd < 0)
+                return inaccessible_fd;
+
         /* Set up inaccessible (and empty) file nodes of all types. This are used to as mount sources for over-mounting
          * ("masking") file nodes that shall become inaccessible and empty for specific containers or services. We try
          * to lock down these nodes as much as we can, but otherwise try to match them as closely as possible with the
          * underlying file, i.e. in the best case we offer the same node type as the underlying node. */
 
-        for (size_t i = 0; i < ELEMENTSOF(table); i++) {
+        FOREACH_ARRAY(m, table, ELEMENTSOF(table)) {
                 _cleanup_free_ char *path = NULL;
+                mode_t inode_type = *m;
+                const char *fn;
 
-                path = path_join(parent_dir, table[i].name);
+                fn = inode_type_to_string(inode_type);
+                path = path_join(parent_dir, fn);
                 if (!path)
                         return log_oom();
 
-                if (S_ISDIR(table[i].mode))
-                        r = mkdir_label(path, table[i].mode & 07777);
+                if (S_ISDIR(inode_type))
+                        r = mkdirat_label(inaccessible_fd, fn, 0000);
                 else
-                        r = mknod_label(path, table[i].mode, makedev(0, 0));
-                if (r < 0) {
+                        r = RET_NERRNO(mknodat(inaccessible_fd, fn, inode_type | 0000, makedev(0, 0)));
+                if (r == -EEXIST) {
+                        if (fchmodat(inaccessible_fd, fn, 0000, AT_SYMLINK_NOFOLLOW) < 0)
+                                log_debug_errno(errno, "Failed to adjust access mode of existing inode '%s', ignoring: %m", path);
+                } else if (r < 0) {
                         log_debug_errno(r, "Failed to create '%s', ignoring: %m", path);
                         continue;
                 }
 
-                if (uid != UID_INVALID || gid != GID_INVALID) {
-                        if (lchown(path, uid, gid) < 0)
-                                log_debug_errno(errno, "Failed to chown '%s': %m", path);
-                }
+                if (uid_is_valid(uid) || gid_is_valid(gid))
+                        if (fchownat(inaccessible_fd, fn, uid, gid, AT_SYMLINK_NOFOLLOW) < 0)
+                                log_debug_errno(errno, "Failed to chown '%s', ignoring: %m", path);
         }
+
+        if (fchmod(inaccessible_fd, 0555) < 0)
+                log_debug_errno(errno, "Failed to mark inaccessible directory read-only, ignoring: %m");
 
         return 0;
 }
