@@ -6,6 +6,7 @@
 #include "escape.h"
 #include "fd-util.h"
 #include "fileio.h"
+#include "iovec-util.h"
 #include "json-internal.h"
 #include "json.h"
 #include "math-util.h"
@@ -967,6 +968,26 @@ TEST(json_sensitive) {
 
         assert_se(json_variant_format(v, JSON_FORMAT_REFUSE_SENSITIVE, &s) == -EPERM);
         assert_se(!s);
+}
+
+TEST(json_iovec) {
+        struct iovec iov1 = CONST_IOVEC_MAKE_STRING("üxknürz"), iov2 = CONST_IOVEC_MAKE_STRING("wuffwuffmiau");
+
+        _cleanup_(json_variant_unrefp) JsonVariant *j = NULL;
+        assert_se(json_build(&j, JSON_BUILD_OBJECT(
+                                             JSON_BUILD_PAIR("nr1", JSON_BUILD_IOVEC_BASE64(&iov1)),
+                                             JSON_BUILD_PAIR("nr2", JSON_BUILD_IOVEC_HEX(&iov2)))) >= 0);
+
+        json_variant_dump(j, JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO, /* f= */ NULL, /* prefix= */ NULL);
+
+        _cleanup_(iovec_done) struct iovec a = {}, b = {};
+        assert_se(json_variant_unbase64_iovec(json_variant_by_key(j, "nr1"), &a) >= 0);
+        assert_se(json_variant_unhex_iovec(json_variant_by_key(j, "nr2"), &b) >= 0);
+
+        assert_se(iovec_memcmp(&iov1, &a) == 0);
+        assert_se(iovec_memcmp(&iov2, &b) == 0);
+        assert_se(iovec_memcmp(&iov2, &a) < 0);
+        assert_se(iovec_memcmp(&iov1, &b) > 0);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

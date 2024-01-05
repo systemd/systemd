@@ -3813,7 +3813,8 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                         break;
                 }
 
-                case _JSON_BUILD_IOVEC_BASE64: {
+                case _JSON_BUILD_IOVEC_BASE64:
+                case _JSON_BUILD_IOVEC_HEX: {
                         const struct iovec *iov;
 
                         if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
@@ -3821,10 +3822,14 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                                 goto finish;
                         }
 
-                        iov = ASSERT_PTR(va_arg(ap, const struct iovec*));
+                        iov = va_arg(ap, const struct iovec*);
 
                         if (current->n_suppress == 0) {
-                                r = json_variant_new_base64(&add, iov->iov_base, iov->iov_len);
+                                if (iov)
+                                        r = command == _JSON_BUILD_IOVEC_BASE64 ? json_variant_new_base64(&add, iov->iov_base, iov->iov_len) :
+                                                                                  json_variant_new_hex(&add, iov->iov_base, iov->iov_len);
+                                else
+                                        r = json_variant_new_string(&add, "");
                                 if (r < 0)
                                         goto finish;
                         }
