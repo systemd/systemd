@@ -476,7 +476,7 @@ Features:
 
 * teach systemd-nspawn the boot assessment logic: hook up vpick's try counters
   with success notifications from nspawn payloads. When this is enabled,
-  automatically support reverting back to older OS versin images if newer ones
+  automatically support reverting back to older OS version images if newer ones
   fail to boot.
 
 * implement new "systemd-fsrebind" tool that works like gpt-auto-generator but
