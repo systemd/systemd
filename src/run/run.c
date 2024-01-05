@@ -32,6 +32,7 @@
 #include "ptyfwd.h"
 #include "signal-util.h"
 #include "spawn-polkit-agent.h"
+#include "special.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "unit-def.h"
@@ -903,7 +904,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         strv_free_and_replace(arg_cmdline, l);
 
         if (!arg_slice) {
-                arg_slice = strdup("user.slice");
+                arg_slice = strdup(SPECIAL_USER_SLICE);
                 if (!arg_slice)
                         return log_oom();
         }
