@@ -93,6 +93,13 @@ systemd-run --wait --pipe -p BindPaths="/etc /home:/mnt:norbind -/foo/bar/baz:/u
     bash -xec "mountpoint /etc; test -d /etc/systemd; mountpoint /mnt; ! mountpoint /usr"
 systemd-run --wait --pipe -p BindReadOnlyPaths="/etc /home:/mnt:norbind -/foo/bar/baz:/usr:rbind" \
     bash -xec "test ! -w /etc; test ! -w /mnt; ! mountpoint /usr"
+# Make sure we properly serialize/deserialize paths with spaces
+# See: https://github.com/systemd/systemd/issues/30747
+touch "/tmp/test file with spaces"
+systemd-run --wait --pipe -p TemporaryFileSystem="/tmp" -p BindPaths="/etc /home:/mnt:norbind /tmp/test\ file\ with\ spaces" \
+    bash -xec "mountpoint /etc; test -d /etc/systemd; mountpoint /mnt; stat '/tmp/test file with spaces'"
+systemd-run --wait --pipe -p TemporaryFileSystem="/tmp" -p BindPaths="/etc /home:/mnt:norbind /tmp/test\ file\ with\ spaces:/tmp/destination\ with\ spaces" \
+    bash -xec "mountpoint /etc; test -d /etc/systemd; mountpoint /mnt; stat '/tmp/destination with spaces'"
 
 # Check if we correctly serialize, deserialize, and set directives that
 # have more complex internal handling
