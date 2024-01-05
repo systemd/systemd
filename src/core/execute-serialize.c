@@ -2264,11 +2264,11 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         FOREACH_ARRAY(mount, c->bind_mounts, c->n_bind_mounts) {
                 _cleanup_free_ char *src_escaped = NULL, *dst_escaped = NULL;
 
-                src_escaped = shell_escape(mount->source, ":");
+                src_escaped = shell_escape(mount->source, ": ");
                 if (!src_escaped)
                         return log_oom_debug();
 
-                dst_escaped = shell_escape(mount->destination, ":");
+                dst_escaped = shell_escape(mount->destination, ": ");
                 if (!dst_escaped)
                         return log_oom_debug();
 
@@ -2496,7 +2496,7 @@ static int exec_context_serialize(const ExecContext *c, FILE *f) {
         FOREACH_ARRAY(mount, c->extension_images, c->n_extension_images) {
                 _cleanup_free_ char *s = NULL, *source_escaped = NULL;
 
-                source_escaped = shell_escape(mount->source, ":");
+                source_escaped = shell_escape(mount->source, ": ");
                 if (!source_escaped)
                         return log_oom_debug();
 
