@@ -2757,7 +2757,7 @@ static int generic_array_get(
                 Object **ret_object,    /* The found object. */
                 uint64_t *ret_offset) { /* The offset of the found object. */
 
-        uint64_t a, t = 0, k;
+        uint64_t a, t = 0, k = 0; /* Explicit initialization of k to appease gcc */
         ChainCacheItem *ci;
         Object *o = NULL;
         int r;

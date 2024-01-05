@@ -5007,7 +5007,7 @@ static int tpm2_calculate_seal_ecc_seed(
         size_t bits = (size_t) r * 8;
 
         _cleanup_free_ void *seed = NULL;
-        size_t seed_size;
+        size_t seed_size = 0; /* Explicit initialization to appease gcc */
         r = tpm2_kdfe(parent->publicArea.nameAlg,
                       shared_secret,
                       shared_secret_size,
@@ -5044,7 +5044,7 @@ static int tpm2_calculate_seal_seed(
         log_debug("Calculating encrypted seed for sealed object.");
 
         _cleanup_free_ void *seed = NULL, *encrypted_seed = NULL;
-        size_t seed_size, encrypted_seed_size;
+        size_t seed_size = 0, encrypted_seed_size = 0; /* Explicit initialization to appease gcc */
         if (parent->publicArea.type == TPM2_ALG_RSA)
                 r = tpm2_calculate_seal_rsa_seed(parent, &seed, &seed_size, &encrypted_seed, &encrypted_seed_size);
         else if (parent->publicArea.type == TPM2_ALG_ECC)
