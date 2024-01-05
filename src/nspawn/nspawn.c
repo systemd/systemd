@@ -2364,6 +2364,18 @@ static int setup_keyring(void) {
         return 0;
 }
 
+int make_run_host(const char *root) {
+        int r;
+
+        assert(root);
+
+        r = userns_mkdir(root, "/run/host", 0755, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create /run/host/: %m");
+
+        return 0;
+}
+
 static int setup_credentials(const char *root) {
         const char *q;
         int r;
@@ -2371,9 +2383,9 @@ static int setup_credentials(const char *root) {
         if (arg_credentials.n_credentials == 0)
                 return 0;
 
-        r = userns_mkdir(root, "/run/host", 0755, 0, 0);
+        r = make_run_host(root);
         if (r < 0)
-                return log_error_errno(r, "Failed to create /run/host: %m");
+                return r;
 
         r = userns_mkdir(root, "/run/host/credentials", 0700, 0, 0);
         if (r < 0)
@@ -2713,9 +2725,9 @@ static int mount_tunnel_dig(const char *root) {
         p = strjoina("/run/systemd/nspawn/propagate/", arg_machine);
         (void) mkdir_p(p, 0600);
 
-        r = userns_mkdir(root, "/run/host", 0755, 0, 0);
+        r = make_run_host(root);
         if (r < 0)
-                return log_error_errno(r, "Failed to create /run/host: %m");
+                return r;
 
         r = userns_mkdir(root, NSPAWN_MOUNT_TUNNEL, 0600, 0, 0);
         if (r < 0)
