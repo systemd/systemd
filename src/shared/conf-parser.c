@@ -598,10 +598,11 @@ static int config_parse_many_files(
         return 0;
 }
 
-/* Parse one main config file located in /etc/systemd and its drop-ins, which is what all systemd daemons
+/* Parse one main config file located in /etc/$domain and its drop-ins, which is what all systemd daemons
  * do. */
-int config_parse_config_file(
+int config_parse_config_file_full(
                 const char *conf_file,
+                const char *domain,
                 const char *sections,
                 ConfigItemLookup lookup,
                 const void *table,
@@ -613,6 +614,7 @@ int config_parse_config_file(
         int r;
 
         assert(conf_file);
+        assert(domain);
 
         /* build the dropin dir list */
         dropin_dirs = new0(char*, strv_length(conf_paths) + 1);
@@ -626,7 +628,7 @@ int config_parse_config_file(
         STRV_FOREACH(p, conf_paths) {
                 char *d;
 
-                d = strjoin(*p, "systemd/", conf_file, ".d");
+                d = strjoin(*p, domain, "/", conf_file, ".d");
                 if (!d) {
                         if (flags & CONFIG_PARSE_WARN)
                                 return log_oom();
@@ -640,7 +642,7 @@ int config_parse_config_file(
         if (r < 0)
                 return r;
 
-        const char *sysconf_file = strjoina(PKGSYSCONFDIR, "/", conf_file);
+        const char *sysconf_file = strjoina(SYSCONF_DIR, "/", domain, "/", conf_file);
 
         return config_parse_many_files(STRV_MAKE_CONST(sysconf_file), dropins,
                                        sections, lookup, table, flags, userdata, NULL);
