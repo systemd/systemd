@@ -4,11 +4,12 @@ set -eux
 
 TMPDIR=
 TEST_RULE="/run/udev/rules.d/49-test.rules"
+TEST_CONF="/run/udev/udev.conf.d/test-17.conf"
 KILL_PID=
 
 setup() {
     mkdir -p "${TEST_RULE%/*}"
-    [[ -e /etc/udev/udev.conf ]] && cp -f /etc/udev/udev.conf /etc/udev/udev.conf.bak
+    mkdir -p /run/udev/udev.conf.d
 
     cat >"${TEST_RULE}" <<EOF
 ACTION!="add", GOTO="test_end"
@@ -21,7 +22,7 @@ PROGRAM!="/bin/sleep 60", ENV{PROGRAM_RESULT}="KILLED"
 
 LABEL="test_end"
 EOF
-    cat >/etc/udev/udev.conf <<EOF
+    cat >"$TEST_CONF" <<EOF
 event_timeout=10
 timeout_signal=SIGABRT
 EOF
@@ -38,8 +39,7 @@ teardown() {
     fi
 
     rm -rf "$TMPDIR"
-    rm -f "$TEST_RULE"
-    [[ -e /etc/udev/udev.conf.bak ]] && mv -f /etc/udev/udev.conf.bak /etc/udev/udev.conf
+    rm -f "$TEST_RULE" "$TEST_CONF"
     systemctl restart systemd-udevd.service
 }
 
