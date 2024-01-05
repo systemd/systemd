@@ -928,14 +928,6 @@ int link_apply_config(LinkConfigContext *ctx, sd_netlink **rtnl, Link *link) {
         assert(rtnl);
         assert(link);
 
-        if (!IN_SET(link->action, SD_DEVICE_ADD, SD_DEVICE_BIND, SD_DEVICE_MOVE)) {
-                log_link_debug(link, "Skipping to apply .link settings on '%s' uevent.",
-                               device_action_to_string(link->action));
-
-                link->new_name = link->ifname;
-                return 0;
-        }
-
         r = link_apply_ethtool_settings(link, &ctx->ethtool_fd);
         if (r < 0)
                 return r;
