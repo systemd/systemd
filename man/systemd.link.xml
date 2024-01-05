@@ -361,7 +361,47 @@
         <listitem>
           <para>A description of the device.</para>
 
-        <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v211"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>Property=</varname></term>
+        <listitem>
+          <para>Set specified udev properties. This takes space separated list of key-value pairs
+          concatenated with equal sign (<literal>=</literal>), e.g.
+          <programlisting>>Property=HOGE=foo BAR=baz</programlisting>.
+          This option can be specified multiple times. If an empty string is assigned, then the all previous
+          assignments are cleared.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>ImportProperty=</varname></term>
+        <listitem>
+          <para>Import specified udev properties from the saved database. This takes space separated list of
+          property names, e.g. <programlisting>>ImportProperty=HOGE BAR</programlisting>.
+          This option can be specified multiple times. If an empty string is assigned, then the all previous
+          assignments are cleared.</para>
+          <para>If the same property is also set in <varname>Property=</varname> in the above, then the
+          imported property value will be overridden by the value specified in <varname>Property=</varname>.
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>UnsetProperty=</varname></term>
+        <listitem>
+          <para>Unset specified udev properties. This takes space separated list of
+          property names, e.g. <programlisting>>ImportProperty=HOGE BAR</programlisting>.
+          This option can be specified multiple times. If an empty string is assigned, then the all previous
+          assignments are cleared.</para>
+          <para>This setting is applied after <varname>ImportProperty=</varname> and
+          <varname>Property=</varname> are applied. Hence, if the same property is specified in
+          <varname>ImportProperty=</varname> or <varname>Property=</varname>, then the imported or specified
+          property value will be ignored, and the property will be unset.
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
       </varlistentry>
       <varlistentry>
@@ -369,7 +409,7 @@
         <listitem>
           <para>The <varname>ifalias</varname> interface property is set to this value.</para>
 
-        <xi:include href="version-info.xml" xpointer="v211"/>
+          <xi:include href="version-info.xml" xpointer="v211"/>
         </listitem>
       </varlistentry>
       <varlistentry>
