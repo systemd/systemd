@@ -63,6 +63,13 @@ _journalctl_facilities() {
   _describe 'possible values' _journalctl_facilities
 }
 
+(( $+functions[_journalctl_namespaces] )) ||
+_journalctl_namespaces() {
+  local -a _journalctl_namespaces
+  _journalctl_namespaces=( ${(f)"$(_call_program namespaces "$service --list-namespaces --output=cat" 2>/dev/null)"} )
+  _describe 'possible values' _journalctl_namespaces
+}
+
 # Build arguments for "journalctl" to be used in completion.
 # Use both --user and --system modes, they are not exclusive.
 local -a _modes; _modes=(--user --system)
@@ -131,6 +138,8 @@ _arguments -s \
     '--header[Show journal header information]' \
     '--interval=[Time interval for changing the FSS sealing key]:time interval' \
     '--list-catalog[List messages in catalog]' \
+    '--list-namespaces[List available journal namespaces]' \
+    '--namespace[Show journal data from specified namespace]:namespace:_journalctl_namespaces' \
     '--new-id128[Generate a new 128 Bit ID]' \
     '--rotate[Request immediate rotation of the journal files]' \
     '--setup-keys[Generate a new FSS key pair]' \
