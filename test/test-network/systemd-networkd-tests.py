@@ -1813,7 +1813,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         output = check_output('ip -4 route show dev wg99 table 1234')
         print(output)
-        self.assertIn('192.168.26.0/24 proto static metric 123', output)
+        self.assertIn('192.168.26.0/24 proto static scope link metric 123', output)
 
         output = check_output('ip -6 route show dev wg99 table 1234')
         print(output)
