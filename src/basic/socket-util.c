@@ -1753,3 +1753,18 @@ int socket_address_parse_vsock(SocketAddress *ret_address, const char *s) {
 
         return 0;
 }
+
+int vsock_get_local_cid(unsigned *ret) {
+        _cleanup_close_ int vsock_fd = -EBADF;
+
+        assert(ret);
+
+        vsock_fd = open("/dev/vsock", O_RDONLY|O_CLOEXEC);
+        if (vsock_fd < 0)
+                return log_debug_errno(errno, "Failed to open /dev/vsock: %m");
+
+        if (ioctl(vsock_fd, IOCTL_VM_SOCKETS_GET_LOCAL_CID, ret) < 0)
+                return log_debug_errno(errno, "Failed to query local AF_VSOCK CID: %m");
+
+        return 0;
+}
