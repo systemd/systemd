@@ -131,6 +131,7 @@ _arguments -s \
     '--header[Show journal header information]' \
     '--interval=[Time interval for changing the FSS sealing key]:time interval' \
     '--list-catalog[List messages in catalog]' \
+    '--list-namespaces[List available journal namespaces]' \
     '--new-id128[Generate a new 128 Bit ID]' \
     '--rotate[Request immediate rotation of the journal files]' \
     '--setup-keys[Generate a new FSS key pair]' \
