@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <sys/file.h>
 #include <sys/ioctl.h>
+#include <sys/mount.h>
 #include <sys/personality.h>
 #include <sys/prctl.h>
 #include <sys/types.h>
@@ -2755,6 +2756,55 @@ static int mount_tunnel_open(void) {
         return 0;
 }
 
+static int setup_unix_export(const char *directory) {
+        _cleanup_free_ char *p = NULL, *q = NULL;
+        int r;
+
+        assert(directory);
+
+        /* Exposes the containers /run/host/unix-export/ dir of the container to the host, making it
+         * read-only there but writable in the container. The idea is that containers place AF_UNIX sockets
+         * there that the host can access. */
+
+        r = mkdir_p("/run/systemd/nspawn/unix-export/", 0755);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create /run/systemd/nspawn/unix-export/: %m");
+
+        p = path_join("/run/systemd/nspawn/unix-export/", arg_machine);
+        if (!p)
+                return log_oom();
+
+        r = mkdir_p(p, 0000); /* this will be overmounted, make the underlying inode inaccessible */
+        if (r < 0)
+                return log_error_errno(r, "Failed to create %s: %m", p);
+
+        /* If there's a left-over mount in place from a previous run, get rid of it */
+        (void) umount2(p, MNT_DETACH|UMOUNT_NOFOLLOW);
+
+        r = make_run_host(directory);
+        if (r < 0)
+                return r;
+
+        r = userns_mkdir(directory, "/run/host/unix-export", 0744, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create /run/host/unix-export: %m");
+
+        q = path_join(directory, "/run/host/unix-export");
+        if (!q)
+                return log_oom();
+
+        r = mount_nofollow_verbose(LOG_ERR, q, p, NULL, MS_BIND, NULL);
+        if (r < 0)
+                return r;
+
+        /* Make host side read-only, and otherwise minimally featured */
+        r = mount_nofollow_verbose(LOG_ERR, NULL, p, NULL, MS_BIND|MS_REMOUNT|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|ms_nosymfollow_supported(), NULL);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 static int setup_machine_id(const char *directory) {
         int r;
 
@@ -3915,6 +3965,10 @@ static int outer_child(
                 return r;
 
         r = mount_tunnel_dig(directory);
+        if (r < 0)
+                return r;
+
+        r = setup_unix_export(directory);
         if (r < 0)
                 return r;
 
@@ -5920,6 +5974,10 @@ finish:
 
                 p = strjoina("/run/systemd/nspawn/propagate/", arg_machine);
                 (void) rm_rf(p, REMOVE_ROOT);
+
+                p = strjoina("/run/systemd/nspawn/unix-export/", arg_machine);
+                (void) umount2(p, MNT_DETACH|UMOUNT_NOFOLLOW);
+                (void) rmdir(p);
         }
 
         expose_port_flush(&fw_ctx, arg_expose_ports, AF_INET,  &expose_args.address4);

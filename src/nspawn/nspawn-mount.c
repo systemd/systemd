@@ -600,6 +600,10 @@ int mount_all(const char *dest,
                   MOUNT_FATAL },
                 { NULL,                     "/run/host/os-release",         NULL,    NULL,                             MS_PRIVATE,
                   MOUNT_FATAL },  /* Turn off propagation (we only want that for the mount propagation tunnel dir) */
+                { "/run/host/unix-export",  "/run/host/unix-export",        NULL,    NULL,                             MS_BIND,
+                  MOUNT_FATAL|MOUNT_MKDIR|MOUNT_PREFIX_ROOT }, /* Make this a writable directory */
+                { NULL,                     "/run/host/unix-export",        NULL,    NULL,                             MS_BIND|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT,
+                  MOUNT_FATAL|MOUNT_IN_USERNS }, /* This subdir shall remain writable in the container */
                 { NULL,                     "/run/host",                    NULL,    NULL,                             MS_BIND|MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV|MS_REMOUNT,
                   MOUNT_FATAL|MOUNT_IN_USERNS },
 #if HAVE_SELINUX
