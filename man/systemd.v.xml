@@ -97,7 +97,7 @@
       with no boot counters or with a non-zero "tries left" counter are sorted before filenames with a zero
       "tries left" counter.</para></listitem>
 
-      <listitem><para>Preceeding the use counters (if they are specified), an optional CPU architecture
+      <listitem><para>Preceding the use counters (if they are specified), an optional CPU architecture
       identifier may be specified in the filename (separated from the version with an underscore), as defined
       in the architecture vocabulary of the <varname>ConditionArchitecture=</varname> unit file setting, as
       documented in
