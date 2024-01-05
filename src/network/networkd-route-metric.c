@@ -85,13 +85,13 @@ int config_parse_route_metric_advmss(
         r = parse_size(rvalue, 1024, &u);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Could not parse TCPAdvertisedMaximumSegmentSize= \"%s\", ignoring assignment: %m", rvalue);
+                           "Could not parse %s=, ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
 
         if (u == 0 || u > UINT32_MAX) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid TCPAdvertisedMaximumSegmentSize= \"%s\", ignoring assignment: %m", rvalue);
+                           "Invalid %s=, ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
 
@@ -142,17 +142,12 @@ int config_parse_route_metric_hop_limit(
         r = safe_atou32(rvalue, &k);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Could not parse per route hop limit, ignoring assignment: %s", rvalue);
+                           "Could not parse %s=, ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
-        if (k > 255) {
+        if (k == 0 || k > 255) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Specified per route hop limit \"%s\" is too large, ignoring assignment: %m", rvalue);
-                return 0;
-        }
-        if (k == 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid per route hop limit \"%s\", ignoring assignment: %m", rvalue);
+                           "Invalid %s=, ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
 
@@ -187,17 +182,12 @@ int config_parse_tcp_window(
         r = safe_atou32(rvalue, &k);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Could not parse TCP %s \"%s\", ignoring assignment: %m", lvalue, rvalue);
+                           "Could not parse %s=, ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
-        if (k >= 1024) {
+        if (k == 0 || k >= 1024) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Specified TCP %s \"%s\" is too large, ignoring assignment: %m", lvalue, rvalue);
-                return 0;
-        }
-        if (k == 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Invalid TCP %s \"%s\", ignoring assignment: %m", lvalue, rvalue);
+                           "Invalid %s=, ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
 
@@ -287,14 +277,14 @@ int config_parse_route_metric_tcp_rto(
         r = parse_sec(rvalue, &usec);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to parse route TCP retransmission timeout (RTO), ignoring assignment: %s", rvalue);
+                           "Failed to parse %s=, ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
 
         if (!timestamp_is_set(usec) ||
             DIV_ROUND_UP(usec, USEC_PER_MSEC) > UINT32_MAX) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
-                           "Route TCP retransmission timeout (RTO) must be in the range 0…%"PRIu32"ms, ignoring assignment: %s", UINT32_MAX, rvalue);
+                           "Invalid %s=, ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
 
@@ -338,7 +328,7 @@ int config_parse_route_metric_boolean(
         r = parse_boolean(rvalue);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Could not parse %s=\"%s\", ignoring assignment: %m", lvalue, rvalue);
+                           "Could not parse %s=, ignoring assignment: %s", lvalue, rvalue);
                 return 0;
         }
 
