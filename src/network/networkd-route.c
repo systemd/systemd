@@ -2905,6 +2905,7 @@ int config_parse_multipath_route(
 
         if (isempty(rvalue)) {
                 n->multipath_routes = ordered_set_free_with_destructor(n->multipath_routes, multipath_route_free);
+                TAKE_PTR(n);
                 return 0;
         }
 
