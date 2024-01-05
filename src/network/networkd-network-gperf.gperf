@@ -193,8 +193,8 @@ Route.Scope,                                 config_parse_route_scope,          
 Route.PreferredSource,                       config_parse_preferred_src,                               0,                             0
 Route.Table,                                 config_parse_route_table,                                 0,                             0
 Route.MTUBytes,                              config_parse_route_mtu,                                   AF_UNSPEC,                     0
-Route.GatewayOnLink,                         config_parse_route_boolean,                               0,                             0
-Route.GatewayOnlink,                         config_parse_route_boolean,                               0,                             0
+Route.GatewayOnLink,                         config_parse_route_gateway_onlink,                        0,                             0
+Route.GatewayOnlink,                         config_parse_route_gateway_onlink,                        0,                             0
 Route.IPv6Preference,                        config_parse_ipv6_route_preference,                       0,                             0
 Route.Protocol,                              config_parse_route_protocol,                              0,                             0
 Route.Type,                                  config_parse_route_type,                                  0,                             0
