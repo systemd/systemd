@@ -1725,8 +1725,6 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                 }
 
                 if (r == -EOPNOTSUPP) { /* Plugin not available, let's process TPM2 stuff right here instead */
-                        _cleanup_free_ void *blob = NULL, *policy_hash = NULL;
-                        size_t blob_size, policy_hash_size;
                         bool found_some = false;
                         int token = 0; /* first token to look at */
 
@@ -1735,8 +1733,10 @@ static int attach_luks_or_plain_or_bitlk_by_tpm2(
                          * works. */
 
                         for (;;) {
+                                _cleanup_free_ void *blob = NULL, *policy_hash = NULL;
                                 _cleanup_free_ void *pubkey = NULL, *salt = NULL, *srk_buf = NULL;
                                 size_t pubkey_size = 0, salt_size = 0, srk_buf_size = 0;
+                                size_t blob_size = 0, policy_hash_size = 0;
                                 uint32_t hash_pcr_mask, pubkey_pcr_mask;
                                 uint16_t pcr_bank, primary_alg;
                                 TPM2Flags tpm2_flags;
