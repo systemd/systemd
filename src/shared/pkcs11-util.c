@@ -50,6 +50,8 @@ const char *(*sym_p11_kit_strerror)(CK_RV rv);
 int (*sym_p11_kit_uri_format)(P11KitUri *uri, P11KitUriType uri_type, char **string);
 void (*sym_p11_kit_uri_free)(P11KitUri *uri);
 CK_ATTRIBUTE_PTR (*sym_p11_kit_uri_get_attributes)(P11KitUri *uri, CK_ULONG *n_attrs);
+CK_ATTRIBUTE_PTR (*sym_p11_kit_uri_get_attribute)(P11KitUri *uri, CK_ATTRIBUTE_TYPE attr_type);
+int (*sym_p11_kit_uri_set_attribute)(P11KitUri *uri, CK_ATTRIBUTE_PTR attr);
 CK_INFO_PTR (*sym_p11_kit_uri_get_module_info)(P11KitUri *uri);
 CK_SLOT_INFO_PTR (*sym_p11_kit_uri_get_slot_info)(P11KitUri *uri);
 CK_TOKEN_INFO_PTR (*sym_p11_kit_uri_get_token_info)(P11KitUri *uri);
@@ -69,6 +71,8 @@ int dlopen_p11kit(void) {
                         DLSYM_ARG(p11_kit_uri_format),
                         DLSYM_ARG(p11_kit_uri_free),
                         DLSYM_ARG(p11_kit_uri_get_attributes),
+                        DLSYM_ARG(p11_kit_uri_get_attribute),
+                        DLSYM_ARG(p11_kit_uri_set_attribute),
                         DLSYM_ARG(p11_kit_uri_get_module_info),
                         DLSYM_ARG(p11_kit_uri_get_slot_info),
                         DLSYM_ARG(p11_kit_uri_get_token_info),
