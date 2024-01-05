@@ -570,8 +570,8 @@ int path_pick(const char *toplevel_path,
                 if (!wildcard)
                         goto bypass; /* Not a pattern, then bypass */
 
-                /* We found the '___' wildcard, hence evertyhing after it is our filter suffix, and
-                 * evertyhing before is our filter basename */
+                /* We found the '___' wildcard, hence everything after it is our filter suffix, and
+                 * everything before is our filter basename */
                 *wildcard = 0;
                 filter_suffix = empty_to_null(wildcard + 3);
 
