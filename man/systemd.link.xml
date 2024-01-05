@@ -365,6 +365,59 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>Property=</varname></term>
+        <listitem>
+          <para>Set specified udev properties. This takes space separated list of key-value pairs
+          concatenated with equal sign (<literal>=</literal>). Example:
+          <programlisting>Property=HOGE=foo BAR=baz</programlisting>
+          This option supports simple specifier expansion, see the Specifiers section below.
+          This option can be specified multiple times. If an empty string is assigned, then the all previous
+          assignments are cleared.</para>
+
+          <para>This setting is useful to configure the <literal>ID_NET_MANAGED_BY=</literal> property which
+          declares which network management service shall manage the interface, which is respected by
+          systemd-networkd and others. Use
+          <programlisting>Property=ID_NET_MANAGED_BY=io.systemd.Network</programlisting>
+          to declare explicitly that <command>systemd-networkd</command> shall manage the interface, or set
+          the property to something else to declare explicitly it shall not do so. See
+          <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          for details how this property is used to match interface names.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>ImportProperty=</varname></term>
+        <listitem>
+          <para>Import specified udev properties from the saved database. This takes space separated list of
+          property names. Example: <programlisting>ImportProperty=HOGE BAR</programlisting>
+          This option supports simple specifier expansion, see the Specifiers section below.
+          This option can be specified multiple times. If an empty string is assigned, then the all previous
+          assignments are cleared.</para>
+          <para>If the same property is also set in <varname>Property=</varname> in the above, then the
+          imported property value will be overridden by the value specified in <varname>Property=</varname>.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
+        <term><varname>UnsetProperty=</varname></term>
+        <listitem>
+          <para>Unset specified udev properties. This takes space separated list of
+          property names. Example: <programlisting>ImportProperty=HOGE BAR</programlisting>
+          This option supports simple specifier expansion, see the Specifiers section below.
+          This option can be specified multiple times. If an empty string is assigned, then the all previous
+          assignments are cleared.</para>
+          <para>This setting is applied after <varname>ImportProperty=</varname> and
+          <varname>Property=</varname> are applied. Hence, if the same property is specified in
+          <varname>ImportProperty=</varname> or <varname>Property=</varname>, then the imported or specified
+          property value will be ignored, and the property will be unset.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>Alias=</varname></term>
         <listitem>
           <para>The <varname>ifalias</varname> interface property is set to this value.</para>
@@ -1258,6 +1311,47 @@
         </listitem>
       </varlistentry>
     </variablelist>
+  </refsect1>
+
+  <refsect1>
+    <title>Specifiers</title>
+
+    <para>Some settings resolve specifiers which may be used to write generic unit files referring to runtime
+    or unit parameters that are replaced when the unit files are loaded. Specifiers must be known and
+    resolvable for the setting to be valid. The following specifiers are understood:</para>
+
+    <table class='specifiers'>
+      <title>Specifiers available in unit files</title>
+      <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+        <colspec colname="spec" />
+        <colspec colname="mean" />
+        <colspec colname="detail" />
+        <thead>
+          <row>
+            <entry>Specifier</entry>
+            <entry>Meaning</entry>
+            <entry>Details</entry>
+          </row>
+        </thead>
+        <tbody>
+          <xi:include href="standard-specifiers.xml" xpointer="a"/>
+          <xi:include href="standard-specifiers.xml" xpointer="A"/>
+          <xi:include href="standard-specifiers.xml" xpointer="b"/>
+          <xi:include href="standard-specifiers.xml" xpointer="B"/>
+          <xi:include href="standard-specifiers.xml" xpointer="H"/>
+          <xi:include href="standard-specifiers.xml" xpointer="l"/>
+          <xi:include href="standard-specifiers.xml" xpointer="m"/>
+          <xi:include href="standard-specifiers.xml" xpointer="M"/>
+          <xi:include href="standard-specifiers.xml" xpointer="o"/>
+          <xi:include href="standard-specifiers.xml" xpointer="q"/>
+          <xi:include href="standard-specifiers.xml" xpointer="T"/>
+          <xi:include href="standard-specifiers.xml" xpointer="v"/>
+          <xi:include href="standard-specifiers.xml" xpointer="V"/>
+          <xi:include href="standard-specifiers.xml" xpointer="w"/>
+          <xi:include href="standard-specifiers.xml" xpointer="W"/>
+        </tbody>
+      </tgroup>
+    </table>
   </refsect1>
 
   <refsect1>
