@@ -438,6 +438,13 @@ static int deliver_session_leader_fd_consume(Session *s, const char *fdname, int
         assert(fdname);
         assert(fd >= 0);
 
+        if (!pid_is_valid(s->deserialized_pid)) {
+                r = log_warning_errno(SYNTHETIC_ERRNO(EOWNERDEAD),
+                                      "Got leader pidfd for session '%s', but LEADER= is not set, refusing.",
+                                      s->id);
+                goto fail_close;
+        }
+
         if (!s->leader_fd_saved)
                 log_warning("Got leader pidfd for session '%s', but not recorded in session state, proceeding anyway.",
                             s->id);
@@ -450,12 +457,8 @@ static int deliver_session_leader_fd_consume(Session *s, const char *fdname, int
                         log_debug_errno(r, "Leader of session '%s' is gone while deserializing.", s->id);
                 else
                         log_warning_errno(r, "Failed to create reference to leader of session '%s': %m", s->id);
-
-                close_and_notify_warn(fd, fdname);
-                return r;
+                goto fail_close;
         }
-
-        assert(pid_is_valid(s->deserialized_pid));
 
         if (leader_fdstore.pid != s->deserialized_pid)
                 log_warning("Leader from pidfd (" PID_FMT ") doesn't match with LEADER=" PID_FMT " for session '%s', proceeding anyway.",
@@ -466,6 +469,10 @@ static int deliver_session_leader_fd_consume(Session *s, const char *fdname, int
                 return log_warning_errno(r, "Failed to attach leader pidfd for session '%s': %m", s->id);
 
         return 0;
+
+fail_close:
+        close_and_notify_warn(fd, fdname);
+        return r;
 }
 
 static int manager_attach_session_fd_one_consume(Manager *m, const char *fdname, int fd) {
