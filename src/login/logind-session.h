@@ -30,7 +30,7 @@ typedef enum SessionClass {
 } SessionClass;
 
 /* Whether we shall allow sessions of this class to run before 'systemd-user-sessions.service'. For now,
- * there's only one class we allow this for. It's generally set for root sessions, but noone else. */
+ * there's only one class we allow this for. It's generally set for root sessions, but no one else. */
 #define SESSION_CLASS_IS_EARLY(class) ((class) == SESSION_USER_EARLY)
 
 typedef enum SessionType {
