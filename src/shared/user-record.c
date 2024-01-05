@@ -1625,7 +1625,7 @@ int user_record_load(UserRecord *h, JsonVariant *v, UserRecordLoadFlags load_fla
         if (r < 0)
                 return r;
 
-        r = json_dispatch(h->json, user_dispatch_table, json_flags, h);
+        r = json_dispatch(h->json, user_dispatch_table, json_flags | JSON_ALLOW_EXTENSIONS, h);
         if (r < 0)
                 return r;
 
