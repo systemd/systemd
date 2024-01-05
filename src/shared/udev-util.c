@@ -5,6 +5,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "conf-parser.h"
 #include "device-nodes.h"
 #include "device-private.h"
 #include "device-util.h"
@@ -45,20 +46,27 @@ int udev_set_max_log_level(char *str) {
 }
 
 int udev_parse_config(void) {
-        _cleanup_free_ char *log_val = NULL;
-        int r;
+        int r, log_val = -1;
+        const ConfigTableItem config_table[] = {
+                { NULL, "udev_log", config_parse_log_level, 0, &log_val },
+                {}
+        };
 
-        r = parse_env_file(NULL, "/etc/udev/udev.conf",
-                           "udev_log", &log_val);
+        r = config_parse_config_file_full(
+                        "udev.conf",
+                        "udev",
+                        /* sections = */ NULL,
+                        config_item_table_lookup,
+                        config_table,
+                        CONFIG_PARSE_WARN,
+                        /* userdata = */ NULL);
         if (r == -ENOENT)
                 return 0;
         if (r < 0)
                 return r;
 
-        r = udev_set_max_log_level(log_val);
-        if (r < 0)
-                log_syntax(NULL, LOG_WARNING, "/etc/udev/udev.conf", 0, r,
-                           "Failed to set udev log level '%s', ignoring: %m", log_val);
+        if (log_val >= 0)
+                log_set_max_level(log_val);
 
         return 0;
 }
