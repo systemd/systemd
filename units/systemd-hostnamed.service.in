@@ -22,7 +22,6 @@ IPAddressDeny=any
 LockPersonality=yes
 MemoryDenyWriteExecute=yes
 NoNewPrivileges=yes
-PrivateDevices=yes
 PrivateNetwork=yes
 PrivateTmp=yes
 ProtectProc=invisible
