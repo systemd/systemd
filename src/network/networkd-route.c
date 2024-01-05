@@ -35,8 +35,6 @@ int route_new(Route **ret) {
                 .type = RTN_UNICAST,
                 .table = RT_TABLE_MAIN,
                 .lifetime_usec = USEC_INFINITY,
-                .quickack = -1,
-                .fast_open_no_cookie = -1,
                 .gateway_onlink = -1,
         };
 
@@ -103,10 +101,8 @@ Route *route_free(Route *route) {
                 set_remove(route->manager->routes, route);
 
         ordered_set_free_with_destructor(route->multipath_routes, multipath_route_free);
-
+        route_metric_done(&route->metric);
         sd_event_source_disable_unref(route->expire);
-
-        free(route->tcp_congestion_control_algo);
 
         return mfree(route);
 }
@@ -139,11 +135,7 @@ static void route_hash_func(const Route *route, struct siphash *state) {
                 siphash24_compress_typesafe(route->protocol, state);
                 siphash24_compress_typesafe(route->scope, state);
                 siphash24_compress_typesafe(route->type, state);
-
-                siphash24_compress_typesafe(route->initcwnd, state);
-                siphash24_compress_typesafe(route->initrwnd, state);
-
-                siphash24_compress_typesafe(route->advmss, state);
+                route_metric_hash_func(&route->metric, state);
                 siphash24_compress_typesafe(route->nexthop_id, state);
 
                 break;
@@ -221,16 +213,8 @@ static int route_compare_func(const Route *a, const Route *b) {
                 if (r != 0)
                         return r;
 
-                r = CMP(a->initcwnd, b->initcwnd);
-                if (r != 0)
-                        return r;
-
-                r = CMP(a->initrwnd, b->initrwnd);
-                if (r != 0)
-                        return r;
-
-                r = CMP(a->advmss, b->advmss);
-                if (r != 0)
+                r = route_metric_compare_func(&a->metric, &b->metric);
+                if (r < 0)
                         return r;
 
                 r = CMP(a->nexthop_id, b->nexthop_id);
@@ -337,10 +321,10 @@ int route_dup(const Route *src, Route **ret) {
         dest->link = NULL;
         dest->manager = NULL;
         dest->multipath_routes = NULL;
+        dest->metric = ROUTE_METRIC_NULL;
         dest->expire = NULL;
-        dest->tcp_congestion_control_algo = NULL;
 
-        r = free_and_strdup(&dest->tcp_congestion_control_algo, src->tcp_congestion_control_algo);
+        r = route_metric_copy(&src->metric, &dest->metric);
         if (r < 0)
                 return r;
 
@@ -1187,65 +1171,8 @@ static int route_configure(const Route *route, uint32_t lifetime_sec, Link *link
                         return r;
         }
 
-        r = sd_netlink_message_open_container(m, RTA_METRICS);
-        if (r < 0)
-                return r;
-
-        if (route->mtu > 0) {
-                r = sd_netlink_message_append_u32(m, RTAX_MTU, route->mtu);
-                if (r < 0)
-                        return r;
-        }
-
-        if (route->initcwnd > 0) {
-                r = sd_netlink_message_append_u32(m, RTAX_INITCWND, route->initcwnd);
-                if (r < 0)
-                        return r;
-        }
-
-        if (route->initrwnd > 0) {
-                r = sd_netlink_message_append_u32(m, RTAX_INITRWND, route->initrwnd);
-                if (r < 0)
-                        return r;
-        }
-
-        if (route->quickack >= 0) {
-                r = sd_netlink_message_append_u32(m, RTAX_QUICKACK, route->quickack);
-                if (r < 0)
-                        return r;
-        }
-
-        if (route->fast_open_no_cookie >= 0) {
-                r = sd_netlink_message_append_u32(m, RTAX_FASTOPEN_NO_COOKIE, route->fast_open_no_cookie);
-                if (r < 0)
-                        return r;
-        }
-
-        if (route->advmss > 0) {
-                r = sd_netlink_message_append_u32(m, RTAX_ADVMSS, route->advmss);
-                if (r < 0)
-                        return r;
-        }
-
-        if (!isempty(route->tcp_congestion_control_algo)) {
-                r = sd_netlink_message_append_string(m, RTAX_CC_ALGO, route->tcp_congestion_control_algo);
-                if (r < 0)
-                        return r;
-        }
-
-        if (route->hop_limit > 0) {
-                r = sd_netlink_message_append_u32(m, RTAX_HOPLIMIT, route->hop_limit);
-                if (r < 0)
-                        return r;
-        }
-
-        if (route->tcp_rto_usec > 0) {
-                r = sd_netlink_message_append_u32(m, RTAX_RTO_MIN, DIV_ROUND_UP(route->tcp_rto_usec, USEC_PER_MSEC));
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_netlink_message_close_container(m);
+        /* metrics */
+        r = route_metric_set_netlink_message(&route->metric, m);
         if (r < 0)
                 return r;
 
@@ -1851,36 +1778,9 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
                 return 0;
         }
 
-        r = sd_netlink_message_enter_container(message, RTA_METRICS);
-        if (r < 0 && r != -ENODATA) {
-                log_link_error_errno(link, r, "rtnl: Could not enter RTA_METRICS container, ignoring: %m");
+        /* metrics */
+        if (route_metric_read_netlink_message(&tmp->metric, message) < 0)
                 return 0;
-        }
-        if (r >= 0) {
-                r = sd_netlink_message_read_u32(message, RTAX_INITCWND, &tmp->initcwnd);
-                if (r < 0 && r != -ENODATA) {
-                        log_link_warning_errno(link, r, "rtnl: received route message with invalid initcwnd, ignoring: %m");
-                        return 0;
-                }
-
-                r = sd_netlink_message_read_u32(message, RTAX_INITRWND, &tmp->initrwnd);
-                if (r < 0 && r != -ENODATA) {
-                        log_link_warning_errno(link, r, "rtnl: received route message with invalid initrwnd, ignoring: %m");
-                        return 0;
-                }
-
-                r = sd_netlink_message_read_u32(message, RTAX_ADVMSS, &tmp->advmss);
-                if (r < 0 && r != -ENODATA) {
-                        log_link_warning_errno(link, r, "rtnl: received route message with invalid advmss, ignoring: %m");
-                        return 0;
-                }
-
-                r = sd_netlink_message_exit_container(message);
-                if (r < 0) {
-                        log_link_error_errno(link, r, "rtnl: Could not exit from RTA_METRICS container, ignoring: %m");
-                        return 0;
-                }
-        }
 
         r = sd_netlink_message_read_data(message, RTA_MULTIPATH, &rta_len, &rta_multipath);
         if (r < 0 && r != -ENODATA) {
