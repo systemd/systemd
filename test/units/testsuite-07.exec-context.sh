@@ -93,6 +93,13 @@ systemd-run --wait --pipe -p BindPaths="/etc /home:/mnt:norbind -/foo/bar/baz:/u
     bash -xec "mountpoint /etc; test -d /etc/systemd; mountpoint /mnt; ! mountpoint /usr"
 systemd-run --wait --pipe -p BindReadOnlyPaths="/etc /home:/mnt:norbind -/foo/bar/baz:/usr:rbind" \
     bash -xec "test ! -w /etc; test ! -w /mnt; ! mountpoint /usr"
+# Make sure we properly serialize/deserialize paths with spaces
+# See: https://github.com/systemd/systemd/issues/30747
+touch "/tmp/test file with spaces"
+systemd-run --wait --pipe -p TemporaryFileSystem="/tmp" -p BindPaths="/etc /home:/mnt:norbind /tmp/test\ file\ with\ spaces" \
+    bash -xec "mountpoint /etc; test -d /etc/systemd; mountpoint /mnt; stat '/tmp/test file with spaces'"
+systemd-run --wait --pipe -p TemporaryFileSystem="/tmp" -p BindPaths="/etc /home:/mnt:norbind /tmp/test\ file\ with\ spaces:/tmp/destination\ wi\:th\ spaces" \
+    bash -xec "mountpoint /etc; test -d /etc/systemd; mountpoint /mnt; stat '/tmp/destination wi:th spaces'"
 
 # Check if we correctly serialize, deserialize, and set directives that
 # have more complex internal handling
@@ -206,18 +213,20 @@ fi
 
 # {Cache,Configuration,Logs,Runtime,State}Directory=
 ARGUMENTS=(
-    -p CacheDirectory="foo/bar/baz"
+    -p CacheDirectory="foo/bar/baz also\ with\ spaces"
     -p CacheDirectory="foo"
     -p CacheDirectory="context"
     -p CacheDirectoryMode="0123"
     -p CacheDirectoryMode="0666"
-    -p ConfigurationDirectory="context/foo also_context/bar context/nested/baz"
+    -p ConfigurationDirectory="context/foo also_context/bar context/nested/baz context/semi\:colon"
     -p ConfigurationDirectoryMode="0400"
     -p LogsDirectory="context/foo"
     -p LogsDirectory=""
     -p LogsDirectory="context/a/very/nested/logs/dir"
-    -p RuntimeDirectory="context"
-    -p RuntimeDirectory="also_context"
+    -p RuntimeDirectory="context/with\ spaces"
+    # Note: {Runtime,State,Cache,Logs}Directory= directives support the directory:symlink syntax, which
+    #       requires an additional level of escaping for the colon character
+    -p RuntimeDirectory="also_context:a\ symlink\ with\ \\\:\ col\\\:ons\ and\ \ spaces"
     -p RuntimeDirectoryPreserve=yes
     -p StateDirectory="context"
     -p StateDirectory="./././././././context context context"
@@ -226,21 +235,22 @@ ARGUMENTS=(
 
 rm -rf /run/context
 systemd-run --wait --pipe "${ARGUMENTS[@]}" \
-    bash -xec '[[ $CACHE_DIRECTORY == /var/cache/context:/var/cache/foo:/var/cache/foo/bar/baz ]];
-               [[ $(stat -c "%a" ${CACHE_DIRECTORY##*:}) == 666 ]]'
+    bash -xec '[[ $CACHE_DIRECTORY == "/var/cache/also with spaces:/var/cache/context:/var/cache/foo:/var/cache/foo/bar/baz" ]];
+               [[ $(stat -c "%a" "${CACHE_DIRECTORY##*:}") == 666 ]]'
 systemd-run --wait --pipe "${ARGUMENTS[@]}" \
-    bash -xec '[[ $CONFIGURATION_DIRECTORY == /etc/also_context/bar:/etc/context/foo:/etc/context/nested/baz ]];
-               [[ $(stat -c "%a" ${CONFIGURATION_DIRECTORY##*:}) == 400 ]]'
+    bash -xec '[[ $CONFIGURATION_DIRECTORY == /etc/also_context/bar:/etc/context/foo:/etc/context/nested/baz:/etc/context/semi:colon ]];
+               [[ $(stat -c "%a" "${CONFIGURATION_DIRECTORY%%:*}") == 400 ]]'
 systemd-run --wait --pipe "${ARGUMENTS[@]}" \
     bash -xec '[[ $LOGS_DIRECTORY == /var/log/context/a/very/nested/logs/dir:/var/log/context/foo ]];
-               [[ $(stat -c "%a" ${LOGS_DIRECTORY##*:}) == 755 ]]'
+               [[ $(stat -c "%a" "${LOGS_DIRECTORY##*:}") == 755 ]]'
 systemd-run --wait --pipe "${ARGUMENTS[@]}" \
-    bash -xec '[[ $RUNTIME_DIRECTORY == /run/also_context:/run/context ]];
-               [[ $(stat -c "%a" ${RUNTIME_DIRECTORY##*:}) == 755 ]];
-               [[ $(stat -c "%a" ${RUNTIME_DIRECTORY%%:*}) == 755 ]]'
+    bash -xec '[[ $RUNTIME_DIRECTORY == "/run/also_context:/run/context/with spaces" ]];
+               [[ $(stat -c "%a" "${RUNTIME_DIRECTORY##*:}") == 755 ]];
+               [[ $(stat -c "%a" "${RUNTIME_DIRECTORY%%:*}") == 755 ]]'
 systemd-run --wait --pipe "${ARGUMENTS[@]}" \
     bash -xec '[[ $STATE_DIRECTORY == /var/lib/context ]]; [[ $(stat -c "%a" $STATE_DIRECTORY) == 0 ]]'
-test -d /run/context
+test -d "/run/context/with spaces"
+test -s "/run/a symlink with : col:ons and  spaces"
 rm -rf /var/{cache,lib,log}/context /etc/{also_,}context
 
 # Limit*=
