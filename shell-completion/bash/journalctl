@@ -28,7 +28,7 @@ __contains_word () {
 __get_machines() {
     local a b
     { machinectl list --full --max-addresses=0 --no-legend --no-pager 2>/dev/null; echo ".host"; } | \
-	{ while read a b; do echo " $a"; done; } | \
+        { while read a b; do echo " $a"; done; } | \
         sort -u
 }
 
