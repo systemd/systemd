@@ -15,6 +15,7 @@
 #include "creds-util.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "escape.h"
 #include "ethtool-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -34,6 +35,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "udev-builtin.h"
 #include "utf8.h"
 
 struct LinkConfigContext {
@@ -921,7 +923,38 @@ static int link_apply_sr_iov_config(Link *link, sd_netlink **rtnl) {
         return 0;
 }
 
-int link_apply_config(LinkConfigContext *ctx, sd_netlink **rtnl, Link *link) {
+static int link_apply_udev_properties(Link *link, bool test) {
+        LinkConfig *config;
+        sd_device *device;
+
+        assert(link);
+
+        config = ASSERT_PTR(link->config);
+        device = ASSERT_PTR(link->device);
+
+        (void) udev_builtin_add_property(device, test, "ID_NET_LINK_FILE", config->filename);
+
+        _cleanup_free_ char *joined = NULL;
+        STRV_FOREACH(d, config->dropins) {
+                _cleanup_free_ char *escaped = NULL;
+
+                escaped = xescape(*d, ":");
+                if (!escaped)
+                        return log_oom();
+
+                if (!strextend_with_separator(&joined, ":", escaped))
+                        return log_oom();
+        }
+
+        (void) udev_builtin_add_property(device, test, "ID_NET_LINK_FILE_DROPINS", joined);
+
+        if (link->new_name)
+                (void) udev_builtin_add_property(device, test, "ID_NET_NAME", link->new_name);
+
+        return 0;
+}
+
+int link_apply_config(LinkConfigContext *ctx, sd_netlink **rtnl, Link *link, bool test) {
         int r;
 
         assert(ctx);
@@ -945,6 +978,10 @@ int link_apply_config(LinkConfigContext *ctx, sd_netlink **rtnl, Link *link) {
                 return r;
 
         r = link_apply_sr_iov_config(link, rtnl);
+        if (r < 0)
+                return r;
+
+        r = link_apply_udev_properties(link, test);
         if (r < 0)
                 return r;
 
