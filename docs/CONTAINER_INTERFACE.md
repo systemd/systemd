@@ -273,6 +273,30 @@ care should be taken to avoid naming conflicts. `systemd` (and in particular
 7. The `/run/host/credentials/` directory is a good place to pass credentials
    into the container, using the `$CREDENTIALS_DIRECTORY` protocol, see above.
 
+8. The `/run/host/unix-export/` directory shall be writable from the container
+   payload, and is where container payload can bind `AF_UNIX` sockets in that
+   shall be *exported* to the host, so that the host can connect to them. The
+   container manager should bind mount this directory on the host side
+   (read-only ideally), so that the host can connect to contained sockets. This
+   is most prominently used by `systemd-ssh-generator` when run in such a
+   container to automatically bind an SSH socket into that directory, which
+   then can be used to connect to the connector.
+
+9. The `/run/host/unix-export/ssh` `AF_UNIX` socket will be automatically bound
+   by `systemd-ssh-generator` in the container if possible, and can be used to
+   connect to the container.
+
+10. The `/run/host/userdb/` directory may be used to drop-in additional JSON
+    user records that `nss-systemd` inside the container shall include in the
+    system's user database. This is useful to make host uses and their home
+    directory automatically accessible to containers in transitive fashion. See
+    `nss-systemd(8)` for details.
+
+11. The `/run/host/home/` directory may be used to bind mount host home
+    directories of users that shall be made available in the container to. This
+    may be used in combination with `/run/host/userdb/` above: one defines the
+    user record, the other contains the user's home directory.
+
 ## What You Shouldn't Do
 
 1. Do not drop `CAP_MKNOD` from the container. `PrivateDevices=` is a commonly
