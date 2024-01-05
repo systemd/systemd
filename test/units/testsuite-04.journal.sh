@@ -108,7 +108,8 @@ journalctl --sync
 [[ -z "$(journalctl -b -q -u silent-success.service)" ]]
 
 # Test syslog identifiers exclusion
-systemctl start verbose-success
+systemctl start verbose-success.service
+timeout 30 bash -xec 'until systemctl -q is-active verbose-success.service; do sleep 1; done'
 journalctl --sync
 [[ -n "$(journalctl -b -q -u verbose-success.service -t systemd)" ]]
 [[ -n "$(journalctl -b -q -u verbose-success.service -t echo)" ]]
