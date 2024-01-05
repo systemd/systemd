@@ -29,9 +29,10 @@ static int getaddrinfo_handler(sd_resolve_query *q, int ret, const struct addrin
         }
 
         for (i = ai; i; i = i->ai_next) {
+                union sockaddr_union sa;
                 _cleanup_free_ char *addr = NULL;
-
-                assert_se(sockaddr_pretty(i->ai_addr, i->ai_addrlen, false, true, &addr) == 0);
+                sa.sa = *(i->ai_addr);
+                assert_se(sockaddr_pretty(&sa, i->ai_addrlen, false, true, &addr) == 0);
                 puts(addr);
         }
 
