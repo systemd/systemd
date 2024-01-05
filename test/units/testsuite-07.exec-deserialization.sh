@@ -92,7 +92,7 @@ testcase_added_before() {
     # Add one new ExecStart= before the existing ones.
     #
     # Since, after reload, we should continue running from the "sleep 3" statement, the newly added "echo
-    # bar" one will have no efect and we should end up with the same output as in the previous case.
+    # bar" one will have no effect and we should end up with the same output as in the previous case.
     cat >"$unit_path" <<EOF
 [Service]
 Type=oneshot
@@ -167,7 +167,7 @@ testcase_removal() {
 
     # Remove the currently executed ExecStart= line.
     #
-    # In this case we completely drop the currently excuted "sleep 3" statement, so after reload systemd
+    # In this case we completely drop the currently executed "sleep 3" statement, so after reload systemd
     # should complain that the currently executed command vanished and simply finish executing the unit,
     # resulting in an empty log.
     cat >"$unit_path" <<EOF
