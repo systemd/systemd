@@ -386,3 +386,5 @@ int socket_address_parse_vsock(SocketAddress *ret_address, const char *s);
  * /proc/sys/net/core/somaxconn anyway, thus by setting this to unbounded we just make that sysctl file
  * authoritative. */
 #define SOMAXCONN_DELUXE INT_MAX
+
+int vsock_get_local_cid(unsigned *ret);
