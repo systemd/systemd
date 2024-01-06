@@ -713,6 +713,7 @@ def read_networkd_log(invocation_id=None, since=None):
     ]
     if since:
         command.append(f'--since={since}')
+    check_output('journalctl --sync')
     return check_output(*command)
 
 def stop_networkd(show_logs=True):
