@@ -216,16 +216,17 @@ static int detect_vm_smbios(void) {
          * /sys/firmware/dmi/entries/0-0. Note that in the general case, this bit being unset should not
          * imply that the system is running on bare-metal.  For example, QEMU 3.1.0 (with or without KVM)
          * with SeaBIOS does not set this bit. */
-        _cleanup_free_ char *s = NULL;
+        _cleanup_free_ void *s_raw = NULL;
         size_t readsize;
         int r;
-
-        r = read_full_virtual_file("/sys/firmware/dmi/entries/0-0/raw", &s, &readsize);
+        
+        r = read_full_virtual_file("/sys/firmware/dmi/entries/0-0/raw", &s_raw, &readsize);
         if (r < 0) {
                 log_debug_errno(r, "Unable to read /sys/firmware/dmi/entries/0-0/raw, "
                                 "using the virtualization information found in DMI vendor table, ignoring: %m");
                 return SMBIOS_VM_BIT_UNKNOWN;
         }
+        s = s_raw;
         if (readsize < 20 || s[1] < 20) {
                 /* The spec indicates that byte 1 contains the size of the table, 0x12 + the number of
                  * extension bytes. The data we're interested in is in extension byte 2, which would be at
@@ -264,7 +265,7 @@ static Virtualization detect_vm_dmi(void) {
                         /* The DMI information we are after is only accessible to the root user,
                          * so we fallback to using the product name which is less restricted
                          * to distinguish metal systems from virtualized instances */
-                        _cleanup_free_ char *s = NULL;
+                        _cleanup_free_ void *s = NULL;
                         const char *e;
 
                         r = read_full_virtual_file("/sys/class/dmi/id/product_name", &s, NULL);

@@ -123,7 +123,8 @@ int cg_read_event(
                 const char *event,
                 char **ret) {
 
-        _cleanup_free_ char *events = NULL, *content = NULL;
+        _cleanup_free_ char *events = NULL;
+        _cleanup_free_ void *content = NULL;
         int r;
 
         r = cg_get_path(controller, path, "cgroup.events", &events);
@@ -1782,7 +1783,8 @@ int cg_slice_to_path(const char *unit, char **ret) {
 }
 
 int cg_is_threaded(const char *path) {
-        _cleanup_free_ char *fs = NULL, *contents = NULL;
+        _cleanup_free_ char *fs = NULL;
+        _cleanup_free_ void *contents = NULL;
         _cleanup_strv_free_ char **v = NULL;
         int r;
 
@@ -1903,7 +1905,8 @@ int cg_get_keyed_attribute_full(
                 char **ret_values,
                 CGroupKeyMode mode) {
 
-        _cleanup_free_ char *filename = NULL, *contents = NULL;
+        _cleanup_free_ char *filename = NULL;
+        _cleanup_free_ void *contents = NULL;
         const char *p;
         size_t n, i, n_done = 0;
         char **v;
