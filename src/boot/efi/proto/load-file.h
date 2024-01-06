@@ -13,7 +13,7 @@ typedef EFI_LOAD_FILE_PROTOCOL EFI_LOAD_FILE2_PROTOCOL;
 
 struct EFI_LOAD_FILE_PROTOCOL {
         EFI_STATUS (EFIAPI *LoadFile)(
-                        EFI_LOAD_FILE_PROTOCOL *This,
+                        initrd_loader *This,
                         EFI_DEVICE_PATH *FilePath,
                         bool BootPolicy,
                         size_t *BufferSize,
