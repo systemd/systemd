@@ -2908,12 +2908,13 @@ static int context_dump_partitions(Context *context) {
         return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
 }
 
-static void context_bar_char_process_partition(
+static int context_bar_char_process_partition(
                 Context *context,
                 Partition *bar[],
                 size_t n,
                 Partition *p,
-                size_t *ret_start) {
+                size_t **ret_start,
+                size_t *n_ret_start) {
 
         uint64_t from, to, total;
         size_t x, y;
@@ -2924,7 +2925,7 @@ static void context_bar_char_process_partition(
         assert(p);
 
         if (p->dropped)
-                return;
+                return 0;
 
         assert(p->offset != UINT64_MAX);
         assert(p->new_size != UINT64_MAX);
@@ -2947,7 +2948,10 @@ static void context_bar_char_process_partition(
         for (size_t i = x; i < y; i++)
                 bar[i] = p;
 
-        *ret_start = x;
+        if (!GREEDY_REALLOC_APPEND(*ret_start, *n_ret_start, &x, 1))
+                return log_oom();
+
+        return 1;
 }
 
 static int partition_hint(const Partition *p, const char *node, char **ret) {
@@ -2991,9 +2995,11 @@ done:
 static int context_dump_partition_bar(Context *context) {
         _cleanup_free_ Partition **bar = NULL;
         _cleanup_free_ size_t *start_array = NULL;
+        size_t n_start_array = 0;
         Partition *last = NULL;
         bool z = false;
         size_t c, j = 0;
+        int r;
 
         assert_se((c = columns()) >= 2);
         c -= 2; /* We do not use the leftmost and rightmost character cell */
@@ -3002,12 +3008,11 @@ static int context_dump_partition_bar(Context *context) {
         if (!bar)
                 return log_oom();
 
-        start_array = new(size_t, context->n_partitions);
-        if (!start_array)
-                return log_oom();
-
-        LIST_FOREACH(partitions, p, context->partitions)
-                context_bar_char_process_partition(context, bar, c, p, start_array + j++);
+        LIST_FOREACH(partitions, p, context->partitions) {
+                r = context_bar_char_process_partition(context, bar, c, p, &start_array, &n_start_array);
+                if (r < 0)
+                        return r;
+        }
 
         putc(' ', stdout);
 
@@ -3029,7 +3034,7 @@ static int context_dump_partition_bar(Context *context) {
         fputs(ansi_normal(), stdout);
         putc('\n', stdout);
 
-        for (size_t i = 0; i < context->n_partitions; i++) {
+        for (size_t i = 0; i < n_start_array; i++) {
                 _cleanup_free_ char **line = NULL;
 
                 line = new0(char*, c);
@@ -3039,9 +3044,13 @@ static int context_dump_partition_bar(Context *context) {
                 j = 0;
                 LIST_FOREACH(partitions, p, context->partitions) {
                         _cleanup_free_ char *d = NULL;
+
+                        if (p->dropped)
+                                continue;
+
                         j++;
 
-                        if (i < context->n_partitions - j) {
+                        if (i < n_start_array - j) {
 
                                 if (line[start_array[j-1]]) {
                                         const char *e;
@@ -3061,7 +3070,7 @@ static int context_dump_partition_bar(Context *context) {
                                                 return log_oom();
                                 }
 
-                        } else if (i == context->n_partitions - j) {
+                        } else if (i == n_start_array - j) {
                                 _cleanup_free_ char *hint = NULL;
 
                                 (void) partition_hint(p, context->node, &hint);
