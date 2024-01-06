@@ -1832,8 +1832,6 @@ Features:
 
 * man: the documentation of Restart= currently is very misleading and suggests the tools from ExecStartPre= might get restarted.
 
-* load .d/*.conf dropins for device units
-
 * There's currently no way to cancel fsck (used to be possible via C-c or c on the console)
 
 * add option to sockets to avoid activation. Instead just drop packets/connections, see http://cyberelk.net/tim/2012/02/15/portreserve-systemd-solution/
@@ -2328,14 +2326,10 @@ Features:
 * systemctl:
   - add systemctl switch to dump transaction without executing it
   - Add a verbose mode to "systemctl start" and friends that explains what is being done or not done
-  - "systemctl disable" on a static unit prints no message and does
-    nothing. "systemctl enable" does nothing, and gives a bad message
-    about it. Should fix both to print nice actionable messages.
   - print nice message from systemctl --failed if there are no entries shown, and hook that into ExecStartPre of rescue.service/emergency.service
   - add new command to systemctl: "systemctl system-reexec" which reexecs as many daemons as virtually possible
   - systemctl enable: fail if target to alias into does not exist? maybe show how many units are enabled afterwards?
   - systemctl: "Journal has been rotated since unit was started." message is misleading
-  - systemctl status output should include list of triggering units and their status
 
 * introduce an option (or replacement) for "systemctl show" that outputs all
   properties as JSON, similar to busctl's new JSON output. In contrast to that
