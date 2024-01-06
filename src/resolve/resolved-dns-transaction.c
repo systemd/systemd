@@ -1224,17 +1224,11 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
 
         case DNS_PROTOCOL_DNS: {
                 int ede_rcode;
-                _cleanup_free_ char *ede_msg = NULL;
 
                 assert(t->server);
 
-                ede_rcode = dns_packet_ede_rcode(p, &ede_msg);
-                if (ede_rcode < 0 && ede_rcode != -EINVAL)
-                        log_debug_errno(ede_rcode, "Unable to extract EDE error code from packet, ignoring: %m");
-                else {
+                if (dns_packet_ede_rcode(p, &ede_rcode, &t->answer_ede_msg) >= 0)
                         t->answer_ede_rcode = ede_rcode;
-                        t->answer_ede_msg = TAKE_PTR(ede_msg);
-                }
 
                 if (!t->bypass &&
                     IN_SET(DNS_PACKET_RCODE(p), DNS_RCODE_FORMERR, DNS_RCODE_SERVFAIL, DNS_RCODE_NOTIMP)) {
