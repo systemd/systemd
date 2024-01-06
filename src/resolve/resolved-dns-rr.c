@@ -1570,6 +1570,16 @@ void dns_resource_record_hash_func(const DnsResourceRecord *rr, struct siphash *
                 siphash24_compress_safe(rr->tlsa.data, rr->tlsa.data_size, state);
                 break;
 
+        case DNS_TYPE_SVCB:
+        case DNS_TYPE_HTTPS:
+                dns_name_hash_func(rr->svcb.target_name, state);
+                siphash24_compress_typesafe(rr->svcb.priority, state);
+                LIST_FOREACH(params, j, rr->svcb.params) {
+                        siphash24_compress_typesafe(j->key, state);
+                        siphash24_compress_safe(j->value, j->length, state);
+                }
+                break;
+
         case DNS_TYPE_CAA:
                 siphash24_compress_typesafe(rr->caa.flags, state);
                 string_hash_func(rr->caa.tag, state);
