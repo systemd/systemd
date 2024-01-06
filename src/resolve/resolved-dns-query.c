@@ -517,6 +517,7 @@ int dns_query_new(
                 .ifindex = ifindex,
                 .flags = flags,
                 .answer_dnssec_result = _DNSSEC_RESULT_INVALID,
+                .answer_ede_rcode = _DNS_EDE_RCODE_INVALID,
                 .answer_protocol = _DNS_PROTOCOL_INVALID,
                 .answer_family = AF_UNSPEC,
         };
