@@ -2616,7 +2616,7 @@ int dns_packet_ede_rcode(DnsPacket *p, char **ret_ede_msg) {
                                                "Truncated option in EDNS0 variable part.");
 
                 if (code == DNS_EDNS_OPT_EXT_ERROR) {
-                        _cleanup_free_ char *msg = NULL, *msg_escaped = NULL;
+                        _cleanup_free_ char *msg = NULL;
                         int ede_rcode;
 
                         if (length < 2U)
@@ -2632,14 +2632,15 @@ int dns_packet_ede_rcode(DnsPacket *p, char **ret_ede_msg) {
                         if (!utf8_is_valid(msg))
                                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Invalid EDE text in opt.");
 
-                        if (ede_rcode < _DNS_EDNS_OPT_MAX_DEFINED) {
+                        if (ret_ede_msg) {
+                                _cleanup_free_ char *msg_escaped = NULL;
+
                                 msg_escaped = cescape(msg);
                                 if (!msg_escaped)
                                         return -ENOMEM;
-                        }
 
-                        if (ret_ede_msg)
                                 *ret_ede_msg = TAKE_PTR(msg_escaped);
+                        }
 
                         return ede_rcode;
                 }
