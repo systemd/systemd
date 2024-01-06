@@ -2715,6 +2715,7 @@ static const char* const dns_rcode_table[_DNS_RCODE_MAX_DEFINED] = {
         [DNS_RCODE_NXRRSET]   = "NXRRSET",
         [DNS_RCODE_NOTAUTH]   = "NOTAUTH",
         [DNS_RCODE_NOTZONE]   = "NOTZONE",
+        [DNS_RCODE_DSOTYPENI] = "DSOTYPENI",
         [DNS_RCODE_BADVERS]   = "BADVERS",
         [DNS_RCODE_BADKEY]    = "BADKEY",
         [DNS_RCODE_BADTIME]   = "BADTIME",
