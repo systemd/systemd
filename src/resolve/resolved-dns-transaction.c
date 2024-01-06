@@ -1231,7 +1231,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                 ede_rcode = dns_packet_ede_rcode(p, &ede_msg);
                 if (ede_rcode >= 0) {
                         t->answer_ede_rcode = ede_rcode;
-                        t->answer_ede_msg = TAKE_PTR(ede_msg);
+                        free_and_replace(t->answer_ede_msg, ede_msg);
                 } else if (ede_rcode != _DNS_EDE_RCODE_INVALID)
                         log_debug_errno(ede_rcode, "Unable to extract EDE error code from packet, ignoring: %m");
 
