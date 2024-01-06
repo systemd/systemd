@@ -56,6 +56,10 @@ can_test_pkcs11() {
         ddebug "Support for p11-kit is disabled, skipping the PKCS#11 test"
         return 1
     fi
+    if ! "${SYSTEMCTL:?}" --version | grep -q "+OPENSSL"; then
+        ddebug "Support for openssl is disabled, skipping the PKCS#11 test"
+        return 1
+    fi
     if ! "${SYSTEMCTL:?}" --version | grep -q "+LIBCRYPTSETUP\b"; then
         ddebug "Support for libcryptsetup is disabled, skipping the PKCS#11 test"
         return 1
