@@ -78,18 +78,20 @@ static char16_t *device_path_to_str_internal(const EFI_DEVICE_PATH *dp) {
 
 EFI_STATUS device_path_to_str(const EFI_DEVICE_PATH *dp, char16_t **ret) {
         EFI_DEVICE_PATH_TO_TEXT_PROTOCOL *dp_to_text;
+        void *dp_to_text_raw;
         EFI_STATUS err;
         _cleanup_free_ char16_t *str = NULL;
 
         assert(dp);
         assert(ret);
 
-        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_DEVICE_PATH_TO_TEXT_PROTOCOL), NULL, (void **) &dp_to_text);
+        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_DEVICE_PATH_TO_TEXT_PROTOCOL), NULL, &dp_to_text_raw);
         if (err != EFI_SUCCESS) {
                 *ret = device_path_to_str_internal(dp);
                 return EFI_SUCCESS;
         }
 
+        dp_to_text = dp_to_text_raw;
         str = dp_to_text->ConvertDevicePathToText(dp, false, false);
         if (!str)
                 return EFI_OUT_OF_RESOURCES;

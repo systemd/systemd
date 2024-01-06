@@ -131,11 +131,13 @@ static EFI_TCG_PROTOCOL *tcg1_interface_check(void) {
         EFI_STATUS err;
         uint32_t features;
         EFI_TCG_PROTOCOL *tcg;
+        void *tcg_raw;
 
-        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_TCG_PROTOCOL), NULL, (void **) &tcg);
+        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_TCG_PROTOCOL), NULL, &tcg_raw);
         if (err != EFI_SUCCESS)
                 return NULL;
-
+        
+        tcg = tcg_raw;
         err = tcg->StatusCheck(
                         tcg,
                         &capability,
