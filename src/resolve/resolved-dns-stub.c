@@ -836,6 +836,7 @@ static void dns_stub_query_complete(DnsQuery *query) {
                 /* Propagate a timeout as a no packet, i.e. that the client also gets a timeout */
                 break;
 
+        case DNS_TRANSACTION_UPSTREAM_DNSSEC_FAILURE:
         case DNS_TRANSACTION_NO_SERVERS:
         case DNS_TRANSACTION_INVALID_REPLY:
         case DNS_TRANSACTION_ERRNO:
