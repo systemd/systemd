@@ -129,8 +129,9 @@ int proc_cmdline(char **ret) {
 
         if (detect_container() > 0)
                 return pid_get_cmdline(1, SIZE_MAX, 0, ret);
-
-        return read_virtual_file("/proc/cmdline", SIZE_MAX, ret, NULL);
+        
+        void* voidPtr = *ret;
+        int ret = read_virtual_file("/proc/cmdline", SIZE_MAX, &voidPtr, NULL);
 }
 
 static int proc_cmdline_strv_internal(char ***ret, bool filter_pid1_args) {
@@ -158,7 +159,7 @@ static int proc_cmdline_strv_internal(char ***ret, bool filter_pid1_args) {
                 return 0;
 
         } else {
-                _cleanup_free_ char *s = NULL;
+                _cleanup_free_ void *s = NULL;
 
                 r = read_full_file("/proc/cmdline", &s, NULL);
                 if (r < 0)
