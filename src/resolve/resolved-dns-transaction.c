@@ -917,6 +917,7 @@ static int dns_transaction_dnssec_ready(DnsTransaction *t) {
                                   dt->answer_ede_msg);
 
                         /* Copy error code over */
+                        t->answer_rcode = dt->answer_rcode;
                         t->answer_ede_rcode = dt->answer_ede_rcode;
                         r = free_and_strdup_warn(&t->answer_ede_msg, dt->answer_ede_msg);
                         if (r < 0)
@@ -1266,6 +1267,8 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                                                   FORMAT_DNS_EDE_RCODE(ede_rcode),
                                                   isempty(t->answer_ede_msg) ? "" : ": ",
                                                   t->answer_ede_msg);
+
+                                        t->answer_rcode = DNS_PACKET_RCODE(p);
                                         dns_transaction_complete(t, DNS_TRANSACTION_UPSTREAM_DNSSEC_FAILURE);
                                         return;
                                 }
