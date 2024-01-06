@@ -716,6 +716,9 @@ def read_networkd_log(invocation_id=None, since=None):
     check_output('journalctl --sync')
     return check_output(*command)
 
+def networkd_is_failed():
+    return call_quiet('systemctl is-failed -q systemd-networkd.service') != 1
+
 def stop_networkd(show_logs=True):
     if show_logs:
         invocation_id = networkd_invocation_id()
@@ -724,7 +727,7 @@ def stop_networkd(show_logs=True):
     if show_logs:
         print(read_networkd_log(invocation_id))
     # Check if networkd exits cleanly.
-    assert call_quiet('systemctl is-failed -q systemd-networkd.service') == 1
+    assert not networkd_is_failed()
 
 def start_networkd():
     check_output('systemctl start systemd-networkd')
@@ -740,6 +743,9 @@ def networkd_pid():
     return int(check_output('systemctl show --value -p MainPID systemd-networkd.service'))
 
 def networkctl(*args):
+    # Do not call networkctl if networkd is in failed state.
+    # Otherwise, networkd may be restarted and we may get wrong results.
+    assert not networkd_is_failed()
     return check_output(*(networkctl_cmd + list(args)), env=env)
 
 def networkctl_status(*args):
@@ -992,11 +998,15 @@ class Utilities():
         try:
             check_output(*args, env=wait_online_env)
         except subprocess.CalledProcessError:
-            # show detailed status on failure
-            for link in links_with_operstate:
-                name = link.split(':')[0]
-                if link_exists(name):
-                    networkctl_status(name)
+            if networkd_is_failed():
+                print('!!!!! systemd-networkd.service is failed !!!!!')
+                call('systemctl status systemd-networkd.service')
+            else:
+                # show detailed status on failure
+                for link in links_with_operstate:
+                    name = link.split(':')[0]
+                    if link_exists(name):
+                        networkctl_status(name)
             raise
         if not bool_any and setup_state:
             for link in links_with_operstate:
