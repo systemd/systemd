@@ -10,6 +10,10 @@ systemd-run --wait -p LogNamespace=foobar echo "hello world"
 systemd-run --wait -p LogNamespace=foobaz echo "hello world"
 
 journalctl --namespace=foobar --sync
+journalctl --namespace=foobaz --sync
+ls -l /var/log/journal/
+journalctl --list-namespaces
+
 journalctl -o cat --namespace=foobar >/tmp/hello-world
 journalctl -o cat >/tmp/no-hello-world
 
