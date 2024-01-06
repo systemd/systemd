@@ -5,7 +5,7 @@
 #include "parse-util.h"
 #include "string-util.h"
 
-int config_parse_route_mtu(
+int config_parse_route_metric_mtu(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -36,7 +36,7 @@ int config_parse_route_mtu(
                 return 0;
         }
 
-        r = config_parse_mtu(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &route->mtu, userdata);
+        r = config_parse_mtu(unit, filename, line, section, section_line, lvalue, AF_UNSPEC, rvalue, &route->mtu, userdata);
         if (r <= 0)
                 return r;
 
@@ -44,7 +44,7 @@ int config_parse_route_mtu(
         return 0;
 }
 
-int config_parse_tcp_advmss(
+int config_parse_route_metric_advmss(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -101,7 +101,7 @@ int config_parse_tcp_advmss(
         return 0;
 }
 
-int config_parse_route_hop_limit(
+int config_parse_route_metric_hop_limit(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -205,7 +205,7 @@ int config_parse_tcp_window(
         return 0;
 }
 
-int config_parse_route_tcp_window(
+int config_parse_route_metric_tcp_window(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -252,7 +252,7 @@ int config_parse_route_tcp_window(
         return 0;
 }
 
-int config_parse_route_tcp_rto(
+int config_parse_route_metric_tcp_rto(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -304,7 +304,7 @@ int config_parse_route_tcp_rto(
         return 0;
 }
 
-int config_parse_route_boolean(
+int config_parse_route_metric_boolean(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -353,7 +353,7 @@ int config_parse_route_boolean(
         return 0;
 }
 
-int config_parse_tcp_congestion(
+int config_parse_route_metric_tcp_congestion(
                 const char *unit,
                 const char *filename,
                 unsigned line,
@@ -384,7 +384,7 @@ int config_parse_tcp_congestion(
                 return 0;
         }
 
-        r = config_parse_string(unit, filename, line, section, section_line, lvalue, ltype,
+        r = config_parse_string(unit, filename, line, section, section_line, lvalue, 0,
                                 rvalue, &route->tcp_congestion_control_algo, userdata);
         if (r < 0)
                 return r;
