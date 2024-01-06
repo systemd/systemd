@@ -2002,12 +2002,14 @@ static EFI_STATUS boot_windows_bitlocker(void) {
         if (!found)
                 return EFI_NOT_FOUND;
 
-        _cleanup_free_ uint16_t *boot_order = NULL;
+        _cleanup_free_ void *boot_order_raw = NULL;
+        uint16_t *boot_order;
         size_t boot_order_size;
 
         /* There can be gaps in Boot#### entries. Instead of iterating over the full
          * EFI var list or uint16_t namespace, just look for "Windows Boot Manager" in BootOrder. */
-        err = efivar_get_raw(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"BootOrder", (char **) &boot_order, &boot_order_size);
+        err = efivar_get_raw(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"BootOrder", &boot_order_raw, &boot_order_size);
+        boot_order = boot_order_raw;
         if (err != EFI_SUCCESS || boot_order_size % sizeof(uint16_t) != 0)
                 return err;
 
