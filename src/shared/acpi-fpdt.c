@@ -93,7 +93,8 @@ static int acpi_get_boot_usec_kernel_parsed(usec_t *ret_loader_start, usec_t *re
 }
 
 int acpi_get_boot_usec(usec_t *ret_loader_start, usec_t *ret_loader_exit) {
-        _cleanup_free_ char *buf = NULL;
+        _cleanup_free_ void *buf = NULL;
+        uint8_t *buf_base;
         struct acpi_table_header *tbl;
         size_t l;
         ssize_t ll;
@@ -123,9 +124,10 @@ int acpi_get_boot_usec(usec_t *ret_loader_start, usec_t *ret_loader_exit) {
                 return -EINVAL;
 
         /* find Firmware Basic Boot Performance Pointer Record */
-        for (rec = (struct acpi_fpdt_header *)(buf + sizeof(struct acpi_table_header));
-             (char *)rec + offsetof(struct acpi_fpdt_header, revision) <= buf + l;
-             rec = (struct acpi_fpdt_header *)((char *)rec + rec->length)) {
+        buf_base = buf;
+        for (rec = (struct acpi_fpdt_header *)(buf_base + sizeof(struct acpi_table_header));
+             (uint8_t *)rec + offsetof(struct acpi_fpdt_header, revision) <= buf_base + l;
+             rec = (struct acpi_fpdt_header *)((uint8_t *)rec + rec->length)) {
                 if (rec->length <= 0)
                         break;
                 if (rec->type != ACPI_FPDT_TYPE_BOOT)

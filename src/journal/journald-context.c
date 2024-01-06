@@ -423,7 +423,7 @@ static int client_context_read_extra_fields(
                                         * one, that matches the stuff we are reading */
                 return -errno;
 
-        r = read_full_stream(f, (char**) &data, &size);
+        r = read_full_stream(f, &data, &size);
         if (r < 0)
                 return r;
 

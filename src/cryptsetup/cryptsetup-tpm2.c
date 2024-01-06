@@ -109,7 +109,7 @@ int acquire_tpm2_key(
                                 key_file_size == 0 ? SIZE_MAX : key_file_size,
                                 READ_FULL_FILE_CONNECT_SOCKET,
                                 bindname,
-                                (char**) &loaded_blob, &blob.iov_len);
+                                &loaded_blob, &blob.iov_len);
                 if (r < 0)
                         return r;
 

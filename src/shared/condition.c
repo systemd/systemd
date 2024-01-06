@@ -484,7 +484,9 @@ static int condition_test_firmware_devicetree_compatible(const char *dtcarg) {
         _cleanup_strv_free_ char **dtcompatlist = NULL;
         size_t size;
 
-        r = read_full_virtual_file(DTCOMPAT_FILE, &dtcompat, &size);
+        void *tmp;
+        r = read_full_virtual_file(DTCOMPAT_FILE, &tmp, &size);
+        dtcompat = tmp;
         if (r < 0) {
                 /* if the path doesn't exist it is incompatible */
                 if (r != -ENOENT)
@@ -513,7 +515,8 @@ static int condition_test_firmware_devicetree_compatible(const char *dtcarg) {
 }
 
 static int condition_test_firmware_smbios_field(const char *expression) {
-        _cleanup_free_ char *field = NULL, *expected_value = NULL, *actual_value = NULL;
+        _cleanup_free_ char *field = NULL, *expected_value = NULL;
+        _cleanup_free_ void *actual_value = NULL;
         CompareOperator operator;
         int r;
 

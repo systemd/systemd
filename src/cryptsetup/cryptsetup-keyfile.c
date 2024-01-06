@@ -24,7 +24,7 @@ int find_key_file(
                                 AT_FDCWD, key_file, UINT64_MAX, SIZE_MAX,
                                 READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
                                 bindname,
-                                (char**) ret_key, ret_key_size);
+                                ret_key, ret_key_size);
                 if (r == -E2BIG)
                         return log_error_errno(r, "Key file '%s' too large.", key_file);
                 if (r < 0)
@@ -44,7 +44,7 @@ int find_key_file(
                                 AT_FDCWD, joined, UINT64_MAX, SIZE_MAX,
                                 READ_FULL_FILE_SECURE|READ_FULL_FILE_WARN_WORLD_READABLE|READ_FULL_FILE_CONNECT_SOCKET,
                                 bindname,
-                                (char**) ret_key, ret_key_size);
+                                ret_key, ret_key_size);
                 if (r >= 0)
                         return 1;
                 if (r == -E2BIG) {

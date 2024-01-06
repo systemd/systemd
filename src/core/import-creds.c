@@ -594,7 +594,7 @@ static int import_credentials_smbios(ImportCredentialContext *c) {
                 if (asprintf(&p, "/sys/firmware/dmi/entries/11-%u/raw", i) < 0)
                         return log_oom();
 
-                r = read_virtual_file(p, sizeof(dmi_field_header) + CREDENTIALS_TOTAL_SIZE_MAX, (char**) &data, &size);
+                r = read_virtual_file(p, sizeof(dmi_field_header) + CREDENTIALS_TOTAL_SIZE_MAX, &data, &size);
                 if (r < 0) {
                         /* Once we reach ENOENT there are no more DMI Type 11 fields around. */
                         log_full_errno(r == -ENOENT ? LOG_DEBUG : LOG_WARNING, r, "Failed to open '%s', ignoring: %m", p);

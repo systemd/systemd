@@ -7513,7 +7513,7 @@ int tpm2_load_pcr_public_key(const char *path, void **ret_pubkey, size_t *ret_pu
         if (r < 0)
                 return log_debug_errno(r, "Failed to find TPM PCR public key file '%s': %m", path);
 
-        r = read_full_stream(f, (char**) ret_pubkey, ret_pubkey_size);
+        r = read_full_stream(f, ret_pubkey, ret_pubkey_size);
         if (r < 0)
                 return log_debug_errno(r, "Failed to load TPM PCR public key PEM file '%s': %m", discovered_path);
 
