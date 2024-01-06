@@ -29,18 +29,20 @@ struct linux_efi_random_seed {
 
 static EFI_STATUS acquire_rng(void *ret, size_t size) {
         EFI_RNG_PROTOCOL *rng;
+        void *rng_raw;
         EFI_STATUS err;
 
         assert(ret);
 
         /* Try to acquire the specified number of bytes from the UEFI RNG */
 
-        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_RNG_PROTOCOL), NULL, (void **) &rng);
+        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_RNG_PROTOCOL), NULL, &rng_raw);
         if (err != EFI_SUCCESS)
                 return err;
-        if (!rng)
+        if (!rng_raw)
                 return EFI_UNSUPPORTED;
 
+        rng = rng_raw;
         err = rng->GetRNG(rng, NULL, size, ret);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Failed to acquire RNG data: %m");
@@ -48,7 +50,7 @@ static EFI_STATUS acquire_rng(void *ret, size_t size) {
 }
 
 static EFI_STATUS acquire_system_token(void **ret, size_t *ret_size) {
-        _cleanup_free_ char *data = NULL;
+        _cleanup_free_ void *data = NULL;
         EFI_STATUS err;
         size_t size;
 
@@ -114,7 +116,9 @@ static void validate_sha256(void) {
 
 EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
         uint8_t random_bytes[DESIRED_SEED_SIZE], hash_key[HASH_VALUE_SIZE];
-        _cleanup_free_ struct linux_efi_random_seed *new_seed_table = NULL;
+        _cleanup_free_ void *new_seed_table_raw = NULL;
+        struct linux_efi_random_seed *new_seed_table = NULL;
+
         struct linux_efi_random_seed *previous_seed_table = NULL;
         _cleanup_free_ void *seed = NULL, *system_token = NULL;
         _cleanup_(file_closep) EFI_FILE *handle = NULL;
@@ -297,9 +301,11 @@ EFI_STATUS process_random_seed(EFI_FILE *root_dir) {
 
         err = BS->AllocatePool(EfiACPIReclaimMemory,
                                offsetof(struct linux_efi_random_seed, seed) + DESIRED_SEED_SIZE,
-                               (void **) &new_seed_table);
+                               &new_seed_table_raw);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Failed to allocate EFI table for random seed: %m");
+
+        new_seed_table = new_seed_table_raw;
         new_seed_table->size = DESIRED_SEED_SIZE;
 
         /* hash = hash_key || 1 */
