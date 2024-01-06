@@ -346,6 +346,12 @@ run dig +noall +authority +comments SRV .
 grep -qF "status: NOERROR" "$RUN_OUT"
 grep -qE "IN\s+SOA\s+ns1\.unsigned\.test\." "$RUN_OUT"
 
+run resolvectl query -t SVCB svcb.test
+grep -qF 'alpn="dot"' "$RUN_OUT"
+grep -qF "ipv4hint=10.0.0.1" "$RUN_OUT"
+
+run resolvectl query -t HTTPS https.test
+grep -qF 'alpn="h2,h3"' "$RUN_OUT"
 
 : "--- ZONE: unsigned.test. ---"
 run dig @ns1.unsigned.test +short unsigned.test A unsigned.test AAAA
