@@ -898,7 +898,6 @@ class Utilities():
 
     def wait_activated(self, link, state='down', timeout=20, fail_assert=True):
         # wait for the interface is activated.
-        invocation_id = check_output('systemctl show systemd-networkd -p InvocationID --value')
         needle = f'{link}: Bringing link {state}'
         flag = state.upper()
         for iteration in range(timeout + 1):
@@ -906,7 +905,7 @@ class Utilities():
                 time.sleep(1)
             if not link_exists(link):
                 continue
-            output = check_output('journalctl _SYSTEMD_INVOCATION_ID=' + invocation_id)
+            output = read_networkd_log()
             if needle in output and flag in check_output(f'ip link show {link}'):
                 return True
         if fail_assert:
