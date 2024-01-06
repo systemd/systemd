@@ -241,13 +241,13 @@ int battery_is_discharging_and_low(void) {
 
         r = on_ac_power();
         if (r < 0)
-                log_debug_errno(r, "Failed to check if the system is running on AC, assuming it is not: %m");
+                log_warning_errno(r, "Failed to check if the system is running on AC, assuming it is not: %m");
         if (r > 0)
                 return false;
 
         r = battery_enumerator_new(&e);
         if (r < 0)
-                return log_debug_errno(r, "Failed to initialize battery enumerator: %m");
+                return log_error_errno(r, "Failed to initialize battery enumerator: %m");
 
         FOREACH_DEVICE(e, dev) {
                 int level;
