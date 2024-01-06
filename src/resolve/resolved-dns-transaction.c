@@ -28,6 +28,8 @@ static void dns_transaction_reset_answer(DnsTransaction *t) {
         t->received = dns_packet_unref(t->received);
         t->answer = dns_answer_unref(t->answer);
         t->answer_rcode = 0;
+        t->answer_ede_rcode = _DNS_EDE_RCODE_INVALID;
+        t->answer_ede_msg = mfree(t->answer_ede_msg);
         t->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
         t->answer_source = _DNS_TRANSACTION_SOURCE_INVALID;
         t->answer_query_flags = 0;
@@ -165,8 +167,6 @@ DnsTransaction* dns_transaction_free(DnsTransaction *t) {
         dns_answer_unref(t->validated_keys);
         dns_resource_key_unref(t->key);
         dns_packet_unref(t->bypass);
-
-        free(t->answer_ede_msg);
 
         return mfree(t);
 }
