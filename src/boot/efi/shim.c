@@ -42,7 +42,7 @@ static bool shim_validate(
                 const void *ctx, const EFI_DEVICE_PATH *device_path, const void *file_buffer, size_t file_size) {
 
         EFI_STATUS err;
-        _cleanup_free_ char *file_buffer_owned = NULL;
+        _cleanup_free_ void *file_buffer_owned = NULL;
 
         if (!file_buffer) {
                 if (!device_path)
@@ -72,12 +72,12 @@ static bool shim_validate(
                 file_buffer = file_buffer_owned;
         }
 
-        struct ShimLock *shim_lock;
-        err = BS->LocateProtocol(MAKE_GUID_PTR(SHIM_LOCK), NULL, (void **) &shim_lock);
+        void *shim_lock;
+        err = BS->LocateProtocol(MAKE_GUID_PTR(SHIM_LOCK), NULL, &shim_lock);
         if (err != EFI_SUCCESS)
                 return false;
 
-        return shim_lock->shim_verify(file_buffer, file_size) == EFI_SUCCESS;
+        return ((struct ShimLock *)shim_lock)->shim_verify(file_buffer, file_size) == EFI_SUCCESS;
 }
 
 EFI_STATUS shim_load_image(EFI_HANDLE parent, const EFI_DEVICE_PATH *device_path, EFI_HANDLE *ret_image) {

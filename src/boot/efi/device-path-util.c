@@ -5,12 +5,12 @@
 
 EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DEVICE_PATH **ret_dp) {
         EFI_STATUS err;
-        EFI_DEVICE_PATH *dp;
+        void *dp;
 
         assert(file);
         assert(ret_dp);
 
-        err = BS->HandleProtocol(device, MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL), (void **) &dp);
+        err = BS->HandleProtocol(device, MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL), &dp);
         if (err != EFI_SUCCESS)
                 return err;
 
@@ -34,7 +34,7 @@ EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DE
         memcpy(file_dp->PathName, file, file_size);
 
         dp = device_path_next_node(dp);
-        *dp = DEVICE_PATH_END_NODE;
+        *(EFI_DEVICE_PATH *)dp = DEVICE_PATH_END_NODE;
         return EFI_SUCCESS;
 }
 
@@ -78,18 +78,20 @@ static char16_t *device_path_to_str_internal(const EFI_DEVICE_PATH *dp) {
 
 EFI_STATUS device_path_to_str(const EFI_DEVICE_PATH *dp, char16_t **ret) {
         EFI_DEVICE_PATH_TO_TEXT_PROTOCOL *dp_to_text;
+        void *dp_to_text_raw;
         EFI_STATUS err;
         _cleanup_free_ char16_t *str = NULL;
 
         assert(dp);
         assert(ret);
 
-        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_DEVICE_PATH_TO_TEXT_PROTOCOL), NULL, (void **) &dp_to_text);
+        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_DEVICE_PATH_TO_TEXT_PROTOCOL), NULL, &dp_to_text_raw);
         if (err != EFI_SUCCESS) {
                 *ret = device_path_to_str_internal(dp);
                 return EFI_SUCCESS;
         }
 
+        dp_to_text = dp_to_text_raw;
         str = dp_to_text->ConvertDevicePathToText(dp, false, false);
         if (!str)
                 return EFI_OUT_OF_RESOURCES;
