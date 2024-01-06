@@ -253,7 +253,7 @@ int dns_packet_extract(DnsPacket *p);
 
 bool dns_packet_equal(const DnsPacket *a, const DnsPacket *b);
 
-int dns_packet_ede_rcode(DnsPacket *p, char **ret_ede_msg);
+int dns_packet_ede_rcode(DnsPacket *p, int *ret_ede_rcode, char **ret_ede_msg);
 bool dns_ede_rcode_is_dnssec(int ede_rcode);
 int dns_packet_has_nsid_request(DnsPacket *p);
 
