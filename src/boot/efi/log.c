@@ -70,18 +70,21 @@ void log_wait(void) {
         log_count = 0;
 }
 
-_used_ intptr_t __stack_chk_guard = (intptr_t) 0x70f6967de78acae3;
+_used_ uintptr_t __stack_chk_guard = (uintptr_t) 0x70f6967de78acae3;
 
 /* We can only set a random stack canary if this function attribute is available,
  * otherwise this may create a stack check fail. */
 #if STACK_PROTECTOR_RANDOM
 void __stack_chk_guard_init(void) {
         EFI_RNG_PROTOCOL *rng;
-        if (BS->LocateProtocol(MAKE_GUID_PTR(EFI_RNG_PROTOCOL), NULL, (void **) &rng) == EFI_SUCCESS)
+        void *rng_raw;
+        if (BS->LocateProtocol(MAKE_GUID_PTR(EFI_RNG_PROTOCOL), NULL, &rng_raw) == EFI_SUCCESS) {
+                rng = rng_raw;
                 (void) rng->GetRNG(rng, NULL, sizeof(__stack_chk_guard), (void *) &__stack_chk_guard);
+        }
         else
                 /* Better than no extra entropy. */
-                __stack_chk_guard ^= (intptr_t) __executable_start;
+                __stack_chk_guard ^= (uintptr_t) __executable_start;
 }
 #endif
 
