@@ -999,7 +999,10 @@ int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid) {
                 const char *p;
 
                 p = procfs_file_alloca(pid, "cmdline");
-                r = read_full_virtual_file(p, &c->cmdline, &c->cmdline_size);
+                void *tmp;
+                r = read_full_virtual_file(p, &tmp, &c->cmdline_size);
+                c->cmdline = tmp;
+
                 if (r == -ENOENT)
                         return -ESRCH;
                 if (r < 0) {

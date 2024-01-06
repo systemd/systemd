@@ -469,7 +469,7 @@ int pid_getrlimit(pid_t pid, int resource, struct rlimit *ret) {
          * contrast to querying the data via prlimit() */
 
         const char *p = procfs_file_alloca(pid, "limits");
-        _cleanup_free_ char *limits = NULL;
+        _cleanup_free_ void *limits = NULL;
 
         r = read_full_virtual_file(p, &limits, NULL);
         if (r < 0)

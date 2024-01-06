@@ -314,7 +314,9 @@ static int check_wakeup_type(void) {
         int r;
 
         /* implementation via dmi/entries */
-        r = read_full_virtual_file(dmi_object_path, &buf, &bufsize);
+        void *tmp;
+        r = read_full_virtual_file(dmi_object_path, &tmp, &bufsize);
+        buf = tmp;
         if (r < 0)
                 return log_debug_errno(r, "Unable to read %s: %m", dmi_object_path);
         if (bufsize < 25)
