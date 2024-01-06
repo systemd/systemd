@@ -142,7 +142,7 @@ int write_string_stream_ts(
         }
 
         if (flags & WRITE_STRING_FILE_SUPPRESS_REDUNDANT_VIRTUAL) {
-                _cleanup_free_ char *t = NULL;
+                _cleanup_free_ void *t = NULL;
 
                 /* If value to be written is same as that of the existing value, then suppress the write. */
 
@@ -408,7 +408,7 @@ int verify_file_at(int dir_fd, const char *fn, const char *blob, bool accept_ext
         return 1;
 }
 
-int read_virtual_file_fd(int fd, size_t max_size, char **ret_contents, size_t *ret_size) {
+int read_virtual_file_fd(int fd, size_t max_size, void **ret_contents, size_t *ret_size) {
         _cleanup_free_ char *buf = NULL;
         size_t n, size;
         int n_retries;
@@ -557,7 +557,7 @@ int read_virtual_file_at(
                 int dir_fd,
                 const char *filename,
                 size_t max_size,
-                char **ret_contents,
+                void **ret_contents,
                 size_t *ret_size) {
 
         _cleanup_close_ int fd = -EBADF;
@@ -584,7 +584,7 @@ int read_full_stream_full(
                 uint64_t offset,
                 size_t size,
                 ReadFullFileFlags flags,
-                char **ret_contents,
+                void **ret_contents,
                 size_t *ret_size) {
 
         _cleanup_free_ char *buf = NULL;
@@ -770,7 +770,7 @@ int read_full_file_full(
                 size_t size,
                 ReadFullFileFlags flags,
                 const char *bind_name,
-                char **ret_contents,
+                void **ret_contents,
                 size_t *ret_size) {
 
         _cleanup_fclose_ FILE *f = NULL;
@@ -831,7 +831,7 @@ int executable_is_script(const char *path, char **interpreter) {
  * included in the value).
  */
 int get_proc_field(const char *filename, const char *pattern, const char *terminator, char **field) {
-        _cleanup_free_ char *status = NULL;
+        _cleanup_free_ void *status = NULL;
         char *t, *f;
         int r;
 

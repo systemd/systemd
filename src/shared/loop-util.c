@@ -58,7 +58,7 @@ static int loop_is_bound(int fd) {
 }
 
 static int get_current_uevent_seqnum(uint64_t *ret) {
-        _cleanup_free_ char *p = NULL;
+        _cleanup_free_ void *p = NULL;
         int r;
 
         r = read_full_virtual_file("/sys/kernel/uevent_seqnum", &p, NULL);
