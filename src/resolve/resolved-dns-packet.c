@@ -1166,6 +1166,31 @@ int dns_packet_append_rr(DnsPacket *p, const DnsResourceRecord *rr, const DnsAns
                 r = dns_packet_append_blob(p, rr->tlsa.data, rr->tlsa.data_size, NULL);
                 break;
 
+        case DNS_TYPE_SVCB:
+        case DNS_TYPE_HTTPS:
+                r = dns_packet_append_uint16(p, rr->svcb.priority, NULL);
+                if (r < 0)
+                        goto fail;
+
+                r = dns_packet_append_name(p, rr->svcb.target_name, false, false, NULL);
+                if (r < 0)
+                        goto fail;
+
+                LIST_FOREACH(params, i, rr->svcb.params) {
+                        r = dns_packet_append_uint16(p, i->key, NULL);
+                        if (r < 0)
+                                goto fail;
+
+                        r = dns_packet_append_uint16(p, i->length, NULL);
+                        if (r < 0)
+                                goto fail;
+
+                        r = dns_packet_append_blob(p, i->value, i->length, NULL);
+                        if (r < 0)
+                                goto fail;
+                }
+                break;
+
         case DNS_TYPE_CAA:
                 r = dns_packet_append_uint8(p, rr->caa.flags, NULL);
                 if (r < 0)
@@ -1672,6 +1697,41 @@ static bool loc_size_ok(uint8_t size) {
         return m <= 9 && e <= 9 && (m > 0 || e == 0);
 }
 
+static bool dns_svc_param_is_valid(DnsSvcParam *i) {
+        if (!i)
+                return false;
+
+        switch (i->key) {
+        /* RFC 9460, section 7.1.1: alpn-ids must exactly fill SvcParamValue */
+        case DNS_SVC_PARAM_KEY_ALPN: {
+                size_t sz = 0;
+                if (i->length <= 0)
+                        return false;
+                while (sz < i->length)
+                        sz += 1 + i->value[sz]; /* N.B. will not overflow */
+                return sz == i->length;
+        }
+
+        /* RFC 9460, section 7.1.1: value must be empty */
+        case DNS_SVC_PARAM_KEY_NO_DEFAULT_ALPN:
+                return i->length == 0;
+
+        /* RFC 9460, section 7.2 */
+        case DNS_SVC_PARAM_KEY_PORT:
+                return i->length == 2;
+
+        /* RFC 9460, section 7.3: addrs must exactly fill SvcParamValue */
+        case DNS_SVC_PARAM_KEY_IPV4HINT:
+                return i->length % (sizeof (struct in_addr)) == 0;
+        case DNS_SVC_PARAM_KEY_IPV6HINT:
+                return i->length % (sizeof (struct in6_addr)) == 0;
+
+        /* Otherwise, permit any value */
+        default:
+                return true;
+        }
+}
+
 int dns_packet_read_rr(
                 DnsPacket *p,
                 DnsResourceRecord **ret,
@@ -2103,6 +2163,52 @@ int dns_packet_read_rr(
                         /* the accepted size depends on the algorithm, but for now
                            just ensure that the value is greater than zero */
                         return -EBADMSG;
+
+                break;
+
+        case DNS_TYPE_SVCB:
+        case DNS_TYPE_HTTPS:
+                r = dns_packet_read_uint16(p, &rr->svcb.priority, NULL);
+                if (r < 0)
+                        return r;
+
+                r = dns_packet_read_name(p, &rr->svcb.target_name, false /* uncompressed */, NULL);
+                if (r < 0)
+                        return r;
+
+                DnsSvcParam *last = NULL;
+                while (p->rindex - offset < rdlength) {
+                        _cleanup_free_ DnsSvcParam *i = NULL;
+                        uint16_t svc_param_key;
+                        uint16_t sz;
+
+                        r = dns_packet_read_uint16(p, &svc_param_key, NULL);
+                        if (r < 0)
+                                return r;
+                        /* RFC 9460, section 2.2 says we must consider an RR malformed if SvcParamKeys are
+                         * not in strictly increasing order */
+                        if (last && last->key >= svc_param_key)
+                                return -EBADMSG;
+
+                        r = dns_packet_read_uint16(p, &sz, NULL);
+                        if (r < 0)
+                                return r;
+
+                        i = malloc0(offsetof(DnsSvcParam, value) + sz);
+                        if (!i)
+                                return -ENOMEM;
+
+                        i->key = svc_param_key;
+                        i->length = sz;
+                        r = dns_packet_read_blob(p, &i->value, sz, NULL);
+                        if (r < 0)
+                                return r;
+                        if (!dns_svc_param_is_valid(i))
+                                return -EBADMSG;
+
+                        LIST_INSERT_AFTER(params, rr->svcb.params, last, i);
+                        last = TAKE_PTR(i);
+                }
 
                 break;
 
@@ -2774,6 +2880,27 @@ const char *format_dns_ede_rcode(int i, char buf[static DECIMAL_STR_MAX(int)]) {
                 return p;
 
         return snprintf_ok(buf, DECIMAL_STR_MAX(int), "%i", i);
+}
+
+static const char* const dns_svc_param_key_table[_DNS_SVC_PARAM_KEY_MAX_DEFINED] = {
+        [DNS_SVC_PARAM_KEY_MANDATORY]       = "mandatory",
+        [DNS_SVC_PARAM_KEY_ALPN]            = "alpn",
+        [DNS_SVC_PARAM_KEY_NO_DEFAULT_ALPN] = "no-default-alpn",
+        [DNS_SVC_PARAM_KEY_PORT]            = "port",
+        [DNS_SVC_PARAM_KEY_IPV4HINT]        = "ipv4hint",
+        [DNS_SVC_PARAM_KEY_ECH]             = "ech",
+        [DNS_SVC_PARAM_KEY_IPV6HINT]        = "ipv6hint",
+        [DNS_SVC_PARAM_KEY_DOHPATH]         = "dohpath",
+        [DNS_SVC_PARAM_KEY_OHTTP]           = "ohttp",
+};
+DEFINE_STRING_TABLE_LOOKUP_TO_STRING(dns_svc_param_key, int);
+
+const char *format_dns_svc_param_key(uint16_t i, char buf[static DECIMAL_STR_MAX(uint16_t)+3]) {
+        const char *p = dns_svc_param_key_to_string(i);
+        if (p)
+                return p;
+
+        return snprintf_ok(buf, DECIMAL_STR_MAX(uint16_t)+3, "key%i", i);
 }
 
 static const char* const dns_protocol_table[_DNS_PROTOCOL_MAX] = {
