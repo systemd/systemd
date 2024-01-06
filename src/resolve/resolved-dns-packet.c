@@ -2632,7 +2632,7 @@ int dns_packet_ede_rcode(DnsPacket *p, char **ret_ede_msg) {
                 l -= 4U + length;
         }
 
-        return _DNS_EDNS_OPT_MAX_DEFINED;
+        return _DNS_EDE_RCODE_INVALID; /* Not found. */
 }
 
 bool dns_ede_rcode_is_dnssec(int ede_rcode) {
