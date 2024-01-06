@@ -29,7 +29,7 @@ static int getaddrinfo_handler(sd_resolve_query *q, int ret, const struct addrin
         }
 
         for (i = ai; i; i = i->ai_next) {
-                union sockaddr_union sa;
+                union sockaddr_union sa = {};
                 _cleanup_free_ char *addr = NULL;
                 sa.sa = *(i->ai_addr);
 
