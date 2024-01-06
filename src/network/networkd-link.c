@@ -967,6 +967,13 @@ static int link_drop_requests(Link *link) {
                                         RET_GATHER(ret, nexthop_remove(nexthop, link->manager));
                                 break;
                         }
+                        case REQUEST_TYPE_ROUTE: {
+                                Route *route = ASSERT_PTR(req->userdata);
+
+                                if (route_get(link->manager, route, NULL) < 0)
+                                        RET_GATHER(ret, route_remove(route, link->manager));
+                                break;
+                        }
                         default:
                                 ;
                         }
