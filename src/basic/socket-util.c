@@ -174,7 +174,7 @@ int socket_address_print(const SocketAddress *a, char **ret) {
                 return 0;
         }
 
-        return sockaddr_pretty(&a->sockaddr.sa, a->size, false, true, ret);
+        return sockaddr_pretty(&a->sockaddr, a->size, false, true, ret);
 }
 
 bool socket_address_can_accept(const SocketAddress *a) {
@@ -360,8 +360,7 @@ bool socket_address_matches_fd(const SocketAddress *a, int fd) {
         return socket_address_equal(a, &b);
 }
 
-int sockaddr_port(const struct sockaddr *_sa, unsigned *ret_port) {
-        const union sockaddr_union *sa = (const union sockaddr_union*) _sa;
+int sockaddr_port(const union sockaddr_union *sa, unsigned *ret_port) {
 
         /* Note, this returns the port as 'unsigned' rather than 'uint16_t', as AF_VSOCK knows larger ports */
 
@@ -441,13 +440,11 @@ int sockaddr_set_in_addr(
 }
 
 int sockaddr_pretty(
-                const struct sockaddr *_sa,
+                const union sockaddr_union *sa,
                 socklen_t salen,
                 bool translate_ipv6,
                 bool include_port,
                 char **ret) {
-
-        union sockaddr_union *sa = (union sockaddr_union*) _sa;
         char *p;
         int r;
 
@@ -607,7 +604,7 @@ int getpeername_pretty(int fd, bool include_port, char **ret) {
         /* For remote sockets we translate IPv6 addresses back to IPv4
          * if applicable, since that's nicer. */
 
-        return sockaddr_pretty(&sa.sa, salen, true, include_port, ret);
+        return sockaddr_pretty(&sa, salen, true, include_port, ret);
 }
 
 int getsockname_pretty(int fd, char **ret) {
@@ -625,7 +622,7 @@ int getsockname_pretty(int fd, char **ret) {
          * listening sockets where the difference between IPv4 and
          * IPv6 matters. */
 
-        return sockaddr_pretty(&sa.sa, salen, false, true, ret);
+        return sockaddr_pretty(&sa, salen, false, true, ret);
 }
 
 int socknameinfo_pretty(union sockaddr_union *sa, socklen_t salen, char **_ret) {
@@ -638,7 +635,7 @@ int socknameinfo_pretty(union sockaddr_union *sa, socklen_t salen, char **_ret) 
         if (r != 0) {
                 int saved_errno = errno;
 
-                r = sockaddr_pretty(&sa->sa, salen, true, true, &ret);
+                r = sockaddr_pretty(sa, salen, true, true, &ret);
                 if (r < 0)
                         return r;
 
