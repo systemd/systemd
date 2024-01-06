@@ -553,7 +553,7 @@ TEST(line_get_key_value) {
         assert_se(!line_get_key_value(s2, " \t", &pos, &key, &value));
 
         /* Let's make sure we don't fail on real os-release data. */
-        _cleanup_free_ char *osrel = NULL;
+        _cleanup_free_ void *osrel = NULL;
         if (read_full_file("/usr/lib/os-release", &osrel, NULL) >= 0) {
                 pos = 0;
                 while (line_get_key_value(osrel, "=", &pos, &key, &value)) {
