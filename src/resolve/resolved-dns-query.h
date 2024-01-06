@@ -73,9 +73,9 @@ struct DnsQuery {
         /* Discovered data */
         DnsAnswer *answer;
         int answer_rcode;
-        DnssecResult answer_dnssec_result;
         int answer_ede_rcode;
         char *answer_ede_msg;
+        DnssecResult answer_dnssec_result;
         uint64_t answer_query_flags;
         DnsProtocol answer_protocol;
         int answer_family;

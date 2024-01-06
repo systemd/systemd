@@ -368,6 +368,8 @@ static void dns_query_reset_answer(DnsQuery *q) {
 
         q->answer = dns_answer_unref(q->answer);
         q->answer_rcode = 0;
+        q->answer_ede_rcode = _DNS_EDE_RCODE_INVALID;
+        q->answer_ede_msg = mfree(q->answer_ede_msg);
         q->answer_dnssec_result = _DNSSEC_RESULT_INVALID;
         q->answer_errno = 0;
         q->answer_query_flags = 0;
@@ -420,8 +422,6 @@ DnsQuery *dns_query_free(DnsQuery *q) {
         dns_answer_unref(q->reply_answer);
         dns_answer_unref(q->reply_authoritative);
         dns_answer_unref(q->reply_additional);
-
-        free(q->answer_ede_msg);
 
         if (q->request_stream) {
                 /* Detach the stream from our query, in case something else keeps a reference to it. */
@@ -516,6 +516,7 @@ int dns_query_new(
                 .question_bypass = dns_packet_ref(question_bypass),
                 .ifindex = ifindex,
                 .flags = flags,
+                .answer_ede_rcode = _DNS_EDE_RCODE_INVALID,
                 .answer_dnssec_result = _DNSSEC_RESULT_INVALID,
                 .answer_protocol = _DNS_PROTOCOL_INVALID,
                 .answer_family = AF_UNSPEC,
@@ -898,20 +899,13 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                             !FLAGS_SET(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED))
                                 continue;
 
-                        char *answer_ede_msg = NULL;
-                        if (t->answer_ede_msg) {
-                                answer_ede_msg = strdup(t->answer_ede_msg);
-                                if (!answer_ede_msg) {
-                                        r = log_oom();
-                                        goto fail;
-                                }
-                        }
-
                         DNS_ANSWER_REPLACE(q->answer, dns_answer_ref(t->answer));
                         q->answer_rcode = t->answer_rcode;
-                        q->answer_dnssec_result = t->answer_dnssec_result;
                         q->answer_ede_rcode = t->answer_ede_rcode;
-                        q->answer_ede_msg = answer_ede_msg;
+                        r = free_and_strdup_warn(&q->answer_ede_msg, t->answer_ede_msg);
+                        if (r < 0)
+                                goto fail;
+                        q->answer_dnssec_result = t->answer_dnssec_result;
                         q->answer_query_flags = t->answer_query_flags | dns_transaction_source_to_query_flags(t->answer_source);
                         q->answer_errno = t->answer_errno;
                         DNS_PACKET_REPLACE(q->answer_full_packet, dns_packet_ref(t->received));
