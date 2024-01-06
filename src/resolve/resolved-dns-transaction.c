@@ -1328,7 +1328,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
 
                 if (DNS_PACKET_RCODE(p) == DNS_RCODE_REFUSED) {
                         /* This server refused our request? If so, try again, use a different server */
-                        if (ede_rcode > 0)
+                        if (ede_rcode >= 0)
                                 log_debug("Server returned REFUSED (%s), switching servers, and retrying.",
                                                 FORMAT_DNS_EDE_RCODE(ede_rcode));
                         else
