@@ -1245,10 +1245,10 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                                  * this is the domain operator's problem, and retrying won't help. */
                                 if (dns_ede_rcode_is_dnssec(ede_rcode)) {
                                         log_debug("Server returned error: %s (%s%s%s). Lookup failed.",
-                                                        FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)),
-                                                        FORMAT_DNS_EDE_RCODE(ede_rcode),
-                                                        isempty(t->answer_ede_msg) ? "" : ": ",
-                                                        t->answer_ede_msg);
+                                                  FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)),
+                                                  FORMAT_DNS_EDE_RCODE(ede_rcode),
+                                                  isempty(t->answer_ede_msg) ? "" : ": ",
+                                                  t->answer_ede_msg);
                                         dns_transaction_complete(t, DNS_TRANSACTION_UPSTREAM_DNSSEC_FAILURE);
                                         return;
                                 }
@@ -1256,10 +1256,10 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                                 /* These codes probably indicate a transient error. Let's try again. */
                                 if (IN_SET(ede_rcode, DNS_EDE_RCODE_NOT_READY, DNS_EDE_RCODE_NET_ERROR)) {
                                         log_debug("Server returned error: %s (%s%s%s), retrying transaction.",
-                                                        FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)),
-                                                        FORMAT_DNS_EDE_RCODE(ede_rcode),
-                                                        isempty(t->answer_ede_msg) ? "" : ": ",
-                                                        t->answer_ede_msg);
+                                                  FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)),
+                                                  FORMAT_DNS_EDE_RCODE(ede_rcode),
+                                                  isempty(t->answer_ede_msg) ? "" : ": ",
+                                                  t->answer_ede_msg);
                                         dns_transaction_retry(t, false);
                                         return;
                                 }
@@ -1267,11 +1267,11 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                                 /* OK, the query failed, but we still shouldn't degrade the feature set for
                                  * this server. */
                                 log_debug("Server returned error: %s (%s%s%s)",
-                                                FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)),
-                                                FORMAT_DNS_EDE_RCODE(ede_rcode),
-                                                isempty(t->answer_ede_msg) ? "" : ": ", t->answer_ede_msg);
+                                          FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)),
+                                          FORMAT_DNS_EDE_RCODE(ede_rcode),
+                                          isempty(t->answer_ede_msg) ? "" : ": ", t->answer_ede_msg);
                                 break;
-                        } /* No EDE rcode, or EDE rcode we don't understand */
+                        }
 
                         /* Request failed, immediately try again with reduced features */
 
