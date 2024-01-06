@@ -12,7 +12,8 @@
 
 static void load_bcd(const char *path, void **ret_bcd, size_t *ret_bcd_len) {
         size_t len;
-        _cleanup_free_ char *fn = NULL, *compressed = NULL;
+        _cleanup_free_ char *fn = NULL;
+        _cleanup_free_ void *compressed = NULL;
 
         assert_se(get_testdata_dir(path, &fn) >= 0);
         assert_se(read_full_file_full(AT_FDCWD, fn, UINT64_MAX, SIZE_MAX, 0, NULL, &compressed, &len) >= 0);
@@ -56,10 +57,12 @@ TEST(base_block) {
         size_t len;
         BaseBlock backup;
         uint8_t *bcd_base;
-        _cleanup_free_ BaseBlock *bcd = NULL;
+        BaseBlock *bcd;
+        _cleanup_free_ void *bcd_raw = NULL;
 
-        load_bcd("test-bcd/win10.bcd.zst", (void **) &bcd, &len);
-        backup = *bcd;
+        load_bcd("test-bcd/win10.bcd.zst", &bcd_raw, &len);
+        bcd = bcd_raw;
+        backup = *(BaseBlock *)bcd;
         bcd_base = (uint8_t *) bcd;
 
         assert_se(get_bcd_title(bcd_base, len));
@@ -67,7 +70,6 @@ TEST(base_block) {
         /* Try various "corruptions" of the base block. */
 
         assert_se(!get_bcd_title(bcd_base, sizeof(BaseBlock) - 1));
-
         bcd->sig = 0;
         assert_se(!get_bcd_title(bcd_base, len));
         *bcd = backup;
@@ -139,6 +141,7 @@ TEST(argv_bcds) {
         for (int i = 1; i < saved_argc; i++) {
                 size_t len;
                 _cleanup_free_ void *bcd = NULL;
+                char *bcd_raw;
 
                 assert_se(read_full_file_full(
                         AT_FDCWD,
@@ -147,9 +150,10 @@ TEST(argv_bcds) {
                         SIZE_MAX,
                         0,
                         NULL,
-                        (char **) &bcd,
+                        &bcd_raw,
                         &len) >= 0);
-
+                
+                bcd = bcd_raw;
                 char16_t *title = get_bcd_title(bcd, len);
                 if (title) {
                         _cleanup_free_ char *title_utf8 = utf16_to_utf8(title, SIZE_MAX);
