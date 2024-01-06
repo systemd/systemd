@@ -908,6 +908,23 @@ static int dns_transaction_dnssec_ready(DnsTransaction *t) {
                         dns_transaction_complete(t, DNS_TRANSACTION_DNSSEC_FAILED);
                         return 0;
 
+                case DNS_TRANSACTION_UPSTREAM_DNSSEC_FAILURE:
+                        /* Failed with DNSSEC related EDE rcode. */
+
+                        log_debug("Auxiliary DNSSEC RR query failed with an upstream resolver issue: %s%s%s",
+                                  dns_ede_rcode_to_string(dt->answer_ede_rcode),
+                                  isempty(dt->answer_ede_msg) ? "" : ": ",
+                                  dt->answer_ede_msg);
+
+                        /* Copy error code over */
+                        t->answer_ede_rcode = dt->answer_ede_rcode;
+                        r = free_and_strdup_warn(&t->answer_ede_msg, dt->answer_ede_msg);
+                        if (r < 0)
+                                return r;
+
+                        dns_transaction_complete(t, DNS_TRANSACTION_UPSTREAM_DNSSEC_FAILURE);
+                        return 0;
+
                 default:
                         log_debug("Auxiliary DNSSEC RR query failed with %s", dns_transaction_state_to_string(dt->state));
                         goto fail;
@@ -1223,18 +1240,17 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
         switch (t->scope->protocol) {
 
         case DNS_PROTOCOL_DNS: {
-                int ede_rcode;
                 _cleanup_free_ char *ede_msg = NULL;
+                int ede_rcode;
 
                 assert(t->server);
 
                 ede_rcode = dns_packet_ede_rcode(p, &ede_msg);
-                if (ede_rcode < 0 && ede_rcode != -EINVAL)
-                        log_debug_errno(ede_rcode, "Unable to extract EDE error code from packet, ignoring: %m");
-                else {
+                if (ede_rcode >= 0) {
                         t->answer_ede_rcode = ede_rcode;
-                        t->answer_ede_msg = TAKE_PTR(ede_msg);
-                }
+                        free_and_replace(t->answer_ede_msg, ede_msg);
+                } else if (ede_rcode != _DNS_EDE_RCODE_INVALID)
+                        log_debug_errno(ede_rcode, "Unable to extract EDE error code from packet, ignoring: %m");
 
                 if (!t->bypass &&
                     IN_SET(DNS_PACKET_RCODE(p), DNS_RCODE_FORMERR, DNS_RCODE_SERVFAIL, DNS_RCODE_NOTIMP)) {
@@ -1246,10 +1262,10 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                                  * this is the domain operator's problem, and retrying won't help. */
                                 if (dns_ede_rcode_is_dnssec(ede_rcode)) {
                                         log_debug("Server returned error: %s (%s%s%s). Lookup failed.",
-                                                        FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)),
-                                                        FORMAT_DNS_EDE_RCODE(ede_rcode),
-                                                        isempty(t->answer_ede_msg) ? "" : ": ",
-                                                        t->answer_ede_msg);
+                                                  FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)),
+                                                  FORMAT_DNS_EDE_RCODE(ede_rcode),
+                                                  isempty(t->answer_ede_msg) ? "" : ": ",
+                                                  t->answer_ede_msg);
                                         dns_transaction_complete(t, DNS_TRANSACTION_UPSTREAM_DNSSEC_FAILURE);
                                         return;
                                 }
@@ -1257,10 +1273,10 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                                 /* These codes probably indicate a transient error. Let's try again. */
                                 if (IN_SET(ede_rcode, DNS_EDE_RCODE_NOT_READY, DNS_EDE_RCODE_NET_ERROR)) {
                                         log_debug("Server returned error: %s (%s%s%s), retrying transaction.",
-                                                        FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)),
-                                                        FORMAT_DNS_EDE_RCODE(ede_rcode),
-                                                        isempty(t->answer_ede_msg) ? "" : ": ",
-                                                        t->answer_ede_msg);
+                                                  FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)),
+                                                  FORMAT_DNS_EDE_RCODE(ede_rcode),
+                                                  isempty(t->answer_ede_msg) ? "" : ": ",
+                                                  t->answer_ede_msg);
                                         dns_transaction_retry(t, false);
                                         return;
                                 }
@@ -1268,11 +1284,11 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                                 /* OK, the query failed, but we still shouldn't degrade the feature set for
                                  * this server. */
                                 log_debug("Server returned error: %s (%s%s%s)",
-                                                FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)),
-                                                FORMAT_DNS_EDE_RCODE(ede_rcode),
-                                                isempty(t->answer_ede_msg) ? "" : ": ", t->answer_ede_msg);
+                                          FORMAT_DNS_RCODE(DNS_PACKET_RCODE(p)),
+                                          FORMAT_DNS_EDE_RCODE(ede_rcode),
+                                          isempty(t->answer_ede_msg) ? "" : ": ", t->answer_ede_msg);
                                 break;
-                        } /* No EDE rcode, or EDE rcode we don't understand */
+                        }
 
                         /* Request failed, immediately try again with reduced features */
 
@@ -1329,7 +1345,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
 
                 if (DNS_PACKET_RCODE(p) == DNS_RCODE_REFUSED) {
                         /* This server refused our request? If so, try again, use a different server */
-                        if (ede_rcode > 0)
+                        if (ede_rcode >= 0)
                                 log_debug("Server returned REFUSED (%s), switching servers, and retrying.",
                                                 FORMAT_DNS_EDE_RCODE(ede_rcode));
                         else
@@ -3689,24 +3705,25 @@ int dns_transaction_validate_dnssec(DnsTransaction *t) {
 }
 
 static const char* const dns_transaction_state_table[_DNS_TRANSACTION_STATE_MAX] = {
-        [DNS_TRANSACTION_NULL]                 = "null",
-        [DNS_TRANSACTION_PENDING]              = "pending",
-        [DNS_TRANSACTION_VALIDATING]           = "validating",
-        [DNS_TRANSACTION_RCODE_FAILURE]        = "rcode-failure",
-        [DNS_TRANSACTION_SUCCESS]              = "success",
-        [DNS_TRANSACTION_NO_SERVERS]           = "no-servers",
-        [DNS_TRANSACTION_TIMEOUT]              = "timeout",
-        [DNS_TRANSACTION_ATTEMPTS_MAX_REACHED] = "attempts-max-reached",
-        [DNS_TRANSACTION_INVALID_REPLY]        = "invalid-reply",
-        [DNS_TRANSACTION_ERRNO]                = "errno",
-        [DNS_TRANSACTION_ABORTED]              = "aborted",
-        [DNS_TRANSACTION_DNSSEC_FAILED]        = "dnssec-failed",
-        [DNS_TRANSACTION_NO_TRUST_ANCHOR]      = "no-trust-anchor",
-        [DNS_TRANSACTION_RR_TYPE_UNSUPPORTED]  = "rr-type-unsupported",
-        [DNS_TRANSACTION_NETWORK_DOWN]         = "network-down",
-        [DNS_TRANSACTION_NOT_FOUND]            = "not-found",
-        [DNS_TRANSACTION_NO_SOURCE]            = "no-source",
-        [DNS_TRANSACTION_STUB_LOOP]            = "stub-loop",
+        [DNS_TRANSACTION_NULL]                    = "null",
+        [DNS_TRANSACTION_PENDING]                 = "pending",
+        [DNS_TRANSACTION_VALIDATING]              = "validating",
+        [DNS_TRANSACTION_RCODE_FAILURE]           = "rcode-failure",
+        [DNS_TRANSACTION_UPSTREAM_DNSSEC_FAILURE] = "upstream-dnssec-failure",
+        [DNS_TRANSACTION_SUCCESS]                 = "success",
+        [DNS_TRANSACTION_NO_SERVERS]              = "no-servers",
+        [DNS_TRANSACTION_TIMEOUT]                 = "timeout",
+        [DNS_TRANSACTION_ATTEMPTS_MAX_REACHED]    = "attempts-max-reached",
+        [DNS_TRANSACTION_INVALID_REPLY]           = "invalid-reply",
+        [DNS_TRANSACTION_ERRNO]                   = "errno",
+        [DNS_TRANSACTION_ABORTED]                 = "aborted",
+        [DNS_TRANSACTION_DNSSEC_FAILED]           = "dnssec-failed",
+        [DNS_TRANSACTION_NO_TRUST_ANCHOR]         = "no-trust-anchor",
+        [DNS_TRANSACTION_RR_TYPE_UNSUPPORTED]     = "rr-type-unsupported",
+        [DNS_TRANSACTION_NETWORK_DOWN]            = "network-down",
+        [DNS_TRANSACTION_NOT_FOUND]               = "not-found",
+        [DNS_TRANSACTION_NO_SOURCE]               = "no-source",
+        [DNS_TRANSACTION_STUB_LOOP]               = "stub-loop",
 };
 DEFINE_STRING_TABLE_LOOKUP(dns_transaction_state, DnsTransactionState);
 

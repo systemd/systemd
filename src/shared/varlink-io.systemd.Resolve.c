@@ -48,7 +48,9 @@ static VARLINK_DEFINE_ERROR(NoSource);
 static VARLINK_DEFINE_ERROR(StubLoop);
 static VARLINK_DEFINE_ERROR(
                 DNSError,
-                VARLINK_DEFINE_FIELD(rcode, VARLINK_INT, 0));
+                VARLINK_DEFINE_FIELD(rcode, VARLINK_INT, 0),
+                VARLINK_DEFINE_FIELD(extendedDNSErrorCode, VARLINK_INT, VARLINK_NULLABLE),
+                VARLINK_DEFINE_FIELD(extendedDNSErrorMessage, VARLINK_STRING, VARLINK_NULLABLE));
 static VARLINK_DEFINE_ERROR(CNAMELoop);
 static VARLINK_DEFINE_ERROR(BadAddressSize);
 
