@@ -108,7 +108,9 @@ int sysctl_read(const char *property, char **ret) {
         if (!path_is_normalized(p)) /* Filter out attempts to write to /proc/sys/../../…, just in case */
                 return -EINVAL;
 
-        r = read_full_virtual_file(p, ret, NULL);
+        void *voidPtr = ret;
+        r = read_full_virtual_file(p, (void **)voidPtr, NULL);
+
         if (r < 0)
                 return r;
         if (ret)

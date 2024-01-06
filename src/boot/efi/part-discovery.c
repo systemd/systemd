@@ -159,9 +159,12 @@ static EFI_STATUS find_device(const EFI_GUID *type, EFI_HANDLE *device, EFI_DEVI
         assert(ret_device_path);
 
         EFI_DEVICE_PATH *partition_path;
-        err = BS->HandleProtocol(device, MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL), (void **) &partition_path);
+        void *partition_path_raw;
+        err = BS->HandleProtocol(device, MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL), &partition_path_raw);
         if (err != EFI_SUCCESS)
                 return err;
+        
+        partition_path = partition_path_raw;
 
         /* Find the (last) partition node itself. */
         EFI_DEVICE_PATH *part_node = NULL;
@@ -232,7 +235,7 @@ static EFI_STATUS find_device(const EFI_GUID *type, EFI_HANDLE *device, EFI_DEVI
                 }
 
                 /* Patch in the data we found */
-                *ret_device_path = device_path_replace_node(partition_path, part_node, (EFI_DEVICE_PATH *) &hd);
+                *ret_device_path = device_path_replace_node(partition_path, part_node, &hd.Header);
                 return EFI_SUCCESS;
         }
 
