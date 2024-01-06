@@ -76,6 +76,14 @@ static int reply_query_state(DnsQuery *q) {
                 return varlink_errorb(q->varlink_request, "io.systemd.Resolve.DNSError",
                                       JSON_BUILD_OBJECT(JSON_BUILD_PAIR("rcode", JSON_BUILD_INTEGER(q->answer_rcode))));
 
+        case DNS_TRANSACTION_UPSTREAM_DNSSEC_FAILURE:
+                return varlink_errorb(q->varlink_request, "io.systemd.Resolve.DNSError",
+                                      JSON_BUILD_OBJECT(JSON_BUILD_PAIR("rcode", JSON_BUILD_INTEGER(q->answer_rcode)),
+                                                        JSON_BUILD_PAIR_CONDITION(q->answer_ede_rcode >= 0,
+                                                                                  "extendedDNSErrorCode", JSON_BUILD_INTEGER(q->answer_ede_rcode)),
+                                                        JSON_BUILD_PAIR_CONDITION(q->answer_ede_rcode >= 0 && !isempty(q->answer_ede_msg),
+                                                                                  "extendedDNSErrorMessage", JSON_BUILD_STRING(q->answer_ede_msg))));
+
         case DNS_TRANSACTION_NULL:
         case DNS_TRANSACTION_PENDING:
         case DNS_TRANSACTION_VALIDATING:
