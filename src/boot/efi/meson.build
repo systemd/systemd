@@ -130,7 +130,7 @@ efi_includes = [
 efi_c_args = [
         '-DSD_BOOT=1',
         '-ffreestanding',
-        '-fno-strict-aliasing',
+        '-fstrict-aliasing',
         '-fshort-wchar',
         '-include', 'efi_config.h',
 ]
