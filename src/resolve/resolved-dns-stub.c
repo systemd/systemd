@@ -846,6 +846,7 @@ static void dns_stub_query_complete(DnsQuery *query) {
         case DNS_TRANSACTION_NETWORK_DOWN:
         case DNS_TRANSACTION_NO_SOURCE:
         case DNS_TRANSACTION_STUB_LOOP:
+        case DNS_TRANSACTION_UPSTREAM_DNSSEC_FAILURE:
                 (void) dns_stub_send_reply(q, DNS_RCODE_SERVFAIL);
                 break;
 
