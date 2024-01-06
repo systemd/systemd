@@ -908,6 +908,23 @@ static int dns_transaction_dnssec_ready(DnsTransaction *t) {
                         dns_transaction_complete(t, DNS_TRANSACTION_DNSSEC_FAILED);
                         return 0;
 
+                case DNS_TRANSACTION_UPSTREAM_DNSSEC_FAILURE:
+                        /* Failed with DNSSEC related EDE rcode. */
+
+                        log_debug("Auxiliary DNSSEC RR query failed with an upstream resolver issue: %s%s%s",
+                                  dns_ede_rcode_to_string(dt->answer_ede_rcode),
+                                  isempty(dt->answer_ede_msg) ? "" : ": ",
+                                  dt->answer_ede_msg);
+
+                        /* Copy error code over */
+                        t->answer_ede_rcode = dt->answer_ede_rcode;
+                        r = free_and_strdup_warn(&t->answer_ede_msg, dt->answer_ede_msg);
+                        if (r < 0)
+                                return r;
+
+                        dns_transaction_complete(t, DNS_TRANSACTION_UPSTREAM_DNSSEC_FAILURE);
+                        return 0;
+
                 default:
                         log_debug("Auxiliary DNSSEC RR query failed with %s", dns_transaction_state_to_string(dt->state));
                         goto fail;
