@@ -167,7 +167,8 @@ static bool use_load_options(
         /* The UEFI shell registers EFI_SHELL_PARAMETERS_PROTOCOL onto images it runs. This lets us know that
          * LoadOptions starts with the stub binary path which we want to strip off. */
         EFI_SHELL_PARAMETERS_PROTOCOL *shell;
-        if (BS->HandleProtocol(stub_image, MAKE_GUID_PTR(EFI_SHELL_PARAMETERS_PROTOCOL), (void **) &shell)
+        void *shell_raw;
+        if (BS->HandleProtocol(stub_image, MAKE_GUID_PTR(EFI_SHELL_PARAMETERS_PROTOCOL), &shell_raw)
             != EFI_SUCCESS) {
                 /* Not running from EFI shell, use entire LoadOptions. Note that LoadOptions is a void*, so
                  * it could be anything! */
@@ -176,6 +177,7 @@ static bool use_load_options(
                 return true;
         }
 
+        shell = shell_raw;
         if (shell->Argc < 2)
                 /* No arguments were provided? Then we fall back to built-in cmdline. */
                 return false;
@@ -507,6 +509,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
         EFI_PHYSICAL_ADDRESS linux_base, initrd_base, dt_base;
         _cleanup_(devicetree_cleanup) struct devicetree_state dt_state = {};
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
+        void *loaded_image_raw;
         size_t addrs[_UNIFIED_SECTION_MAX] = {}, szs[_UNIFIED_SECTION_MAX] = {};
         _cleanup_free_ char16_t *cmdline = NULL, *cmdline_addons_global = NULL, *cmdline_addons_uki = NULL;
         int sections_measured = -1, parameters_measured = -1;
@@ -515,10 +518,11 @@ static EFI_STATUS run(EFI_HANDLE image) {
         uint64_t loader_features = 0;
         EFI_STATUS err;
 
-        err = BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
+        err = BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), &loaded_image_raw);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error getting a LoadedImageProtocol handle: %m");
-
+        
+        loaded_image = loaded_image_raw;
         if (loaded_image->DeviceHandle && /* Handle case, where bootloader doesn't support DeviceHandle. */
             (efivar_get_uint64_le(MAKE_GUID_PTR(LOADER), u"LoaderFeatures", &loader_features) != EFI_SUCCESS ||
             !FLAGS_SET(loader_features, EFI_LOADER_FEATURE_RANDOM_SEED))) {
