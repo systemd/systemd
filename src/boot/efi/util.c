@@ -88,7 +88,7 @@ EFI_STATUS efivar_get(const EFI_GUID *vendor, const char16_t *name, char16_t **r
         assert(vendor);
         assert(name);
 
-        err = efivar_get_raw(vendor, name, (char **) &buf, &size);
+        err = efivar_get_raw(vendor, name, &buf, &size);
         if (err != EFI_SUCCESS)
                 return err;
 
@@ -136,51 +136,55 @@ EFI_STATUS efivar_get_uint_string(const EFI_GUID *vendor, const char16_t *name, 
 }
 
 EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const char16_t *name, uint32_t *ret) {
-        _cleanup_free_ char *buf = NULL;
+        _cleanup_free_ void *buf_raw = NULL;
         size_t size;
         EFI_STATUS err;
 
         assert(vendor);
         assert(name);
 
-        err = efivar_get_raw(vendor, name, &buf, &size);
+        err = efivar_get_raw(vendor, name, &buf_raw, &size);
         if (err != EFI_SUCCESS)
                 return err;
 
         if (size != sizeof(uint32_t))
                 return EFI_BUFFER_TOO_SMALL;
 
-        if (ret)
+        if (ret) {
+                uint8_t *buf = buf_raw;
                 *ret = (uint32_t) buf[0] << 0U | (uint32_t) buf[1] << 8U | (uint32_t) buf[2] << 16U |
                         (uint32_t) buf[3] << 24U;
+        }
 
         return EFI_SUCCESS;
 }
 
 EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const char16_t *name, uint64_t *ret) {
-        _cleanup_free_ char *buf = NULL;
+        _cleanup_free_ void *buf_raw = NULL;
         size_t size;
         EFI_STATUS err;
 
         assert(vendor);
         assert(name);
 
-        err = efivar_get_raw(vendor, name, &buf, &size);
+        err = efivar_get_raw(vendor, name, &buf_raw, &size);
         if (err != EFI_SUCCESS)
                 return err;
 
         if (size != sizeof(uint64_t))
                 return EFI_BUFFER_TOO_SMALL;
 
-        if (ret)
+        if (ret) {
+                uint8_t *buf = buf_raw;
                 *ret = (uint64_t) buf[0] << 0U | (uint64_t) buf[1] << 8U | (uint64_t) buf[2] << 16U |
                         (uint64_t) buf[3] << 24U | (uint64_t) buf[4] << 32U | (uint64_t) buf[5] << 40U |
                         (uint64_t) buf[6] << 48U | (uint64_t) buf[7] << 56U;
+        }
 
         return EFI_SUCCESS;
 }
 
-EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const char16_t *name, char **ret, size_t *ret_size) {
+EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const char16_t *name, void **ret, size_t *ret_size) {
         EFI_STATUS err;
 
         assert(vendor);
@@ -205,7 +209,7 @@ EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const char16_t *name, char **r
 }
 
 EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const char16_t *name, bool *ret) {
-        _cleanup_free_ char *b = NULL;
+        _cleanup_free_ uint8_t *b = NULL;
         size_t size;
         EFI_STATUS err;
 
@@ -217,7 +221,7 @@ EFI_STATUS efivar_get_boolean_u8(const EFI_GUID *vendor, const char16_t *name, b
                 return err;
 
         if (ret)
-                *ret = *b > 0;
+                *ret = !!*b;
 
         return EFI_SUCCESS;
 }
