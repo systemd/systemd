@@ -259,28 +259,34 @@ int dns_packet_has_nsid_request(DnsPacket *p);
 
 /* https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-6 */
 enum {
-        DNS_RCODE_SUCCESS = 0,
-        DNS_RCODE_FORMERR = 1,
-        DNS_RCODE_SERVFAIL = 2,
-        DNS_RCODE_NXDOMAIN = 3,
-        DNS_RCODE_NOTIMP = 4,
-        DNS_RCODE_REFUSED = 5,
-        DNS_RCODE_YXDOMAIN = 6,
-        DNS_RCODE_YXRRSET = 7,
-        DNS_RCODE_NXRRSET = 8,
-        DNS_RCODE_NOTAUTH = 9,
-        DNS_RCODE_NOTZONE = 10,
-        DNS_RCODE_BADVERS = 16,
-        DNS_RCODE_BADSIG = 16, /* duplicate value! */
-        DNS_RCODE_BADKEY = 17,
-        DNS_RCODE_BADTIME = 18,
-        DNS_RCODE_BADMODE = 19,
-        DNS_RCODE_BADNAME = 20,
-        DNS_RCODE_BADALG = 21,
-        DNS_RCODE_BADTRUNC = 22,
-        DNS_RCODE_BADCOOKIE = 23,
+        DNS_RCODE_SUCCESS       = 0,
+        DNS_RCODE_FORMERR       = 1,
+        DNS_RCODE_SERVFAIL      = 2,
+        DNS_RCODE_NXDOMAIN      = 3,
+        DNS_RCODE_NOTIMP        = 4,
+        DNS_RCODE_REFUSED       = 5,
+        DNS_RCODE_YXDOMAIN      = 6,
+        DNS_RCODE_YXRRSET       = 7,
+        DNS_RCODE_NXRRSET       = 8,
+        DNS_RCODE_NOTAUTH       = 9,
+        DNS_RCODE_NOTZONE       = 10,
+        DNS_RCODE_DSOTYPENI     = 11,
+        /* 12-15 are unassigned. */
+        DNS_RCODE_BADVERS       = 16,
+        DNS_RCODE_BADSIG        = 16, /* duplicate value! */
+        DNS_RCODE_BADKEY        = 17,
+        DNS_RCODE_BADTIME       = 18,
+        DNS_RCODE_BADMODE       = 19,
+        DNS_RCODE_BADNAME       = 20,
+        DNS_RCODE_BADALG        = 21,
+        DNS_RCODE_BADTRUNC      = 22,
+        DNS_RCODE_BADCOOKIE     = 23,
+        /* 24-3840 are unassigned. */
+        /* 3841-4095 are for private use. */
+        /* 4096-65534 are unassigned. */
         _DNS_RCODE_MAX_DEFINED,
-        _DNS_RCODE_MAX = 4095 /* 4 bit rcode in the header plus 8 bit rcode in OPT, makes 12 bit */
+        _DNS_RCODE_MAX          = 65535, /* reserved */
+        _DNS_RCODE_INVALID      = -EINVAL,
 };
 
 /* https://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-11 */
