@@ -281,7 +281,7 @@ static int dhcp_pd_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
 }
 
 static int dhcp_pd_request_route(Link *link, const struct in6_addr *prefix, usec_t lifetime_usec) {
-        _cleanup_(route_freep) Route *route = NULL;
+        _cleanup_(route_unrefp) Route *route = NULL;
         Route *existing;
         int r;
 
@@ -665,7 +665,7 @@ static int dhcp_request_unreachable_route(
                 route_netlink_handler_t callback,
                 bool *configured) {
 
-        _cleanup_(route_freep) Route *route = NULL;
+        _cleanup_(route_unrefp) Route *route = NULL;
         Route *existing;
         int r;
 
@@ -772,7 +772,7 @@ static int dhcp_pd_prefix_add(Link *link, const struct in6_addr *prefix, uint8_t
 }
 
 static int dhcp4_pd_request_default_gateway_on_6rd_tunnel(Link *link, const struct in_addr *br_address, usec_t lifetime_usec) {
-        _cleanup_(route_freep) Route *route = NULL;
+        _cleanup_(route_unrefp) Route *route = NULL;
         Route *existing;
         int r;
 
