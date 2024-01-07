@@ -1088,6 +1088,7 @@ int config_parse_string(
                 void *userdata) {
 
         char **s = ASSERT_PTR(data);
+        int r;
 
         assert(filename);
         assert(lvalue);
@@ -1095,7 +1096,7 @@ int config_parse_string(
 
         if (isempty(rvalue)) {
                 *s = mfree(*s);
-                return 0;
+                return 1;
         }
 
         if (FLAGS_SET(ltype, CONFIG_PARSE_STRING_SAFE) && !string_is_safe(rvalue)) {
@@ -1116,7 +1117,11 @@ int config_parse_string(
                 return 0;
         }
 
-        return free_and_strdup_warn(s, empty_to_null(rvalue));
+        r = free_and_strdup_warn(s, empty_to_null(rvalue));
+        if (r < 0)
+                return r;
+
+        return 1;
 }
 
 int config_parse_dns_name(
