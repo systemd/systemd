@@ -251,7 +251,7 @@ static int route_append_json(Route *route, JsonVariant **array) {
                                 JSON_BUILD_PAIR_UNSIGNED("Priority", route->priority),
                                 JSON_BUILD_PAIR_UNSIGNED("Table", route->table),
                                 JSON_BUILD_PAIR_STRING("TableString", table),
-                                JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("MTU", route->mtu),
+                                JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("MTU", route->metric.mtu),
                                 JSON_BUILD_PAIR_UNSIGNED("Preference", route->pref),
                                 JSON_BUILD_PAIR_UNSIGNED("Flags", route->flags),
                                 JSON_BUILD_PAIR_STRING("FlagsString", strempty(flags)),
