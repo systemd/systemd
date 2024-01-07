@@ -311,7 +311,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                 return log_link_warning_errno(link, r, "Failed to get default router preference from RA: %m");
 
         if (link->network->ipv6_accept_ra_use_gateway) {
-                _cleanup_(route_freep) Route *route = NULL;
+                _cleanup_(route_unrefp) Route *route = NULL;
 
                 r = route_new(&route);
                 if (r < 0)
@@ -330,7 +330,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
 
         Route *route_gw;
         HASHMAP_FOREACH(route_gw, link->network->routes_by_section) {
-                _cleanup_(route_freep) Route *route = NULL;
+                _cleanup_(route_unrefp) Route *route = NULL;
 
                 if (!route_gw->gateway_from_dhcp_or_ra)
                         continue;
@@ -455,7 +455,7 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
 }
 
 static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
-        _cleanup_(route_freep) Route *route = NULL;
+        _cleanup_(route_unrefp) Route *route = NULL;
         unsigned prefixlen, preference;
         usec_t lifetime_usec;
         struct in6_addr prefix;
@@ -557,7 +557,7 @@ static int ndisc_router_process_prefix(Link *link, sd_ndisc_router *rt) {
 }
 
 static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
-        _cleanup_(route_freep) Route *route = NULL;
+        _cleanup_(route_unrefp) Route *route = NULL;
         unsigned preference, prefixlen;
         struct in6_addr gateway, dst;
         usec_t lifetime_usec;
