@@ -23,12 +23,14 @@
 bool is_direct_boot(EFI_HANDLE device) {
         EFI_STATUS err;
         VENDOR_DEVICE_PATH *dp;
+        void *dp_raw;
 
-        err = BS->HandleProtocol(device, MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL), (void **) &dp);
+        err = BS->HandleProtocol(device, MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL), &dp_raw);
         if (err != EFI_SUCCESS)
                 return false;
 
         /* 'qemu -kernel systemd-bootx64.efi' */
+        dp = dp_raw;
         if (dp->Header.Type == MEDIA_DEVICE_PATH &&
             dp->Header.SubType == MEDIA_VENDOR_DP &&
             memcmp(&dp->Guid, MAKE_GUID_PTR(QEMU_KERNEL_LOADER_FS_MEDIA), sizeof(EFI_GUID)) == 0)
@@ -77,21 +79,25 @@ EFI_STATUS vmm_open(EFI_HANDLE *ret_vmm_dev, EFI_FILE **ret_vmm_dir) {
                 return err;
 
         for (size_t order = 0;; order++) {
-                _cleanup_free_ EFI_DEVICE_PATH *dp = NULL;
+                _cleanup_free_ void *dp_raw = NULL;
+                EFI_DEVICE_PATH *dp;
 
                 _cleanup_free_ char16_t *order_str = xasprintf("VMMBootOrder%04zx", order);
-                dp_err = efivar_get_raw(MAKE_GUID_PTR(VMM_BOOT_ORDER), order_str, (char **) &dp, NULL);
+                dp_err = efivar_get_raw(MAKE_GUID_PTR(VMM_BOOT_ORDER), order_str, &dp_raw, NULL);
+                dp = dp_raw;
 
                 for (size_t i = 0; i < n_handles; i++) {
                         _cleanup_(file_closep) EFI_FILE *root_dir = NULL, *efi_dir = NULL;
                         EFI_DEVICE_PATH *fs;
+                        void *fs_raw;
 
                         err = BS->HandleProtocol(
-                                        handles[i], MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL), (void **) &fs);
+                                        handles[i], MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL), &fs_raw);
                         if (err != EFI_SUCCESS)
                                 return err;
 
                         /* check against VMMBootOrderNNNN (if set) */
+                        fs = fs_raw;
                         if (dp_err == EFI_SUCCESS && !device_path_startswith(fs, dp))
                                 continue;
 
@@ -212,9 +218,9 @@ static const void *find_smbios_configuration_table(uint64_t *ret_size) {
         return NULL;
 }
 
-static const SmbiosHeader *get_smbios_table(uint8_t type, uint64_t *ret_size_left) {
+static const void *get_smbios_table(uint8_t type, uint64_t *ret_size_left) {
         uint64_t size = 0;
-        const uint8_t *p = find_smbios_configuration_table(&size);
+        const void *p = find_smbios_configuration_table(&size);
         if (!p)
                 return NULL;
 
@@ -222,7 +228,8 @@ static const SmbiosHeader *get_smbios_table(uint8_t type, uint64_t *ret_size_lef
                 if (size < sizeof(SmbiosHeader))
                         return NULL;
 
-                const SmbiosHeader *header = (const SmbiosHeader *) p;
+                const SmbiosHeader *header = p;
+                const u_int8_t *base = p;
 
                 /* End of table. */
                 if (header->type == 127)
@@ -239,21 +246,21 @@ static const SmbiosHeader *get_smbios_table(uint8_t type, uint64_t *ret_size_lef
 
                 /* Skip over formatted area. */
                 size -= header->length;
-                p += header->length;
+                base += header->length;
 
                 /* Skip over string table. */
                 for (;;) {
-                        const uint8_t *e = memchr(p, 0, size);
+                        const uint8_t *e = memchr(base, 0, size);
                         if (!e)
                                 return NULL;
 
-                        if (e == p) {/* Double NUL byte means we've reached the end of the string table. */
-                                p++;
+                        if (e == base) {/* Double NUL byte means we've reached the end of the string table. */
+                                p = base + 1;
                                 size--;
                                 break;
                         }
 
-                        size -= e + 1 - p;
+                        size -= e + 1 - base;
                         p = e + 1;
                 }
         }
