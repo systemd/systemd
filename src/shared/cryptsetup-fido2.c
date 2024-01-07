@@ -63,7 +63,7 @@ int acquire_fido2_key(
                                 key_file_size == 0 ? SIZE_MAX : key_file_size,
                                 READ_FULL_FILE_CONNECT_SOCKET,
                                 bindname,
-                                (char**) &loaded_salt, &salt_size);
+                                &loaded_salt, &salt_size);
                 if (r < 0)
                         return r;
 

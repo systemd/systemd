@@ -71,7 +71,7 @@ int decrypt_pkcs11_key(
                                 key_file_size == 0 ? SIZE_MAX : key_file_size,
                                 READ_FULL_FILE_CONNECT_SOCKET,
                                 bindname,
-                                (char**) &data.encrypted_key, &data.encrypted_key_size);
+                                &data.encrypted_key, &data.encrypted_key_size);
                 if (r < 0)
                         return r;
 

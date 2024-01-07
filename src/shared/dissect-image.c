@@ -3176,7 +3176,7 @@ int verity_settings_load(
 
         if ((root_hash || verity->root_hash) && !verity->root_hash_sig) {
                 if (root_hash_sig_path) {
-                        r = read_full_file(root_hash_sig_path, (char**) &root_hash_sig, &root_hash_sig_size);
+                        r = read_full_file(root_hash_sig_path, &root_hash_sig, &root_hash_sig_size);
                         if (r < 0 && r != -ENOENT)
                                 return r;
 
@@ -3192,7 +3192,7 @@ int verity_settings_load(
                                 if (!p)
                                         return -ENOMEM;
 
-                                r = read_full_file(p, (char**) &root_hash_sig, &root_hash_sig_size);
+                                r = read_full_file(p, &root_hash_sig, &root_hash_sig_size);
                                 if (r < 0 && r != -ENOENT)
                                         return r;
                                 if (r >= 0)
@@ -3206,7 +3206,7 @@ int verity_settings_load(
                                 if (!p)
                                         return -ENOMEM;
 
-                                r = read_full_file(p, (char**) &root_hash_sig, &root_hash_sig_size);
+                                r = read_full_file(p, &root_hash_sig, &root_hash_sig_size);
                                 if (r < 0 && r != -ENOENT)
                                         return r;
                                 if (r >= 0)

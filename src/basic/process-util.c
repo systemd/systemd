@@ -160,7 +160,7 @@ static int pid_get_cmdline_nulstr(
                 char **ret,
                 size_t *ret_size) {
 
-        _cleanup_free_ char *t = NULL;
+        _cleanup_free_ void *t = NULL;
         const char *p;
         size_t k;
         int r;
@@ -203,7 +203,7 @@ static int pid_get_cmdline_nulstr(
                 k = strlen(t);
                 r = k <= max_size;
                 if (r == 0) /* truncation */
-                        t[max_size] = '\0';
+                        ((char *) t)[max_size] = '\0';
         }
 
         if (ret)
@@ -1822,7 +1822,7 @@ int set_oom_score_adjust(int value) {
 }
 
 int get_oom_score_adjust(int *ret) {
-        _cleanup_free_ char *t = NULL;
+        _cleanup_free_ void *t = NULL;
         int r, a;
 
         r = read_virtual_file("/proc/self/oom_score_adj", SIZE_MAX, &t, NULL);
@@ -1841,7 +1841,7 @@ int get_oom_score_adjust(int *ret) {
 
 int pidfd_get_pid(int fd, pid_t *ret) {
         char path[STRLEN("/proc/self/fdinfo/") + DECIMAL_STR_MAX(int)];
-        _cleanup_free_ char *fdinfo = NULL;
+        _cleanup_free_ void *fdinfo = NULL;
         char *p;
         int r;
 
