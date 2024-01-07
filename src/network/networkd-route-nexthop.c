@@ -730,7 +730,7 @@ int config_parse_route_nexthop(
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_(route_free_or_set_invalidp) Route *route = NULL;
+        _cleanup_(route_unref_or_set_invalidp) Route *route = NULL;
         uint32_t id;
         int r;
 
@@ -783,7 +783,7 @@ int config_parse_multipath_route(
                 void *userdata) {
 
         _cleanup_(route_nexthop_freep) RouteNextHop *nh = NULL;
-        _cleanup_(route_free_or_set_invalidp) Route *route = NULL;
+        _cleanup_(route_unref_or_set_invalidp) Route *route = NULL;
         _cleanup_free_ char *word = NULL;
         Network *network = userdata;
         const char *p;

@@ -36,6 +36,8 @@ struct Route {
         NetworkConfigState state;
         union in_addr_union provider; /* DHCP server or router address */
 
+        unsigned n_ref;
+
         /* rtmsg header */
         int family;
         unsigned char dst_prefixlen;
@@ -81,8 +83,9 @@ struct Route {
 
 extern const struct hash_ops route_hash_ops;
 
-Route* route_free(Route *route);
-DEFINE_SECTION_CLEANUP_FUNCTIONS(Route, route_free);
+Route* route_ref(Route *route);
+Route* route_unref(Route *route);
+DEFINE_SECTION_CLEANUP_FUNCTIONS(Route, route_unref);
 
 int route_new(Route **ret);
 int route_new_static(Network *network, const char *filename, unsigned section_line, Route **ret);
