@@ -185,49 +185,6 @@ int route_metric_read_netlink_message(RouteMetric *metric, sd_netlink_message *m
         return 0;
 }
 
-int config_parse_route_metric_mtu(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Network *network = userdata;
-        _cleanup_(route_free_or_set_invalidp) Route *route = NULL;
-        int r;
-
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = route_new_static(network, filename, section_line, &route);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to allocate route, ignoring assignment: %m");
-                return 0;
-        }
-
-        uint32_t k;
-        r = config_parse_mtu(unit, filename, line, section, section_line, lvalue, AF_UNSPEC, rvalue, &k, userdata);
-        if (r <= 0)
-                return r;
-
-        if (route_metric_set_full(&route->metric, ltype, k, /* force = */ true) < 0)
-                return log_oom();
-
-        TAKE_PTR(route);
-        return 0;
-}
-
 int config_parse_route_metric_advmss(
                 const char *unit,
                 const char *filename,
@@ -355,15 +312,10 @@ int config_parse_tcp_window(
                 void *data,
                 void *userdata) {
 
-        uint32_t *window = ASSERT_PTR(data);
-        uint32_t k;
+        uint32_t k, *val = ASSERT_PTR(data);
         int r;
 
-        assert(filename);
-        assert(section);
-        assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = safe_atou32(rvalue, &k);
         if (r < 0) {
@@ -377,51 +329,8 @@ int config_parse_tcp_window(
                 return 0;
         }
 
-        *window = k;
+        *val = k;
         return 1;
-}
-
-int config_parse_route_metric_tcp_window(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        _cleanup_(route_free_or_set_invalidp) Route *route = NULL;
-        Network *network = userdata;
-        int r;
-
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = route_new_static(network, filename, section_line, &route);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to allocate route, ignoring assignment: %m");
-                return 0;
-        }
-
-        uint32_t k;
-        r = config_parse_tcp_window(unit, filename, line, section, section_line, lvalue, ltype, rvalue, &k, userdata);
-        if (r <= 0)
-                return r;
-
-        if (route_metric_set_full(&route->metric, ltype, k, /* force = */ true) < 0)
-                return log_oom();
-
-        TAKE_PTR(route);
-        return 0;
 }
 
 int config_parse_route_metric_tcp_rto(
@@ -521,6 +430,65 @@ int config_parse_route_metric_boolean(
         TAKE_PTR(route);
         return 0;
 }
+
+#define DEFINE_CONFIG_PARSE_ROUTE_METRIC(name, parser)                  \
+        int config_parse_route_metric_##name(                           \
+                        const char *unit,                               \
+                        const char *filename,                           \
+                        unsigned line,                                  \
+                        const char *section,                            \
+                        unsigned section_line,                          \
+                        const char *lvalue,                             \
+                        int ltype,                                      \
+                        const char *rvalue,                             \
+                        void *data,                                     \
+                        void *userdata) {                               \
+                                                                        \
+                Network *network = ASSERT_PTR(userdata);                \
+                _cleanup_(route_free_or_set_invalidp) Route *route = NULL; \
+                uint16_t attr_type = ltype;                             \
+                int r;                                                  \
+                                                                        \
+                assert(filename);                                       \
+                assert(section);                                        \
+                assert(lvalue);                                         \
+                assert(rvalue);                                         \
+                                                                        \
+                r = route_new_static(network, filename, section_line, &route); \
+                if (r == -ENOMEM)                                       \
+                        return log_oom();                               \
+                if (r < 0) {                                            \
+                        log_syntax(unit, LOG_WARNING, filename, line, r, \
+                                   "Failed to allocate route, ignoring assignment: %m"); \
+                        return 0;                                       \
+                }                                                       \
+                                                                        \
+                if (isempty(rvalue)) {                                  \
+                        route_metric_unset(&route->metric, attr_type);  \
+                        TAKE_PTR(route);                                \
+                        return 0;                                       \
+                }                                                       \
+                                                                        \
+                uint32_t k;                                             \
+                r = parser(unit, filename, line, section, section_line, \
+                           lvalue, /* ltype = */ 0, rvalue,             \
+                           &k, userdata);                               \
+                if (r <= 0)                                             \
+                        return r;                                       \
+                                                                        \
+                if (route_metric_set_full(                              \
+                                &route->metric,                         \
+                                attr_type,                              \
+                                k,                                      \
+                                /* force = */ true) < 0)                \
+                        return log_oom();                               \
+                                                                        \
+                TAKE_PTR(route);                                        \
+                return 0;                                               \
+        }
+
+DEFINE_CONFIG_PARSE_ROUTE_METRIC(mtu, config_parse_mtu);
+DEFINE_CONFIG_PARSE_ROUTE_METRIC(tcp_window, config_parse_tcp_window);
 
 int config_parse_route_metric_tcp_congestion(
                 const char *unit,
