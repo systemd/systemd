@@ -658,8 +658,7 @@ static int manager_listen_setup(Manager *m) {
         if (r < 0)
                 return r;
 
-        if (addr.sa.sa_family == AF_INET)
-                (void) setsockopt_int(m->server_socket, IPPROTO_IP, IP_TOS, IPTOS_LOWDELAY);
+        (void) socket_set_option(m->server_socket, addr.sa.sa_family, IP_TOS, IPV6_TCLASS, IPTOS_DSCP_EF);
 
         return sd_event_add_io(m->event, &m->event_receive, m->server_socket, EPOLLIN, manager_receive_response, m);
 }
