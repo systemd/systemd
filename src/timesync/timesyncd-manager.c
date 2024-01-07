@@ -659,7 +659,10 @@ static int manager_listen_setup(Manager *m) {
                 return r;
 
         if (addr.sa.sa_family == AF_INET)
-                (void) setsockopt_int(m->server_socket, IPPROTO_IP, IP_TOS, IPTOS_LOWDELAY);
+                (void) setsockopt_int(m->server_socket, IPPROTO_IP, IP_TOS, IPTOS_DSCP_AF21);
+        else if (addr.sa.sa_family == AF_INET6)
+                (void) setsockopt_int(m->server_socket, IPPROTO_IPV6, IPV6_TCLASS, IPTOS_DSCP_AF21);
+
 
         return sd_event_add_io(m->event, &m->event_receive, m->server_socket, EPOLLIN, manager_receive_response, m);
 }
