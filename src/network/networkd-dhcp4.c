@@ -380,14 +380,14 @@ static int dhcp4_request_route(Route *in, Link *link) {
                 route->priority = link->network->dhcp_route_metric;
         if (!route->table_set)
                 route->table = link_get_dhcp4_route_table(link);
-        if (route->mtu == 0)
-                route->mtu = link->network->dhcp_route_mtu;
-        if (route->quickack < 0)
-                route->quickack = link->network->dhcp_quickack;
-        if (route->initcwnd == 0)
-                route->initcwnd = link->network->dhcp_initial_congestion_window;
-        if (route->initrwnd == 0)
-                route->initrwnd = link->network->dhcp_advertised_receive_window;
+        if (route->metric.mtu == 0)
+                route->metric.mtu = link->network->dhcp_route_mtu;
+        if (route->metric.quickack < 0)
+                route->metric.quickack = link->network->dhcp_quickack;
+        if (route->metric.initcwnd == 0)
+                route->metric.initcwnd = link->network->dhcp_initial_congestion_window;
+        if (route->metric.initrwnd == 0)
+                route->metric.initrwnd = link->network->dhcp_advertised_receive_window;
 
         if (route_get(NULL, link, route, &existing) < 0) /* This is a new route. */
                 link->dhcp4_configured = false;
