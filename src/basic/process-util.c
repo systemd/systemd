@@ -1841,7 +1841,7 @@ int get_oom_score_adjust(int *ret) {
 
 int pidfd_get_pid(int fd, pid_t *ret) {
         char path[STRLEN("/proc/self/fdinfo/") + DECIMAL_STR_MAX(int)];
-        _cleanup_free_ char *fdinfo = NULL;
+        _cleanup_free_ void *fdinfo = NULL;
         char *p;
         int r;
 
