@@ -35,7 +35,6 @@ int route_new(Route **ret) {
                 .type = RTN_UNICAST,
                 .table = RT_TABLE_MAIN,
                 .lifetime_usec = USEC_INFINITY,
-                .metric = ROUTE_METRIC_NULL,
                 .gateway_onlink = -1,
         };
 
