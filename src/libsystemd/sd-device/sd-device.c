@@ -756,8 +756,9 @@ int device_read_uevent_file(sd_device *device) {
         device->uevent_loaded = true;
 
         path = strjoina(syspath, "/uevent");
-
-        r = read_full_virtual_file(path, &uevent, &uevent_len);
+        void *tmp;
+        r = read_full_virtual_file(path, &tmp, &uevent_len);
+        uevent = tmp;
         if (r == -EACCES || ERRNO_IS_NEG_DEVICE_ABSENT(r))
                 /* The uevent files may be write-only, the device may be already removed, or the device
                  * may not have the uevent file. */
@@ -1700,13 +1701,15 @@ int device_read_db_internal_filename(sd_device *device, const char *filename) {
         assert(device);
         assert(filename);
 
-        r = read_full_file(filename, &db, &db_len);
+        void *tmp;
+        r = read_full_file(filename, &tmp, &db_len);
         if (r < 0) {
                 if (r == -ENOENT)
                         return 0;
 
                 return log_device_debug_errno(device, r, "sd-device: Failed to read db '%s': %m", filename);
         }
+        db = tmp;
 
         /* devices with a database entry are initialized */
         device->is_initialized = true;
@@ -2356,10 +2359,12 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
 
                 /* Read attribute value, Some attributes contain embedded '\0'. So, it is necessary to
                  * also get the size of the result. See issue #20025. */
-                r = read_full_virtual_file(path, &value, &size);
+                void *tmp;
+                r = read_full_virtual_file(path, &tmp, &size);
                 if (r < 0)
                         return r;
-
+                
+                value = tmp;
                 /* drop trailing newlines */
                 while (size > 0 && strchr(NEWLINE, value[--size]))
                         value[size] = '\0';

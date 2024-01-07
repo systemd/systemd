@@ -48,7 +48,7 @@ static EFI_STATUS acquire_rng(void *ret, size_t size) {
 }
 
 static EFI_STATUS acquire_system_token(void **ret, size_t *ret_size) {
-        _cleanup_free_ char *data = NULL;
+        _cleanup_free_ void *data = NULL;
         EFI_STATUS err;
         size_t size;
 

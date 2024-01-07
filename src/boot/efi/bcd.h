@@ -3,4 +3,4 @@
 
 #include "efi.h"
 
-char16_t *get_bcd_title(uint8_t *bcd, size_t bcd_len);
+char16_t *get_bcd_title(void *bcd_raw, size_t bcd_len);
