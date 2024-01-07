@@ -127,11 +127,13 @@ EFI_STATUS linux_exec(
                 return log_error_status(err, "Error loading kernel image: %m");
 
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
+        void *loaded_image_raw;
         err = BS->HandleProtocol(
-                        kernel_image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
+                        kernel_image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), &loaded_image_raw);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error getting kernel loaded image protocol: %m");
-
+        
+        loaded_image = loaded_image_raw;
         if (cmdline) {
                 loaded_image->LoadOptions = (void *) cmdline;
                 loaded_image->LoadOptionsSize = strsize16(loaded_image->LoadOptions);
