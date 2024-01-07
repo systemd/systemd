@@ -26,7 +26,8 @@ static int parse_env_file_internal(
                 void *userdata) {
 
         size_t n_key = 0, n_value = 0, last_value_whitespace = SIZE_MAX, last_key_whitespace = SIZE_MAX;
-        _cleanup_free_ char *contents = NULL, *key = NULL, *value = NULL;
+        _cleanup_free_ void *contents = NULL;
+        _cleanup_free_ char *key = NULL, *value = NULL;
         unsigned line = 1;
         int r;
 
@@ -49,7 +50,7 @@ static int parse_env_file_internal(
         if (f)
                 r = read_full_stream(f, &contents, NULL);
         else
-                r = read_full_file(fname, &contents, NULL);
+                r = read_full_file(fname, &contentsp, NULL);
         if (r < 0)
                 return r;
 

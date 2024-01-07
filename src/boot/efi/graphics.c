@@ -10,18 +10,20 @@
 #include "util.h"
 
 EFI_STATUS graphics_mode(bool on) {
-        EFI_CONSOLE_CONTROL_PROTOCOL *ConsoleControl = NULL;
+        EFI_CONSOLE_CONTROL_PROTOCOL *ConsoleControl;
+        void ConsoleControl_Raw = NULL;
         EFI_CONSOLE_CONTROL_SCREEN_MODE new;
         EFI_CONSOLE_CONTROL_SCREEN_MODE current;
         bool uga_exists, stdin_locked;
         EFI_STATUS err;
 
-        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_CONSOLE_CONTROL_PROTOCOL), NULL, (void **) &ConsoleControl);
+        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_CONSOLE_CONTROL_PROTOCOL), NULL, &ConsoleControl_Raw);
         if (err != EFI_SUCCESS)
                 /* console control protocol is nonstandard and might not exist. */
                 return err == EFI_NOT_FOUND ? EFI_SUCCESS : err;
 
         /* check current mode */
+        ConsoleControl = ConsoleControl_Raw;
         err = ConsoleControl->GetMode(ConsoleControl, &current, &uga_exists, &stdin_locked);
         if (err != EFI_SUCCESS)
                 return err;
