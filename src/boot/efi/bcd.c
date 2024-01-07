@@ -159,26 +159,27 @@ static const Key *get_key(const uint8_t *bcd, uint32_t bcd_len, uint32_t offset,
         return *name ? get_subkey(bcd, bcd_len, key->subkeys_offset, name) : key;
 }
 
-static const KeyValue *get_key_value(const uint8_t *bcd, uint32_t bcd_len, const Key *key, const char *name) {
+static const KeyValue *get_key_value(const void *bcd, uint32_t bcd_len, const Key *key, const char *name) {
         assert(bcd);
         assert(key);
         assert(name);
 
         if (key->n_key_values == 0)
                 return NULL;
-
+        
+        const uint8_t bcd_base = bcd;
         if (BAD_OFFSET(key->key_values_offset, sizeof(uint32_t) * (uint64_t) key->n_key_values, bcd_len) ||
-            (uintptr_t) (bcd + key->key_values_offset) % alignof(uint32_t) != 0)
+            (uintptr_t) (bcd_base + key_values_offset) % alignof(uint32_t) != 0)
                 return NULL;
 
-        const uint32_t *key_value_list = (const uint32_t *) (bcd + key->key_values_offset);
+        const uint32_t *key_value_list = (const uint32_t *)bcd + key->key_values_offset/sizeof(uint32_t);
         for (uint32_t i = 0; i < key->n_key_values; i++) {
                 uint32_t offset = *(key_value_list + i);
 
                 if (BAD_STRUCT(KeyValue, offset, bcd_len))
                         continue;
 
-                const KeyValue *kv = (const KeyValue *) (bcd + offset);
+                const KeyValue *kv = (const KeyValue *) bcd + offset/sizeof(KeyValue);
                 if (kv->sig != SIG_KEY_VALUE)
                         continue;
 
@@ -218,19 +219,21 @@ static const KeyValue *get_key_value(const uint8_t *bcd, uint32_t bcd_len, const
  * (it always has the GUID 9dea862c-5cdd-4e70-acc1-f32b344d4795). If it contains more than
  * one GUID, the BCD is multi-boot and we stop looking. Otherwise we take that GUID, look it
  * up, and return its description property. */
-char16_t *get_bcd_title(uint8_t *bcd, size_t bcd_len) {
-        assert(bcd);
+char16_t *get_bcd_title(void *bcd_raw, size_t bcd_len) {
+        assert(bcd_raw);
 
         if (HIVE_CELL_OFFSET >= bcd_len)
                 return NULL;
 
-        BaseBlock *base_block = (BaseBlock *) bcd;
+        BaseBlock *base_block = (BaseBlock *) bcd_raw;
         if (base_block->sig != SIG_BASE_BLOCK ||
             base_block->version_major != 1 ||
             base_block->version_minor != 3 ||
             base_block->type != 0 ||
             base_block->primary_seqnum != base_block->secondary_seqnum)
                 return NULL;
+        
+        uint8_t *bcd = bcd_raw;
 
         bcd += HIVE_CELL_OFFSET;
         bcd_len -= HIVE_CELL_OFFSET;

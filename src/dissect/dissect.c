@@ -445,9 +445,11 @@ static int parse_argv(int argc, char *argv[]) {
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse root hash signature '%s': %m", optarg);
                         } else {
-                                r = read_full_file(optarg, (char**) &p, &l);
+                                char *p_raw;
+                                r = read_full_file(optarg, &p_raw, &l);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to read root hash signature file '%s': %m", optarg);
+                                p = p_raw;
                         }
 
                         free_and_replace(arg_verity_settings.root_hash_sig, p);
