@@ -526,19 +526,32 @@ static int route_set_netlink_message(const Route *route, sd_netlink_message *m) 
         return 0;
 }
 
-static int route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, RemoveRequest *rreq) {
         int r;
 
         assert(m);
+        assert(rreq);
 
-        /* link may be NULL. */
-
-        if (link && IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
+        Manager *manager = ASSERT_PTR(rreq->manager);
+        Route *route = ASSERT_PTR(rreq->userdata);
 
         r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -ESRCH)
-                log_link_message_warning_errno(link, m, r, "Could not drop route, ignoring");
+        if (r < 0) {
+                log_message_full_errno(m,
+                                       (r == -ESRCH || (r == -EINVAL && route->nexthop_id != 0) || !route->manager) ? LOG_DEBUG : LOG_WARNING,
+                                       r, "Could not drop route, ignoring");
+
+                if (route->manager) {
+                        /* If the route cannot be removed, then assume the route is already removed. */
+                        log_route_debug(route, "Forgetting", manager);
+
+                        Request *req;
+                        if (route_get_request(manager, route, &req) >= 0)
+                                route_enter_removed(req->userdata);
+
+                        route_detach(route);
+                }
+        }
 
         return 1;
 }
@@ -563,12 +576,9 @@ int route_remove(Route *route, Manager *manager) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "Could not fill netlink message: %m");
 
-        r = netlink_call_async(manager->rtnl, NULL, m, route_remove_handler,
-                               link ? link_netlink_destroy_callback : NULL, link);
+        r = manager_remove_request_add(manager, route, route, manager->rtnl, m, route_remove_handler);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not send netlink message: %m");
-
-        link_ref(link);
+                return log_link_warning_errno(link, r, "Could not queue rtnetlink message: %m");
 
         route_enter_removing(route);
         return 0;
