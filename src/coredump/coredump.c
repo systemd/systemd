@@ -1296,9 +1296,8 @@ static int gather_pid_metadata_from_procfs(struct iovec_wrapper *iovw, Context *
                         /* Add a dummy terminator to make save_context() happy. */
                         *((uint8_t*) mempcpy(stpcpy(buf, "COREDUMP_PROC_AUXV="), t, size)) = '\0';
                         (void) iovw_consume(iovw, buf, size + strlen("COREDUMP_PROC_AUXV="));
+                        free(buf);
                 }
-
-                free(t);
         }
 
         if (get_process_cwd(pid, &t) >= 0)
