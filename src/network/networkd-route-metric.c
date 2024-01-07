@@ -1,9 +1,160 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "alloc-util.h"
+#include "netlink-util.h"
 #include "networkd-route.h"
 #include "networkd-route-metric.h"
 #include "parse-util.h"
 #include "string-util.h"
+
+void route_metric_done(RouteMetric *metric) {
+        assert(metric);
+
+        free(metric->tcp_congestion_control_algo);
+}
+
+int route_metric_copy(const RouteMetric *src, RouteMetric *dest) {
+        assert(src);
+        assert(dest);
+
+        dest->quickack = src->quickack;
+        dest->fast_open_no_cookie = src->fast_open_no_cookie;
+        dest->mtu = src->mtu;
+        dest->initcwnd = src->initcwnd;
+        dest->initrwnd = src->initrwnd;
+        dest->advmss = src->advmss;
+        dest->hop_limit = src->hop_limit;
+        dest->tcp_rto_usec = src->tcp_rto_usec;
+
+        return free_and_strdup(&dest->tcp_congestion_control_algo, src->tcp_congestion_control_algo);
+}
+
+void route_metric_hash_func(const RouteMetric *metric, struct siphash *state) {
+        assert(metric);
+
+        siphash24_compress_typesafe(metric->initcwnd, state);
+        siphash24_compress_typesafe(metric->initrwnd, state);
+        siphash24_compress_typesafe(metric->advmss, state);
+}
+
+int route_metric_compare_func(const RouteMetric *a, const RouteMetric *b) {
+        int r;
+
+        assert(a);
+        assert(b);
+
+        r = CMP(a->initcwnd, b->initcwnd);
+        if (r != 0)
+                return r;
+
+        r = CMP(a->initrwnd, b->initrwnd);
+        if (r != 0)
+                return r;
+
+        return CMP(a->advmss, b->advmss);
+}
+
+int route_metric_set_netlink_message(const RouteMetric *metric, sd_netlink_message *m) {
+        int r;
+
+        assert(metric);
+        assert(m);
+
+        r = sd_netlink_message_open_container(m, RTA_METRICS);
+        if (r < 0)
+                return r;
+
+        if (metric->mtu > 0) {
+                r = sd_netlink_message_append_u32(m, RTAX_MTU, metric->mtu);
+                if (r < 0)
+                        return r;
+        }
+
+        if (metric->initcwnd > 0) {
+                r = sd_netlink_message_append_u32(m, RTAX_INITCWND, metric->initcwnd);
+                if (r < 0)
+                        return r;
+        }
+
+        if (metric->initrwnd > 0) {
+                r = sd_netlink_message_append_u32(m, RTAX_INITRWND, metric->initrwnd);
+                if (r < 0)
+                        return r;
+        }
+
+        if (metric->quickack >= 0) {
+                r = sd_netlink_message_append_u32(m, RTAX_QUICKACK, metric->quickack);
+                if (r < 0)
+                        return r;
+        }
+
+        if (metric->fast_open_no_cookie >= 0) {
+                r = sd_netlink_message_append_u32(m, RTAX_FASTOPEN_NO_COOKIE, metric->fast_open_no_cookie);
+                if (r < 0)
+                        return r;
+        }
+
+        if (metric->advmss > 0) {
+                r = sd_netlink_message_append_u32(m, RTAX_ADVMSS, metric->advmss);
+                if (r < 0)
+                        return r;
+        }
+
+        if (!isempty(metric->tcp_congestion_control_algo)) {
+                r = sd_netlink_message_append_string(m, RTAX_CC_ALGO, metric->tcp_congestion_control_algo);
+                if (r < 0)
+                        return r;
+        }
+
+        if (metric->hop_limit > 0) {
+                r = sd_netlink_message_append_u32(m, RTAX_HOPLIMIT, metric->hop_limit);
+                if (r < 0)
+                        return r;
+        }
+
+        if (metric->tcp_rto_usec > 0) {
+                r = sd_netlink_message_append_u32(m, RTAX_RTO_MIN, DIV_ROUND_UP(metric->tcp_rto_usec, USEC_PER_MSEC));
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_netlink_message_close_container(m);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+int route_metric_read_netlink_message(RouteMetric *metric, sd_netlink_message *m) {
+        int r;
+
+        assert(metric);
+        assert(m);
+
+        r = sd_netlink_message_enter_container(m, RTA_METRICS);
+        if (r == -ENODATA)
+                return 0;
+        if (r < 0)
+                return log_warning_errno(r, "rtnl: Could not enter RTA_METRICS container, ignoring: %m");
+
+        r = sd_netlink_message_read_u32(m, RTAX_INITCWND, &metric->initcwnd);
+        if (r < 0 && r != -ENODATA)
+                return log_warning_errno(r, "rtnl: received route message with invalid initcwnd, ignoring: %m");
+
+        r = sd_netlink_message_read_u32(m, RTAX_INITRWND, &metric->initrwnd);
+        if (r < 0 && r != -ENODATA)
+                return log_warning_errno(r, "rtnl: received route message with invalid initrwnd, ignoring: %m");
+
+        r = sd_netlink_message_read_u32(m, RTAX_ADVMSS, &metric->advmss);
+        if (r < 0 && r != -ENODATA)
+                return log_warning_errno(r, "rtnl: received route message with invalid advmss, ignoring: %m");
+
+        r = sd_netlink_message_exit_container(m);
+        if (r < 0)
+                return log_warning_errno(r, "rtnl: Could not exit from RTA_METRICS container, ignoring: %m");
+
+        return 0;
+}
 
 int config_parse_route_metric_mtu(
                 const char *unit,
@@ -36,7 +187,7 @@ int config_parse_route_metric_mtu(
                 return 0;
         }
 
-        r = config_parse_mtu(unit, filename, line, section, section_line, lvalue, AF_UNSPEC, rvalue, &route->mtu, userdata);
+        r = config_parse_mtu(unit, filename, line, section, section_line, lvalue, AF_UNSPEC, rvalue, &route->metric.mtu, userdata);
         if (r <= 0)
                 return r;
 
@@ -77,7 +228,7 @@ int config_parse_route_metric_advmss(
         }
 
         if (isempty(rvalue)) {
-                route->advmss = 0;
+                route->metric.advmss = 0;
                 TAKE_PTR(route);
                 return 0;
         }
@@ -95,7 +246,7 @@ int config_parse_route_metric_advmss(
                 return 0;
         }
 
-        route->advmss = u;
+        route->metric.advmss = u;
 
         TAKE_PTR(route);
         return 0;
@@ -134,7 +285,7 @@ int config_parse_route_metric_hop_limit(
         }
 
         if (isempty(rvalue)) {
-                route->hop_limit = 0;
+                route->metric.hop_limit = 0;
                 TAKE_PTR(route);
                 return 0;
         }
@@ -151,7 +302,7 @@ int config_parse_route_metric_hop_limit(
                 return 0;
         }
 
-        route->hop_limit = k;
+        route->metric.hop_limit = k;
 
         TAKE_PTR(route);
         return 0;
@@ -228,9 +379,9 @@ int config_parse_route_metric_tcp_window(
         }
 
         if (streq(lvalue, "InitialCongestionWindow"))
-                d = &route->initcwnd;
+                d = &route->metric.initcwnd;
         else if (streq(lvalue, "InitialAdvertisedReceiveWindow"))
-                d = &route->initrwnd;
+                d = &route->metric.initrwnd;
         else
                 assert_not_reached();
 
@@ -288,7 +439,7 @@ int config_parse_route_metric_tcp_rto(
                 return 0;
         }
 
-        route->tcp_rto_usec = usec;
+        route->metric.tcp_rto_usec = usec;
 
         TAKE_PTR(route);
         return 0;
@@ -333,9 +484,9 @@ int config_parse_route_metric_boolean(
         }
 
         if (streq(lvalue, "QuickAck"))
-                route->quickack = r;
+                route->metric.quickack = r;
         else if (streq(lvalue, "FastOpenNoCookie"))
-                route->fast_open_no_cookie = r;
+                route->metric.fast_open_no_cookie = r;
         else
                 assert_not_reached();
 
@@ -375,7 +526,7 @@ int config_parse_route_metric_tcp_congestion(
         }
 
         r = config_parse_string(unit, filename, line, section, section_line, lvalue, 0,
-                                rvalue, &route->tcp_congestion_control_algo, userdata);
+                                rvalue, &route->metric.tcp_congestion_control_algo, userdata);
         if (r < 0)
                 return r;
 
