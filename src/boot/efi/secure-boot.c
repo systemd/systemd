@@ -198,16 +198,20 @@ void install_security_override(security_validator_t validator, const void *valid
                 .validator_ctx = validator_ctx,
         };
 
-        EFI_SECURITY_ARCH_PROTOCOL *security = NULL;
-        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_SECURITY_ARCH_PROTOCOL), NULL, (void **) &security);
+        EFI_SECURITY_ARCH_PROTOCOL *security;
+        void *security_raw = NULL;
+        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_SECURITY_ARCH_PROTOCOL), NULL, (void **) &security_raw);
+        security = security_raw;
         if (err == EFI_SUCCESS) {
                 security_override.security = security;
                 security_override.original_hook = security->FileAuthenticationState;
                 security->FileAuthenticationState = security_hook;
         }
 
-        EFI_SECURITY2_ARCH_PROTOCOL *security2 = NULL;
-        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_SECURITY2_ARCH_PROTOCOL), NULL, (void **) &security2);
+        EFI_SECURITY2_ARCH_PROTOCOL *security2;
+        security_raw = NULL;
+        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_SECURITY2_ARCH_PROTOCOL), NULL, (void **) &security_raw);
+        security2 = security_raw;
         if (err == EFI_SUCCESS) {
                 security_override.security2 = security2;
                 security_override.original_hook2 = security2->FileAuthentication;

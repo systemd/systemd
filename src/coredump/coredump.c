@@ -1269,37 +1269,39 @@ static int gather_pid_metadata_from_procfs(struct iovec_wrapper *iovw, Context *
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_OPEN_FDS=", t);
 
         p = procfs_file_alloca(pid, "status");
-        if (read_full_virtual_file(p, &t, NULL) >= 0)
-                (void) iovw_put_string_field_free(iovw, "COREDUMP_PROC_STATUS=", t);
+        void *t_raw = t;
+        if (read_full_virtual_file(p, &t_raw, NULL) >= 0)
+                (void) iovw_put_string_field_free(iovw, "COREDUMP_PROC_STATUS=", t_raw);
 
         p = procfs_file_alloca(pid, "maps");
-        if (read_full_virtual_file(p, &t, NULL) >= 0)
-                (void) iovw_put_string_field_free(iovw, "COREDUMP_PROC_MAPS=", t);
+        if (read_full_virtual_file(p, &t_raw, NULL) >= 0)
+                (void) iovw_put_string_field_free(iovw, "COREDUMP_PROC_MAPS=", t_raw);
 
         p = procfs_file_alloca(pid, "limits");
-        if (read_full_virtual_file(p, &t, NULL) >= 0)
-                (void) iovw_put_string_field_free(iovw, "COREDUMP_PROC_LIMITS=", t);
+        if (read_full_virtual_file(p, &t_raw, NULL) >= 0)
+                (void) iovw_put_string_field_free(iovw, "COREDUMP_PROC_LIMITS=", t_raw);
 
         p = procfs_file_alloca(pid, "cgroup");
-        if (read_full_virtual_file(p, &t, NULL) >= 0)
-                (void) iovw_put_string_field_free(iovw, "COREDUMP_PROC_CGROUP=", t);
+        if (read_full_virtual_file(p, &t_raw, NULL) >= 0)
+                (void) iovw_put_string_field_free(iovw, "COREDUMP_PROC_CGROUP=", t_raw);
 
         p = procfs_file_alloca(pid, "mountinfo");
-        if (read_full_virtual_file(p, &t, NULL) >= 0)
-                (void) iovw_put_string_field_free(iovw, "COREDUMP_PROC_MOUNTINFO=", t);
+        if (read_full_virtual_file(p, &t_raw, NULL) >= 0)
+                (void) iovw_put_string_field_free(iovw, "COREDUMP_PROC_MOUNTINFO=", t_raw);
 
         /* We attach /proc/auxv here. ELF coredumps also contain a note for this (NT_AUXV), see elf(5). */
         p = procfs_file_alloca(pid, "auxv");
-        if (read_full_virtual_file(p, &t, &size) >= 0) {
+        if (read_full_virtual_file(p, &t_raw, &size) >= 0) {
                 char *buf = malloc(strlen("COREDUMP_PROC_AUXV=") + size + 1);
                 if (buf) {
                         /* Add a dummy terminator to make save_context() happy. */
-                        *((uint8_t*) mempcpy(stpcpy(buf, "COREDUMP_PROC_AUXV="), t, size)) = '\0';
+                        *((uint8_t*) mempcpy(stpcpy(buf, "COREDUMP_PROC_AUXV="), t_raw, size)) = '\0';
                         (void) iovw_consume(iovw, buf, size + strlen("COREDUMP_PROC_AUXV="));
                 }
 
-                free(t);
+                free(buf);
         }
+        t = t_raw;
 
         if (get_process_cwd(pid, &t) >= 0)
                 (void) iovw_put_string_field_free(iovw, "COREDUMP_CWD=", t);

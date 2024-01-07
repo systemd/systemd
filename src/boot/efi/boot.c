@@ -573,13 +573,13 @@ static void print_status(Config *config, char16_t *loaded_image_path) {
 
         for (size_t i = 0; i < config->n_entries; i++) {
                 BootEntry *entry = config->entries[i];
-                EFI_DEVICE_PATH *dp = NULL;
+                void *dp = NULL;
                 _cleanup_free_ char16_t *dp_str = NULL;
 
                 if (entry->device &&
-                    BS->HandleProtocol(entry->device, MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL), (void **) &dp) ==
+                    BS->HandleProtocol(entry->device, MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL), &dp) ==
                                     EFI_SUCCESS)
-                        (void) device_path_to_str(dp, &dp_str);
+                        (void) device_path_to_str((EFI_DEVICE_PATH *) dp, &dp_str);
 
                 printf("    boot entry: %zu/%zu\n", i + 1, config->n_entries);
                 printf("            id: %ls\n", entry->id);
@@ -1546,7 +1546,7 @@ static EFI_STATUS efivar_get_timeout(const char16_t *var, uint64_t *ret_value) {
 }
 
 static void config_load_defaults(Config *config, EFI_FILE *root_dir) {
-        _cleanup_free_ char *content = NULL;
+        _cleanup_free_ void *content = NULL;
         size_t content_size, value = 0;  /* avoid false maybe-uninitialized warning */
         EFI_STATUS err;
 
@@ -1866,7 +1866,7 @@ static bool is_sd_boot(EFI_FILE *root_dir, const char16_t *loader_path) {
                 return false;
 
         err = file_read(root_dir, loader_path, offset, size, &content, &read);
-        if (err != EFI_SUCCESS || size != read)
+        if (err != EFI_SUCCESS || read != sizeof(SD_MAGIC))
                 return false;
 
         return memcmp(content, SD_MAGIC, sizeof(SD_MAGIC)) == 0;
@@ -1983,7 +1983,9 @@ static EFI_STATUS boot_windows_bitlocker(void) {
         bool found = false;
         for (size_t i = 0; i < n_handles; i++) {
                 EFI_BLOCK_IO_PROTOCOL *block_io;
-                err = BS->HandleProtocol(handles[i], MAKE_GUID_PTR(EFI_BLOCK_IO_PROTOCOL), (void **) &block_io);
+                void *block_io_raw;
+                err = BS->HandleProtocol(handles[i], MAKE_GUID_PTR(EFI_BLOCK_IO_PROTOCOL), &block_io_raw);
+                block_io = block_io_raw;
                 if (err != EFI_SUCCESS || block_io->Media->BlockSize < 512 || block_io->Media->BlockSize > 4096)
                         continue;
 
@@ -2002,21 +2004,24 @@ static EFI_STATUS boot_windows_bitlocker(void) {
         if (!found)
                 return EFI_NOT_FOUND;
 
-        _cleanup_free_ uint16_t *boot_order = NULL;
+        _cleanup_free_ void *boot_order_raw = NULL;
+        uint16_t *boot_order;
         size_t boot_order_size;
 
         /* There can be gaps in Boot#### entries. Instead of iterating over the full
          * EFI var list or uint16_t namespace, just look for "Windows Boot Manager" in BootOrder. */
-        err = efivar_get_raw(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"BootOrder", (char **) &boot_order, &boot_order_size);
+        err = efivar_get_raw(
+                        MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), u"BootOrder", &boot_order_raw, &boot_order_size);
         if (err != EFI_SUCCESS || boot_order_size % sizeof(uint16_t) != 0)
                 return err;
 
+        boot_order = boot_order_raw;
         for (size_t i = 0; i < boot_order_size / sizeof(uint16_t); i++) {
-                _cleanup_free_ char *buf = NULL;
+                _cleanup_free_ void *buf_raw = NULL;
                 size_t buf_size;
 
                 _cleanup_free_ char16_t *name = xasprintf("Boot%04x", boot_order[i]);
-                err = efivar_get_raw(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), name, &buf, &buf_size);
+                err = efivar_get_raw(MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE), name, &buf_raw, &buf_size);
                 if (err != EFI_SUCCESS)
                         continue;
 
@@ -2026,7 +2031,8 @@ static EFI_STATUS boot_windows_bitlocker(void) {
                 if (buf_size < offset + sizeof(char16_t))
                         continue;
 
-                if (streq16((char16_t *) (buf + offset), u"Windows Boot Manager")) {
+                char16_t *buffer = buf_raw;
+                if (streq16(buffer + offset / sizeof(char16_t), u"Windows Boot Manager")) {
                         err = efivar_set_raw(
                                 MAKE_GUID_PTR(EFI_GLOBAL_VARIABLE),
                                 u"BootNext",
@@ -2046,7 +2052,7 @@ static EFI_STATUS boot_windows_bitlocker(void) {
 
 static void config_add_entry_windows(Config *config, EFI_HANDLE *device, EFI_FILE *root_dir) {
 #if defined(__i386__) || defined(__x86_64__) || defined(__arm__) || defined(__aarch64__)
-        _cleanup_free_ char *bcd = NULL;
+        _cleanup_free_ void *bcd = NULL;
         char16_t *title = NULL;
         EFI_STATUS err;
         size_t len;
@@ -2108,7 +2114,7 @@ static void config_load_type2_entries(
                 _cleanup_free_ char16_t *os_pretty_name = NULL, *os_image_id = NULL, *os_name = NULL, *os_id = NULL,
                         *os_image_version = NULL, *os_version = NULL, *os_version_id = NULL, *os_build_id = NULL;
                 const char16_t *good_name, *good_version, *good_sort_key;
-                _cleanup_free_ char *content = NULL;
+                _cleanup_free_ void *content = NULL;
                 size_t offs[_SECTION_MAX] = {}, szs[_SECTION_MAX] = {}, pos = 0;
                 char *line, *key, *value;
 
@@ -2265,7 +2271,7 @@ static EFI_STATUS initrd_prepare(
 
         EFI_STATUS err;
         size_t size = 0;
-        _cleanup_free_ uint8_t *initrd = NULL;
+        _cleanup_free_ char *initrd = NULL;
 
         STRV_FOREACH(i, entry->initrd) {
                 _cleanup_free_ char16_t *o = options;
@@ -2362,7 +2368,8 @@ static EFI_STATUS image_start(
                 return log_error_status(err, "Error registering initrd: %m");
 
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
-        err = BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
+        void *loaded_image_raw;
+        err = BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), &loaded_image_raw);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error getting LoadedImageProtocol handle: %m");
 
@@ -2370,6 +2377,7 @@ static EFI_STATUS image_start(
          * Otherwise, only pass/measure it if it is not implicit anyway (i.e. embedded into the UKI or
          * so). */
         char16_t *options = options_initrd ?: entry->options_implied ? NULL : entry->options;
+        loaded_image = loaded_image_raw;
         if (options) {
                 loaded_image->LoadOptions = options;
                 loaded_image->LoadOptionsSize = strsize16(options);
@@ -2653,6 +2661,7 @@ static EFI_STATUS discover_root_dir(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, EFI
 
 static EFI_STATUS run(EFI_HANDLE image) {
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
+        void *loaded_image_raw;
         _cleanup_(file_closep) EFI_FILE *root_dir = NULL;
         _cleanup_(config_free) Config config = {};
         _cleanup_free_ char16_t *loaded_image_path = NULL;
@@ -2666,10 +2675,11 @@ static EFI_STATUS run(EFI_HANDLE image) {
          * By default, Shim uninstalls its protocol when calling StartImage(). */
         shim_retain_protocol();
 
-        err = BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
+        err = BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), &loaded_image_raw);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error getting a LoadedImageProtocol handle: %m");
-
+        
+        loaded_image = loaded_image_raw;
         (void) device_path_to_str(loaded_image->FilePath, &loaded_image_path);
 
         export_variables(loaded_image, loaded_image_path, init_usec);
