@@ -112,16 +112,18 @@ EFI_STATUS initrd_register(
 EFI_STATUS initrd_unregister(EFI_HANDLE initrd_handle) {
         EFI_STATUS err;
         struct initrd_loader *loader;
+        void *loader_raw;
 
         if (!initrd_handle)
                 return EFI_SUCCESS;
 
         /* get the LoadFile2 protocol that we allocated earlier */
-        err = BS->HandleProtocol(initrd_handle, MAKE_GUID_PTR(EFI_LOAD_FILE2_PROTOCOL), (void **) &loader);
+        err = BS->HandleProtocol(initrd_handle, MAKE_GUID_PTR(EFI_LOAD_FILE2_PROTOCOL), &loader_raw);
         if (err != EFI_SUCCESS)
                 return err;
 
         /* uninstall all protocols thus destroying the handle */
+        loader = loader_raw;
         err = BS->UninstallMultipleProtocolInterfaces(
                         initrd_handle, MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL),
                         &efi_initrd_device_path, MAKE_GUID_PTR(EFI_LOAD_FILE2_PROTOCOL),
