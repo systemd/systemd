@@ -208,12 +208,15 @@ static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
         ndisc_set_route_priority(link, route);
         if (!route->protocol_set)
                 route->protocol = RTPROT_RA;
-        if (route->metric.quickack < 0)
-                route->metric.quickack = link->network->ipv6_accept_ra_quickack;
-        if (route->metric.mtu == 0)
-                route->metric.mtu = mtu;
-        if (route->metric.hop_limit == 0)
-                route->metric.hop_limit = hop_limit;
+        r = route_metric_set(&route->metric, RTAX_MTU, mtu);
+        if (r < 0)
+                return r;
+        r = route_metric_set(&route->metric, RTAX_HOPLIMIT, hop_limit);
+        if (r < 0)
+                return r;
+        r = route_metric_set(&route->metric, RTAX_QUICKACK, link->network->ipv6_accept_ra_quickack);
+        if (r < 0)
+                return r;
 
         is_new = route_get(NULL, link, route, NULL) < 0;
 
