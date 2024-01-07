@@ -36,8 +36,6 @@ struct Route {
         int family;
         int gw_family;
         uint32_t gw_weight;
-        int quickack;
-        int fast_open_no_cookie;
 
         unsigned char dst_prefixlen;
         unsigned char src_prefixlen;
@@ -47,17 +45,13 @@ struct Route {
         unsigned char tos;
         uint32_t priority; /* note that ip(8) calls this 'metric' */
         uint32_t table;
-        uint32_t mtu;
-        uint32_t initcwnd;
-        uint32_t initrwnd;
-        uint32_t advmss;
-        uint32_t hop_limit;
-        char *tcp_congestion_control_algo;
         unsigned char pref;
         unsigned flags;
         int gateway_onlink; /* Only used in conf parser and route_section_verify(). */
         uint32_t nexthop_id;
-        usec_t tcp_rto_usec;
+
+        /* metrics (RTA_METRICS) */
+        RouteMetric metric;
 
         bool scope_set:1;
         bool table_set:1;
