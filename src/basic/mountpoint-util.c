@@ -103,7 +103,7 @@ int name_to_handle_at_loop(
 
 static int fd_fdinfo_mnt_id(int fd, const char *filename, int flags, int *ret_mnt_id) {
         char path[STRLEN("/proc/self/fdinfo/") + DECIMAL_STR_MAX(int)];
-        _cleanup_free_ char *fdinfo = NULL;
+        _cleanup_free_ void *fdinfo = NULL;
         _cleanup_close_ int subfd = -EBADF;
         char *p;
         int r;
