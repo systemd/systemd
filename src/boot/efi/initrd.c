@@ -39,31 +39,27 @@ static const struct {
 };
 
 static EFIAPI EFI_STATUS initrd_load_file(
-                EFI_LOAD_FILE_PROTOCOL *this,
+                struct initrd_loader *this,
                 EFI_DEVICE_PATH *file_path,
                 bool boot_policy,
                 size_t *buffer_size,
                 void *buffer) {
-
-        struct initrd_loader *loader;
 
         if (!this || !buffer_size || !file_path)
                 return EFI_INVALID_PARAMETER;
         if (boot_policy)
                 return EFI_UNSUPPORTED;
 
-        loader = (struct initrd_loader *) this;
-
-        if (loader->length == 0 || !loader->address)
+        if (this->length == 0 || !this->address)
                 return EFI_NOT_FOUND;
 
-        if (!buffer || *buffer_size < loader->length) {
-                *buffer_size = loader->length;
+        if (!buffer || *buffer_size < this->length) {
+                *buffer_size = this->length;
                 return EFI_BUFFER_TOO_SMALL;
         }
 
-        memcpy(buffer, loader->address, loader->length);
-        *buffer_size = loader->length;
+        memcpy(buffer, this->address, this->length);
+        *buffer_size = this->length;
         return EFI_SUCCESS;
 }
 
@@ -112,16 +108,18 @@ EFI_STATUS initrd_register(
 EFI_STATUS initrd_unregister(EFI_HANDLE initrd_handle) {
         EFI_STATUS err;
         struct initrd_loader *loader;
+        void *loader_raw;
 
         if (!initrd_handle)
                 return EFI_SUCCESS;
 
         /* get the LoadFile2 protocol that we allocated earlier */
-        err = BS->HandleProtocol(initrd_handle, MAKE_GUID_PTR(EFI_LOAD_FILE2_PROTOCOL), (void **) &loader);
+        err = BS->HandleProtocol(initrd_handle, MAKE_GUID_PTR(EFI_LOAD_FILE2_PROTOCOL), &loader_raw);
         if (err != EFI_SUCCESS)
                 return err;
 
         /* uninstall all protocols thus destroying the handle */
+        loader = loader_raw;
         err = BS->UninstallMultipleProtocolInterfaces(
                         initrd_handle, MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL),
                         &efi_initrd_device_path, MAKE_GUID_PTR(EFI_LOAD_FILE2_PROTOCOL),

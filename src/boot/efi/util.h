@@ -95,7 +95,7 @@ void efivar_set_time_usec(const EFI_GUID *vendor, const char16_t *name, uint64_t
 EFI_STATUS efivar_unset(const EFI_GUID *vendor, const char16_t *name, uint32_t flags);
 
 EFI_STATUS efivar_get(const EFI_GUID *vendor, const char16_t *name, char16_t **ret);
-EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const char16_t *name, char **ret, size_t *ret_size);
+EFI_STATUS efivar_get_raw(const EFI_GUID *vendor, const char16_t *name, void **ret, size_t *ret_size);
 EFI_STATUS efivar_get_uint_string(const EFI_GUID *vendor, const char16_t *name, size_t *ret);
 EFI_STATUS efivar_get_uint32_le(const EFI_GUID *vendor, const char16_t *name, uint32_t *ret);
 EFI_STATUS efivar_get_uint64_le(const EFI_GUID *vendor, const char16_t *name, uint64_t *ret);
@@ -105,8 +105,8 @@ void convert_efi_path(char16_t *path);
 char16_t *xstr8_to_path(const char *stra);
 char16_t *mangle_stub_cmdline(char16_t *cmdline);
 
-EFI_STATUS chunked_read(EFI_FILE *file, size_t *size, void *buf);
-EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, size_t off, size_t size, char **content, size_t *content_size);
+EFI_STATUS chunked_read(EFI_FILE *file, size_t *size, char *buf);
+EFI_STATUS file_read(EFI_FILE *dir, const char16_t *name, size_t off, size_t size, void **content, size_t *content_size);
 
 static inline void file_closep(EFI_FILE **handle) {
         if (!*handle)
