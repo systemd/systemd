@@ -27,15 +27,17 @@ static size_t devicetree_allocated(const struct devicetree_state *state) {
 
 static EFI_STATUS devicetree_fixup(struct devicetree_state *state, size_t len) {
         EFI_DT_FIXUP_PROTOCOL *fixup;
+        void *fixup_raw;
         size_t size;
         EFI_STATUS err;
 
         assert(state);
 
-        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_DT_FIXUP_PROTOCOL), NULL, (void **) &fixup);
+        err = BS->LocateProtocol(MAKE_GUID_PTR(EFI_DT_FIXUP_PROTOCOL), NULL, &fixup_raw);
         if (err != EFI_SUCCESS)
                 return log_error_status(EFI_SUCCESS, "Could not locate device tree fixup protocol, skipping.");
-
+        
+        fixup = fixup_raw;
         size = devicetree_allocated(state);
         err = fixup->Fixup(fixup, PHYSICAL_ADDRESS_TO_POINTER(state->addr), &size,
                            EFI_DT_APPLY_FIXUPS | EFI_DT_RESERVE_MEMORY);
