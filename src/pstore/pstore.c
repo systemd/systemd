@@ -297,7 +297,7 @@ static int list_files(PStoreList *list, const char *sourcepath) {
                 if (!ifd_path)
                         return log_oom();
 
-                _cleanup_free_ char *buf = NULL;
+                _cleanup_free_ void *buf = NULL;
                 size_t buf_size;
 
                 /* Now read contents of pstore file */
