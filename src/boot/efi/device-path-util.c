@@ -5,12 +5,12 @@
 
 EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DEVICE_PATH **ret_dp) {
         EFI_STATUS err;
-        EFI_DEVICE_PATH *dp;
+        void *dp;
 
         assert(file);
         assert(ret_dp);
 
-        err = BS->HandleProtocol(device, MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL), (void **) &dp);
+        err = BS->HandleProtocol(device, MAKE_GUID_PTR(EFI_DEVICE_PATH_PROTOCOL), &dp);
         if (err != EFI_SUCCESS)
                 return err;
 
@@ -34,7 +34,7 @@ EFI_STATUS make_file_device_path(EFI_HANDLE device, const char16_t *file, EFI_DE
         memcpy(file_dp->PathName, file, file_size);
 
         dp = device_path_next_node(dp);
-        *dp = DEVICE_PATH_END_NODE;
+        *(EFI_DEVICE_PATH *)dp = DEVICE_PATH_END_NODE;
         return EFI_SUCCESS;
 }
 

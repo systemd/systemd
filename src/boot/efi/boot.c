@@ -2659,6 +2659,7 @@ static EFI_STATUS discover_root_dir(EFI_LOADED_IMAGE_PROTOCOL *loaded_image, EFI
 
 static EFI_STATUS run(EFI_HANDLE image) {
         EFI_LOADED_IMAGE_PROTOCOL *loaded_image;
+        void *loaded_image_raw;
         _cleanup_(file_closep) EFI_FILE *root_dir = NULL;
         _cleanup_(config_free) Config config = {};
         _cleanup_free_ char16_t *loaded_image_path = NULL;
@@ -2672,10 +2673,11 @@ static EFI_STATUS run(EFI_HANDLE image) {
          * By default, Shim uninstalls its protocol when calling StartImage(). */
         shim_retain_protocol();
 
-        err = BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), (void **) &loaded_image);
+        err = BS->HandleProtocol(image, MAKE_GUID_PTR(EFI_LOADED_IMAGE_PROTOCOL), &loaded_image_raw);
         if (err != EFI_SUCCESS)
                 return log_error_status(err, "Error getting a LoadedImageProtocol handle: %m");
-
+        
+        loaded_image = loaded_image_raw;
         (void) device_path_to_str(loaded_image->FilePath, &loaded_image_path);
 
         export_variables(loaded_image, loaded_image_path, init_usec);
