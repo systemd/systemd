@@ -310,9 +310,23 @@ int dns_packet_validate_query(DnsPacket *p) {
 
         switch (p->protocol) {
 
-        case DNS_PROTOCOL_LLMNR:
         case DNS_PROTOCOL_DNS:
-                if (DNS_PACKET_TC(p)) /* mDNS query may have truncation flag. */
+                if (DNS_PACKET_TC(p))
+                        return -EBADMSG;
+
+                if (DNS_PACKET_QDCOUNT(p) != 1)
+                        return -EBADMSG;
+
+                if (DNS_PACKET_ANCOUNT(p) > 0)
+                        return -EBADMSG;
+
+                /* Note, in most cases, DNS query packet does not have authority section. But some query
+                 * types, e.g. IXFR, have Authority sections. Hence, unlike the check for LLMNR, we do not
+                 * check DNS_PACKET_NSCOUNT(p) here. */
+                break;
+
+        case DNS_PROTOCOL_LLMNR:
+                if (DNS_PACKET_TC(p))
                         return -EBADMSG;
 
                 /* RFC 4795, Section 2.1.1. says to discard all queries with QDCOUNT != 1 */
@@ -330,6 +344,9 @@ int dns_packet_validate_query(DnsPacket *p) {
                 break;
 
         case DNS_PROTOCOL_MDNS:
+                /* Note, mDNS query may have truncation flag. So, unlike the check for DNS and LLMNR,
+                 * we do not check DNS_PACKET_TC(p) here. */
+
                 /* RFC 6762, Section 18 specifies that messages with non-zero RCODE
                  * must be silently ignored, and that we must ignore the values of
                  * AA, RD, RA, AD, and CD bits. */

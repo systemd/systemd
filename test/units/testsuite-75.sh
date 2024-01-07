@@ -254,10 +254,7 @@ resolvectl log-level debug
 systemd-run -u resolvectl-monitor.service -p Type=notify resolvectl monitor
 systemd-run -u resolvectl-monitor-json.service -p Type=notify resolvectl monitor --json=short
 
-# Check if all the zones are valid (zone-check always returns 0, so let's check
-# if it produces any errors/warnings)
-run knotc zone-check
-[[ ! -s "$RUN_OUT" ]]
+knotc --force zone-check
 # We need to manually propagate the DS records of onlinesign.test. to the parent
 # zone, since they're generated online
 knotc zone-begin test.
@@ -416,6 +413,18 @@ grep -qF "; fully validated" "$RUN_OUT"
 run resolvectl openpgp mr.smith@signed.test
 grep -qF "5a786cdc59c161cdafd818143705026636962198c66ed4c5b3da321e._openpgpkey.signed.test" "$RUN_OUT"
 grep -qF "authenticated: yes" "$RUN_OUT"
+# Check zone transfers (AXFR/IXFR)
+# Note: since resolved doesn't support zone transfers, let's just make sure it
+#       simply refuses such requests without choking on them
+# See: https://github.com/systemd/systemd/pull/30809#issuecomment-1880102804
+run dig @ns1.unsigned.test AXFR signed.test
+grep -qE "SOA\s+ns1.unsigned.test. root.unsigned.test." "$RUN_OUT"
+run dig AXFR signed.test
+grep -qF "; Transfer failed" "$RUN_OUT"
+run dig @ns1.unsigned.test IXFR=43 signed.test
+grep -qE "SOA\s+ns1.unsigned.test. root.unsigned.test." "$RUN_OUT"
+run dig IXFR=43 signed.test
+grep -qF "; Transfer failed" "$RUN_OUT"
 
 # DNSSEC validation with multiple records of the same type for the same name
 # Issue: https://github.com/systemd/systemd/issues/22002
