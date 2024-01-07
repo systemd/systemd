@@ -21,7 +21,7 @@
 #include "virt.h"
 
 static int cg_any_controller_used_for_v1(void) {
-        _cleanup_free_ char *buf = NULL;
+        _cleanup_free_ void *buf = NULL;
         _cleanup_strv_free_ char **lines = NULL;
         int r;
 
