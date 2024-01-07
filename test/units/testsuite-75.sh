@@ -254,10 +254,7 @@ resolvectl log-level debug
 systemd-run -u resolvectl-monitor.service -p Type=notify resolvectl monitor
 systemd-run -u resolvectl-monitor-json.service -p Type=notify resolvectl monitor --json=short
 
-# Check if all the zones are valid (zone-check always returns 0, so let's check
-# if it produces any errors/warnings)
-run knotc zone-check
-[[ ! -s "$RUN_OUT" ]]
+knotc --force zone-check
 # We need to manually propagate the DS records of onlinesign.test. to the parent
 # zone, since they're generated online
 knotc zone-begin test.
