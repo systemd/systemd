@@ -406,7 +406,7 @@ EFI_STATUS pack_cpio(
                 return log_error_status(err, "Failed to pack cpio prefix: %m");
 
         for (size_t i = 0; i < n_items; i++) {
-                _cleanup_free_ char *content = NULL;
+                _cleanup_free_ void *content = NULL;
                 size_t contentsize = 0;  /* avoid false maybe-uninitialized warning */
 
                 err = file_read(extra_dir, items[i], 0, 0, &content, &contentsize);
