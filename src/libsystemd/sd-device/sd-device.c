@@ -756,8 +756,9 @@ int device_read_uevent_file(sd_device *device) {
         device->uevent_loaded = true;
 
         path = strjoina(syspath, "/uevent");
-
-        r = read_full_virtual_file(path, &uevent, &uevent_len);
+        void *tmp;
+        r = read_full_virtual_file(path, &tmp, &uevent_len);
+        uevent = tmp;
         if (r == -EACCES || ERRNO_IS_NEG_DEVICE_ABSENT(r))
                 /* The uevent files may be write-only, the device may be already removed, or the device
                  * may not have the uevent file. */
@@ -2356,10 +2357,12 @@ _public_ int sd_device_get_sysattr_value(sd_device *device, const char *sysattr,
 
                 /* Read attribute value, Some attributes contain embedded '\0'. So, it is necessary to
                  * also get the size of the result. See issue #20025. */
-                r = read_full_virtual_file(path, &value, &size);
+                void *tmp;
+                r = read_full_virtual_file(path, &tmp, &size);
                 if (r < 0)
                         return r;
-
+                
+                value = tmp;
                 /* drop trailing newlines */
                 while (size > 0 && strchr(NEWLINE, value[--size]))
                         value[size] = '\0';

@@ -346,7 +346,7 @@ TEST(condition_test_firmware_device_tree) {
                 assert_se(condition_test(condition, environ) == 0);
                 condition_free(condition);
         } else {
-                _cleanup_free_ char *dtcompat = NULL;
+                _cleanup_free_ void *dtcompat = NULL;
                 _cleanup_strv_free_ char **dtcompatlist = NULL;
                 size_t dtcompat_size;
                 int r;
