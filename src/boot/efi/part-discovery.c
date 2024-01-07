@@ -232,7 +232,7 @@ static EFI_STATUS find_device(const EFI_GUID *type, EFI_HANDLE *device, EFI_DEVI
                 }
 
                 /* Patch in the data we found */
-                *ret_device_path = device_path_replace_node(partition_path, part_node, (EFI_DEVICE_PATH *) &hd);
+                *ret_device_path = device_path_replace_node(partition_path, part_node, &hd.Header);
                 return EFI_SUCCESS;
         }
 
