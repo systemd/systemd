@@ -7,6 +7,7 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "creds-util.h"
 #include "fd-util.h"
 #include "fileio.h"
 #include "fs-util.h"
@@ -69,6 +70,24 @@ int shorten_overlong(const char *s, char **ret) {
 
         *ret = h;
         return 1;
+}
+
+static int acquire_hostname_from_credential(char **ret) {
+        _cleanup_free_ char *cred = NULL;
+        int r;
+
+        r = read_credential_with_decryption("system.hostname", (void **) &cred, /* ret_size= */ NULL);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to read system.hostname credential, ignoring: %m");
+        if (r == 0) /* not found */
+                return -ENXIO;
+
+        if (!hostname_is_valid(cred, VALID_HOSTNAME_TRAILING_DOT)) /* check that the hostname we return is valid */
+                return log_warning_errno(SYNTHETIC_ERRNO(EBADMSG), "Hostname specified in system.hostname credential is invalid, ignoring: %s", cred);
+
+        log_info("Initializing hostname from credential.");
+        *ret = TAKE_PTR(cred);
+        return 0;
 }
 
 int read_etc_hostname_stream(FILE *f, char **ret) {
@@ -165,6 +184,14 @@ int hostname_setup(bool really) {
         }
 
         if (!hn) {
+                r = acquire_hostname_from_credential(&b);
+                if (r >= 0) {
+                        hn = b;
+                        source = HOSTNAME_TRANSIENT;
+                }
+        }
+
+        if (!hn) {
                 _cleanup_free_ char *buf = NULL;
 
                 /* Don't override the hostname if it is already set and not explicitly configured */
@@ -176,7 +203,9 @@ int hostname_setup(bool really) {
                         log_debug("No hostname configured, leaving existing hostname <%s> in place.", buf);
                         return 0;
                 }
+        }
 
+        if (!hn) {
                 if (enoent)
                         log_info("No hostname configured, using default hostname.");
 
