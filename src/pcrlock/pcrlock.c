@@ -850,7 +850,7 @@ static int event_log_add_algorithms_from_record(EventLog *el, EventLogRecord *re
 static int event_log_load_firmware(EventLog *el) {
         const TCG_EfiSpecIdEventAlgorithmSize *algorithms;
         size_t bufsize = 0, n_algorithms = 0, left = 0;
-        _cleanup_free_ void *buf = NULL;
+        _cleanup_free_ char *buf = NULL;
         const TCG_PCR_EVENT2 *event;
         const char *path;
         int r;
@@ -859,7 +859,7 @@ static int event_log_load_firmware(EventLog *el) {
 
         path = tpm2_firmware_log_path();
 
-        r = read_full_file(path, (char**) &buf, &bufsize);
+        r = read_full_file(path, &buf, &bufsize);
         if (r < 0)
                 return log_error_errno(r, "Failed to open TPM2 event log '%s': %m", path);
 
