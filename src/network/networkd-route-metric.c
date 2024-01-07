@@ -425,15 +425,12 @@ int config_parse_route_metric_tcp_congestion(
                 void *data,
                 void *userdata) {
 
-        Network *network = userdata;
+        Network *network = ASSERT_PTR(userdata);
         _cleanup_(route_free_or_set_invalidp) Route *route = NULL;
         int r;
 
         assert(filename);
-        assert(section);
-        assert(lvalue);
         assert(rvalue);
-        assert(data);
 
         r = route_new_static(network, filename, section_line, &route);
         if (r == -ENOMEM)
@@ -446,7 +443,7 @@ int config_parse_route_metric_tcp_congestion(
 
         r = config_parse_string(unit, filename, line, section, section_line, lvalue, 0,
                                 rvalue, &route->metric.tcp_congestion_control_algo, userdata);
-        if (r < 0)
+        if (r <= 0)
                 return r;
 
         TAKE_PTR(route);
