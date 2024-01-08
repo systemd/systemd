@@ -966,7 +966,7 @@ int getenv_for_pid(pid_t pid, const char *field, char **ret) {
         _cleanup_fclose_ FILE *f = NULL;
         char *value = NULL;
         const char *path;
-        size_t l, sum = 0;
+        size_t sum = 0;
         int r;
 
         assert(pid >= 0);
@@ -1001,9 +1001,9 @@ int getenv_for_pid(pid_t pid, const char *field, char **ret) {
         if (r < 0)
                 return r;
 
-        l = strlen(field);
         for (;;) {
                 _cleanup_free_ char *line = NULL;
+                const char *match;
 
                 if (sum > ENVIRONMENT_BLOCK_MAX) /* Give up searching eventually */
                         return -ENOBUFS;
@@ -1016,8 +1016,9 @@ int getenv_for_pid(pid_t pid, const char *field, char **ret) {
 
                 sum += r;
 
-                if (strneq(line, field, l) && line[l] == '=') {
-                        value = strdup(line + l + 1);
+                match = startswith(line, field);
+                if (match && *match == '=') {
+                        value = strdup(match + 1);
                         if (!value)
                                 return -ENOMEM;
 

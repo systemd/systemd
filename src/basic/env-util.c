@@ -244,9 +244,9 @@ static bool env_match(const char *t, const char *pattern) {
                 return true;
 
         if (!strchr(pattern, '=')) {
-                size_t l = strlen(pattern);
+                t = startswith(t, pattern);
 
-                return strneq(t, pattern, l) && t[l] == '=';
+                return t && *t == '=';
         }
 
         return false;
