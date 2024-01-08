@@ -419,7 +419,7 @@ static int measure_kernel(PcrState *pcr_states, size_t n) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read '%s': %m", p);
 
-                        r = unhexmem(strstrip(s), SIZE_MAX, &v, &sz);
+                        r = unhexmem(strstrip(s), &v, &sz);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to decode PCR value '%s': %m", s);
 
@@ -995,7 +995,7 @@ static int verb_status(int argc, char *argv[], void *userdata) {
                         if (r < 0)
                                 return log_error_errno(r, "Failed to read '%s': %m", p);
 
-                        r = unhexmem(strstrip(s), SIZE_MAX, &h, &l);
+                        r = unhexmem(strstrip(s), &h, &l);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to decode PCR value '%s': %m", s);
 
