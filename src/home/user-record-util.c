@@ -282,7 +282,7 @@ int user_record_add_binding(
                 gid_t gid) {
 
         _cleanup_(json_variant_unrefp) JsonVariant *new_binding_entry = NULL, *binding = NULL;
-        _cleanup_free_ char *ip = NULL, *hd = NULL, *ip_auto = NULL, *lc = NULL, *lcm = NULL, *fst = NULL;
+        _cleanup_free_ char *blob = NULL, *ip = NULL, *hd = NULL, *ip_auto = NULL, *lc = NULL, *lcm = NULL, *fst = NULL;
         sd_id128_t mid;
         int r;
 
@@ -290,6 +290,10 @@ int user_record_add_binding(
 
         if (!h->json)
                 return -EUNATCH;
+
+        blob = path_join(home_system_blob_dir(), h->user_name);
+        if (!blob)
+                return -ENOMEM;
 
         r = sd_id128_get_machine(&mid);
         if (r < 0)
@@ -331,6 +335,7 @@ int user_record_add_binding(
 
         r = json_build(&new_binding_entry,
                        JSON_BUILD_OBJECT(
+                                       JSON_BUILD_PAIR("blobDirectory", JSON_BUILD_STRING(blob)),
                                        JSON_BUILD_PAIR_CONDITION(!!image_path, "imagePath", JSON_BUILD_STRING(image_path)),
                                        JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(partition_uuid), "partitionUuid", JSON_BUILD_STRING(SD_ID128_TO_UUID_STRING(partition_uuid))),
                                        JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(luks_uuid), "luksUuid", JSON_BUILD_STRING(SD_ID128_TO_UUID_STRING(luks_uuid))),
@@ -369,6 +374,8 @@ int user_record_add_binding(
         r = json_variant_set_field(&h->json, "binding", binding);
         if (r < 0)
                 return r;
+
+        free_and_replace(h->blob_directory, blob);
 
         if (storage >= 0)
                 h->storage = storage;
@@ -1382,6 +1389,12 @@ int user_record_is_supported(UserRecord *hr, sd_bus_error *error) {
 
         if (hr->service && !streq(hr->service, "io.systemd.Home"))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Not accepted with service not matching io.systemd.Home.");
+
+        if (hr->blob_directory) {
+                /* This function is always called w/o binding section, so if hr->blob_dir is set then the caller set it themselves */
+                assert((hr->mask & USER_RECORD_BINDING) == 0);
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Cannot manage custom blob directories.");
+        }
 
         return 0;
 }
