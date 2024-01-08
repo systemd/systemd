@@ -234,6 +234,9 @@ optional, when unset the user should not be considered part of any realm. A
 user record with a realm set is never compatible (for the purpose of updates,
 see above) with a user record without one set, even if the `userName` field matches.
 
+`bulkDirectory` → The path to a world-readable copy of the user's bulk directory.
+See [Bulk Directories](HOMED_BULK_DIRS.md) for more details.
+
 `realName` → The real name of the user, a string. This should contain the
 user's real ("human") name, and corresponds loosely to the GECOS field of
 classic UNIX user records. When converting a `struct passwd` to a JSON user
@@ -747,7 +750,7 @@ These two are the only two fields specific to this section. All other fields
 that may be used in this section are identical to the equally named ones in the
 `regular` section (i.e. at the top-level object). Specifically, these are:
 
-`iconName`, `location`, `shell`, `umask`, `environment`, `timeZone`,
+`bulkDirectory`, `iconName`, `location`, `shell`, `umask`, `environment`, `timeZone`,
 `preferredLanguage`, `niceLevel`, `resourceLimits`, `locked`, `notBeforeUSec`,
 `notAfterUSec`, `storage`, `diskSize`, `diskSizeRelative`, `skeletonDirectory`,
 `accessMode`, `tasksMax`, `memoryHigh`, `memoryMax`, `cpuWeight`, `ioWeight`,
@@ -858,6 +861,14 @@ top-level object (i.e. in the `regular` section), which it overrides. The
 managed by the specified service, and this `status` field if it can
 conceptually be managed by different managers, but currently is managed by the
 specified one.
+
+`bulkDirectory` → The path to a world-readable copy of the user's bulk directory.
+See [Bulk Directories](HOMED_BULK_DIRS.md) for more details. Note that this
+field also exists on the top-level object (i.e. in the `regular` section) and
+in the `perMachine` section, both of which are overridden by this field. The
+`regular` and `perMachine` fields should be used in cases where there isn't a
+`service` managing the bulk directory (i.e. in the case of a drop-in user record),
+and this field should be used in all other cases.
 
 `signedLocally` → A boolean. If true indicates that the user record is signed
 by a public key for which the private key is available locally. This means that
@@ -1113,6 +1124,7 @@ A fully featured user record associated with a home directory managed by
                         "rateLimitCount" : 1,
                         "state" : "inactive",
                         "service" : "io.systemd.Home",
+                        "bulkDirectory" : "/var/cache/systemd/homed/grobie/",
                         "diskSize" : 161118667776,
                         "diskCeiling" : 190371729408,
                         "diskFloor" : 5242880,

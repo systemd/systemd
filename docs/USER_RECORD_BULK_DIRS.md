@@ -15,7 +15,8 @@ this includes image files such as the user's avatar picture.
 
 The JSON User Record specifies the location of the bulk directory via the
 `bulkDirectory` field. If the field is unset, then there is no bulk directory
-and thus no bulk files to look for. The bulk directory is completely
+and thus no bulk files to look for. Note that `bulkDirectory` can exist in the
+`regular`, `perMachine`, and `status` sections. The bulk directory is completely
 owned and managed by the service that owns the rest of the user record (as
 specified in the `service` field).
 
