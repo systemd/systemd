@@ -84,6 +84,13 @@ static void set_type(unsigned type_num, char *to, size_t len) {
         case 0xf:
                 type = "optical";
                 break;
+        case 0x14:
+                /*
+                 * Use "zbc" here to be brief and consistent with "lsscsi" command.
+                 * Other tools, e.g., "sg3_utils" would say "host managed zoned block".
+                 */
+                type = "zbc";
+                break;
         default:
                 type = "generic";
                 break;
