@@ -1486,9 +1486,15 @@ interpret_port_as_machine_old_syntax:
                         return -ENOMEM;
         }
 
-        a = strjoin("unixexec:path=ssh,argv1=-xT", p ? ",argv2=-p,argv3=" : "", strempty(p),
-                                ",argv", p ? "4" : "2", "=--,argv", p ? "5" : "3", "=", e,
-                                ",argv", p ? "6" : "4", "=systemd-stdio-bridge", c);
+        const char *ssh = secure_getenv("SYSTEMD_SSH") ?: "ssh";
+        _cleanup_free_ char *ssh_escaped = bus_address_escape(ssh);
+        if (!ssh_escaped)
+                return -ENOMEM;
+
+        a = strjoin("unixexec:path=", ssh_escaped, ",argv1=-xT",
+                    p ? ",argv2=-p,argv3=" : "", strempty(p),
+                    ",argv", p ? "4" : "2", "=--,argv", p ? "5" : "3", "=", e,
+                    ",argv", p ? "6" : "4", "=systemd-stdio-bridge", c);
         if (!a)
                 return -ENOMEM;
 
