@@ -3,8 +3,14 @@
 #include "cap-list.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "glyph-util.h"
+#include "hashmap.h"
+#include "hexdecoct.h"
+#include "path-util.h"
+#include "pretty-print.h"
 #include "process-util.h"
 #include "rlimit-util.h"
+#include "sha256.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "user-record-show.h"
@@ -205,6 +211,31 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         hd = user_record_home_directory(hr);
         if (hd)
                 printf("   Directory: %s\n", hd);
+
+        if (hr->blob_directory) {
+                const char *filename;
+                const uint8_t *hash_bytes;
+                unsigned i = 0, n;
+
+                printf("   Blob Dir.: %s\n", hr->blob_directory);
+
+                n = hashmap_size(hr->blob_manifest);
+                HASHMAP_FOREACH_KEY(hash_bytes, filename, hr->blob_manifest) {
+                        _cleanup_free_ char *path = NULL, *link = NULL, *hash = NULL;
+
+                        path = path_join(hr->blob_directory, filename);
+                        if (path)
+                                (void) terminal_urlify_path(path, filename, &link);
+                        hash = hexmem(hash_bytes, SHA256_DIGEST_SIZE);
+
+                        printf("              %s %s %s(%s)%s\n",
+                               special_glyph((++i != n) ? SPECIAL_GLYPH_TREE_BRANCH : SPECIAL_GLYPH_TREE_RIGHT),
+                               link ?: filename,
+                               ansi_grey(),
+                               hash ?: "can't display hash",
+                               ansi_normal());
+                }
+        }
 
         storage = user_record_storage(hr);
         if (storage >= 0) /* Let's be political, and clarify which storage we like, and which we don't. About CIFS we don't complain. */
