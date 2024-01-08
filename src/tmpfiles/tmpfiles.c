@@ -3795,7 +3795,8 @@ static int parse_line(
                 _cleanup_free_ void *data = NULL;
                 size_t data_size = 0;
 
-                r = unbase64mem(item_binary_argument(&i), item_binary_argument_size(&i), &data, &data_size);
+                r = unbase64mem_full(item_binary_argument(&i), item_binary_argument_size(&i), /* secure = */ false,
+                                     &data, &data_size);
                 if (r < 0)
                         return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to base64 decode specified argument '%s': %m", i.argument);
 
