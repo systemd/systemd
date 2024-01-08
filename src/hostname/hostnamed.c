@@ -75,6 +75,8 @@ typedef struct Context {
         struct stat etc_os_release_stat;
         struct stat etc_machine_info_stat;
 
+        sd_event *event;
+        sd_bus *bus;
         Hashmap *polkit_registry;
 } Context;
 
@@ -94,6 +96,8 @@ static void context_destroy(Context *c) {
 
         context_reset(c, UINT64_MAX);
         hashmap_free(c->polkit_registry);
+        sd_event_unref(c->event);
+        sd_bus_flush_close_unref(c->bus);
 }
 
 static void context_read_etc_hostname(Context *c) {
@@ -1559,35 +1563,34 @@ static const BusObjectImplementation manager_object = {
         .vtables = BUS_VTABLES(hostname_vtable),
 };
 
-static int connect_bus(Context *c, sd_event *event, sd_bus **ret) {
+static int connect_bus(Context *c) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         assert(c);
-        assert(event);
-        assert(ret);
+        assert(c->event);
+        assert(!c->bus);
 
-        r = sd_bus_default_system(&bus);
+        r = sd_bus_default_system(&c->bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to get system bus connection: %m");
 
-        r = bus_add_implementation(bus, &manager_object, c);
+        r = bus_add_implementation(c->bus, &manager_object, c);
         if (r < 0)
                 return r;
 
-        r = bus_log_control_api_register(bus);
+        r = bus_log_control_api_register(c->bus);
         if (r < 0)
                 return r;
 
-        r = sd_bus_request_name_async(bus, NULL, "org.freedesktop.hostname1", 0, NULL, NULL);
+        r = sd_bus_request_name_async(c->bus, NULL, "org.freedesktop.hostname1", 0, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request name: %m");
 
-        r = sd_bus_attach_event(bus, event, 0);
+        r = sd_bus_attach_event(c->bus, c->event, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
-        *ret = TAKE_PTR(bus);
         return 0;
 }
 
@@ -1595,8 +1598,6 @@ static int run(int argc, char *argv[]) {
         _cleanup_(context_destroy) Context context = {
                 .hostname_source = _HOSTNAME_INVALID, /* appropriate value will be set later */
         };
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         log_setup();
@@ -1615,21 +1616,27 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        r = sd_event_default(&event);
+        r = sd_event_default(&context.event);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
-        (void) sd_event_set_watchdog(event, true);
+        (void) sd_event_set_watchdog(context.event, true);
 
-        r = sd_event_set_signal_exit(event, true);
+        r = sd_event_set_signal_exit(context.event, true);
         if (r < 0)
                 return log_error_errno(r, "Failed to install SIGINT/SIGTERM handlers: %m");
 
-        r = connect_bus(&context, event, &bus);
+        r = connect_bus(&context);
         if (r < 0)
                 return r;
 
-        r = bus_event_loop_with_idle(event, bus, "org.freedesktop.hostname1", DEFAULT_EXIT_USEC, NULL, NULL);
+        r = bus_event_loop_with_idle(
+                        context.event,
+                        context.bus,
+                        "org.freedesktop.hostname1",
+                        DEFAULT_EXIT_USEC,
+                        /* check_idle= */ NULL,
+                        /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to run event loop: %m");
 
