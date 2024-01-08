@@ -1281,6 +1281,11 @@ int image_read_only(Image *i, bool b) {
         return 0;
 }
 
+static void make_lock_dir(void) {
+        (void) mkdir_p("/run/systemd/nspawn", 0755);
+        (void) mkdir("/run/systemd/nspawn/locks", 0700);
+}
+
 int image_path_lock(const char *path, int operation, LockFile *global, LockFile *local) {
         _cleanup_free_ char *p = NULL;
         LockFile t = LOCK_FILE_INIT;
@@ -1356,7 +1361,7 @@ int image_path_lock(const char *path, int operation, LockFile *global, LockFile 
         }
 
         if (p) {
-                (void) mkdir_p("/run/systemd/nspawn/locks", 0700);
+                make_lock_dir();
 
                 r = make_lock_file(p, operation, global);
                 if (r < 0) {
@@ -1531,7 +1536,7 @@ int image_name_lock(const char *name, int operation, LockFile *ret) {
                 return 0;
         }
 
-        (void) mkdir_p("/run/systemd/nspawn/locks", 0700);
+        make_lock_dir();
 
         p = strjoina("/run/systemd/nspawn/locks/name-", name);
         return make_lock_file(p, operation, ret);
@@ -1569,7 +1574,6 @@ bool image_in_search_path(
                 /* Accept trailing slashes */
                 if (p[strspn(p, "/")] == 0)
                         return true;
-
         }
 
         return false;
