@@ -1517,16 +1517,19 @@ char *strrstr(const char *haystack, const char *needle) {
         if (!haystack || !needle)
                 return NULL;
 
-        l = strlen(needle);
-
         /* Special case: for the empty string we return the very last possible occurrence, i.e. *after* the
          * last char, not before. */
-        if (l == 0)
-                return strchr(haystack, 0);
+        if (*needle == 0)
+                return (char *) haystack + strlen(haystack);
 
-        for (const char *p = haystack; *p; p++)
-                if (strneq(p, needle, l))
-                        f = p;
-
-        return (char*) f;
+        char *result = NULL;
+        for (;;) {
+                char *p = strstr(haystack, needle);
+                if (p == NULL) {
+                        break;
+                }
+                result = p;
+                haystack = result + 1;
+        }
+        return result;
 }
