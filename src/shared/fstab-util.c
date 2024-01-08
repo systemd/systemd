@@ -232,13 +232,14 @@ int fstab_filter_options(
                         }
 
                         NULSTR_FOREACH(name, names) {
-                                if (end < word + strlen(name))
+                                size_t length = strlen(name);
+                                if (end < word + length)
                                         continue;
-                                if (!strneq(word, name, strlen(name)))
+                                if (!strneq(word, name, length))
                                         continue;
 
                                 /* We know that the string is NUL terminated, so *x is valid */
-                                x = word + strlen(name);
+                                x = word + length;
                                 if (IN_SET(*x, '\0', '=', ',')) {
                                         namefound = name;
                                         break;
