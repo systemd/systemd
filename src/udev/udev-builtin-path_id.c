@@ -186,7 +186,7 @@ static sd_device *handle_scsi_sas(sd_device *parent, char **path) {
                 return NULL;
 
         /* Check if we are simple disk */
-        if (strncmp(phy_count, "1", 2) != 0)
+        if (!streq(phy_count, "1"))
                 return handle_scsi_sas_wide_port(parent, path);
 
         /* Get connected phy */
