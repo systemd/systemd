@@ -266,7 +266,7 @@ static int verify_anonymous_token(sd_bus *b, const char *p, size_t l) {
         if (l % 2 != 0)
                 return 0;
 
-        r = unhexmem(p, l, (void **) &token, &len);
+        r = unhexmem_full(p, l, /* secure = */ false, (void**) &token, &len);
         if (r < 0)
                 return 0;
 
@@ -298,7 +298,7 @@ static int verify_external_token(sd_bus *b, const char *p, size_t l) {
         if (l % 2 != 0)
                 return 0;
 
-        r = unhexmem(p, l, (void**) &token, &len);
+        r = unhexmem_full(p, l, /* secure = */ false, (void**) &token, &len);
         if (r < 0)
                 return 0;
 

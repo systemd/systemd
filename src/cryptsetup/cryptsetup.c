@@ -368,7 +368,7 @@ static int parse_one_option(const char *option) {
                         _cleanup_free_ void *cid = NULL;
                         size_t cid_size;
 
-                        r = unbase64mem(val, SIZE_MAX, &cid, &cid_size);
+                        r = unbase64mem(val, &cid, &cid_size);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to decode FIDO2 CID data: %m");
 

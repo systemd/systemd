@@ -279,7 +279,7 @@ static int dns_trust_anchor_load_positive(DnsTrustAnchor *d, const char *path, u
                         return -EINVAL;
                 }
 
-                r = unhexmem(p, strlen(p), &dd, &l);
+                r = unhexmem(p, &dd, &l);
                 if (r < 0) {
                         log_warning("Failed to parse DS digest %s on line %s:%u", p, path, line);
                         return -EINVAL;
@@ -338,7 +338,7 @@ static int dns_trust_anchor_load_positive(DnsTrustAnchor *d, const char *path, u
                         return -EINVAL;
                 }
 
-                r = unbase64mem(p, strlen(p), &k, &l);
+                r = unbase64mem(p, &k, &l);
                 if (r < 0)
                         return log_warning_errno(r, "Failed to parse DNSKEY key data %s on line %s:%u", p, path, line);
 
