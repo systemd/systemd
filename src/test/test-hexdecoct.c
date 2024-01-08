@@ -82,7 +82,7 @@ static void test_hexmem_one(const char *in, const char *expected) {
         log_debug("hexmem(\"%s\") → \"%s\" (expected: \"%s\")", strnull(in), result, expected);
         assert_se(streq(result, expected));
 
-        assert_se(unhexmem(result, SIZE_MAX, &mem, &len) >= 0);
+        assert_se(unhexmem(result, &mem, &len) >= 0);
         assert_se(memcmp_safe(mem, in, len) == 0);
 }
 
@@ -97,7 +97,7 @@ static void test_unhexmem_one(const char *s, size_t l, int retval) {
         _cleanup_free_ void *mem = NULL;
         size_t len;
 
-        assert_se(unhexmem(s, l, &mem, &len) == retval);
+        assert_se(unhexmem_full(s, l, /* secure = */ false, &mem, &len) == retval);
         if (retval == 0) {
                 char *answer;
 
@@ -318,7 +318,7 @@ TEST(base64mem_linebreak) {
                 assert_se(encoded);
                 assert_se((size_t) l == strlen(encoded));
 
-                assert_se(unbase64mem(encoded, SIZE_MAX, &decoded, &decoded_size) >= 0);
+                assert_se(unbase64mem(encoded, &decoded, &decoded_size) >= 0);
                 assert_se(decoded_size == n);
                 assert_se(memcmp(data, decoded, n) == 0);
 
@@ -452,7 +452,7 @@ static void test_unbase64mem_one(const char *input, const char *output, int ret)
         _cleanup_free_ void *buffer = NULL;
         size_t size = 0;
 
-        assert_se(unbase64mem(input, SIZE_MAX, &buffer, &size) == ret);
+        assert_se(unbase64mem(input, &buffer, &size) == ret);
         if (ret >= 0) {
                 assert_se(size == strlen(output));
                 assert_se(memcmp(buffer, output, size) == 0);
@@ -533,12 +533,12 @@ TEST(base64withwithouturl) {
         size_t size;
 
         /* This is regular base64 */
-        assert_se(unbase64mem("zKFyIq7aZn4EpuCCmpcF9jPgD8JFE1g/xfT0Mas8X4M0WycyigRsQ4IH4yysufus0AORQsuk3oeGhRC7t1tLyKD0Ih0VcYedv5+p8e6itqrIwzecu98+rNyUVDhWBzS0PMwxEw==", SIZE_MAX, &buffer, &size) >= 0);
+        assert_se(unbase64mem("zKFyIq7aZn4EpuCCmpcF9jPgD8JFE1g/xfT0Mas8X4M0WycyigRsQ4IH4yysufus0AORQsuk3oeGhRC7t1tLyKD0Ih0VcYedv5+p8e6itqrIwzecu98+rNyUVDhWBzS0PMwxEw==", &buffer, &size) >= 0);
         assert_se(memcmp_nn(plaintext, sizeof(plaintext), buffer, size) == 0);
         buffer = mfree(buffer);
 
         /* This is the same but in base64url */
-        assert_se(unbase64mem("zKFyIq7aZn4EpuCCmpcF9jPgD8JFE1g_xfT0Mas8X4M0WycyigRsQ4IH4yysufus0AORQsuk3oeGhRC7t1tLyKD0Ih0VcYedv5-p8e6itqrIwzecu98-rNyUVDhWBzS0PMwxEw==", SIZE_MAX, &buffer, &size) >= 0);
+        assert_se(unbase64mem("zKFyIq7aZn4EpuCCmpcF9jPgD8JFE1g_xfT0Mas8X4M0WycyigRsQ4IH4yysufus0AORQsuk3oeGhRC7t1tLyKD0Ih0VcYedv5-p8e6itqrIwzecu98-rNyUVDhWBzS0PMwxEw==", &buffer, &size) >= 0);
         assert_se(memcmp_nn(plaintext, sizeof(plaintext), buffer, size) == 0);
 
         /* Hint: use xxd -i to generate the static C array from some data, and basenc --base64 + basenc

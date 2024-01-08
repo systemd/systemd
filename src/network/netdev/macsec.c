@@ -712,7 +712,7 @@ int config_parse_macsec_key(
 
         dest = a ? &a->sa : &b->sa;
 
-        r = unhexmem_full(rvalue, strlen(rvalue), true, &p, &l);
+        r = unhexmem_full(rvalue, SIZE_MAX, /* secure = */ true, &p, &l);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to parse key. Ignoring assignment: %m");
                 return 0;
@@ -820,7 +820,7 @@ int config_parse_macsec_key_id(
         if (r < 0)
                 return log_oom();
 
-        r = unhexmem(rvalue, strlen(rvalue), &p, &l);
+        r = unhexmem(rvalue, &p, &l);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0) {
