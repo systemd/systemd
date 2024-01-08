@@ -2668,6 +2668,17 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>KeepClientAlive=</varname></term>
+        <listitem>
+          <para>Takes a boolean. If set to true, the DHCPv4 client will restart and initialize the
+          handshake again after reaching <literal>MaxAttempts=</literal> retries. Defaults to
+          false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>ListenPort=</varname></term>
         <listitem>
           <para>Set the port from which the DHCP client packets originate.</para>

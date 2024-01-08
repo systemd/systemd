@@ -397,6 +397,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_send_release = true,
                 .dhcp_route_metric = DHCP_ROUTE_METRIC,
                 .dhcp_use_rapid_commit = -1,
+                .dhcp_keep_client_alive = false,
                 .dhcp_client_identifier = _DHCP_CLIENT_ID_INVALID,
                 .dhcp_route_table = RT_TABLE_MAIN,
                 .dhcp_ip_service_type = -1,
