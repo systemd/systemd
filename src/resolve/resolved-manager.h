@@ -178,6 +178,7 @@ uint32_t manager_find_mtu(Manager *m);
 
 int manager_monitor_send(Manager *m, int state, int rcode, int error, DnsQuestion *question_idna, DnsQuestion *question_utf8, DnsPacket *question_bypass, DnsQuestion *collected_questions, DnsAnswer *answer);
 
+int sendmsg_loop(int fd, struct msghdr *mh, int flags);
 int manager_write(Manager *m, int fd, DnsPacket *p);
 int manager_send(Manager *m, int fd, int ifindex, int family, const union in_addr_union *destination, uint16_t port, const union in_addr_union *source, DnsPacket *p);
 int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret);
