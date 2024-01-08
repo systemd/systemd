@@ -118,6 +118,37 @@
   </refsect1>
 
   <refsect1>
+    <title>Credentials</title>
+
+    <para><command>systemd-network-generator</command> supports the service credentials logic as implemented
+    by
+    <varname>ImportCredential=</varname>/<varname>LoadCredential=</varname>/<varname>SetCredential=</varname>
+    (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+    details). The following credentials are used when passed in:</para>
+
+    <variablelist class='system-credentials'>
+      <varlistentry>
+        <term><varname>network.netdev.*</varname></term>
+        <term><varname>network.link.*</varname></term>
+        <term><varname>network.network.*</varname></term>
+
+        <listitem><para>These credentials should contain valid
+        <citerefentry><refentrytitle>systemd.netdev</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd.link</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+        <citerefentry><refentrytitle>systemd.network</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        configuration data. From each matching credential a separate file is created. Example: a passed
+        credential <filename>network.link.50-foobar</filename> will be copied into a configuration file
+        <filename>50-foobar.link</filename>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+    </variablelist>
+
+    <para>Note that by default the <filename>systemd-network-generator.service</filename> unit file is set up
+    to inherit the these credentials from the service manager.</para>
+  </refsect1>
+
+  <refsect1>
     <title>See Also</title>
     <para><simplelist type="inline">
       <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
