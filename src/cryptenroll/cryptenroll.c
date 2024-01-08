@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <getopt.h>
+#include <sys/mman.h>
 
 #include "ask-password-api.h"
 #include "build.h"
@@ -33,6 +34,7 @@ static EnrollType arg_enroll_type = _ENROLL_TYPE_INVALID;
 static char *arg_unlock_keyfile = NULL;
 static UnlockType arg_unlock_type = UNLOCK_PASSWORD;
 static char *arg_unlock_fido2_device = NULL;
+static char *arg_unlock_tpm2_device = NULL;
 static char *arg_pkcs11_token_uri = NULL;
 static char *arg_fido2_device = NULL;
 static char *arg_tpm2_device = NULL;
@@ -61,6 +63,7 @@ assert_cc(sizeof(arg_wipe_slots_mask) * 8 >= _ENROLL_TYPE_MAX);
 
 STATIC_DESTRUCTOR_REGISTER(arg_unlock_keyfile, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_unlock_fido2_device, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_unlock_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_pkcs11_token_uri, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fido2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
@@ -117,6 +120,8 @@ static int help(void) {
                "                       Use a file to unlock the volume\n"
                "     --unlock-fido2-device=PATH\n"
                "                       Use a FIDO2 device to unlock the volume\n"
+               "     --unlock-tpm2-device=PATH\n"
+               "                       Use a TPM2 device to unlock the volume\n"
                "\n%3$sSimple Enrollment:%4$s\n"
                "     --password        Enroll a user-supplied password\n"
                "     --recovery-key    Enroll a recovery key\n"
@@ -172,6 +177,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_RECOVERY_KEY,
                 ARG_UNLOCK_KEYFILE,
                 ARG_UNLOCK_FIDO2_DEVICE,
+                ARG_UNLOCK_TPM2_DEVICE,
                 ARG_PKCS11_TOKEN_URI,
                 ARG_FIDO2_DEVICE,
                 ARG_TPM2_DEVICE,
@@ -197,6 +203,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "recovery-key",                 no_argument,       NULL, ARG_RECOVERY_KEY          },
                 { "unlock-key-file",              required_argument, NULL, ARG_UNLOCK_KEYFILE        },
                 { "unlock-fido2-device",          required_argument, NULL, ARG_UNLOCK_FIDO2_DEVICE   },
+                { "unlock-tpm2-device",           required_argument, NULL, ARG_UNLOCK_TPM2_DEVICE    },
                 { "pkcs11-token-uri",             required_argument, NULL, ARG_PKCS11_TOKEN_URI      },
                 { "fido2-credential-algorithm",   required_argument, NULL, ARG_FIDO2_CRED_ALG        },
                 { "fido2-device",                 required_argument, NULL, ARG_FIDO2_DEVICE          },
@@ -301,6 +308,26 @@ static int parse_argv(int argc, char *argv[]) {
 
                         arg_unlock_type = UNLOCK_FIDO2;
                         arg_unlock_fido2_device = TAKE_PTR(device);
+                        break;
+                }
+
+                case ARG_UNLOCK_TPM2_DEVICE: {
+                        _cleanup_free_ char *device = NULL;
+
+                        if (arg_unlock_type != UNLOCK_PASSWORD)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                                       "Multiple unlock methods specified at once, refusing.");
+
+                        assert(!arg_unlock_tpm2_device);
+
+                        if (!streq(optarg, "auto")) {
+                                device = strdup(optarg);
+                                if (!device)
+                                        return log_oom();
+                        }
+
+                        arg_unlock_type = UNLOCK_TPM2;
+                        arg_unlock_tpm2_device = TAKE_PTR(device);
                         break;
                 }
 
@@ -666,6 +693,10 @@ static int prepare_luks(
 
         switch (arg_unlock_type) {
 
+        case UNLOCK_PASSWORD:
+                r = load_volume_key_password(cd, arg_node, vk, &vks);
+                break;
+
         case UNLOCK_KEYFILE:
                 r = load_volume_key_keyfile(cd, vk, &vks);
                 break;
@@ -674,8 +705,8 @@ static int prepare_luks(
                 r = load_volume_key_fido2(cd, arg_node, arg_unlock_fido2_device, vk, &vks);
                 break;
 
-        case UNLOCK_PASSWORD:
-                r = load_volume_key_password(cd, arg_node, vk, &vks);
+        case UNLOCK_TPM2:
+                r = load_volume_key_tpm2(cd, arg_node, arg_unlock_tpm2_device, vk, &vks);
                 break;
 
         default:
@@ -696,7 +727,7 @@ static int run(int argc, char *argv[]) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) void *vk = NULL;
         size_t vks;
-        int slot, r;
+        int slot, slot_to_wipe = -1, r;
 
         log_show_color(true);
         log_parse_environment();
@@ -705,6 +736,9 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        /* A delicious drop of snake oil */
+        (void) mlockall(MCL_FUTURE);
 
         cryptsetup_enable_logging(NULL);
 
@@ -734,9 +768,15 @@ static int run(int argc, char *argv[]) {
                 break;
 
         case ENROLL_TPM2:
-                slot = enroll_tpm2(cd, vk, vks, arg_tpm2_device, arg_tpm2_seal_key_handle, arg_tpm2_device_key, arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, arg_tpm2_public_key, arg_tpm2_public_key_pcr_mask, arg_tpm2_signature, arg_tpm2_pin, arg_tpm2_pcrlock);
-                break;
+                slot = enroll_tpm2(cd, vk, vks, arg_tpm2_device, arg_tpm2_seal_key_handle, arg_tpm2_device_key, arg_tpm2_hash_pcr_values, arg_tpm2_n_hash_pcr_values, arg_tpm2_public_key, arg_tpm2_public_key_pcr_mask, arg_tpm2_signature, arg_tpm2_pin, arg_tpm2_pcrlock, &slot_to_wipe);
 
+                if (slot >= 0 && slot_to_wipe >= 0) {
+                        /* Rotating PIN on an existing enrollment */
+                        r = wipe_slots(cd, &slot_to_wipe, 1, WIPE_EXPLICIT, 0, -1);
+                        if (r < 0)
+                                return r;
+                }
+                break;
         case _ENROLL_TYPE_INVALID:
                 /* List enrolled slots if we are called without anything to enroll or wipe */
                 if (!wipe_requested())

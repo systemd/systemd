@@ -256,6 +256,10 @@ if conf.get('HAVE_LIBFIDO2') == 1 and conf.get('HAVE_LIBCRYPTSETUP') == 1
         shared_sources += files('cryptsetup-fido2.c')
 endif
 
+if conf.get('HAVE_TPM2') == 1 and conf.get('HAVE_LIBCRYPTSETUP') == 1
+        shared_sources += files('cryptsetup-tpm2.c')
+endif
+
 generate_ip_protocol_list = find_program('generate-ip-protocol-list.sh')
 ip_protocol_list_txt = custom_target(
         'ip-protocol-list.txt',
