@@ -5,6 +5,7 @@
 #include "sd-daemon.h"
 
 #include "common-signal.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "mkdir.h"
@@ -157,7 +158,6 @@ static int start_one_worker(Manager *m) {
         if (r < 0)
                 return log_error_errno(r, "Failed to fork new worker child: %m");
         if (r == 0) {
-                char pids[DECIMAL_STR_MAX(pid_t)];
                 /* Child */
 
                 if (m->listen_fd == 3) {
@@ -175,9 +175,9 @@ static int start_one_worker(Manager *m) {
                         safe_close(m->listen_fd);
                 }
 
-                xsprintf(pids, PID_FMT, pid);
-                if (setenv("LISTEN_PID", pids, 1) < 0) {
-                        log_error_errno(errno, "Failed to set $LISTEN_PID: %m");
+                r = setenvf("LISTEN_PID", /* overwrite= */ true, PID_FMT, pid);
+                if (r < 0) {
+                        log_error_errno(r, "Failed to set $LISTEN_PID: %m");
                         _exit(EXIT_FAILURE);
                 }
 

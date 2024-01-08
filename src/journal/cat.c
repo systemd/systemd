@@ -12,6 +12,7 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "env-util.h"
 #include "fd-util.h"
 #include "format-util.h"
 #include "main-func.h"
@@ -157,7 +158,6 @@ static int run(int argc, char *argv[]) {
         if (argc <= optind)
                 (void) execl("/bin/cat", "/bin/cat", NULL);
         else {
-                _cleanup_free_ char *s = NULL;
                 struct stat st;
 
                 if (fstat(STDERR_FILENO, &st) < 0)
@@ -165,11 +165,9 @@ static int run(int argc, char *argv[]) {
                                                "Failed to fstat(%s): %m",
                                                FORMAT_PROC_FD_PATH(STDERR_FILENO));
 
-                if (asprintf(&s, DEV_FMT ":" INO_FMT, (dev_t)st.st_dev, st.st_ino) < 0)
-                        return log_oom();
-
-                if (setenv("JOURNAL_STREAM", s, /* overwrite = */ true) < 0)
-                        return log_error_errno(errno, "Failed to set environment variable JOURNAL_STREAM: %m");
+                r = setenvf("JOURNAL_STREAM", /* overwrite = */ true, DEV_FMT ":" INO_FMT, (dev_t) st.st_dev, st.st_ino);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to set environment variable JOURNAL_STREAM: %m");
 
                 (void) execvp(argv[optind], argv + optind);
         }
