@@ -3,8 +3,14 @@
 #include "cap-list.h"
 #include "format-util.h"
 #include "fs-util.h"
+#include "glyph-util.h"
+#include "hashmap.h"
+#include "hexdecoct.h"
+#include "path-util.h"
+#include "pretty-print.h"
 #include "process-util.h"
 #include "rlimit-util.h"
+#include "sha256.h"
 #include "strv.h"
 #include "terminal-util.h"
 #include "user-record-show.h"
@@ -205,6 +211,37 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         hd = user_record_home_directory(hr);
         if (hd)
                 printf("   Directory: %s\n", hd);
+
+        if (hr->blob_directory) {
+                _cleanup_free_ char **filenames = NULL;
+                size_t n_filenames = 0;
+
+                r = hashmap_dump_keys_sorted(hr->blob_manifest, (void***) &filenames, &n_filenames);
+                if (r < 0) {
+                        errno = -r;
+                        printf("   Blob Dir.: %s (can't iterate: %m)\n", hr->blob_directory);
+                } else
+                        printf("   Blob Dir.: %s\n", hr->blob_directory);
+
+                for (size_t i = 0; i < n_filenames; i++) {
+                        _cleanup_free_ char *path = NULL, *link = NULL, *hash = NULL;
+                        const char *filename = filenames[i];
+                        const uint8_t *hash_bytes = hashmap_get(hr->blob_manifest, filename);
+                        const bool last = (i == n_filenames - 1);
+
+                        path = path_join(hr->blob_directory, filename);
+                        if (path)
+                                (void) terminal_urlify_path(path, filename, &link);
+                        hash = hexmem(hash_bytes, SHA256_DIGEST_SIZE);
+
+                        printf("              %s %s %s(%s)%s\n",
+                               special_glyph(last ? SPECIAL_GLYPH_TREE_RIGHT : SPECIAL_GLYPH_TREE_BRANCH),
+                               link ?: filename,
+                               ansi_grey(),
+                               hash ?: "can't display hash",
+                               ansi_normal());
+                }
+        }
 
         storage = user_record_storage(hr);
         if (storage >= 0) /* Let's be political, and clarify which storage we like, and which we don't. About CIFS we don't complain. */

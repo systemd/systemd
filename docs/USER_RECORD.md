@@ -234,6 +234,16 @@ optional, when unset the user should not be considered part of any realm. A
 user record with a realm set is never compatible (for the purpose of updates,
 see above) with a user record without one set, even if the `userName` field matches.
 
+`blobDirectory` → The absolute path to a world-readable copy of the user's blob
+directory. See [Blob Directories](USER_RECORD_BLOB_DIRS.md) for more details.
+
+`blobManifest` → An object, which maps valid blob directory filenames (see
+[Blob Directories](USER_RECORD_BLOB_DIRS.md) for requirements) to SHA256 hashes
+formatted as hex strings. This exists for the purpose of including the contents
+of the blob directory in the record's signature. Managers that support blob
+directories and utilize signed user records (like `systemd-homed`) should use
+this field to verify the contents of the blob directory whenever appropriate.
+
 `realName` → The real name of the user, a string. This should contain the
 user's real ("human") name, and corresponds loosely to the GECOS field of
 classic UNIX user records. When converting a `struct passwd` to a JSON user
@@ -747,8 +757,8 @@ These two are the only two fields specific to this section. All other fields
 that may be used in this section are identical to the equally named ones in the
 `regular` section (i.e. at the top-level object). Specifically, these are:
 
-`iconName`, `location`, `shell`, `umask`, `environment`, `timeZone`,
-`preferredLanguage`, `niceLevel`, `resourceLimits`, `locked`, `notBeforeUSec`,
+`blobDirectory`, `blobManifest`, `iconName`, `location`, `shell`, `umask`, `environment`,
+`timeZone`, `preferredLanguage`, `niceLevel`, `resourceLimits`, `locked`, `notBeforeUSec`,
 `notAfterUSec`, `storage`, `diskSize`, `diskSizeRelative`, `skeletonDirectory`,
 `accessMode`, `tasksMax`, `memoryHigh`, `memoryMax`, `cpuWeight`, `ioWeight`,
 `mountNoDevices`, `mountNoSuid`, `mountNoExecute`, `cifsDomain`,
@@ -799,9 +809,9 @@ The following fields are defined in the `binding` section. They all have an
 identical format and override their equally named counterparts in the `regular`
 and `perMachine` sections:
 
-`imagePath`, `homeDirectory`, `partitionUuid`, `luksUuid`, `fileSystemUuid`,
-`uid`, `gid`, `storage`, `fileSystemType`, `luksCipher`, `luksCipherMode`,
-`luksVolumeKeySize`.
+`blobDirectory`, `imagePath`, `homeDirectory`, `partitionUuid`, `luksUuid`,
+`fileSystemUuid`, `uid`, `gid`, `storage`, `fileSystemType`, `luksCipher`,
+`luksCipherMode`, `luksVolumeKeySize`.
 
 ## Fields in the `status` section
 
@@ -1077,6 +1087,7 @@ A fully featured user record associated with a home directory managed by
                         "fileSystemUuid" : "758e88c8-5851-4a2a-b88f-e7474279c111",
                         "gid" : 60232,
                         "homeDirectory" : "/home/grobie",
+                        "blobDirectory" : "/var/cache/systemd/homed/grobie/",
                         "imagePath" : "/home/grobie.home",
                         "luksCipher" : "aes",
                         "luksCipherMode" : "xts-plain64",
@@ -1086,6 +1097,10 @@ A fully featured user record associated with a home directory managed by
                         "storage" : "luks",
                         "uid" : 60232
                 }
+        },
+        "blobManifest" : {
+                "avatar" : "c0636851d25a62d817ff7da4e081d1e646e42c74d0ecb53425f75fcf1ba43b52",
+                "login-background" : "da7ad0222a6edbc6cd095149c72d38d92fd3114f606e4b57469857ef47fade18"
         },
         "disposition" : "regular",
         "enforcePasswordPolicy" : false,
