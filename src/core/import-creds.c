@@ -314,7 +314,7 @@ static int proc_cmdline_callback(const char *key, const char *value, void *data)
         colon++;
 
         if (base64) {
-                r = unbase64mem(colon, SIZE_MAX, &binary, &l);
+                r = unbase64mem(colon, &binary, &l);
                 if (r < 0) {
                         log_warning_errno(r, "Failed to decode binary credential '%s' data, ignoring: %m", n);
                         return 0;
@@ -525,7 +525,7 @@ static int parse_smbios_strings(ImportCredentialContext *c, const char *data, si
 
                 /* Optionally base64 decode the data, if requested, to allow binary credentials */
                 if (unbase64) {
-                        r = unbase64mem(eq + 1, nul - (eq + 1), &buf, &buflen);
+                        r = unbase64mem_full(eq + 1, nul - (eq + 1), /* secure = */ false, &buf, &buflen);
                         if (r < 0) {
                                 log_warning_errno(r, "Failed to base64 decode credential '%s', ignoring: %m", cn);
                                 continue;
