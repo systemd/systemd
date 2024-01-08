@@ -1479,7 +1479,7 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                 _cleanup_free_ void *data = NULL;
                 size_t data_size;
 
-                r = unhexmem(client_id_hex, SIZE_MAX, &data, &data_size);
+                r = unhexmem(client_id_hex, &data, &data_size);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse client ID %s, ignoring: %m", client_id_hex);
 
@@ -1489,7 +1489,7 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
         }
 
         if (vendor_specific_hex) {
-                r = unhexmem(vendor_specific_hex, SIZE_MAX, &lease->vendor_specific, &lease->vendor_specific_len);
+                r = unhexmem(vendor_specific_hex, &lease->vendor_specific, &lease->vendor_specific_len);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse vendor specific data %s, ignoring: %m", vendor_specific_hex);
         }
@@ -1501,7 +1501,7 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                 if (!options[i])
                         continue;
 
-                r = unhexmem(options[i], SIZE_MAX, &data, &len);
+                r = unhexmem(options[i], &data, &len);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to parse private DHCP option %s, ignoring: %m", options[i]);
                         continue;

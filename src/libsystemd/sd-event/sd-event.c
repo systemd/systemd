@@ -1976,7 +1976,7 @@ _public_ int sd_event_add_memory_pressure(
 
                 env = secure_getenv("MEMORY_PRESSURE_WRITE");
                 if (env) {
-                        r = unbase64mem(env, SIZE_MAX, &write_buffer, &write_buffer_size);
+                        r = unbase64mem(env, &write_buffer, &write_buffer_size);
                         if (r < 0)
                                 return r;
                 }
