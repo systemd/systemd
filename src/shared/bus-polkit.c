@@ -192,9 +192,9 @@ typedef struct AsyncPolkitQuery {
         AsyncPolkitQueryAction *action;
 
         sd_bus *bus;
-        sd_bus_message *request;
+        sd_bus_message *request;  /* the original bus method call that triggered the polkit auth, NULL in case of varlink */
         sd_bus_slot *slot;
-        Varlink *link;
+        Varlink *link;            /* the original varlink method call that triggered the polkit auth, NULL in case of bus */
 
         Hashmap *registry;
         sd_event_source *defer_event_source;
@@ -211,8 +211,12 @@ static AsyncPolkitQuery *async_polkit_query_free(AsyncPolkitQuery *q) {
 
         sd_bus_slot_unref(q->slot);
 
-        if (q->registry && q->request)
-                hashmap_remove(q->registry, q->request);
+        if (q->registry) {
+                if (q->request)
+                        hashmap_remove(q->registry, q->request);
+                if (q->link)
+                        hashmap_remove(q->registry, q->link);
+        }
 
         sd_bus_message_unref(q->request);
 
