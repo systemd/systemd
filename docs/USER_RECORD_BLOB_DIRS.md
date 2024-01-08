@@ -15,7 +15,8 @@ system.
 
 The JSON User Record specifies the location of the blob directory via the
 `blobDirectory` field. If the field is unset, then there is no blob directory
-and thus no blob files to look for. The blob directory is completely
+and thus no blob files to look for.  Note that `blobDirectory` can exist in the
+`regular`, `perMachine`, and `status` sections. The blob directory is completely
 owned and managed by the service that owns the rest of the user record (as
 specified in the `service` field).
 
