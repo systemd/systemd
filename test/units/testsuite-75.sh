@@ -197,6 +197,25 @@ DNSSEC=allow-downgrade
 DNS=10.0.0.1
 DNS=fd00:dead:beef:cafe::1
 EOF
+cat >/etc/systemd/network/10-dns1.netdev <<EOF
+[NetDev]
+Name=dns1
+Kind=dummy
+EOF
+cat >/etc/systemd/network/10-dns1.network <<EOF
+[Match]
+Name=dns1
+
+[Network]
+Address=10.99.0.1/24
+DNSSEC=no
+EOF
+systemctl edit --stdin --full --runtime --force "resolved-dummy-server.service" <<EOF
+[Service]
+Type=notify
+Environment=SYSTEMD_LOG_LEVEL=debug
+ExecStart=/usr/lib/systemd/tests/unit-tests/manual/test-resolved-dummy-server 10.99.0.1:53
+EOF
 
 DNS_ADDRESSES=(
     "10.0.0.1"
@@ -236,6 +255,7 @@ ln -svf /etc/bind.keys /etc/bind/bind.keys
 systemctl unmask systemd-networkd
 systemctl start systemd-networkd
 restart_resolved
+systemctl start resolved-dummy-server
 # Create knot's runtime dir, since from certain version it's provided only by
 # the package and not created by tmpfiles/systemd
 if [[ ! -d /run/knot ]]; then
@@ -246,6 +266,7 @@ systemctl start knot
 # Wait a bit for the keys to propagate
 sleep 4
 
+systemctl status resolved-dummy-server
 networkctl status
 resolvectl status
 resolvectl log-level debug
@@ -254,7 +275,14 @@ resolvectl log-level debug
 systemd-run -u resolvectl-monitor.service -p Type=notify resolvectl monitor
 systemd-run -u resolvectl-monitor-json.service -p Type=notify resolvectl monitor --json=short
 
-knotc --force zone-check
+# FIXME: knot, unfortunately, incorrectly complains about missing zone files for zones
+#        that are forwarded using the `dnsproxy` module. Until the issue is resolved,
+#        let's fall back to pre-processing the `zone-check` output a bit before checking it
+#
+# See: https://gitlab.nic.cz/knot/knot-dns/-/issues/913
+run knotc zone-check || :
+sed -i '/forwarded.test./d' "$RUN_OUT"
+[[ ! -s "$RUN_OUT" ]]
 # We need to manually propagate the DS records of onlinesign.test. to the parent
 # zone, since they're generated online
 knotc zone-begin test.
@@ -551,6 +579,67 @@ grep -qF "fd00:dead:beef:cafe::123" "$RUN_OUT"
 ## 2) Query for a non-existing name should return NXDOMAIN, not SERVFAIL
 #run dig +dnssec this.does.not.exist.untrusted.test
 #grep -qF "status: NXDOMAIN" "$RUN_OUT"
+
+: "--- ZONE: forwarded.test (queries forwarded to our dummy test server) ---"
+JOURNAL_CURSOR="$(mktemp)"
+journalctl -n0 -q --cursor-file="$JOURNAL_CURSOR"
+
+# See "test-resolved-dummy-server.c" for the server part
+(! run resolvectl query nope.forwarded.test)
+grep -qF "nope.forwarded.test" "$RUN_OUT"
+grep -qF "not found" "$RUN_OUT"
+
+# SERVFAIL + EDE code 6: DNSSEC Bogus
+(! run resolvectl query edns-bogus-dnssec.forwarded.test)
+grep -qE "^edns-bogus-dnssec.forwarded.test:.+: SERVFAIL \(DNSSEC Bogus\)" "$RUN_OUT"
+# Same thing, but over Varlink
+(! run varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveHostname '{"name" : "edns-bogus-dnssec.forwarded.test"}')
+grep -qF "io.systemd.Resolve.DNSError" "$RUN_OUT"
+grep -qF '{"rcode":2,"extendedDNSErrorCode":6}' "$RUN_OUT"
+
+# SERVFAIL + EDE code 16: Censored + extra text
+(! run resolvectl query edns-extra-text.forwarded.test)
+grep -qE "^edns-extra-text.forwarded.test.+: SERVFAIL \(Censored: Nothing to see here!\)" "$RUN_OUT"
+# FIXME: the EDE code and message are not cached, hence the subsequent call does not reply them. Let's clear the cache.
+resolvectl flush-caches
+(! run varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveHostname '{"name" : "edns-extra-text.forwarded.test"}')
+grep -qF "io.systemd.Resolve.DNSError" "$RUN_OUT"
+grep -qF '{"rcode":2,"extendedDNSErrorCode":16,"extendedDNSErrorMessage":"Nothing to see here!"}' "$RUN_OUT"
+journalctl --sync
+journalctl -u systemd-resolved.service --cursor-file="$JOURNAL_CURSOR" --grep "Server returned error: SERVFAIL \(Censored: Nothing to see here!\)"
+
+# SERVFAIL + EDE code 0: Other + extra text
+(! run resolvectl query edns-code-zero.forwarded.test)
+grep -qE "^edns-code-zero.forwarded.test:.+: SERVFAIL \(Other: 🐱\)" "$RUN_OUT"
+# FIXME: the EDE code and message are not cached, hence the subsequent call does not reply them. Let's clear the cache.
+resolvectl flush-caches
+(! run varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveHostname '{"name" : "edns-code-zero.forwarded.test"}')
+grep -qF "io.systemd.Resolve.DNSError" "$RUN_OUT"
+grep -qF '{"rcode":2,"extendedDNSErrorCode":0,"extendedDNSErrorMessage":"🐱"}' "$RUN_OUT"
+journalctl --sync
+journalctl -u systemd-resolved.service --cursor-file="$JOURNAL_CURSOR" --grep "Server returned error: SERVFAIL \(Other: 🐱\)"
+
+# SERVFAIL + invalid EDE code
+(! run resolvectl query edns-invalid-code.forwarded.test)
+grep -qE "^edns-invalid-code.forwarded.test:.+: SERVFAIL \([0-9]+\)" "$RUN_OUT"
+# FIXME: the EDE code and message are not cached, hence the subsequent call does not reply them. Let's clear the cache.
+resolvectl flush-caches
+(! run varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveHostname '{"name" : "edns-invalid-code.forwarded.test"}')
+grep -qF "io.systemd.Resolve.DNSError" "$RUN_OUT"
+grep -qE '{"rcode":2,"extendedDNSErrorCode":[0-9]+}' "$RUN_OUT"
+journalctl --sync
+journalctl -u systemd-resolved.service --cursor-file="$JOURNAL_CURSOR" --grep "Server returned error: SERVFAIL \(\d+\)"
+
+# SERVFAIL + invalid EDE code + extra text
+(! run resolvectl query edns-invalid-code-with-extra-text.forwarded.test)
+grep -qE "^edns-invalid-code-with-extra-text.forwarded.test:.+: SERVFAIL \([0-9]+: Hello \[#\]\\$%~ World\)" "$RUN_OUT"
+# FIXME: the EDE code and message are not cached, hence the subsequent call does not reply them. Let's clear the cache.
+resolvectl flush-caches
+(! run varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveHostname '{"name" : "edns-invalid-code-with-extra-text.forwarded.test"}')
+grep -qF "io.systemd.Resolve.DNSError" "$RUN_OUT"
+grep -qE '{"rcode":2,"extendedDNSErrorCode":[0-9]+,"extendedDNSErrorMessage":"Hello \[#\]\$%~ World"}' "$RUN_OUT"
+journalctl --sync
+journalctl -u systemd-resolved.service --cursor-file="$JOURNAL_CURSOR" --grep "Server returned error: SERVFAIL \(\d+: Hello \[\#\]\\$%~ World\)"
 
 ### Test resolvectl show-cache
 run resolvectl show-cache
