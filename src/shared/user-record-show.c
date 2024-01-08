@@ -206,6 +206,9 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         if (hd)
                 printf("   Directory: %s\n", hd);
 
+        if (hr->bulk_directory)
+                printf("   Bulk Dir.: %s\n", hr->bulk_directory);
+
         storage = user_record_storage(hr);
         if (storage >= 0) /* Let's be political, and clarify which storage we like, and which we don't. About CIFS we don't complain. */
                 printf("     Storage: %s%s\n", user_storage_to_string(storage),
