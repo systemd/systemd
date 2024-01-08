@@ -25,6 +25,8 @@ test_append_files() {
         install_mdadm
         generate_module_dependencies
     fi
+
+    image_install socat
 }
 
 do_test "$@"

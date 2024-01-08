@@ -610,3 +610,8 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   latter two via the environment variable unless `systemd-storagetm` is invoked
   to expose a single device only, since those identifiers better should be kept
   unique.
+
+Tools using the Varlink protocol, such as `varlinkctl`:
+
+* `$SYSTEMD_SSH` – the ssh binary to invoke when the `ssh:` transport is
+  used. May be a filename (which is searched for in `$PATH`) or absolute path.

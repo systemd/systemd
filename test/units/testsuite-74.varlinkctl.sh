@@ -53,6 +53,32 @@ if [[ -x /usr/lib/systemd/systemd-pcrextend ]]; then
     varlinkctl introspect /usr/lib/systemd/systemd-pcrextend io.systemd.PCRExtend
 fi
 
+# SSH transport
+SSHBINDIR="$(mktemp -d)"
+
+rm_rf_sshbindir() {
+    rm -rf "$SSHBINDIR"
+}
+
+trap rm_rf_sshbindir EXIT
+
+# Create a fake "ssh" binary that validates everything works as expected
+cat > "$SSHBINDIR"/ssh <<'EOF'
+#!/bin/sh
+
+set -xe
+
+test "$1" = "-W"
+test "$2" = "/run/systemd/journal/io.systemd.journal"
+test "$3" = "foobar"
+
+exec socat - UNIX-CONNECT:/run/systemd/journal/io.systemd.journal
+EOF
+
+chmod +x "$SSHBINDIR"/ssh
+
+SYSTEMD_SSH="$SSHBINDIR/ssh" varlinkctl info ssh:foobar:/run/systemd/journal/io.systemd.journal
+
 # Go through all varlink sockets we can find under /run/systemd/ for some extra coverage
 find /run/systemd/ -name "io.systemd*" -type s | while read -r socket; do
     varlinkctl info "$socket"

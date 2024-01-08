@@ -511,39 +511,120 @@ int varlink_connect_exec(Varlink **ret, const char *_command, char **_argv) {
         return 0;
 }
 
+static int varlink_connect_ssh(Varlink **ret, const char *where) {
+        _cleanup_close_pair_ int pair[2] = EBADF_PAIR;
+        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        int r;
+
+        assert_return(ret, -EINVAL);
+        assert_return(where, -EINVAL);
+
+        /* Connects to an SSH server via OpenSSH 9.4's -W switch to connect to a remote AF_UNIX socket. For
+         * now we do not expose this function directly, but only via varlink_connect_url(). */
+
+        const char *ssh = secure_getenv("SYSTEMD_SSH") ?: "ssh";
+        if (!path_is_valid(ssh))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "SSH path is not valid, refusing: %s", ssh);
+
+        const char *e = strchr(where, ':');
+        if (!e)
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "SSH specification lacks a : separator between host and path, refusing: %s", where);
+
+        _cleanup_free_ char *h = strndup(where, e - where);
+        if (!h)
+                return log_oom_debug();
+
+        _cleanup_free_ char *c = strdup(e + 1);
+        if (!c)
+                return log_oom_debug();
+
+        if (!path_is_absolute(c))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Remote AF_UNIX socket path is not absolute, refusing: %s", c);
+
+        _cleanup_free_ char *p = NULL;
+        r = path_simplify_alloc(c, &p);
+        if (r < 0)
+                return r;
+
+        if (!path_is_normalized(p))
+                return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Specified path is not normalized, refusing: %s", p);
+
+        log_debug("Forking off SSH child process '%s -W %s %s'.", ssh, p, h);
+
+        if (socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0, pair) < 0)
+                return log_debug_errno(errno, "Failed to allocate AF_UNIX socket pair: %m");
+
+        r = safe_fork_full(
+                        "(sd-vlssh)",
+                        /* stdio_fds= */ (int[]) { pair[1], pair[1], STDERR_FILENO },
+                        /* except_fds= */ NULL,
+                        /* n_except_fds= */ 0,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REOPEN_LOG|FORK_LOG|FORK_RLIMIT_NOFILE_SAFE|FORK_REARRANGE_STDIO,
+                        &pid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to spawn process: %m");
+        if (r == 0) {
+                /* Child */
+
+                execlp(ssh, "ssh", "-W", p, h, NULL);
+                log_debug_errno(errno, "Failed to invoke %s: %m", ssh);
+                _exit(EXIT_FAILURE);
+        }
+
+        pair[1] = safe_close(pair[1]);
+
+        Varlink *v;
+        r = varlink_new(&v);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to create varlink object: %m");
+
+        v->fd = TAKE_FD(pair[0]);
+        v->af = AF_UNIX;
+        v->exec_pid = TAKE_PID(pid);
+        varlink_set_state(v, VARLINK_IDLE_CLIENT);
+
+        *ret = v;
+        return 0;
+}
+
 int varlink_connect_url(Varlink **ret, const char *url) {
         _cleanup_free_ char *c = NULL;
         const char *p;
-        bool exec;
+        enum {
+                SCHEME_UNIX,
+                SCHEME_EXEC,
+                SCHEME_SSH,
+        } scheme;
         int r;
 
         assert_return(ret, -EINVAL);
         assert_return(url, -EINVAL);
 
-        // FIXME: Add support for vsock:, ssh-exec:, ssh-unix: URL schemes here. (The latter with OpenSSH
-        // 9.4's -W switch for referencing remote AF_UNIX sockets.)
+        // FIXME: Maybe add support for vsock: and ssh-exec: URL schemes here.
 
-        /* The Varlink URL scheme is a bit underdefined. We support only the unix: transport for now, plus an
-         * exec: transport we made up ourselves. Strictly speaking this shouldn't even be called URL, since
-         * it has nothing to do with Internet URLs by RFC. */
+        /* The Varlink URL scheme is a bit underdefined. We support only the spec-defined unix: transport for
+         * now, plus exec:, ssh: transports we made up ourselves. Strictly speaking this shouldn't even be
+         * called "URL", since it has nothing to do with Internet URLs by RFC. */
 
         p = startswith(url, "unix:");
         if (p)
-                exec = false;
-        else {
-                p = startswith(url, "exec:");
-                if (!p)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "URL scheme not supported.");
-
-                exec = true;
-        }
+                scheme = SCHEME_UNIX;
+        else if ((p = startswith(url, "exec:")))
+                scheme = SCHEME_EXEC;
+        else if ((p = startswith(url, "ssh:")))
+                scheme = SCHEME_SSH;
+        else
+                return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "URL scheme not supported.");
 
         /* The varlink.org reference C library supports more than just file system paths. We might want to
          * support that one day too. For now simply refuse that. */
         if (p[strcspn(p, ";?#")] != '\0')
                 return log_debug_errno(SYNTHETIC_ERRNO(EPROTONOSUPPORT), "URL parameterization with ';', '?', '#' not supported.");
 
-        if (exec || p[0] != '@') { /* no validity checks for abstract namespace */
+        if (scheme == SCHEME_SSH)
+                return varlink_connect_ssh(ret, p);
+
+        if (scheme == SCHEME_EXEC || p[0] != '@') { /* no path validity checks for abstract namespace sockets */
 
                 if (!path_is_absolute(p))
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Specified path not absolute, refusing.");
@@ -556,7 +637,7 @@ int varlink_connect_url(Varlink **ret, const char *url) {
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "Specified path is not normalized, refusing.");
         }
 
-        if (exec)
+        if (scheme == SCHEME_EXEC)
                 return varlink_connect_exec(ret, c, NULL);
 
         return varlink_connect_address(ret, c ?: p);
