@@ -62,6 +62,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(DIR*, closedir, NULL);
 #define _cleanup_close_pair_ _cleanup_(close_pairp)
 
 int fd_nonblock(int fd, bool nonblock);
+int stdio_disable_nonblock(void);
+
 int fd_cloexec(int fd, bool cloexec);
 int fd_cloexec_many(const int fds[], size_t n_fds, bool cloexec);
 
