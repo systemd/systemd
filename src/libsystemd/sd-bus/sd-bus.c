@@ -648,10 +648,10 @@ static int parse_address_key(const char **p, const char *key, char **value) {
         assert(value);
 
         if (key) {
-                l = strlen(key);
-                if (strncmp(*p, key, l) != 0)
+                if (!startswith(*p, key))
                         return 0;
 
+                l = strlen(key);
                 if ((*p)[l] != '=')
                         return 0;
 
@@ -4123,11 +4123,14 @@ _public_ int sd_bus_path_decode_many(const char *path, const char *path_template
                 const char *sep;
                 size_t length;
                 char *label;
+                char *match;
+                char *suffix;
+                char *path_suffix;
 
                 /* verify everything until the next '%' matches verbatim */
                 sep = strchrnul(template_pos, '%');
                 length = sep - template_pos;
-                if (strncmp(path_pos, template_pos, length))
+                if (!startswith(path_pos, template_pos))
                         return 0;
 
                 path_pos += length;
@@ -4143,20 +4146,24 @@ _public_ int sd_bus_path_decode_many(const char *path, const char *path_template
 
                 ++template_pos; /* skip over '%' */
 
-                sep = strchrnul(template_pos, '/');
-                length = sep - template_pos; /* length of suffix to match verbatim */
+                /* find the next '/' character */
+                suffix = strchrnul(template_pos, '/');
+                length = suffix - template_pos;
 
                 /* verify the suffixes match */
-                sep = strchrnul(path_pos, '/');
-                if (sep - path_pos < (ssize_t)length ||
-                    strncmp(sep - length, template_pos, length))
+                path_suffix = strchrnul(path_pos, '/');
+                match = startswith(path_suffix - length, template_pos);
+                if (!match || match > path_suffix)
                         return 0;
 
-                template_pos += length; /* skip over matched label */
-                length = sep - path_pos - length; /* length of sub-label to decode */
+                /* skip over matched label */
+                template_pos = suffix;
+
+                /* length of sub-label to decode */
+                length = path_suffix - match;
 
                 /* store unescaped label for later use */
-                label = bus_label_unescape_n(path_pos, length);
+                label = bus_label_unescape_n(match, length);
                 if (!label)
                         return -ENOMEM;
 
