@@ -74,6 +74,10 @@ the following extensions are envisioned:
 Similar to JSON User Records there are also
 [JSON Group Records](GROUP_RECORD.md) that encapsulate UNIX groups.
 
+JSON User Records are not suitible for storing all identity information about
+the user, such as binary data or large unstructured blobs of text. These parts
+of a user's identity should be stored in the [Bulk Directories](HOMED_BULK_DIRS.md).
+
 JSON User Records may be transferred or written to disk in various protocols
 and formats. To inquire about such records defined on the local system use the
 [User/Group Lookup API via Varlink](USER_GROUP_API.md). User/group records may
