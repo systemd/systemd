@@ -1444,7 +1444,8 @@ static int build_describe_response(Context *c, bool privileged, JsonVariant **re
                                        JSON_BUILD_PAIR_ID128("BootID", boot_id),
                                        JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(product_uuid), "ProductUUID", JSON_BUILD_ID128(product_uuid)),
                                        JSON_BUILD_PAIR_CONDITION(sd_id128_is_null(product_uuid), "ProductUUID", JSON_BUILD_NULL),
-                                       JSON_BUILD_PAIR_CONDITION(local_cid != VMADDR_CID_ANY, "VSockCID", JSON_BUILD_UNSIGNED(local_cid))));
+                                       JSON_BUILD_PAIR_CONDITION(local_cid != VMADDR_CID_ANY, "VSockCID", JSON_BUILD_UNSIGNED(local_cid)),
+                                       JSON_BUILD_PAIR_CONDITION(local_cid == VMADDR_CID_ANY, "VSockCID", JSON_BUILD_NULL));
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON data: %m");
 
