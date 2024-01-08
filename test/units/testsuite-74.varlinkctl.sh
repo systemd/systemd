@@ -113,3 +113,7 @@ done
 (! varlinkctl call /run/systemd/userdb/io.systemd.Multiplexer io.systemd.UserDatabase.GetUserRecord </dev/null)
 (! varlinkctl validate-idl "")
 (! varlinkctl validate-idl </dev/null)
+
+varlinkctl info /run/systemd/io.systemd.Hostname
+varlinkctl introspect /run/systemd/io.systemd.Hostname io.systemd.Hostname
+varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}'
