@@ -237,6 +237,7 @@ typedef struct UserRecord {
         char *user_name;
         char *realm;
         char *user_name_and_realm_auto; /* the user_name field concatenated with '@' and the realm, if the latter is defined */
+        char *bulk_directory;
         char *real_name;
         char *email_address;
         char *password_hint;
