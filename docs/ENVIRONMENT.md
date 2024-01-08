@@ -611,7 +611,8 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   to expose a single device only, since those identifiers better should be kept
   unique.
 
-Tools using the Varlink protocol, such as `varlinkctl`:
+Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
+`busctl`):
 
 * `$SYSTEMD_SSH` – the ssh binary to invoke when the `ssh:` transport is
   used. May be a filename (which is searched for in `$PATH`) or absolute path.
