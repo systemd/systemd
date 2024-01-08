@@ -322,6 +322,11 @@ units = [
           'symlinks' : ['dbus-org.freedesktop.hostname1.service'],
         },
         {
+          'file' : 'systemd-hostnamed.socket',
+          'conditions' : ['ENABLE_HOSTNAMED'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        {
           'file' : 'systemd-hwdb-update.service.in',
           'conditions' : ['ENABLE_HWDB'],
           'symlinks' : ['sysinit.target.wants/'],
