@@ -33,6 +33,7 @@
 #include "process-util.h"
 #include "quota-util.h"
 #include "resize-fs.h"
+#include "rm-rf.h"
 #include "set.h"
 #include "signal-util.h"
 #include "stat-util.h"
@@ -96,7 +97,7 @@ static int suitable_home_record(UserRecord *hr) {
 
 int home_new(Manager *m, UserRecord *hr, const char *sysfs, Home **ret) {
         _cleanup_(home_freep) Home *home = NULL;
-        _cleanup_free_ char *nm = NULL, *ns = NULL;
+        _cleanup_free_ char *nm = NULL, *ns = NULL, *blob = NULL;
         int r;
 
         assert(m);
@@ -161,6 +162,13 @@ int home_new(Manager *m, UserRecord *hr, const char *sysfs, Home **ret) {
         r = user_record_clone(hr, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_PERMISSIVE, &home->record);
         if (r < 0)
                 return r;
+
+        blob = path_join(home_system_blob_dir(), hr->user_name);
+        if (!blob)
+                return -ENOMEM;
+        r = mkdir_safe(blob, 0755, 0, 0, MKDIR_IGNORE_EXISTING);
+        if (r < 0)
+                log_warning_errno(r, "Failed to create blob dir for user '%s': %m", home->user_name);
 
         (void) bus_manager_emit_auto_login_changed(m);
         (void) bus_home_emit_change(home);
@@ -323,7 +331,9 @@ int home_save_record(Home *h) {
 }
 
 int home_unlink_record(Home *h) {
+        _cleanup_free_ char *blob = NULL;
         const char *fn;
+        int r;
 
         assert(h);
 
@@ -334,6 +344,13 @@ int home_unlink_record(Home *h) {
         fn = strjoina("/run/systemd/home/", h->user_name, ".ref");
         if (unlink(fn) < 0 && errno != ENOENT)
                 return -errno;
+
+        blob = path_join(home_system_blob_dir(), h->user_name);
+        if (!blob)
+                return -ENOMEM;
+        r = rm_rf(blob, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_MISSING_OK);
+        if (r < 0)
+                return r;
 
         return 0;
 }
