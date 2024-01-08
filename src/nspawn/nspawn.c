@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#if HAVE_BLKID
-#endif
 #include <errno.h>
 #include <getopt.h>
 #include <linux/fs.h>
