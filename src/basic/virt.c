@@ -997,7 +997,7 @@ static bool real_has_cpu_with_flag(const char *flag) {
                         return true;
         }
 
-        if (__get_cpuid(7, &eax, &ebx, &ecx, &edx)) {
+        if (__get_cpuid_count(7, 0, &eax, &ebx, &ecx, &edx)) {
                 if (given_flag_in_set(flag, leaf7_ebx, ELEMENTSOF(leaf7_ebx), ebx))
                         return true;
         }
