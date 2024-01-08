@@ -228,6 +228,14 @@ testcase_nss-myhostname() {
     (! getent hosts -s myhostname fd00:dead:beef:cafe::1)
 }
 
+test_varlink() {
+    A=$(mktemp -u)
+    B=$(mktemp -u)
+    varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}' --json=short > "$A"
+    hostnamectl --json=short > "$B"
+    cmp $A $B
+}
+
 run_testcases
 
 touch /testok
