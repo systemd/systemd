@@ -450,6 +450,10 @@ int varlink_connect_exec(Varlink **ret, const char *_command, char **_argv) {
         if (socketpair(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC|SOCK_NONBLOCK, 0, pair) < 0)
                 return log_debug_errno(errno, "Failed to allocate AF_UNIX socket pair: %m");
 
+        r = fd_nonblock(pair[1], false);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to disable O_NONBLOCK for varlink socket: %m");
+
         r = safe_fork_full(
                         "(sd-vlexec)",
                         /* stdio_fds= */ NULL,
