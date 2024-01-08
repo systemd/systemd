@@ -61,6 +61,11 @@ get_chassis() (
     echo "$CHASSIS"
 )
 
+stop_hostnamed() {
+    systemctl stop systemd-hostnamed.service
+    systemctl reset-failed systemd-hostnamed # reset trigger limit
+}
+
 testcase_chassis() {
     local i
 
@@ -80,7 +85,7 @@ testcase_chassis() {
         assert_eq "$(get_chassis)" "$i"
     done
 
-    systemctl stop systemd-hostnamed.service
+    stop_hostnamed
     rm -f /etc/machine-info
 
     # fallback chassis type
@@ -95,7 +100,7 @@ restore_sysfs_dmi() {
     umount /sys/class/dmi/id
     rm -rf /run/systemd/system/systemd-hostnamed.service.d
     systemctl daemon-reload
-    systemctl stop systemd-hostnamed
+    stop_hostnamed
 }
 
 testcase_firmware_date() {
@@ -120,15 +125,15 @@ EOF
     echo '1' >/sys/class/dmi/id/uevent
 
     echo '09/08/2000' >/sys/class/dmi/id/bios_date
-    systemctl stop systemd-hostnamed
+    stop_hostnamed
     assert_in '2000-09-08' "$(hostnamectl)"
 
     echo '2022' >/sys/class/dmi/id/bios_date
-    systemctl stop systemd-hostnamed
+    stop_hostnamed
     assert_not_in 'Firmware Date' "$(hostnamectl)"
 
     echo 'garbage' >/sys/class/dmi/id/bios_date
-    systemctl stop systemd-hostnamed
+    stop_hostnamed
     assert_not_in 'Firmware Date' "$(hostnamectl)"
 }
 
@@ -221,6 +226,14 @@ testcase_nss-myhostname() {
     done
     (! getent hosts -s myhostname 10.254.254.1)
     (! getent hosts -s myhostname fd00:dead:beef:cafe::1)
+}
+
+test_varlink() {
+    A=$(mktemp -u)
+    B=$(mktemp -u)
+    varlinkctl call /run/systemd/io.systemd.Hostname io.systemd.Hostname.Describe '{}' --json=short > "$A"
+    hostnamectl --json=short > "$B"
+    cmp $A $B
 }
 
 run_testcases

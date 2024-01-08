@@ -38,6 +38,7 @@
 #include "string-table.h"
 #include "strv.h"
 #include "user-util.h"
+#include "varlink-io.systemd.Hostname.h"
 #include "virt.h"
 
 #define VALID_DEPLOYMENT_CHARS (DIGITS LETTERS "-.:")
@@ -75,6 +76,9 @@ typedef struct Context {
         struct stat etc_os_release_stat;
         struct stat etc_machine_info_stat;
 
+        sd_event *event;
+        sd_bus *bus;
+        VarlinkServer *varlink_server;
         Hashmap *polkit_registry;
 } Context;
 
@@ -94,6 +98,9 @@ static void context_destroy(Context *c) {
 
         context_reset(c, UINT64_MAX);
         hashmap_free(c->polkit_registry);
+        sd_event_unref(c->event);
+        sd_bus_flush_close_unref(c->bus);
+        varlink_server_unref(c->varlink_server);
 }
 
 static void context_read_etc_hostname(Context *c) {
@@ -1343,34 +1350,19 @@ static int method_get_hardware_serial(sd_bus_message *m, void *userdata, sd_bus_
         return sd_bus_send(NULL, reply, NULL);
 }
 
-static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *error) {
-        _cleanup_free_ char *hn = NULL, *dhn = NULL, *in = NULL, *text = NULL,
+static int build_describe_response(Context *c, bool privileged, JsonVariant **ret) {
+        _cleanup_free_ char *hn = NULL, *dhn = NULL, *in = NULL,
                 *chassis = NULL, *vendor = NULL, *model = NULL, *serial = NULL, *firmware_version = NULL,
                 *firmware_vendor = NULL;
         usec_t firmware_date = USEC_INFINITY, eol = USEC_INFINITY;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         sd_id128_t machine_id, boot_id, product_uuid = SD_ID128_NULL;
         unsigned local_cid = VMADDR_CID_ANY;
-        Context *c = ASSERT_PTR(userdata);
-        bool privileged;
         struct utsname u;
         int r;
 
-        assert(m);
-
-        r = bus_verify_polkit_async(
-                        m,
-                        "org.freedesktop.hostname1.get-description",
-                        /* details= */ NULL,
-                        &c->polkit_registry,
-                        error);
-        if (r == 0)
-                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
-
-        /* We ignore all authentication errors here, since most data is unprivileged, the one exception being
-         * the product ID which we'll check explicitly. */
-        privileged = r > 0;
+        assert(c);
+        assert(ret);
 
         context_read_etc_hostname(c);
         context_read_machine_info(c);
@@ -1452,10 +1444,41 @@ static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *erro
                                        JSON_BUILD_PAIR_ID128("BootID", boot_id),
                                        JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(product_uuid), "ProductUUID", JSON_BUILD_ID128(product_uuid)),
                                        JSON_BUILD_PAIR_CONDITION(sd_id128_is_null(product_uuid), "ProductUUID", JSON_BUILD_NULL),
-                                       JSON_BUILD_PAIR_CONDITION(local_cid != VMADDR_CID_ANY, "VSockCID", JSON_BUILD_UNSIGNED(local_cid))));
-
+                                       JSON_BUILD_PAIR_CONDITION(local_cid != VMADDR_CID_ANY, "VSockCID", JSON_BUILD_UNSIGNED(local_cid)),
+                                       JSON_BUILD_PAIR_CONDITION(local_cid == VMADDR_CID_ANY, "VSockCID", JSON_BUILD_NULL));
         if (r < 0)
                 return log_error_errno(r, "Failed to build JSON data: %m");
+
+        *ret = TAKE_PTR(v);
+        return 0;
+}
+
+static int method_describe(sd_bus_message *m, void *userdata, sd_bus_error *error) {
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        Context *c = ASSERT_PTR(userdata);
+        _cleanup_free_ char *text = NULL;
+        bool privileged;
+        int r;
+
+        assert(m);
+
+        r = bus_verify_polkit_async(
+                        m,
+                        "org.freedesktop.hostname1.get-description",
+                        /* details= */ NULL,
+                        &c->polkit_registry,
+                        error);
+        if (r == 0)
+                return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        /* We ignore all authentication errors here, since most data is unprivileged, the one exception being
+         * the product ID which we'll check explicitly. */
+        privileged = r > 0;
+
+        r = build_describe_response(c, privileged, &v);
+        if (r < 0)
+                return r;
 
         r = json_variant_format(v, 0, &text);
         if (r < 0)
@@ -1559,35 +1582,115 @@ static const BusObjectImplementation manager_object = {
         .vtables = BUS_VTABLES(hostname_vtable),
 };
 
-static int connect_bus(Context *c, sd_event *event, sd_bus **ret) {
+static int connect_bus(Context *c) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         assert(c);
-        assert(event);
-        assert(ret);
+        assert(c->event);
+        assert(!c->bus);
 
-        r = sd_bus_default_system(&bus);
+        r = sd_bus_default_system(&c->bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to get system bus connection: %m");
 
-        r = bus_add_implementation(bus, &manager_object, c);
+        r = bus_add_implementation(c->bus, &manager_object, c);
         if (r < 0)
                 return r;
 
-        r = bus_log_control_api_register(bus);
+        r = bus_log_control_api_register(c->bus);
         if (r < 0)
                 return r;
 
-        r = sd_bus_request_name_async(bus, NULL, "org.freedesktop.hostname1", 0, NULL, NULL);
+        r = sd_bus_request_name_async(c->bus, NULL, "org.freedesktop.hostname1", 0, NULL, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to request name: %m");
 
-        r = sd_bus_attach_event(bus, event, 0);
+        r = sd_bus_attach_event(c->bus, c->event, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to attach bus to event loop: %m");
 
-        *ret = TAKE_PTR(bus);
+        return 0;
+}
+
+static int vl_method_describe(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        static const JsonDispatch dispatch_table[] = {
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+
+        Context *c = ASSERT_PTR(userdata);
+        bool privileged;
+        int r;
+
+        assert(link);
+        assert(parameters);
+
+        r = varlink_dispatch(link, parameters, dispatch_table, /* userdata= */ NULL);
+        if (r != 0)
+                return r;
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        c->bus,
+                        "org.freedesktop.hostname1.get-hardware-serial",
+                        /* details= */ NULL,
+                        /* good_user= */ UID_INVALID,
+                        &c->polkit_registry);
+        if (r == 0)
+                return 0; /* No authorization for now, but the async polkit stuff will call us again when it has it */
+
+        /* We ignore all authentication errors here, since most data is unprivileged, the one exception being
+         * the product ID which we'll check explicitly. */
+        privileged = r > 0;
+
+        if (json_variant_elements(parameters) > 0)
+                return varlink_error_invalid_parameter(link, parameters);
+
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        r = build_describe_response(c, privileged, &v);
+        if (r < 0)
+                return r;
+
+        return varlink_reply(link, v);
+}
+
+static int connect_varlink(Context *c) {
+        int r;
+
+        assert(c);
+        assert(c->event);
+        assert(!c->varlink_server);
+
+        r = varlink_server_new(&c->varlink_server, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA);
+        if (r < 0)
+                return r;
+
+        varlink_server_set_userdata(c->varlink_server, c);
+
+        r = varlink_server_add_interface(c->varlink_server, &vl_interface_io_systemd_Hostname);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add Hostname interface to varlink server: %m");
+
+        r = varlink_server_bind_method_many(
+                        c->varlink_server,
+                        "io.systemd.Hostname.Describe", vl_method_describe);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind Varlink method calls: %m");
+
+        r = varlink_server_attach_event(c->varlink_server, c->event, SD_EVENT_PRIORITY_NORMAL);
+        if (r < 0)
+                return r;
+
+        r = varlink_server_listen_auto(c->varlink_server);
+        if (r < 0)
+                return log_error_errno(r, "Failed to bind to passed Varlink sockets: %m");
+        if (r == 0) {
+                r = varlink_server_listen_address(c->varlink_server, "/run/systemd/io.systemd.Hostname", 0666);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to bind to Varlink socket: %m");
+        }
+
         return 0;
 }
 
@@ -1595,8 +1698,6 @@ static int run(int argc, char *argv[]) {
         _cleanup_(context_destroy) Context context = {
                 .hostname_source = _HOSTNAME_INVALID, /* appropriate value will be set later */
         };
-        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
-        _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         int r;
 
         log_setup();
@@ -1615,27 +1716,31 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM, SIGINT, -1) >= 0);
-
-        r = sd_event_default(&event);
+        r = sd_event_default(&context.event);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate event loop: %m");
 
-        (void) sd_event_set_watchdog(event, true);
+        (void) sd_event_set_watchdog(context.event, true);
 
-        r = sd_event_add_signal(event, NULL, SIGINT, NULL, NULL);
+        r = sd_event_set_signal_exit(context.event, true);
         if (r < 0)
-                return log_error_errno(r, "Failed to install SIGINT handler: %m");
+                return log_error_errno(r, "Failed to install SIGINT/SIGTERM handlers: %m");
 
-        r = sd_event_add_signal(event, NULL, SIGTERM, NULL, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to install SIGTERM handler: %m");
-
-        r = connect_bus(&context, event, &bus);
+        r = connect_bus(&context);
         if (r < 0)
                 return r;
 
-        r = bus_event_loop_with_idle(event, bus, "org.freedesktop.hostname1", DEFAULT_EXIT_USEC, NULL, NULL);
+        r = connect_varlink(&context);
+        if (r < 0)
+                return r;
+
+        r = bus_event_loop_with_idle(
+                        context.event,
+                        context.bus,
+                        "org.freedesktop.hostname1",
+                        DEFAULT_EXIT_USEC,
+                        /* check_idle= */ NULL,
+                        /* userdata= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to run event loop: %m");
 
