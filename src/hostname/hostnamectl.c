@@ -24,6 +24,7 @@
 #include "main-func.h"
 #include "parse-argument.h"
 #include "pretty-print.h"
+#include "socket-util.h"
 #include "spawn-polkit-agent.h"
 #include "terminal-util.h"
 #include "verbs.h"
@@ -58,6 +59,7 @@ typedef struct StatusInfo {
         usec_t firmware_date;
         sd_id128_t machine_id;
         sd_id128_t boot_id;
+        uint32_t vsock_cid;
 } StatusInfo;
 
 static const char* chassis_string_to_glyph(const char *chassis) {
@@ -187,6 +189,14 @@ static int print_status_info(StatusInfo *i) {
                 r = table_add_many(table,
                                    TABLE_FIELD, "Boot ID",
                                    TABLE_ID128, i->boot_id);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        if (i->vsock_cid != VMADDR_CID_ANY) {
+                r = table_add_many(table,
+                                   TABLE_FIELD, "AF_VSOCK CID",
+                                   TABLE_UINT32, i->vsock_cid);
                 if (r < 0)
                         return table_log_add_error(r);
         }
@@ -332,7 +342,9 @@ static int get_one_name(sd_bus *bus, const char* attr, char **ret) {
 }
 
 static int show_all_names(sd_bus *bus) {
-        StatusInfo info = {};
+        StatusInfo info = {
+                .vsock_cid = VMADDR_CID_ANY,
+        };
 
         static const struct bus_properties_map hostname_map[]  = {
                 { "Hostname",                  "s",  NULL,          offsetof(StatusInfo, hostname)         },
@@ -354,6 +366,7 @@ static int show_all_names(sd_bus *bus) {
                 { "FirmwareDate",              "t",  NULL,          offsetof(StatusInfo, firmware_date)    },
                 { "MachineID",                 "ay", bus_map_id128, offsetof(StatusInfo, machine_id)       },
                 { "BootID",                    "ay", bus_map_id128, offsetof(StatusInfo, boot_id)          },
+                { "VSockCID",                  "u",  NULL,          offsetof(StatusInfo, vsock_cid)        },
                 {}
         }, manager_map[] = {
                 { "Virtualization",            "s",  NULL,          offsetof(StatusInfo, virtualization)   },
