@@ -84,6 +84,7 @@ static const char* const enroll_type_table[_ENROLL_TYPE_MAX] = {
         [ENROLL_PKCS11]   = "pkcs11",
         [ENROLL_FIDO2]    = "fido2",
         [ENROLL_TPM2]     = "tpm2",
+        [ENROLL_KEYRING]  = "keyring",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(enroll_type, EnrollType);
@@ -94,6 +95,7 @@ static const char *const luks2_token_type_table[_ENROLL_TYPE_MAX] = {
         [ENROLL_PKCS11]   = "systemd-pkcs11",
         [ENROLL_FIDO2]    = "systemd-fido2",
         [ENROLL_TPM2]     = "systemd-tpm2",
+        [ENROLL_KEYRING]  = "luks2-keyring",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(luks2_token_type, EnrollType);
