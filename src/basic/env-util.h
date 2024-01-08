@@ -80,3 +80,5 @@ int getenv_path_list(const char *name, char ***ret_paths);
 int getenv_steal_erase(const char *name, char **ret);
 
 int set_full_environment(char **env);
+
+int setenvf(const char *name, bool overwrite, const char *valuef, ...) _printf_(3,4);
