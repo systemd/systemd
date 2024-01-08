@@ -525,7 +525,7 @@ static int accept_connection(
                 if (r < 0)
                         return log_error_errno(r, "socket_address_print(): %m");
 
-                r = socknameinfo_pretty(&addr->sockaddr, addr->size, &b);
+                r = socknameinfo_pretty(&addr->sockaddr.sa, addr->size, &b);
                 if (r < 0)
                         return log_error_errno(r, "Resolving hostname failed: %m");
 
