@@ -6,6 +6,7 @@
 
 #include "sd-id128.h"
 
+#include "hashmap.h"
 #include "json.h"
 #include "missing_resource.h"
 #include "time-util.h"
@@ -242,6 +243,9 @@ typedef struct UserRecord {
         char *password_hint;
         char *icon_name;
         char *location;
+
+        char *blob_directory;
+        Hashmap *blob_manifest;
 
         UserDisposition disposition;
         uint64_t last_change_usec;
