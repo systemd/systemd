@@ -2670,12 +2670,12 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                 return r;
                 } else if ((val = startswith(l, "exec-context-root-hash="))) {
                         c->root_hash = mfree(c->root_hash);
-                        r = unhexmem(val, strlen(val), &c->root_hash, &c->root_hash_size);
+                        r = unhexmem(val, &c->root_hash, &c->root_hash_size);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-root-hash-sig="))) {
                         c->root_hash_sig = mfree(c->root_hash_sig);
-                        r= unbase64mem(val, strlen(val), &c->root_hash_sig, &c->root_hash_sig_size);
+                        r= unbase64mem(val, &c->root_hash_sig, &c->root_hash_sig_size);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-root-ephemeral="))) {
@@ -3055,7 +3055,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                         if (c->stdin_data)
                                 return -EINVAL; /* duplicated */
 
-                        r = unbase64mem(val, strlen(val), &c->stdin_data, &c->stdin_data_size);
+                        r = unbase64mem(val, &c->stdin_data, &c->stdin_data_size);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-context-tty-path="))) {
@@ -3690,7 +3690,7 @@ static int exec_context_deserialize(ExecContext *c, FILE *f) {
                                 .encrypted = r,
                         };
 
-                        r = unbase64mem(data, strlen(data), &sc->data, &sc->size);
+                        r = unbase64mem(data, &sc->data, &sc->size);
                         if (r < 0)
                                 return r;
 

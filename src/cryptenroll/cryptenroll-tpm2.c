@@ -51,7 +51,7 @@ static int search_policy_hash(
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "TPM2 token data lacks 'tpm2-policy-hash' field.");
 
-                r = unhexmem(json_variant_string(w), SIZE_MAX, &thash, &thash_size);
+                r = unhexmem(json_variant_string(w), &thash, &thash_size);
                 if (r < 0)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                "Invalid base64 data in 'tpm2-policy-hash' field.");
