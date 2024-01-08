@@ -628,28 +628,33 @@ int getsockname_pretty(int fd, char **ret) {
         return sockaddr_pretty(&sa.sa, salen, false, true, ret);
 }
 
-int socknameinfo_pretty(union sockaddr_union *sa, socklen_t salen, char **_ret) {
+int socknameinfo_pretty(const struct sockaddr *sa, socklen_t salen, char **ret) {
+        char host[NI_MAXHOST];
         int r;
-        char host[NI_MAXHOST], *ret;
 
-        assert(_ret);
+        assert(sa);
+        assert(salen > sizeof(sa_family_t));
 
-        r = getnameinfo(&sa->sa, salen, host, sizeof(host), NULL, 0, IDN_FLAGS);
+        r = getnameinfo(sa, salen, host, sizeof(host), /* service= */ NULL, /* service_len= */ 0, IDN_FLAGS);
         if (r != 0) {
-                int saved_errno = errno;
+                if (r == EAI_MEMORY)
+                        return log_oom_debug();
+                if (r == EAI_SYSTEM)
+                        log_debug_errno(errno, "getnameinfo() failed, ignoring: %m");
+                else
+                        log_debug("getnameinfo() failed, ignoring: %s", gai_strerror(r));
 
-                r = sockaddr_pretty(&sa->sa, salen, true, true, &ret);
-                if (r < 0)
-                        return r;
-
-                log_debug_errno(saved_errno, "getnameinfo(%s) failed: %m", ret);
-        } else {
-                ret = strdup(host);
-                if (!ret)
-                        return -ENOMEM;
+                return sockaddr_pretty(sa, salen, /* translate_ipv6= */ true, /* include_port= */ true, ret);
         }
 
-        *_ret = ret;
+        if (ret) {
+                char *copy = strdup(host);
+                if (!copy)
+                        return -ENOMEM;
+
+                *ret = copy;
+        }
+
         return 0;
 }
 
