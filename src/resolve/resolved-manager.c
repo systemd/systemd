@@ -894,7 +894,7 @@ int manager_recv(Manager *m, int fd, DnsProtocol protocol, DnsPacket **ret) {
         return 1;
 }
 
-static int sendmsg_loop(int fd, struct msghdr *mh, int flags) {
+int sendmsg_loop(int fd, struct msghdr *mh, int flags) {
         usec_t end;
         int r;
 
