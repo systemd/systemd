@@ -218,8 +218,8 @@ typedef struct Context {
         Set *unix_sockets;
 } Context;
 
-STATIC_DESTRUCTOR_REGISTER(arg_include_prefixes, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_exclude_prefixes, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_include_prefixes, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_exclude_prefixes, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
@@ -4129,12 +4129,12 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_PREFIX:
-                        if (strv_push(&arg_include_prefixes, optarg) < 0)
+                        if (strv_extend(&arg_include_prefixes, optarg) < 0)
                                 return log_oom();
                         break;
 
                 case ARG_EXCLUDE_PREFIX:
-                        if (strv_push(&arg_exclude_prefixes, optarg) < 0)
+                        if (strv_extend(&arg_exclude_prefixes, optarg) < 0)
                                 return log_oom();
                         break;
 
