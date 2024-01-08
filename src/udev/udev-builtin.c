@@ -154,3 +154,18 @@ int udev_builtin_add_propertyf(sd_device *dev, bool test, const char *key, const
 
         return udev_builtin_add_property(dev, test, key, val);
 }
+
+int udev_builtin_import_property(sd_device *dev, sd_device *src, bool test, const char *key) {
+        const char *val;
+
+        assert(dev);
+        assert(key);
+
+        if (!src)
+                return 0;
+
+        if (sd_device_get_property_value(src, key, &val) < 0)
+                return 0;
+
+        return udev_builtin_add_property(dev, test, key, val);
+}
