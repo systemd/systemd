@@ -309,7 +309,7 @@ _public_ int cryptsetup_token_validate(
                 return 1;
         }
 
-        r = unbase64mem(json_variant_string(w), SIZE_MAX, NULL, NULL);
+        r = unbase64mem(json_variant_string(w), NULL, NULL);
         if (r < 0)
                 return crypt_log_debug_errno(cd, r, "Invalid base64 data in 'tpm2-blob' field: %m");
 
@@ -319,7 +319,7 @@ _public_ int cryptsetup_token_validate(
                 return 1;
         }
 
-        r = unhexmem(json_variant_string(w), SIZE_MAX, NULL, NULL);
+        r = unhexmem(json_variant_string(w), NULL, NULL);
         if (r < 0)
                 return crypt_log_debug_errno(cd, r, "Invalid base64 data in 'tpm2-policy-hash' field: %m");
 
