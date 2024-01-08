@@ -12,6 +12,7 @@
 #include "sd-resolve.h"
 
 #include "alloc-util.h"
+#include "creds-util.h"
 #include "dns-domain.h"
 #include "event-util.h"
 #include "fd-util.h"
@@ -480,6 +481,8 @@ static int wireguard_decode_key_and_warn(
                 const char *lvalue) {
 
         _cleanup_(erase_and_freep) void *key = NULL;
+        _cleanup_(erase_and_freep) char *cred = NULL;
+        const char *cred_name;
         size_t len;
         int r;
 
@@ -493,10 +496,20 @@ static int wireguard_decode_key_and_warn(
                 return 0;
         }
 
-        if (!streq(lvalue, "PublicKey"))
+        cred_name = startswith(rvalue, "@");
+        if (cred_name) {
+                r = read_credential(cred_name, (void**) &cred, /* ret_size = */ NULL);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to read credential for wireguard key (%s=), ignoring assignment: %m",
+                                   lvalue);
+                        return 0;
+                }
+
+        } else if (!streq(lvalue, "PublicKey"))
                 (void) warn_file_is_world_accessible(filename, NULL, unit, line);
 
-        r = unbase64mem_full(rvalue, strlen(rvalue), true, &key, &len);
+        r = unbase64mem_full(cred ?: rvalue, SIZE_MAX, /* secure = */ true, &key, &len);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0) {
@@ -727,17 +740,32 @@ int config_parse_wireguard_endpoint(
 
         Wireguard *w = WIREGUARD(userdata);
         _cleanup_(wireguard_peer_free_or_set_invalidp) WireguardPeer *peer = NULL;
-        _cleanup_free_ char *host = NULL;
-        union in_addr_union addr;
-        const char *p;
+        _cleanup_free_ char *cred = NULL;
+        const char *cred_name, *endpoint;
         uint16_t port;
-        int family, r;
+        int r;
 
         r = wireguard_peer_new_static(w, filename, section_line, &peer);
         if (r < 0)
                 return log_oom();
 
-        r = in_addr_port_ifindex_name_from_string_auto(rvalue, &family, &addr, &port, NULL, NULL);
+        cred_name = startswith(rvalue, "@");
+        if (cred_name) {
+                r = read_credential(cred_name, (void**) &cred, /* ret_size = */ NULL);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to read credential for wireguard endpoint, ignoring assignment: %m");
+                        return 0;
+                }
+
+                endpoint = cred;
+        } else
+                endpoint = rvalue;
+
+        union in_addr_union addr;
+        int family;
+
+        r = in_addr_port_ifindex_name_from_string_auto(endpoint, &family, &addr, &port, NULL, NULL);
         if (r >= 0) {
                 if (family == AF_INET)
                         peer->endpoint.in = (struct sockaddr_in) {
@@ -761,17 +789,23 @@ int config_parse_wireguard_endpoint(
                 return 0;
         }
 
-        p = strrchr(rvalue, ':');
+        _cleanup_free_ char *host = NULL;
+        const char *p;
+
+        p = strrchr(endpoint, ':');
         if (!p) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
                            "Unable to find port of endpoint, ignoring assignment: %s",
-                           rvalue);
+                           rvalue); /* We log the original assignment instead of resolved credential here,
+                                       as the latter might be previously encrypted and we'd expose them in
+                                       unprotected logs otherwise. */
                 return 0;
         }
 
-        host = strndup(rvalue, p - rvalue);
+        host = strndup(endpoint, p - rvalue);
         if (!host)
                 return log_oom();
+        p++;
 
         if (!dns_name_is_valid(host)) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0,
@@ -780,7 +814,6 @@ int config_parse_wireguard_endpoint(
                 return 0;
         }
 
-        p++;
         r = parse_ip_port(p, &port);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,

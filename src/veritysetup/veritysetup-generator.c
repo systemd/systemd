@@ -252,7 +252,7 @@ static int determine_device(
         if (*data_what && *hash_what)
                 return 0;
 
-        r = unhexmem(hash, strlen(hash), &m, &l);
+        r = unhexmem(hash, &m, &l);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse hash: %s", hash);
         if (l < sizeof(sd_id128_t)) {

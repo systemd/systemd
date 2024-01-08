@@ -239,10 +239,11 @@ static int fscrypt_setup(
                 if (!e)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "xattr %s lacks ':' separator: %m", xa);
 
-                r = unbase64mem(value, e - value, &salt, &salt_size);
+                r = unbase64mem_full(value, e - value, /* secure = */ false, &salt, &salt_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode salt of %s: %m", xa);
-                r = unbase64mem(e+1, n - (e - value) - 1, &encrypted, &encrypted_size);
+
+                r = unbase64mem_full(e + 1, n - (e - value) - 1, /* secure = */ false, &encrypted, &encrypted_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode encrypted key of %s: %m", xa);
 
