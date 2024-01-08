@@ -1875,7 +1875,7 @@ int tpm2_pcr_value_from_string(const char *arg, Tpm2PCRValue *ret_pcr_value) {
 
                         _cleanup_free_ void *buf = NULL;
                         size_t buf_size = 0;
-                        r = unhexmem(p, SIZE_MAX, &buf, &buf_size);
+                        r = unhexmem(p, &buf, &buf_size);
                         if (r < 0)
                                 return log_debug_errno(r, "Invalid pcr hash value '%s': %m", p);
 

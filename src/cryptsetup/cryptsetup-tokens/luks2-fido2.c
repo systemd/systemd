@@ -104,7 +104,7 @@ int parse_luks2_fido2_data(
         if (!w)
                 return -EINVAL;
 
-        r = unbase64mem(json_variant_string(w), SIZE_MAX, &cid, &cid_size);
+        r = unbase64mem(json_variant_string(w), &cid, &cid_size);
         if (r < 0)
                 return crypt_log_error_errno(cd, r, "Failed to parse 'fido2-credentials' field: %m");
 
@@ -112,7 +112,7 @@ int parse_luks2_fido2_data(
         if (!w)
                 return -EINVAL;
 
-        r = unbase64mem(json_variant_string(w), SIZE_MAX, &salt, &salt_size);
+        r = unbase64mem(json_variant_string(w), &salt, &salt_size);
         if (r < 0)
                 return crypt_log_error_errno(cd, r, "Failed to parse 'fido2-salt' field: %m");
 

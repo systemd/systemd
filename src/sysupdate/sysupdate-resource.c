@@ -398,7 +398,7 @@ static int resource_load_from_web(
                 if (p[0] == '\\')
                         return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "File names with escapes not supported in manifest at line %zu, refusing.", line_nr);
 
-                r = unhexmem(p, 64, &h, &hlen);
+                r = unhexmem_full(p, 64, /* secure = */ false, &h, &hlen);
                 if (r < 0)
                         return log_error_errno(r, "Failed to parse digest at manifest line %zu, refusing.", line_nr);
 
