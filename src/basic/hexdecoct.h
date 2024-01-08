@@ -18,9 +18,9 @@ char hexchar(int x) _const_;
 int unhexchar(char c) _const_;
 
 char *hexmem(const void *p, size_t l);
-int unhexmem_full(const char *p, size_t l, bool secure, void **mem, size_t *len);
-static inline int unhexmem(const char *p, size_t l, void **mem, size_t *len) {
-        return unhexmem_full(p, l, false, mem, len);
+int unhexmem_full(const char *p, size_t l, bool secure, void **ret_data, size_t *ret_size);
+static inline int unhexmem(const char *p, void **ret_data, size_t *ret_size) {
+        return unhexmem_full(p, SIZE_MAX, false, ret_data, ret_size);
 }
 
 char base32hexchar(int x) _const_;
@@ -45,9 +45,9 @@ ssize_t base64_append(
                 size_t l,
                 size_t margin,
                 size_t width);
-int unbase64mem_full(const char *p, size_t l, bool secure, void **mem, size_t *len);
-static inline int unbase64mem(const char *p, size_t l, void **mem, size_t *len) {
-        return unbase64mem_full(p, l, false, mem, len);
+int unbase64mem_full(const char *p, size_t l, bool secure, void **ret_data, size_t *ret_size);
+static inline int unbase64mem(const char *p, size_t l, void **ret_data, size_t *ret_size) {
+        return unbase64mem_full(p, SIZE_MAX, false, ret_data, ret_size);
 }
 
 void hexdump(FILE *f, const void *p, size_t s);
