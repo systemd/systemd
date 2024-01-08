@@ -649,7 +649,7 @@ static int parse_address_key(const char **p, const char *key, char **value) {
 
         if (key) {
                 l = strlen(key);
-                if (strncmp(*p, key, l) != 0)
+                if (!strneq(*p, key, l))
                         return 0;
 
                 if ((*p)[l] != '=')
@@ -4121,7 +4121,7 @@ _public_ int sd_bus_path_decode_many(const char *path, const char *path_template
                 /* verify everything until the next '%' matches verbatim */
                 sep = strchrnul(template_pos, '%');
                 length = sep - template_pos;
-                if (strncmp(path_pos, template_pos, length))
+                if (!strneq(path_pos, template_pos, length))
                         return 0;
 
                 path_pos += length;
@@ -4143,7 +4143,7 @@ _public_ int sd_bus_path_decode_many(const char *path, const char *path_template
                 /* verify the suffixes match */
                 sep = strchrnul(path_pos, '/');
                 if (sep - path_pos < (ssize_t)length ||
-                    strncmp(sep - length, template_pos, length))
+                    !strneq(sep - length, template_pos, length))
                         return 0;
 
                 template_pos += length; /* skip over matched label */
