@@ -74,6 +74,10 @@ the following extensions are envisioned:
 Similar to JSON User Records there are also
 [JSON Group Records](GROUP_RECORD.md) that encapsulate UNIX groups.
 
+JSON User Records are not suitible for storing all identity information about
+the user, such as binary data or large unstructured blobs of text. These parts
+of a user's identity should be stored in the [Bulk Directories](HOMED_BULK_DIRS.md).
+
 JSON User Records may be transferred or written to disk in various protocols
 and formats. To inquire about such records defined on the local system use the
 [User/Group Lookup API via Varlink](USER_GROUP_API.md). User/group records may
@@ -133,10 +137,10 @@ structure, consisting of seven distinct "sections". Specifically:
    ported to other systems. Due to that it is not included in the reduced user
    record the cryptographic signature defined in the `signature` section is
    calculated on. In `systemd-homed` this section is also removed when the
-   user's record is stored in the `~/.identity` file in the home directory, so
-   that every system with access to the home directory can manage these
-   `binding` fields individually. Typically, the binding section is persisted
-   to the local disk.
+   user's record is stored in the `~/.identity/record.json` file in the home
+   directory, so that every system with access to the home directory can manage
+   these `binding` fields individually. Typically, the binding section is
+   persisted to the local disk.
 
 5. Various fields are located in the `status` section (a sub-sub-object of the
    user record, also with an intermediary object between that is keyed by the
@@ -229,6 +233,9 @@ version has to match in both `userName` and `realm` field. This field is
 optional, when unset the user should not be considered part of any realm. A
 user record with a realm set is never compatible (for the purpose of updates,
 see above) with a user record without one set, even if the `userName` field matches.
+
+`bulkDirectory` → The path to a world-readable copy of the user's bulk directory.
+See [Bulk Directories](HOMED_BULK_DIRS.md) for more details.
 
 `realName` → The real name of the user, a string. This should contain the
 user's real ("human") name, and corresponds loosely to the GECOS field of
@@ -351,14 +358,14 @@ granularity.
 `fscrypt`, `cifs`. Indicates the storage mechanism for the user's home
 directory. If `classic` the home directory is a plain directory as in classic
 UNIX. When `directory`, the home directory is a regular directory, but the
-`~/.identity` file in it contains the user's user record, so that the directory
-is self-contained. Similar, `subvolume` is a `btrfs` subvolume that also
-contains a `~/.identity` user record; `fscrypt` is an `fscrypt`-encrypted
-directory, also containing the `~/.identity` user record; `luks` is a per-user
-LUKS volume that is mounted as home directory, and `cifs` a home directory
-mounted from a Windows File Share. The five latter types are primarily used by
-`systemd-homed` when managing home directories, but may be used if other
-managers are used too. If this is not set, `classic` is the implied default.
+`~/.identity/record.json` file in it contains the user's user record, so that
+the directory is self-contained. Similar, `subvolume` is a `btrfs` subvolume that
+also contains a `~/.identity/record.json` user record; `fscrypt` is an
+`fscrypt`-encrypted directory, also containing the `~/.identity/record.json`
+user record; `luks` is a per-user LUKS volume that is mounted as home directory,
+and `cifs` a home directory mounted from a Windows File Share. The five latter types
+are primarily used by `systemd-homed` when managing home directories, but may be used
+if other managers are used too. If this is not set, `classic` is the implied default.
 
 `diskSize` → An unsigned 64-bit integer, indicating the intended home directory
 disk space in bytes to assign to the user. Depending on the selected storage
@@ -743,7 +750,7 @@ These two are the only two fields specific to this section. All other fields
 that may be used in this section are identical to the equally named ones in the
 `regular` section (i.e. at the top-level object). Specifically, these are:
 
-`iconName`, `location`, `shell`, `umask`, `environment`, `timeZone`,
+`bulkDirectory`, `iconName`, `location`, `shell`, `umask`, `environment`, `timeZone`,
 `preferredLanguage`, `niceLevel`, `resourceLimits`, `locked`, `notBeforeUSec`,
 `notAfterUSec`, `storage`, `diskSize`, `diskSizeRelative`, `skeletonDirectory`,
 `accessMode`, `tasksMax`, `memoryHigh`, `memoryMax`, `cpuWeight`, `ioWeight`,
@@ -854,6 +861,14 @@ top-level object (i.e. in the `regular` section), which it overrides. The
 managed by the specified service, and this `status` field if it can
 conceptually be managed by different managers, but currently is managed by the
 specified one.
+
+`bulkDirectory` → The path to a world-readable copy of the user's bulk directory.
+See [Bulk Directories](HOMED_BULK_DIRS.md) for more details. Note that this
+field also exists on the top-level object (i.e. in the `regular` section) and
+in the `perMachine` section, both of which are overridden by this field. The
+`regular` and `perMachine` fields should be used in cases where there isn't a
+`service` managing the bulk directory (i.e. in the case of a drop-in user record),
+and this field should be used in all other cases.
 
 `signedLocally` → A boolean. If true indicates that the user record is signed
 by a public key for which the private key is available locally. This means that
@@ -1109,6 +1124,7 @@ A fully featured user record associated with a home directory managed by
                         "rateLimitCount" : 1,
                         "state" : "inactive",
                         "service" : "io.systemd.Home",
+                        "bulkDirectory" : "/var/cache/systemd/homed/grobie/",
                         "diskSize" : 161118667776,
                         "diskCeiling" : 190371729408,
                         "diskFloor" : 5242880,
@@ -1119,7 +1135,7 @@ A fully featured user record associated with a home directory managed by
 ```
 
 When `systemd-homed.service` manages a home directory it will also include a
-version of the user record in the home directory itself in the `~/.identity`
+version of the user record in the home directory itself in the `~/.identity/record.json`
 file. This version lacks the `binding` and `status` sections which are used for
 local management of the user, but are not intended to be portable between
 systems. It would hence look like this:
