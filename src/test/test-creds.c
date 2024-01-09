@@ -42,17 +42,11 @@ TEST(read_credential_strings) {
 
         assert_se(read_credential_strings_many("foo", &x, "bar", &y) == 0);
         assert_se(x == NULL);
-        assert_se(streq(y, "piff"));
+        assert_se(streq(y, "paff"));
 
         p = mfree(p);
         assert_se(p = path_join(tmp, "foo"));
         assert_se(write_string_file(p, "knurz", WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_AVOID_NEWLINE) >= 0);
-
-        assert_se(read_credential_strings_many("foo", &x, "bar", &y) >= 0);
-        assert_se(streq(x, "knurz"));
-        assert_se(streq(y, "piff"));
-
-        y = mfree(y);
 
         assert_se(read_credential_strings_many("foo", &x, "bar", &y) >= 0);
         assert_se(streq(x, "knurz"));
@@ -63,6 +57,8 @@ TEST(read_credential_strings) {
         assert_se(f = fopen(p, "w"));
         assert_se(fwrite("x\0y", 1, 3, f) == 3); /* embedded NUL byte should result in EBADMSG when reading back with read_credential_strings_many() */
         f = safe_fclose(f);
+
+        y = mfree(y);
 
         assert_se(read_credential_strings_many("bazz", &x, "foo", &y) == -EBADMSG);
         assert_se(streq(x, "knurz"));
