@@ -5,6 +5,7 @@
 #include "fd-util.h"
 #include "iovec-util.h"
 #include "log.h"
+#include "main-func.h"
 #include "resolved-dns-packet.h"
 #include "resolved-manager.h"
 #include "socket-netlink.h"
@@ -351,12 +352,71 @@ static int server_handle_edns_code_zero(DnsPacket *packet, DnsPacket *reply) {
         return reply_append_edns(packet, reply, "\xF0\x9F\x90\xB1", DNS_RCODE_SERVFAIL, DNS_EDE_RCODE_OTHER);
 }
 
-int main(int argc, char *argv[]) {
+static int on_dns_packet(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
+        _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
+        const char *name;
+        int r;
+
+        assert(fd >= 0);
+
+        r = server_recv(fd, &packet);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to receive packet, ignoring: %m");
+                return 0;
+        }
+
+        r = dns_packet_validate_query(packet);
+        if (r < 0) {
+                log_debug_errno(r, "Invalid DNS UDP packet, ignoring.");
+                return 0;
+        }
+
+        r = dns_packet_extract(packet);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to extract DNS packet, ignoring: %m");
+                return 0;
+        }
+
+        name = dns_question_first_name(packet->question);
+        log_info("Processing question for name '%s'", name);
+
+        (void) dns_question_dump(packet->question, stdout);
+
+        r = make_reply_packet(packet, &reply);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to make reply packet, ignoring: %m");
+                return 0;
+        }
+
+        if (streq_ptr(name, "edns-bogus-dnssec.forwarded.test"))
+                r = server_handle_edns_bogus_dnssec(packet, reply);
+        else if (streq_ptr(name, "edns-extra-text.forwarded.test"))
+                r = server_handle_edns_extra_text(packet, reply);
+        else if (streq_ptr(name, "edns-invalid-code.forwarded.test"))
+                r = server_handle_edns_invalid_code(packet, reply, NULL);
+        else if (streq_ptr(name, "edns-invalid-code-with-extra-text.forwarded.test"))
+                r = server_handle_edns_invalid_code(packet, reply, "Hello [#]$%~ World");
+        else if (streq_ptr(name, "edns-code-zero.forwarded.test"))
+                r = server_handle_edns_code_zero(packet, reply);
+        else
+                r = log_debug_errno(SYNTHETIC_ERRNO(EFAULT), "Unhandled name '%s', ignoring.", name);
+        if (r < 0)
+                server_fail(packet, reply, DNS_RCODE_NXDOMAIN);
+
+        r = server_ipv4_send(fd, &packet->sender.in, packet->sender_port, &packet->destination.in, reply);
+        if (r < 0)
+                log_debug_errno(r, "Failed to send reply, ignoring: %m");
+
+        return 0;
+}
+
+static int run(int argc, char *argv[]) {
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        log_parse_environment();
-        log_open();
+        log_setup();
 
         if (argc != 2)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -366,63 +426,25 @@ int main(int argc, char *argv[]) {
         if (fd < 0)
                 return log_error_errno(fd, "Failed to listen on address '%s': %m", argv[1]);
 
+        r = sd_event_default(&event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocate event: %m");
+
+        r = sd_event_add_io(event, NULL, fd, EPOLLIN, on_dns_packet, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to add IO event source: %m");
+
+        r = sd_event_set_signal_exit(event, true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to install SIGINT/SIGTERM handlers: %m");
+
         (void) sd_notify(/* unset_environment=false */ false, "READY=1");
 
-        for (;;) {
-                _cleanup_(dns_packet_unrefp) DnsPacket *packet = NULL;
-                _cleanup_(dns_packet_unrefp) DnsPacket *reply = NULL;
-                const char *name;
-
-                r = server_recv(fd, &packet);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to receive packet, ignoring: %m");
-                        continue;
-                }
-
-                r = dns_packet_validate_query(packet);
-                if (r < 0) {
-                        log_debug_errno(r, "Invalid DNS UDP packet, ignoring.");
-                        continue;
-                }
-
-                r = dns_packet_extract(packet);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to extract DNS packet, ignoring: %m");
-                        continue;
-                }
-
-                name = dns_question_first_name(packet->question);
-                log_info("Processing question for name '%s'", name);
-
-                (void) dns_question_dump(packet->question, stdout);
-
-                r = make_reply_packet(packet, &reply);
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to make reply packet: %m");
-                        break;
-                }
-
-                if (streq_ptr(name, "edns-bogus-dnssec.forwarded.test"))
-                        r = server_handle_edns_bogus_dnssec(packet, reply);
-                else if (streq_ptr(name, "edns-extra-text.forwarded.test"))
-                        r = server_handle_edns_extra_text(packet, reply);
-                else if (streq_ptr(name, "edns-invalid-code.forwarded.test"))
-                        r = server_handle_edns_invalid_code(packet, reply, NULL);
-                else if (streq_ptr(name, "edns-invalid-code-with-extra-text.forwarded.test"))
-                        r = server_handle_edns_invalid_code(packet, reply, "Hello [#]$%~ World");
-                else if (streq_ptr(name, "edns-code-zero.forwarded.test"))
-                        r = server_handle_edns_code_zero(packet, reply);
-                else
-                        r = log_debug_errno(SYNTHETIC_ERRNO(EFAULT), "Unhandled name '%s', ignoring.", name);
-
-                if (r < 0)
-                        server_fail(packet, reply, DNS_RCODE_NXDOMAIN);
-
-                r = server_ipv4_send(fd, &packet->sender.in, packet->sender_port, &packet->destination.in, reply);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to send reply: %m");
-
-        }
+        r = sd_event_loop(event);
+        if (r < 0)
+                return log_error_errno(r, "Failed to run event loop: %m");
 
         return 0;
 }
+
+DEFINE_MAIN_FUNCTION(run);
