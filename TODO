@@ -137,9 +137,6 @@ Features:
   to read them from. This way the data doesn't remain in the SMBIOS blob during
   runtime, but only in the credentials fs.
 
-* In .link files add support for setting ID_NET_MANAGED_BY= udev field via some
-  high-level setting. Possibly also add setting to add arbitrary udev fields.
-
 * add a new ExecStart= flag that inserts the configured user's shell as first
   word in the command line. (maybe use character '.'). Usecase: tool such as
   uid0 can use that to spawn the target user's default shell.
