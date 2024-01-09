@@ -155,15 +155,15 @@ The most important boundaries of the local system may be queried with
 `pkg-config`:
 
 ```
-$ pkg-config --variable=systemuidmax systemd
+$ pkg-config --variable=system_uid_max systemd
 999
-$ pkg-config --variable=dynamicuidmin systemd
+$ pkg-config --variable=dynamic_uid_min systemd
 61184
-$ pkg-config --variable=dynamicuidmax systemd
+$ pkg-config --variable=dynamic_uid_max systemd
 65519
-$ pkg-config --variable=containeruidbasemin systemd
+$ pkg-config --variable=container_uid_base_min systemd
 524288
-$ pkg-config --variable=containeruidbasemax systemd
+$ pkg-config --variable=container_uid_base_max systemd
 1878982656
 ```
 
