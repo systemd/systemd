@@ -1062,7 +1062,7 @@ int config_parse_tristate(
 
         if (isempty(rvalue)) {
                 *t = -1;
-                return 0;
+                return 1;
         }
 
         r = parse_tristate(rvalue, t);
@@ -1072,7 +1072,7 @@ int config_parse_tristate(
                 return 0;
         }
 
-        return 0;
+        return 1;
 }
 
 int config_parse_string(

@@ -124,14 +124,10 @@ int config_parse_route_gateway_onlink(
                 return 0;
         }
 
-        r = parse_boolean(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Could not parse %s=\"%s\", ignoring assignment: %m", lvalue, rvalue);
-                return 0;
-        }
-
-        route->gateway_onlink = r;
+        r = config_parse_tristate(unit, filename, line, section, section_line, lvalue, ltype, rvalue,
+                                  &route->gateway_onlink, network);
+        if (r <= 0)
+                return r;
 
         TAKE_PTR(route);
         return 0;
