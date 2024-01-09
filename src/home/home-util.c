@@ -8,6 +8,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
+#include "utf8.h"
 
 bool suitable_user_name(const char *name) {
 
@@ -61,6 +62,12 @@ int suitable_image_path(const char *path) {
         return !empty_or_root(path) &&
                 path_is_valid(path) &&
                 path_is_absolute(path);
+}
+
+int suitable_blob_filename(const char *name) {
+        return filename_is_valid(name) &&
+               ascii_is_valid(name) &&
+               !string_has_cc(name, NULL);
 }
 
 bool supported_fstype(const char *fstype) {
