@@ -1120,15 +1120,27 @@ static int append_nexthops(const Link *link, const Route *route, sd_netlink_mess
         return 0;
 }
 
-int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg) {
+int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, Route *route, const char *error_msg) {
         int r;
 
         assert(m);
         assert(link);
+        assert(link->manager);
+        assert(route);
         assert(error_msg);
 
         r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST) {
+        if (r == -EEXIST) {
+                Route *existing;
+
+                if (route_get(link->manager, link, route, &existing) >= 0) {
+                        /* When re-configuring an existing route, kernel does not send RTM_NEWROUTE
+                         * notification, so we need to update the timer here. */
+                        existing->lifetime_usec = route->lifetime_usec;
+                        (void) route_setup_timer(existing, NULL);
+                }
+
+        } else if (r < 0) {
                 log_link_message_warning_errno(link, m, r, error_msg);
                 link_enter_failed(link);
                 return 0;
@@ -1376,11 +1388,6 @@ int link_request_route(
                 existing->lifetime_usec = route->lifetime_usec;
                 if (consume_object)
                         route_free(route);
-
-                if (existing->expire)
-                        /* When re-configuring an existing route, kernel does not send RTM_NEWROUTE
-                         * message, so we need to update the timer here. */
-                        (void) route_setup_timer(existing, NULL);
         }
 
         log_route_debug(existing, "Requesting", link, link->manager);
@@ -1402,7 +1409,7 @@ static int static_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request
 
         assert(link);
 
-        r = route_configure_handler_internal(rtnl, m, link, "Could not set route");
+        r = route_configure_handler_internal(rtnl, m, link, route, "Could not set route");
         if (r <= 0)
                 return r;
 
