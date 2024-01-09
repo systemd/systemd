@@ -698,13 +698,12 @@ int home_load_embedded_identity(
         return 0;
 }
 
-int home_store_embedded_identity(UserRecord *h, int root_fd, uid_t uid, UserRecord *old_home) {
+int home_store_embedded_identity(UserRecord *h, int root_fd, UserRecord *old_home) {
         _cleanup_(user_record_unrefp) UserRecord *embedded = NULL;
         int r;
 
         assert(h);
         assert(root_fd >= 0);
-        assert(uid_is_valid(uid));
 
         r = user_record_clone(h, USER_RECORD_EXTRACT_EMBEDDED|USER_RECORD_PERMISSIVE, &embedded);
         if (r < 0)
@@ -848,7 +847,7 @@ int home_refresh(
         if (r < 0)
                 return r;
 
-        r = home_store_embedded_identity(new_home, setup->root_fd, h->uid, embedded_home);
+        r = home_store_embedded_identity(new_home, setup->root_fd, embedded_home);
         if (r < 0)
                 return r;
 
@@ -1068,7 +1067,7 @@ int home_populate(UserRecord *h, int dir_fd) {
         if (r < 0)
                 return r;
 
-        r = home_store_embedded_identity(h, dir_fd, h->uid, NULL);
+        r = home_store_embedded_identity(h, dir_fd, NULL);
         if (r < 0)
                 return r;
 
@@ -1608,7 +1607,7 @@ static int home_update(UserRecord *h, UserRecord **ret) {
         if (r < 0)
                 return r;
 
-        r = home_store_embedded_identity(new_home, setup.root_fd, h->uid, embedded_home);
+        r = home_store_embedded_identity(new_home, setup.root_fd, embedded_home);
         if (r < 0)
                 return r;
 
@@ -1733,7 +1732,7 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = home_store_embedded_identity(new_home, setup.root_fd, h->uid, embedded_home);
+        r = home_store_embedded_identity(new_home, setup.root_fd, embedded_home);
         if (r < 0)
                 return r;
 
