@@ -15,9 +15,10 @@
 int route_section_verify_nexthops(Route *route) {
         assert(route);
         assert(route->section);
-        assert(route->network);
 
         if (route->gateway_from_dhcp_or_ra) {
+                assert(route->network);
+
                 if (route->gw_family == AF_UNSPEC)
                         /* When deprecated Gateway=_dhcp is set, then assume gateway family based on other settings. */
                         switch (route->family) {
@@ -70,7 +71,7 @@ int route_section_verify_nexthops(Route *route) {
         }
 
         if (route->gateway_onlink < 0 && in_addr_is_set(route->gw_family, &route->gw) &&
-            ordered_hashmap_isempty(route->network->addresses_by_section)) {
+            route->network && ordered_hashmap_isempty(route->network->addresses_by_section)) {
                 /* If no address is configured, in most cases the gateway cannot be reachable.
                  * TODO: we may need to improve the condition above. */
                 log_warning("%s: Gateway= without static address configured. "
