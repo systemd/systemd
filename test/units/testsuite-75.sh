@@ -197,6 +197,24 @@ DNSSEC=allow-downgrade
 DNS=10.0.0.1
 DNS=fd00:dead:beef:cafe::1
 EOF
+cat >/etc/systemd/network/10-dns1.netdev <<EOF
+[NetDev]
+Name=dns1
+Kind=dummy
+EOF
+cat >/etc/systemd/network/10-dns1.network <<EOF
+[Match]
+Name=dns1
+
+[Network]
+Address=10.99.0.1/24
+DNSSEC=no
+EOF
+systemctl edit --stdin --full --runtime --force "resolved-dummy-server.service" <<EOF
+[Service]
+Type=notify
+ExecStart=/usr/lib/systemd/tests/unit-tests/manual/test-resolved-dummy-server 10.99.0.1:53
+EOF
 
 DNS_ADDRESSES=(
     "10.0.0.1"
@@ -236,6 +254,7 @@ ln -svf /etc/bind.keys /etc/bind/bind.keys
 systemctl unmask systemd-networkd
 systemctl start systemd-networkd
 restart_resolved
+systemctl start resolved-dummy-server
 # Create knot's runtime dir, since from certain version it's provided only by
 # the package and not created by tmpfiles/systemd
 if [[ ! -d /run/knot ]]; then
@@ -246,6 +265,7 @@ systemctl start knot
 # Wait a bit for the keys to propagate
 sleep 4
 
+systemctl status resolved-dummy-server
 networkctl status
 resolvectl status
 resolvectl log-level debug
@@ -254,7 +274,14 @@ resolvectl log-level debug
 systemd-run -u resolvectl-monitor.service -p Type=notify resolvectl monitor
 systemd-run -u resolvectl-monitor-json.service -p Type=notify resolvectl monitor --json=short
 
-knotc --force zone-check
+# FIXME: knot, unfortunately, incorrectly complains about missing zone files for zones
+#        that are forwarded using the `dnsproxy` module. Until the issue is resolved,
+#        let's fall back to pre-processing the `zone-check` output a bit before checking it
+#
+# See: https://gitlab.nic.cz/knot/knot-dns/-/issues/913
+run knotc zone-check || :
+sed -i '/forwarded.test./d' "$RUN_OUT"
+[[ ! -s "$RUN_OUT" ]]
 # We need to manually propagate the DS records of onlinesign.test. to the parent
 # zone, since they're generated online
 knotc zone-begin test.
@@ -551,6 +578,58 @@ grep -qF "fd00:dead:beef:cafe::123" "$RUN_OUT"
 ## 2) Query for a non-existing name should return NXDOMAIN, not SERVFAIL
 #run dig +dnssec this.does.not.exist.untrusted.test
 #grep -qF "status: NXDOMAIN" "$RUN_OUT"
+
+
+: "--- ZONE: forwarded.test (queries forwarded to our dummy test server) ---"
+JOURNAL_CURSOR="$(mktemp)"
+journalctl -n0 -q --cursor-file="$JOURNAL_CURSOR"
+
+# See "test-resolved-dummy-server.c" for the server part
+(! run resolvectl query nope.forwarded.test)
+grep -qF "nope.forwarded.test" "$RUN_OUT"
+grep -qF "not found" "$RUN_OUT"
+
+# SERVFAIL + EDE code 6: DNSSEC Bogus
+# FIXME:
+# [972554.637714] testsuite-75.sh[1253]: edns-bogus-dnssec.forwarded.test: resolve call failed: DNSSEC validation failed upstream: DNSSEC Bogus
+# [972554.637900] resolvectl[597]: {"state":null,"question":[{"class":1,"type":1,"name":"edns-bogus-dnssec.forwarded.test"},{"class":1,"type":28,"name":"edns-bogus-dnssec.forwarded.test"}]}
+# [972554.641112] systemd-resolved[497]: [🡕] Upstream resolver reported failure for question edns-bogus-dnssec.forwarded.test IN A: DNSSEC Bogus
+# [972554.642010] systemd-resolved[497]: [🡕] Upstream resolver reported failure for question edns-bogus-dnssec.forwarded.test IN AAAA: DNSSEC Bogus
+# [972554.643412] resolvectl[594]: Received malformed monitor message, ignoring.
+(! run resolvectl query edns-bogus-dnssec.forwarded.test)
+grep -qE "^edns-bogus-dnssec.forwarded.test:.+: DNSSEC Bogus" "$RUN_OUT"
+# Same thing, but over Varlink
+(! run varlinkctl call /run/systemd/resolve/io.systemd.Resolve io.systemd.Resolve.ResolveHostname '{"name" : "edns-bogus-dnssec.forwarded.test"}')
+grep -qF "io.systemd.Resolve.DNSError" "$RUN_OUT"
+# FIXME: the rcode in the Varlink response doesn't seem correct
+grep -qF '{"rcode":0,"extendedDNSErrorCode":6}' "$RUN_OUT"
+
+# SERVFAIL + EDE code 16: Censored + extra text
+(! run resolvectl query edns-extra-text.forwarded.test)
+grep -qE "^edns-extra-text.forwarded.test.+SERVFAIL" "$RUN_OUT"
+journalctl --sync
+# The extra text is not shown by resolvectl (maybe a possible FIXME?)
+journalctl -u systemd-resolved.service --cursor-file="$JOURNAL_CURSOR" --grep "Server returned error: SERVFAIL \(Censored: Nothing to see here!\)"
+
+# SERVFAIL + EDE code 0: Other + extra text
+(! run resolvectl query edns-code-zero.forwarded.test)
+grep -qE "^edns-code-zero.forwarded.test:.+SERVFAIL" "$RUN_OUT"
+journalctl --sync
+# FIXME: dig can properly display the emoji from the extra message (🐱), maybe we should too
+journalctl -u systemd-resolved.service --cursor-file="$JOURNAL_CURSOR" --grep "Server returned error: SERVFAIL \(Other: \\\360\\\237\\\220\\\261\\)"
+
+# SERVFAIL + invalid EDE code
+(! run resolvectl query edns-invalid-code.forwarded.test)
+grep -qE "^edns-invalid-code.forwarded.test:.+SERVFAIL" "$RUN_OUT"
+journalctl --sync
+journalctl -u systemd-resolved.service --cursor-file="$JOURNAL_CURSOR" --grep "Server returned error: SERVFAIL \(\d+\)"
+
+# SERVFAIL + invalid EDE code + extra text
+(! run resolvectl query edns-invalid-code-with-extra-text.forwarded.test)
+grep -qE "^edns-invalid-code-with-extra-text.forwarded.test:.+SERVFAIL" "$RUN_OUT"
+journalctl --sync
+journalctl -u systemd-resolved.service --cursor-file="$JOURNAL_CURSOR" --grep "Server returned error: SERVFAIL \(\d+: Hello \[\#\]\\$%~ World\)"
+
 
 ### Test resolvectl show-cache
 run resolvectl show-cache

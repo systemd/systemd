@@ -517,6 +517,7 @@ int dns_query_new(
                 .ifindex = ifindex,
                 .flags = flags,
                 .answer_dnssec_result = _DNSSEC_RESULT_INVALID,
+                .answer_ede_rcode = _DNS_EDE_RCODE_INVALID,
                 .answer_protocol = _DNS_PROTOCOL_INVALID,
                 .answer_family = AF_UNSPEC,
         };
@@ -898,20 +899,14 @@ static void dns_query_accept(DnsQuery *q, DnsQueryCandidate *c) {
                             !FLAGS_SET(t->answer_query_flags, SD_RESOLVED_AUTHENTICATED))
                                 continue;
 
-                        char *answer_ede_msg = NULL;
-                        if (t->answer_ede_msg) {
-                                answer_ede_msg = strdup(t->answer_ede_msg);
-                                if (!answer_ede_msg) {
-                                        r = log_oom();
-                                        goto fail;
-                                }
-                        }
+                        r = free_and_strdup_warn(&q->answer_ede_msg, t->answer_ede_msg);
+                        if (r < 0)
+                                goto fail;
 
                         DNS_ANSWER_REPLACE(q->answer, dns_answer_ref(t->answer));
                         q->answer_rcode = t->answer_rcode;
                         q->answer_dnssec_result = t->answer_dnssec_result;
                         q->answer_ede_rcode = t->answer_ede_rcode;
-                        q->answer_ede_msg = answer_ede_msg;
                         q->answer_query_flags = t->answer_query_flags | dns_transaction_source_to_query_flags(t->answer_source);
                         q->answer_errno = t->answer_errno;
                         DNS_PACKET_REPLACE(q->answer_full_packet, dns_packet_ref(t->received));
