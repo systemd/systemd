@@ -2715,7 +2715,7 @@ static int print_answer(JsonVariant *answer) {
 
 static void monitor_query_dump(JsonVariant *v) {
         _cleanup_(json_variant_unrefp) JsonVariant *question = NULL, *answer = NULL, *collected_questions = NULL;
-        int rcode = -1, error = 0, r;
+        int rcode = -1, error = 0;
         const char *state = NULL;
 
         assert(v);
@@ -2730,9 +2730,8 @@ static void monitor_query_dump(JsonVariant *v) {
                 {}
         };
 
-        r = json_dispatch(v, dispatch_table, 0, NULL);
-        if (r < 0)
-                return (void) log_warning("Received malformed monitor message, ignoring.");
+        if (json_dispatch(v, dispatch_table, JSON_LOG|JSON_ALLOW_EXTENSIONS, NULL) < 0)
+                return;
 
         /* First show the current question */
         print_question('Q', ansi_highlight_cyan(), question);
@@ -2856,7 +2855,7 @@ static int dump_cache_item(JsonVariant *item) {
         _cleanup_(dns_resource_key_unrefp) DnsResourceKey *k = NULL;
         int r, c = 0;
 
-        r = json_dispatch(item, dispatch_table, JSON_LOG, &item_info);
+        r = json_dispatch(item, dispatch_table, JSON_LOG|JSON_ALLOW_EXTENSIONS, &item_info);
         if (r < 0)
                 return r;
 
@@ -2918,7 +2917,7 @@ static int dump_cache_scope(JsonVariant *scope) {
                 {},
         };
 
-        r = json_dispatch(scope, dispatch_table, JSON_LOG, &scope_info);
+        r = json_dispatch(scope, dispatch_table, JSON_LOG|JSON_ALLOW_EXTENSIONS, &scope_info);
         if (r < 0)
                 return r;
 
@@ -3034,7 +3033,7 @@ static int dump_server_state(JsonVariant *server) {
                 {},
         };
 
-        r = json_dispatch(server, dispatch_table, JSON_LOG|JSON_PERMISSIVE, &server_state);
+        r = json_dispatch(server, dispatch_table, JSON_LOG|JSON_ALLOW_EXTENSIONS, &server_state);
         if (r < 0)
                 return r;
 
