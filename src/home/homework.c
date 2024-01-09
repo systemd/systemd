@@ -11,6 +11,7 @@
 #include "filesystems.h"
 #include "fs-util.h"
 #include "home-util.h"
+#include "homework-blob.h"
 #include "homework-cifs.h"
 #include "homework-directory.h"
 #include "homework-fido2.h"
@@ -695,7 +696,7 @@ int home_load_embedded_identity(
         if (ret_new_home)
                 *ret_new_home = TAKE_PTR(new_home);
 
-        return 0;
+        return r; /* We pass along who won the reconciliation */
 }
 
 int home_store_embedded_identity(UserRecord *h, int root_fd, UserRecord *old_home) {
@@ -826,7 +827,7 @@ int home_refresh(
                 UserRecord **ret_new_home) {
 
         _cleanup_(user_record_unrefp) UserRecord *embedded_home = NULL, *new_home = NULL;
-        int r;
+        int r, reconciled;
 
         assert(h);
         assert(setup);
@@ -835,9 +836,9 @@ int home_refresh(
         /* When activating a home directory, does the identity work: loads the identity from the $HOME
          * directory, reconciles it with our idea, chown()s everything. */
 
-        r = home_load_embedded_identity(h, setup->root_fd, header_home, USER_RECONCILE_ANY, cache, &embedded_home, &new_home);
-        if (r < 0)
-                return r;
+        reconciled = home_load_embedded_identity(h, setup->root_fd, header_home, USER_RECONCILE_ANY, cache, &embedded_home, &new_home);
+        if (reconciled < 0)
+                return reconciled;
 
         r = home_maybe_shift_uid(h, flags, setup);
         if (r < 0)
@@ -848,6 +849,10 @@ int home_refresh(
                 return r;
 
         r = home_store_embedded_identity(new_home, setup->root_fd, embedded_home);
+        if (r < 0)
+                return r;
+
+        r = home_reconcile_blob_dirs(new_home, setup->root_fd, reconciled);
         if (r < 0)
                 return r;
 
@@ -1068,6 +1073,10 @@ int home_populate(UserRecord *h, int dir_fd) {
                 return r;
 
         r = home_store_embedded_identity(h, dir_fd, NULL);
+        if (r < 0)
+                return r;
+
+        r = home_reconcile_blob_dirs(h, dir_fd, USER_RECONCILE_HOST_WON);
         if (r < 0)
                 return r;
 
@@ -1611,6 +1620,10 @@ static int home_update(UserRecord *h, UserRecord **ret) {
         if (r < 0)
                 return r;
 
+        r = home_reconcile_blob_dirs(new_home, setup.root_fd, USER_RECONCILE_HOST_WON);
+        if (r < 0)
+                return r;
+
         r = home_extend_embedded_identity(new_home, h, &setup);
         if (r < 0)
                 return r;
@@ -1682,7 +1695,7 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
         HomeSetupFlags flags = 0;
-        int r;
+        int r, reconciled;
 
         assert(h);
         assert(ret_home);
@@ -1702,9 +1715,9 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = home_load_embedded_identity(h, setup.root_fd, header_home, USER_RECONCILE_REQUIRE_NEWER_OR_EQUAL, &cache, &embedded_home, &new_home);
-        if (r < 0)
-                return r;
+        reconciled = home_load_embedded_identity(h, setup.root_fd, header_home, USER_RECONCILE_REQUIRE_NEWER_OR_EQUAL, &cache, &embedded_home, &new_home);
+        if (reconciled < 0)
+                return reconciled;
 
         r = home_maybe_shift_uid(h, flags, &setup);
         if (r < 0)
@@ -1733,6 +1746,10 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
                 return r;
 
         r = home_store_embedded_identity(new_home, setup.root_fd, embedded_home);
+        if (r < 0)
+                return r;
+
+        r = home_reconcile_blob_dirs(new_home, setup.root_fd, reconciled);
         if (r < 0)
                 return r;
 
