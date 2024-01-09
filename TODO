@@ -132,6 +132,11 @@ Deprecations and removals:
 
 Features:
 
+* extend the smbios11 logic for passing credentials so that instead of passing
+  the credential data literally it can also just reference an AF_VSOCK CID/port
+  to read them from. This way the data doesn't remain in the SMBIOS blob during
+  runtime, but only in the credentials fs.
+
 * In .link files add support for setting ID_NET_MANAGED_BY= udev field via some
   high-level setting. Possibly also add setting to add arbitrary udev fields.
 
@@ -827,10 +832,6 @@ Features:
   would just use the same public key specified with --public-key= (or the one
   automatically derived from --private-key=).
 
-* push people to use ".sysext.raw" as suffix for sysext DDIs (DDI =
-  discoverable disk images, i.e. the new name for gpt disk images following the
-  discoverable disk spec). [Also: just ".sysext/" for directory-based sysext]
-
 * Add "purpose" flag to partition flags in discoverable partition spec that
   indicate if partition is intended for sysext, for portable service, for
   booting and so on. Then, when dissecting DDI allow specifying a purpose to
@@ -924,8 +925,6 @@ Features:
   should probably also one you can use to get a remote attestation quote.
 
 * Process credentials in:
-  • networkd/udevd: add a way to define additional .link, .network, .netdev files
-    via the credentials logic.
   • crypttab-generator: allow defining additional crypttab-like volumes via
     credentials (similar: verity-generator, integrity-generator). Use
     fstab-generator logic as inspiration.
@@ -1324,8 +1323,9 @@ Features:
   - acquire + decrypt creds from pkcs11?
   - make systemd-cryptsetup acquire pw via creds logic
   - make PAMName= acquire pw via creds logic
-  - make macsec/wireguard code in networkd read key via creds logic
-  - make gatwayd/remote read key via creds logic
+  - make macsec code in networkd read key via creds logic (copy logic from
+    wireguard)
+  - make gatewayd/remote read key via creds logic
   - add sd_notify() command for flushing out creds not needed anymore
   - make user manager instances create and use a user-specific key (the one in
     /var/lib is root-only) and add --user switch to systemd-creds to use it
