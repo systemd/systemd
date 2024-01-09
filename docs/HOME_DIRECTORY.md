@@ -17,8 +17,8 @@ mechanism used.
 
 ## General Structure
 
-Inside of the home directory a file `~/.identity` contains the JSON formatted
-user record of the user. It follows the format defined in
+Inside of the home directory a file `~/.identity/record.json` contains the JSON
+formatted user record of the user. It follows the format defined in
 [`JSON User Records`](USER_RECORD.md). It is recommended to bring the
 record into 'normalized' form (i.e. all objects should contain their fields
 sorted alphabetically by their key) before storing it there, though this is not
@@ -27,7 +27,11 @@ user cannot make modifications to the file on their own (at least not without
 corrupting it, or knowing the private key used for signing the record). Note
 that user records are stored here without their `binding`, `status` and
 `secret` sections, i.e. only with the sections included in the signature plus
-the signature section itself.
+the signature section itself. Prior to systemd v256, the `~/.identity/record.json`
+file was named simply `~/.identity`.
+
+There is also the `~/.identity/bulk` directory, which `systemd-homed.service`
+will manage and export as a [Bulk Directory](USER_RECORD_BULK_DIRS.md).
 
 ## Storage Mechanism: Plain Directory/`btrfs` Subvolume
 
@@ -36,7 +40,7 @@ If the plain directory or `btrfs` subvolume storage mechanism of
 the
 [`homectl(1)`](https://www.freedesktop.org/software/systemd/man/homectl.html)
 command line) the home directory requires no special setup besides including
-the user record in the `~/.identity` file.
+the user record in the `~/.identity/record.json` file.
 
 It is recommended to name home directories managed this way by
 `systemd-homed.service` by the user name, suffixed with `.homedir` (example:
@@ -70,8 +74,8 @@ In this storage mechanism, the home directory is mounted from a CIFS server and
 service at login, configured inside the user record. (Use `--storage=cifs` on
 the `homectl` command line.) The local password of the user is used to log into
 the CIFS service. The directory share needs to contain the user record in
-`~/.identity` as well. Note that this means that the user record needs to be
-registered locally before it can be mounted for the first time, since CIFS
+`~/.identity/record.json` as well. Note that this means that the user record needs
+to be registered locally before it can be mounted for the first time, since CIFS
 domain and server information needs to be known *before* the mount. Note that
 for all other storage mechanisms it is entirely sufficient if the directories
 or storage artifacts are placed at the right locations — all information to
@@ -92,19 +96,19 @@ media). (Use `--storage=luks` on the `homectl` command line.)  Specifically:
   name. The LUKS2 volume must contain a LUKS2 token field of type
   `systemd-homed`. The JSON data of this token must have a `record` field,
   containing a string with base64-encoded data. This data is the JSON user
-  record, in the same serialization as in `~/.identity`, though encrypted. The
-  JSON data of this token must also have an `iv` field, which contains a
-  base64-encoded binary initialization vector for the encryption. The
-  encryption used is the same as the LUKS2 volume itself uses, unlocked by the
-  same volume key, but based on its own IV.
+  record, in the same serialization as in `~/.identity/record.json`, though
+  encrypted. The JSON data of this token must also have an `iv` field, which
+  contains a base64-encoded binary initialization vector for the encryption.
+  The encryption used is the same as the LUKS2 volume itself uses, unlocked
+  by the same volume key, but based on its own IV.
 
 * Inside of this LUKS2 volume must be a Linux file system, one of `ext4`,
   `btrfs` and `xfs`. The file system label must be the user name.
 
 * This file system should contain a single directory named after the user. This
   directory will become the home directory of the user when activated. It
-  contains a second copy of the user record in the `~/.identity` file, like in
-  the other storage mechanisms.
+  contains a second copy of the user record in the `~/.identity/record.json` file,
+  like in the other storage mechanisms.
 
 The image file should reside in a directory `/home/` on the system,
 named after the user, suffixed with `.home`. When activated, the container home
@@ -156,7 +160,7 @@ the user record are applied when the bind mount is established.
 
 During activation, the user records retained on the host, the user record
 stored in the LUKS2 header (in case of the LUKS2 storage mechanism) and the
-user record stored inside the home directory in `~/.identity` are
+user record stored inside the home directory in `~/.identity/record.json` are
 compared. Activation is only permitted if they match the same user and are
 signed by a recognized key. When the three instances differ in `lastChangeUSec`
 field, the newest record wins, and is propagated to the other two locations.
