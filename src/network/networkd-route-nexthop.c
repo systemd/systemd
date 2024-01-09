@@ -10,6 +10,133 @@
 #include "parse-util.h"
 #include "string-util.h"
 
+int config_parse_gateway(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        _cleanup_(route_free_or_set_invalidp) Route *route = NULL;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        if (streq(section, "Network")) {
+                /* we are not in an Route section, so use line number instead */
+                r = route_new_static(network, filename, line, &route);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to allocate route, ignoring assignment: %m");
+                        return 0;
+                }
+        } else {
+                r = route_new_static(network, filename, section_line, &route);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to allocate route, ignoring assignment: %m");
+                        return 0;
+                }
+
+                if (isempty(rvalue)) {
+                        route->gateway_from_dhcp_or_ra = false;
+                        route->gw_family = AF_UNSPEC;
+                        route->gw = IN_ADDR_NULL;
+                        TAKE_PTR(route);
+                        return 0;
+                }
+
+                if (streq(rvalue, "_dhcp")) {
+                        route->gateway_from_dhcp_or_ra = true;
+                        TAKE_PTR(route);
+                        return 0;
+                }
+
+                if (streq(rvalue, "_dhcp4")) {
+                        route->gw_family = AF_INET;
+                        route->gateway_from_dhcp_or_ra = true;
+                        TAKE_PTR(route);
+                        return 0;
+                }
+
+                if (streq(rvalue, "_ipv6ra")) {
+                        route->gw_family = AF_INET6;
+                        route->gateway_from_dhcp_or_ra = true;
+                        TAKE_PTR(route);
+                        return 0;
+                }
+        }
+
+        r = in_addr_from_string_auto(rvalue, &route->gw_family, &route->gw);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Invalid %s='%s', ignoring assignment: %m", lvalue, rvalue);
+                return 0;
+        }
+
+        route->gateway_from_dhcp_or_ra = false;
+        TAKE_PTR(route);
+        return 0;
+}
+
+int config_parse_route_gateway_onlink(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        Network *network = userdata;
+        _cleanup_(route_free_or_set_invalidp) Route *route = NULL;
+        int r;
+
+        assert(filename);
+        assert(section);
+        assert(lvalue);
+        assert(rvalue);
+        assert(data);
+
+        r = route_new_static(network, filename, section_line, &route);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Failed to allocate route, ignoring assignment: %m");
+                return 0;
+        }
+
+        r = parse_boolean(rvalue);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Could not parse %s=\"%s\", ignoring assignment: %m", lvalue, rvalue);
+                return 0;
+        }
+
+        route->gateway_onlink = r;
+
+        TAKE_PTR(route);
+        return 0;
+}
+
 int config_parse_route_nexthop(
                 const char *unit,
                 const char *filename,

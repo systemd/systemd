@@ -110,13 +110,11 @@ void network_drop_invalid_routes(Network *network);
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(Route, route);
 void link_mark_routes(Link *link, NetworkConfigSource source);
 
-CONFIG_PARSER_PROTOTYPE(config_parse_gateway);
 CONFIG_PARSER_PROTOTYPE(config_parse_preferred_src);
 CONFIG_PARSER_PROTOTYPE(config_parse_destination);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_priority);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_scope);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_table);
-CONFIG_PARSER_PROTOTYPE(config_parse_route_gateway_onlink);
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_route_preference);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_protocol);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_type);
