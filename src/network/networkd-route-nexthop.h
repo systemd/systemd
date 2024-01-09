@@ -3,6 +3,10 @@
 
 #include "conf-parser.h"
 
+typedef struct Route Route;
+
+int route_section_verify_nexthops(Route *route);
+
 CONFIG_PARSER_PROTOTYPE(config_parse_gateway);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_gateway_onlink);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_nexthop);
