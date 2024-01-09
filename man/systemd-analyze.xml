@@ -1513,6 +1513,7 @@ x86-64      native</programlisting>
       <xi:include href="user-system-options.xml" xpointer="machine" />
 
       <varlistentry>
+        <term><option>-q</option></term>
         <term><option>--quiet</option></term>
 
         <listitem><para>Suppress hints and other non-essential output.</para>
