@@ -33,7 +33,7 @@
 #include "string-table.h"
 #include "strv.h"
 #include "tmpfile-util.h"
-#include "uid-alloc-range.h"
+#include "uid-classification.h"
 #include "unit-name.h"
 #include "user-util.h"
 

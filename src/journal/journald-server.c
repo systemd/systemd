@@ -56,7 +56,7 @@
 #include "string-table.h"
 #include "string-util.h"
 #include "syslog-util.h"
-#include "uid-alloc-range.h"
+#include "uid-classification.h"
 #include "user-util.h"
 #include "varlink-io.systemd.Journal.h"
 

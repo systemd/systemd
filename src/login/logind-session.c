@@ -38,7 +38,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
-#include "uid-alloc-range.h"
+#include "uid-classification.h"
 #include "user-util.h"
 
 #define RELEASE_USEC (20*USEC_PER_SEC)
