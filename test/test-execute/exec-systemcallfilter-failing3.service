@@ -3,7 +3,7 @@
 Description=Test for SystemCallFilter
 
 [Service]
-ExecStart=/bin/sh -c '/bin/echo "This should not be seen"'
+ExecStart=sh -c '/bin/echo "This should not be seen"'
 Type=oneshot
 LimitCORE=0
 SystemCallArchitectures=native

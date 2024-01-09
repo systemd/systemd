@@ -5,4 +5,4 @@ Description=DML discard empty service
 [Service]
 Slice=dml-discard.slice
 Type=oneshot
-ExecStart=/bin/true
+ExecStart=true

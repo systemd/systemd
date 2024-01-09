@@ -7,5 +7,5 @@ Type=oneshot
 # This should work, as we explicitly disable the effect of NoExecPaths=
 ExecStart=+/bin/sh -c '/bin/cat /dev/null'
 # This should also work, as we do not disable the effect of NoExecPaths= but invert the exit code
-ExecStart=/bin/sh -x -c '! /bin/cat /dev/null'
+ExecStart=sh -x -c '! /bin/cat /dev/null'
 NoExecPaths=/bin/cat

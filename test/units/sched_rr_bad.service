@@ -3,7 +3,7 @@
 Description=Bad sched priority for RR
 
 [Service]
-ExecStart=/bin/true
+ExecStart=true
 CPUSchedulingPriority=-1
 CPUSchedulingPriority=100
 CPUSchedulingPolicy=rr

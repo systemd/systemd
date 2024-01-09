@@ -80,7 +80,7 @@ EOF
 
 writeTestUnit() {
     mkdir -p "$testUnitFile.d/"
-    printf "[Service]\nExecStart=/bin/sleep 3600\n" >"$testUnitFile"
+    printf "[Service]\nExecStart=sleep 3600\n" >"$testUnitFile"
 }
 
 writeTestUnitNUMAPolicy() {

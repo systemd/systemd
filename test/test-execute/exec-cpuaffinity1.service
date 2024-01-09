@@ -3,5 +3,5 @@
 Description=Test for CPUAffinity (simple)
 
 [Service]
-ExecStart=/bin/sh -c 'test $$(cat /proc/self/status | grep Cpus_allowed: | rev | cut -c 1) = 1'
+ExecStart=sh -c 'test $$(cat /proc/self/status | grep Cpus_allowed: | rev | cut -c 1) = 1'
 CPUAffinity=0

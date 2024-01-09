@@ -4,6 +4,6 @@ Description=Test for CapabilityBoundingSet
 
 [Service]
 # sed: remove dropped (cap_xxx-[epi]) and IAB capabilities from the output
-ExecStart=/bin/sh -x -c '! capsh --print | sed -re "s/[^ ]+?\-[epi]+//g" -e '/IAB/d' | grep "^Bounding set .*cap_chown"'
+ExecStart=sh -x -c '! capsh --print | sed -re "s/[^ ]+?\-[epi]+//g" -e '/IAB/d' | grep "^Bounding set .*cap_chown"'
 Type=oneshot
 CapabilityBoundingSet=~CAP_CHOWN

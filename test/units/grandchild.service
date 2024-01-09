@@ -5,4 +5,4 @@ Description=Grandchild Service
 [Service]
 Slice=parent-deep.slice
 Type=oneshot
-ExecStart=/bin/true
+ExecStart=true
