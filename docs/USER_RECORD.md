@@ -137,10 +137,10 @@ structure, consisting of seven distinct "sections". Specifically:
    ported to other systems. Due to that it is not included in the reduced user
    record the cryptographic signature defined in the `signature` section is
    calculated on. In `systemd-homed` this section is also removed when the
-   user's record is stored in the `~/.identity` file in the home directory, so
-   that every system with access to the home directory can manage these
-   `binding` fields individually. Typically, the binding section is persisted
-   to the local disk.
+   user's record is stored in the `~/.identity/record.json` file in the home
+   directory, so that every system with access to the home directory can manage
+   these `binding` fields individually. Typically, the binding section is
+   persisted to the local disk.
 
 5. Various fields are located in the `status` section (a sub-sub-object of the
    user record, also with an intermediary object between that is keyed by the
@@ -358,14 +358,14 @@ granularity.
 `fscrypt`, `cifs`. Indicates the storage mechanism for the user's home
 directory. If `classic` the home directory is a plain directory as in classic
 UNIX. When `directory`, the home directory is a regular directory, but the
-`~/.identity` file in it contains the user's user record, so that the directory
-is self-contained. Similar, `subvolume` is a `btrfs` subvolume that also
-contains a `~/.identity` user record; `fscrypt` is an `fscrypt`-encrypted
-directory, also containing the `~/.identity` user record; `luks` is a per-user
-LUKS volume that is mounted as home directory, and `cifs` a home directory
-mounted from a Windows File Share. The five latter types are primarily used by
-`systemd-homed` when managing home directories, but may be used if other
-managers are used too. If this is not set, `classic` is the implied default.
+`~/.identity/record.json` file in it contains the user's user record, so that
+the directory is self-contained. Similar, `subvolume` is a `btrfs` subvolume that
+also contains a `~/.identity/record.json` user record; `fscrypt` is an
+`fscrypt`-encrypted directory, also containing the `~/.identity/record.json`
+user record; `luks` is a per-user LUKS volume that is mounted as home directory,
+and `cifs` a home directory mounted from a Windows File Share. The five latter types
+are primarily used by `systemd-homed` when managing home directories, but may be used
+if other managers are used too. If this is not set, `classic` is the implied default.
 
 `diskSize` → An unsigned 64-bit integer, indicating the intended home directory
 disk space in bytes to assign to the user. Depending on the selected storage
@@ -1135,7 +1135,7 @@ A fully featured user record associated with a home directory managed by
 ```
 
 When `systemd-homed.service` manages a home directory it will also include a
-version of the user record in the home directory itself in the `~/.identity`
+version of the user record in the home directory itself in the `~/.identity/record.json`
 file. This version lacks the `binding` and `status` sections which are used for
 local management of the user, but are not intended to be portable between
 systems. It would hence look like this:
