@@ -956,7 +956,7 @@ int bus_socket_connect(sd_bus *b) {
 
                 if (DEBUG_LOGGING) {
                         _cleanup_free_ char *pretty = NULL;
-                        (void) sockaddr_pretty(&b->sockaddr.sa, b->sockaddr_size, false, true, &pretty);
+                        (void) sockaddr_pretty(&b->sockaddr, b->sockaddr_size, false, true, &pretty);
                         log_debug("sd-bus: starting bus%s%s by connecting to %s...",
                                   b->description ? " " : "", strempty(b->description), strnull(pretty));
                 }
