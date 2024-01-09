@@ -9,7 +9,7 @@
 #include "fs-util.h"
 #include "tests.h"
 #include "tmpfile-util.h"
-#include "uid-alloc-range.h"
+#include "uid-classification.h"
 
 static void test_read_login_defs_one(const char *path) {
         log_info("/* %s(\"%s\") */", __func__, path ?: "<custom>");

@@ -171,7 +171,7 @@ simple_tests += files(
         'test-terminal-util.c',
         'test-tmpfile-util.c',
         'test-udev-util.c',
-        'test-uid-alloc-range.c',
+        'test-uid-classification.c',
         'test-uid-range.c',
         'test-umask-util.c',
         'test-unaligned.c',
