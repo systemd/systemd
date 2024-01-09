@@ -17,6 +17,8 @@ typedef struct Manager Manager;
 typedef struct Network Network;
 typedef struct Request Request;
 typedef struct Route Route;
+typedef struct Wireguard Wireguard;
+
 typedef int (*route_netlink_handler_t)(
                 sd_netlink *rtnl,
                 sd_netlink_message *m,
@@ -28,6 +30,7 @@ struct Route {
         Link *link;
         Manager *manager;
         Network *network;
+        Wireguard *wireguard;
         ConfigSection *section;
         NetworkConfigSource source;
         NetworkConfigState state;
@@ -106,6 +109,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
 int network_add_ipv4ll_route(Network *network);
 int network_add_default_route_on_device(Network *network);
 void network_drop_invalid_routes(Network *network);
+int route_section_verify(Route *route);
 
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(Route, route);
 void link_mark_routes(Link *link, NetworkConfigSource source);

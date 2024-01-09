@@ -100,6 +100,9 @@ Route *route_free(Route *route) {
         if (route->manager)
                 set_remove(route->manager->routes, route);
 
+        if (route->wireguard)
+                set_remove(route->wireguard->routes, route);
+
         ordered_set_free_with_destructor(route->multipath_routes, multipath_route_free);
         route_metric_done(&route->metric);
         sd_event_source_disable_unref(route->expire);
@@ -311,6 +314,7 @@ int route_dup(const Route *src, Route **ret) {
 
         /* Unset all pointers */
         dest->network = NULL;
+        dest->wireguard = NULL;
         dest->section = NULL;
         dest->link = NULL;
         dest->manager = NULL;
@@ -2235,12 +2239,11 @@ int config_parse_route_type(
         return 0;
 }
 
-static int route_section_verify(Route *route) {
+int route_section_verify(Route *route) {
         int r;
 
         assert(route);
         assert(route->section);
-        assert(route->network);
 
         if (section_is_invalid(route->section))
                 return -EINVAL;
@@ -2253,7 +2256,7 @@ static int route_section_verify(Route *route) {
                 return r;
 
         /* table */
-        if (!route->table_set && route->network->vrf) {
+        if (!route->table_set && route->network && route->network->vrf) {
                 route->table = VRF(route->network->vrf)->table;
                 route->table_set = true;
         }
