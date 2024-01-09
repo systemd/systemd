@@ -2462,6 +2462,8 @@ static int server_load_boolean_credential(const char *name) {
 static int server_load_credentials(Server *s) {
         int r;
 
+        assert(s);
+
         r = server_load_boolean_credential("journald.forward_to_syslog");
         if (r < 0)
                 log_debug_errno(r, "Failed to read credential journald.forward_to_syslog, ignoring: %m");
