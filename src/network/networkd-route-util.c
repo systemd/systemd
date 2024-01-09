@@ -39,6 +39,12 @@ unsigned routes_max(void) {
         return cached;
 }
 
+bool route_type_is_reject(const Route *route) {
+        assert(route);
+
+        return IN_SET(route->type, RTN_UNREACHABLE, RTN_PROHIBIT, RTN_BLACKHOLE, RTN_THROW);
+}
+
 static bool route_lifetime_is_valid(const Route *route) {
         assert(route);
 
