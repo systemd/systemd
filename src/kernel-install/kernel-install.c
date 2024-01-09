@@ -143,9 +143,12 @@ static int context_copy(const Context *source, Context *ret) {
                 .entry_token_type = source->entry_token_type,
         };
 
-        copy.rfd = fd_reopen(source->rfd, O_CLOEXEC|O_DIRECTORY|O_PATH);
-        if (copy.rfd < 0)
-                return copy.rfd;
+        if (source->rfd != AT_FDCWD) {
+                copy.rfd = fd_reopen(source->rfd, O_CLOEXEC|O_DIRECTORY|O_PATH);
+                if (copy.rfd < 0)
+                        return copy.rfd;
+        } else
+                copy.rfd = AT_FDCWD;
 
         r = strdup_or_null(source->layout_other, &copy.layout_other);
         if (r < 0)
@@ -168,9 +171,11 @@ static int context_copy(const Context *source, Context *ret) {
         r = strdup_or_null(source->kernel, &copy.kernel);
         if (r < 0)
                 return r;
-        copy.initrds = strv_copy(source->initrds);
-        if (!copy.initrds)
-                return -ENOMEM;
+        if (source->initrds) {
+                copy.initrds = strv_copy(source->initrds);
+                if (!copy.initrds)
+                        return -ENOMEM;
+        }
         r = strdup_or_null(source->initrd_generator, &copy.initrd_generator);
         if (r < 0)
                 return r;
@@ -180,15 +185,21 @@ static int context_copy(const Context *source, Context *ret) {
         r = strdup_or_null(source->staging_area, &copy.staging_area);
         if (r < 0)
                 return r;
-        copy.plugins = strv_copy(source->plugins);
-        if (!copy.plugins)
-                return -ENOMEM;
-        copy.argv = strv_copy(source->argv);
-        if (!copy.argv)
-                return -ENOMEM;
-        copy.envp = strv_copy(source->envp);
-        if (!copy.envp)
-                return -ENOMEM;
+        if (source->plugins) {
+                copy.plugins = strv_copy(source->plugins);
+                if (!copy.plugins)
+                        return -ENOMEM;
+        }
+        if (source->argv) {
+                copy.argv = strv_copy(source->argv);
+                if (!copy.argv)
+                        return -ENOMEM;
+        }
+        if (source->envp) {
+                copy.envp = strv_copy(source->envp);
+                if (!copy.envp)
+                        return -ENOMEM;
+        }
 
         *ret = copy;
         copy = CONTEXT_NULL;
@@ -709,7 +720,7 @@ static int context_load_plugins(Context *c) {
                         ".install",
                         c->rfd,
                         CONF_FILES_EXECUTABLE | CONF_FILES_REGULAR | CONF_FILES_FILTER_MASKED,
-                        STRV_MAKE_CONST("/etc/kernel/install.d", "/usr/lib/kernel/install.d"));
+                        STRV_MAKE_CONST(CONF_PATHS("kernel/install.d")));
         if (r < 0)
                 return log_error_errno(r, "Failed to find plugins: %m");
 
@@ -1283,7 +1294,7 @@ static int verb_add_all(int argc, char *argv[], void *userdata) {
         }
 
         if (n > 0)
-                log_info("Installed %zu kernels.", n);
+                log_debug("Installed %zu kernel%s.", n, (n>1?"s":"")); // XXX: use ngettext ffs
         else if (ret == 0)
                 ret = log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No kernels to install found.");
 
