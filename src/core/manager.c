@@ -4767,7 +4767,7 @@ int manager_dispatch_user_lookup_fd(sd_event_source *source, int fd, uint32_t re
 }
 
 static int short_uid_range(const char *path) {
-        _cleanup_(uid_range_freep) UidRange *p = NULL;
+        _cleanup_(uid_range_freep) UIDRange *p = NULL;
         int r;
 
         assert(path);
