@@ -23,6 +23,7 @@ assert_cc(USER_DISK_SIZE_DEFAULT_PERCENT == 83U);
 bool suitable_user_name(const char *name);
 int suitable_realm(const char *realm);
 int suitable_image_path(const char *path);
+int suitable_blob_filename(const char *name);
 
 bool supported_fstype(const char *fstype);
 
