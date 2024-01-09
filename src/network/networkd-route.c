@@ -1532,7 +1532,7 @@ static int process_route_one(
 
         _cleanup_(route_freep) Route *tmp = in;
         Route *route = NULL;
-        bool update_dhcp4;
+        bool is_new = false, update_dhcp4;
         int r;
 
         assert(manager);
@@ -1547,32 +1547,35 @@ static int process_route_one(
 
         switch (type) {
         case RTM_NEWROUTE:
-                if (route) {
-                        route->flags = tmp->flags;
-                        route_enter_configured(route);
-                        log_route_debug(route, "Received remembered", link, manager);
+                if (!route) {
+                        if (!manager->manage_foreign_routes) {
+                                route_enter_configured(tmp);
+                                log_route_debug(tmp, "Ignoring received", link, manager);
+                                return 0;
+                        }
 
-                        r = route_setup_timer(route, cacheinfo);
-                        if (r < 0)
-                                log_link_warning_errno(link, r, "Failed to configure expiration timer for route, ignoring: %m");
-                        if (r > 0)
-                                log_route_debug(route, "Configured expiration timer for", link, manager);
-
-                } else if (!manager->manage_foreign_routes) {
-                        route_enter_configured(tmp);
-                        log_route_debug(tmp, "Ignoring received", link, manager);
-
-                } else {
-                        /* A route appeared that we did not request */
-                        route_enter_configured(tmp);
-                        log_route_debug(tmp, "Received new", link, manager);
+                        /* If we do not know the route, then save it. */
                         r = route_add(manager, link, tmp);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Failed to remember foreign route, ignoring: %m");
                                 return 0;
                         }
-                        TAKE_PTR(tmp);
-                }
+
+                        route = TAKE_PTR(tmp);
+                        is_new = true;
+
+                } else
+                        /* Update remembered route with the received notification. */
+                        route->flags = tmp->flags;
+
+                route_enter_configured(route);
+                log_route_debug(route, is_new ? "Received new" : "Received remembered", link, manager);
+
+                r = route_setup_timer(route, cacheinfo);
+                if (r < 0)
+                        log_link_warning_errno(link, r, "Failed to configure expiration timer for route, ignoring: %m");
+                if (r > 0)
+                        log_route_debug(route, "Configured expiration timer for", link, manager);
 
                 break;
 
