@@ -2715,18 +2715,20 @@ static int print_answer(JsonVariant *answer) {
 
 static void monitor_query_dump(JsonVariant *v) {
         _cleanup_(json_variant_unrefp) JsonVariant *question = NULL, *answer = NULL, *collected_questions = NULL;
-        int rcode = -1, error = 0;
-        const char *state = NULL;
+        int rcode = -1, ede_code = -1, error = 0;
+        const char *state = NULL, *ede_msg = NULL;
 
         assert(v);
 
         JsonDispatch dispatch_table[] = {
-                { "question",           JSON_VARIANT_ARRAY,         json_dispatch_variant,      PTR_TO_SIZE(&question),            JSON_MANDATORY },
-                { "answer",             JSON_VARIANT_ARRAY,         json_dispatch_variant,      PTR_TO_SIZE(&answer),              0              },
-                { "collectedQuestions", JSON_VARIANT_ARRAY,         json_dispatch_variant,      PTR_TO_SIZE(&collected_questions), 0              },
-                { "state",              JSON_VARIANT_STRING,        json_dispatch_const_string, PTR_TO_SIZE(&state),               JSON_MANDATORY },
-                { "rcode",              _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,          PTR_TO_SIZE(&rcode),               0              },
-                { "errno",              _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,          PTR_TO_SIZE(&error),               0              },
+                { "question",                JSON_VARIANT_ARRAY,         json_dispatch_variant,      PTR_TO_SIZE(&question),            JSON_MANDATORY },
+                { "answer",                  JSON_VARIANT_ARRAY,         json_dispatch_variant,      PTR_TO_SIZE(&answer),              0              },
+                { "collectedQuestions",      JSON_VARIANT_ARRAY,         json_dispatch_variant,      PTR_TO_SIZE(&collected_questions), 0              },
+                { "state",                   JSON_VARIANT_STRING,        json_dispatch_const_string, PTR_TO_SIZE(&state),               JSON_MANDATORY },
+                { "rcode",                   _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,          PTR_TO_SIZE(&rcode),               0              },
+                { "extendedDNSErrorCode",    _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,          PTR_TO_SIZE(&ede_code),            0              },
+                { "extendedDNSErrorMessage", JSON_VARIANT_STRING,        json_dispatch_const_string, PTR_TO_SIZE(&ede_msg),             0              },
+                { "errno",                   _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,          PTR_TO_SIZE(&error),               0              },
                 {}
         };
 
