@@ -1733,6 +1733,10 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
+        r = sd_notify(false, NOTIFY_READY);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
+
         r = bus_event_loop_with_idle(
                         context.event,
                         context.bus,
