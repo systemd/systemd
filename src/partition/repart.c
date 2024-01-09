@@ -168,6 +168,8 @@ static int arg_offline = -1;
 static char **arg_copy_from = NULL;
 static char *arg_copy_source = NULL;
 static char *arg_make_ddi = NULL;
+static char *arg_generate_fstab = NULL;
+static char *arg_generate_crypttab = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -185,6 +187,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_copy_from, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_copy_source, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_make_ddi, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_generate_fstab, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_generate_crypttab, freep);
 
 typedef struct FreeArea FreeArea;
 
@@ -213,6 +217,39 @@ typedef enum MinimizeMode {
         _MINIMIZE_MODE_MAX,
         _MINIMIZE_MODE_INVALID = -EINVAL,
 } MinimizeMode;
+
+typedef struct PartitionMountPoint {
+        char *where;
+        char *options;
+} PartitionMountPoint;
+
+static void partition_mountpoint_free_many(PartitionMountPoint *f, size_t n) {
+        assert(f || n == 0);
+
+        FOREACH_ARRAY(i, f, n) {
+                free(i->where);
+                free(i->options);
+        }
+
+        free(f);
+}
+
+typedef struct PartitionEncryptedVolume {
+        char *name;
+        char *keyfile;
+        char *options;
+} PartitionEncryptedVolume;
+
+static PartitionEncryptedVolume* partition_encrypted_volume_free(PartitionEncryptedVolume *c) {
+        if (!c)
+                return NULL;
+
+        free(c->name);
+        free(c->keyfile);
+        free(c->options);
+
+        return mfree(c);
+}
 
 typedef struct Partition {
         char *definition_path;
@@ -275,6 +312,11 @@ typedef struct Partition {
 
         char *split_name_format;
         char *split_path;
+
+        PartitionMountPoint *mountpoints;
+        size_t n_mountpoints;
+
+        PartitionEncryptedVolume *encrypted_volume;
 
         struct Partition *siblings[_VERITY_MODE_MAX];
 
@@ -425,6 +467,12 @@ static Partition* partition_free(Partition *p) {
         free(p->split_name_format);
         unlink_and_free(p->split_path);
 
+        partition_mountpoint_free_many(p->mountpoints, p->n_mountpoints);
+        p->mountpoints = NULL;
+        p->n_mountpoints = 0;
+
+        partition_encrypted_volume_free(p->encrypted_volume);
+
         return mfree(p);
 }
 
@@ -460,6 +508,12 @@ static void partition_foreignize(Partition *p) {
         p->read_only = -1;
         p->growfs = -1;
         p->verity = VERITY_OFF;
+
+        partition_mountpoint_free_many(p->mountpoints, p->n_mountpoints);
+        p->mountpoints = NULL;
+        p->n_mountpoints = 0;
+
+        p->encrypted_volume = partition_encrypted_volume_free(p->encrypted_volume);
 }
 
 static bool partition_type_exclude(const GptPartitionType *type) {
@@ -1677,41 +1731,163 @@ static int config_parse_uuid(
         return 0;
 }
 
+static int config_parse_mountpoint(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *where = NULL, *options = NULL;
+        Partition *p = ASSERT_PTR(data);
+        int r;
+
+        if (isempty(rvalue)) {
+                CLEANUP_ARRAY(p->mountpoints, p->n_mountpoints, partition_mountpoint_free_many);
+                return 0;
+        }
+
+        const char *q = rvalue;
+        r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_DONT_COALESCE_SEPARATORS|EXTRACT_UNQUOTE,
+                               &where, &options, NULL);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Invalid syntax in %s=, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+        if (r < 1) {
+                log_syntax(unit, LOG_WARNING, filename , line, SYNTHETIC_ERRNO(EINVAL),
+                           "Too few arguments in %s=, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+        if (!isempty(q)) {
+                log_syntax(unit, LOG_WARNING, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                           "Too many arguments in %s=, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        r = path_simplify_and_warn(where, PATH_CHECK_ABSOLUTE, unit, filename, line, lvalue);
+        if (r < 0)
+                return 0;
+
+        if (!GREEDY_REALLOC(p->mountpoints, p->n_mountpoints + 1))
+                return log_oom();
+
+        p->mountpoints[p->n_mountpoints++] = (PartitionMountPoint) {
+                .where = TAKE_PTR(where),
+                .options = TAKE_PTR(options),
+        };
+
+        return 0;
+}
+
+static int config_parse_encrypted_volume(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        _cleanup_free_ char *volume = NULL, *keyfile = NULL, *options = NULL;
+        Partition *p = ASSERT_PTR(data);
+        int r;
+
+        if (isempty(rvalue)) {
+                p->encrypted_volume = mfree(p->encrypted_volume);
+                return 0;
+        }
+
+        const char *q = rvalue;
+        r = extract_many_words(&q, ":", EXTRACT_CUNESCAPE|EXTRACT_DONT_COALESCE_SEPARATORS|EXTRACT_UNQUOTE,
+                               &volume, &keyfile, &options, NULL);
+        if (r == -ENOMEM)
+                return log_oom();
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r,
+                           "Invalid syntax in %s=, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+        if (r < 1) {
+                log_syntax(unit, LOG_WARNING, filename , line, SYNTHETIC_ERRNO(EINVAL),
+                           "Too few arguments in %s=, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+        if (!isempty(q)) {
+                log_syntax(unit, LOG_WARNING, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                           "Too many arguments in %s=, ignoring: %s", lvalue, rvalue);
+                return 0;
+        }
+
+        if (!filename_is_valid(volume)) {
+                log_syntax(unit, LOG_WARNING, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                           "Volume name %s is not valid, ignoring", volume);
+                return 0;
+        }
+
+        partition_encrypted_volume_free(p->encrypted_volume);
+
+        p->encrypted_volume = new(PartitionEncryptedVolume, 1);
+        if (!p->encrypted_volume)
+                return log_oom();
+
+        *p->encrypted_volume = (PartitionEncryptedVolume) {
+                .name = TAKE_PTR(volume),
+                .keyfile = TAKE_PTR(keyfile),
+                .options = TAKE_PTR(options),
+        };
+
+        return 0;
+}
+
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_verity, verity_mode, VerityMode, VERITY_OFF, "Invalid verity mode");
 static DEFINE_CONFIG_PARSE_ENUM_WITH_DEFAULT(config_parse_minimize, minimize_mode, MinimizeMode, MINIMIZE_OFF, "Invalid minimize mode");
 
 static int partition_read_definition(Partition *p, const char *path, const char *const *conf_file_dirs) {
 
         ConfigTableItem table[] = {
-                { "Partition", "Type",                     config_parse_type,          0, &p->type                    },
-                { "Partition", "Label",                    config_parse_label,         0, &p->new_label               },
-                { "Partition", "UUID",                     config_parse_uuid,          0, p                           },
-                { "Partition", "Priority",                 config_parse_int32,         0, &p->priority                },
-                { "Partition", "Weight",                   config_parse_weight,        0, &p->weight                  },
-                { "Partition", "PaddingWeight",            config_parse_weight,        0, &p->padding_weight          },
-                { "Partition", "SizeMinBytes",             config_parse_size4096,     -1, &p->size_min                },
-                { "Partition", "SizeMaxBytes",             config_parse_size4096,      1, &p->size_max                },
-                { "Partition", "PaddingMinBytes",          config_parse_size4096,     -1, &p->padding_min             },
-                { "Partition", "PaddingMaxBytes",          config_parse_size4096,      1, &p->padding_max             },
-                { "Partition", "FactoryReset",             config_parse_bool,          0, &p->factory_reset           },
-                { "Partition", "CopyBlocks",               config_parse_copy_blocks,   0, p                           },
-                { "Partition", "Format",                   config_parse_fstype,        0, &p->format                  },
-                { "Partition", "CopyFiles",                config_parse_copy_files,    0, &p->copy_files              },
-                { "Partition", "ExcludeFiles",             config_parse_exclude_files, 0, &p->exclude_files_source    },
-                { "Partition", "ExcludeFilesTarget",       config_parse_exclude_files, 0, &p->exclude_files_target    },
-                { "Partition", "MakeDirectories",          config_parse_make_dirs,     0, &p->make_directories        },
-                { "Partition", "Encrypt",                  config_parse_encrypt,       0, &p->encrypt                 },
-                { "Partition", "Verity",                   config_parse_verity,        0, &p->verity                  },
-                { "Partition", "VerityMatchKey",           config_parse_string,        0, &p->verity_match_key        },
-                { "Partition", "Flags",                    config_parse_gpt_flags,     0, &p->gpt_flags               },
-                { "Partition", "ReadOnly",                 config_parse_tristate,      0, &p->read_only               },
-                { "Partition", "NoAuto",                   config_parse_tristate,      0, &p->no_auto                 },
-                { "Partition", "GrowFileSystem",           config_parse_tristate,      0, &p->growfs                  },
-                { "Partition", "SplitName",                config_parse_string,        0, &p->split_name_format       },
-                { "Partition", "Minimize",                 config_parse_minimize,      0, &p->minimize                },
-                { "Partition", "Subvolumes",               config_parse_make_dirs,     0, &p->subvolumes              },
-                { "Partition", "VerityDataBlockSizeBytes", config_parse_block_size,    0, &p->verity_data_block_size  },
-                { "Partition", "VerityHashBlockSizeBytes", config_parse_block_size,    0, &p->verity_hash_block_size  },
+                { "Partition", "Type",                     config_parse_type,             0, &p->type                    },
+                { "Partition", "Label",                    config_parse_label,            0, &p->new_label               },
+                { "Partition", "UUID",                     config_parse_uuid,             0, p                           },
+                { "Partition", "Priority",                 config_parse_int32,            0, &p->priority                },
+                { "Partition", "Weight",                   config_parse_weight,           0, &p->weight                  },
+                { "Partition", "PaddingWeight",            config_parse_weight,           0, &p->padding_weight          },
+                { "Partition", "SizeMinBytes",             config_parse_size4096,        -1, &p->size_min                },
+                { "Partition", "SizeMaxBytes",             config_parse_size4096,         1, &p->size_max                },
+                { "Partition", "PaddingMinBytes",          config_parse_size4096,        -1, &p->padding_min             },
+                { "Partition", "PaddingMaxBytes",          config_parse_size4096,         1, &p->padding_max             },
+                { "Partition", "FactoryReset",             config_parse_bool,             0, &p->factory_reset           },
+                { "Partition", "CopyBlocks",               config_parse_copy_blocks,      0, p                           },
+                { "Partition", "Format",                   config_parse_fstype,           0, &p->format                  },
+                { "Partition", "CopyFiles",                config_parse_copy_files,       0, &p->copy_files              },
+                { "Partition", "ExcludeFiles",             config_parse_exclude_files,    0, &p->exclude_files_source    },
+                { "Partition", "ExcludeFilesTarget",       config_parse_exclude_files,    0, &p->exclude_files_target    },
+                { "Partition", "MakeDirectories",          config_parse_make_dirs,        0, &p->make_directories        },
+                { "Partition", "Encrypt",                  config_parse_encrypt,          0, &p->encrypt                 },
+                { "Partition", "Verity",                   config_parse_verity,           0, &p->verity                  },
+                { "Partition", "VerityMatchKey",           config_parse_string,           0, &p->verity_match_key        },
+                { "Partition", "Flags",                    config_parse_gpt_flags,        0, &p->gpt_flags               },
+                { "Partition", "ReadOnly",                 config_parse_tristate,         0, &p->read_only               },
+                { "Partition", "NoAuto",                   config_parse_tristate,         0, &p->no_auto                 },
+                { "Partition", "GrowFileSystem",           config_parse_tristate,         0, &p->growfs                  },
+                { "Partition", "SplitName",                config_parse_string,           0, &p->split_name_format       },
+                { "Partition", "Minimize",                 config_parse_minimize,         0, &p->minimize                },
+                { "Partition", "Subvolumes",               config_parse_make_dirs,        0, &p->subvolumes              },
+                { "Partition", "VerityDataBlockSizeBytes", config_parse_block_size,       0, &p->verity_data_block_size  },
+                { "Partition", "VerityHashBlockSizeBytes", config_parse_block_size,       0, &p->verity_hash_block_size  },
+                { "Partition", "MountPoint",               config_parse_mountpoint,       0, p                           },
+                { "Partition", "EncryptedVolume",          config_parse_encrypted_volume, 0, p                           },
                 {}
         };
         int r;
@@ -6121,6 +6297,171 @@ static int fd_apparent_size(int fd, uint64_t *ret) {
         return 0;
 }
 
+static bool need_fstab_one(const Partition *p) {
+        assert(p);
+
+        if (p->dropped)
+                return false;
+
+        if (!p->format)
+                return false;
+
+        if (p->n_mountpoints == 0)
+                return false;
+
+        return true;
+}
+
+static bool need_fstab(const Context *context) {
+        assert(context);
+
+        if (!arg_generate_fstab)
+                return false;
+
+        LIST_FOREACH(partitions, p, context->partitions)
+                if (need_fstab_one(p))
+                        return true;
+
+        return false;
+}
+
+static int context_fstab(Context *context) {
+        _cleanup_(unlink_and_freep) char *t = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        assert(context);
+
+        if (!need_fstab(context))
+                return 0;
+
+        path = path_join(arg_copy_source, arg_generate_fstab);
+        if (!path)
+                return log_oom();
+
+        r = fopen_tmpfile_linkable(path, O_WRONLY|O_CLOEXEC, &t, &f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open temporary file for %s: %m", path);
+
+        fprintf(f, "# Automatically generated by systemd-repart\n\n");
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                _cleanup_free_ char *what = NULL, *options = NULL;
+
+                if (!need_fstab_one(p))
+                        continue;
+
+                what = strjoin("UUID=", SD_ID128_TO_UUID_STRING(p->fs_uuid));
+                if (!what)
+                        return log_oom();
+
+                FOREACH_ARRAY(mountpoint, p->mountpoints, p->n_mountpoints) {
+                        r = partition_pick_mount_options(
+                                        p->type.designator,
+                                        p->format,
+                                        /* rw= */ true,
+                                        /* discard= */ !IN_SET(p->type.designator, PARTITION_ESP, PARTITION_XBOOTLDR),
+                                        &options,
+                                        NULL);
+                        if (r < 0)
+                                return r;
+
+                        if (!strextend_with_separator(&options, ",", mountpoint->options))
+                                return log_oom();
+
+                        fprintf(f, "%s %s %s %s 0 %i\n",
+                                what,
+                                mountpoint->where,
+                                p->format,
+                                options,
+                                p->type.designator == PARTITION_ROOT ? 1 : 2);
+                }
+        }
+
+        r = flink_tmpfile(f, t, path, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to link temporary file to %s: %m", path);
+
+        log_info("%s written.", path);
+
+        return 0;
+}
+
+static bool need_crypttab_one(const Partition *p) {
+        assert(p);
+
+        if (p->dropped)
+                return false;
+
+        if (p->encrypt == ENCRYPT_OFF)
+                return false;
+
+        if (!p->encrypted_volume)
+                return false;
+
+        return true;
+}
+
+static bool need_crypttab(Context *context) {
+        assert(context);
+
+        if (!arg_generate_fstab)
+                return false;
+
+        LIST_FOREACH(partitions, p, context->partitions)
+                if (need_crypttab_one(p))
+                        return true;
+
+        return false;
+}
+
+static int context_crypttab(Context *context) {
+        _cleanup_(unlink_and_freep) char *t = NULL;
+        _cleanup_fclose_ FILE *f = NULL;
+        _cleanup_free_ char *path = NULL;
+        int r;
+
+        assert(context);
+
+        if (!need_crypttab(context))
+                return 0;
+
+        path = path_join(arg_copy_source, arg_generate_crypttab);
+        if (!path)
+                return log_oom();
+
+        r = fopen_tmpfile_linkable(path, O_WRONLY|O_CLOEXEC, &t, &f);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open temporary file for %s: %m", path);
+
+        fprintf(f, "# Automatically generated by systemd-repart\n\n");
+
+        LIST_FOREACH(partitions, p, context->partitions) {
+                _cleanup_free_ char *volume = NULL;
+
+                if (!need_crypttab_one(p))
+                        continue;
+
+                if (!p->encrypted_volume->name && asprintf(&volume, "luks-%s", SD_ID128_TO_UUID_STRING(p->luks_uuid)) < 0)
+                        return log_oom();
+
+                fprintf(f, "%s UUID=%s %s %s\n",
+                        p->encrypted_volume->name ?: volume,
+                        SD_ID128_TO_UUID_STRING(p->luks_uuid),
+                        isempty(p->encrypted_volume->keyfile) ? "-" : p->encrypted_volume->keyfile,
+                        strempty(p->encrypted_volume->options));
+        }
+
+        r = flink_tmpfile(f, t, path, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to link temporary file to %s: %m", path);
+
+        log_info("%s written.", path);
+
+        return 0;
+}
+
 static int context_minimize(Context *context) {
         const char *vt = NULL;
         int r;
@@ -6487,6 +6828,10 @@ static int help(void) {
                "  -S --make-ddi=sysext    Make a system extension DDI\n"
                "  -C --make-ddi=confext   Make a configuration extension DDI\n"
                "  -P --make-ddi=portable  Make a portable service DDI\n"
+               "     --generate-fstab=PATH\n"
+               "                          Write fstab configuration to the given path\n"
+               "     --generate-crypttab=PATH\n"
+               "                          Write crypttab configuration to the given path\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -6535,6 +6880,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_OFFLINE,
                 ARG_COPY_FROM,
                 ARG_MAKE_DDI,
+                ARG_GENERATE_FSTAB,
+                ARG_GENERATE_CRYPTTAB,
         };
 
         static const struct option options[] = {
@@ -6575,6 +6922,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "copy-from",            required_argument, NULL, ARG_COPY_FROM            },
                 { "copy-source",          required_argument, NULL, 's'                      },
                 { "make-ddi",             required_argument, NULL, ARG_MAKE_DDI             },
+                { "generate-fstab",       required_argument, NULL, ARG_GENERATE_FSTAB       },
+                { "generate-crypttab",    required_argument, NULL, ARG_GENERATE_CRYPTTAB    },
                 {}
         };
 
@@ -6954,6 +7303,18 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case 'P':
                         r = free_and_strdup_warn(&arg_make_ddi, "portable");
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_GENERATE_FSTAB:
+                        r = parse_path_argument(optarg, false, &arg_generate_fstab);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_GENERATE_CRYPTTAB:
+                        r = parse_path_argument(optarg, false, &arg_generate_crypttab);
                         if (r < 0)
                                 return r;
                         break;
@@ -7668,6 +8029,14 @@ static int run(int argc, char *argv[]) {
                         loop_device ? loop_device->devno :         /* if --image= is specified, only allow partitions on the loopback device */
                                       arg_root && !arg_image ? 0 : /* if --root= is specified, don't accept any block device */
                                       (dev_t) -1);                 /* if neither is specified, make no restrictions */
+        if (r < 0)
+                return r;
+
+        r = context_fstab(context);
+        if (r < 0)
+                return r;
+
+        r = context_crypttab(context);
         if (r < 0)
                 return r;
 
