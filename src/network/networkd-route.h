@@ -56,6 +56,14 @@ struct Route {
         /* metrics (RTA_METRICS) */
         RouteMetric metric;
 
+        /* This is an absolute point in time, and NOT a timespan/duration.
+         * Must be specified with clock_boottime_or_monotonic(). */
+        usec_t lifetime_usec; /* RTA_EXPIRES (IPv6 only) */
+        /* Used when kernel does not support RTA_EXPIRES attribute. */
+        sd_event_source *expire;
+        bool expiration_managed_by_kernel:1; /* RTA_CACHEINFO has nonzero rta_expires */
+
+        /* Only used by conf persers and route_section_verify(). */
         bool scope_set:1;
         bool table_set:1;
         bool priority_set:1;
@@ -68,12 +76,6 @@ struct Route {
         union in_addr_union src;
         union in_addr_union prefsrc;
         OrderedSet *multipath_routes;
-
-        /* This is an absolute point in time, and NOT a timespan/duration.
-         * Must be specified with clock_boottime_or_monotonic(). */
-        usec_t lifetime_usec;
-        /* Used when kernel does not support RTA_EXPIRES attribute. */
-        sd_event_source *expire;
 };
 
 extern const struct hash_ops route_hash_ops;

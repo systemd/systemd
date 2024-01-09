@@ -1012,26 +1012,26 @@ static int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdat
 }
 
 static int route_setup_timer(Route *route, const struct rta_cacheinfo *cacheinfo) {
-        Manager *manager;
         int r;
 
         assert(route);
-        assert(route->manager || (route->link && route->link->manager));
-
-        manager = route->manager ?: route->link->manager;
-
-        if (route->lifetime_usec == USEC_INFINITY)
-                return 0;
 
         if (cacheinfo && cacheinfo->rta_expires != 0)
-                /* Assume that non-zero rta_expires means kernel will handle the route expiration. */
-                return 0;
+                route->expiration_managed_by_kernel = true;
 
+        if (route->lifetime_usec == USEC_INFINITY || /* We do not request expiration for the route. */
+            route->expiration_managed_by_kernel) {   /* We have received nonzero expiration previously. The expiration is managed by the kernel. */
+                route->expire = sd_event_source_disable_unref(route->expire);
+                return 0;
+        }
+
+        Manager *manager = ASSERT_PTR(route->manager ?: ASSERT_PTR(route->link)->manager);
         r = event_reset_time(manager->event, &route->expire, CLOCK_BOOTTIME,
                              route->lifetime_usec, 0, route_expire_handler, route, 0, "route-expiration", true);
         if (r < 0)
-                return r;
+                return log_link_warning_errno(route->link, r, "Failed to configure expiration timer for route, ignoring: %m");
 
+        log_route_debug(route, "Configured expiration timer for", route->link, manager);
         return 1;
 }
 
@@ -1377,15 +1377,10 @@ int link_request_route(
                 if (consume_object)
                         route_free(route);
 
-                if (existing->expire) {
+                if (existing->expire)
                         /* When re-configuring an existing route, kernel does not send RTM_NEWROUTE
                          * message, so we need to update the timer here. */
-                        r = route_setup_timer(existing, NULL);
-                        if (r < 0)
-                                log_link_warning_errno(link, r, "Failed to update expiration timer for route, ignoring: %m");
-                        if (r > 0)
-                                log_route_debug(existing, "Updated expiration timer for", link, link->manager);
-                }
+                        (void) route_setup_timer(existing, NULL);
         }
 
         log_route_debug(existing, "Requesting", link, link->manager);
@@ -1571,11 +1566,7 @@ static int process_route_one(
                 route_enter_configured(route);
                 log_route_debug(route, is_new ? "Received new" : "Received remembered", link, manager);
 
-                r = route_setup_timer(route, cacheinfo);
-                if (r < 0)
-                        log_link_warning_errno(link, r, "Failed to configure expiration timer for route, ignoring: %m");
-                if (r > 0)
-                        log_route_debug(route, "Configured expiration timer for", link, manager);
+                (void) route_setup_timer(route, cacheinfo);
 
                 break;
 
