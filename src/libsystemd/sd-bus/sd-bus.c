@@ -648,17 +648,14 @@ static int parse_address_key(const char **p, const char *key, char **value) {
         assert(value);
 
         if (key) {
-                l = strlen(key);
-                if (strncmp(*p, key, l) != 0)
-                        return 0;
-
-                if ((*p)[l] != '=')
+                a = startswith(*p, key);
+                if (!a || *a != '=')
                         return 0;
 
                 if (*value)
                         return -EINVAL;
 
-                a = *p + l + 1;
+                a++;
         } else
                 a = *p;
 
@@ -4121,19 +4118,30 @@ _public_ int sd_bus_path_decode_many(const char *path, const char *path_template
 
         for (template_pos = path_template; *template_pos; ) {
                 const char *sep;
-                size_t length;
+                size_t length, path_length;
                 char *label;
 
                 /* verify everything until the next '%' matches verbatim */
+
+                // So let's think:
+
+                // if there is no %, then we break, but not before comparing if they are the same,
+                // so why not just do a whole check?
+
+                // what if path_pos contains template, but not equal???
+                // then it has to break, right?
+
+                if (!streq(path_pos, template_pos))
+                        return 0;
                 sep = strchrnul(template_pos, '%');
                 length = sep - template_pos;
-                if (strncmp(path_pos, template_pos, length))
+
+                if (!strneq(path_pos, template_pos, length))
                         return 0;
 
                 path_pos += length;
-                template_pos += length;
 
-                if (!*template_pos)
+                if (!*sep)
                         break;
 
                 /* We found the next '%' character. Everything up until here
@@ -4141,15 +4149,17 @@ _public_ int sd_bus_path_decode_many(const char *path, const char *path_template
                  * sure it matches the tail of the label in the path. Then we
                  * decode the string in-between and save it for later use. */
 
-                ++template_pos; /* skip over '%' */
+                template_pos = sep + 1; /* skip over '%' */
 
                 sep = strchrnul(template_pos, '/');
                 length = sep - template_pos; /* length of suffix to match verbatim */
 
                 /* verify the suffixes match */
                 sep = strchrnul(path_pos, '/');
-                if (sep - path_pos < (ssize_t)length ||
-                    strncmp(sep - length, template_pos, length))
+                path_length = sep - path_pos;
+
+                /* check that the template length is shorter than or equal to the path length */
+                if (path_length < length || !streq(sep - length, template_pos, length))
                         return 0;
 
                 template_pos += length; /* skip over matched label */
