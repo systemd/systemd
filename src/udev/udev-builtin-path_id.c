@@ -644,7 +644,6 @@ static int find_real_nvme_parent(sd_device *dev, sd_device **ret) {
 
 static void add_id_with_usb_revision(sd_device *dev, bool test, char *path) {
         char *p;
-        int r;
 
         assert(dev);
         assert(path);
@@ -660,9 +659,7 @@ static void add_id_with_usb_revision(sd_device *dev, bool test, char *path) {
         if (p[1] != '-')
                 return;
 
-        r = udev_builtin_add_property(dev, test, "ID_PATH_WITH_USB_REVISION", path);
-        if (r < 0)
-                log_device_debug_errno(dev, r, "Failed to add ID_PATH_WITH_USB_REVISION property, ignoring: %m");
+        (void) udev_builtin_add_property(dev, test, "ID_PATH_WITH_USB_REVISION", path);
 
         /* Drop the USB revision specifier for backward compatibility. */
         memmove(p - 1, p + 1, strlen(p + 1) + 1);
@@ -671,7 +668,6 @@ static void add_id_with_usb_revision(sd_device *dev, bool test, char *path) {
 static void add_id_tag(sd_device *dev, bool test, const char *path) {
         char tag[UDEV_NAME_SIZE];
         size_t i = 0;
-        int r;
 
         /* compose valid udev tag name */
         for (const char *p = path; *p; p++) {
@@ -697,9 +693,7 @@ static void add_id_tag(sd_device *dev, bool test, const char *path) {
                 i--;
         tag[i] = '\0';
 
-        r = udev_builtin_add_property(dev, test, "ID_PATH_TAG", tag);
-        if (r < 0)
-                log_device_debug_errno(dev, r, "Failed to add ID_PATH_TAG property, ignoring: %m");
+        (void) udev_builtin_add_property(dev, test, "ID_PATH_TAG", tag);
 }
 
 static int builtin_path_id(UdevEvent *event, int argc, char *argv[], bool test) {
@@ -859,9 +853,7 @@ static int builtin_path_id(UdevEvent *event, int argc, char *argv[], bool test) 
 
         add_id_with_usb_revision(dev, test, path);
 
-        r = udev_builtin_add_property(dev, test, "ID_PATH", path);
-        if (r < 0)
-                log_device_debug_errno(dev, r, "Failed to add ID_PATH property, ignoring: %m");
+        (void) udev_builtin_add_property(dev, test, "ID_PATH", path);
 
         add_id_tag(dev, test, path);
 
@@ -871,7 +863,7 @@ static int builtin_path_id(UdevEvent *event, int argc, char *argv[], bool test) 
          * ID_PATH_ATA_COMPAT
          */
         if (compat_path)
-                udev_builtin_add_property(dev, test, "ID_PATH_ATA_COMPAT", compat_path);
+                (void) udev_builtin_add_property(dev, test, "ID_PATH_ATA_COMPAT", compat_path);
 
         return 0;
 }
