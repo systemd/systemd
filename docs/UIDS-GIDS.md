@@ -21,7 +21,7 @@ validity for GIDs too.
 In theory, the range of the C type `uid_t` is 32-bit wide on Linux,
 i.e. 0…4294967295. However, four UIDs are special on Linux:
 
-1. 0 → The `root` super-user
+1. 0 → The `root` super-user.
 
 2. 65534 → The `nobody` UID, also called the "overflow" UID or similar. It's
    where various subsystems map unmappable users to, for example file systems
@@ -57,20 +57,20 @@ Distributions generally split the available UID range in two:
 
 2. 1000…65533 and 65536…4294967294 → Everything else, i.e. regular (human) users.
 
-Note that most distributions allow changing the boundary between system and
-regular users, even during runtime as user configuration. Moreover, some older
-systems placed the boundary at 499/500, or even 99/100. In `systemd`, the
-boundary is configurable only during compilation time, as this should be a
-decision for distribution builders, not for users. Moreover, we strongly
-discourage downstreams to change the boundary from the upstream default of
-999/1000.
+Some older systems placed the boundary at 499/500, or even 99/100,
+and most distributions allow the boundary between system and regular users to be changed
+via local configuration.
+In `systemd`, the boundary is configurable during compilation time
+and is also queried from `/etc/login.defs` at runtime,
+if the `-Dcompat-mutable-uid-boundaries=true` compile-time setting is used.
+We strongly discourage downstreams from changing the boundary from the upstream default of 999/1000.
 
 Also note that programs such as `adduser` tend to allocate from a subset of the
-available regular user range only, usually 1000..60000. And it's also usually
-user-configurable, too.
+available regular user range only, usually 1000..60000.
+This range can also be configured using `/etc/login.defs`.
 
 Note that systemd requires that system users and groups are resolvable without
-networking available — a requirement that is not made for regular users. This
+network — a requirement that is not made for regular users. This
 means regular users may be stored in remote LDAP or NIS databases, but system
 users may not (except when there's a consistent local cache kept, that is
 available during earliest boot, including in the initrd).
