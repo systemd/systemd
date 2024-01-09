@@ -2,7 +2,7 @@
 
 #include "group-record.h"
 #include "strv.h"
-#include "uid-alloc-range.h"
+#include "uid-classification.h"
 #include "user-util.h"
 
 GroupRecord* group_record_new(void) {

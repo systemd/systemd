@@ -59,7 +59,7 @@
 #include "string-util.h"
 #include "tomoyo-util.h"
 #include "tpm2-util.h"
-#include "uid-alloc-range.h"
+#include "uid-classification.h"
 #include "user-util.h"
 #include "virt.h"
 
