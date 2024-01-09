@@ -47,7 +47,7 @@ struct sd_device_monitor {
         union sockaddr_union snl_trusted_sender;
         bool bound;
 
-        UidRange *mapped_userns_uid_range;
+        UIDRange *mapped_userns_uid_range;
 
         Hashmap *subsystem_filter;
         Set *tag_filter;

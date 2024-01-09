@@ -117,7 +117,7 @@ typedef struct Context {
         Set *names;
 
         uid_t search_uid;
-        UidRange *uid_range;
+        UIDRange *uid_range;
 
         UGIDAllocationRange login_defs;
         bool login_defs_need_warning;
