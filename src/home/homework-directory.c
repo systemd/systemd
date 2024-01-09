@@ -4,6 +4,7 @@
 
 #include "btrfs-util.h"
 #include "fd-util.h"
+#include "homework-bulk.h"
 #include "homework-directory.h"
 #include "homework-mount.h"
 #include "homework-quota.h"
@@ -265,7 +266,7 @@ int home_resize_directory(
                 UserRecord **ret_home) {
 
         _cleanup_(user_record_unrefp) UserRecord *embedded_home = NULL, *new_home = NULL;
-        int r;
+        int r, reconciled;
 
         assert(h);
         assert(setup);
@@ -276,9 +277,9 @@ int home_resize_directory(
         if (r < 0)
                 return r;
 
-        r = home_load_embedded_identity(h, setup->root_fd, NULL, USER_RECONCILE_REQUIRE_NEWER_OR_EQUAL, cache, &embedded_home, &new_home);
-        if (r < 0)
-                return r;
+        reconciled = home_load_embedded_identity(h, setup->root_fd, NULL, USER_RECONCILE_REQUIRE_NEWER_OR_EQUAL, cache, &embedded_home, &new_home);
+        if (reconciled < 0)
+                return reconciled;
 
         r = home_maybe_shift_uid(h, flags, setup);
         if (r < 0)
@@ -291,6 +292,10 @@ int home_resize_directory(
                 return r;
 
         r = home_store_embedded_identity(new_home, setup->root_fd, embedded_home);
+        if (r < 0)
+                return r;
+
+        r = home_reconcile_bulk_dirs(new_home, setup->root_fd, reconciled);
         if (r < 0)
                 return r;
 
