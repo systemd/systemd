@@ -60,7 +60,7 @@ static void request_hash_func(const Request *req, struct siphash *state) {
 
         siphash24_compress_typesafe(req->type, state);
 
-        if (req->type != REQUEST_TYPE_NEXTHOP) {
+        if (!IN_SET(req->type, REQUEST_TYPE_NEXTHOP, REQUEST_TYPE_ROUTE)) {
                 siphash24_compress_boolean(req->link, state);
                 if (req->link)
                         siphash24_compress_typesafe(req->link->ifindex, state);
@@ -83,7 +83,7 @@ static int request_compare_func(const struct Request *a, const struct Request *b
         if (r != 0)
                 return r;
 
-        if (a->type != REQUEST_TYPE_NEXTHOP) {
+        if (!IN_SET(a->type, REQUEST_TYPE_NEXTHOP, REQUEST_TYPE_ROUTE)) {
                 r = CMP(!!a->link, !!b->link);
                 if (r != 0)
                         return r;
