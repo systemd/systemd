@@ -73,9 +73,6 @@ static int reply_query_state(DnsQuery *q) {
                                       JSON_BUILD_OBJECT(JSON_BUILD_PAIR("rcode", JSON_BUILD_INTEGER(DNS_RCODE_NXDOMAIN))));
 
         case DNS_TRANSACTION_RCODE_FAILURE:
-                return varlink_errorb(q->varlink_request, "io.systemd.Resolve.DNSError",
-                                      JSON_BUILD_OBJECT(JSON_BUILD_PAIR("rcode", JSON_BUILD_INTEGER(q->answer_rcode))));
-
         case DNS_TRANSACTION_UPSTREAM_DNSSEC_FAILURE:
                 return varlink_errorb(q->varlink_request, "io.systemd.Resolve.DNSError",
                                       JSON_BUILD_OBJECT(JSON_BUILD_PAIR("rcode", JSON_BUILD_INTEGER(q->answer_rcode)),

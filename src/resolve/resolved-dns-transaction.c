@@ -904,7 +904,14 @@ static int dns_transaction_dnssec_ready(DnsTransaction *t) {
                          * validation result */
 
                         log_debug("Auxiliary DNSSEC RR query failed validation: %s", dnssec_result_to_string(dt->answer_dnssec_result));
-                        t->answer_dnssec_result = dt->answer_dnssec_result; /* Copy error code over */
+
+                        /* Copy error code over */
+                        t->answer_dnssec_result = dt->answer_dnssec_result;
+                        t->answer_ede_rcode = dt->answer_ede_rcode;
+                        r = free_and_strdup_warn(&t->answer_ede_msg, dt->answer_ede_msg);
+                        if (r < 0)
+                                return r;
+
                         dns_transaction_complete(t, DNS_TRANSACTION_DNSSEC_FAILED);
                         return 0;
 
