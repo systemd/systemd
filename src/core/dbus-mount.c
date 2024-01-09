@@ -98,8 +98,30 @@ static int bus_mount_set_transient_property(
         if (streq(name, "Where"))
                 return bus_set_transient_path(u, name, &m->where, message, flags, error);
 
-        if (streq(name, "What"))
-                return bus_set_transient_string(u, name, &m->parameters_fragment.what, message, flags, error);
+        if (streq(name, "What")) {
+                _cleanup_free_ char *path = NULL;
+                const char *v;
+
+                r = sd_bus_message_read(message, "s", &v);
+                if (r < 0)
+                        return r;
+
+                if (!isempty(v)) {
+                        path = fstab_node_to_udev_node(v);
+                        if (!path)
+                                return -ENOMEM;
+
+                        if (strlen(path) >= PATH_MAX)
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Resolved What=%s too long", path);
+                }
+
+                if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
+                        free_and_replace(m->parameters_fragment.what, path);
+                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "What=%s", strempty(m->parameters_fragment.what));
+                }
+
+                return 1;
+        }
 
         if (streq(name, "Options"))
                 return bus_set_transient_string(u, name, &m->parameters_fragment.options, message, flags, error);
