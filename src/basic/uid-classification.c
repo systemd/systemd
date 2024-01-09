@@ -5,7 +5,7 @@
 #include "fileio.h"
 #include "missing_threads.h"
 #include "string-util.h"
-#include "uid-alloc-range.h"
+#include "uid-classification.h"
 #include "user-util.h"
 
 static const UGIDAllocationRange default_ugid_allocation_range = {

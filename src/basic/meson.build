@@ -94,7 +94,7 @@ basic_sources = files(
         'terminal-util.c',
         'time-util.c',
         'tmpfile-util.c',
-        'uid-alloc-range.c',
+        'uid-classification.c',
         'uid-range.c',
         'unit-def.c',
         'unit-file.c',

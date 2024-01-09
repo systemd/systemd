@@ -42,7 +42,7 @@
 #include "rlimit-util.h"
 #include "spawn-polkit-agent.h"
 #include "terminal-util.h"
-#include "uid-alloc-range.h"
+#include "uid-classification.h"
 #include "user-record.h"
 #include "user-record-password-quality.h"
 #include "user-record-show.h"

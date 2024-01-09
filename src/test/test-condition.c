@@ -41,7 +41,7 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 #include "tomoyo-util.h"
-#include "uid-alloc-range.h"
+#include "uid-classification.h"
 #include "user-util.h"
 #include "virt.h"
 

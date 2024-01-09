@@ -43,7 +43,7 @@
 #include "string-util.h"
 #include "strv.h"
 #include "syslog-util.h"
-#include "uid-alloc-range.h"
+#include "uid-classification.h"
 
 #define JOURNAL_FILES_RECHECK_USEC (2 * USEC_PER_SEC)
 

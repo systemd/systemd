@@ -51,7 +51,7 @@
 #include "strv.h"
 #include "sync-util.h"
 #include "tmpfile-util.h"
-#include "uid-alloc-range.h"
+#include "uid-classification.h"
 #include "user-util.h"
 
 /* The maximum size up to which we process coredumps. We use 1G on 32-bit systems, and 32G on 64-bit systems */

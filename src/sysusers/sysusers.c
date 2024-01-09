@@ -35,7 +35,7 @@
 #include "strv.h"
 #include "sync-util.h"
 #include "tmpfile-util-label.h"
-#include "uid-alloc-range.h"
+#include "uid-classification.h"
 #include "uid-range.h"
 #include "user-util.h"
 #include "utf8.h"
