@@ -15,6 +15,8 @@
 #include "creds-util.h"
 #include "device-private.h"
 #include "device-util.h"
+#include "env-util.h"
+#include "escape.h"
 #include "ethtool-util.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -30,11 +32,19 @@
 #include "path-util.h"
 #include "proc-cmdline.h"
 #include "random-util.h"
+#include "specifier.h"
 #include "stat-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
+#include "udev-builtin.h"
 #include "utf8.h"
+
+static const Specifier property_specifier_table[] = {
+        COMMON_SYSTEM_SPECIFIERS,
+        COMMON_TMP_SPECIFIERS,
+        {}
+};
 
 struct LinkConfigContext {
         LIST_HEAD(LinkConfig, configs);
@@ -53,6 +63,9 @@ static LinkConfig* link_config_free(LinkConfig *config) {
         condition_free_list(config->conditions);
 
         free(config->description);
+        strv_free(config->properties);
+        strv_free(config->import_properties);
+        strv_free(config->unset_properties);
         free(config->name_policy);
         free(config->name);
         strv_free(config->alternative_names);
@@ -363,18 +376,20 @@ Link *link_free(Link *link) {
                 return NULL;
 
         sd_device_unref(link->device);
+        sd_device_unref(link->device_db_clone);
         free(link->kind);
         strv_free(link->altnames);
         return mfree(link);
 }
 
-int link_new(LinkConfigContext *ctx, sd_netlink **rtnl, sd_device *device, Link **ret) {
+int link_new(LinkConfigContext *ctx, sd_netlink **rtnl, sd_device *device, sd_device *device_db_clone, Link **ret) {
         _cleanup_(link_freep) Link *link = NULL;
         int r;
 
         assert(ctx);
         assert(rtnl);
         assert(device);
+        assert(device_db_clone);
         assert(ret);
 
         link = new(Link, 1);
@@ -383,6 +398,7 @@ int link_new(LinkConfigContext *ctx, sd_netlink **rtnl, sd_device *device, Link 
 
         *link = (Link) {
                 .device = sd_device_ref(device),
+                .device_db_clone = sd_device_ref(device_db_clone),
         };
 
         r = sd_device_get_sysname(device, &link->ifname);
@@ -921,20 +937,68 @@ static int link_apply_sr_iov_config(Link *link, sd_netlink **rtnl) {
         return 0;
 }
 
-int link_apply_config(LinkConfigContext *ctx, sd_netlink **rtnl, Link *link) {
+static int link_apply_udev_properties(Link *link, bool test) {
+        LinkConfig *config;
+        sd_device *device;
+
+        assert(link);
+
+        config = ASSERT_PTR(link->config);
+        device = ASSERT_PTR(link->device);
+
+        /* 1. apply ImportProperty=. */
+        STRV_FOREACH(p, config->import_properties)
+                (void) udev_builtin_import_property(device, link->device_db_clone, test, *p);
+
+        /* 2. apply Property=. */
+        STRV_FOREACH(p, config->properties) {
+                _cleanup_free_ char *key = NULL;
+                const char *eq;
+
+                eq = strchr(*p, '=');
+                if (!eq)
+                        continue;
+
+                key = strndup(*p, eq - *p);
+                if (!key)
+                        return log_oom();
+
+                (void) udev_builtin_add_property(device, test, key, eq + 1);
+        }
+
+        /* 3. apply UnsetProperty=. */
+        STRV_FOREACH(p, config->unset_properties)
+                (void) udev_builtin_add_property(device, test, *p, NULL);
+
+        /* 4. set the default properties. */
+        (void) udev_builtin_add_property(device, test, "ID_NET_LINK_FILE", config->filename);
+
+        _cleanup_free_ char *joined = NULL;
+        STRV_FOREACH(d, config->dropins) {
+                _cleanup_free_ char *escaped = NULL;
+
+                escaped = xescape(*d, ":");
+                if (!escaped)
+                        return log_oom();
+
+                if (!strextend_with_separator(&joined, ":", escaped))
+                        return log_oom();
+        }
+
+        (void) udev_builtin_add_property(device, test, "ID_NET_LINK_FILE_DROPINS", joined);
+
+        if (link->new_name)
+                (void) udev_builtin_add_property(device, test, "ID_NET_NAME", link->new_name);
+
+        return 0;
+}
+
+int link_apply_config(LinkConfigContext *ctx, sd_netlink **rtnl, Link *link, bool test) {
         int r;
 
         assert(ctx);
         assert(rtnl);
         assert(link);
-
-        if (!IN_SET(link->action, SD_DEVICE_ADD, SD_DEVICE_BIND, SD_DEVICE_MOVE)) {
-                log_link_debug(link, "Skipping to apply .link settings on '%s' uevent.",
-                               device_action_to_string(link->action));
-
-                link->new_name = link->ifname;
-                return 0;
-        }
 
         r = link_apply_ethtool_settings(link, &ctx->ethtool_fd);
         if (r < 0)
@@ -956,7 +1020,147 @@ int link_apply_config(LinkConfigContext *ctx, sd_netlink **rtnl, Link *link) {
         if (r < 0)
                 return r;
 
+        r = link_apply_udev_properties(link, test);
+        if (r < 0)
+                return r;
+
         return 0;
+}
+
+int config_parse_udev_property(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char ***properties = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                *properties = strv_free(*properties);
+                return 0;
+        }
+
+        for (const char *p = rvalue;; ) {
+                _cleanup_free_ char *word = NULL, *resolved = NULL, *key = NULL;
+                const char *eq;
+
+                r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Invalid syntax, ignoring assignment: %s", rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        return 0;
+
+                r = specifier_printf(word, SIZE_MAX, property_specifier_table, NULL, NULL, &resolved);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to resolve specifiers in %s, ignoring assignment: %m", word);
+                        continue;
+                }
+
+                /* The restriction for udev property is not clear. Let's apply the one for environment variable here. */
+                if (!env_assignment_is_valid(resolved)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Invalid udev property, ignoring assignment: %s", word);
+                        continue;
+                }
+
+                assert_se(eq = strchr(resolved, '='));
+                key = strndup(resolved, eq - resolved);
+                if (!key)
+                        return log_oom();
+
+                if (!device_property_can_set(key)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Invalid udev property name '%s', ignoring assignment: %s", key, resolved);
+                        continue;
+                }
+
+                r = strv_env_replace_consume(properties, TAKE_PTR(resolved));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to update properties: %m");
+        }
+}
+
+int config_parse_udev_property_name(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        char ***properties = ASSERT_PTR(data);
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        if (isempty(rvalue)) {
+                /* Empty assignment resets the list */
+                *properties = strv_free(*properties);
+                return 0;
+        }
+
+        for (const char *p = rvalue;; ) {
+                _cleanup_free_ char *word = NULL, *resolved = NULL;
+
+                r = extract_first_word(&p, &word, NULL, EXTRACT_CUNESCAPE|EXTRACT_UNQUOTE);
+                if (r == -ENOMEM)
+                        return log_oom();
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Invalid syntax, ignoring assignment: %s", rvalue);
+                        return 0;
+                }
+                if (r == 0)
+                        return 0;
+
+                r = specifier_printf(word, SIZE_MAX, property_specifier_table, NULL, NULL, &resolved);
+                if (r < 0) {
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to resolve specifiers in %s, ignoring assignment: %m", word);
+                        continue;
+                }
+
+                /* The restriction for udev property is not clear. Let's apply the one for environment variable here. */
+                if (!env_name_is_valid(resolved)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Invalid udev property name, ignoring assignment: %s", resolved);
+                        continue;
+                }
+
+                if (!device_property_can_set(resolved)) {
+                        log_syntax(unit, LOG_WARNING, filename, line, 0,
+                                   "Invalid udev property name, ignoring assignment: %s", resolved);
+                        continue;
+                }
+
+                r = strv_consume(properties, TAKE_PTR(resolved));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to update properties: %m");
+        }
 }
 
 int config_parse_ifalias(
