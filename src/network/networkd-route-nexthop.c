@@ -12,6 +12,193 @@
 #include "parse-util.h"
 #include "string-util.h"
 
+static int append_nexthop_one(Link *link, const Route *route, const MultipathRoute *m, struct rtattr **rta, size_t offset) {
+        struct rtnexthop *rtnh;
+        struct rtattr *new_rta;
+        int r;
+
+        assert(route);
+        assert(IN_SET(route->family, AF_INET, AF_INET6));
+        assert(m);
+        assert(rta);
+        assert(*rta);
+
+        new_rta = realloc(*rta, RTA_ALIGN((*rta)->rta_len) + RTA_SPACE(sizeof(struct rtnexthop)));
+        if (!new_rta)
+                return -ENOMEM;
+        *rta = new_rta;
+
+        rtnh = (struct rtnexthop *)((uint8_t *) *rta + offset);
+        *rtnh = (struct rtnexthop) {
+                .rtnh_len = sizeof(*rtnh),
+                .rtnh_ifindex = m->ifindex > 0 ? m->ifindex : link->ifindex,
+                .rtnh_hops = m->weight,
+        };
+
+        (*rta)->rta_len += sizeof(struct rtnexthop);
+
+        if (m->gateway.family == route->family) {
+                r = rtattr_append_attribute(rta, RTA_GATEWAY, &m->gateway.address, FAMILY_ADDRESS_SIZE(m->gateway.family));
+                if (r < 0)
+                        goto clear;
+
+                rtnh = (struct rtnexthop *)((uint8_t *) *rta + offset);
+                rtnh->rtnh_len += RTA_SPACE(FAMILY_ADDRESS_SIZE(m->gateway.family));
+
+        } else if (m->gateway.family == AF_INET6) {
+                assert(route->family == AF_INET);
+
+                r = rtattr_append_attribute(rta, RTA_VIA, &m->gateway, sizeof(RouteVia));
+                if (r < 0)
+                        goto clear;
+
+                rtnh = (struct rtnexthop *)((uint8_t *) *rta + offset);
+                rtnh->rtnh_len += RTA_SPACE(sizeof(RouteVia));
+
+        } else if (m->gateway.family == AF_INET)
+                assert_not_reached();
+
+        return 0;
+
+clear:
+        (*rta)->rta_len -= sizeof(struct rtnexthop);
+        return r;
+}
+
+static int netlink_message_append_multipath_route(Link *link, const Route *route, sd_netlink_message *message) {
+        _cleanup_free_ struct rtattr *rta = NULL;
+        size_t offset;
+        int r;
+
+        assert(route);
+        assert(message);
+
+        if (ordered_set_isempty(route->multipath_routes))
+                return 0;
+
+        rta = new(struct rtattr, 1);
+        if (!rta)
+                return -ENOMEM;
+
+        *rta = (struct rtattr) {
+                .rta_type = RTA_MULTIPATH,
+                .rta_len = RTA_LENGTH(0),
+        };
+        offset = (uint8_t *) RTA_DATA(rta) - (uint8_t *) rta;
+
+        MultipathRoute *m;
+        ORDERED_SET_FOREACH(m, route->multipath_routes) {
+                struct rtnexthop *rtnh;
+
+                r = append_nexthop_one(link, route, m, &rta, offset);
+                if (r < 0)
+                        return r;
+
+                rtnh = (struct rtnexthop *)((uint8_t *) rta + offset);
+                offset = (uint8_t *) RTNH_NEXT(rtnh) - (uint8_t *) rta;
+        }
+
+        return sd_netlink_message_append_data(message, RTA_MULTIPATH, RTA_DATA(rta), RTA_PAYLOAD(rta));
+}
+
+int route_nexthops_set_netlink_message(Link *link, const Route *route, sd_netlink_message *message) {
+        int r;
+
+        assert(route);
+        assert(IN_SET(route->family, AF_INET, AF_INET6));
+        assert(message);
+
+        if (route->nexthop_id != 0)
+                return sd_netlink_message_append_u32(message, RTA_NH_ID, route->nexthop_id);
+
+        if (route_type_is_reject(route))
+                return 0;
+
+        if (ordered_set_isempty(route->multipath_routes)) {
+
+                if (in_addr_is_set(route->gw_family, &route->gw)) {
+                        if (route->gw_family == route->family)
+                                r = netlink_message_append_in_addr_union(message, RTA_GATEWAY, route->gw_family, &route->gw);
+                        else {
+                                assert(route->family == AF_INET);
+                                r = sd_netlink_message_append_data(message, RTA_VIA,
+                                                                   &(const RouteVia) {
+                                                                           .family = route->gw_family,
+                                                                           .address = route->gw,
+                                                                   }, sizeof(RouteVia));
+                        }
+                        if (r < 0)
+                                return r;
+                }
+
+                assert(link);
+                return sd_netlink_message_append_u32(message, RTA_OIF, link->ifindex);
+        }
+
+        return netlink_message_append_multipath_route(link, route, message);
+}
+
+int route_nexthops_read_netlink_message(Route *route, sd_netlink_message *message) {
+        int r;
+
+        assert(route);
+        assert(message);
+
+        r = sd_netlink_message_read_u32(message, RTA_NH_ID, &route->nexthop_id);
+        if (r < 0 && r != -ENODATA)
+                return log_warning_errno(r, "rtnl: received route message with invalid nexthop id, ignoring: %m");
+
+        if (route->nexthop_id != 0 || route_type_is_reject(route))
+                /* IPv6 routes with reject type are always assigned to the loopback interface. See kernel's
+                 * fib6_nh_init() in net/ipv6/route.c. However, we'd like to make it consistent with IPv4
+                 * routes. Hence, skip reading of RTA_OIF. */
+                return 0;
+
+        uint32_t ifindex = 0;
+        r = sd_netlink_message_read_u32(message, RTA_OIF, &ifindex);
+        if (r < 0 && r != -ENODATA)
+                return log_warning_errno(r, "rtnl: could not get ifindex from route message, ignoring: %m");
+
+        if (ifindex > 0) {
+                r = netlink_message_read_in_addr_union(message, RTA_GATEWAY, route->family, &route->gw);
+                if (r >= 0) {
+                        route->gw_family = route->family;
+                        return 0;
+                }
+                if (r != -ENODATA)
+                        return log_warning_errno(r, "rtnl: received route message without valid gateway, ignoring: %m");
+
+                if (route->family != AF_INET)
+                        return 0;
+
+                RouteVia via;
+                r = sd_netlink_message_read(message, RTA_VIA, sizeof(via), &via);
+                if (r >= 0) {
+                        route->gw_family = via.family;
+                        route->gw = via.address;
+                        return 0;
+                }
+                if (r != -ENODATA)
+                        return log_warning_errno(r, "rtnl: received route message without valid gateway, ignoring: %m");
+
+                return 0;
+        }
+
+        size_t rta_len;
+        _cleanup_free_ void *rta = NULL;
+        r = sd_netlink_message_read_data(message, RTA_MULTIPATH, &rta_len, &rta);
+        if (r == -ENODATA)
+                return 0;
+        if (r < 0)
+                return log_warning_errno(r, "rtnl: failed to read RTA_MULTIPATH attribute, ignoring: %m");
+
+        r = rtattr_read_nexthop(rta, rta_len, route->family, &route->multipath_routes);
+        if (r < 0)
+                return log_warning_errno(r, "rtnl: failed to parse RTA_MULTIPATH attribute, ignoring: %m");
+
+        return 0;
+}
+
 int route_section_verify_nexthops(Route *route) {
         assert(route);
         assert(route->section);

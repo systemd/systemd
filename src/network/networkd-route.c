@@ -666,27 +666,16 @@ static int route_set_netlink_message(const Route *route, sd_netlink_message *req
                         return r;
         }
 
-        if (!route_type_is_reject(route) &&
-            route->nexthop_id == 0 &&
-            ordered_set_isempty(route->multipath_routes)) {
-                assert(link); /* Those routes must be attached to a specific link */
-
-                r = sd_netlink_message_append_u32(req, RTA_OIF, link->ifindex);
-                if (r < 0)
-                        return r;
-        }
-
-        if (route->nexthop_id > 0) {
-                r = sd_netlink_message_append_u32(req, RTA_NH_ID, route->nexthop_id);
-                if (r < 0)
-                        return r;
-        }
-
         r = sd_netlink_message_append_u8(req, RTA_PREF, route->pref);
         if (r < 0)
                 return r;
 
         r = sd_netlink_message_append_u32(req, RTA_PRIORITY, route->priority);
+        if (r < 0)
+                return r;
+
+        /* nexthops */
+        r = route_nexthops_set_netlink_message(link, route, req);
         if (r < 0)
                 return r;
 
@@ -1035,91 +1024,6 @@ static int route_setup_timer(Route *route, const struct rta_cacheinfo *cacheinfo
         return 1;
 }
 
-static int append_nexthop_one(const Link *link, const Route *route, const MultipathRoute *m, struct rtattr **rta, size_t offset) {
-        struct rtnexthop *rtnh;
-        struct rtattr *new_rta;
-        int r;
-
-        assert(route);
-        assert(m);
-        assert(rta);
-        assert(*rta);
-
-        new_rta = realloc(*rta, RTA_ALIGN((*rta)->rta_len) + RTA_SPACE(sizeof(struct rtnexthop)));
-        if (!new_rta)
-                return -ENOMEM;
-        *rta = new_rta;
-
-        rtnh = (struct rtnexthop *)((uint8_t *) *rta + offset);
-        *rtnh = (struct rtnexthop) {
-                .rtnh_len = sizeof(*rtnh),
-                .rtnh_ifindex = m->ifindex > 0 ? m->ifindex : link->ifindex,
-                .rtnh_hops = m->weight,
-        };
-
-        (*rta)->rta_len += sizeof(struct rtnexthop);
-
-        if (route->family == m->gateway.family) {
-                r = rtattr_append_attribute(rta, RTA_GATEWAY, &m->gateway.address, FAMILY_ADDRESS_SIZE(m->gateway.family));
-                if (r < 0)
-                        goto clear;
-                rtnh = (struct rtnexthop *)((uint8_t *) *rta + offset);
-                rtnh->rtnh_len += RTA_SPACE(FAMILY_ADDRESS_SIZE(m->gateway.family));
-        } else {
-                r = rtattr_append_attribute(rta, RTA_VIA, &m->gateway, FAMILY_ADDRESS_SIZE(m->gateway.family) + sizeof(m->gateway.family));
-                if (r < 0)
-                        goto clear;
-                rtnh = (struct rtnexthop *)((uint8_t *) *rta + offset);
-                rtnh->rtnh_len += RTA_SPACE(FAMILY_ADDRESS_SIZE(m->gateway.family) + sizeof(m->gateway.family));
-        }
-
-        return 0;
-
-clear:
-        (*rta)->rta_len -= sizeof(struct rtnexthop);
-        return r;
-}
-
-static int append_nexthops(const Link *link, const Route *route, sd_netlink_message *req) {
-        _cleanup_free_ struct rtattr *rta = NULL;
-        struct rtnexthop *rtnh;
-        MultipathRoute *m;
-        size_t offset;
-        int r;
-
-        assert(link);
-        assert(route);
-        assert(req);
-
-        if (ordered_set_isempty(route->multipath_routes))
-                return 0;
-
-        rta = new(struct rtattr, 1);
-        if (!rta)
-                return -ENOMEM;
-
-        *rta = (struct rtattr) {
-                .rta_type = RTA_MULTIPATH,
-                .rta_len = RTA_LENGTH(0),
-        };
-        offset = (uint8_t *) RTA_DATA(rta) - (uint8_t *) rta;
-
-        ORDERED_SET_FOREACH(m, route->multipath_routes) {
-                r = append_nexthop_one(link, route, m, &rta, offset);
-                if (r < 0)
-                        return r;
-
-                rtnh = (struct rtnexthop *)((uint8_t *) rta + offset);
-                offset = (uint8_t *) RTNH_NEXT(rtnh) - (uint8_t *) rta;
-        }
-
-        r = sd_netlink_message_append_data(req, RTA_MULTIPATH, RTA_DATA(rta), RTA_PAYLOAD(rta));
-        if (r < 0)
-                return r;
-
-        return 0;
-}
-
 int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, Route *route, const char *error_msg) {
         int r;
 
@@ -1185,15 +1089,6 @@ static int route_configure(const Route *route, uint32_t lifetime_sec, Link *link
         r = route_metric_set_netlink_message(&route->metric, m);
         if (r < 0)
                 return r;
-
-        if (!ordered_set_isempty(route->multipath_routes)) {
-                assert(route->nexthop_id == 0);
-                assert(!in_addr_is_set(route->gw_family, &route->gw));
-
-                r = append_nexthops(link, route, m);
-                if (r < 0)
-                        return r;
-        }
 
         return request_call_netlink_async(link->manager->rtnl, m, req);
 }
@@ -1610,13 +1505,11 @@ static int process_route_one(
 int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
         _cleanup_(converted_routes_freep) ConvertedRoutes *converted = NULL;
         _cleanup_(route_freep) Route *tmp = NULL;
-        _cleanup_free_ void *rta_multipath = NULL;
         struct rta_cacheinfo cacheinfo;
         bool has_cacheinfo;
         Link *link = NULL;
         uint32_t ifindex;
         uint16_t type;
-        size_t rta_len;
         int r;
 
         assert(rtnl);
@@ -1691,25 +1584,6 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
                 return 0;
         }
 
-        r = netlink_message_read_in_addr_union(message, RTA_GATEWAY, tmp->family, &tmp->gw);
-        if (r < 0 && r != -ENODATA) {
-                log_link_warning_errno(link, r, "rtnl: received route message without valid gateway, ignoring: %m");
-                return 0;
-        } else if (r >= 0)
-                tmp->gw_family = tmp->family;
-        else if (tmp->family == AF_INET) {
-                RouteVia via;
-
-                r = sd_netlink_message_read(message, RTA_VIA, sizeof(via), &via);
-                if (r < 0 && r != -ENODATA) {
-                        log_link_warning_errno(link, r, "rtnl: received route message without valid gateway, ignoring: %m");
-                        return 0;
-                } else if (r >= 0) {
-                        tmp->gw_family = via.family;
-                        tmp->gw = via.address;
-                }
-        }
-
         r = netlink_message_read_in_addr_union(message, RTA_SRC, tmp->family, &tmp->src);
         if (r < 0 && r != -ENODATA) {
                 log_link_warning_errno(link, r, "rtnl: received route message without valid source, ignoring: %m");
@@ -1771,27 +1645,13 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
                 return 0;
         }
 
-        r = sd_netlink_message_read_u32(message, RTA_NH_ID, &tmp->nexthop_id);
-        if (r < 0 && r != -ENODATA) {
-                log_link_warning_errno(link, r, "rtnl: received route message with invalid nexthop id, ignoring: %m");
-                return 0;
-        }
-
         /* metrics */
         if (route_metric_read_netlink_message(&tmp->metric, message) < 0)
                 return 0;
 
-        r = sd_netlink_message_read_data(message, RTA_MULTIPATH, &rta_len, &rta_multipath);
-        if (r < 0 && r != -ENODATA) {
-                log_link_warning_errno(link, r, "rtnl: failed to read RTA_MULTIPATH attribute, ignoring: %m");
+        /* nexthops */
+        if (route_nexthops_read_netlink_message(tmp, message) < 0)
                 return 0;
-        } else if (r >= 0) {
-                r = rtattr_read_nexthop(rta_multipath, rta_len, tmp->family, &tmp->multipath_routes);
-                if (r < 0) {
-                        log_link_warning_errno(link, r, "rtnl: failed to parse RTA_MULTIPATH attribute, ignoring: %m");
-                        return 0;
-                }
-        }
 
         r = sd_netlink_message_read(message, RTA_CACHEINFO, sizeof(cacheinfo), &cacheinfo);
         if (r < 0 && r != -ENODATA) {
