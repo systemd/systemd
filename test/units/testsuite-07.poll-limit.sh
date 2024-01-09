@@ -5,12 +5,12 @@ set -o pipefail
 
 systemd-analyze log-level debug
 
-cat > /run/systemd/system/floodme@.service <<EOF
+cat >/run/systemd/system/floodme@.service <<EOF
 [Service]
 ExecStart=true
 EOF
 
-cat > /run/systemd/system/floodme.socket <<EOF
+cat >/run/systemd/system/floodme.socket <<EOF
 [Socket]
 ListenStream=/tmp/floodme
 PollLimitIntervalSec=10s
@@ -24,7 +24,7 @@ systemctl start floodme.socket
 START=$(date +%s%N)
 
 # Trigger this 100 times in a flood
-for (( i=0 ; i < 100; i++ )) ; do
+for i in {1..100}; do
     logger -u /tmp/floodme foo &
 done
 
