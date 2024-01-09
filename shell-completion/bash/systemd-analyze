@@ -61,7 +61,7 @@ _systemd_analyze() {
 
     local -A OPTS=(
         [STANDALONE]='-h --help --version --system --user --global --order --require --no-pager
-                             --man=no --generators=yes --quiet'
+                             --man=no --generators=yes -q --quiet'
         [ARG]='-H --host -M --machine --fuzz --from-pattern --to-pattern --root'
     )
 
