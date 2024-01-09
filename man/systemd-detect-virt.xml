@@ -148,6 +148,11 @@
           </row>
 
           <row>
+            <entry><varname>google</varname></entry>
+            <entry><ulink url="https://cloud.google.com/compute">Google Compute Engine (second generation)</ulink></entry>
+          </row>
+
+          <row>
             <entry valign="top" morerows="9">Container</entry>
             <entry><varname>openvz</varname></entry>
             <entry>OpenVZ/Virtuozzo</entry>
