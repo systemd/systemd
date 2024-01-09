@@ -2697,7 +2697,7 @@ int config_parse_unit_env_file(const char *unit,
                 return 0;
         }
 
-        r = unit_full_printf_full(u, rvalue, PATH_MAX, &n);
+        r = unit_path_printf(u, rvalue, &n);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
                 return 0;
@@ -5268,7 +5268,7 @@ int config_parse_bind_paths(
                 if (r == 0)
                         break;
 
-                r = unit_full_printf_full(u, source, PATH_MAX, &sresolved);
+                r = unit_path_printf(u, source, &sresolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to resolve unit specifiers in \"%s\", ignoring: %m", source);
