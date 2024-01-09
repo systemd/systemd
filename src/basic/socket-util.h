@@ -105,15 +105,15 @@ const char* socket_address_get_path(const SocketAddress *a);
 bool socket_ipv6_is_supported(void);
 bool socket_ipv6_is_enabled(void);
 
-int sockaddr_port(const struct sockaddr *_sa, unsigned *port);
+int sockaddr_port(const union sockaddr_union *sa, unsigned *port);
 const union in_addr_union *sockaddr_in_addr(const struct sockaddr *sa);
 int sockaddr_set_in_addr(union sockaddr_union *u, int family, const union in_addr_union *a, uint16_t port);
 
-int sockaddr_pretty(const struct sockaddr *_sa, socklen_t salen, bool translate_ipv6, bool include_port, char **ret);
+int sockaddr_pretty(const union sockaddr_union *sa, socklen_t salen, bool translate_ipv6, bool include_port, char **ret);
 int getpeername_pretty(int fd, bool include_port, char **ret);
 int getsockname_pretty(int fd, char **ret);
 
-int socknameinfo_pretty(const struct sockaddr *sa, socklen_t salen, char **_ret);
+int socknameinfo_pretty(const union sockaddr_union *sa, socklen_t salen, char **_ret);
 
 const char* socket_address_bind_ipv6_only_to_string(SocketAddressBindIPv6Only b) _const_;
 SocketAddressBindIPv6Only socket_address_bind_ipv6_only_from_string(const char *s) _pure_;
