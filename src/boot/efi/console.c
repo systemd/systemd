@@ -266,7 +266,9 @@ EFI_STATUS console_set_mode(int64_t mode) {
 
                 mode = MAX(CONSOLE_MODE_RANGE_MIN, ST->ConOut->Mode->Mode);
                 do {
-                        mode = (mode + 1) % ST->ConOut->Mode->MaxMode;
+                        mode++;
+                        if (mode >= ST->ConOut->Mode->MaxMode)
+                                mode = 0;
                         if (change_mode(mode) == EFI_SUCCESS)
                                 break;
                         /* If this mode is broken/unsupported, try the next.
