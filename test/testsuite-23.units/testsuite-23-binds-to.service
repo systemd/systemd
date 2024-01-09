@@ -5,6 +5,6 @@ BindsTo=testsuite-23-bound-by.service
 After=testsuite-23-bound-by.service
 
 [Service]
-ExecStart=/bin/sleep infinity
+ExecStart=sleep infinity
 # --kill-who= (no 'm') to check that the short form is accepted
 ExecStopPost=systemctl kill --kill-whom=main -sRTMIN+1 testsuite-23.service

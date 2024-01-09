@@ -4,4 +4,4 @@ Description=Failing unit
 OnFailure=testsuite-23-uphold.service
 
 [Service]
-ExecStart=/bin/false
+ExecStart=false

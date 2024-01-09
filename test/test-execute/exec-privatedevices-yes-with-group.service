@@ -8,10 +8,10 @@ Group=daemon
 Type=oneshot
 
 # Check the group applied
-ExecStart=/bin/sh -x -c 'test "$$(id -n -g)" = "daemon"'
+ExecStart=sh -x -c 'test "$$(id -n -g)" = "daemon"'
 
 # Check that the namespace applied
-ExecStart=/bin/sh -c 'test ! -c /dev/kmsg'
+ExecStart=sh -c 'test ! -c /dev/kmsg'
 
 # Check that the owning group of a node is not daemon (should be the host root)
-ExecStart=/bin/sh -x -c 'test ! "$$(stat -c %%G /dev/stderr)" = "daemon"'
+ExecStart=sh -x -c 'test ! "$$(stat -c %%G /dev/stderr)" = "daemon"'

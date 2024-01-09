@@ -3,6 +3,6 @@
 Description=Test for User (daemon)
 
 [Service]
-ExecStart=/bin/sh -x -c 'test "$$USER" = "daemon"'
+ExecStart=sh -x -c 'test "$$USER" = "daemon"'
 Type=oneshot
 User=daemon

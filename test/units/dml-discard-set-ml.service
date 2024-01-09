@@ -5,5 +5,5 @@ Description=DML discard set ml service
 [Service]
 Slice=dml-discard.slice
 Type=oneshot
-ExecStart=/bin/true
+ExecStart=true
 MemoryLow=15
