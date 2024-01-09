@@ -1813,7 +1813,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         output = check_output('ip -4 route show dev wg99 table 1234')
         print(output)
-        self.assertIn('192.168.26.0/24 proto static metric 123', output)
+        self.assertIn('192.168.26.0/24 proto static scope link metric 123', output)
 
         output = check_output('ip -6 route show dev wg99 table 1234')
         print(output)
@@ -4014,7 +4014,11 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         remove_network_unit('25-nexthop-nothing.network', '25-nexthop-dummy-2.network')
         copy_network_unit('25-nexthop-1.network', '25-nexthop-dummy-1.network')
-        networkctl_reload()
+        # Of course, networkctl_reconfigure() below is unnecessary in normal operation, but it is intentional
+        # here to test reconfiguring with different .network files does not trigger race.
+        # See also comments in link_drop_requests().
+        networkctl_reconfigure('dummy98') # reconfigured with 25-nexthop-dummy-2.network
+        networkctl_reload()               # reconfigured with 25-nexthop-dummy-1.network
 
         self.check_nexthop(manage_foreign_nexthops, first=True)
 
