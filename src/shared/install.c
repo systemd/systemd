@@ -3142,8 +3142,10 @@ int unit_file_get_state(
         return unit_file_lookup_state(scope, &lp, name, ret);
 }
 
-int unit_file_exists(RuntimeScope scope, const LookupPaths *lp, const char *name) {
-        _cleanup_(install_context_done) InstallContext c = { .scope = scope };
+int unit_file_exists_full(RuntimeScope scope, const LookupPaths *lp, const char *name, char **ret_path) {
+        _cleanup_(install_context_done) InstallContext c = {
+                .scope = scope,
+        };
         int r;
 
         assert(lp);
@@ -3152,11 +3154,30 @@ int unit_file_exists(RuntimeScope scope, const LookupPaths *lp, const char *name
         if (!unit_name_is_valid(name, UNIT_NAME_ANY))
                 return -EINVAL;
 
-        r = install_info_discover(&c, lp, name, 0, NULL, NULL, NULL);
-        if (r == -ENOENT)
+        InstallInfo *info = NULL;
+        r = install_info_discover(
+                        &c,
+                        lp,
+                        name,
+                        /* flags= */ 0,
+                        ret_path ? &info : NULL,
+                        /* changes= */ NULL,
+                        /* n_changes= */ NULL);
+        if (r == -ENOENT) {
+                if (ret_path)
+                        *ret_path = NULL;
                 return 0;
+        }
         if (r < 0)
                 return r;
+
+        if (ret_path) {
+                _cleanup_free_ char *p = strdup(info->path);
+                if (!p)
+                        return -ENOMEM;
+
+                *ret_path = TAKE_PTR(p);
+        }
 
         return 1;
 }
