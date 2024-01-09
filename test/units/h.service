@@ -4,4 +4,4 @@ Description=H
 Wants=g.service
 
 [Service]
-ExecStart=/bin/true
+ExecStart=true

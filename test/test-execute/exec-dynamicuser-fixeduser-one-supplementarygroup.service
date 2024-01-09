@@ -3,8 +3,8 @@
 Description=Test DynamicUser with User= and SupplementaryGroups=
 
 [Service]
-ExecStart=/bin/sh -x -c 'for g in $$(id -G); do test "$$g" = "1" && exit 0; done; exit 1'
-ExecStart=/bin/sh -x -c 'test "$$(id -g)" = "1" && test "$$(id -u)" = "1"'
+ExecStart=sh -x -c 'for g in $$(id -G); do test "$$g" = "1" && exit 0; done; exit 1'
+ExecStart=sh -x -c 'test "$$(id -g)" = "1" && test "$$(id -u)" = "1"'
 Type=oneshot
 User=1
 DynamicUser=yes

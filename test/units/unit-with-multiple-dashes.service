@@ -4,4 +4,4 @@ Description=A unit with multiple dashes
 Documentation=man:test
 
 [Service]
-ExecStart=/bin/true
+ExecStart=true

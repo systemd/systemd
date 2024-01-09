@@ -5,6 +5,6 @@ Description=Nomem Leaf Service
 [Service]
 Slice=nomem.slice
 Type=oneshot
-ExecStart=/bin/true
+ExecStart=true
 IOWeight=200
 MemoryAccounting=true

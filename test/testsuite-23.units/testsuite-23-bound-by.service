@@ -3,4 +3,4 @@
 Description=Unit with BoundBy=
 
 [Service]
-ExecStart=/bin/sleep 0.7
+ExecStart=sleep 0.7
