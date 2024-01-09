@@ -1130,7 +1130,7 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
                 if (route->lifetime_usec >= timestamp_usec)
                         continue; /* the route is still valid */
 
-                r = route_remove_and_drop(route);
+                r = route_remove_and_cancel(route, link->manager);
                 if (r < 0)
                         RET_GATHER(ret, log_link_warning_errno(link, r, "Failed to remove outdated SLAAC route, ignoring: %m"));
         }
