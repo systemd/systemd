@@ -516,8 +516,8 @@
 
       <varlistentry>
         <term><varname>What=</varname></term>
-        <listitem><para>Takes an absolute path of a device node, file or other resource to mount. See
-        <citerefentry
+        <listitem><para>Takes an absolute path or a fstab-style identifier of a device node, file or
+        other resource to mount. See <citerefentry
         project='man-pages'><refentrytitle>mount</refentrytitle><manvolnum>8</manvolnum></citerefentry> for
         details. If this refers to a device node, a dependency on the respective device unit is automatically
         created. (See
