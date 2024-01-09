@@ -1294,7 +1294,7 @@ static int verb_add_all(int argc, char *argv[], void *userdata) {
         }
 
         if (n > 0)
-                log_info("Installed %zu kernels.", n);
+                log_debug("Installed %zu kernel%s.", n, (n>1?"s":"")); // XXX: use ngettext ffs
         else if (ret == 0)
                 ret = log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No kernels to install found.");
 
