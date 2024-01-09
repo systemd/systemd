@@ -24,7 +24,7 @@ typedef enum UserDisposition {
 typedef enum UserHomeStorage {
         USER_CLASSIC,
         USER_LUKS,
-        USER_DIRECTORY, /* A directory, and a .identity file in it, which USER_CLASSIC lacks */
+        USER_DIRECTORY, /* A directory, and a ~/.identity directory in it, which USER_CLASSIC lacks */
         USER_SUBVOLUME,
         USER_FSCRYPT,
         USER_CIFS,
