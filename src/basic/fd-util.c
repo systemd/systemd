@@ -170,6 +170,19 @@ int fd_nonblock(int fd, bool nonblock) {
         return RET_NERRNO(fcntl(fd, F_SETFL, nflags));
 }
 
+int stdio_disable_nonblock(void) {
+        int ret = 0;
+
+        /* stdin/stdout/stderr really should have O_NONBLOCK, which would confuse apps if left on, as
+         * write()s might unexpectedly fail with EAGAIN. */
+
+        RET_GATHER(ret, fd_nonblock(STDIN_FILENO, false));
+        RET_GATHER(ret, fd_nonblock(STDOUT_FILENO, false));
+        RET_GATHER(ret, fd_nonblock(STDERR_FILENO, false));
+
+        return ret;
+}
+
 int fd_cloexec(int fd, bool cloexec) {
         int flags, nflags;
 

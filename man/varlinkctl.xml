@@ -71,11 +71,16 @@
 
     <itemizedlist>
       <listitem><para>A Varlink service reference starting with the <literal>unix:</literal> string, followed
-      by an absolute <constant>AF_UNIX</constant> path, or by <literal>@</literal> and an arbitrary string
+      by an absolute <constant>AF_UNIX</constant> socket path, or by <literal>@</literal> and an arbitrary string
       (the latter for referencing sockets in the abstract namespace).</para></listitem>
 
       <listitem><para>A Varlink service reference starting with the <literal>exec:</literal> string, followed
       by an absolute path of a binary to execute.</para></listitem>
+
+      <listitem><para>A Varlink service reference starting with the <literal>ssh:</literal> string, followed
+      by an SSH host specification, followed by <literal>:</literal>, followed by an absolute
+      <constant>AF_UNIX</constant> socket path. (This requires OpenSSH 9.4 or newer on the server side,
+      abstract namespace sockets are not supported.)</para></listitem>
     </itemizedlist>
 
     <para>For convenience these two simpler (redundant) service address syntaxes are also supported:</para>

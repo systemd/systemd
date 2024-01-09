@@ -1667,6 +1667,9 @@ int safe_fork_full(
                                 log_full_errno(prio, r, "Failed to rearrange stdio fds: %m");
                                 _exit(EXIT_FAILURE);
                         }
+
+                        /* Turn off O_NONBLOCK on the fdio fds, in case it was left on */
+                        stdio_disable_nonblock();
                 } else {
                         r = make_null_stdio();
                         if (r < 0) {
