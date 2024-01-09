@@ -136,13 +136,13 @@
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">verify</arg>
-      <arg choice="opt" rep="repeat"><replaceable>FILE</replaceable></arg>
+      <arg choice="plain" rep="repeat"><replaceable>FILE</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">security</arg>
-      <arg choice="plain" rep="repeat"><replaceable>UNIT</replaceable></arg>
+      <arg choice="opt" rep="repeat"><replaceable>UNIT</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>systemd-analyze</command>
@@ -160,7 +160,7 @@
       <command>systemd-analyze</command>
       <arg choice="opt" rep="repeat">OPTIONS</arg>
       <arg choice="plain">fdstore</arg>
-      <arg choice="opt" rep="repeat"><replaceable>UNIT</replaceable></arg>
+      <arg choice="plain" rep="repeat"><replaceable>UNIT</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
       <command>systemd-analyze</command>
@@ -839,7 +839,7 @@ alias.service:7: Unknown key name 'MysteryKey' in section 'Service', ignoring.
     </refsect2>
 
     <refsect2>
-      <title><command>systemd-analyze fdstore <optional><replaceable>UNIT</replaceable>...</optional></command></title>
+      <title><command>systemd-analyze fdstore <replaceable>UNIT</replaceable>...</command></title>
 
       <para>Lists the current contents of the specified service unit's file descriptor store. This shows
       names, inode types, device numbers, inode numbers, paths and open modes of the open file
@@ -868,7 +868,7 @@ stored sock 0:8   4213190 -      socket:[4213190] ro
     </refsect2>
 
     <refsect2>
-      <title><command>systemd-analyze image-policy <optional><replaceable>POLICY</replaceable>…</optional></command></title>
+      <title><command>systemd-analyze image-policy <replaceable>POLICY</replaceable>…</command></title>
 
       <para>This command analyzes the specified image policy string, as per
       <citerefentry><refentrytitle>systemd.image-policy</refentrytitle><manvolnum>7</manvolnum></citerefentry>. The
@@ -1513,6 +1513,7 @@ x86-64      native</programlisting>
       <xi:include href="user-system-options.xml" xpointer="machine" />
 
       <varlistentry>
+        <term><option>-q</option></term>
         <term><option>--quiet</option></term>
 
         <listitem><para>Suppress hints and other non-essential output.</para>
