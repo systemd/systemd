@@ -1013,16 +1013,22 @@
 
         <listitem><para>Takes a list of exit status definitions that, when returned by the main service
         process, will prevent automatic service restarts, regardless of the restart setting configured with
-        <varname>Restart=</varname>. Exit status definitions can either be numeric exit codes or termination
-        signal names, and are separated by spaces. Defaults to the empty list, so that, by default, no exit
-        status is excluded from the configured restart logic. For example:
+        <varname>Restart=</varname>. Exit status definitions can be numeric termination statuses, termination
+        status names, or termination signal names, separated by spaces. Defaults to the empty list, so that,
+        by default, no exit status is excluded from the configured restart logic.
 
-        <programlisting>RestartPreventExitStatus=1 6 SIGABRT</programlisting>
+        <example>
+          <title>A service with the <varname>RestartPreventExitStatus=</varname> setting</title>
 
-        ensures that exit codes 1 and 6 and the termination signal <constant>SIGABRT</constant> will not
-        result in automatic service restarting. This option may appear more than once, in which case the list
-        of restart-preventing statuses is merged. If the empty string is assigned to this option, the list is
-        reset and all prior assignments of this option will have no effect.</para>
+          <programlisting>RestartPreventExitStatus=TEMPFAIL 250 SIGKILL</programlisting>
+
+          <para>Exit status 75 (<constant>TEMPFAIL</constant>), 250, and the termination signal
+          <constant>SIGKILL</constant> will not result in automatic service restarting.</para>
+        </example>
+
+        This option may appear more than once, in which case the list of restart-preventing statuses is merged.
+        If the empty string is assigned to this option, the list is reset and all prior assignments of this
+        option will have no effect.</para>
 
         <para>Note that this setting has no effect on processes configured via
         <varname>ExecStartPre=</varname>, <varname>ExecStartPost=</varname>, <varname>ExecStop=</varname>,
