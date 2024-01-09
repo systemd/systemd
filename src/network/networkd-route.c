@@ -510,13 +510,13 @@ static int route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *l
         return 1;
 }
 
-int route_remove(Route *route) {
+int route_remove(Route *route, Manager *manager) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         Link *link = NULL;
         int r;
 
         assert(route);
-        Manager *manager = ASSERT_PTR(route->manager);
+        assert(manager);
 
         log_route_debug(route, "Removing", manager);
 
@@ -541,17 +541,27 @@ int route_remove(Route *route) {
         return 0;
 }
 
-int route_remove_and_drop(Route *route) {
-        if (!route)
-                return 0;
+int route_remove_and_cancel(Route *route, Manager *manager) {
+        bool waiting = false;
+        Request *req;
 
-        route_cancel_request(route, NULL);
+        assert(route);
+        assert(manager);
 
-        if (route_exists(route))
-                return route_remove(route);
+        /* If the route is remembered by the manager, then use the remembered object. */
+        (void) route_get(manager, route, &route);
 
-        if (route->state == 0)
-                route_free(route);
+        /* Cancel the request for the route. If the request is already called but we have not received the
+         * notification about the request, then explicitly remove the route. */
+        if (route_get_request(manager, route, &req) >= 0) {
+                waiting = req->waiting_reply;
+                request_detach(manager, req);
+                route_cancel_requesting(route);
+        }
+
+        /* If we know that the route will come or already exists, remove it. */
+        if (waiting || (route->manager && route_exists(route)))
+                return route_remove(route, manager);
 
         return 0;
 }
@@ -562,7 +572,7 @@ static int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdat
 
         assert(route->manager);
 
-        r = route_remove(route);
+        r = route_remove(route, route->manager);
         if (r < 0) {
                 Link *link = NULL;
 
@@ -915,26 +925,6 @@ int link_request_static_routes(Link *link, bool only_ipv4) {
         }
 
         return 0;
-}
-
-void route_cancel_request(Route *route, Link *link) {
-        Request req;
-
-        assert(route);
-
-        if (!route_is_requesting(route))
-                return;
-
-        req = (Request) {
-                .type = REQUEST_TYPE_ROUTE,
-                .userdata = route,
-                .hash_func = (hash_func_t) route_hash_func,
-                .compare_func = (compare_func_t) route_compare_func,
-        };
-
-        Manager *manager = ASSERT_PTR(link ? link->manager : route->manager);
-        request_detach(manager, &req);
-        route_cancel_requesting(route);
 }
 
 static int process_route_one(
@@ -1355,7 +1345,7 @@ int link_drop_routes(Link *link, bool foreign) {
                 if (!route_is_marked(route))
                         continue;
 
-                RET_GATHER(r, route_remove(route));
+                RET_GATHER(r, route_remove(route, link->manager));
         }
 
         return r;

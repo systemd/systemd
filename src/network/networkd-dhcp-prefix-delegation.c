@@ -175,8 +175,7 @@ int dhcp_pd_remove(Link *link, bool only_marked) {
 
                         link_remove_dhcp_pd_subnet_prefix(link, &route->dst.in6);
 
-                        RET_GATHER(ret, route_remove(route));
-                        route_cancel_request(route, link);
+                        RET_GATHER(ret, route_remove_and_cancel(route, link->manager));
                 }
         } else {
                 Address *address;
@@ -607,9 +606,7 @@ void dhcp_pd_prefix_lost(Link *uplink) {
                                           .address = route->dst }))
                         continue;
 
-                (void) route_remove(route);
-
-                route_cancel_request(route, uplink);
+                (void) route_remove_and_cancel(route, uplink->manager);
         }
 
         set_clear(uplink->dhcp_pd_prefixes);
