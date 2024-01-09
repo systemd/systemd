@@ -18,28 +18,45 @@
 #include "stdio-util.h"
 #include "string-util.h"
 
-NextHop *nexthop_free(NextHop *nexthop) {
-        if (!nexthop)
-                return NULL;
+static NextHop* nexthop_detach_impl(NextHop *nexthop) {
+        assert(nexthop);
+        assert(!nexthop->manager || !nexthop->network);
 
         if (nexthop->network) {
                 assert(nexthop->section);
                 ordered_hashmap_remove(nexthop->network->nexthops_by_section, nexthop->section);
+                nexthop->network = NULL;
+                return nexthop;
         }
-
-        config_section_free(nexthop->section);
 
         if (nexthop->manager) {
                 assert(nexthop->id > 0);
                 hashmap_remove(nexthop->manager->nexthops_by_id, UINT32_TO_PTR(nexthop->id));
+                nexthop->manager = NULL;
+                return nexthop;
         }
 
+        return NULL;
+}
+
+static void nexthop_detach(NextHop *nexthop) {
+        nexthop_unref(nexthop_detach_impl(nexthop));
+}
+
+static NextHop* nexthop_free(NextHop *nexthop) {
+        if (!nexthop)
+                return NULL;
+
+        nexthop_detach_impl(nexthop);
+
+        config_section_free(nexthop->section);
         hashmap_free_free(nexthop->group);
 
         return mfree(nexthop);
 }
 
-DEFINE_SECTION_CLEANUP_FUNCTIONS(NextHop, nexthop_free);
+DEFINE_TRIVIAL_REF_UNREF_FUNC(NextHop, nexthop, nexthop_free);
+DEFINE_SECTION_CLEANUP_FUNCTIONS(NextHop, nexthop_unref);
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 nexthop_hash_ops,
@@ -47,17 +64,25 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 trivial_hash_func,
                 trivial_compare_func,
                 NextHop,
-                nexthop_free);
+                nexthop_detach);
+
+DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
+                nexthop_section_hash_ops,
+                ConfigSection,
+                config_section_hash_func,
+                config_section_compare_func,
+                NextHop,
+                nexthop_detach);
 
 static int nexthop_new(NextHop **ret) {
-        _cleanup_(nexthop_freep) NextHop *nexthop = NULL;
+        _cleanup_(nexthop_unrefp) NextHop *nexthop = NULL;
 
         nexthop = new(NextHop, 1);
         if (!nexthop)
                 return -ENOMEM;
 
         *nexthop = (NextHop) {
-                .family = AF_UNSPEC,
+                .n_ref = 1,
                 .onlink = -1,
         };
 
@@ -68,7 +93,7 @@ static int nexthop_new(NextHop **ret) {
 
 static int nexthop_new_static(Network *network, const char *filename, unsigned section_line, NextHop **ret) {
         _cleanup_(config_section_freep) ConfigSection *n = NULL;
-        _cleanup_(nexthop_freep) NextHop *nexthop = NULL;
+        _cleanup_(nexthop_unrefp) NextHop *nexthop = NULL;
         int r;
 
         assert(network);
@@ -95,7 +120,7 @@ static int nexthop_new_static(Network *network, const char *filename, unsigned s
         nexthop->section = TAKE_PTR(n);
         nexthop->source = NETWORK_CONFIG_SOURCE_STATIC;
 
-        r = ordered_hashmap_ensure_put(&network->nexthops_by_section, &config_section_hash_ops, nexthop->section, nexthop);
+        r = ordered_hashmap_ensure_put(&network->nexthops_by_section, &nexthop_section_hash_ops, nexthop->section, nexthop);
         if (r < 0)
                 return r;
 
@@ -171,7 +196,7 @@ static int nexthop_compare_full(const NextHop *a, const NextHop *b) {
 }
 
 static int nexthop_dup(const NextHop *src, NextHop **ret) {
-        _cleanup_(nexthop_freep) NextHop *dest = NULL;
+        _cleanup_(nexthop_unrefp) NextHop *dest = NULL;
         struct nexthop_grp *nhg;
         int r;
 
@@ -182,7 +207,8 @@ static int nexthop_dup(const NextHop *src, NextHop **ret) {
         if (!dest)
                 return -ENOMEM;
 
-        /* unset all pointers */
+        /* clear the reference counter and all pointers */
+        dest->n_ref = 1;
         dest->manager = NULL;
         dest->network = NULL;
         dest->section = NULL;
@@ -329,7 +355,7 @@ static int nexthop_get_request(Link *link, const NextHop *in, Request **ret) {
 }
 
 static int nexthop_add_new(Manager *manager, uint32_t id, NextHop **ret) {
-        _cleanup_(nexthop_freep) NextHop *nexthop = NULL;
+        _cleanup_(nexthop_unrefp) NextHop *nexthop = NULL;
         int r;
 
         assert(manager);
@@ -410,34 +436,44 @@ static void log_nexthop_debug(const NextHop *nexthop, const char *str, Manager *
                        yes_no(nexthop->blackhole), strna(group), strna(flags));
 }
 
-static int nexthop_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int nexthop_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, RemoveRequest *rreq) {
         int r;
 
         assert(m);
+        assert(rreq);
 
-        /* link may be NULL. */
-
-        if (link && IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
+        Manager *manager = ASSERT_PTR(rreq->manager);
+        NextHop *nexthop = ASSERT_PTR(rreq->userdata);
 
         r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -ENOENT)
-                log_link_message_warning_errno(link, m, r, "Could not drop nexthop, ignoring");
+        if (r < 0) {
+                log_message_full_errno(m,
+                                       (r == -ENOENT || !nexthop->manager) ? LOG_DEBUG : LOG_WARNING,
+                                       r, "Could not drop nexthop, ignoring");
+
+                if (nexthop->manager) {
+                        /* If the nexthop cannot be removed, then assume the nexthop is already removed. */
+                        log_nexthop_debug(nexthop, "Forgetting", manager);
+
+                        Request *req;
+                        if (nexthop_get_request_by_id(manager, nexthop->id, &req) >= 0)
+                                nexthop_enter_removed(req->userdata);
+
+                        nexthop_detach(nexthop);
+                }
+        }
 
         return 1;
 }
 
-static int nexthop_remove(NextHop *nexthop) {
+int nexthop_remove(NextHop *nexthop, Manager *manager) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        Manager *manager;
         Link *link = NULL;
-        Request *req;
         int r;
 
         assert(nexthop);
         assert(nexthop->id > 0);
-
-        manager = ASSERT_PTR(nexthop->manager);
+        assert(manager);
 
         /* link may be NULL. */
         (void) link_get_by_index(manager, nexthop->ifindex, &link);
@@ -452,17 +488,11 @@ static int nexthop_remove(NextHop *nexthop) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append NHA_ID attribute: %m");
 
-        r = netlink_call_async(manager->rtnl, NULL, m, nexthop_remove_handler,
-                               link ? link_netlink_destroy_callback : NULL, link);
+        r = manager_remove_request_add(manager, nexthop, nexthop, manager->rtnl, m, nexthop_remove_handler);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
-
-        link_ref(link); /* link may be NULL, link_ref() is OK with that */
+                return log_link_error_errno(link, r, "Could not queue rtnetlink message: %m");
 
         nexthop_enter_removing(nexthop);
-        if (nexthop_get_request_by_id(manager, nexthop->id, &req) >= 0)
-                nexthop_enter_removing(req->userdata);
-
         return 0;
 }
 
@@ -638,7 +668,7 @@ static int nexthop_process_request(Request *req, Link *link, NextHop *nexthop) {
 }
 
 static int link_request_nexthop(Link *link, const NextHop *nexthop) {
-        _cleanup_(nexthop_freep) NextHop *tmp = NULL;
+        _cleanup_(nexthop_unrefp) NextHop *tmp = NULL;
         NextHop *existing = NULL;
         int r;
 
@@ -673,7 +703,7 @@ static int link_request_nexthop(Link *link, const NextHop *nexthop) {
         log_nexthop_debug(tmp, "Requesting", link->manager);
         r = link_queue_request_safe(link, REQUEST_TYPE_NEXTHOP,
                                     tmp,
-                                    nexthop_free,
+                                    nexthop_unref,
                                     nexthop_hash_func,
                                     nexthop_compare_func,
                                     nexthop_process_request,
@@ -809,7 +839,7 @@ int link_drop_nexthops(Link *link, bool foreign) {
                 if (!nexthop_is_marked(nexthop))
                         continue;
 
-                RET_GATHER(r, nexthop_remove(nexthop));
+                RET_GATHER(r, nexthop_remove(nexthop, link->manager));
         }
 
         return r;
@@ -931,7 +961,7 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
                 if (nexthop) {
                         nexthop_enter_removed(nexthop);
                         log_nexthop_debug(nexthop, "Forgetting removed", m);
-                        nexthop_free(nexthop);
+                        nexthop_detach(nexthop);
                 } else
                         log_nexthop_debug(&(const NextHop) { .id = id }, "Kernel removed unknown", m);
 
@@ -1094,7 +1124,7 @@ int network_drop_invalid_nexthops(Network *network) {
 
         ORDERED_HASHMAP_FOREACH(nh, network->nexthops_by_section) {
                 if (nexthop_section_verify(nh) < 0) {
-                        nexthop_free(nh);
+                        nexthop_detach(nh);
                         continue;
                 }
 
@@ -1109,8 +1139,8 @@ int network_drop_invalid_nexthops(Network *network) {
                                     dup->section->filename,
                                     nh->id, nh->section->line,
                                     dup->section->line, dup->section->line);
-                        /* nexthop_free() will drop the nexthop from nexthops_by_section. */
-                        nexthop_free(dup);
+                        /* nexthop_detach() will drop the nexthop from nexthops_by_section. */
+                        nexthop_detach(dup);
                 }
 
                 r = hashmap_ensure_put(&nexthops, NULL, UINT32_TO_PTR(nh->id), nh);
@@ -1161,7 +1191,7 @@ int config_parse_nexthop_id(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(nexthop_free_or_set_invalidp) NextHop *n = NULL;
+        _cleanup_(nexthop_unref_or_set_invalidp) NextHop *n = NULL;
         Network *network = userdata;
         uint32_t id;
         int r;
@@ -1211,7 +1241,7 @@ int config_parse_nexthop_gateway(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(nexthop_free_or_set_invalidp) NextHop *n = NULL;
+        _cleanup_(nexthop_unref_or_set_invalidp) NextHop *n = NULL;
         Network *network = userdata;
         int r;
 
@@ -1256,7 +1286,7 @@ int config_parse_nexthop_family(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(nexthop_free_or_set_invalidp) NextHop *n = NULL;
+        _cleanup_(nexthop_unref_or_set_invalidp) NextHop *n = NULL;
         Network *network = userdata;
         AddressFamily a;
         int r;
@@ -1322,7 +1352,7 @@ int config_parse_nexthop_onlink(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(nexthop_free_or_set_invalidp) NextHop *n = NULL;
+        _cleanup_(nexthop_unref_or_set_invalidp) NextHop *n = NULL;
         Network *network = userdata;
         int r;
 
@@ -1359,7 +1389,7 @@ int config_parse_nexthop_blackhole(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(nexthop_free_or_set_invalidp) NextHop *n = NULL;
+        _cleanup_(nexthop_unref_or_set_invalidp) NextHop *n = NULL;
         Network *network = userdata;
         int r;
 
@@ -1398,7 +1428,7 @@ int config_parse_nexthop_group(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(nexthop_free_or_set_invalidp) NextHop *n = NULL;
+        _cleanup_(nexthop_unref_or_set_invalidp) NextHop *n = NULL;
         Network *network = userdata;
         int r;
 
