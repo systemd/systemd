@@ -15,6 +15,7 @@ Documentation=man:machine-info(5)
 Documentation=man:org.freedesktop.hostname1(5)
 
 [Service]
+Type=notify
 BusName=org.freedesktop.hostname1
 CapabilityBoundingSet=CAP_SYS_ADMIN
 ExecStart={{LIBEXECDIR}}/systemd-hostnamed
