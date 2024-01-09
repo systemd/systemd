@@ -139,12 +139,17 @@
 
           <row>
             <entry><varname>apple</varname></entry>
-            <entry><ulink url="https://developer.apple.com/documentation/virtualization">Apple Virtualization.framework</ulink></entry>
+            <entry><ulink url="https://developer.apple.com/documentation/virtualization">Apple virtualization framework</ulink></entry>
           </row>
 
           <row>
             <entry><varname>sre</varname></entry>
             <entry><ulink url="https://www.lockheedmartin.com/en-us/products/Hardened-Security-for-Intel-Processors.html">LMHS SRE hypervisor</ulink></entry>
+          </row>
+
+          <row>
+            <entry><varname>google</varname></entry>
+            <entry><ulink url="https://cloud.google.com/compute">Google Compute Engine (second generation)</ulink></entry>
           </row>
 
           <row>
