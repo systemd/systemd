@@ -290,7 +290,7 @@ int home_resize_directory(
         if (r < 0)
                 return r;
 
-        r = home_store_embedded_identity(new_home, setup->root_fd, h->uid, embedded_home);
+        r = home_store_embedded_identity(new_home, setup->root_fd, embedded_home);
         if (r < 0)
                 return r;
 

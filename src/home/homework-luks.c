@@ -3445,7 +3445,7 @@ int home_resize_luks(
                 /* → Shrink */
 
                 if (!FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES)) {
-                        r = home_store_embedded_identity(new_home, setup->root_fd, h->uid, embedded_home);
+                        r = home_store_embedded_identity(new_home, setup->root_fd, embedded_home);
                         if (r < 0)
                                 return r;
                 }
@@ -3533,7 +3533,7 @@ int home_resize_luks(
 
         } else { /* → Grow */
                 if (!FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES)) {
-                        r = home_store_embedded_identity(new_home, setup->root_fd, h->uid, embedded_home);
+                        r = home_store_embedded_identity(new_home, setup->root_fd, embedded_home);
                         if (r < 0)
                                 return r;
                 }
