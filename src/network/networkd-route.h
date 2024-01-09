@@ -27,7 +27,6 @@ typedef int (*route_netlink_handler_t)(
                 Route *route);
 
 struct Route {
-        Link *link;
         Manager *manager;
         Network *network;
         Wireguard *wireguard;
@@ -36,22 +35,28 @@ struct Route {
         NetworkConfigState state;
         union in_addr_union provider; /* DHCP server or router address */
 
+        /* rtmsg header */
         int family;
-        int gw_family;
-        uint32_t gw_weight;
-
         unsigned char dst_prefixlen;
-        unsigned char src_prefixlen;
-        unsigned char scope;
+        unsigned char src_prefixlen; /* IPv6 only */
+        unsigned char tos; /* IPv4 only */
         unsigned char protocol;  /* RTPROT_* */
-        unsigned char type; /* RTN_* */
-        unsigned char tos;
-        uint32_t priority; /* note that ip(8) calls this 'metric' */
-        uint32_t table;
-        unsigned char pref;
-        unsigned flags;
-        int gateway_onlink; /* Only used in conf parser and route_section_verify(). */
-        uint32_t nexthop_id;
+        unsigned char scope; /* IPv4 only */
+        unsigned char type; /* RTN_*, e.g. RTN_LOCAL, RTN_UNREACHABLE */
+        unsigned flags; /* e.g. RTNH_F_ONLINK */
+
+        /* attributes */
+        union in_addr_union dst; /* RTA_DST */
+        union in_addr_union src; /* RTA_SRC (IPv6 only) */
+        uint32_t priority; /* RTA_PRIORITY, note that ip(8) calls this 'metric' */
+        union in_addr_union prefsrc; /* RTA_PREFSRC */
+        uint32_t table; /* RTA_TABLE, also used in rtmsg header */
+        uint8_t pref; /* RTA_PREF (IPv6 only) */
+
+        /* nexthops */
+        RouteNextHop nexthop; /* RTA_OIF, and RTA_GATEWAY or RTA_VIA (IPv4 only) */
+        OrderedSet *nexthops; /* RTA_MULTIPATH */
+        uint32_t nexthop_id; /* RTA_NH_ID */
 
         /* metrics (RTA_METRICS) */
         RouteMetric metric;
@@ -70,37 +75,37 @@ struct Route {
         bool protocol_set:1;
         bool pref_set:1;
         bool gateway_from_dhcp_or_ra:1;
-
-        union in_addr_union gw;
-        union in_addr_union dst;
-        union in_addr_union src;
-        union in_addr_union prefsrc;
-        OrderedSet *multipath_routes;
+        int gateway_onlink;
 };
 
 extern const struct hash_ops route_hash_ops;
 
+Route* route_free(Route *route);
+DEFINE_SECTION_CLEANUP_FUNCTIONS(Route, route_free);
+
 int route_new(Route **ret);
 int route_new_static(Network *network, const char *filename, unsigned section_line, Route **ret);
-Route *route_free(Route *route);
-DEFINE_SECTION_CLEANUP_FUNCTIONS(Route, route_free);
-int route_dup(const Route *src, Route **ret);
+int route_dup(const Route *src, const RouteNextHop *nh, Route **ret);
 
 int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, Route *route, const char *error_msg);
 int route_remove(Route *route);
 int route_remove_and_drop(Route *route);
 
-int route_get(Manager *manager, Link *link, const Route *in, Route **ret);
+int route_get(Manager *manager, const Route *route, Route **ret);
 
-int link_drop_managed_routes(Link *link);
-int link_drop_foreign_routes(Link *link);
-void link_foreignize_routes(Link *link);
+int link_drop_routes(Link *link, bool foreign);
+static inline int link_drop_managed_routes(Link *link) {
+        return link_drop_routes(link, false);
+}
+static inline int link_drop_foreign_routes(Link *link) {
+        return link_drop_routes(link, true);
+}
+int link_foreignize_routes(Link *link);
 
 void route_cancel_request(Route *route, Link *link);
 int link_request_route(
                 Link *link,
-                Route *route,
-                bool consume_object,
+                const Route *route,
                 unsigned *message_counter,
                 route_netlink_handler_t netlink_handler,
                 Request **ret);
@@ -114,7 +119,7 @@ void network_drop_invalid_routes(Network *network);
 int route_section_verify(Route *route);
 
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(Route, route);
-void link_mark_routes(Link *link, NetworkConfigSource source);
+void manager_mark_routes(Manager *manager, Link *link, NetworkConfigSource source);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_preferred_src);
 CONFIG_PARSER_PROTOTYPE(config_parse_destination);
