@@ -139,7 +139,7 @@ static int ndisc_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request 
 
         assert(link);
 
-        r = route_configure_handler_internal(rtnl, m, link, "Could not set NDisc route");
+        r = route_configure_handler_internal(rtnl, m, link, route, "Could not set NDisc route");
         if (r <= 0)
                 return r;
 
