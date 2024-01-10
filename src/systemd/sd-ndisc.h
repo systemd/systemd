@@ -25,7 +25,10 @@
 #include <netinet/in.h>
 #include <sys/types.h>
 
-#include "time-util.h"
+/* Cannot include usec_t from time-util.h, because github pre-checks fail */
+// #include "time-util.h"
+typedef uint64_t usec_t;
+
 #include "sd-event.h"
 
 #include "_sd-common.h"
