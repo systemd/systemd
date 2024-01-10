@@ -29,6 +29,7 @@ int generator_open_unit_file_full(
                 const char *source,
                 const char *fn,
                 FILE **ret_file,
+                char **ret_final_path,
                 char **ret_temp_path) {
 
         _cleanup_free_ char *p = NULL;
@@ -72,6 +73,10 @@ int generator_open_unit_file_full(
                 program_invocation_short_name);
 
         *ret_file = f;
+
+        if (ret_final_path)
+                *ret_final_path = TAKE_PTR(p);
+
         return 0;
 }
 
@@ -88,7 +93,6 @@ int generator_add_symlink_full(
 
         assert(dir);
         assert(dst);
-        assert(dep_type);
         assert(src);
 
         /* Adds a symlink from <dst>.<dep_type>/ to <src> (if src is absolute) or ../<src> (otherwise). If
@@ -114,7 +118,10 @@ int generator_add_symlink_full(
         if (!from)
                 return log_oom();
 
-        to = strjoin(dir, "/", dst, ".", dep_type, "/", instantiated ?: fn);
+        if (dep_type) /* Create a .wants/ style dep */
+                to = strjoin(dir, "/", dst, ".", dep_type, "/", instantiated ?: fn);
+        else          /* or create an alias */
+                to = strjoin(dir, "/", dst);
         if (!to)
                 return log_oom();
 
