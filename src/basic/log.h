@@ -331,6 +331,9 @@ void log_set_open_when_needed(bool b);
  * stderr, the console or kmsg */
 void log_set_prohibit_ipc(bool b);
 
+void log_set_assert_return_is_critical(bool b);
+bool log_get_assert_return_is_critical(void) _pure_;
+
 int log_dup_console(void);
 
 int log_syntax_internal(

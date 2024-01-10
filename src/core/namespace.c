@@ -626,8 +626,7 @@ static int append_tmpfs_mounts(MountList *ml, const TemporaryFileSystem *tmpfs, 
                         return log_debug_errno(r, "Failed to parse mount option '%s': %m", str);
 
                 ro = flags & MS_RDONLY;
-                if (ro)
-                        flags ^= MS_RDONLY;
+                flags &= ~MS_RDONLY;
 
                 MountEntry *me = mount_list_extend(ml);
                 if (!me)
@@ -1469,7 +1468,7 @@ static int follow_symlink(
 
         mount_entry_consume_prefix(m, TAKE_PTR(target));
 
-        m->n_followed ++;
+        m->n_followed++;
 
         return 0;
 }
@@ -2625,7 +2624,7 @@ int bind_mount_add(BindMount **b, size_t *n, const BindMount *item) {
 
         *b = c;
 
-        c[(*n) ++] = (BindMount) {
+        c[(*n)++] = (BindMount) {
                 .source = TAKE_PTR(s),
                 .destination = TAKE_PTR(d),
                 .read_only = item->read_only,
@@ -2694,7 +2693,7 @@ int mount_image_add(MountImage **m, size_t *n, const MountImage *item) {
 
         *m = c;
 
-        c[(*n) ++] = (MountImage) {
+        c[(*n)++] = (MountImage) {
                 .source = TAKE_PTR(s),
                 .destination = TAKE_PTR(d),
                 .mount_options = TAKE_PTR(options),
@@ -2745,7 +2744,7 @@ int temporary_filesystem_add(
 
         *t = c;
 
-        c[(*n) ++] = (TemporaryFileSystem) {
+        c[(*n)++] = (TemporaryFileSystem) {
                 .path = TAKE_PTR(p),
                 .options = TAKE_PTR(o),
         };

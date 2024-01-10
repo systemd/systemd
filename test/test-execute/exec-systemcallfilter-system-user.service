@@ -3,7 +3,7 @@
 Description=Test for SystemCallFilter in system mode with User set (daemon)
 
 [Service]
-ExecStart=/bin/sh -c 'echo "Foo bar"'
+ExecStart=sh -c 'echo "Foo bar"'
 Type=oneshot
 User=daemon
 SystemCallFilter=~read write open execve ioperm

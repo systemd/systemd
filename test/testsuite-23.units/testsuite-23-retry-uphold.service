@@ -4,4 +4,4 @@ Description=Upholding Unit
 Upholds=testsuite-23-retry-upheld.service
 
 [Service]
-ExecStart=/bin/sleep infinity
+ExecStart=sleep infinity

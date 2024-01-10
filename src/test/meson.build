@@ -57,6 +57,7 @@ simple_tests += files(
         'test-cgroup.c',
         'test-chase.c',
         'test-clock.c',
+        'test-color-util.c',
         'test-compare-operator.c',
         'test-condition.c',
         'test-conf-files.c',
@@ -106,6 +107,7 @@ simple_tests += files(
         'test-install-file.c',
         'test-install-root.c',
         'test-io-util.c',
+        'test-iovec-util.c',
         'test-journal-importer.c',
         'test-kbd-util.c',
         'test-limits-util.c',
@@ -169,7 +171,7 @@ simple_tests += files(
         'test-terminal-util.c',
         'test-tmpfile-util.c',
         'test-udev-util.c',
-        'test-uid-alloc-range.c',
+        'test-uid-classification.c',
         'test-uid-range.c',
         'test-umask-util.c',
         'test-unaligned.c',
@@ -177,6 +179,7 @@ simple_tests += files(
         'test-user-util.c',
         'test-utf8.c',
         'test-verbs.c',
+        'test-vpick.c',
         'test-web-util.c',
         'test-xattr-util.c',
         'test-xml.c',
@@ -578,12 +581,18 @@ executables += [
         },
         test_template + {
                 'sources' : files('../libsystemd/sd-device/test-sd-device-thread.c'),
-                'link_with' : libsystemd,
+                'link_with' : [
+                        libbasic,
+                        libsystemd,
+                ],
                 'dependencies' : threads,
         },
         test_template + {
                 'sources' : files('../libudev/test-udev-device-thread.c'),
-                'link_with' : libudev,
+                'link_with' : [
+                        libbasic,
+                        libudev,
+                ],
                 'dependencies' : threads,
         },
         test_template + {
@@ -592,5 +601,9 @@ executables += [
                         libshared,
                         libudev_basic,
                 ],
+        },
+        test_template + {
+                'sources' : files('test-aux-scope.c'),
+                'type' : 'manual',
         },
 ]

@@ -159,6 +159,16 @@ static inline void strv_print(char * const *l) {
         strv_print_full(l, NULL);
 }
 
+char* startswith_strv(const char *s, char * const *l);
+
+#define STARTSWITH_SET(p, ...)                                  \
+        startswith_strv(p, STRV_MAKE(__VA_ARGS__))
+
+char* endswith_strv(const char *s, char * const *l);
+
+#define ENDSWITH_SET(p, ...)                                    \
+        endswith_strv(p, STRV_MAKE(__VA_ARGS__))
+
 #define strv_from_stdarg_alloca(first)                          \
         ({                                                      \
                 char **_l;                                      \
@@ -200,18 +210,6 @@ static inline void strv_print(char * const *l) {
         ({                                                       \
                 const char* _x = (x);                            \
                 _x && strv_contains_case(STRV_MAKE(__VA_ARGS__), _x); \
-        })
-
-#define ENDSWITH_SET(p, ...)                                    \
-        ({                                                      \
-                const char *_p = (p);                           \
-                char *_found = NULL;                            \
-                STRV_FOREACH(_i, STRV_MAKE(__VA_ARGS__)) {      \
-                        _found = endswith(_p, *_i);             \
-                        if (_found)                             \
-                                break;                          \
-                }                                               \
-                _found;                                         \
         })
 
 #define _FOREACH_STRING(uniq, x, y, ...)                                \

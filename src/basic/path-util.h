@@ -156,7 +156,7 @@ int fsck_exists_for_fstype(const char *fstype);
                 char *_p, *_n;                                          \
                 size_t _l;                                              \
                 while (_path[0] == '/' && _path[1] == '/')              \
-                        _path ++;                                       \
+                        _path++;                                        \
                 if (isempty(_root))                                     \
                         _ret = _path;                                   \
                 else {                                                  \

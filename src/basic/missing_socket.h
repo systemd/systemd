@@ -6,7 +6,6 @@
 #if HAVE_LINUX_VM_SOCKETS_H
 #include <linux/vm_sockets.h>
 #else
-#define VMADDR_CID_ANY -1U
 struct sockaddr_vm {
         unsigned short svm_family;
         unsigned short svm_reserved1;
@@ -20,6 +19,26 @@ struct sockaddr_vm {
 };
 #endif /* !HAVE_LINUX_VM_SOCKETS_H */
 
+#ifndef VMADDR_CID_ANY
+#define VMADDR_CID_ANY -1U
+#endif
+
+#ifndef VMADDR_CID_HYPERVISOR
+#define VMADDR_CID_HYPERVISOR 0U
+#endif
+
+#ifndef VMADDR_CID_LOCAL
+#define VMADDR_CID_LOCAL 1U
+#endif
+
+#ifndef VMADDR_CID_HOST
+#define VMADDR_CID_HOST 2U
+#endif
+
+#ifndef VMADDR_PORT_ANY
+#define VMADDR_PORT_ANY -1U
+#endif
+
 #ifndef AF_VSOCK
 #define AF_VSOCK 40
 #endif
@@ -30,6 +49,10 @@ struct sockaddr_vm {
 
 #ifndef SO_PEERGROUPS
 #define SO_PEERGROUPS 59
+#endif
+
+#ifndef SO_PEERPIDFD
+#define SO_PEERPIDFD 77
 #endif
 
 #ifndef SO_BINDTOIFINDEX

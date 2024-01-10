@@ -6,11 +6,11 @@ Description=Test for TemporaryFileSystem on /usr
 Type=oneshot
 
 # Check TemporaryFileSystem= are empty
-ExecStart=/bin/sh -c 'for i in $$(ls -A /usr); do test $$i = lib -o $$i = lib64 -o $$i = bin -o $$i = sbin || false; done'
+ExecStart=sh -c 'for i in $$(ls -A /usr); do test $$i = lib -o $$i = lib64 -o $$i = bin -o $$i = sbin || false; done'
 
 # Cannot create files under /usr
-ExecStart=/bin/sh -c '! touch /usr/hoge'
-ExecStart=/bin/sh -c '! touch /usr/bin/hoge'
+ExecStart=sh -c '! touch /usr/hoge'
+ExecStart=sh -c '! touch /usr/bin/hoge'
 
 TemporaryFileSystem=/usr:ro
 BindReadOnlyPaths=-/usr/lib -/usr/lib64 /usr/bin /usr/sbin

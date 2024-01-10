@@ -258,7 +258,7 @@ ConditionVirtualization=
 Type=simple
 AmbientCapabilities=
 ExecStart=
-ExecStart=/bin/sleep infinity
+ExecStart=sleep infinity
 EOF
         systemctl daemon-reload
     fi

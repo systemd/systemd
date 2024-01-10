@@ -3166,7 +3166,7 @@ int verity_settings_load(
                 }
 
                 if (text) {
-                        r = unhexmem(text, strlen(text), &root_hash, &root_hash_size);
+                        r = unhexmem(text, &root_hash, &root_hash_size);
                         if (r < 0)
                                 return r;
                         if (root_hash_size < sizeof(sd_id128_t))
@@ -3320,7 +3320,7 @@ int dissected_image_load_verity_sig_partition(
         if (!json_variant_is_string(rh))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "'rootHash' field of signature JSON object is not a string.");
 
-        r = unhexmem(json_variant_string(rh), SIZE_MAX, &root_hash, &root_hash_size);
+        r = unhexmem(json_variant_string(rh), &root_hash, &root_hash_size);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse root hash field: %m");
 
@@ -3341,7 +3341,7 @@ int dissected_image_load_verity_sig_partition(
         if (!json_variant_is_string(sig))
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "'signature' field of signature JSON object is not a string.");
 
-        r = unbase64mem(json_variant_string(sig), SIZE_MAX, &root_hash_sig, &root_hash_sig_size);
+        r = unbase64mem(json_variant_string(sig), &root_hash_sig, &root_hash_sig_size);
         if (r < 0)
                 return log_debug_errno(r, "Failed to parse signature field: %m");
 
@@ -3396,7 +3396,7 @@ int dissected_image_acquire_metadata(DissectedImage *m, DissectImageFlags extra_
 
         assert(m);
 
-        for (; n_meta_initialized < _META_MAX; n_meta_initialized ++) {
+        for (; n_meta_initialized < _META_MAX; n_meta_initialized++) {
                 assert(paths[n_meta_initialized]);
 
                 if (pipe2(fds + 2*n_meta_initialized, O_CLOEXEC) < 0) {

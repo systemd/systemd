@@ -9,6 +9,7 @@ TEST_DESCRIPTION="Journal-related tests"
 
 test_append_files() {
     local workspace="${1:?}"
+    local dropin_dir
 
     mkdir -p "$workspace/test-journals/"
     cp -av "${TEST_BASE_DIR:?}/test-journals/"* "$workspace/test-journals/"
@@ -18,6 +19,14 @@ test_append_files() {
     # Necessary for RH-based systems, otherwise MHD fails with:
     #   microhttpd: Failed to initialise TLS session.
     image_install -o /etc/crypto-policies/back-ends/gnutls.config
+
+    # Since we nuke the journal repeatedly during this test, let's redirect
+    # stdout/stderr to the console as well to make the test a bit more debug-able.
+    if ! get_bool "${INTERACTIVE_DEBUG:-}"; then
+        dropin_dir="${workspace:?}/etc/systemd/system/testsuite-04.service.d/"
+        mkdir -p "$dropin_dir"
+        printf '[Service]\nStandardOutput=journal+console\nStandardError=journal+console' >"$dropin_dir/99-stdout.conf"
+    fi
 }
 
 do_test "$@"

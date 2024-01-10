@@ -17,9 +17,6 @@
 
 #define GET_CONTAINER(m, i) ((struct rtattr*)((uint8_t*)(m)->hdr + (m)->containers[i].offset))
 
-#define RTA_TYPE(rta) ((rta)->rta_type & NLA_TYPE_MASK)
-#define RTA_FLAGS(rta) ((rta)->rta_type & ~NLA_TYPE_MASK)
-
 int message_new_empty(sd_netlink *nl, sd_netlink_message **ret) {
         sd_netlink_message *m;
 

@@ -84,7 +84,7 @@ void sr_iov_hash_func(const SRIOV *sr_iov, struct siphash *state) {
         assert(sr_iov);
         assert(state);
 
-        siphash24_compress(&sr_iov->vf, sizeof(sr_iov->vf), state);
+        siphash24_compress_typesafe(sr_iov->vf, state);
 }
 
 int sr_iov_compare_func(const SRIOV *s1, const SRIOV *s2) {

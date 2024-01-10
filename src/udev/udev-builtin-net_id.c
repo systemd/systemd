@@ -49,12 +49,7 @@ static sd_device *device_skip_virtio(sd_device *dev) {
          * safely ignore any virtio buses. see
          * http://lists.linuxfoundation.org/pipermail/virtualization/2015-August/030331.html */
         while (dev) {
-                const char *subsystem;
-
-                if (sd_device_get_subsystem(dev, &subsystem) < 0)
-                        break;
-
-                if (!streq(subsystem, "virtio"))
+                if (!device_in_subsystem(dev, "virtio"))
                         break;
 
                 if (sd_device_get_parent(dev, &dev) < 0)
@@ -86,22 +81,15 @@ static int get_matching_parent(
                         return -ENODEV;
         }
 
-        if (!strv_isempty(parent_subsystems)) {
-                const char *subsystem;
+        /* check if our direct parent is in an expected subsystem. */
+        STRV_FOREACH(s, parent_subsystems)
+                if (device_in_subsystem(parent, *s)) {
+                        if (ret)
+                                *ret = parent;
+                        return 0;
+                }
 
-                /* check if our direct parent is in an expected subsystem. */
-                r = sd_device_get_subsystem(parent, &subsystem);
-                if (r < 0)
-                        return r;
-
-                if (!strv_contains(parent_subsystems, subsystem))
-                        return -ENODEV;
-        }
-
-        if (ret)
-                *ret = parent;
-
-        return 0;
+        return -ENODEV;
 }
 
 static int get_first_syspath_component(sd_device *dev, const char *prefix, char **ret) {
@@ -188,7 +176,7 @@ static int get_dev_port(sd_device *dev, bool fallback_to_dev_id, unsigned *ret) 
 
         /* Get kernel provided port index for the case when multiple ports on a single PCI function. */
 
-        r = device_get_sysattr_unsigned(dev, "dev_port", &v);
+        r = device_get_sysattr_unsigned_filtered(dev, "dev_port", &v);
         if (r < 0)
                 return r;
         if (r > 0) {
@@ -204,7 +192,7 @@ static int get_dev_port(sd_device *dev, bool fallback_to_dev_id, unsigned *ret) 
         if (fallback_to_dev_id) {
                 unsigned iftype;
 
-                r = device_get_sysattr_unsigned(dev, "type", &iftype);
+                r = device_get_sysattr_unsigned_filtered(dev, "type", &iftype);
                 if (r < 0)
                         return r;
 
@@ -212,7 +200,7 @@ static int get_dev_port(sd_device *dev, bool fallback_to_dev_id, unsigned *ret) 
         }
 
         if (fallback_to_dev_id)
-                return device_get_sysattr_unsigned(dev, "dev_id", ret);
+                return device_get_sysattr_unsigned_filtered(dev, "dev_id", ret);
 
         /* Otherwise, return the original index 0. */
         *ret = 0;
@@ -229,7 +217,7 @@ static int get_port_specifier(sd_device *dev, bool fallback_to_dev_id, char **re
         assert(ret);
 
         /* First, try to use the kernel provided front panel port name for multiple port PCI device. */
-        r = sd_device_get_sysattr_value(dev, "phys_port_name", &phys_port_name);
+        r = device_get_sysattr_value_filtered(dev, "phys_port_name", &phys_port_name);
         if (r >= 0 && !isempty(phys_port_name)) {
                 if (naming_scheme_has(NAMING_SR_IOV_R)) {
                         int vf_id = -1;
@@ -292,10 +280,10 @@ static int pci_get_onboard_index(sd_device *dev, unsigned *ret) {
         assert(ret);
 
         /* ACPI _DSM — device specific method for naming a PCI or PCI Express device */
-        r = device_get_sysattr_unsigned(dev, "acpi_index", &idx);
+        r = device_get_sysattr_unsigned_filtered(dev, "acpi_index", &idx);
         if (r < 0)
                 /* SMBIOS type 41 — Onboard Devices Extended Information */
-                r = device_get_sysattr_unsigned(dev, "index", &idx);
+                r = device_get_sysattr_unsigned_filtered(dev, "index", &idx);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Could not obtain onboard index: %m");
 
@@ -347,7 +335,7 @@ static int names_pci_onboard_label(sd_device *dev, sd_device *pci_dev, const cha
         assert(prefix);
 
         /* retrieve on-board label from firmware */
-        r = sd_device_get_sysattr_value(pci_dev, "label", &label);
+        r = device_get_sysattr_value_filtered(pci_dev, "label", &label);
         if (r < 0)
                 return log_device_debug_errno(pci_dev, r, "Failed to get PCI onboard label: %m");
 
@@ -392,7 +380,7 @@ static int is_pci_multifunction(sd_device *dev) {
 static bool is_pci_ari_enabled(sd_device *dev) {
         assert(dev);
 
-        return device_get_sysattr_bool(dev, "ari_enabled") > 0;
+        return device_get_sysattr_bool_filtered(dev, "ari_enabled") > 0;
 }
 
 static bool is_pci_bridge(sd_device *dev) {
@@ -400,7 +388,7 @@ static bool is_pci_bridge(sd_device *dev) {
 
         assert(dev);
 
-        if (sd_device_get_sysattr_value(dev, "modalias", &v) < 0)
+        if (device_get_sysattr_value_filtered(dev, "modalias", &v) < 0)
                 return false;
 
         if (!startswith(v, "pci:"))
@@ -442,7 +430,7 @@ static int parse_hotplug_slot_from_function_id(sd_device *dev, int slots_dirfd, 
                 return 0;
         }
 
-        if (sd_device_get_sysattr_value(dev, "function_id", &attr) < 0) {
+        if (device_get_sysattr_value_filtered(dev, "function_id", &attr) < 0) {
                 *ret = 0;
                 return 0;
         }
@@ -505,7 +493,7 @@ static int pci_get_hotplug_slot_from_address(
                 if (!path)
                         return log_oom_debug();
 
-                if (sd_device_get_sysattr_value(pci, path, &address) < 0)
+                if (device_get_sysattr_value_filtered(pci, path, &address) < 0)
                         continue;
 
                 /* match slot address with device by stripping the function */
@@ -845,7 +833,7 @@ static int names_devicetree(sd_device *dev, const char *prefix, bool test) {
                 if (!alias_index)
                         continue;
 
-                if (sd_device_get_sysattr_value(aliases_dev, alias, &alias_path) < 0)
+                if (device_get_sysattr_value_filtered(aliases_dev, alias, &alias_path) < 0)
                         continue;
 
                 if (!path_equal(ofnode_path, alias_path))
@@ -864,7 +852,7 @@ static int names_devicetree(sd_device *dev, const char *prefix, bool test) {
                 }
 
                 /* ...but make sure we don't have an alias conflict */
-                if (i == 0 && sd_device_get_sysattr_value(aliases_dev, conflict, NULL) >= 0)
+                if (i == 0 && device_get_sysattr_value_filtered(aliases_dev, conflict, NULL) >= 0)
                         return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EEXIST),
                                         "Ethernet alias conflict: ethernet and ethernet0 both exist");
 
@@ -1133,7 +1121,7 @@ static int names_mac(sd_device *dev, const char *prefix, bool test) {
         assert(dev);
         assert(prefix);
 
-        r = device_get_sysattr_unsigned(dev, "type", &iftype);
+        r = device_get_sysattr_unsigned_filtered(dev, "type", &iftype);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to read 'type' attribute: %m");
 
@@ -1145,7 +1133,7 @@ static int names_mac(sd_device *dev, const char *prefix, bool test) {
                                               "Not generating MAC name for infiniband device.");
 
         /* check for NET_ADDR_PERM, skip random MAC addresses */
-        r = device_get_sysattr_unsigned(dev, "addr_assign_type", &assign_type);
+        r = device_get_sysattr_unsigned_filtered(dev, "addr_assign_type", &assign_type);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to read/parse addr_assign_type: %m");
 
@@ -1153,7 +1141,7 @@ static int names_mac(sd_device *dev, const char *prefix, bool test) {
                 return log_device_debug_errno(dev, SYNTHETIC_ERRNO(EINVAL),
                                               "addr_assign_type=%u, MAC address is not permanent.", assign_type);
 
-        r = sd_device_get_sysattr_value(dev, "address", &s);
+        r = device_get_sysattr_value_filtered(dev, "address", &s);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to read 'address' attribute: %m");
 
@@ -1203,7 +1191,7 @@ static int names_netdevsim(sd_device *dev, const char *prefix, bool test) {
         if (r < 0)
                 return log_device_debug_errno(netdevsimdev, r, "Failed to parse device sysnum: %m");
 
-        r = sd_device_get_sysattr_value(dev, "phys_port_name", &phys_port_name);
+        r = device_get_sysattr_value_filtered(dev, "phys_port_name", &phys_port_name);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get 'phys_port_name' attribute: %m");
         if (isempty(phys_port_name))
@@ -1265,22 +1253,16 @@ static int get_ifname_prefix(sd_device *dev, const char **ret) {
         assert(dev);
         assert(ret);
 
-        r = device_get_sysattr_unsigned(dev, "type", &iftype);
+        r = device_get_sysattr_unsigned_filtered(dev, "type", &iftype);
         if (r < 0)
                 return r;
 
         /* handle only ARPHRD_ETHER, ARPHRD_SLIP and ARPHRD_INFINIBAND devices */
         switch (iftype) {
         case ARPHRD_ETHER: {
-                const char *s = NULL;
-
-                r = sd_device_get_devtype(dev, &s);
-                if (r < 0 && r != -ENOENT)
-                        return r;
-
-                if (streq_ptr(s, "wlan"))
+                if (device_is_devtype(dev, "wlan"))
                         *ret = "wl";
-                else if (streq_ptr(s, "wwan"))
+                else if (device_is_devtype(dev, "wwan"))
                         *ret = "ww";
                 else
                         *ret = "en";
@@ -1311,7 +1293,7 @@ static int device_is_stacked(sd_device *dev) {
         if (r < 0)
                 return r;
 
-        r = device_get_sysattr_int(dev, "iflink", &iflink);
+        r = device_get_sysattr_int_filtered(dev, "iflink", &iflink);
         if (r < 0)
                 return r;
 

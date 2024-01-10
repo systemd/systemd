@@ -276,7 +276,7 @@ int oomd_cgroup_kill(const char *path, bool recurse, bool dry_run) {
         if (r < 0)
                 log_debug_errno(r, "Failed to set user.oomd_kill on kill: %m");
 
-        return set_size(pids_killed) != 0;
+        return !set_isempty(pids_killed);
 }
 
 typedef void (*dump_candidate_func)(const OomdCGroupContext *ctx, FILE *f, const char *prefix);

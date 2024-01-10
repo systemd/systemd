@@ -3,4 +3,4 @@
 Description=Stop Propagation Sender
 
 [Service]
-ExecStart=/bin/sleep 1.5
+ExecStart=sleep 1.5

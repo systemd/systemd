@@ -176,7 +176,7 @@ static int lock_all_homes(void) {
         /* Let's synchronously lock all home directories managed by homed that have been marked for it. This
          * way the key material required to access these volumes is hopefully removed from memory. */
 
-        r = bus_connect_system_systemd(&bus);
+        r = sd_bus_open_system(&bus);
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to system bus: %m");
 
@@ -253,10 +253,8 @@ static int execute(
                                 return r;
 
                         r = write_resume_config(hibernation_device.devno, hibernation_device.offset, hibernation_device.path);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to write hibernation device to /sys/power/resume or /sys/power/resume_offset: %m");
+                        if (r < 0)
                                 goto fail;
-                        }
                 }
 
                 r = write_mode(sleep_config->modes[operation]);

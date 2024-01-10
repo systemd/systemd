@@ -121,7 +121,7 @@ static void generate_stable_private_address_one(
         if (link->ssid)
                 siphash24_compress_string(link->ssid, &state);
 
-        siphash24_compress(&dad_counter, sizeof(uint8_t), &state);
+        siphash24_compress_typesafe(dad_counter, &state);
 
         rid = htole64(siphash24_finalize(&state));
 
@@ -269,8 +269,8 @@ int radv_generate_addresses(Link *link, Set *tokens, const struct in6_addr *pref
 }
 
 static void ipv6_token_hash_func(const IPv6Token *p, struct siphash *state) {
-        siphash24_compress(&p->type, sizeof(p->type), state);
-        siphash24_compress(&p->address, sizeof(p->address), state);
+        siphash24_compress_typesafe(p->type, state);
+        siphash24_compress_typesafe(p->address, state);
         id128_hash_func(&p->secret_key, state);
 }
 

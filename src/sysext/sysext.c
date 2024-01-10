@@ -342,7 +342,7 @@ static int parse_image_class_parameter(Varlink *link, const char *value, ImageCl
 
         c = image_class_from_string(value);
         if (!IN_SET(c, IMAGE_SYSEXT, IMAGE_CONFEXT))
-                return varlink_errorb(link, VARLINK_ERROR_INVALID_PARAMETER, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("parameter", "class")));
+                return varlink_error_invalid_parameter_name(link, "class");
 
         if (hierarchies) {
                 r = parse_env_extension_hierarchies(&h, image_class_info[c].name_env);
@@ -659,8 +659,16 @@ static const ImagePolicy *pick_image_policy(const Image *img) {
          * picked up from an untrusted ESP. Thus, require a stricter policy by default for them. (For the
          * other directories we assume the appropriate level of trust was already established already.  */
 
-        if (in_initrd() && path_startswith(img->path, "/.extra/sysext/"))
-                return &image_policy_sysext_strict;
+        if (in_initrd()) {
+                if (path_startswith(img->path, "/.extra/sysext/"))
+                        return &image_policy_sysext_strict;
+                if (path_startswith(img->path, "/.extra/confext/"))
+                        return &image_policy_confext_strict;
+
+                /* Better safe than sorry, refuse everything else passed in via the untrusted /.extra/ dir */
+                if (path_startswith(img->path, "/.extra/"))
+                        return &image_policy_deny;
+        }
 
         return image_class_info[img->class].default_image_policy;
 }
@@ -854,7 +862,7 @@ static int merge_subprocess(
                 if (r < 0)
                         return log_oom();
 
-                n_extensions ++;
+                n_extensions++;
         }
 
         /* Nothing left? Then shortcut things */

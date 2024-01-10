@@ -125,7 +125,7 @@ static int parse_env_file_internal(
                                 state = VALUE;
 
                                 if (!GREEDY_REALLOC(value, n_value+2))
-                                        return  -ENOMEM;
+                                        return -ENOMEM;
 
                                 value[n_value++] = c;
                         }

@@ -3,7 +3,7 @@
 Description=Test for SystemCallFilter with specific errno action overriding default kill action
 
 [Service]
-ExecStart=/usr/bin/python3 -c 'import os\ntry: os.uname()\nexcept Exception as e: exit(e.errno)'
+ExecStart=python3 -c 'import os\ntry: os.uname()\nexcept Exception as e: exit(e.errno)'
 Type=oneshot
 SystemCallFilter=~uname:EILSEQ
 SystemCallErrorNumber=kill

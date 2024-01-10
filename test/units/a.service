@@ -5,4 +5,4 @@ Requires=b.service
 Before=b.service
 
 [Service]
-ExecStart=/bin/true
+ExecStart=true

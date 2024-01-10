@@ -352,7 +352,7 @@ Type=notify
 RemainAfterExit=yes
 MountAPIVFS=yes
 PrivateTmp=yes
-ExecStart=/bin/sh -c ' \\
+ExecStart=sh -c ' \\
     systemd-notify --ready; \\
     while [ ! -f /tmp/img/usr/lib/os-release ] || ! grep -q -F MARKER /tmp/img/usr/lib/os-release; do \\
         sleep 0.1; \\
@@ -416,8 +416,8 @@ RootImage=${image}.raw
 ExtensionImages=/usr/share/app0.raw /usr/share/app1.raw:nosuid
 # Relevant only for sanitizer runs
 UnsetEnvironment=LD_PRELOAD
-ExecStart=/bin/bash -c '/opt/script0.sh | grep ID'
-ExecStart=/bin/bash -c '/opt/script1.sh | grep ID'
+ExecStart=bash -c '/opt/script0.sh | grep ID'
+ExecStart=bash -c '/opt/script1.sh | grep ID'
 Type=oneshot
 RemainAfterExit=yes
 EOF
@@ -449,8 +449,8 @@ RootImage=${image}.raw
 ExtensionDirectories=${image_dir}/app0 ${image_dir}/app1
 # Relevant only for sanitizer runs
 UnsetEnvironment=LD_PRELOAD
-ExecStart=/bin/bash -c '/opt/script0.sh | grep ID'
-ExecStart=/bin/bash -c '/opt/script1.sh | grep ID'
+ExecStart=bash -c '/opt/script0.sh | grep ID'
+ExecStart=bash -c '/opt/script1.sh | grep ID'
 Type=oneshot
 RemainAfterExit=yes
 EOF
@@ -492,6 +492,20 @@ test ! -e /usr/lib/systemd/system/other_file
 systemd-sysext unmerge
 rm -rf /run/extensions/app-reject
 rm /var/lib/extensions/app-nodistro.raw
+
+# Some super basic test that RootImage= works with .v/ dirs
+VBASE="vtest$RANDOM"
+VDIR="/tmp/${VBASE}.v"
+mkdir "$VDIR"
+
+ln -s "${image}.raw" "$VDIR/${VBASE}_33.raw"
+ln -s "${image}.raw" "$VDIR/${VBASE}_34.raw"
+ln -s "${image}.raw" "$VDIR/${VBASE}_35.raw"
+
+systemd-run -P -p RootImage="$VDIR" cat /usr/lib/os-release | grep -q -F "MARKER=1"
+
+rm "$VDIR/${VBASE}_33.raw" "$VDIR/${VBASE}_34.raw" "$VDIR/${VBASE}_35.raw"
+rmdir "$VDIR"
 
 mkdir -p /run/machines /run/portables /run/extensions
 touch /run/machines/a.raw /run/portables/b.raw /run/extensions/c.raw

@@ -3,6 +3,6 @@
 Description=Test for User
 
 [Service]
-ExecStart=/bin/sh -x -c 'test "$$USER" = "nfsnobody"'
+ExecStart=sh -x -c 'test "$$USER" = "nfsnobody"'
 Type=oneshot
 User=nfsnobody

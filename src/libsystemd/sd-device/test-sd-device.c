@@ -11,6 +11,7 @@
 #include "errno-util.h"
 #include "fd-util.h"
 #include "hashmap.h"
+#include "mountpoint-util.h"
 #include "nulstr-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
@@ -675,4 +676,11 @@ TEST(devname_from_devnum) {
         }
 }
 
-DEFINE_TEST_MAIN(LOG_INFO);
+static int intro(void) {
+        if (path_is_mount_point("/sys", NULL, 0) <= 0)
+                return log_tests_skipped("/sys is not mounted");
+
+        return EXIT_SUCCESS;
+}
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_INFO, intro);

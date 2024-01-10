@@ -1264,6 +1264,29 @@ EOF
     assert_in "${loop}p3 : start= *${start}, size= *${size}, type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, uuid=DB081670-07AE-48CA-9F5E-813D5E40B976, name=\"linux-generic-2\"" "$output"
 }
 
+testcase_dropped_partitions() {
+    local workdir image defs
+
+    workdir="$(mktemp --directory "/tmp/test-repart.dropped-partitions.XXXXXXXXXX")"
+    # shellcheck disable=SC2064
+    trap "rm -rf '${workdir:?}'" RETURN
+
+    image="$workdir/image.img"
+    truncate -s 32M "$image"
+
+    defs="$workdir/defs"
+    mkdir "$defs"
+    echo -ne "[Partition]\nType=root\n" >"$defs/10-part1.conf"
+    echo -ne "[Partition]\nType=root\nSizeMinBytes=1T\nPriority=1\n" >"$defs/11-dropped-first.conf"
+    echo -ne "[Partition]\nType=root\n" >"$defs/12-part2.conf"
+    echo -ne "[Partition]\nType=root\nSizeMinBytes=1T\nPriority=2\n" >"$defs/13-dropped-second.conf"
+
+    systemd-repart --empty=allow --pretty=yes --dry-run=no --definitions="$defs" "$image"
+
+    sfdisk -q -l "$image"
+    [[ "$(sfdisk -q -l "$image" | grep -c "$image")" -eq 2 ]]
+}
+
 OFFLINE="yes"
 run_testcases
 

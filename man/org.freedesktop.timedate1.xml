@@ -1,6 +1,6 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd" >
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" >
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="org.freedesktop.timedate1" conditional='ENABLE_TIMEDATED'
@@ -193,7 +193,7 @@ $ gdbus introspect --system \
   <xi:include href="org.freedesktop.locale1.xml" xpointer="versioning"/>
 
   <refsect1>
-    <title>See also</title>
+    <title>See Also</title>
 
       <para><ulink url="https://lists.freedesktop.org/archives/systemd-devel/2011-May/002526.html">More information on how the system clock and RTC interact</ulink></para>
   </refsect1>

@@ -268,7 +268,7 @@ Manager* manager_free(Manager *m) {
                 (void) home_wait_for_worker(h);
 
         m->bus = sd_bus_flush_close_unref(m->bus);
-        m->polkit_registry = bus_verify_polkit_async_registry_free(m->polkit_registry);
+        m->polkit_registry = hashmap_free(m->polkit_registry);
 
         m->device_monitor = sd_device_monitor_unref(m->device_monitor);
 

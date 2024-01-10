@@ -76,7 +76,7 @@ _public_ int sd_listen_fds(int unset_environment) {
                 goto finish;
         }
 
-        for (int fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd ++) {
+        for (int fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++) {
                 r = fd_cloexec(fd, true);
                 if (r < 0)
                         goto finish;

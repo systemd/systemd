@@ -94,7 +94,7 @@ int asynchronous_close(int fd) {
 
         pid = clone_with_nested_stack(close_func, CLONE_FILES | ((v & NEED_DOUBLE_FORK) ? 0 : SIGCHLD), UINT_TO_PTR(v));
         if (pid < 0)
-                assert_se(close_nointr(fd) != -EBADF); /* local fallback */
+                safe_close(fd); /* local fallback */
         else if (v & NEED_DOUBLE_FORK) {
 
                 /* Reap the intermediate child. Key here is that we specify __WCLONE, since we didn't ask for

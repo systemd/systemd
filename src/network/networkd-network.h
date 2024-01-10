@@ -326,6 +326,7 @@ struct Network {
         uint8_t ipv6_hop_limit;
         usec_t ipv6_retrans_time;
         int proxy_arp;
+        int proxy_arp_pvlan;
         uint32_t ipv6_mtu;
         IPv6PrivacyExtensions ipv6_privacy_extensions;
         IPReversePathFilter ipv4_rp_filter;
@@ -373,7 +374,7 @@ struct Network {
 
         OrderedHashmap *addresses_by_section;
         Hashmap *routes_by_section;
-        Hashmap *nexthops_by_section;
+        OrderedHashmap *nexthops_by_section;
         Hashmap *bridge_fdb_entries_by_section;
         Hashmap *bridge_mdb_entries_by_section;
         OrderedHashmap *neighbors_by_section;

@@ -280,6 +280,11 @@ units = [
           'file' : 'systemd-coredump@.service.in',
           'conditions' : ['ENABLE_COREDUMP'],
         },
+        {
+          'file' : 'systemd-creds.socket',
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        { 'file' : 'systemd-creds@.service' },
         { 'file' : 'systemd-exit.service' },
         {
           'file' : 'systemd-firstboot.service',
@@ -315,6 +320,11 @@ units = [
           'file' : 'systemd-hostnamed.service.in',
           'conditions' : ['ENABLE_HOSTNAMED'],
           'symlinks' : ['dbus-org.freedesktop.hostname1.service'],
+        },
+        {
+          'file' : 'systemd-hostnamed.socket',
+          'conditions' : ['ENABLE_HOSTNAMED'],
+          'symlinks' : ['sockets.target.wants/'],
         },
         {
           'file' : 'systemd-hwdb-update.service.in',
@@ -695,6 +705,7 @@ units = [
           'file' : 'tmp.mount',
           'symlinks' : ['local-fs.target.wants/'],
         },
+        { 'file' : 'tpm2.target' },
         { 'file' : 'umount.target' },
         { 'file' : 'usb-gadget.target' },
         { 'file' : 'user-runtime-dir@.service.in' },

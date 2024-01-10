@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <syslog.h>
 #include <sys/types.h>
+#include <termios.h>
 
 #include "macro.h"
 #include "time-util.h"
@@ -84,6 +85,8 @@
 
 /* Set cursor to top left corner and clear screen */
 #define ANSI_HOME_CLEAR "\x1B[H\x1B[2J"
+
+bool isatty_safe(int fd);
 
 int reset_terminal_fd(int fd, bool switch_to_text);
 int reset_terminal(const char *name);
@@ -168,7 +171,6 @@ bool underline_enabled(void);
 bool dev_console_colors_enabled(void);
 
 static inline bool colors_enabled(void) {
-
         /* Returns true if colors are considered supported on our stdout. */
         return get_color_mode() != COLOR_OFF;
 }
@@ -286,3 +288,7 @@ static inline const char* ansi_highlight_green_red(bool b) {
 
 /* This assumes there is a 'tty' group */
 #define TTY_MODE 0620
+
+void termios_disable_echo(struct termios *termios);
+
+int get_default_background_color(double *ret_red, double *ret_green, double *ret_blue);

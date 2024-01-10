@@ -4,5 +4,5 @@ Description=Test to make sure that passing ReadOnlyPaths= disconnect mount propa
 
 [Service]
 ReadOnlyPaths=-/i-dont-exist
-ExecStart=/bin/sh -x -c 'd=$$(mktemp -d -p /tmp); trap "umount \'$$d\' && rmdir \'$$d\'" EXIT; mount -t tmpfs tmpfs "$$d"; grep "$$d" /proc/self/mountinfo && ! grep "$$d" /proc/$${PPID}/mountinfo && ! grep "$$d" /proc/1/mountinfo'
+ExecStart=sh -x -c 'd=$$(mktemp -d -p /tmp); trap "umount \'$$d\' && rmdir \'$$d\'" EXIT; mount -t tmpfs tmpfs "$$d"; grep "$$d" /proc/self/mountinfo && ! grep "$$d" /proc/$${PPID}/mountinfo && ! grep "$$d" /proc/1/mountinfo'
 Type=oneshot

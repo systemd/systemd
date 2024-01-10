@@ -11,7 +11,7 @@ static int callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) 
 static void destroy_callback(void *userdata) {
         int *n_called = userdata;
 
-        (*n_called) ++;
+        (*n_called)++;
 }
 
 TEST(destroy_callback) {

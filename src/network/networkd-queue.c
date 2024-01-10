@@ -58,16 +58,16 @@ static void request_hash_func(const Request *req, struct siphash *state) {
         assert(req);
         assert(state);
 
-        siphash24_compress(&req->type, sizeof(req->type), state);
+        siphash24_compress_typesafe(req->type, state);
 
         if (req->type != REQUEST_TYPE_NEXTHOP) {
                 siphash24_compress_boolean(req->link, state);
                 if (req->link)
-                        siphash24_compress(&req->link->ifindex, sizeof(req->link->ifindex), state);
+                        siphash24_compress_typesafe(req->link->ifindex, state);
         }
 
-        siphash24_compress(&req->hash_func, sizeof(req->hash_func), state);
-        siphash24_compress(&req->compare_func, sizeof(req->compare_func), state);
+        siphash24_compress_typesafe(req->hash_func, state);
+        siphash24_compress_typesafe(req->compare_func, state);
 
         if (req->hash_func)
                 req->hash_func(req->userdata, state);
@@ -137,11 +137,8 @@ static int request_new(
         assert(process);
 
         req = new(Request, 1);
-        if (!req) {
-                if (free_func)
-                        free_func(userdata);
+        if (!req)
                 return -ENOMEM;
-        }
 
         *req = (Request) {
                 .n_ref = 1,
@@ -183,12 +180,19 @@ int netdev_queue_request(
                 request_process_func_t process,
                 Request **ret) {
 
+        int r;
+
         assert(netdev);
 
-        return request_new(netdev->manager, NULL, REQUEST_TYPE_NETDEV_INDEPENDENT,
-                           netdev_ref(netdev), (mfree_func_t) netdev_unref,
-                           trivial_hash_func, trivial_compare_func,
-                           process, NULL, NULL, ret);
+        r = request_new(netdev->manager, NULL, REQUEST_TYPE_NETDEV_INDEPENDENT,
+                        netdev, (mfree_func_t) netdev_unref,
+                        trivial_hash_func, trivial_compare_func,
+                        process, NULL, NULL, ret);
+        if (r <= 0)
+                return r;
+
+        netdev_ref(netdev);
+        return 1;
 }
 
 int link_queue_request_full(
@@ -210,9 +214,10 @@ int link_queue_request_full(
                            process, counter, netlink_handler, ret);
 }
 
-int manager_process_requests(sd_event_source *s, void *userdata) {
-        Manager *manager = ASSERT_PTR(userdata);
+int manager_process_requests(Manager *manager) {
         int r;
+
+        assert(manager);
 
         for (;;) {
                 bool processed = false;

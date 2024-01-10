@@ -731,7 +731,7 @@ static int parse_caps(sd_bus_creds *c, unsigned offset, const char *p) {
                         return -ENOMEM;
         }
 
-        for (i = 0; i < sz; i ++) {
+        for (i = 0; i < sz; i++) {
                 uint32_t v = 0;
 
                 for (j = 0; j < 8; ++j) {

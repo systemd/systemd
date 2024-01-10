@@ -10,8 +10,8 @@ Type=oneshot
 TemporaryFileSystem=/var:ro,mode=0700,nostrictatime
 
 # Check /proc/self/mountinfo
-ExecStart=/bin/sh -x -c 'test "$$(awk \'$$5 == "/var" && $$11 !~ /(^|,)mode=700(,|$$)/ { print $$6 }\' /proc/self/mountinfo)" = ""'
+ExecStart=sh -x -c 'test "$$(awk \'$$5 == "/var" && $$11 !~ /(^|,)mode=700(,|$$)/ { print $$6 }\' /proc/self/mountinfo)" = ""'
 
-ExecStart=/bin/sh -x -c 'test "$$(awk \'$$5 == "/var" && $$6 !~ /(^|,)ro(,|$$)/ { print $$6 }\' /proc/self/mountinfo)" = ""'
-ExecStart=/bin/sh -x -c 'test "$$(awk \'$$5 == "/var" && $$6 !~ /(^|,)nodev(,|$$)/ { print $$6 }\' /proc/self/mountinfo)" = ""'
-ExecStart=/bin/sh -x -c 'test "$$(awk \'$$5 == "/var" && $$6 ~ /(^|,)strictatime(,|$$)/ { print $$6 }\' /proc/self/mountinfo)" = ""'
+ExecStart=sh -x -c 'test "$$(awk \'$$5 == "/var" && $$6 !~ /(^|,)ro(,|$$)/ { print $$6 }\' /proc/self/mountinfo)" = ""'
+ExecStart=sh -x -c 'test "$$(awk \'$$5 == "/var" && $$6 !~ /(^|,)nodev(,|$$)/ { print $$6 }\' /proc/self/mountinfo)" = ""'
+ExecStart=sh -x -c 'test "$$(awk \'$$5 == "/var" && $$6 ~ /(^|,)strictatime(,|$$)/ { print $$6 }\' /proc/self/mountinfo)" = ""'

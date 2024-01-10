@@ -11,7 +11,7 @@ ExecStart=test -f /tmp/thisisasimpletest
 # Also, through /tmp/test-exec-bindreadonlypaths
 ExecStart=test -f /tmp/test-exec-bindreadonlypaths/thisisasimpletest
 # The file cannot modify through /tmp/test-exec-bindreadonlypaths
-ExecStart=/bin/sh -x -c '! touch /tmp/test-exec-bindreadonlypaths/thisisasimpletest'
+ExecStart=sh -x -c '! touch /tmp/test-exec-bindreadonlypaths/thisisasimpletest'
 # Cleanup
 ExecStart=rm /tmp/thisisasimpletest
 BindPaths=/tmp:/tmp/test-exec-bindpaths

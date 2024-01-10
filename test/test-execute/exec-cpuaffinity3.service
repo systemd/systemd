@@ -3,6 +3,6 @@
 Description=Test for CPUAffinity (merge)
 
 [Service]
-ExecStart=/bin/sh -c 'test $$(cat /proc/self/status | grep Cpus_allowed: | rev | cut -c 1) = 7'
+ExecStart=sh -c 'test $$(cat /proc/self/status | grep Cpus_allowed: | rev | cut -c 1) = 7'
 CPUAffinity=0,1
 CPUAffinity=1-2

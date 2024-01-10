@@ -46,8 +46,9 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "tmpfile-util.h"
-#include "uid-alloc-range.h"
+#include "uid-classification.h"
 #include "user-util.h"
+#include "vpick.h"
 
 static enum {
         ACTION_DISSECT,
@@ -422,7 +423,7 @@ static int parse_argv(int argc, char *argv[]) {
                         _cleanup_free_ void *p = NULL;
                         size_t l;
 
-                        r = unhexmem(optarg, strlen(optarg), &p, &l);
+                        r = unhexmem(optarg, &p, &l);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse root hash '%s': %m", optarg);
                         if (l < sizeof(sd_id128_t))
@@ -440,7 +441,7 @@ static int parse_argv(int argc, char *argv[]) {
                         void *p;
 
                         if ((value = startswith(optarg, "base64:"))) {
-                                r = unbase64mem(value, strlen(value), &p, &l);
+                                r = unbase64mem(value, &p, &l);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse root hash signature '%s': %m", optarg);
                         } else {
@@ -684,7 +685,7 @@ static int parse_argv_as_mount_helper(int argc, char *argv[]) {
         /* Implements util-linux "external helper" command line interface, as per mount(8) man page. */
 
         while ((c = getopt(argc, argv, "sfnvN:o:t:")) >= 0) {
-                switch(c) {
+                switch (c) {
 
                 case 'f':
                         fake = true;
@@ -1708,6 +1709,8 @@ static int action_detach(const char *path) {
         struct stat st;
         int r;
 
+        assert(path);
+
         fd = open(path, O_PATH|O_CLOEXEC);
         if (fd < 0)
                 return log_error_errno(errno, "Failed to open '%s': %m", path);
@@ -1741,26 +1744,13 @@ static int action_detach(const char *path) {
 
                 FOREACH_DEVICE(e, d) {
                         _cleanup_(loop_device_unrefp) LoopDevice *entry_loop = NULL;
-                        const char *name, *devtype;
 
-                        r = sd_device_get_sysname(d, &name);
-                        if (r < 0) {
-                                log_warning_errno(r, "Failed to get enumerated device's sysname, skipping: %m");
-                                continue;
-                        }
-
-                        r = sd_device_get_devtype(d, &devtype);
-                        if (r < 0) {
-                                log_warning_errno(r, "Failed to get devtype of '%s', skipping: %m", name);
-                                continue;
-                        }
-
-                        if (!streq(devtype, "disk")) /* Filter out partition block devices */
+                        if (!device_is_devtype(d, "disk")) /* Filter out partition block devices */
                                 continue;
 
                         r = loop_device_open(d, O_RDONLY, LOCK_SH, &entry_loop);
                         if (r < 0) {
-                                log_warning_errno(r, "Failed to open loopback block device '%s', skipping: %m", name);
+                                log_device_warning_errno(d, r, "Failed to open loopback block device, skipping: %m");
                                 continue;
                         }
 
@@ -1829,6 +1819,16 @@ static int run(int argc, char *argv[]) {
                 r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        if (arg_image) {
+                r = path_pick_update_warn(
+                                &arg_image,
+                                &pick_filter_image_raw,
+                                PICK_ARCHITECTURE|PICK_TRIES,
+                                /* ret_result= */ NULL);
+                if (r < 0)
+                        return r;
+        }
 
         switch (arg_action) {
         case ACTION_UMOUNT:

@@ -17,7 +17,6 @@
 #include "bus-util.h"
 #include "device-private.h"
 #include "device-util.h"
-#include "dhcp-identifier.h"
 #include "dhcp-lease-internal.h"
 #include "env-file.h"
 #include "ethtool-util.h"
@@ -322,7 +321,7 @@ void link_set_state(Link *link, LinkState state) {
 }
 
 int link_stop_engines(Link *link, bool may_keep_dhcp) {
-        int r = 0, k;
+        int r, ret = 0;
 
         assert(link);
         assert(link->manager);
@@ -335,50 +334,50 @@ int link_stop_engines(Link *link, bool may_keep_dhcp) {
                           FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP_ON_STOP));
 
         if (!keep_dhcp) {
-                k = sd_dhcp_client_stop(link->dhcp_client);
-                if (k < 0)
-                        r = log_link_warning_errno(link, k, "Could not stop DHCPv4 client: %m");
+                r = sd_dhcp_client_stop(link->dhcp_client);
+                if (r < 0)
+                        RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop DHCPv4 client: %m"));
         }
 
-        k = sd_dhcp_server_stop(link->dhcp_server);
-        if (k < 0)
-                r = log_link_warning_errno(link, k, "Could not stop DHCPv4 server: %m");
+        r = sd_dhcp_server_stop(link->dhcp_server);
+        if (r < 0)
+                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop DHCPv4 server: %m"));
 
-        k = sd_lldp_rx_stop(link->lldp_rx);
-        if (k < 0)
-                r = log_link_warning_errno(link, k, "Could not stop LLDP Rx: %m");
+        r = sd_lldp_rx_stop(link->lldp_rx);
+        if (r < 0)
+                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop LLDP Rx: %m"));
 
-        k = sd_lldp_tx_stop(link->lldp_tx);
-        if (k < 0)
-                r = log_link_warning_errno(link, k, "Could not stop LLDP Tx: %m");
+        r = sd_lldp_tx_stop(link->lldp_tx);
+        if (r < 0)
+                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop LLDP Tx: %m"));
 
-        k = sd_ipv4ll_stop(link->ipv4ll);
-        if (k < 0)
-                r = log_link_warning_errno(link, k, "Could not stop IPv4 link-local: %m");
+        r = sd_ipv4ll_stop(link->ipv4ll);
+        if (r < 0)
+                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop IPv4 link-local: %m"));
 
-        k = ipv4acd_stop(link);
-        if (k < 0)
-                r = log_link_warning_errno(link, k, "Could not stop IPv4 ACD client: %m");
+        r = ipv4acd_stop(link);
+        if (r < 0)
+                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop IPv4 ACD client: %m"));
 
-        k = sd_dhcp6_client_stop(link->dhcp6_client);
-        if (k < 0)
-                r = log_link_warning_errno(link, k, "Could not stop DHCPv6 client: %m");
+        r = sd_dhcp6_client_stop(link->dhcp6_client);
+        if (r < 0)
+                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop DHCPv6 client: %m"));
 
-        k = dhcp_pd_remove(link, /* only_marked = */ false);
-        if (k < 0)
-                r = log_link_warning_errno(link, k, "Could not remove DHCPv6 PD addresses and routes: %m");
+        r = dhcp_pd_remove(link, /* only_marked = */ false);
+        if (r < 0)
+                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not remove DHCPv6 PD addresses and routes: %m"));
 
-        k = ndisc_stop(link);
-        if (k < 0)
-                r = log_link_warning_errno(link, k, "Could not stop IPv6 Router Discovery: %m");
+        r = ndisc_stop(link);
+        if (r < 0)
+                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop IPv6 Router Discovery: %m"));
 
         ndisc_flush(link);
 
-        k = sd_radv_stop(link->radv);
-        if (k < 0)
-                r = log_link_warning_errno(link, k, "Could not stop IPv6 Router Advertisement: %m");
+        r = sd_radv_stop(link->radv);
+        if (r < 0)
+                RET_GATHER(ret, log_link_warning_errno(link, r, "Could not stop IPv6 Router Advertisement: %m"));
 
-        return r;
+        return ret;
 }
 
 void link_enter_failed(Link *link) {
@@ -1241,10 +1240,20 @@ int link_reconfigure_impl(Link *link, bool force) {
                 return 0;
 
         if (network) {
+                _cleanup_free_ char *joined = strv_join(network->dropins, ", ");
+
                 if (link->state == LINK_STATE_INITIALIZED)
-                        log_link_info(link, "Configuring with %s.", network->filename);
+                        log_link_info(link, "Configuring with %s%s%s%s.",
+                                      network->filename,
+                                      isempty(joined) ? "" : " (dropins: ",
+                                      joined,
+                                      isempty(joined) ? "" : ")");
                 else
-                        log_link_info(link, "Reconfiguring with %s.", network->filename);
+                        log_link_info(link, "Reconfiguring with %s%s%s%s.",
+                                      network->filename,
+                                      isempty(joined) ? "" : " (dropins: ",
+                                      joined,
+                                      isempty(joined) ? "" : ")");
         } else
                 log_link_full(link, link->state == LINK_STATE_INITIALIZED ? LOG_DEBUG : LOG_INFO,
                               "Unmanaging interface.");
@@ -1656,7 +1665,7 @@ static int link_carrier_lost(Link *link) {
                 usec = 5 * USEC_PER_SEC;
 
         else
-                /* Otherwise, use the currently set value. */
+                /* Otherwise, use the implied default value. */
                 usec = link->network->ignore_carrier_loss_usec;
 
         if (usec == USEC_INFINITY)
@@ -1991,20 +2000,18 @@ static int link_update_master(Link *link, sd_netlink_message *message) {
         if (master_ifindex == link->ifindex)
                 master_ifindex = 0;
 
-        if (master_ifindex == link->master_ifindex)
-                return 0;
+        if (master_ifindex != link->master_ifindex) {
+                if (link->master_ifindex == 0)
+                        log_link_debug(link, "Attached to master interface: %i", master_ifindex);
+                else if (master_ifindex == 0)
+                        log_link_debug(link, "Detached from master interface: %i", link->master_ifindex);
+                else
+                        log_link_debug(link, "Master interface changed: %i %s %i", link->master_ifindex,
+                                       special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), master_ifindex);
 
-        if (link->master_ifindex == 0)
-                log_link_debug(link, "Attached to master interface: %i", master_ifindex);
-        else if (master_ifindex == 0)
-                log_link_debug(link, "Detached from master interface: %i", link->master_ifindex);
-        else
-                log_link_debug(link, "Master interface changed: %i %s %i", link->master_ifindex,
-                               special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), master_ifindex);
-
-        link_drop_from_master(link);
-
-        link->master_ifindex = master_ifindex;
+                link_drop_from_master(link);
+                link->master_ifindex = master_ifindex;
+        }
 
         r = link_append_to_master(link);
         if (r < 0)

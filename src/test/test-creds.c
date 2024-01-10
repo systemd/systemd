@@ -2,10 +2,13 @@
 
 #include "creds-util.h"
 #include "fileio.h"
+#include "id128-util.h"
+#include "iovec-util.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "tests.h"
 #include "tmpfile-util.h"
+#include "tpm2-util.h"
 
 TEST(read_credential_strings) {
         _cleanup_free_ char *x = NULL, *y = NULL, *saved = NULL, *p = NULL;
@@ -116,6 +119,105 @@ TEST(credential_glob_valid) {
 
         buf[sizeof(buf)-2] = '*';
         assert_se(credential_glob_valid(buf));
+}
+
+static void test_encrypt_decrypt_with(sd_id128_t mode) {
+        static const struct iovec plaintext = CONST_IOVEC_MAKE_STRING("this is a super secret string");
+        int r;
+
+        log_notice("Running encryption/decryption test with mode " SD_ID128_FORMAT_STR ".", SD_ID128_FORMAT_VAL(mode));
+
+        _cleanup_(iovec_done) struct iovec encrypted = {};
+        r = encrypt_credential_and_warn(
+                        mode,
+                        "foo",
+                        /* timestamp= */ USEC_INFINITY,
+                        /* not_after=*/ USEC_INFINITY,
+                        /* tpm2_device= */ NULL,
+                        /* tpm2_hash_pcr_mask= */ 0,
+                        /* tpm2_pubkey_path= */ NULL,
+                        /* tpm2_pubkey_pcr_mask= */ 0,
+                        &plaintext,
+                        CREDENTIAL_ALLOW_NULL,
+                        &encrypted);
+        if (ERRNO_IS_NEG_MACHINE_ID_UNSET(r)) {
+                log_notice_errno(r, "Skipping test encryption mode " SD_ID128_FORMAT_STR ", because /etc/machine-id is not initialized.", SD_ID128_FORMAT_VAL(mode));
+                return;
+        }
+        if (ERRNO_IS_NEG_NOT_SUPPORTED(r)) {
+                log_notice_errno(r, "Skipping test encryption mode " SD_ID128_FORMAT_STR ", because encrypted credentials are not supported.", SD_ID128_FORMAT_VAL(mode));
+                return;
+        }
+
+        assert_se(r >= 0);
+
+        _cleanup_(iovec_done) struct iovec decrypted = {};
+        r = decrypt_credential_and_warn(
+                        "bar",
+                        /* validate_timestamp= */ USEC_INFINITY,
+                        /* tpm2_device= */ NULL,
+                        /* tpm2_signature_path= */ NULL,
+                        &encrypted,
+                        CREDENTIAL_ALLOW_NULL,
+                        &decrypted);
+        assert_se(r == -EREMOTE); /* name didn't match */
+
+        r = decrypt_credential_and_warn(
+                        "foo",
+                        /* validate_timestamp= */ USEC_INFINITY,
+                        /* tpm2_device= */ NULL,
+                        /* tpm2_signature_path= */ NULL,
+                        &encrypted,
+                        CREDENTIAL_ALLOW_NULL,
+                        &decrypted);
+        assert_se(r >= 0);
+
+        assert_se(iovec_memcmp(&plaintext, &decrypted) == 0);
+}
+
+static bool try_tpm2(void) {
+#if HAVE_TPM2
+        _cleanup_(tpm2_context_unrefp) Tpm2Context *tpm2_context = NULL;
+        int r;
+
+        r = tpm2_context_new(/* device= */ NULL, &tpm2_context);
+        if (r < 0)
+                log_notice_errno(r, "Failed to create TPM2 context, assuming no TPM2 support or privileges: %m");
+
+        return r >= 0;
+#else
+        return false;
+#endif
+}
+
+TEST(credential_encrypt_decrypt) {
+        _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
+        _cleanup_free_ char *j = NULL;
+
+        test_encrypt_decrypt_with(CRED_AES256_GCM_BY_NULL);
+
+        assert_se(mkdtemp_malloc(NULL, &d) >= 0);
+        j = path_join(d, "secret");
+        assert_se(j);
+
+        const char *e = getenv("SYSTEMD_CREDENTIAL_SECRET");
+        _cleanup_free_ char *ec = NULL;
+
+        if (e)
+                assert_se(ec = strdup(e));
+
+        assert_se(setenv("SYSTEMD_CREDENTIAL_SECRET", j, true) >= 0);
+
+        test_encrypt_decrypt_with(CRED_AES256_GCM_BY_HOST);
+
+        if (try_tpm2()) {
+                test_encrypt_decrypt_with(CRED_AES256_GCM_BY_TPM2_HMAC);
+                test_encrypt_decrypt_with(CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC);
+        }
+
+        if (ec)
+                assert_se(setenv("SYSTEMD_CREDENTIAL_SECRET", ec, true) >= 0);
+
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

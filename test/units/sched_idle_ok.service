@@ -3,5 +3,5 @@
 Description=Sched idle with prio 0
 
 [Service]
-ExecStart=/bin/true
+ExecStart=true
 CPUSchedulingPriority=0

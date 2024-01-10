@@ -80,7 +80,7 @@ static void test_config_parse_ether_addrs_one(const char *rvalue, const struct e
                 assert_se(q = set_remove(s, &list[m]));
         }
 
-        assert_se(set_size(s) == 0);
+        assert_se(set_isempty(s));
 }
 
 #define STR_OK                                                          \

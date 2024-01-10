@@ -3,10 +3,10 @@
 Description=Test for RuntimeDirectory with RuntimeDirectoryPreserve=yes and DynamicUser=yes 2nd trial
 
 [Service]
-ExecStart=/bin/sh -x -c 'test -d %t/test-exec_runtimedirectorypreserve'
-ExecStart=/bin/sh -x -c 'test "$$RUNTIME_DIRECTORY" = "%t/test-exec_runtimedirectorypreserve"'
-ExecStart=/bin/sh -x -c 'test -f $$RUNTIME_DIRECTORY/test'
-ExecStart=/bin/sh -x -c 'touch $$RUNTIME_DIRECTORY/test'
+ExecStart=sh -x -c 'test -d %t/test-exec_runtimedirectorypreserve'
+ExecStart=sh -x -c 'test "$$RUNTIME_DIRECTORY" = "%t/test-exec_runtimedirectorypreserve"'
+ExecStart=sh -x -c 'test -f $$RUNTIME_DIRECTORY/test'
+ExecStart=sh -x -c 'touch $$RUNTIME_DIRECTORY/test'
 Type=oneshot
 RuntimeDirectory=test-exec_runtimedirectorypreserve
 RuntimeDirectoryPreserve=yes

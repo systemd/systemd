@@ -26,7 +26,7 @@ static void dns_answer_item_hash_func(const DnsAnswerItem *a, struct siphash *st
         assert(a);
         assert(state);
 
-        siphash24_compress(&a->ifindex, sizeof(a->ifindex), state);
+        siphash24_compress_typesafe(a->ifindex, state);
 
         dns_resource_record_hash_func(a->rr, state);
 }

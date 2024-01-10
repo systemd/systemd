@@ -368,7 +368,7 @@ int allocate_scope(
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        r = bus_wait_for_jobs_one(w, object, false, NULL);
+        r = bus_wait_for_jobs_one(w, object, BUS_WAIT_JOBS_LOG_ERROR, NULL);
         if (r < 0)
                 return r;
 

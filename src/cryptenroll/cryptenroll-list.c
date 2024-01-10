@@ -114,7 +114,7 @@ int list_enrolled(struct crypt_device *cd) {
                         return table_log_add_error(r);
         }
 
-        if (table_get_rows(t) <= 1) {
+        if (table_isempty(t)) {
                 log_info("No slots found.");
                 return 0;
         }

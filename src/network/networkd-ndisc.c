@@ -637,7 +637,7 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         }
 
         r = sd_ndisc_router_route_get_preference(rt, &preference);
-        if (r == -ENOTSUP) {
+        if (r == -EOPNOTSUPP) {
                 log_link_debug_errno(link, r, "Received route prefix with unsupported preference, ignoring: %m");
                 return 0;
         }
@@ -664,7 +664,7 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
 }
 
 static void ndisc_rdnss_hash_func(const NDiscRDNSS *x, struct siphash *state) {
-        siphash24_compress(&x->address, sizeof(x->address), state);
+        siphash24_compress_typesafe(x->address, state);
 }
 
 static int ndisc_rdnss_compare_func(const NDiscRDNSS *a, const NDiscRDNSS *b) {
@@ -970,8 +970,8 @@ static int ndisc_router_process_captive_portal(Link *link, sd_ndisc_router *rt) 
 static void ndisc_pref64_hash_func(const NDiscPREF64 *x, struct siphash *state) {
         assert(x);
 
-        siphash24_compress(&x->prefix_len, sizeof(x->prefix_len), state);
-        siphash24_compress(&x->prefix, sizeof(x->prefix), state);
+        siphash24_compress_typesafe(x->prefix_len, state);
+        siphash24_compress_typesafe(x->prefix, state);
 }
 
 static int ndisc_pref64_compare_func(const NDiscPREF64 *a, const NDiscPREF64 *b) {
@@ -1137,7 +1137,7 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
         NDiscPREF64 *p64;
         Address *address;
         Route *route;
-        int r = 0, k;
+        int r, ret = 0;
 
         assert(link);
 
@@ -1154,9 +1154,9 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
                 if (route->lifetime_usec >= timestamp_usec)
                         continue; /* the route is still valid */
 
-                k = route_remove_and_drop(route);
-                if (k < 0)
-                        r = log_link_warning_errno(link, k, "Failed to remove outdated SLAAC route, ignoring: %m");
+                r = route_remove_and_drop(route);
+                if (r < 0)
+                        RET_GATHER(ret, log_link_warning_errno(link, r, "Failed to remove outdated SLAAC route, ignoring: %m"));
         }
 
         SET_FOREACH(address, link->addresses) {
@@ -1166,9 +1166,9 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
                 if (address->lifetime_valid_usec >= timestamp_usec)
                         continue; /* the address is still valid */
 
-                k = address_remove_and_drop(address);
-                if (k < 0)
-                        r = log_link_warning_errno(link, k, "Failed to remove outdated SLAAC address, ignoring: %m");
+                r = address_remove_and_cancel(address, link);
+                if (r < 0)
+                        RET_GATHER(ret, log_link_warning_errno(link, r, "Failed to remove outdated SLAAC address, ignoring: %m"));
         }
 
         SET_FOREACH(rdnss, link->ndisc_rdnss) {
@@ -1207,7 +1207,7 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
         if (updated)
                 link_dirty(link);
 
-        return r;
+        return ret;
 }
 
 static int ndisc_setup_expire(Link *link);

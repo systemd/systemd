@@ -3,9 +3,9 @@
 Description=Test for RuntimeDirectory
 
 [Service]
-ExecStart=/bin/sh -x -c 'test -d %t/test-exec_runtimedirectory'
-ExecStart=/bin/sh -x -c 'test -d %t/test-exec_runtimedirectory2/hogehoge'
-ExecStart=/bin/sh -x -c 'test "$$RUNTIME_DIRECTORY" = "%t/test-exec_runtimedirectory:%t/test-exec_runtimedirectory2/hogehoge"'
+ExecStart=sh -x -c 'test -d %t/test-exec_runtimedirectory'
+ExecStart=sh -x -c 'test -d %t/test-exec_runtimedirectory2/hogehoge'
+ExecStart=sh -x -c 'test "$$RUNTIME_DIRECTORY" = "%t/test-exec_runtimedirectory:%t/test-exec_runtimedirectory2/hogehoge"'
 Type=oneshot
 RuntimeDirectory=test-exec_runtimedirectory
 RuntimeDirectory=./test-exec_runtimedirectory2///./hogehoge/.

@@ -3,7 +3,7 @@
 Description=Test for CapabilityBoundingSet
 
 [Service]
-ExecStart=/bin/sh -x -c 'c=$$(capsh --print | grep "Bounding set "); test "$$c" = "Bounding set ="'
+ExecStart=sh -x -c 'c=$$(capsh --print | grep "Bounding set "); test "$$c" = "Bounding set ="'
 Type=oneshot
 CapabilityBoundingSet=CAP_FOWNER CAP_KILL
 CapabilityBoundingSet=

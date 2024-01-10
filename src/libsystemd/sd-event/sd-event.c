@@ -1165,10 +1165,10 @@ static int source_set_pending(sd_event_source *s, bool b) {
                 assert(s->inotify.inode_data->inotify_data);
 
                 if (b)
-                        s->inotify.inode_data->inotify_data->n_pending ++;
+                        s->inotify.inode_data->inotify_data->n_pending++;
                 else {
                         assert(s->inotify.inode_data->inotify_data->n_pending > 0);
-                        s->inotify.inode_data->inotify_data->n_pending --;
+                        s->inotify.inode_data->inotify_data->n_pending--;
                 }
         }
 
@@ -1976,7 +1976,7 @@ _public_ int sd_event_add_memory_pressure(
 
                 env = secure_getenv("MEMORY_PRESSURE_WRITE");
                 if (env) {
-                        r = unbase64mem(env, SIZE_MAX, &write_buffer, &write_buffer_size);
+                        r = unbase64mem(env, &write_buffer, &write_buffer_size);
                         if (r < 0)
                                 return r;
                 }
@@ -2231,8 +2231,8 @@ static int inode_data_compare(const struct inode_data *x, const struct inode_dat
 static void inode_data_hash_func(const struct inode_data *d, struct siphash *state) {
         assert(d);
 
-        siphash24_compress(&d->dev, sizeof(d->dev), state);
-        siphash24_compress(&d->ino, sizeof(d->ino), state);
+        siphash24_compress_typesafe(d->dev, state);
+        siphash24_compress_typesafe(d->ino, state);
 }
 
 DEFINE_PRIVATE_HASH_OPS(inode_data_hash_ops, struct inode_data, inode_data_hash_func, inode_data_compare);
@@ -4000,7 +4000,7 @@ static int process_inotify(sd_event *e) {
                 if (r < 0)
                         return r;
                 if (r > 0)
-                        done ++;
+                        done++;
         }
 
         return done;
@@ -5038,7 +5038,7 @@ _public_ int sd_event_set_watchdog(sd_event *e, int b) {
                 }
         }
 
-        e->watchdog = !!b;
+        e->watchdog = b;
         return e->watchdog;
 
 fail:

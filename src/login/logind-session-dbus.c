@@ -158,12 +158,11 @@ int bus_session_method_terminate(sd_bus_message *message, void *userdata, sd_bus
 
         assert(message);
 
-        r = bus_verify_polkit_async(
+        r = bus_verify_polkit_async_full(
                         message,
-                        CAP_KILL,
                         "org.freedesktop.login1.manage",
-                        NULL,
-                        false,
+                        /* details= */ NULL,
+                        /* interactive= */ false,
                         s->user->user_record->uid,
                         &s->manager->polkit_registry,
                         error);
@@ -204,12 +203,11 @@ int bus_session_method_lock(sd_bus_message *message, void *userdata, sd_bus_erro
 
         assert(message);
 
-        r = bus_verify_polkit_async(
+        r = bus_verify_polkit_async_full(
                         message,
-                        CAP_SYS_ADMIN,
                         "org.freedesktop.login1.lock-sessions",
-                        NULL,
-                        false,
+                        /* details= */ NULL,
+                        /* interactive= */ false,
                         s->user->user_record->uid,
                         &s->manager->polkit_registry,
                         error);
@@ -309,12 +307,11 @@ int bus_session_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
         if (!SIGNAL_VALID(signo))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid signal %i", signo);
 
-        r = bus_verify_polkit_async(
+        r = bus_verify_polkit_async_full(
                         message,
-                        CAP_KILL,
                         "org.freedesktop.login1.manage",
-                        NULL,
-                        false,
+                        /* details= */ NULL,
+                        /* interactive= */ false,
                         s->user->user_record->uid,
                         &s->manager->polkit_registry,
                         error);
@@ -810,7 +807,6 @@ int session_send_create_reply(Session *s, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *c = NULL;
         _cleanup_close_ int fifo_fd = -EBADF;
         _cleanup_free_ char *p = NULL;
-        int r;
 
         assert(s);
 
@@ -830,10 +826,6 @@ int session_send_create_reply(Session *s, sd_bus_error *error) {
         fifo_fd = session_create_fifo(s);
         if (fifo_fd < 0)
                 return fifo_fd;
-
-        r = session_watch_pidfd(s);
-        if (r < 0)
-                return r;
 
         /* Update the session state file before we notify the client about the result. */
         session_save(s);

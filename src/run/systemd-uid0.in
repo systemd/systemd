@@ -1,0 +1,23 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+# This file is part of systemd.
+#
+# Used by uid0 sessions
+
+{% if ENABLE_HOMED %}
+-account sufficient pam_systemd_home.so
+{% endif %}
+account  required   pam_unix.so
+
+{% if HAVE_SELINUX %}
+session  required   pam_selinux.so close
+session  required   pam_selinux.so open
+{% endif %}
+session  required   pam_loginuid.so
+session  optional   pam_keyinit.so force revoke
+session  required   pam_namespace.so
+{% if ENABLE_HOMED %}
+-session optional   pam_systemd_home.so
+{% endif %}
+session  optional   pam_umask.so silent
+session  optional   pam_systemd.so
+session  required   pam_unix.so

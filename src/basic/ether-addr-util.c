@@ -59,8 +59,8 @@ void hw_addr_hash_func(const struct hw_addr_data *p, struct siphash *state) {
         assert(p);
         assert(state);
 
-        siphash24_compress(&p->length, sizeof(p->length), state);
-        siphash24_compress(p->bytes, p->length, state);
+        siphash24_compress_typesafe(p->length, state);
+        siphash24_compress_safe(p->bytes, p->length, state);
 }
 
 DEFINE_HASH_OPS(hw_addr_hash_ops, struct hw_addr_data, hw_addr_hash_func, hw_addr_compare);
@@ -106,7 +106,7 @@ int ether_addr_compare(const struct ether_addr *a, const struct ether_addr *b) {
 }
 
 static void ether_addr_hash_func(const struct ether_addr *p, struct siphash *state) {
-        siphash24_compress(p, sizeof(struct ether_addr), state);
+        siphash24_compress_typesafe(*p, state);
 }
 
 DEFINE_HASH_OPS(ether_addr_hash_ops, struct ether_addr, ether_addr_hash_func, ether_addr_compare);
@@ -269,4 +269,12 @@ int parse_ether_addr(const char *s, struct ether_addr *ret) {
 
         *ret = a.ether;
         return 0;
+}
+
+void ether_addr_mark_random(struct ether_addr *addr) {
+        assert(addr);
+
+        /* see eth_random_addr in the kernel */
+        addr->ether_addr_octet[0] &= 0xfe;        /* clear multicast bit */
+        addr->ether_addr_octet[0] |= 0x02;        /* set local assignment bit (IEEE802) */
 }

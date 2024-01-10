@@ -132,7 +132,7 @@ static int dm_points_list_detach(DeviceMapper **head, bool *changed, bool last_t
                 if ((major(rootdev) != 0 && rootdev == m->devnum) ||
                     (major(usrdev) != 0 && usrdev == m->devnum)) {
                         log_debug("Not detaching DM %s that backs the OS itself, skipping.", m->path);
-                        n_failed ++;
+                        n_failed++;
                         continue;
                 }
 

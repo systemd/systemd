@@ -209,8 +209,8 @@ static int handle_action_execute(
 
         if (m->delayed_action)
                 return log_debug_errno(SYNTHETIC_ERRNO(EALREADY),
-                                       "Action already in progress (%s), ignoring requested %s operation.",
-                                       inhibit_what_to_string(m->delayed_action->inhibit_what),
+                                       "Action %s already in progress, ignoring requested %s operation.",
+                                       handle_action_to_string(m->delayed_action->handle),
                                        handle_action_to_string(handle));
 
         inhibit_operation = ASSERT_PTR(handle_action_lookup(handle))->inhibit_what;

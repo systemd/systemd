@@ -147,7 +147,7 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p)
 
         const char *path = exec_context_tty_path(context);
 
-        if (p && p->stdin_fd >= 0 && isatty(p->stdin_fd))
+        if (p && p->stdin_fd >= 0 && isatty_safe(p->stdin_fd))
                 fd = p->stdin_fd;
         else if (path && (context->tty_path || is_terminal_input(context->std_input) ||
                         is_terminal_output(context->std_output) || is_terminal_output(context->std_error))) {
@@ -434,7 +434,10 @@ int exec_spawn(Unit *unit,
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to set O_CLOEXEC on serialized fds: %m");
 
-        r = log_level_to_string_alloc(log_get_max_level(), &log_level);
+        /* If LogLevelMax= is specified, then let's use the specified log level at the beginning of the
+         * executor process. To achieve that the specified log level is passed as an argument, rather than
+         * the one for the manager process. */
+        r = log_level_to_string_alloc(context->log_level_max >= 0 ? context->log_level_max : log_get_max_level(), &log_level);
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to convert log level to string: %m");
 
@@ -1661,6 +1664,15 @@ uint64_t exec_context_get_timer_slack_nsec(const ExecContext *c) {
         return (uint64_t) MAX(r, 0);
 }
 
+bool exec_context_get_set_login_environment(const ExecContext *c) {
+        assert(c);
+
+        if (c->set_login_environment >= 0)
+                return c->set_login_environment;
+
+        return c->user || c->dynamic_user || c->pam_name;
+}
+
 char** exec_context_get_syscall_filter(const ExecContext *c) {
         _cleanup_strv_free_ char **l = NULL;
 
@@ -1955,8 +1967,7 @@ static char *destroy_tree(char *path) {
 }
 
 void exec_shared_runtime_done(ExecSharedRuntime *rt) {
-        if (!rt)
-                return;
+        assert(rt);
 
         if (rt->manager)
                 (void) hashmap_remove(rt->manager->exec_shared_runtime_by_id, rt->id);
@@ -1969,8 +1980,10 @@ void exec_shared_runtime_done(ExecSharedRuntime *rt) {
 }
 
 static ExecSharedRuntime* exec_shared_runtime_free(ExecSharedRuntime *rt) {
-        exec_shared_runtime_done(rt);
+        if (!rt)
+                return NULL;
 
+        exec_shared_runtime_done(rt);
         return mfree(rt);
 }
 
@@ -2094,15 +2107,13 @@ static int exec_shared_runtime_make(
                         return r;
         }
 
-        if (exec_needs_network_namespace(c)) {
+        if (exec_needs_network_namespace(c))
                 if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, netns_storage_socket) < 0)
                         return -errno;
-        }
 
-        if (exec_needs_ipc_namespace(c)) {
+        if (exec_needs_ipc_namespace(c))
                 if (socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, ipcns_storage_socket) < 0)
                         return -errno;
-        }
 
         r = exec_shared_runtime_add(m, id, &tmp_dir, &var_tmp_dir, netns_storage_socket, ipcns_storage_socket, ret);
         if (r < 0)

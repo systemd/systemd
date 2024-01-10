@@ -20,7 +20,7 @@
 #include "strv.h"
 #include "varlink.h"
 
-static JsonDispatchFlags json_dispatch_flags = 0;
+static JsonDispatchFlags json_dispatch_flags = JSON_ALLOW_EXTENSIONS;
 
 static void setup_logging(void) {
         log_parse_environment_variables();

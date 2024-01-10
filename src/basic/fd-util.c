@@ -92,22 +92,22 @@ void safe_close_pair(int p[static 2]) {
         p[1] = safe_close(p[1]);
 }
 
-void close_many(const int fds[], size_t n_fd) {
-        assert(fds || n_fd <= 0);
+void close_many(const int fds[], size_t n_fds) {
+        assert(fds || n_fds == 0);
 
-        for (size_t i = 0; i < n_fd; i++)
-                safe_close(fds[i]);
+        FOREACH_ARRAY(fd, fds, n_fds)
+                safe_close(*fd);
 }
 
-void close_many_unset(int fds[], size_t n_fd) {
-        assert(fds || n_fd <= 0);
+void close_many_unset(int fds[], size_t n_fds) {
+        assert(fds || n_fds == 0);
 
-        for (size_t i = 0; i < n_fd; i++)
-                fds[i] = safe_close(fds[i]);
+        FOREACH_ARRAY(fd, fds, n_fds)
+                *fd = safe_close(*fd);
 }
 
 void close_many_and_free(int *fds, size_t n_fds) {
-        assert(fds || n_fds <= 0);
+        assert(fds || n_fds == 0);
 
         close_many(fds, n_fds);
         free(fds);
@@ -170,6 +170,19 @@ int fd_nonblock(int fd, bool nonblock) {
         return RET_NERRNO(fcntl(fd, F_SETFL, nflags));
 }
 
+int stdio_disable_nonblock(void) {
+        int ret = 0;
+
+        /* stdin/stdout/stderr really should have O_NONBLOCK, which would confuse apps if left on, as
+         * write()s might unexpectedly fail with EAGAIN. */
+
+        RET_GATHER(ret, fd_nonblock(STDIN_FILENO, false));
+        RET_GATHER(ret, fd_nonblock(STDOUT_FILENO, false));
+        RET_GATHER(ret, fd_nonblock(STDERR_FILENO, false));
+
+        return ret;
+}
+
 int fd_cloexec(int fd, bool cloexec) {
         int flags, nflags;
 
@@ -187,32 +200,32 @@ int fd_cloexec(int fd, bool cloexec) {
 }
 
 int fd_cloexec_many(const int fds[], size_t n_fds, bool cloexec) {
-        int ret = 0, r;
+        int r = 0;
 
-        assert(n_fds == 0 || fds);
+        assert(fds || n_fds == 0);
 
-        for (size_t i = 0; i < n_fds; i++) {
-                if (fds[i] < 0) /* Skip gracefully over already invalidated fds */
+        FOREACH_ARRAY(fd, fds, n_fds) {
+                if (*fd < 0) /* Skip gracefully over already invalidated fds */
                         continue;
 
-                r = fd_cloexec(fds[i], cloexec);
-                if (r < 0 && ret >= 0) /* Continue going, but return first error */
-                        ret = r;
-                else
-                        ret = 1; /* report if we did anything */
+                RET_GATHER(r, fd_cloexec(*fd, cloexec));
+
+                if (r >= 0)
+                        r = 1; /* report if we did anything */
         }
 
-        return ret;
+        return r;
 }
 
-static bool fd_in_set(int fd, const int fdset[], size_t n_fdset) {
-        assert(n_fdset == 0 || fdset);
+static bool fd_in_set(int fd, const int fds[], size_t n_fds) {
+        assert(fd >= 0);
+        assert(fds || n_fds == 0);
 
-        for (size_t i = 0; i < n_fdset; i++) {
-                if (fdset[i] < 0)
+        FOREACH_ARRAY(i, fds, n_fds) {
+                if (*i < 0)
                         continue;
 
-                if (fdset[i] == fd)
+                if (*i == fd)
                         return true;
         }
 
@@ -243,7 +256,7 @@ int get_max_fd(void) {
 static int close_all_fds_frugal(const int except[], size_t n_except) {
         int max_fd, r = 0;
 
-        assert(n_except == 0 || except);
+        assert(except || n_except == 0);
 
         /* This is the inner fallback core of close_all_fds(). This never calls malloc() or opendir() or so
          * and hence is safe to be called in signal handler context. Most users should call close_all_fds(),
@@ -258,8 +271,7 @@ static int close_all_fds_frugal(const int except[], size_t n_except) {
          * spin the CPU for a long time. */
         if (max_fd > MAX_FD_LOOP_LIMIT)
                 return log_debug_errno(SYNTHETIC_ERRNO(EPERM),
-                                       "Refusing to loop over %d potential fds.",
-                                       max_fd);
+                                       "Refusing to loop over %d potential fds.", max_fd);
 
         for (int fd = 3; fd >= 0; fd = fd < max_fd ? fd + 1 : -EBADF) {
                 int q;
@@ -268,8 +280,8 @@ static int close_all_fds_frugal(const int except[], size_t n_except) {
                         continue;
 
                 q = close_nointr(fd);
-                if (q < 0 && q != -EBADF && r >= 0)
-                        r = q;
+                if (q != -EBADF)
+                        RET_GATHER(r, q);
         }
 
         return r;
@@ -598,7 +610,7 @@ int move_fd(int from, int to, int cloexec) {
                 if (fl < 0)
                         return -errno;
 
-                cloexec = !!(fl & FD_CLOEXEC);
+                cloexec = FLAGS_SET(fl, FD_CLOEXEC);
         }
 
         r = dup3(from, to, cloexec ? O_CLOEXEC : 0);

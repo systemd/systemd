@@ -8,7 +8,7 @@
 #include "sd-netlink.h"
 #include "sd-resolve.h"
 
-#include "dhcp-identifier.h"
+#include "dhcp-duid-internal.h"
 #include "firewall-util.h"
 #include "hashmap.h"
 #include "networkd-link.h"
@@ -17,6 +17,7 @@
 #include "ordered-set.h"
 #include "set.h"
 #include "time-util.h"
+#include "varlink.h"
 
 struct Manager {
         sd_netlink *rtnl;
@@ -25,6 +26,7 @@ struct Manager {
         sd_event *event;
         sd_resolve *resolve;
         sd_bus *bus;
+        VarlinkServer *varlink_server;
         sd_device_monitor *device_monitor;
         Hashmap *polkit_registry;
         int ethtool_fd;
@@ -73,6 +75,7 @@ struct Manager {
 
         /* Manage nexthops by id. */
         Hashmap *nexthops_by_id;
+        Set *nexthop_ids; /* requested IDs in .network files */
 
         /* Manager stores routes without RTA_OIF attribute. */
         unsigned route_remove_messages;

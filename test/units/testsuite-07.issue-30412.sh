@@ -20,6 +20,7 @@ EOF
 cat >/run/systemd/system/badbin_assert.socket <<EOF
 [Socket]
 ListenStream=@badbin_assert.socket
+FlushPending=yes
 EOF
 
 systemctl daemon-reload

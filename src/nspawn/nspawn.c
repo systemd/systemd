@@ -1,7 +1,5 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#if HAVE_BLKID
-#endif
 #include <errno.h>
 #include <getopt.h>
 #include <linux/fs.h>
@@ -112,6 +110,7 @@
 #include "umask-util.h"
 #include "unit-name.h"
 #include "user-util.h"
+#include "vpick.h"
 
 /* The notify socket inside the container it can use to talk to nspawn using the sd_notify(3) protocol */
 #define NSPAWN_NOTIFY_SOCKET_PATH "/run/host/notify"
@@ -289,7 +288,7 @@ static int handle_arg_console(const char *arg) {
         else if (streq(arg, "passive"))
                 arg_console_mode = CONSOLE_PASSIVE;
         else if (streq(arg, "pipe")) {
-                if (isatty(STDIN_FILENO) > 0 && isatty(STDOUT_FILENO) > 0)
+                if (isatty(STDIN_FILENO) && isatty(STDOUT_FILENO))
                         log_full(arg_quiet ? LOG_DEBUG : LOG_NOTICE,
                                  "Console mode 'pipe' selected, but standard input/output are connected to an interactive TTY. "
                                  "Most likely you want to use 'interactive' console mode for proper interactivity and shell job control. "
@@ -297,7 +296,7 @@ static int handle_arg_console(const char *arg) {
 
                 arg_console_mode = CONSOLE_PIPE;
         } else if (streq(arg, "autopipe")) {
-                if (isatty(STDIN_FILENO) > 0 && isatty(STDOUT_FILENO) > 0)
+                if (isatty(STDIN_FILENO) && isatty(STDOUT_FILENO))
                         arg_console_mode = CONSOLE_INTERACTIVE;
                 else
                         arg_console_mode = CONSOLE_PIPE;
@@ -1395,7 +1394,7 @@ static int parse_argv(int argc, char *argv[]) {
                         _cleanup_free_ void *k = NULL;
                         size_t l;
 
-                        r = unhexmem(optarg, strlen(optarg), &k, &l);
+                        r = unhexmem(optarg, &k, &l);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to parse root hash: %s", optarg);
                         if (l < sizeof(sd_id128_t))
@@ -1412,7 +1411,7 @@ static int parse_argv(int argc, char *argv[]) {
                         void *p;
 
                         if ((value = startswith(optarg, "base64:"))) {
-                                r = unbase64mem(value, strlen(value), &p, &l);
+                                r = unbase64mem(value, &p, &l);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to parse root hash signature '%s': %m", optarg);
 
@@ -2363,6 +2362,18 @@ static int setup_keyring(void) {
         return 0;
 }
 
+int make_run_host(const char *root) {
+        int r;
+
+        assert(root);
+
+        r = userns_mkdir(root, "/run/host", 0755, 0, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create /run/host/: %m");
+
+        return 0;
+}
+
 static int setup_credentials(const char *root) {
         const char *q;
         int r;
@@ -2370,9 +2381,9 @@ static int setup_credentials(const char *root) {
         if (arg_credentials.n_credentials == 0)
                 return 0;
 
-        r = userns_mkdir(root, "/run/host", 0755, 0, 0);
+        r = make_run_host(root);
         if (r < 0)
-                return log_error_errno(r, "Failed to create /run/host: %m");
+                return r;
 
         r = userns_mkdir(root, "/run/host/credentials", 0700, 0, 0);
         if (r < 0)
@@ -2712,9 +2723,9 @@ static int mount_tunnel_dig(const char *root) {
         p = strjoina("/run/systemd/nspawn/propagate/", arg_machine);
         (void) mkdir_p(p, 0600);
 
-        r = userns_mkdir(root, "/run/host", 0755, 0, 0);
+        r = make_run_host(root);
         if (r < 0)
-                return log_error_errno(r, "Failed to create /run/host: %m");
+                return r;
 
         r = userns_mkdir(root, NSPAWN_MOUNT_TUNNEL, 0600, 0, 0);
         if (r < 0)
@@ -2911,14 +2922,72 @@ static int on_request_stop(sd_bus_message *m, void *userdata, sd_bus_error *erro
         return 0;
 }
 
+static int pick_paths(void) {
+        int r;
+
+        if (arg_directory) {
+                _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+                PickFilter filter = pick_filter_image_dir;
+
+                filter.architecture = arg_architecture;
+
+                r = path_pick_update_warn(
+                                &arg_directory,
+                                &filter,
+                                PICK_ARCHITECTURE|PICK_TRIES,
+                                &result);
+                if (r < 0) {
+                        /* Accept ENOENT here so that the --template= logic can work */
+                        if (r != -ENOENT)
+                                return r;
+                } else
+                        arg_architecture = result.architecture;
+        }
+
+        if (arg_image) {
+                _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+                PickFilter filter = pick_filter_image_raw;
+
+                filter.architecture = arg_architecture;
+
+                r = path_pick_update_warn(
+                                &arg_image,
+                                &filter,
+                                PICK_ARCHITECTURE|PICK_TRIES,
+                                &result);
+                if (r < 0)
+                        return r;
+
+                arg_architecture = result.architecture;
+        }
+
+        if (arg_template) {
+                _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+                PickFilter filter = pick_filter_image_dir;
+
+                filter.architecture = arg_architecture;
+
+                r = path_pick_update_warn(
+                                &arg_template,
+                                &filter,
+                                PICK_ARCHITECTURE,
+                                &result);
+                if (r < 0)
+                        return r;
+
+                arg_architecture = result.architecture;
+        }
+
+        return 0;
+}
+
 static int determine_names(void) {
         int r;
 
         if (arg_template && !arg_directory && arg_machine) {
 
-                /* If --template= was specified then we should not
-                 * search for a machine, but instead create a new one
-                 * in /var/lib/machine. */
+                /* If --template= was specified then we should not search for a machine, but instead create a
+                 * new one in /var/lib/machine. */
 
                 arg_directory = path_join("/var/lib/machines", arg_machine);
                 if (!arg_directory)
@@ -3394,7 +3463,7 @@ static int inner_child(
         if (asprintf(envp + n_env++, "container_uuid=%s", SD_ID128_TO_UUID_STRING(arg_uuid)) < 0)
                 return log_oom();
 
-        if (fdset_size(fds) > 0) {
+        if (!fdset_isempty(fds)) {
                 r = fdset_cloexec(fds, false);
                 if (r < 0)
                         return log_error_errno(r, "Failed to unset O_CLOEXEC for file descriptors.");
@@ -3522,9 +3591,11 @@ static int setup_notify_child(void) {
         (void) mkdir_parents(NSPAWN_NOTIFY_SOCKET_PATH, 0755);
         (void) sockaddr_un_unlink(&sa.un);
 
-        r = bind(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
-        if (r < 0)
-                return log_error_errno(errno, "bind(" NSPAWN_NOTIFY_SOCKET_PATH ") failed: %m");
+        WITH_UMASK(0577) { /* only set "w" bit, which is all that's necessary for connecting from the container */
+                r = bind(fd, &sa.sa, SOCKADDR_UN_LEN(sa.un));
+                if (r < 0)
+                        return log_error_errno(errno, "bind(" NSPAWN_NOTIFY_SOCKET_PATH ") failed: %m");
+        }
 
         r = userns_lchown(NSPAWN_NOTIFY_SOCKET_PATH, 0, 0);
         if (r < 0)
@@ -3887,11 +3958,11 @@ static int outer_child(
 
         /* The same stuff as the $container env var, but nicely readable for the entire payload */
         p = prefix_roota(directory, "/run/host/container-manager");
-        (void) write_string_file(p, arg_container_service_name, WRITE_STRING_FILE_CREATE);
+        (void) write_string_file(p, arg_container_service_name, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MODE_0444);
 
         /* The same stuff as the $container_uuid env var */
         p = prefix_roota(directory, "/run/host/container-uuid");
-        (void) write_string_filef(p, WRITE_STRING_FILE_CREATE, SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(arg_uuid));
+        (void) write_string_filef(p, WRITE_STRING_FILE_CREATE|WRITE_STRING_FILE_MODE_0444, SD_ID128_UUID_FORMAT_STR, SD_ID128_FORMAT_VAL(arg_uuid));
 
         if (!arg_use_cgns) {
                 r = mount_cgroups(
@@ -4455,7 +4526,7 @@ static int merge_settings(Settings *settings, const char *path) {
 #endif
         }
 
-        for (rl = 0; rl < _RLIMIT_MAX; rl ++) {
+        for (rl = 0; rl < _RLIMIT_MAX; rl++) {
                 if ((arg_settings_mask & (SETTING_RLIMIT_FIRST << rl)))
                         continue;
 
@@ -5406,6 +5477,10 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
+        r = pick_paths();
+        if (r < 0)
+                goto finish;
+
         r = determine_names();
         if (r < 0)
                 goto finish;
@@ -5766,9 +5841,8 @@ static int run(int argc, char *argv[]) {
                 goto finish;
 
         if (arg_console_mode < 0)
-                arg_console_mode =
-                        isatty(STDIN_FILENO) > 0 &&
-                        isatty(STDOUT_FILENO) > 0 ? CONSOLE_INTERACTIVE : CONSOLE_READ_ONLY;
+                arg_console_mode = isatty(STDIN_FILENO) && isatty(STDOUT_FILENO) ?
+                                   CONSOLE_INTERACTIVE : CONSOLE_READ_ONLY;
 
         if (arg_console_mode == CONSOLE_PIPE) /* if we pass STDERR on to the container, don't add our own logs into it too */
                 arg_quiet = true;

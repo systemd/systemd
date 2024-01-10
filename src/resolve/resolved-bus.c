@@ -189,6 +189,11 @@ static int reply_query_state(DnsQuery *q) {
                 return sd_bus_reply_method_error(req, &error);
         }
 
+        case DNS_TRANSACTION_UPSTREAM_DNSSEC_FAILURE:
+                return reply_method_errorf(q, BUS_ERROR_DNSSEC_FAILED, "DNSSEC validation failed upstream: %s%s%s",
+                                           dns_ede_rcode_to_string(q->answer_ede_rcode),
+                                           isempty(q->answer_ede_msg) ? "" : ": ", q->answer_ede_msg);
+
         case DNS_TRANSACTION_NULL:
         case DNS_TRANSACTION_PENDING:
         case DNS_TRANSACTION_VALIDATING:
@@ -806,7 +811,7 @@ static int bus_method_resolve_record(sd_bus_message *message, void *userdata, sd
 
         if (!dns_type_is_valid_query(type))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Specified resource record type %" PRIu16 " may not be used in a query.", type);
-        if (dns_type_is_zone_transer(type))
+        if (dns_type_is_zone_transfer(type))
                 return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Zone transfers not permitted via this programming interface.");
         if (dns_type_is_obsolete(type))
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Specified DNS resource record type %" PRIu16 " is obsolete.", type);
@@ -1988,10 +1993,12 @@ static int bus_method_register_service(sd_bus_message *message, void *userdata, 
         if (r < 0)
                 return r;
 
-        r = bus_verify_polkit_async(message, CAP_SYS_ADMIN,
-                                    "org.freedesktop.resolve1.register-service",
-                                    NULL, false, UID_INVALID,
-                                    &m->polkit_registry, error);
+        r = bus_verify_polkit_async(
+                        message,
+                        "org.freedesktop.resolve1.register-service",
+                        /* details= */ NULL,
+                        &m->polkit_registry,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)

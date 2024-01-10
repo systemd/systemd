@@ -35,7 +35,7 @@
 #include "strv.h"
 #include "sync-util.h"
 #include "tmpfile-util-label.h"
-#include "uid-alloc-range.h"
+#include "uid-classification.h"
 #include "uid-range.h"
 #include "user-util.h"
 #include "utf8.h"
@@ -117,7 +117,7 @@ typedef struct Context {
         Set *names;
 
         uid_t search_uid;
-        UidRange *uid_range;
+        UIDRange *uid_range;
 
         UGIDAllocationRange login_defs;
         bool login_defs_need_warning;

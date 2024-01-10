@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 #pragma once
 
-#include "sd-event.h"
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
@@ -136,7 +135,7 @@ static inline int link_queue_request(
                                         ret);                           \
         })
 
-int manager_process_requests(sd_event_source *s, void *userdata);
+int manager_process_requests(Manager *manager);
 int request_call_netlink_async(sd_netlink *nl, sd_netlink_message *m, Request *req);
 
 const char* request_type_to_string(RequestType t) _const_;

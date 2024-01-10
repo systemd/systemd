@@ -3,4 +3,4 @@
 RuntimeMaxSec=5
 Type=notify
 RemainAfterExit=yes
-ExecStart=/bin/sh -c 'systemd-notify --ready; until grep -q -F MARKER_RUNTIME /tmp/testfile-marker-runtime; do sleep 0.1; done; exit 0'
+ExecStart=sh -c 'systemd-notify --ready; until grep -q -F MARKER_RUNTIME /tmp/testfile-marker-runtime; do sleep 0.1; done; exit 0'

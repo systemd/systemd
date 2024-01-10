@@ -5,5 +5,5 @@ Description=Test CAP_MKNOD capability for PrivateDevices=no
 [Service]
 PrivateDevices=no
 # sed: remove dropped (cap_xxx-[epi]) and IAB capabilities from the output
-ExecStart=/bin/sh -x -c 'capsh --print | sed -re "s/[^ ]+?\-[epi]+//g" -e '/IAB/d' | grep cap_mknod'
+ExecStart=sh -x -c 'capsh --print | sed -re "s/[^ ]+?\-[epi]+//g" -e '/IAB/d' | grep cap_mknod'
 Type=oneshot

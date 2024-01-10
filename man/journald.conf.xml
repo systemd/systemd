@@ -1,6 +1,6 @@
 <?xml version='1.0'?> <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="journald.conf"
@@ -387,7 +387,7 @@
         <para>When forwarding to the kernel log buffer (kmsg), make sure to select a suitably large size for
         the log buffer, for example by adding <literal>log_buf_len=8M</literal> to the kernel command line.
         <command>systemd</command> will automatically disable kernel's rate-limiting applied to userspace
-        processes (equivalent to setting <literal>printk.devkmsg=on</literal>).</para></listitem>
+        processes (equivalent to setting <literal>printk.devkmsg=on</literal>).</para>
 
         <para>Note: Forwarding is performed synchronously within journald, and may significantly affect its
         performance.  This is particularly relevant when using ForwardToConsole=yes in cloud environments,
@@ -397,6 +397,7 @@
         journal also becoming blocked.  Unless actively debugging/developing something, it's generally
         preferable to setup a <command>journalctl --follow</command> style service redirected to the
         console, instead of ForwardToConsole=yes, for production use.</para>
+        </listitem>
       </varlistentry>
 
       <varlistentry>
@@ -531,13 +532,13 @@
 
   <refsect1>
       <title>See Also</title>
-      <para>
-        <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
-      </para>
+      <para><simplelist type="inline">
+        <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-journald.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>journalctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd.journal-fields</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+        <member><citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      </simplelist></para>
   </refsect1>
 
 </refentry>

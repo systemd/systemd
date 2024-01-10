@@ -1,6 +1,6 @@
 <?xml version='1.0'?>
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
 <refentry id="portablectl" conditional='ENABLE_PORTABLED'
@@ -155,11 +155,11 @@
         files. This is a convenience feature to allow all arguments passed as <command>attach</command> also to
         <command>detach</command>.</para>
 
-        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
-
         <para>If <option>--now</option> and/or <option>--enable</option> are passed, the portable services are
         immediately stopped (blocking operation) and/or disabled before detaching the image. Prefix(es) are also accepted,
         to be used in case the unit names do not match the image name as described in the <command>attach</command>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -171,11 +171,11 @@
         character has to match. If the new image doesn't exist, the existing one will not be detached. The parameters
         follow the same syntax as the <command>attach</command> command.</para>
 
-        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
-
         <para>If <option>--now</option> and/or <option>--enable</option> are passed, the portable services are
         immediately stopped if removed, started and/or enabled if added, or restarted if updated. Prefixes are also
         accepted, in the same way as described in the <command>attach</command> case.</para>
+
+        <xi:include href="version-info.xml" xpointer="v248"/></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -504,12 +504,12 @@
 
   <refsect1>
     <title>See Also</title>
-    <para>
-      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>org.freedesktop.portable1</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-portabled.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-    </para>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-sysext</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>org.freedesktop.portable1</refentrytitle><manvolnum>5</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-portabled.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+    </simplelist></para>
   </refsect1>
 
 </refentry>

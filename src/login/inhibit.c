@@ -111,7 +111,7 @@ static int print_inhibitors(sd_bus *bus) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        if (table_get_rows(table) > 1) {
+        if (!table_isempty(table)) {
                 r = table_set_sort(table, (size_t) 1, (size_t) 0, (size_t) 5, (size_t) 6);
                 if (r < 0)
                         return table_log_sort_error(r);
@@ -124,10 +124,10 @@ static int print_inhibitors(sd_bus *bus) {
         }
 
         if (arg_legend) {
-                if (table_get_rows(table) > 1)
-                        printf("\n%zu inhibitors listed.\n", table_get_rows(table) - 1);
-                else
+                if (table_isempty(table))
                         printf("No inhibitors.\n");
+                else
+                        printf("\n%zu inhibitors listed.\n", table_get_rows(table) - 1);
         }
 
         return 0;

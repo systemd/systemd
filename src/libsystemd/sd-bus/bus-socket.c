@@ -217,7 +217,7 @@ static int bus_socket_auth_verify_client(sd_bus *b) {
         /* And possibly check the third line, too */
         if (b->accept_fd) {
                 l = lines[i++];
-                b->can_fds = !!memory_startswith(l, lines[i] - l, "AGREE_UNIX_FD");
+                b->can_fds = memory_startswith(l, lines[i] - l, "AGREE_UNIX_FD");
         }
 
         assert(i == n);
@@ -266,7 +266,7 @@ static int verify_anonymous_token(sd_bus *b, const char *p, size_t l) {
         if (l % 2 != 0)
                 return 0;
 
-        r = unhexmem(p, l, (void **) &token, &len);
+        r = unhexmem_full(p, l, /* secure = */ false, (void**) &token, &len);
         if (r < 0)
                 return 0;
 
@@ -298,7 +298,7 @@ static int verify_external_token(sd_bus *b, const char *p, size_t l) {
         if (l % 2 != 0)
                 return 0;
 
-        r = unhexmem(p, l, (void**) &token, &len);
+        r = unhexmem_full(p, l, /* secure = */ false, (void**) &token, &len);
         if (r < 0)
                 return 0;
 

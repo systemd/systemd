@@ -33,7 +33,7 @@
 #include "string-table.h"
 #include "strv.h"
 #include "tmpfile-util.h"
-#include "uid-alloc-range.h"
+#include "uid-classification.h"
 #include "unit-name.h"
 #include "user-util.h"
 
@@ -412,12 +412,14 @@ static int user_update_slice(User *u) {
                 { "IOWeight",   u->user_record->io_weight   },
         };
 
-        for (size_t i = 0; i < ELEMENTSOF(settings); i++)
-                if (settings[i].value != UINT64_MAX) {
-                        r = sd_bus_message_append(m, "(sv)", settings[i].name, "t", settings[i].value);
-                        if (r < 0)
-                                return bus_log_create_error(r);
-                }
+        FOREACH_ARRAY(st, settings, ELEMENTSOF(settings)) {
+                if (st->value == UINT64_MAX)
+                        continue;
+
+                r = sd_bus_message_append(m, "(sv)", st->name, "t", st->value);
+                if (r < 0)
+                        return bus_log_create_error(r);
+        }
 
         r = sd_bus_message_close_container(m);
         if (r < 0)
@@ -779,6 +781,9 @@ static int elect_display_compare(Session *s1, Session *s2) {
 
         if ((s1->class != SESSION_USER) != (s2->class != SESSION_USER))
                 return (s1->class != SESSION_USER) - (s2->class != SESSION_USER);
+
+        if ((s1->class != SESSION_USER_EARLY) != (s2->class != SESSION_USER_EARLY))
+                return (s1->class != SESSION_USER_EARLY) - (s2->class != SESSION_USER_EARLY);
 
         if ((s1->type == _SESSION_TYPE_INVALID) != (s2->type == _SESSION_TYPE_INVALID))
                 return (s1->type == _SESSION_TYPE_INVALID) - (s2->type == _SESSION_TYPE_INVALID);

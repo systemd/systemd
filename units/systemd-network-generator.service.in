@@ -21,6 +21,9 @@ Before=shutdown.target initrd-switch-root.target
 Type=oneshot
 RemainAfterExit=yes
 ExecStart={{LIBEXECDIR}}/systemd-network-generator
+ImportCredential=network.netdev.*
+ImportCredential=network.link.*
+ImportCredential=network.network.*
 
 [Install]
 WantedBy=sysinit.target

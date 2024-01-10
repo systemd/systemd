@@ -201,10 +201,12 @@ static int bus_method_reload(sd_bus_message *message, void *userdata, sd_bus_err
         Manager *manager = userdata;
         int r;
 
-        r = bus_verify_polkit_async(message, CAP_NET_ADMIN,
-                                    "org.freedesktop.network1.reload",
-                                    NULL, true, UID_INVALID,
-                                    &manager->polkit_registry, error);
+        r = bus_verify_polkit_async(
+                        message,
+                        "org.freedesktop.network1.reload",
+                        /* details= */ NULL,
+                        &manager->polkit_registry,
+                        error);
         if (r < 0)
                 return r;
         if (r == 0)

@@ -3,7 +3,7 @@
 Description=Test for RuntimeDirectory owner (must not be the default group of the user if Group is set)
 
 [Service]
-ExecStart=/bin/sh -x -c 'group=$$(stat -c %%G %t/test-exec_runtimedirectory-owner); test "$$group" = "nobody"'
+ExecStart=sh -x -c 'group=$$(stat -c %%G %t/test-exec_runtimedirectory-owner); test "$$group" = "nobody"'
 Type=oneshot
 Group=nobody
 User=root

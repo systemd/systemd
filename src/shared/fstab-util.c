@@ -226,9 +226,9 @@ int fstab_filter_options(
                                 if (IN_SET(*end, ',', '\0'))
                                         break;
                                 assert(*end == '\\');
-                                end ++;                 /* Skip the backslash */
+                                end++;                 /* Skip the backslash */
                                 if (*end != '\0')
-                                        end ++;         /* Skip the escaped char, but watch out for a trailing comma */
+                                        end++;         /* Skip the escaped char, but watch out for a trailing comma */
                         }
 
                         NULSTR_FOREACH(name, names) {

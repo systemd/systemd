@@ -54,7 +54,7 @@ static void test_last_cap_probe(void) {
         unsigned long p = (unsigned long)CAP_LAST_CAP;
 
         if (prctl(PR_CAPBSET_READ, p) < 0) {
-                for (p--; p > 0; p --)
+                for (p--; p > 0; p--)
                         if (prctl(PR_CAPBSET_READ, p) >= 0)
                                 break;
         } else {

@@ -362,7 +362,7 @@ int config_parse_dnssd_txt(
 
                 case DNS_TXT_ITEM_DATA:
                         if (value) {
-                                r = unbase64mem(value, strlen(value), &decoded, &length);
+                                r = unbase64mem(value, &decoded, &length);
                                 if (r == -ENOMEM)
                                         return log_oom();
                                 if (r < 0) {

@@ -249,6 +249,13 @@ All tools:
   devices sysfs path are actually backed by sysfs. Relaxing this verification
   is useful for testing purposes.
 
+* `$SYSTEMD_UDEV_EXTRA_TIMEOUT_SEC=` — Specifies an extra timespan that the
+  udev manager process waits for a worker process kills slow programs specified
+  by IMPORT{program}=, PROGRAM=, or RUN=, and finalizes the processing event.
+  If the worker process cannot finalize the event within the specified timespan,
+  the worker process is killed by the manager process. Defaults to 10 seconds,
+  maximum allowed is 5 hours.
+
 `udevadm` and `systemd-hwdb`:
 
 * `SYSTEMD_HWDB_UPDATE_BYPASS=` — If set to "1", execution of hwdb updates is skipped
@@ -603,3 +610,9 @@ SYSTEMD_HOME_DEBUG_SUFFIX=foo \
   latter two via the environment variable unless `systemd-storagetm` is invoked
   to expose a single device only, since those identifiers better should be kept
   unique.
+
+Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
+`busctl`):
+
+* `$SYSTEMD_SSH` – the ssh binary to invoke when the `ssh:` transport is
+  used. May be a filename (which is searched for in `$PATH`) or absolute path.

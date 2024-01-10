@@ -5,5 +5,5 @@ Description=Daughter Service
 [Service]
 Slice=parent.slice
 Type=oneshot
-ExecStart=/bin/true
+ExecStart=true
 CPUAccounting=true

@@ -136,11 +136,11 @@ int user_record_verify(UserRecord *ur, EVP_PKEY *public_key) {
                         return -EIO;
 
                 if (EVP_DigestVerify(md_ctx, signature, signature_size, (uint8_t*) text, strlen(text)) <= 0) {
-                        n_bad ++;
+                        n_bad++;
                         continue;
                 }
 
-                n_good ++;
+                n_good++;
         }
 
         return n_good > 0 ? (n_bad == 0 ? USER_RECORD_SIGNED_EXCLUSIVE : USER_RECORD_SIGNED) :

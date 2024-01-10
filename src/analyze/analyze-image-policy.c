@@ -94,6 +94,8 @@ int verb_image_policy(int argc, char *argv[], void *userdata) {
                         p = &image_policy_sysext_strict;
                 else if (streq(argv[i], "@confext"))
                         p = &image_policy_confext;
+                else if (streq(argv[i], "@confext-strict"))
+                        p = &image_policy_confext_strict;
                 else if (streq(argv[i], "@container"))
                         p = &image_policy_container;
                 else if (streq(argv[i], "@service"))

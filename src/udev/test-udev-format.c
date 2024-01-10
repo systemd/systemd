@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "mountpoint-util.h"
 #include "string-util.h"
 #include "tests.h"
 #include "udev-format.h"
@@ -34,4 +35,11 @@ TEST(udev_resolve_subsys_kernel) {
         test_udev_resolve_subsys_kernel_one("[net/lo]/address", true, 0, "00:00:00:00:00:00");
 }
 
-DEFINE_TEST_MAIN(LOG_DEBUG);
+static int intro(void) {
+        if (path_is_mount_point("/sys", NULL, 0) <= 0)
+                return log_tests_skipped("/sys is not mounted");
+
+        return EXIT_SUCCESS;
+}
+
+DEFINE_TEST_MAIN_WITH_INTRO(LOG_DEBUG, intro);

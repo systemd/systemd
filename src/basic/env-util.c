@@ -458,6 +458,35 @@ int strv_env_assign(char ***l, const char *key, const char *value) {
         return strv_env_replace_consume(l, p);
 }
 
+int strv_env_assignf(char ***l, const char *key, const char *valuef, ...) {
+        int r;
+
+        assert(l);
+        assert(key);
+
+        if (!env_name_is_valid(key))
+                return -EINVAL;
+
+        if (!valuef) {
+                strv_env_unset(*l, key);
+                return 0;
+        }
+
+        _cleanup_free_ char *value = NULL;
+        va_list ap;
+        va_start(ap, valuef);
+        r = vasprintf(&value, valuef, ap);
+        va_end(ap);
+        if (r < 0)
+                return -ENOMEM;
+
+        char *p = strjoin(key, "=", value);
+        if (!p)
+                return -ENOMEM;
+
+        return strv_env_replace_consume(l, p);
+}
+
 int _strv_env_assign_many(char ***l, ...) {
         va_list ap;
         int r;
@@ -654,7 +683,7 @@ int replace_env_full(
         pu = ret_unset_variables ? &unset_variables : NULL;
         pb = ret_bad_variables ? &bad_variables : NULL;
 
-        for (e = format, i = 0; *e && i < n; e ++, i ++)
+        for (e = format, i = 0; *e && i < n; e++, i++)
                 switch (state) {
 
                 case WORD:
@@ -983,8 +1012,8 @@ int putenv_dup(const char *assignment, bool override) {
 }
 
 int setenv_systemd_exec_pid(bool update_only) {
-        char str[DECIMAL_STR_MAX(pid_t)];
         const char *e;
+        int r;
 
         /* Update $SYSTEMD_EXEC_PID=pid except when '*' is set for the variable. */
 
@@ -995,10 +1024,9 @@ int setenv_systemd_exec_pid(bool update_only) {
         if (streq_ptr(e, "*"))
                 return 0;
 
-        xsprintf(str, PID_FMT, getpid_cached());
-
-        if (setenv("SYSTEMD_EXEC_PID", str, 1) < 0)
-                return -errno;
+        r = setenvf("SYSTEMD_EXEC_PID", /* overwrite= */ 1, PID_FMT, getpid_cached());
+        if (r < 0)
+                return r;
 
         return 1;
 }
@@ -1092,4 +1120,26 @@ int set_full_environment(char **env) {
         }
 
         return 0;
+}
+
+int setenvf(const char *name, bool overwrite, const char *valuef, ...) {
+        _cleanup_free_ char *value = NULL;
+        va_list ap;
+        int r;
+
+        assert(name);
+
+        if (!valuef)
+                return RET_NERRNO(unsetenv(name));
+
+        va_start(ap, valuef);
+        DISABLE_WARNING_FORMAT_NONLITERAL;
+        r = vasprintf(&value, valuef, ap);
+        REENABLE_WARNING;
+        va_end(ap);
+
+        if (r < 0)
+                return -ENOMEM;
+
+        return RET_NERRNO(setenv(name, value, overwrite));
 }

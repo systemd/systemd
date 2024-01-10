@@ -1557,7 +1557,7 @@ int dns_scope_add_dnssd_services(DnsScope *scope) {
 
         assert(scope);
 
-        if (hashmap_size(scope->manager->dnssd_services) == 0)
+        if (hashmap_isempty(scope->manager->dnssd_services))
                 return 0;
 
         scope->announced = false;

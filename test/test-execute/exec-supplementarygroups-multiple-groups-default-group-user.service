@@ -3,9 +3,9 @@
 Description=Test for Supplementary Group with multiple groups without Group and User
 
 [Service]
-ExecStart=/bin/sh -x -c 'for g in $$(id -G); do test "$$g" = "%G" && exit 0; done; exit 1'
-ExecStart=/bin/sh -x -c 'for g in $$(id -G); do test "$$g" = "1" && exit 0; done; exit 1'
-ExecStart=/bin/sh -x -c 'for g in $$(id -G); do test "$$g" = "2" && exit 0; done; exit 1'
-ExecStart=/bin/sh -x -c 'test "$$(id -g)" = "%G" && test "$$(id -u)" = "%U"'
+ExecStart=sh -x -c 'for g in $$(id -G); do test "$$g" = "%G" && exit 0; done; exit 1'
+ExecStart=sh -x -c 'for g in $$(id -G); do test "$$g" = "1" && exit 0; done; exit 1'
+ExecStart=sh -x -c 'for g in $$(id -G); do test "$$g" = "2" && exit 0; done; exit 1'
+ExecStart=sh -x -c 'test "$$(id -g)" = "%G" && test "$$(id -u)" = "%U"'
 Type=oneshot
 SupplementaryGroups=1 2

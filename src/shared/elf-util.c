@@ -348,7 +348,7 @@ static int parse_package_metadata(const char *name, JsonVariant *id_json, Elf *e
 
                 /* Package metadata is in PT_NOTE headers. */
                 program_header = sym_gelf_getphdr(elf, i, &mem);
-                if (!program_header || (program_header->p_type != PT_NOTE && program_header->p_type != PT_INTERP))
+                if (!program_header || !IN_SET(program_header->p_type, PT_NOTE, PT_INTERP))
                         continue;
 
                 if (program_header->p_type == PT_INTERP) {

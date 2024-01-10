@@ -10,13 +10,17 @@ EXCLUDED_PATHS=(
     # Symlinked to test-bus-vtable-cc.cc, which causes issues with the IN_SET macro
     "src/libsystemd/sd-bus/test-bus-vtable.c"
     "src/libsystemd/sd-journal/lookup3.c"
+    # Ignore man examples, as they redefine some macros we use internally, which makes Coccinelle complain
+    # and ignore code that tries to use the redefined stuff
+    "man/*"
 )
 
 TOP_DIR="$(git rev-parse --show-toplevel)"
+CACHE_DIR="$(dirname "$0")/.coccinelle-cache"
 ARGS=()
 
 # Create an array from files tracked by git...
-mapfile -t FILES < <(git ls-files ':/*.[ch]')
+mapfile -t FILES < <(git ls-files ':/*.c')
 # ...and filter everything that matches patterns from EXCLUDED_PATHS
 for excl in "${EXCLUDED_PATHS[@]}"; do
     # shellcheck disable=SC2206
@@ -37,12 +41,45 @@ fi
 
 [[ ${#@} -ne 0 ]] && SCRIPTS=("$@") || SCRIPTS=("$TOP_DIR"/coccinelle/*.cocci)
 
+mkdir -p "$CACHE_DIR"
+echo "--x-- Using Coccinelle cache directory: $CACHE_DIR"
+echo
+
 for script in "${SCRIPTS[@]}"; do
     echo "--x-- Processing $script --x--"
     TMPFILE="$(mktemp)"
     echo "+ spatch --sp-file $script ${ARGS[*]} ..."
-    parallel --halt now,fail=1 --keep-order --noswap --max-args=20 \
-             spatch --macro-file="$TOP_DIR/coccinelle/macros.h" --smpl-spacing --sp-file "$script" "${ARGS[@]}" ::: "${FILES[@]}" \
-             2>"$TMPFILE" || cat "$TMPFILE"
+    # A couple of notes:
+    #
+    # 1) Limit this to 10 files at once, as processing the ASTs is _very_ memory hungry - e.g. with 20 files
+    #    at once one spatch process can take around 2.5 GiB of RAM, which can easily eat up all available RAM
+    #    when paired together with parallel
+    #
+    # 2) Make sure spatch can find our includes via -I <dir>, similarly as we do when compiling stuff.
+    #    Also, include the system include path as well, since we're not kernel and we make use of the stdlib
+    #    (and other libraries).
+    #
+    # 3) Make sure to include includes from includes (--recursive-includes), but use them only to get type
+    #    definitions (--include-headers-for-types) - otherwise we'd start formatting them as well, which might
+    #    be unwanted, especially for includes we fetch verbatim from third-parties
+    #
+    # 4) Explicitly undefine the SD_BOOT symbol, so Coccinelle ignores includes guarded by #if SD_BOOT
+    #
+    # 5) Use cache, since generating the full AST is expensive. With cache we can do that only once and then
+    #    reuse the cached ASTs for other rules. This cuts down the time needed to run each rule by ~60%.
+    parallel --halt now,fail=1 --keep-order --noswap --max-args=10 \
+        spatch --cache-prefix "$CACHE_DIR" \
+               -I src \
+               -I /usr/include \
+               --recursive-includes \
+               --include-headers-for-types \
+               --undefined SD_BOOT \
+               --undefined ENABLE_DEBUG_HASHMAP \
+               --macro-file-builtins "coccinelle/parsing_hacks.h" \
+               --smpl-spacing \
+               --sp-file "$script" \
+               "${ARGS[@]}" ::: "${FILES[@]}" \
+               2>"$TMPFILE" || cat "$TMPFILE"
+    rm -f "$TMPFILE"
     echo -e "--x-- Processed $script --x--\n"
 done

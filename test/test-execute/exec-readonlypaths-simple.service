@@ -7,6 +7,6 @@ Type=oneshot
 # This should work, as we explicitly disable the effect of ReadOnlyPaths=
 ExecStart=+/bin/sh -c 'touch /tmp/thisisasimpletest'
 # This should also work, as we do not disable the effect of ReadOnlyPaths= but invert the exit code
-ExecStart=/bin/sh -x -c '! touch /tmp/thisisasimpletest'
+ExecStart=sh -x -c '! touch /tmp/thisisasimpletest'
 ExecStart=+/bin/sh -c 'rm /tmp/thisisasimpletest'
 ReadOnlyPaths=/tmp

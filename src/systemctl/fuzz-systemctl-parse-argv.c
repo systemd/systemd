@@ -49,7 +49,11 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size) {
                 opterr = 0; /* do not print errors */
         }
 
+        /* We need to reset some global state manually here since libfuzzer feeds a single process with
+         * multiple inputs, so we might carry over state from previous invocations that can trigger
+         * certain asserts. */
         optind = 0; /* this tells the getopt machinery to reinitialize */
+        arg_transport = BUS_TRANSPORT_LOCAL;
 
         r = systemctl_dispatch_parse_argv(strv_length(argv), argv);
         if (r < 0)

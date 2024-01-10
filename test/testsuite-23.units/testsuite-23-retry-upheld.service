@@ -7,4 +7,4 @@ After=testsuite-23-retry-fail.service
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-ExecStart=/bin/echo ok
+ExecStart=echo ok

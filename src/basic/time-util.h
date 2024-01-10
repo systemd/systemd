@@ -219,6 +219,9 @@ static inline int usleep_safe(usec_t usec) {
          * ⚠️ Note we are not using plain nanosleep() here, since that operates on CLOCK_REALTIME, not
          *    CLOCK_MONOTONIC! */
 
+        if (usec == 0)
+                return 0;
+
         // FIXME: use RET_NERRNO() macro here. Currently, this header cannot include errno-util.h.
         return clock_nanosleep(CLOCK_MONOTONIC, 0, TIMESPEC_STORE(usec), NULL) < 0 ? -errno : 0;
 }

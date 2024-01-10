@@ -3,6 +3,6 @@
 Description=Test for Personality=x86
 
 [Service]
-ExecStart=/bin/sh -x -c 'c=$$(uname -m); test "$$c" = "i686" -o "$$c" = "x86_64"'
+ExecStart=sh -x -c 'c=$$(uname -m); test "$$c" = "i686" -o "$$c" = "x86_64"'
 Type=oneshot
 Personality=x86

@@ -4,4 +4,4 @@ Description=Succeeding unit
 OnSuccess=testsuite-23-fail.service
 
 [Service]
-ExecStart=/bin/true
+ExecStart=true

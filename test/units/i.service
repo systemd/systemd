@@ -6,4 +6,4 @@ Wants=b.service
 After=b.service
 
 [Service]
-ExecStart=/bin/true
+ExecStart=true

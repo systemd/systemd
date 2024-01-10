@@ -144,6 +144,12 @@ static inline TableCell* TABLE_HEADER_CELL(size_t i) {
 }
 
 size_t table_get_rows(Table *t);
+static inline bool table_isempty(Table *t) {
+        if (!t)
+                return true;
+
+        return table_get_rows(t) <= 1;
+}
 size_t table_get_columns(Table *t);
 
 size_t table_get_current_column(Table *t);

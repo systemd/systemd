@@ -559,7 +559,7 @@ static int _json_variant_array_put_element(JsonVariant *array, JsonVariant *elem
                 return -ELNRNG;
         if (d >= array->depth)
                 array->depth = d + 1;
-        array->n_elements ++;
+        array->n_elements++;
 
         *w = (JsonVariant) {
                 .is_embedded = true,
@@ -1771,6 +1771,25 @@ static int json_format(FILE *f, JsonVariant *v, JsonFormatFlags flags, const cha
         return 0;
 }
 
+static bool json_variant_is_sensitive_recursive(JsonVariant *v) {
+        if (!v)
+                return false;
+        if (json_variant_is_sensitive(v))
+                return true;
+        if (!json_variant_is_regular(v))
+                return false;
+        if (!IN_SET(v->type, JSON_VARIANT_ARRAY, JSON_VARIANT_OBJECT))
+                return false;
+        if (v->is_reference)
+                return json_variant_is_sensitive_recursive(v->reference);
+
+        for (size_t i = 0; i < json_variant_elements(v); i++)
+                if (json_variant_is_sensitive_recursive(json_variant_by_index(v, i)))
+                        return true;
+
+        return false;
+}
+
 int json_variant_format(JsonVariant *v, JsonFormatFlags flags, char **ret) {
         _cleanup_(memstream_done) MemStream m = {};
         size_t sz;
@@ -1785,6 +1804,10 @@ int json_variant_format(JsonVariant *v, JsonFormatFlags flags, char **ret) {
 
         if (flags & JSON_FORMAT_OFF)
                 return -ENOEXEC;
+
+        if ((flags & JSON_FORMAT_REFUSE_SENSITIVE))
+                if (json_variant_is_sensitive_recursive(v))
+                        return -EPERM;
 
         f = memstream_init(&m);
         if (!f)
@@ -2310,7 +2333,7 @@ static int json_variant_copy(JsonVariant **nv, JsonVariant *v) {
                 source = json_variant_string(v);
                 k = strnlen(source, INLINE_STRING_MAX + 1);
                 if (k <= INLINE_STRING_MAX) {
-                        k ++;
+                        k++;
                         break;
                 }
 
@@ -2594,7 +2617,7 @@ static int json_parse_string(const char **p, char **ret) {
                                 return -ENOMEM;
 
                         s[n++] = ch;
-                        c ++;
+                        c++;
                         continue;
                 }
 
@@ -3790,7 +3813,8 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                         break;
                 }
 
-                case _JSON_BUILD_IOVEC_BASE64: {
+                case _JSON_BUILD_IOVEC_BASE64:
+                case _JSON_BUILD_IOVEC_HEX: {
                         const struct iovec *iov;
 
                         if (!IN_SET(current->expect, EXPECT_TOPLEVEL, EXPECT_OBJECT_VALUE, EXPECT_ARRAY_ELEMENT)) {
@@ -3798,10 +3822,14 @@ int json_buildv(JsonVariant **ret, va_list ap) {
                                 goto finish;
                         }
 
-                        iov = ASSERT_PTR(va_arg(ap, const struct iovec*));
+                        iov = va_arg(ap, const struct iovec*);
 
                         if (current->n_suppress == 0) {
-                                r = json_variant_new_base64(&add, iov->iov_base, iov->iov_len);
+                                if (iov)
+                                        r = command == _JSON_BUILD_IOVEC_BASE64 ? json_variant_new_base64(&add, iov->iov_base, iov->iov_len) :
+                                                                                  json_variant_new_hex(&add, iov->iov_base, iov->iov_len);
+                                else
+                                        r = json_variant_new_string(&add, "");
                                 if (r < 0)
                                         goto finish;
                         }
@@ -4574,7 +4602,7 @@ int json_dispatch_full(
                                 }
                         }
 
-                        done ++;
+                        done++;
 
                 } else { /* Didn't find a matching entry! ☹️ */
 
@@ -4589,11 +4617,15 @@ int json_dispatch_full(
 
                                         return r;
                                 } else
-                                        done ++;
+                                        done++;
 
                         } else  {
-                                json_log(value, flags, 0, "Unexpected object field '%s'.", json_variant_string(key));
+                                if (flags & JSON_ALLOW_EXTENSIONS) {
+                                        json_log(value, flags, 0, "Unrecognized object field '%s', assuming extension.", json_variant_string(key));
+                                        continue;
+                                }
 
+                                json_log(value, flags, 0, "Unexpected object field '%s'.", json_variant_string(key));
                                 if (flags & JSON_PERMISSIVE)
                                         continue;
 
@@ -5107,14 +5139,14 @@ int json_variant_unbase64(JsonVariant *v, void **ret, size_t *ret_size) {
         if (!json_variant_is_string(v))
                 return -EINVAL;
 
-        return unbase64mem(json_variant_string(v), SIZE_MAX, ret, ret_size);
+        return unbase64mem(json_variant_string(v), ret, ret_size);
 }
 
 int json_variant_unhex(JsonVariant *v, void **ret, size_t *ret_size) {
         if (!json_variant_is_string(v))
                 return -EINVAL;
 
-        return unhexmem(json_variant_string(v), SIZE_MAX, ret, ret_size);
+        return unhexmem(json_variant_string(v), ret, ret_size);
 }
 
 static const char* const json_variant_type_table[_JSON_VARIANT_TYPE_MAX] = {

@@ -80,13 +80,13 @@ cat <<EOF >/run/systemd/system/wait2.service
 [Unit]
 Description=Wait for 2 seconds
 [Service]
-ExecStart=/bin/sh -ec 'sleep 2'
+ExecStart=sh -ec 'sleep 2'
 EOF
 cat <<EOF >/run/systemd/system/wait5fail.service
 [Unit]
 Description=Wait for 5 seconds and fail
 [Service]
-ExecStart=/bin/sh -ec 'sleep 5; false'
+ExecStart=sh -ec 'sleep 5; false'
 EOF
 
 # wait2 succeeds

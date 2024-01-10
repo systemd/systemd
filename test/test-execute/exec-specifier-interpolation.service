@@ -4,4 +4,4 @@ Description=https://github.com/systemd/systemd/issues/2637
 
 [Service]
 Type=oneshot
-ExecStart=/bin/bash -x -c "[[ %%U == ?U ]]"
+ExecStart=bash -x -c "[[ %%U == ?U ]]"

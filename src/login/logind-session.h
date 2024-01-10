@@ -20,13 +20,18 @@ typedef enum SessionState {
 } SessionState;
 
 typedef enum SessionClass {
-        SESSION_USER,
-        SESSION_GREETER,
-        SESSION_LOCK_SCREEN,
-        SESSION_BACKGROUND,
+        SESSION_USER,               /* A regular user session */
+        SESSION_USER_EARLY,         /* A user session, that is not ordered after systemd-user-sessions.service (i.e. for root) */
+        SESSION_GREETER,            /* A login greeter pseudo-session */
+        SESSION_LOCK_SCREEN,        /* A lock screen */
+        SESSION_BACKGROUND,         /* Things like cron jobs, which are non-interactive */
         _SESSION_CLASS_MAX,
         _SESSION_CLASS_INVALID = -EINVAL,
 } SessionClass;
+
+/* Whether we shall allow sessions of this class to run before 'systemd-user-sessions.service'. For now,
+ * there's only one class we allow this for. It's generally set for root sessions, but no one else. */
+#define SESSION_CLASS_IS_EARLY(class) ((class) == SESSION_USER_EARLY)
 
 typedef enum SessionType {
         SESSION_UNSPECIFIED,
@@ -89,6 +94,8 @@ struct Session {
         int vtfd;
 
         PidRef leader;
+        bool leader_fd_saved; /* pidfd of leader uploaded to fdstore */
+        pid_t deserialized_pid; /* PID deserialized from state file (for verification when pidfd is used) */
         uint32_t audit_id;
 
         int fifo_fd;
@@ -144,7 +151,6 @@ void session_set_type(Session *s, SessionType t);
 int session_set_display(Session *s, const char *display);
 int session_set_tty(Session *s, const char *tty);
 int session_create_fifo(Session *s);
-int session_watch_pidfd(Session *s);
 int session_start(Session *s, sd_bus_message *properties, sd_bus_error *error);
 int session_stop(Session *s, bool force);
 int session_finalize(Session *s);

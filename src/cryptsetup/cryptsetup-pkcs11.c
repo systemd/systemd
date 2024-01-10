@@ -154,7 +154,7 @@ int find_pkcs11_auto_data(
 
                 assert(!key);
                 assert(key_size == 0);
-                r = unbase64mem(json_variant_string(w), SIZE_MAX, &key, &key_size);
+                r = unbase64mem(json_variant_string(w), &key, &key_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode base64 encoded key.");
         }

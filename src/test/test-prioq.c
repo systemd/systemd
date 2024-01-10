@@ -54,7 +54,7 @@ static int test_compare(const struct test *x, const struct test *y) {
 }
 
 static void test_hash(const struct test *x, struct siphash *state) {
-        siphash24_compress(&x->value, sizeof(x->value), state);
+        siphash24_compress_typesafe(x->value, state);
 }
 
 DEFINE_PRIVATE_HASH_OPS(test_hash_ops, struct test, test_hash, test_compare);

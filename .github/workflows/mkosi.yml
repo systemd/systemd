@@ -76,21 +76,31 @@ jobs:
 
     steps:
     - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11
-    - uses: systemd/mkosi@bbe715f42911f9660712377a5b39335b9391ae22
+    - uses: systemd/mkosi@dbce89aabda438ba58080366631b2c242e365f21
 
     - name: Configure
       run: |
-        tee mkosi.local.conf <<- EOF
+        tee mkosi.local.conf <<EOF
         [Distribution]
         Distribution=${{ matrix.distro }}
         Release=${{ matrix.release }}
-        EOF
 
-        tee mkosi.conf.d/99-ci.conf <<- EOF
         [Content]
         Environment=CI_BUILD=1
                     SLOW_TESTS=true
 
+        [Host]
+        ToolsTree=default
+        ToolsTreeDistribution=fedora
+        QemuVsock=yes
+        # Sometimes we run on a host with /dev/kvm, but it is broken, so explicitly disable it
+        QemuKvm=no
+        Ephemeral=yes
+        EOF
+
+        # These should override the options from mkosi.conf so we put them in a dropin that's ordered later
+        # instead.
+        tee mkosi.conf.d/99-ci.conf <<EOF
         [Host]
         KernelCommandLineExtra=systemd.unit=mkosi-check-and-shutdown.service
                                systemd.journald.max_level_console=debug
@@ -98,17 +108,13 @@ jobs:
                                udev.log_level=info
                                # Root device can take a long time to appear, so let's bump the timeout.
                                systemd.default_device_timeout_sec=180
-        QemuVsock=yes
-        # Sometimes we run on a host with /dev/kvm, but it is broken, so explicitly disable it
-        QemuKvm=no
-        Ephemeral=yes
         EOF
 
         # For erofs, we have to install linux-modules-extra-azure, but that doesn't match the running kernel
         # version, so we can't load the erofs module. squashfs is a builtin module so we use that instead.
 
         mkdir -p mkosi.images/system/mkosi.repart/10-usr.conf.d
-        tee mkosi.images/system/mkosi.repart/10-usr.conf.d/squashfs.conf <<- EOF
+        tee mkosi.images/system/mkosi.repart/10-usr.conf.d/squashfs.conf <<EOF
         [Partition]
         Format=squashfs
         EOF
@@ -117,7 +123,7 @@ jobs:
         # eventually times out. Override it to just shutdown immediately.
         mkdir -p mkosi.images/initrd/mkosi.extra/usr/lib/systemd/system/emergency.service.d/
         mkdir -p mkosi.images/system/mkosi.extra/usr/lib/systemd/system/emergency.service.d/
-        tee mkosi.images/initrd/mkosi.extra/usr/lib/systemd/system/emergency.service.d/poweroff.conf <<- EOF
+        tee mkosi.images/initrd/mkosi.extra/usr/lib/systemd/system/emergency.service.d/poweroff.conf <<EOF
         [Unit]
         FailureAction=exit
         [Service]

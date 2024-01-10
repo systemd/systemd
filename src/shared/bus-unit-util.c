@@ -1213,7 +1213,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                                 _cleanup_free_ void *decoded = NULL;
                                 size_t decoded_size;
 
-                                r = unbase64mem(p, SIZE_MAX, &decoded, &decoded_size);
+                                r = unbase64mem(p, &decoded, &decoded_size);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to base64 decode encrypted credential: %m");
 
@@ -1400,7 +1400,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                 _cleanup_free_ void *decoded = NULL;
                 size_t sz;
 
-                r = unbase64mem(eq, SIZE_MAX, &decoded, &sz);
+                r = unbase64mem(eq, &decoded, &sz);
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode base64 data '%s': %m", eq);
 
@@ -1787,7 +1787,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         return bus_append_string(m, "RootHashPath", eq);
 
                 /* We have a roothash to decode, eg: RootHash=012345789abcdef */
-                r = unhexmem(eq, strlen(eq), &roothash_decoded, &roothash_decoded_size);
+                r = unhexmem(eq, &roothash_decoded, &roothash_decoded_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode RootHash= '%s': %m", eq);
                 if (roothash_decoded_size < sizeof(sd_id128_t))
@@ -1809,7 +1809,7 @@ static int bus_append_execute_property(sd_bus_message *m, const char *field, con
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to decode RootHashSignature= '%s', not a path but doesn't start with 'base64:': %m", eq);
 
                 /* We have a roothash signature to decode, eg: RootHashSignature=base64:012345789abcdef */
-                r = unbase64mem(value, strlen(value), &roothash_sig_decoded, &roothash_sig_decoded_size);
+                r = unbase64mem(value, &roothash_sig_decoded, &roothash_sig_decoded_size);
                 if (r < 0)
                         return log_error_errno(r, "Failed to decode RootHashSignature= '%s': %m", eq);
 

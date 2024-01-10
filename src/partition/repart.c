@@ -2908,12 +2908,13 @@ static int context_dump_partitions(Context *context) {
         return table_print_with_pager(t, arg_json_format_flags, arg_pager_flags, arg_legend);
 }
 
-static void context_bar_char_process_partition(
+static int context_bar_char_process_partition(
                 Context *context,
                 Partition *bar[],
                 size_t n,
                 Partition *p,
-                size_t *ret_start) {
+                size_t **start_array,
+                size_t *n_start_array) {
 
         uint64_t from, to, total;
         size_t x, y;
@@ -2922,9 +2923,11 @@ static void context_bar_char_process_partition(
         assert(bar);
         assert(n > 0);
         assert(p);
+        assert(start_array);
+        assert(n_start_array);
 
         if (p->dropped)
-                return;
+                return 0;
 
         assert(p->offset != UINT64_MAX);
         assert(p->new_size != UINT64_MAX);
@@ -2947,7 +2950,10 @@ static void context_bar_char_process_partition(
         for (size_t i = x; i < y; i++)
                 bar[i] = p;
 
-        *ret_start = x;
+        if (!GREEDY_REALLOC_APPEND(*start_array, *n_start_array, &x, 1))
+                return log_oom();
+
+        return 1;
 }
 
 static int partition_hint(const Partition *p, const char *node, char **ret) {
@@ -2991,9 +2997,11 @@ done:
 static int context_dump_partition_bar(Context *context) {
         _cleanup_free_ Partition **bar = NULL;
         _cleanup_free_ size_t *start_array = NULL;
+        size_t n_start_array = 0;
         Partition *last = NULL;
         bool z = false;
         size_t c, j = 0;
+        int r;
 
         assert_se((c = columns()) >= 2);
         c -= 2; /* We do not use the leftmost and rightmost character cell */
@@ -3002,12 +3010,11 @@ static int context_dump_partition_bar(Context *context) {
         if (!bar)
                 return log_oom();
 
-        start_array = new(size_t, context->n_partitions);
-        if (!start_array)
-                return log_oom();
-
-        LIST_FOREACH(partitions, p, context->partitions)
-                context_bar_char_process_partition(context, bar, c, p, start_array + j++);
+        LIST_FOREACH(partitions, p, context->partitions) {
+                r = context_bar_char_process_partition(context, bar, c, p, &start_array, &n_start_array);
+                if (r < 0)
+                        return r;
+        }
 
         putc(' ', stdout);
 
@@ -3029,7 +3036,7 @@ static int context_dump_partition_bar(Context *context) {
         fputs(ansi_normal(), stdout);
         putc('\n', stdout);
 
-        for (size_t i = 0; i < context->n_partitions; i++) {
+        for (size_t i = 0; i < n_start_array; i++) {
                 _cleanup_free_ char **line = NULL;
 
                 line = new0(char*, c);
@@ -3039,9 +3046,13 @@ static int context_dump_partition_bar(Context *context) {
                 j = 0;
                 LIST_FOREACH(partitions, p, context->partitions) {
                         _cleanup_free_ char *d = NULL;
+
+                        if (p->dropped)
+                                continue;
+
                         j++;
 
-                        if (i < context->n_partitions - j) {
+                        if (i < n_start_array - j) {
 
                                 if (line[start_array[j-1]]) {
                                         const char *e;
@@ -3061,7 +3072,7 @@ static int context_dump_partition_bar(Context *context) {
                                                 return log_oom();
                                 }
 
-                        } else if (i == context->n_partitions - j) {
+                        } else if (i == n_start_array - j) {
                                 _cleanup_free_ char *hint = NULL;
 
                                 (void) partition_hint(p, context->node, &hint);
@@ -3774,17 +3785,15 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
 
         if (IN_SET(p->encrypt, ENCRYPT_TPM2, ENCRYPT_KEY_FILE_TPM2)) {
 #if HAVE_TPM2
+                _cleanup_(iovec_done) struct iovec pubkey = {}, blob = {}, srk = {};
+                _cleanup_(iovec_done_erase) struct iovec secret = {};
                 _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
-                _cleanup_(erase_and_freep) void *secret = NULL;
-                _cleanup_free_ void *pubkey = NULL;
-                _cleanup_free_ void *blob = NULL, *srk_buf = NULL;
-                size_t secret_size, blob_size, pubkey_size = 0, srk_buf_size = 0;
                 ssize_t base64_encoded_size;
                 int keyslot;
                 TPM2Flags flags = 0;
 
                 if (arg_tpm2_public_key_pcr_mask != 0) {
-                        r = tpm2_load_pcr_public_key(arg_tpm2_public_key, &pubkey, &pubkey_size);
+                        r = tpm2_load_pcr_public_key(arg_tpm2_public_key, &pubkey.iov_base, &pubkey.iov_len);
                         if (r < 0) {
                                 if (arg_tpm2_public_key || r != -ENOENT)
                                         return log_error_errno(r, "Failed to read TPM PCR public key: %m");
@@ -3795,8 +3804,8 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 }
 
                 TPM2B_PUBLIC public;
-                if (pubkey) {
-                        r = tpm2_tpm2b_public_from_pem(pubkey, pubkey_size, &public);
+                if (iovec_is_set(&pubkey)) {
+                        r = tpm2_tpm2b_public_from_pem(pubkey.iov_base, pubkey.iov_len, &public);
                         if (r < 0)
                                 return log_error_errno(r, "Could not convert public key to TPM2B_PUBLIC: %m");
                 }
@@ -3853,7 +3862,7 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                 r = tpm2_calculate_sealing_policy(
                                 arg_tpm2_hash_pcr_values,
                                 arg_tpm2_n_hash_pcr_values,
-                                pubkey ? &public : NULL,
+                                iovec_is_set(&pubkey) ? &public : NULL,
                                 /* use_pin= */ false,
                                 arg_tpm2_pcrlock ? &pcrlock_policy : NULL,
                                 &policy);
@@ -3865,25 +3874,25 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                         arg_tpm2_seal_key_handle,
                                         &device_key_public,
                                         /* attributes= */ NULL,
-                                        /* secret= */ NULL, /* secret_size= */ 0,
+                                        /* secret= */ NULL,
                                         &policy,
                                         /* pin= */ NULL,
-                                        &secret, &secret_size,
-                                        &blob, &blob_size,
-                                        &srk_buf, &srk_buf_size);
+                                        &secret,
+                                        &blob,
+                                        &srk);
                 else
                         r = tpm2_seal(tpm2_context,
                                       arg_tpm2_seal_key_handle,
                                       &policy,
                                       /* pin= */ NULL,
-                                      &secret, &secret_size,
-                                      &blob, &blob_size,
+                                      &secret,
+                                      &blob,
                                       /* ret_primary_alg= */ NULL,
-                                      &srk_buf, &srk_buf_size);
+                                      &srk);
                 if (r < 0)
                         return log_error_errno(r, "Failed to seal to TPM2: %m");
 
-                base64_encoded_size = base64mem(secret, secret_size, &base64_encoded);
+                base64_encoded_size = base64mem(secret.iov_base, secret.iov_len, &base64_encoded);
                 if (base64_encoded_size < 0)
                         return log_error_errno(base64_encoded_size, "Failed to base64 encode secret key: %m");
 
@@ -3905,13 +3914,13 @@ static int partition_encrypt(Context *context, Partition *p, PartitionTarget *ta
                                 keyslot,
                                 hash_pcr_mask,
                                 hash_pcr_bank,
-                                pubkey, pubkey_size,
+                                &pubkey,
                                 arg_tpm2_public_key_pcr_mask,
                                 /* primary_alg= */ 0,
-                                blob, blob_size,
-                                policy.buffer, policy.size,
-                                NULL, 0, /* no salt because tpm2_seal has no pin */
-                                srk_buf, srk_buf_size,
+                                &blob,
+                                &IOVEC_MAKE(policy.buffer, policy.size),
+                                /* salt= */ NULL, /* no salt because tpm2_seal has no pin */
+                                &srk,
                                 flags,
                                 &v);
                 if (r < 0)
@@ -4172,8 +4181,7 @@ static int sign_verity_roothash(
                 return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to convert PKCS7 signature to DER: %s",
                                        ERR_error_string(ERR_get_error(), NULL));
 
-        ret_signature->iov_base = TAKE_PTR(sig);
-        ret_signature->iov_len = sigsz;
+        *ret_signature = IOVEC_MAKE(TAKE_PTR(sig), sigsz);
 
         return 0;
 #else

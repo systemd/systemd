@@ -4,6 +4,6 @@ Name=wg97
 Kind=wireguard
 
 [WireGuard]
-PrivateKey=EEGlnEPYJV//kbvvIqxKkQwOiS+UENyPncC4bF46ong=
+#PrivateKey=EEGlnEPYJV//kbvvIqxKkQwOiS+UENyPncC4bF46ong=
 ListenPort=51821
 FwMark=1235

@@ -51,7 +51,7 @@
 #include "strv.h"
 #include "sync-util.h"
 #include "tmpfile-util.h"
-#include "uid-alloc-range.h"
+#include "uid-classification.h"
 #include "user-util.h"
 
 /* The maximum size up to which we process coredumps. We use 1G on 32-bit systems, and 32G on 64-bit systems */
@@ -1479,7 +1479,7 @@ static int forward_coredump_to_container(Context *context) {
                         char buf[DECIMAL_STR_MAX(pid_t)];
                         const char *t = context->meta[i];
 
-                        switch(i) {
+                        switch (i) {
 
                         case META_ARGV_PID:
                                 xsprintf(buf, PID_FMT, ucred.pid);

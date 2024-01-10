@@ -274,10 +274,8 @@ int network_verify(Network *network) {
                 network->ignore_carrier_loss_usec = USEC_INFINITY;
         }
 
-        if (!network->ignore_carrier_loss_set) {
-                network->ignore_carrier_loss_set = true;
+        if (!network->ignore_carrier_loss_set) /* Set implied default. */
                 network->ignore_carrier_loss_usec = network->configure_without_carrier ? USEC_INFINITY : 0;
-        }
 
         if (IN_SET(network->activation_policy, ACTIVATION_POLICY_DOWN, ACTIVATION_POLICY_ALWAYS_DOWN, ACTIVATION_POLICY_MANUAL)) {
                 if (network->required_for_online < 0 ||
@@ -306,7 +304,9 @@ int network_verify(Network *network) {
         if (r < 0)
                 return r; /* network_drop_invalid_addresses() logs internally. */
         network_drop_invalid_routes(network);
-        network_drop_invalid_nexthops(network);
+        r = network_drop_invalid_nexthops(network);
+        if (r < 0)
+                return r;
         network_drop_invalid_bridge_fdb_entries(network);
         network_drop_invalid_bridge_mdb_entries(network);
         r = network_drop_invalid_neighbors(network);
@@ -471,6 +471,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .ipv6_dad_transmits = -1,
                 .ipv6_proxy_ndp = -1,
                 .proxy_arp = -1,
+                .proxy_arp_pvlan = -1,
                 .ipv4_rp_filter = _IP_REVERSE_PATH_FILTER_INVALID,
 
                 .ipv6_accept_ra = -1,
@@ -635,7 +636,15 @@ int network_reload(Manager *manager) {
         ordered_hashmap_free_with_destructor(manager->networks, network_unref);
         manager->networks = new_networks;
 
-        return manager_build_dhcp_pd_subnet_ids(manager);
+        r = manager_build_dhcp_pd_subnet_ids(manager);
+        if (r < 0)
+                return r;
+
+        r = manager_build_nexthop_ids(manager);
+        if (r < 0)
+                return r;
+
+        return 0;
 
 failure:
         ordered_hashmap_free_with_destructor(new_networks, network_unref);
@@ -774,7 +783,7 @@ static Network *network_free(Network *network) {
         set_free_free(network->ipv6_proxy_ndp_addresses);
         ordered_hashmap_free_with_destructor(network->addresses_by_section, address_free);
         hashmap_free_with_destructor(network->routes_by_section, route_free);
-        hashmap_free_with_destructor(network->nexthops_by_section, nexthop_free);
+        ordered_hashmap_free_with_destructor(network->nexthops_by_section, nexthop_free);
         hashmap_free_with_destructor(network->bridge_fdb_entries_by_section, bridge_fdb_free);
         hashmap_free_with_destructor(network->bridge_mdb_entries_by_section, bridge_mdb_free);
         ordered_hashmap_free_with_destructor(network->neighbors_by_section, neighbor_free);

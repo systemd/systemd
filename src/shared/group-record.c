@@ -2,7 +2,7 @@
 
 #include "group-record.h"
 #include "strv.h"
-#include "uid-alloc-range.h"
+#include "uid-classification.h"
 #include "user-util.h"
 
 GroupRecord* group_record_new(void) {
@@ -230,7 +230,7 @@ int group_record_load(
         if (r < 0)
                 return r;
 
-        r = json_dispatch(h->json, group_dispatch_table, json_flags, h);
+        r = json_dispatch(h->json, group_dispatch_table, json_flags | JSON_ALLOW_EXTENSIONS, h);
         if (r < 0)
                 return r;
 

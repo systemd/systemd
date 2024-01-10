@@ -79,6 +79,7 @@ TEST_RET(test_image_policy_to_string) {
         test_policy(&image_policy_sysext, "sysext");
         test_policy(&image_policy_sysext_strict, "sysext-strict");
         test_policy(&image_policy_confext, "confext");
+        test_policy(&image_policy_confext_strict, "confext-strict");
         test_policy(&image_policy_container, "container");
         test_policy(&image_policy_host, "host");
         test_policy(&image_policy_service, "service");

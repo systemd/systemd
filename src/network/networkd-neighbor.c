@@ -90,7 +90,7 @@ static int neighbor_dup(const Neighbor *neighbor, Neighbor **ret) {
 static void neighbor_hash_func(const Neighbor *neighbor, struct siphash *state) {
         assert(neighbor);
 
-        siphash24_compress(&neighbor->family, sizeof(neighbor->family), state);
+        siphash24_compress_typesafe(neighbor->family, state);
 
         if (!IN_SET(neighbor->family, AF_INET, AF_INET6))
                 /* treat any other address family as AF_UNSPEC */
@@ -98,7 +98,7 @@ static void neighbor_hash_func(const Neighbor *neighbor, struct siphash *state) 
 
         /* Equality of neighbors are given by the destination address.
          * See neigh_lookup() in the kernel. */
-        siphash24_compress(&neighbor->in_addr, FAMILY_ADDRESS_SIZE(neighbor->family), state);
+        in_addr_hash_func(&neighbor->in_addr, neighbor->family, state);
 }
 
 static int neighbor_compare_func(const Neighbor *a, const Neighbor *b) {
@@ -648,12 +648,12 @@ int network_drop_invalid_neighbors(Network *network) {
                 dup = set_remove(neighbors, neighbor);
                 if (dup) {
                         log_warning("%s: Duplicated neighbor settings for %s is specified at line %u and %u, "
-                                    "dropping the address setting specified at line %u.",
+                                    "dropping the neighbor setting specified at line %u.",
                                     dup->section->filename,
                                     IN_ADDR_TO_STRING(neighbor->family, &neighbor->in_addr),
                                     neighbor->section->line,
                                     dup->section->line, dup->section->line);
-                        /* neighbor_free() will drop the address from neighbors_by_section. */
+                        /* neighbor_free() will drop the neighbor from neighbors_by_section. */
                         neighbor_free(dup);
                 }
 

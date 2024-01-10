@@ -218,7 +218,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  dot [UNIT...]              Output dependency graph in %s format\n"
                "  dump [PATTERN...]          Output state serialization of service\n"
                "                             manager\n"
-               "  cat-config                 Show configuration file and drop-ins\n"
+               "  cat-config NAME|PATH...    Show configuration file and drop-ins\n"
                "  unit-files                 List files and symlinks for units\n"
                "  unit-paths                 List load directories for units\n"
                "  exit-status [STATUS...]    List exit status definitions\n"
@@ -238,6 +238,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  inspect-elf FILE...        Parse and print ELF package metadata\n"
                "  malloc [D-BUS SERVICE...]  Dump malloc stats of a D-Bus service\n"
                "  fdstore SERVICE...         Show file descriptor store contents of service\n"
+               "  image-policy POLICY...     Analyze image policy string\n"
                "  pcrs [PCR...]              Show TPM2 PCRs and their names\n"
                "  srk > FILE                 Write TPM2 SRK to stdout\n"
                "\nOptions:\n"
@@ -362,7 +363,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hH:M:U:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hH:M:U:q", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'h':
@@ -597,7 +598,7 @@ static int parse_argv(int argc, char *argv[]) {
         if (streq_ptr(argv[optind], "condition") && arg_unit && optind < argc - 1)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No conditions can be passed if --unit= is used.");
 
-        if ((!arg_legend && !streq_ptr(argv[optind], "plot")) ||
+        if ((!arg_legend && !STRPTR_IN_SET(argv[optind], "plot", "architectures")) ||
            (streq_ptr(argv[optind], "plot") && !arg_legend && !arg_table && FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Option --no-legend is only supported for plot with either --table or --json=.");
 

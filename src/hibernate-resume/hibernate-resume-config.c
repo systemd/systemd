@@ -11,6 +11,12 @@
 #include "proc-cmdline.h"
 #include "efivars.h"
 
+typedef struct KernelHibernateLocation {
+        char *device;
+        uint64_t offset;
+        bool offset_set;
+} KernelHibernateLocation;
+
 static KernelHibernateLocation* kernel_hibernate_location_free(KernelHibernateLocation *k) {
         if (!k)
                 return NULL;
@@ -21,6 +27,19 @@ static KernelHibernateLocation* kernel_hibernate_location_free(KernelHibernateLo
 }
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(KernelHibernateLocation*, kernel_hibernate_location_free);
+
+typedef struct EFIHibernateLocation {
+        char *device;
+
+        sd_id128_t uuid;
+        uint64_t offset;
+
+        char *kernel_version;
+        char *id;
+        char *image_id;
+        char *version_id;
+        char *image_version;
+} EFIHibernateLocation;
 
 static EFIHibernateLocation* efi_hibernate_location_free(EFIHibernateLocation *e) {
         if (!e)
@@ -173,7 +192,7 @@ static int get_efi_hibernate_location(EFIHibernateLocation **ret) {
         if (!e)
                 return log_oom();
 
-        r = json_dispatch(v, dispatch_table, JSON_LOG, e);
+        r = json_dispatch(v, dispatch_table, JSON_LOG|JSON_ALLOW_EXTENSIONS, e);
         if (r < 0)
                 return r;
 

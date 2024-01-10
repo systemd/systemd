@@ -34,16 +34,9 @@
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
 # define SWAP(n)                                                        \
-        (((n) << 24) | (((n) & 0xff00) << 8) | (((n) >> 8) & 0xff00) | ((n) >> 24))
+        __builtin_bswap32(n)
 # define SWAP64(n)                              \
-        (((n) << 56)                            \
-         | (((n) & 0xff00) << 40)               \
-         | (((n) & 0xff0000) << 24)             \
-         | (((n) & 0xff000000) << 8)            \
-         | (((n) >> 8) & 0xff000000)            \
-         | (((n) >> 24) & 0xff0000)             \
-         | (((n) >> 40) & 0xff00)               \
-         | ((n) >> 56))
+        __builtin_bswap64(n)
 #else
 # define SWAP(n) (n)
 # define SWAP64(n) (n)

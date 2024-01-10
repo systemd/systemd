@@ -25,11 +25,11 @@ typedef void (*bus_wait_for_units_ready_callback)(BusWaitForUnits *d, BusWaitFor
 typedef void (*bus_wait_for_units_unit_callback)(BusWaitForUnits *d, const char *unit_path, bool good, void *userdata);
 
 int bus_wait_for_units_new(sd_bus *bus, BusWaitForUnits **ret);
+
 BusWaitForUnits* bus_wait_for_units_free(BusWaitForUnits *d);
+DEFINE_TRIVIAL_CLEANUP_FUNC(BusWaitForUnits*, bus_wait_for_units_free);
 
 BusWaitForUnitsState bus_wait_for_units_state(BusWaitForUnits *d);
 void bus_wait_for_units_set_ready_callback(BusWaitForUnits *d, bus_wait_for_units_ready_callback callback, void *userdata);
 int bus_wait_for_units_add_unit(BusWaitForUnits *d, const char *unit, BusWaitForUnitsFlags flags, bus_wait_for_units_unit_callback callback, void *userdata);
 int bus_wait_for_units_run(BusWaitForUnits *d);
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(BusWaitForUnits*, bus_wait_for_units_free);

@@ -438,7 +438,7 @@ static void test_exec_privatedevices(Manager *m) {
 
         test(m, "exec-privatedevices-yes.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
         test(m, "exec-privatedevices-no.service", 0, CLD_EXITED);
-        if (access("/dev/kvm", F_OK) >= 0)
+        if (access("/dev/kmsg", F_OK) >= 0)
                 test(m, "exec-privatedevices-bind.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
         test(m, "exec-privatedevices-disabled-by-prefix.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);
         test(m, "exec-privatedevices-yes-with-group.service", can_unshare ? 0 : MANAGER_IS_SYSTEM(m) ? EXIT_FAILURE : EXIT_NAMESPACE, CLD_EXITED);

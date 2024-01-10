@@ -3,5 +3,5 @@
 Description=Default prio for RR
 
 [Service]
-ExecStart=/bin/true
+ExecStart=true
 CPUSchedulingPolicy=rr

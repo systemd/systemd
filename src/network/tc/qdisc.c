@@ -155,8 +155,8 @@ static void qdisc_hash_func(const QDisc *qdisc, struct siphash *state) {
         assert(qdisc);
         assert(state);
 
-        siphash24_compress(&qdisc->handle, sizeof(qdisc->handle), state);
-        siphash24_compress(&qdisc->parent, sizeof(qdisc->parent), state);
+        siphash24_compress_typesafe(qdisc->handle, state);
+        siphash24_compress_typesafe(qdisc->parent, state);
         siphash24_compress_string(qdisc_get_tca_kind(qdisc), state);
 }
 

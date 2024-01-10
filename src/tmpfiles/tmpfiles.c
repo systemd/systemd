@@ -45,7 +45,6 @@
 #include "log.h"
 #include "macro.h"
 #include "main-func.h"
-#include "missing_stat.h"
 #include "missing_syscall.h"
 #include "mkdir-label.h"
 #include "mount-util.h"
@@ -64,6 +63,7 @@
 #include "set.h"
 #include "sort-util.h"
 #include "specifier.h"
+#include "stat-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -82,6 +82,7 @@ typedef enum OperationMask {
         OPERATION_CREATE = 1 << 0,
         OPERATION_REMOVE = 1 << 1,
         OPERATION_CLEAN  = 1 << 2,
+        OPERATION_PURGE  = 1 << 3,
 } OperationMask;
 
 typedef enum ItemType {
@@ -217,8 +218,8 @@ typedef struct Context {
         Set *unix_sockets;
 } Context;
 
-STATIC_DESTRUCTOR_REGISTER(arg_include_prefixes, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_exclude_prefixes, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_include_prefixes, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_exclude_prefixes, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
@@ -378,23 +379,41 @@ static int user_config_paths(char*** ret) {
         return 0;
 }
 
+static bool needs_purge(ItemType t) {
+        return IN_SET(t,
+                      COPY_FILES,
+                      TRUNCATE_FILE,
+                      CREATE_FILE,
+                      WRITE_FILE,
+                      EMPTY_DIRECTORY,
+                      CREATE_SUBVOLUME,
+                      CREATE_SUBVOLUME_INHERIT_QUOTA,
+                      CREATE_SUBVOLUME_NEW_QUOTA,
+                      CREATE_CHAR_DEVICE,
+                      CREATE_BLOCK_DEVICE,
+                      CREATE_SYMLINK,
+                      CREATE_FIFO,
+                      CREATE_DIRECTORY,
+                      TRUNCATE_DIRECTORY);
+}
+
 static bool needs_glob(ItemType t) {
         return IN_SET(t,
                       WRITE_FILE,
-                      IGNORE_PATH,
-                      IGNORE_DIRECTORY_PATH,
-                      REMOVE_PATH,
-                      RECURSIVE_REMOVE_PATH,
                       EMPTY_DIRECTORY,
-                      ADJUST_MODE,
-                      RELABEL_PATH,
-                      RECURSIVE_RELABEL_PATH,
                       SET_XATTR,
                       RECURSIVE_SET_XATTR,
                       SET_ACL,
                       RECURSIVE_SET_ACL,
                       SET_ATTRIBUTE,
-                      RECURSIVE_SET_ATTRIBUTE);
+                      RECURSIVE_SET_ATTRIBUTE,
+                      IGNORE_PATH,
+                      IGNORE_DIRECTORY_PATH,
+                      REMOVE_PATH,
+                      RECURSIVE_REMOVE_PATH,
+                      RELABEL_PATH,
+                      RECURSIVE_RELABEL_PATH,
+                      ADJUST_MODE);
 }
 
 static bool takes_ownership(ItemType t) {
@@ -402,7 +421,6 @@ static bool takes_ownership(ItemType t) {
                       CREATE_FILE,
                       TRUNCATE_FILE,
                       CREATE_DIRECTORY,
-                      EMPTY_DIRECTORY,
                       TRUNCATE_DIRECTORY,
                       CREATE_SUBVOLUME,
                       CREATE_SUBVOLUME_INHERIT_QUOTA,
@@ -413,6 +431,7 @@ static bool takes_ownership(ItemType t) {
                       CREATE_BLOCK_DEVICE,
                       COPY_FILES,
                       WRITE_FILE,
+                      EMPTY_DIRECTORY,
                       IGNORE_PATH,
                       IGNORE_DIRECTORY_PATH,
                       REMOVE_PATH,
@@ -535,18 +554,6 @@ static DIR* xopendirat_nomod(int dirfd, const char *path) {
 
 static DIR* opendir_nomod(const char *path) {
         return xopendirat_nomod(AT_FDCWD, path);
-}
-
-static nsec_t load_statx_timestamp_nsec(const struct statx_timestamp *ts) {
-        assert(ts);
-
-        if (ts->tv_sec < 0)
-                return NSEC_INFINITY;
-
-        if ((nsec_t) ts->tv_sec >= (UINT64_MAX - ts->tv_nsec) / NSEC_PER_SEC)
-                return NSEC_INFINITY;
-
-        return ts->tv_sec * NSEC_PER_SEC + ts->tv_nsec;
 }
 
 static bool needs_cleanup(
@@ -691,10 +698,10 @@ static int dir_cleanup(
                         }
                 }
 
-                atime_nsec = FLAGS_SET(sx.stx_mask, STATX_ATIME) ? load_statx_timestamp_nsec(&sx.stx_atime) : 0;
-                mtime_nsec = FLAGS_SET(sx.stx_mask, STATX_MTIME) ? load_statx_timestamp_nsec(&sx.stx_mtime) : 0;
-                ctime_nsec = FLAGS_SET(sx.stx_mask, STATX_CTIME) ? load_statx_timestamp_nsec(&sx.stx_ctime) : 0;
-                btime_nsec = FLAGS_SET(sx.stx_mask, STATX_BTIME) ? load_statx_timestamp_nsec(&sx.stx_btime) : 0;
+                atime_nsec = FLAGS_SET(sx.stx_mask, STATX_ATIME) ? statx_timestamp_load_nsec(&sx.stx_atime) : 0;
+                mtime_nsec = FLAGS_SET(sx.stx_mask, STATX_MTIME) ? statx_timestamp_load_nsec(&sx.stx_mtime) : 0;
+                ctime_nsec = FLAGS_SET(sx.stx_mask, STATX_CTIME) ? statx_timestamp_load_nsec(&sx.stx_ctime) : 0;
+                btime_nsec = FLAGS_SET(sx.stx_mask, STATX_BTIME) ? statx_timestamp_load_nsec(&sx.stx_btime) : 0;
 
                 sub_path = path_join(p, de->d_name);
                 if (!sub_path) {
@@ -2839,6 +2846,33 @@ static int create_item(Context *c, Item *i) {
         return 0;
 }
 
+static int purge_item_instance(Context *c, Item *i, const char *instance, CreationMode creation) {
+        int r;
+
+        /* FIXME: we probably should use dir_cleanup() here instead of rm_rf() so that 'x' is honoured. */
+        log_debug("rm -rf \"%s\"", instance);
+        r = rm_rf(instance, REMOVE_ROOT|REMOVE_SUBVOLUME|REMOVE_PHYSICAL);
+        if (r < 0 && r != -ENOENT)
+                return log_error_errno(r, "rm_rf(%s): %m", instance);
+
+        return 0;
+}
+
+static int purge_item(Context *c, Item *i) {
+
+        assert(i);
+
+        if (!needs_purge(i->type))
+                return 0;
+
+        log_debug("Running purge owned action for entry %c %s", (char) i->type, i->path);
+
+        if (needs_glob(i->type))
+                return glob_item(c, i, purge_item_instance);
+
+        return purge_item_instance(c, i, i->path, CREATION_EXISTING);
+}
+
 static int remove_item_instance(
                 Context *c,
                 Item *i,
@@ -2988,8 +3022,8 @@ static int clean_item_instance(
         }
 
         return dir_cleanup(c, i, instance, d,
-                           load_statx_timestamp_nsec(&sx.stx_atime),
-                           load_statx_timestamp_nsec(&sx.stx_mtime),
+                           statx_timestamp_load_nsec(&sx.stx_atime),
+                           statx_timestamp_load_nsec(&sx.stx_mtime),
                            cutoff * NSEC_PER_USEC,
                            sx.stx_dev_major, sx.stx_dev_minor, mountpoint,
                            MAX_DEPTH, i->keep_first_level,
@@ -3005,16 +3039,16 @@ static int clean_item(Context *c, Item *i) {
         switch (i->type) {
 
         case CREATE_DIRECTORY:
+        case TRUNCATE_DIRECTORY:
         case CREATE_SUBVOLUME:
         case CREATE_SUBVOLUME_INHERIT_QUOTA:
         case CREATE_SUBVOLUME_NEW_QUOTA:
-        case TRUNCATE_DIRECTORY:
-        case IGNORE_PATH:
         case COPY_FILES:
                 clean_item_instance(c, i, i->path, CREATION_EXISTING);
                 return 0;
 
         case EMPTY_DIRECTORY:
+        case IGNORE_PATH:
         case IGNORE_DIRECTORY_PATH:
                 return glob_item(c, i, clean_item_instance);
 
@@ -3031,7 +3065,7 @@ static int process_item(
         OperationMask todo;
         _cleanup_free_ char *_path = NULL;
         const char *path;
-        int r, q, p;
+        int r;
 
         assert(c);
         assert(i);
@@ -3067,12 +3101,11 @@ static int process_item(
         if (i->allow_failure)
                 r = 0;
 
-        q = FLAGS_SET(operation, OPERATION_REMOVE) ? remove_item(c, i) : 0;
-        p = FLAGS_SET(operation, OPERATION_CLEAN) ? clean_item(c, i) : 0;
+        RET_GATHER(r, FLAGS_SET(operation, OPERATION_REMOVE) ? remove_item(c, i) : 0);
+        RET_GATHER(r, FLAGS_SET(operation, OPERATION_CLEAN) ? clean_item(c, i) : 0);
+        RET_GATHER(r, FLAGS_SET(operation, OPERATION_PURGE) ? purge_item(c, i) : 0);
 
-        return r < 0 ? r :
-                q < 0 ? q :
-                p;
+        return r;
 }
 
 static int process_item_array(
@@ -3091,13 +3124,13 @@ static int process_item_array(
                 r = process_item_array(c, array->parent, operation & OPERATION_CREATE);
 
         /* Clean up all children first */
-        if ((operation & (OPERATION_REMOVE|OPERATION_CLEAN)) && !set_isempty(array->children)) {
+        if ((operation & (OPERATION_REMOVE|OPERATION_CLEAN|OPERATION_PURGE)) && !set_isempty(array->children)) {
                 ItemArray *cc;
 
                 SET_FOREACH(cc, array->children) {
                         int k;
 
-                        k = process_item_array(c, cc, operation & (OPERATION_REMOVE|OPERATION_CLEAN));
+                        k = process_item_array(c, cc, operation & (OPERATION_REMOVE|OPERATION_CLEAN|OPERATION_PURGE));
                         if (k < 0 && r == 0)
                                 r = k;
                 }
@@ -3762,7 +3795,8 @@ static int parse_line(
                 _cleanup_free_ void *data = NULL;
                 size_t data_size = 0;
 
-                r = unbase64mem(item_binary_argument(&i), item_binary_argument_size(&i), &data, &data_size);
+                r = unbase64mem_full(item_binary_argument(&i), item_binary_argument_size(&i), /* secure = */ false,
+                                     &data, &data_size);
                 if (r < 0)
                         return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to base64 decode specified argument '%s': %m", i.argument);
 
@@ -3982,6 +4016,7 @@ static int help(void) {
                "     --remove               Remove marked files/directories\n"
                "     --boot                 Execute actions only safe at boot\n"
                "     --graceful             Quietly ignore unknown users or groups\n"
+               "     --purge                Delete all files owned by the configuration files\n"
                "     --prefix=PATH          Only apply rules with the specified prefix\n"
                "     --exclude-prefix=PATH  Ignore rules with the specified prefix\n"
                "  -E                        Ignore rules prefixed with /dev, /proc, /run, /sys\n"
@@ -4009,6 +4044,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CREATE,
                 ARG_CLEAN,
                 ARG_REMOVE,
+                ARG_PURGE,
                 ARG_BOOT,
                 ARG_GRACEFUL,
                 ARG_PREFIX,
@@ -4029,6 +4065,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "create",         no_argument,         NULL, ARG_CREATE         },
                 { "clean",          no_argument,         NULL, ARG_CLEAN          },
                 { "remove",         no_argument,         NULL, ARG_REMOVE         },
+                { "purge",          no_argument,         NULL, ARG_PURGE          },
                 { "boot",           no_argument,         NULL, ARG_BOOT           },
                 { "graceful",       no_argument,         NULL, ARG_GRACEFUL       },
                 { "prefix",         required_argument,   NULL, ARG_PREFIX         },
@@ -4084,17 +4121,21 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_boot = true;
                         break;
 
+                case ARG_PURGE:
+                        arg_operation |= OPERATION_PURGE;
+                        break;
+
                 case ARG_GRACEFUL:
                         arg_graceful = true;
                         break;
 
                 case ARG_PREFIX:
-                        if (strv_push(&arg_include_prefixes, optarg) < 0)
+                        if (strv_extend(&arg_include_prefixes, optarg) < 0)
                                 return log_oom();
                         break;
 
                 case ARG_EXCLUDE_PREFIX:
-                        if (strv_push(&arg_exclude_prefixes, optarg) < 0)
+                        if (strv_extend(&arg_exclude_prefixes, optarg) < 0)
                                 return log_oom();
                         break;
 
@@ -4151,7 +4192,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         if (arg_operation == 0 && arg_cat_flags == CAT_CONFIG_OFF)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "You need to specify at least one of --clean, --create, or --remove.");
+                                       "You need to specify at least one of --clean, --create, --remove, or --purge.");
 
         if (arg_replace && arg_cat_flags != CAT_CONFIG_OFF)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -4402,6 +4443,7 @@ static int run(int argc, char *argv[]) {
         bool invalid_config = false;
         ItemArray *a;
         enum {
+                PHASE_PURGE,
                 PHASE_REMOVE_AND_CLEAN,
                 PHASE_CREATE,
                 _PHASE_MAX
@@ -4537,7 +4579,9 @@ static int run(int argc, char *argv[]) {
         for (phase = 0; phase < _PHASE_MAX; phase++) {
                 OperationMask op;
 
-                if (phase == PHASE_REMOVE_AND_CLEAN)
+                if (phase == PHASE_PURGE)
+                        op = arg_operation & OPERATION_PURGE;
+                else if (phase == PHASE_REMOVE_AND_CLEAN)
                         op = arg_operation & (OPERATION_REMOVE|OPERATION_CLEAN);
                 else if (phase == PHASE_CREATE)
                         op = arg_operation & OPERATION_CREATE;

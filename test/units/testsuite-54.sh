@@ -314,6 +314,16 @@ if ! systemd-detect-virt -q -c ; then
     systemctl -P Wants show getty.target | grep -q container-getty@idontexist.service
 fi
 
+# Decrypt/encrypt via varlink
+
+echo -n '{"data":"Zm9vYmFyCg=="}' > /tmp/vlcredsdata
+
+varlinkctl call /run/systemd/io.systemd.Credentials io.systemd.Credentials.Encrypt "$(cat /tmp/vlcredsdata)" | \
+    varlinkctl call /run/systemd/io.systemd.Credentials io.systemd.Credentials.Decrypt > /tmp/vlcredsdata2
+
+cmp /tmp/vlcredsdata /tmp/vlcredsdata2
+rm /tmp/vlcredsdata /tmp/vlcredsdata2
+
 systemd-analyze log-level info
 
 touch /testok

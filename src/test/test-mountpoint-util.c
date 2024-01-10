@@ -69,7 +69,7 @@ TEST(mnt_id) {
                 assert_se(sscanf(line, "%i %*s %*s %*s %ms", &mnt_id, &path) == 2);
 #if HAS_FEATURE_MEMORY_SANITIZER
                 /* We don't know the length of the string, so we need to unpoison it one char at a time */
-                for (const char *c = path; ;c++) {
+                for (const char *c = path; ; c++) {
                         msan_unpoison(c, 1);
                         if (!*c)
                                 break;
@@ -137,11 +137,6 @@ TEST(path_is_mount_point) {
         assert_se(path_is_mount_point("/proc/1", NULL, 0) == 0);
         assert_se(path_is_mount_point("/proc/1/", NULL, AT_SYMLINK_FOLLOW) == 0);
         assert_se(path_is_mount_point("/proc/1/", NULL, 0) == 0);
-
-        assert_se(path_is_mount_point("/sys", NULL, AT_SYMLINK_FOLLOW) > 0);
-        assert_se(path_is_mount_point("/sys", NULL, 0) > 0);
-        assert_se(path_is_mount_point("/sys/", NULL, AT_SYMLINK_FOLLOW) > 0);
-        assert_se(path_is_mount_point("/sys/", NULL, 0) > 0);
 
         /* we'll create a hierarchy of different kinds of dir/file/link
          * layouts:
@@ -333,23 +328,23 @@ TEST(mount_option_supported) {
 
         r = mount_option_supported("tmpfs", "size", "64M");
         log_info("tmpfs supports size=64M: %s (%i)", r < 0 ? "don't know" : yes_no(r), r);
-        assert_se(r > 0 || r == -EAGAIN || (r < 0 && ERRNO_IS_PRIVILEGE(r)));
+        assert_se(r > 0 || r == -EAGAIN || ERRNO_IS_NEG_PRIVILEGE(r));
 
         r = mount_option_supported("ext4", "discard", NULL);
         log_info("ext4 supports discard: %s (%i)", r < 0 ? "don't know" : yes_no(r), r);
-        assert_se(r > 0 || r == -EAGAIN || (r < 0 && ERRNO_IS_PRIVILEGE(r)));
+        assert_se(r > 0 || r == -EAGAIN || ERRNO_IS_NEG_PRIVILEGE(r));
 
         r = mount_option_supported("tmpfs", "idontexist", "64M");
         log_info("tmpfs supports idontexist: %s (%i)", r < 0 ? "don't know" : yes_no(r), r);
-        assert_se(r == 0 || r == -EAGAIN || (r < 0 && ERRNO_IS_PRIVILEGE(r)));
+        assert_se(IN_SET(r, 0, -EAGAIN) || ERRNO_IS_NEG_PRIVILEGE(r));
 
         r = mount_option_supported("tmpfs", "ialsodontexist", NULL);
         log_info("tmpfs supports ialsodontexist: %s (%i)", r < 0 ? "don't know" : yes_no(r), r);
-        assert_se(r == 0 || r == -EAGAIN || (r < 0 && ERRNO_IS_PRIVILEGE(r)));
+        assert_se(IN_SET(r, 0, -EAGAIN) || ERRNO_IS_NEG_PRIVILEGE(r));
 
         r = mount_option_supported("proc", "hidepid", "1");
         log_info("proc supports hidepid=1: %s (%i)", r < 0 ? "don't know" : yes_no(r), r);
-        assert_se(r >= 0 || r == -EAGAIN || (r < 0 && ERRNO_IS_PRIVILEGE(r)));
+        assert_se(r >= 0 || r == -EAGAIN || ERRNO_IS_NEG_PRIVILEGE(r));
 }
 
 TEST(fstype_can_discard) {

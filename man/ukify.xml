@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <!--*-nxml-*-->
 <!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
-  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+  "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 <refentry id="ukify" xmlns:xi="http://www.w3.org/2001/XInclude" conditional='ENABLE_UKIFY'>
 
@@ -203,7 +203,7 @@
 
         <varlistentry>
           <term><option>--section=<replaceable>NAME</replaceable>:<replaceable>TEXT</replaceable>|<replaceable>@PATH</replaceable></option></term>
-          <term><option>--section=<replaceable>NAME</replaceable>:<arg choice="plain">text|binary</arg><optional>@<replaceable>PATH</replaceable></optional></option></term>
+          <term><option>--section=<replaceable>NAME</replaceable>:text|binary<optional>@<replaceable>PATH</replaceable></optional></option></term>
 
           <listitem><para>For all verbs except <command>inspect</command>, the first syntax is used.
           Specify an arbitrary additional section <literal><replaceable>NAME</replaceable></literal>.
@@ -680,13 +680,13 @@ Writing public key for PCR signing to /etc/kernel/pcr-system.pub.pem
 
   <refsect1>
     <title>See Also</title>
-    <para>
-      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
-      <citerefentry><refentrytitle>systemd-pcrphase.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-     </para>
+    <para><simplelist type="inline">
+      <member><citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-stub</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-boot</refentrytitle><manvolnum>7</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-measure</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
+      <member><citerefentry><refentrytitle>systemd-pcrphase.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
+     </simplelist></para>
   </refsect1>
 
 </refentry>

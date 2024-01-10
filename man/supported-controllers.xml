@@ -1,14 +1,15 @@
 <?xml version="1.0"?>
-<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
+<!DOCTYPE refsect1 PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 
 <!--
   SPDX-License-Identifier: LGPL-2.1-or-later
 -->
 
 <refsect1>
+  <title/>
 
-<para id="controllers-text">The following controller names may be specified: <option>cpu</option>, <option>cpuacct</option>,
-<option>cpuset</option>, <option>io</option>, <option>blkio</option>, <option>memory</option>, <option>devices</option>,
-<option>pids</option>, <option>bpf-firewall</option>, and <option>bpf-devices</option>.</para>
+  <para id="controllers-text">The following controller names may be specified: <option>cpu</option>, <option>cpuacct</option>,
+  <option>cpuset</option>, <option>io</option>, <option>blkio</option>, <option>memory</option>, <option>devices</option>,
+  <option>pids</option>, <option>bpf-firewall</option>, and <option>bpf-devices</option>.</para>
 
 </refsect1>

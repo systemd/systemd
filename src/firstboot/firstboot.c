@@ -166,7 +166,7 @@ static int show_menu(char **x, unsigned n_columns, unsigned width, unsigned perc
 
         for (i = 0; i < per_column; i++) {
 
-                for (j = 0; j < n_columns; j ++) {
+                for (j = 0; j < n_columns; j++) {
                         _cleanup_free_ char *e = NULL;
 
                         if (j * per_column + i >= n)
@@ -1622,7 +1622,7 @@ static int reload_vconsole(sd_bus **bus) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        r = bus_wait_for_jobs_one(w, object, false, NULL);
+        r = bus_wait_for_jobs_one(w, object, BUS_WAIT_JOBS_LOG_ERROR, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to wait for systemd-vconsole-setup.service/restart: %m");
         return 0;

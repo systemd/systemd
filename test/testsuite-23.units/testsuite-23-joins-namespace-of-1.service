@@ -4,4 +4,4 @@ Type=notify
 NotifyAccess=all
 MountAPIVFS=yes
 PrivateTmp=yes
-ExecStart=/bin/bash -c 'touch /tmp/shared-private-file && systemd-notify --ready && sleep infinity'
+ExecStart=bash -c 'touch /tmp/shared-private-file && systemd-notify --ready && sleep infinity'

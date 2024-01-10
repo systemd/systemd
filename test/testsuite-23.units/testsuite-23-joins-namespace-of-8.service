@@ -6,4 +6,4 @@ MountAPIVFS=yes
 PrivateTmp=yes
 ExecStartPre=test -e /tmp/shared-private-file-x
 ExecStartPre=test -e /tmp/hoge
-ExecStart=/bin/bash -c 'touch /tmp/shared-private-file-y && systemd-notify --ready && sleep infinity'
+ExecStart=bash -c 'touch /tmp/shared-private-file-y && systemd-notify --ready && sleep infinity'

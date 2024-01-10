@@ -3,7 +3,7 @@
 Description=Test for UMask= + namespacing
 
 [Service]
-ExecStart=/bin/ls -lahd /tmp/subdir
+ExecStart=ls -lahd /tmp/subdir
 Type=oneshot
 User=65534
 Group=65534

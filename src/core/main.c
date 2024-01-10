@@ -464,7 +464,7 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 if (proc_cmdline_value_missing(key, value))
                         return 0;
 
-                r = unbase64mem(value, SIZE_MAX, &p, &sz);
+                r = unbase64mem(value, &p, &sz);
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse systemd.random_seed= argument, ignoring: %s", value);
 

@@ -276,18 +276,18 @@ static int vl_method_extend(Varlink *link, JsonVariant *parameters, VarlinkMetho
                 return r;
 
         if (!TPM2_PCR_INDEX_VALID(p.pcr))
-                return varlink_errorb(link, VARLINK_ERROR_INVALID_PARAMETER, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("parameter", "pcr")));
+                return varlink_error_invalid_parameter_name(link, "pcr");
 
         if (p.text) {
                 /* Specifying both the text string and the binary data is not allowed */
                 if (p.data.iov_base)
-                        return varlink_errorb(link, VARLINK_ERROR_INVALID_PARAMETER, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("parameter", "data")));
+                        return varlink_error_invalid_parameter_name(link, "data");
 
                 r = extend_now(p.pcr, p.text, strlen(p.text), _TPM2_USERSPACE_EVENT_TYPE_INVALID);
         } else if (p.data.iov_base)
                 r = extend_now(p.pcr, p.data.iov_base, p.data.iov_len, _TPM2_USERSPACE_EVENT_TYPE_INVALID);
         else
-                return varlink_errorb(link, VARLINK_ERROR_INVALID_PARAMETER, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("parameter", "text")));
+                return varlink_error_invalid_parameter_name(link, "text");
         if (r < 0)
                 return r;
 
