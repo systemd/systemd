@@ -49,7 +49,11 @@ static int reply_query_state(DnsQuery *q) {
 
         case DNS_TRANSACTION_DNSSEC_FAILED:
                 return varlink_errorb(q->varlink_request, "io.systemd.Resolve.DNSSECValidationFailed",
-                                      JSON_BUILD_OBJECT(JSON_BUILD_PAIR("result", JSON_BUILD_STRING(dnssec_result_to_string(q->answer_dnssec_result)))));
+                                      JSON_BUILD_OBJECT(JSON_BUILD_PAIR("result", JSON_BUILD_STRING(dnssec_result_to_string(q->answer_dnssec_result))),
+                                                        JSON_BUILD_PAIR_CONDITION(q->answer_ede_rcode >= 0,
+                                                                                  "extendedDNSErrorCode", JSON_BUILD_INTEGER(q->answer_ede_rcode)),
+                                                        JSON_BUILD_PAIR_CONDITION(q->answer_ede_rcode >= 0 && !isempty(q->answer_ede_msg),
+                                                                                  "extendedDNSErrorMessage", JSON_BUILD_STRING(q->answer_ede_msg))));
 
         case DNS_TRANSACTION_NO_TRUST_ANCHOR:
                 return varlink_error(q->varlink_request, "io.systemd.Resolve.NoTrustAnchor", NULL);
@@ -74,7 +78,11 @@ static int reply_query_state(DnsQuery *q) {
 
         case DNS_TRANSACTION_RCODE_FAILURE:
                 return varlink_errorb(q->varlink_request, "io.systemd.Resolve.DNSError",
-                                      JSON_BUILD_OBJECT(JSON_BUILD_PAIR("rcode", JSON_BUILD_INTEGER(q->answer_rcode))));
+                                      JSON_BUILD_OBJECT(JSON_BUILD_PAIR("rcode", JSON_BUILD_INTEGER(q->answer_rcode)),
+                                                        JSON_BUILD_PAIR_CONDITION(q->answer_ede_rcode >= 0,
+                                                                                  "extendedDNSErrorCode", JSON_BUILD_INTEGER(q->answer_ede_rcode)),
+                                                        JSON_BUILD_PAIR_CONDITION(q->answer_ede_rcode >= 0 && !isempty(q->answer_ede_msg),
+                                                                                  "extendedDNSErrorMessage", JSON_BUILD_STRING(q->answer_ede_msg))));
 
         case DNS_TRANSACTION_NULL:
         case DNS_TRANSACTION_PENDING:
