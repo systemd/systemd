@@ -736,7 +736,7 @@ specified hostnames match the system's local hostname, the fields in this
 object are honored. If both `matchHostname` and `matchMachineId` are used
 within the same array entry, the object is honored when either match succeeds,
 i.e. the two match types are combined in OR, not in AND. (As a special case, if
-only a single machine ID is listed this field may be a single string rather
+only a single hostname is listed this field may be a single string rather
 than an array of strings.)
 
 These two are the only two fields specific to this section. All other fields
