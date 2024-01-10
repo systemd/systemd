@@ -25,6 +25,7 @@
 #include <netinet/in.h>
 #include <sys/types.h>
 
+#include "time-util.h"
 #include "sd-event.h"
 
 #include "_sd-common.h"
@@ -96,6 +97,7 @@ int sd_ndisc_router_get_flags(sd_ndisc_router *rt, uint64_t *ret);
 int sd_ndisc_router_get_preference(sd_ndisc_router *rt, unsigned *ret);
 int sd_ndisc_router_get_lifetime(sd_ndisc_router *rt, uint64_t *ret);
 int sd_ndisc_router_get_lifetime_timestamp(sd_ndisc_router *rt, clockid_t clock, uint64_t *ret);
+int sd_ndisc_router_get_retrans_time(sd_ndisc_router *rt, usec_t *ret);
 int sd_ndisc_router_get_mtu(sd_ndisc_router *rt, uint32_t *ret);
 
 /* Generic option access */
