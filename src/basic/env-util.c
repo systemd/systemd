@@ -137,7 +137,7 @@ bool strv_env_name_or_assignment_is_valid(char **l) {
         return true;
 }
 
-static int env_append(char **e, char ***k, char **a) {
+static int env_append(char **e, char ***k, char ** restrict a) {
         assert(e);
         assert(k);
         assert(*k >= e);
