@@ -5,27 +5,20 @@
 #
 # To make local modifications, one of the following methods may be used:
 # 1. add a drop-in file that extends this file by creating the
-#    /etc/systemd/network/80-container-ve.network.d/ directory and creating a
+#    /etc/systemd/network/80-6rd-tunnel.link.d/ directory and creating a
 #    new .conf file there.
 # 2. copy this file into /etc/systemd/network/ or one of the other paths checked
-#    by systemd-networkd and edit it there.
+#    by systemd-udevd and edit it there.
 # This file should not be edited in place, because it'll be overwritten on upgrades.
 
-# This .network file matches the host-side of the virtual Ethernet link
-# created by systemd-nspawn's --network-veth switch. See systemd-nspawn(1) for
-# details.
+# This .link file matches 6rd-* SIT devices and marks them as managed by
+# systemd-networkd.
 
 [Match]
-Kind=veth
-Name=ve-*
+Kind=sit
+Name=6rd-*
 
 [Network]
-# Default to using a /28 prefix, giving up to 13 addresses per container.
-Address=0.0.0.0/28
-LinkLocalAddressing=yes
-DHCPServer=yes
-IPMasquerade=both
-LLDP=yes
-EmitLLDP=customer-bridge
-IPv6AcceptRA=no
-IPv6SendRA=yes
+NamePolicy=keep
+MACAddressPolicy=persistent
+Property=ID_NET_MANAGED_BY=io.systemd.Network
