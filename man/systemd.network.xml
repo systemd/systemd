@@ -873,11 +873,12 @@ Table=1234</programlisting></para>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>IPv6RetransTime=</varname></term>
+        <term><varname>IPv6RetransmissionTimeSec=</varname></term>
         <listitem>
-          <para>Configures IPv6 Retransmission Time. Takes a 32-bit unsigned integer.  The
-          time, in milliseconds, between retransmitted Neighbor Solicitation messages.  Used
-          by address resolution and the Neighbor Unreachability Detection algorithm.</para>
+          <para>Configures IPv6 Retransmission Time. The time between retransmitted Neighbor
+          Solicitation messages.  Used by address resolution and the Neighbor Unreachability
+          Detection algorithm. A value of zero is ignored and the kernel's current value
+          will be used.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
@@ -3289,7 +3290,7 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       </varlistentry>
 
       <varlistentry>
-        <term><varname>UseRetransTime=</varname></term>
+        <term><varname>UseRetransmissionTime=</varname></term>
         <listitem>
           <para>Takes a boolean. When true, the retransmission time received in the Router Advertisement will be set
           on the interface receiving the advertisement. It is used as the time between retransmissions of Neighbor

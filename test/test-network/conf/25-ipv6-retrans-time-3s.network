@@ -3,4 +3,4 @@
 Name=test25
 
 [Network]
-IPv6RetransTime=0
+IPv6RetransmissionTimeSec=3

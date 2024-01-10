@@ -324,7 +324,7 @@ struct Network {
         int ipv4_route_localnet;
         int ipv6_dad_transmits;
         uint8_t ipv6_hop_limit;
-        uint32_t ipv6_retrans_time;
+        usec_t ipv6_retrans_time;
         int proxy_arp;
         uint32_t ipv6_mtu;
         IPv6PrivacyExtensions ipv6_privacy_extensions;

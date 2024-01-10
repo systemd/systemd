@@ -276,7 +276,7 @@ int sd_ndisc_router_get_hop_limit(sd_ndisc_router *rt, uint8_t *ret) {
         return 0;
 }
 
-int sd_ndisc_router_get_retrans_time(sd_ndisc_router *rt, uint64_t *ret) {
+int sd_ndisc_router_get_retrans_time(sd_ndisc_router *rt, usec_t *ret) {
         assert_return(rt, -EINVAL);
         assert_return(ret, -EINVAL);
 

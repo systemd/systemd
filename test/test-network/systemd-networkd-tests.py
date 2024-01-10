@@ -3455,32 +3455,37 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         output = check_output(f'ip link show dev {link}')
         print(output)
 
-        copy_network_unit('25-ipv6-retrans-time-3000.network')
-        networkctl_reload()
-        # self.wait_operstate(link, 'degraded', setup_state='configuring')
-        self.check_ipv6_neigh_sysctl_attr(link, 'retrans_time_ms', '3000')
-        remove_network_unit('25-ipv6-retrans-time-3000.network')
-
-        copy_network_unit('25-ipv6-retrans-time-0.network')
+        # expect retrans_time_ms updated
+        copy_network_unit('25-ipv6-retrans-time-3s.network')
         networkctl_reload()
         self.check_ipv6_neigh_sysctl_attr(link, 'retrans_time_ms', '3000')
-        remove_network_unit('25-ipv6-retrans-time-0.network')
+        remove_network_unit('25-ipv6-retrans-time-3s.network')
 
+        # expect retrans_time_ms unchanged
+        copy_network_unit('25-ipv6-retrans-time-0s.network')
+        networkctl_reload()
+        self.check_ipv6_neigh_sysctl_attr(link, 'retrans_time_ms', '3000')
+        remove_network_unit('25-ipv6-retrans-time-0s.network')
+
+        # expect retrans_time_ms unchanged
         copy_network_unit('25-ipv6-retrans-time-toobig.network')
         networkctl_reload()
         self.check_ipv6_neigh_sysctl_attr(link, 'retrans_time_ms', '3000')
         remove_network_unit('25-ipv6-retrans-time-toobig.network')
 
+        # expect retrans_time_ms unchanged
         copy_network_unit('25-ipv6-retrans-time-invalid.network')
         networkctl_reload()
         self.check_ipv6_neigh_sysctl_attr(link, 'retrans_time_ms', '3000')
         remove_network_unit('25-ipv6-retrans-time-invalid.network')
 
-        copy_network_unit('25-ipv6-retrans-time-4000.network')
+        # expect retrans_time_ms updated
+        copy_network_unit('25-ipv6-retrans-time-4s.network')
         networkctl_reload()
         self.check_ipv6_neigh_sysctl_attr(link, 'retrans_time_ms', '4000')
-        remove_network_unit('25-ipv6-retrans-time-4000.network')
+        remove_network_unit('25-ipv6-retrans-time-4s.network')
 
+        # expect retrans_time_ms unchanged
         networkctl_reload()
         self.check_ipv6_neigh_sysctl_attr(link, 'retrans_time_ms', '4000')
 

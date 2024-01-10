@@ -176,7 +176,6 @@ static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
         _cleanup_(route_freep) Route *route = in;
         struct in6_addr router;
         uint8_t hop_limit = 0;
-        usec_t retrans_time = 0;
         uint32_t mtu = 0;
         bool is_new;
         int r;
@@ -200,12 +199,6 @@ static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
                 r = sd_ndisc_router_get_hop_limit(rt, &hop_limit);
                 if (r < 0 && r != -ENODATA)
                         return log_link_warning_errno(link, r, "Failed to get default router hop limit from RA: %m");
-        }
-
-        if (link->network->ipv6_accept_ra_use_retrans_time) {
-                r = sd_ndisc_router_get_retrans_time(rt, &retrans_time);
-                if (r < 0 && r != -ENODATA)
-                        return log_link_warning_errno(link, r, "Failed to get default router retransmission time from RA: %m");
         }
 
         route->source = NETWORK_CONFIG_SOURCE_NDISC;

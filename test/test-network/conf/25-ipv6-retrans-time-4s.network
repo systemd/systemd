@@ -3,7 +3,4 @@
 Name=test25
 
 [Network]
-IPv6RetransTime=5000
-
-[IPv6AcceptRA]
-UseRetransTime=yes
+IPv6RetransmissionTimeSec=4
