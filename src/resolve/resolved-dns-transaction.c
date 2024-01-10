@@ -1821,8 +1821,12 @@ static int dns_transaction_prepare(DnsTransaction *t, usec_t ts) {
                                 t->answer_source = DNS_TRANSACTION_CACHE;
                                 if (t->answer_rcode == DNS_RCODE_SUCCESS)
                                         dns_transaction_complete(t, DNS_TRANSACTION_SUCCESS);
-                                else
+                                else {
+                                        if (t->received)
+                                                (void) dns_packet_ede_rcode(t->received, &t->answer_ede_rcode, &t->answer_ede_msg);
+
                                         dns_transaction_complete(t, DNS_TRANSACTION_RCODE_FAILURE);
+                                }
                                 return 0;
                         }
                 }
