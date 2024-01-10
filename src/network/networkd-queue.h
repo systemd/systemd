@@ -139,3 +139,42 @@ int manager_process_requests(Manager *manager);
 int request_call_netlink_async(sd_netlink *nl, sd_netlink_message *m, Request *req);
 
 const char* request_type_to_string(RequestType t) _const_;
+
+typedef struct RemoveRequest RemoveRequest;
+typedef int (*remove_request_netlink_handler_t)(sd_netlink *nl, sd_netlink_message *m, RemoveRequest *req);
+
+struct RemoveRequest {
+        Manager *manager;
+        Link *link;
+        void *userdata; /* e.g. Address */
+        mfree_func_t unref_func; /* e.g. address_unref() */
+        sd_netlink *netlink;
+        sd_netlink_message *message;
+        remove_request_netlink_handler_t netlink_handler;
+};
+
+int remove_request_add(
+                Manager *manager,
+                Link *link,
+                void *userdata, /* This is unref()ed when the call failed. */
+                mfree_func_t unref_func,
+                sd_netlink *netlink,
+                sd_netlink_message *message,
+                remove_request_netlink_handler_t netlink_handler);
+
+#define _remove_request_add(manager, link, data, name, nl, m, handler)  \
+        remove_request_add(manager, link, name##_ref(data),             \
+                           (mfree_func_t) name##_unref, nl, m, handler)
+
+#define link_remove_request_add(link, data, name, nl, m, handler)       \
+        ({                                                              \
+                Link *_link = (link);                                   \
+                                                                        \
+                _remove_request_add(_link->manager, _link, data, name,  \
+                                    nl, m, handler);                    \
+        })
+
+#define manager_remove_request_add(manager, data, name, nl, m, handler) \
+        _remove_request_add(manager, NULL, data, name, nl, m, handler)
+
+int manager_process_remove_requests(Manager *manager);
