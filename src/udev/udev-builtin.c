@@ -154,3 +154,26 @@ int udev_builtin_add_propertyf(sd_device *dev, bool test, const char *key, const
 
         return udev_builtin_add_property(dev, test, key, val);
 }
+
+int udev_builtin_import_property(sd_device *dev, sd_device *src, bool test, const char *key) {
+        const char *val;
+        int r;
+
+        assert(dev);
+        assert(key);
+
+        if (!src)
+                return 0;
+
+        r = sd_device_get_property_value(src, key, &val);
+        if (r == -ENOENT)
+                return 0;
+        if (r < 0)
+                return log_device_debug_errno(src, r, "Failed to get property \"%s\", ignoring: %m", key);
+
+        r = udev_builtin_add_property(dev, test, key, val);
+        if (r < 0)
+                return r;
+
+        return 1;
+}

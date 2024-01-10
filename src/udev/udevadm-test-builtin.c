@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include "device-private.h"
+#include "device-util.h"
 #include "log.h"
 #include "udev-builtin.h"
 #include "udevadm.h"
@@ -102,6 +104,15 @@ int builtin_main(int argc, char *argv[], void *userdata) {
         if (!event) {
                 r = log_oom();
                 goto finish;
+        }
+
+        if (arg_action != SD_DEVICE_REMOVE) {
+                /* For net_setup_link */
+                r = device_clone_with_db(dev, &event->dev_db_clone);
+                if (r < 0) {
+                        log_device_error_errno(dev, r, "Failed to clone device: %m");
+                        goto finish;
+                }
         }
 
         r = udev_builtin_run(event, cmd, arg_command, true);

@@ -84,5 +84,6 @@ void udev_builtin_list(void);
 bool udev_builtin_should_reload(void);
 int udev_builtin_add_property(sd_device *dev, bool test, const char *key, const char *val);
 int udev_builtin_add_propertyf(sd_device *dev, bool test, const char *key, const char *valf, ...) _printf_(4, 5);
+int udev_builtin_import_property(sd_device *dev, sd_device *src, bool test, const char *key);
 int udev_builtin_hwdb_lookup(sd_device *dev, const char *prefix, const char *modalias,
                              const char *filter, bool test);
