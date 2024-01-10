@@ -471,7 +471,7 @@ char* octescape(const char *s, size_t len) {
         return buf;
 }
 
-static char* strcpy_backslash_escaped(char *t, const char *s, const char *bad) {
+static char* strcpy_backslash_escaped(char * restrict t, const char * restrict s, const char *bad) {
         assert(bad);
         assert(t);
         assert(s);

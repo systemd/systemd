@@ -227,7 +227,7 @@ int free_and_strndup(char **p, const char *s, size_t l);
 bool string_is_safe(const char *p) _pure_;
 
 DISABLE_WARNING_STRINGOP_TRUNCATION;
-static inline void strncpy_exact(char *buf, const char *src, size_t buf_len) {
+static inline void strncpy_exact(char * restrict buf, const char * restrict src, size_t buf_len) {
         strncpy(buf, src, buf_len);
 }
 REENABLE_WARNING;
