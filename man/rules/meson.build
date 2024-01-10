@@ -1174,7 +1174,7 @@ manpages = [
  ['timesyncd.conf', '5', ['timesyncd.conf.d'], 'ENABLE_TIMESYNCD'],
  ['tmpfiles.d', '5', [], ''],
  ['udev', '7', [], ''],
- ['udev.conf', '5', [], ''],
+ ['udev.conf', '5', ['udev.conf.d'], ''],
  ['udev_device_get_syspath',
   '3',
   ['udev_device_get_action',
