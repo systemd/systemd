@@ -136,7 +136,7 @@ sd_dhcp_server_lease* dhcp_server_get_static_lease(sd_dhcp_server *server, const
 
         static_lease = hashmap_get(server->static_leases_by_client_id, &req->client_id);
         if (static_lease)
-                return static_lease;
+                goto verify;
 
         /* when no lease is found based on the client id fall back to chaddr */
         if (!client_id_data_size_is_valid(req->message->hlen))
@@ -145,7 +145,20 @@ sd_dhcp_server_lease* dhcp_server_get_static_lease(sd_dhcp_server *server, const
         if (sd_dhcp_client_id_set(&client_id, /* type = */ 1, req->message->chaddr, req->message->hlen) < 0)
                 return NULL;
 
-        return hashmap_get(server->static_leases_by_client_id, &client_id);
+        static_lease = hashmap_get(server->static_leases_by_client_id, &client_id);
+        if (!static_lease)
+                return NULL;
+
+verify:
+        /* Check if the address is in the same subnet. */
+        if ((static_lease->address & server->netmask) != server->subnet)
+                return NULL;
+
+        /* Check if the address is different from the server address. */
+        if (static_lease->address == server->address)
+                return NULL;
+
+        return static_lease;
 }
 
 int sd_dhcp_server_set_static_lease(
