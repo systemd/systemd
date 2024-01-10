@@ -2449,6 +2449,8 @@ static int server_load_boolean_credential(const char *name) {
         _cleanup_free_ void *data = NULL;
         int r;
 
+        /* Similar to read_credential_bool but empty creds are valid and evaluated as true */
+
         r = read_credential(name, &data, NULL);
         if (r < 0)
                 return r;
