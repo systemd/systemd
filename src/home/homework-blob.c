@@ -194,3 +194,33 @@ int home_reconcile_blob_dirs(UserRecord *h, int root_fd, int reconciled) {
         }
         return 0;
 }
+
+int home_apply_new_blob_dir(UserRecord *h, Hashmap *blobs) {
+        _cleanup_free_ char *sys_path = NULL;
+        _cleanup_close_ int sys_fd = -EBADF;
+        uint64_t total_size;
+        const char *filename;
+        const void *v;
+        int r;
+
+        if (hashmap_isempty(blobs))
+                return 0;
+
+        sys_path = path_join(home_system_blob_dir(), h->user_name);
+        if (!sys_path)
+                return log_oom();
+        sys_fd = open(sys_path, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        if (sys_fd < 0)
+                return log_error_errno(errno, "Failed to open system blob dir %s: %m", sys_path);
+
+        HASHMAP_FOREACH_KEY(v, filename, blobs) {
+                r = copy_one_blob(PTR_TO_FD(v), sys_fd, filename, &total_size, 0, h->blob_manifest);
+                if (r == -EOVERFLOW)
+                        break;
+                if (r < 0)
+                        return r;
+        }
+
+        log_info("Replaced system blob directory.");
+        return 0;
+}
