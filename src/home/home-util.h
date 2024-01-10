@@ -5,6 +5,7 @@
 
 #include "sd-bus.h"
 
+#include "hash-funcs.h"
 #include "time-util.h"
 #include "user-record.h"
 
@@ -19,6 +20,8 @@
 
 /* This should be 83% right now, i.e. 100 of (100 + 20). Let's protect us against accidental changes. */
 assert_cc(USER_DISK_SIZE_DEFAULT_PERCENT == 83U);
+
+extern const struct hash_ops blob_fd_hash_ops;
 
 bool suitable_user_name(const char *name);
 int suitable_realm(const char *realm);

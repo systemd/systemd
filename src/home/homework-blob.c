@@ -240,3 +240,61 @@ int home_reconcile_blob_dirs(UserRecord *h, int root_fd, int reconciled) {
         }
         return 0;
 }
+
+int home_apply_new_blob_dir(UserRecord *h, Hashmap *blobs) {
+        _cleanup_free_ char *fn = NULL;
+        _cleanup_close_ int base_dfd = -EBADF, dfd = -EBADF;
+        uint64_t total_size = 0;
+        const char *filename;
+        const void *v;
+        int r;
+
+        assert(h);
+
+        if (!blobs) /* Shortcut: If no blobs are passed from dbus, we have nothing to do. */
+                return 0;
+
+        base_dfd = open(home_system_blob_dir(), O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        if (base_dfd < 0)
+                return log_error_errno(errno, "Failed to open system blob base dir: %m");
+
+        if (hashmap_isempty(blobs)) {
+                /* Shortcut: If blobs was passed but empty, we can simply delete the contents
+                 * of the directory. */
+                r = rm_rf_at(base_dfd, h->user_name, REMOVE_PHYSICAL|REMOVE_MISSING_OK);
+                if (r < 0)
+                        return log_error_errno(errno, "Failed to empty out system blob dir: %m");
+                return 0;
+        }
+
+        r = tempfn_random(h->user_name, NULL, &fn);
+        if (r < 0)
+                return r;
+
+        dfd = open_mkdir_at(base_dfd, fn, O_EXCL|O_CLOEXEC, 0755);
+        if (dfd < 0)
+                return log_error_errno(errno, "Failed to create system blob dir: %m");
+
+        HASHMAP_FOREACH_KEY(v, filename, blobs) {
+                r = copy_one_blob(PTR_TO_FD(v), dfd, filename, &total_size, 0, h->blob_manifest);
+                if (r == -EFBIG)
+                        break;
+                if (r < 0) {
+                        log_error_errno(r, "Failed to copy %s into system blob dir: %m", filename);
+                        goto fail;
+                }
+        }
+
+        r = install_file(base_dfd, fn, base_dfd, h->user_name, INSTALL_REPLACE);
+        if (r < 0) {
+                log_error_errno(r, "Failed to move system blob dir into place: %m");
+                goto fail;
+        }
+
+        log_info("Replaced system blob directory.");
+        return 0;
+
+fail:
+        (void) rm_rf_at(base_dfd, fn, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_MISSING_OK);
+        return r;
+}
