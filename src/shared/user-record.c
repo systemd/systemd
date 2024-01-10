@@ -1133,6 +1133,32 @@ int per_machine_hostname_match(JsonVariant *hns, JsonDispatchFlags flags) {
         return false;
 }
 
+int per_machine_match(JsonVariant *entry, JsonDispatchFlags flags) {
+        JsonVariant *m;
+
+        assert(json_variant_is_object(entry));
+
+        m = json_variant_by_key(entry, "matchMachineId");
+        if (m) {
+                r = per_machine_id_match(m, flags);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return true;
+        }
+
+        m = json_variant_by_key(e, "matchHostname");
+        if (m) {
+                r = per_machine_hostname_match(m, flags);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return true;
+        }
+
+        return false;
+}
+
 static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
 
         static const JsonDispatch per_machine_dispatch_table[] = {
@@ -1225,27 +1251,10 @@ static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDisp
                 if (!json_variant_is_object(e))
                         return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of objects.", strna(name));
 
-                m = json_variant_by_key(e, "matchMachineId");
-                if (m) {
-                        r = per_machine_id_match(m, flags);
-                        if (r < 0)
-                                return r;
-
-                        matching = r > 0;
-                }
-
-                if (!matching) {
-                        m = json_variant_by_key(e, "matchHostname");
-                        if (m) {
-                                r = per_machine_hostname_match(m, flags);
-                                if (r < 0)
-                                        return r;
-
-                                matching = r > 0;
-                        }
-                }
-
-                if (!matching)
+                r = per_machine_match(e, flags);
+                if (r < 0)
+                        return r;
+                if (r == 0)
                         continue;
 
                 r = json_dispatch(e, per_machine_dispatch_table, flags, userdata);
