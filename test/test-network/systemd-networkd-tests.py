@@ -4460,6 +4460,20 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
     def tearDown(self):
         tear_down_common()
 
+    def test_bridge_mac_none(self):
+        copy_network_unit('12-dummy-mac.netdev', '26-bridge-mac-slave.network',
+                          '26-bridge-mac.netdev', '26-bridge-mac-master.network', '26-bridge-mac.link')
+        start_networkd()
+        self.wait_online(['dummy98:enslaved', 'bridge99:degraded'])
+
+        output = check_output('ip link show dev dummy98')
+        print(output)
+        self.assertIn('link/ether 12:34:56:78:9a:01', output)
+
+        output = check_output('ip link show dev bridge99')
+        print(output)
+        self.assertIn('link/ether 12:34:56:78:9a:01', output)
+
     def test_bridge_vlan(self):
         copy_network_unit('11-dummy.netdev', '26-bridge-vlan-slave.network',
                           '26-bridge.netdev', '26-bridge-vlan-master.network',
