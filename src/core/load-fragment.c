@@ -38,6 +38,7 @@
 #include "fileio.h"
 #include "firewall-util.h"
 #include "fs-util.h"
+#include "fstab-util.h"
 #include "hexdecoct.h"
 #include "iovec-util.h"
 #include "ioprio-util.h"
@@ -2697,7 +2698,7 @@ int config_parse_unit_env_file(const char *unit,
                 return 0;
         }
 
-        r = unit_full_printf_full(u, rvalue, PATH_MAX, &n);
+        r = unit_path_printf(u, rvalue, &n);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
                 return 0;
@@ -5268,7 +5269,7 @@ int config_parse_bind_paths(
                 if (r == 0)
                         break;
 
-                r = unit_full_printf_full(u, source, PATH_MAX, &sresolved);
+                r = unit_path_printf(u, source, &sresolved);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Failed to resolve unit specifiers in \"%s\", ignoring: %m", source);
@@ -6113,6 +6114,47 @@ int config_parse_restrict_network_interfaces(
         return 0;
 }
 
+int config_parse_mount_node(
+                const char *unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        const Unit *u = ASSERT_PTR(userdata);
+        _cleanup_free_ char *resolved = NULL, *path = NULL;
+        int r;
+
+        assert(filename);
+        assert(lvalue);
+        assert(rvalue);
+
+        r = unit_full_printf(u, rvalue, &resolved);
+        if (r < 0) {
+                log_syntax(unit, LOG_WARNING, filename, line, r, "Failed to resolve unit specifiers in '%s', ignoring: %m", rvalue);
+                return 0;
+        }
+
+        path = fstab_node_to_udev_node(resolved);
+        if (!path)
+                return log_oom();
+
+        /* The source passed is not necessarily something we understand, and we pass it as-is to mount/swapon,
+         * so path_is_valid is not used. But let's check for basic sanety, i.e. if the source is longer than
+         * PATH_MAX, you're likely doing something wrong. */
+        if (strlen(path) >= PATH_MAX) {
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "Resolved mount path '%s' too long, ignoring.", path);
+                return 0;
+        }
+
+        return config_parse_string(unit, filename, line, section, section_line, lvalue, ltype, path, data, userdata);
+}
+
 static int merge_by_names(Unit *u, Set *names, const char *id) {
         char *k;
         int r;
@@ -6365,6 +6407,7 @@ void unit_dump_config_items(FILE *f) {
                 { config_parse_job_mode_isolate,      "BOOLEAN" },
                 { config_parse_personality,           "PERSONALITY" },
                 { config_parse_log_filter_patterns,   "REGEX" },
+                { config_parse_mount_node,            "NODE" },
         };
 
         const char *prev = NULL;
