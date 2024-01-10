@@ -40,6 +40,7 @@
 #include "journald-native.h"
 #include "journald-rate-limit.h"
 #include "journald-server.h"
+#include "journald-socket.h"
 #include "journald-stream.h"
 #include "journald-syslog.h"
 #include "log.h"
@@ -1153,6 +1154,9 @@ static void server_dispatch_message_real(
         else
                 journal_uid = 0;
 
+        if (s->forward_socket_fd >= 0)
+                server_forward_socket(s, iovec, n, priority);
+
         server_write_to_journal(s, journal_uid, iovec, n, priority);
 }
 
@@ -1840,6 +1844,17 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 else
                         s->max_level_wall = r;
 
+        } else if (proc_cmdline_key_streq(key, "systemd.journald.max_level_socket")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                r = log_level_from_string(value);
+                if (r < 0)
+                        log_warning("Failed to parse max level socket value \"%s\". Ignoring.", value);
+                else
+                        s->max_level_socket = r;
+
         } else if (startswith(key, "systemd.journald"))
                 log_warning("Unknown journald kernel command line option \"%s\". Ignoring.", key);
 
@@ -2461,7 +2476,9 @@ static int server_load_boolean_credential(const char *name) {
         return parse_boolean(data);
 }
 
-static int server_load_credentials(Server *s) {
+static void server_load_credentials(Server *s) {
+        _cleanup_free_ void *data = NULL;
+        SocketAddress address;
         int r;
 
         assert(s);
@@ -2490,15 +2507,19 @@ static int server_load_credentials(Server *s) {
                 log_debug("Acquired forward_to_console from credential.");
         }
 
-        r = server_load_boolean_credential("journald.forward_to_wall");
-        if (r < 0)
-                log_debug_errno(r, "Failed to read credential journald.forward_to_wall, ignoring: %m");
-        else {
-                s->forward_to_wall = r;
-                log_debug("Acquired forward_to_wall from credential.");
+        r = read_credential("journald.vsock_forward_address", &data, NULL);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to read credential journald.vsock_forward_address, ignoring: %m");
+                return;
         }
 
-        return 0;
+        r = socket_address_parse_vsock(&address, data);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to parse credential journald.vsock_forward_address, ignoring: %m");
+                return;
+        }
+
+        server_open_vm_forward_socket(s, &address);
 }
 
 int server_new(Server **ret) {
@@ -2518,6 +2539,7 @@ int server_new(Server **ret) {
                 .audit_fd = -EBADF,
                 .hostname_fd = -EBADF,
                 .notify_fd = -EBADF,
+                .forward_socket_fd = -EBADF,
 
                 .compress.enabled = true,
                 .compress.threshold_bytes = UINT64_MAX,
@@ -2542,6 +2564,7 @@ int server_new(Server **ret) {
                 .max_level_kmsg = LOG_NOTICE,
                 .max_level_console = LOG_INFO,
                 .max_level_wall = LOG_EMERG,
+                .max_level_socket = LOG_DEBUG,
 
                 .line_max = DEFAULT_LINE_MAX,
 
@@ -2582,9 +2605,9 @@ int server_init(Server *s, const char *namespace) {
 
         server_parse_config_file(s);
 
-        r = server_load_credentials(s);
-        if (r < 0)
-                log_warning_errno(r, "Failed to parse credentials, ignoring: %m");
+        server_load_credentials(s);
+
+        server_detect_unix_forward_socket(s);
 
         if (!s->namespace) {
                 /* Parse kernel command line, but only if we are not a namespace instance */
