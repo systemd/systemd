@@ -2589,13 +2589,11 @@ bool dns_packet_equal(const DnsPacket *a, const DnsPacket *b) {
 }
 
 int dns_packet_ede_rcode(DnsPacket *p, char **ret_ede_msg) {
-        assert(p);
-
-        _cleanup_free_ char *msg = NULL, *msg_escaped = NULL;
-        int ede_rcode = _DNS_EDNS_OPT_MAX_DEFINED;
-        int r;
         const uint8_t *d;
         size_t l;
+        int r;
+
+        assert(p);
 
         if (!p->opt)
                 return _DNS_EDE_RCODE_INVALID;
@@ -2618,31 +2616,40 @@ int dns_packet_ede_rcode(DnsPacket *p, char **ret_ede_msg) {
                                                "Truncated option in EDNS0 variable part.");
 
                 if (code == DNS_EDNS_OPT_EXT_ERROR) {
+                        _cleanup_free_ char *msg = NULL;
+                        int ede_rcode;
+
                         if (length < 2U)
                                 return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG),
-                                                "EDNS0 truncated EDE info code.");
+                                                       "EDNS0 truncated EDE info code.");
+
                         ede_rcode = unaligned_read_be16(d + 4);
-                        r = make_cstring((char *)d + 6, length - 2U, MAKE_CSTRING_ALLOW_TRAILING_NUL, &msg);
+
+                        r = make_cstring((char *) d + 6, length - 2U, MAKE_CSTRING_ALLOW_TRAILING_NUL, &msg);
                         if (r < 0)
-                                return log_debug_errno(r, "Invalid EDE text in opt");
-                        else if (!utf8_is_valid(msg))
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Invalid EDE text in opt");
-                        else if (ede_rcode < _DNS_EDNS_OPT_MAX_DEFINED) {
-                                msg_escaped = cescape(msg);
-                                if (!msg_escaped)
-                                        return -ENOMEM;
+                                return log_debug_errno(r, "Invalid EDE text in opt.");
+
+                        if (ret_ede_msg) {
+                                if (!utf8_is_valid(msg)) {
+                                        _cleanup_free_ char *msg_escaped = NULL;
+
+                                        msg_escaped = cescape(msg);
+                                        if (!msg_escaped)
+                                                return -ENOMEM;
+
+                                        *ret_ede_msg = TAKE_PTR(msg_escaped);
+                                } else
+                                        *ret_ede_msg = TAKE_PTR(msg);
                         }
-                        break;
+
+                        return ede_rcode;
                 }
 
                 d += 4U + length;
                 l -= 4U + length;
         }
 
-        if (ret_ede_msg)
-                *ret_ede_msg = TAKE_PTR(msg_escaped);
-
-        return ede_rcode;
+        return _DNS_EDE_RCODE_INVALID; /* Not found. */
 }
 
 bool dns_ede_rcode_is_dnssec(int ede_rcode) {
@@ -2732,6 +2739,7 @@ static const char* const dns_rcode_table[_DNS_RCODE_MAX_DEFINED] = {
         [DNS_RCODE_NXRRSET]   = "NXRRSET",
         [DNS_RCODE_NOTAUTH]   = "NOTAUTH",
         [DNS_RCODE_NOTZONE]   = "NOTZONE",
+        [DNS_RCODE_DSOTYPENI] = "DSOTYPENI",
         [DNS_RCODE_BADVERS]   = "BADVERS",
         [DNS_RCODE_BADKEY]    = "BADKEY",
         [DNS_RCODE_BADTIME]   = "BADTIME",
