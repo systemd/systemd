@@ -1059,7 +1059,6 @@ int getenv_for_pid(pid_t pid, const char *field, char **ret) {
         if (r < 0)
                 return r;
 
-        l = strlen(field);
         for (;;) {
                 _cleanup_free_ char *line = NULL;
 
@@ -1074,8 +1073,9 @@ int getenv_for_pid(pid_t pid, const char *field, char **ret) {
 
                 sum += r;
 
-                if (strneq(line, field, l) && line[l] == '=') {
-                        value = strdup(line + l + 1);
+                line = startswith(line, field);
+                if (line && *line == '=') {
+                        value = strdup(line + 1);
                         if (!value)
                                 return -ENOMEM;
 
