@@ -295,7 +295,7 @@ int bus_home_method_realize(
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = home_create(h, secret, error);
+        r = home_create(h, secret, NULL, 0, error);
         if (r < 0)
                 return r;
 
@@ -416,7 +416,13 @@ int bus_home_method_authenticate(
         return 1;
 }
 
-int bus_home_method_update_record(Home *h, sd_bus_message *message, UserRecord *hr, sd_bus_error *error) {
+int bus_home_method_update_record(
+                Home *h,
+                sd_bus_message *message,
+                UserRecord *hr,
+                Hashmap *blobs,
+                uint64_t flags,
+                sd_bus_error *error) {
         int r;
 
         assert(h);
@@ -426,6 +432,9 @@ int bus_home_method_update_record(Home *h, sd_bus_message *message, UserRecord *
         r = user_record_is_supported(hr, error);
         if (r < 0)
                 return r;
+
+        if (flags != 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Provided flags are unsupported.");
 
         r = home_verify_polkit_async(
                         h,
@@ -438,7 +447,7 @@ int bus_home_method_update_record(Home *h, sd_bus_message *message, UserRecord *
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = home_update(h, hr, error);
+        r = home_update(h, hr, blobs, flags, error);
         if (r < 0)
                 return r;
 
@@ -458,6 +467,8 @@ int bus_home_method_update(
                 sd_bus_error *error) {
 
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
+        _cleanup_hashmap_free_ Hashmap *blobs = NULL;
+        uint64_t flags = 0;
         Home *h = ASSERT_PTR(userdata);
         int r;
 
@@ -467,7 +478,17 @@ int bus_home_method_update(
         if (r < 0)
                 return r;
 
-        return bus_home_method_update_record(h, message, hr, error);
+        if (endswith(sd_bus_message_get_member(message), "Ex")) {
+                r = bus_message_read_blobs(message, &blobs, error);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read(message, "t", &flags);
+                if (r < 0)
+                        return r;
+        }
+
+        return bus_home_method_update_record(h, message, hr, blobs, flags, error);
 }
 
 int bus_home_method_resize(
@@ -889,6 +910,11 @@ const sd_bus_vtable home_vtable[] = {
                                 SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
         SD_BUS_METHOD_WITH_ARGS("Update",
                                 SD_BUS_ARGS("s", user_record),
+                                SD_BUS_NO_RESULT,
+                                bus_home_method_update,
+                                SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
+        SD_BUS_METHOD_WITH_ARGS("UpdateEx",
+                                SD_BUS_ARGS("s", user_record, "a{sh}", blobs, "t", flags),
                                 SD_BUS_NO_RESULT,
                                 bus_home_method_update,
                                 SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
