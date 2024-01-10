@@ -86,7 +86,7 @@ int pull_find_old_etags(
                         if (!b)
                                 continue;
                 } else
-                        b = strchr(de->d_name, 0);
+                        b = de->d_name + strlen(de->d_name);
 
                 if (a >= b)
                         continue;
