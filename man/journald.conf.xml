@@ -288,7 +288,7 @@
         large individual journal files may grow at most. This influences the granularity in which disk space
         is made available through rotation, i.e. deletion of historic data. Defaults to one eighth of the
         values configured with <varname>SystemMaxUse=</varname> and <varname>RuntimeMaxUse=</varname> capped
-        to 128M, so that usually seven rotated journal files are kept as history. If the journal compact 
+        to 128M, so that usually seven rotated journal files are kept as history. If the journal compact
         mode is enabled (enabled by default), the maximum file size is capped to 4G.</para>
 
         <para>Specify values in bytes or use K, M, G, T, P, E as units for the specified sizes (equal to
@@ -409,11 +409,12 @@
         <term><varname>MaxLevelKMsg=</varname></term>
         <term><varname>MaxLevelConsole=</varname></term>
         <term><varname>MaxLevelWall=</varname></term>
+        <term><varname>MaxLevelSocket=</varname></term>
 
         <listitem><para>Controls the maximum log level of messages
         that are stored in the journal, forwarded to syslog, kmsg, the
-        console or wall (if that is enabled, see above). As argument,
-        takes one of
+        console, a VM or UNIX socket, or wall (if that is enabled, see above).
+        As argument, takes one of
         <literal>emerg</literal>,
         <literal>alert</literal>,
         <literal>crit</literal>,
@@ -425,9 +426,11 @@
         or integer values in the range of 0–7 (corresponding to the
         same levels). Messages equal or below the log level specified
         are stored/forwarded, messages above are dropped. Defaults to
-        <literal>debug</literal> for <varname>MaxLevelStore=</varname>
-        and <varname>MaxLevelSyslog=</varname>, to ensure that the all
-        messages are stored in the journal and forwarded to syslog.
+        <literal>debug</literal> for <varname>MaxLevelStore=</varname>,
+        <varname>MaxLevelSyslog=</varname> and
+        <varname>MaxLevelSocket=</varname>, to ensure that the all
+        messages are stored in the journal, forwarded to syslog and
+        the socket if one exists.
         Defaults to
         <literal>notice</literal> for <varname>MaxLevelKMsg=</varname>,
         <literal>info</literal> for <varname>MaxLevelConsole=</varname>,
@@ -438,7 +441,8 @@
         <literal>systemd.journald.max_level_syslog=</literal>,
         <literal>systemd.journald.max_level_kmsg=</literal>,
         <literal>systemd.journald.max_level_console=</literal>,
-        <literal>systemd.journald.max_level_wall=</literal>.</para>
+        <literal>systemd.journald.max_level_wall=</literal>,
+        <literal>systemd.journald.max_level_socket=</literal>.</para>
 
         <xi:include href="version-info.xml" xpointer="v185"/>
         </listitem>
