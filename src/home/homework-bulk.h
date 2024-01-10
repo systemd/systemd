@@ -9,3 +9,5 @@
 #include "user-record.h"
 
 int home_reconcile_bulk_dirs(UserRecord *h, int root_fd, int reconciled);
+
+int home_apply_new_bulk_dir(UserRecord *h);
