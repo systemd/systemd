@@ -340,7 +340,7 @@ static int method_deactivate_home(sd_bus_message *message, void *userdata, sd_bu
         return generic_home_method(userdata, message, bus_home_method_deactivate, error);
 }
 
-static int validate_and_allocate_home(Manager *m, UserRecord *hr, Home **ret, sd_bus_error *error) {
+static int validate_and_allocate_home(Manager *m, UserRecord *hr, Hashmap *blobs, Home **ret, sd_bus_error *error) {
         _cleanup_(user_record_unrefp) UserRecord *signed_hr = NULL;
         struct passwd *pw;
         struct group *gr;
@@ -367,6 +367,15 @@ static int validate_and_allocate_home(Manager *m, UserRecord *hr, Home **ret, sd
         gr = getgrnam(hr->user_name);
         if (gr)
                 return sd_bus_error_setf(error, BUS_ERROR_USER_NAME_EXISTS, "Specified user name %s conflicts with an NSS group by the same name, refusing.", hr->user_name);
+
+        if (blobs) {
+                const char *failed = NULL;
+                r = user_record_ensure_blob_manifest(hr, blobs, &failed);
+                if (r == -EINVAL)
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Provided blob files do not correspond to blob manifest.");
+                if (r < 0)
+                        return sd_bus_error_set_errnof(error, r, "Failed to generate hash for blob %s: %m", strnull(failed));
+        }
 
         r = manager_verify_user_record(m, hr);
         switch (r) {
@@ -449,7 +458,7 @@ static int method_register_home(
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = validate_and_allocate_home(m, hr, &h, error);
+        r = validate_and_allocate_home(m, hr, NULL, &h, error);
         if (r < 0)
                 return r;
 
@@ -466,12 +475,15 @@ static int method_unregister_home(sd_bus_message *message, void *userdata, sd_bu
         return generic_home_method(userdata, message, bus_home_method_unregister, error);
 }
 
-static int method_create_home(
+static int create_home_common(
                 sd_bus_message *message,
                 void *userdata,
+                bool extended,
                 sd_bus_error *error) {
 
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
+        _cleanup_hashmap_free_ Hashmap *blobs = NULL;
+        uint64_t flags = 0;
         Manager *m = ASSERT_PTR(userdata);
         Home *h;
         int r;
@@ -481,6 +493,18 @@ static int method_create_home(
         r = bus_message_read_home_record(message, USER_RECORD_REQUIRE_REGULAR|USER_RECORD_ALLOW_SECRET|USER_RECORD_ALLOW_PRIVILEGED|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_SIGNATURE, &hr, error);
         if (r < 0)
                 return r;
+
+        if (extended) {
+                r = bus_message_read_blobs(message, &blobs, error);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read(message, "t", &flags);
+                if (r < 0)
+                        return r;
+                if (flags != 0)
+                        return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Provided flags are unsupported.");
+        }
 
         r = bus_verify_polkit_async(
                         message,
@@ -493,11 +517,11 @@ static int method_create_home(
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = validate_and_allocate_home(m, hr, &h, error);
+        r = validate_and_allocate_home(m, hr, blobs, &h, error);
         if (r < 0)
                 return r;
 
-        r = home_create(h, hr, error);
+        r = home_create(h, hr, blobs, flags, error);
         if (r < 0)
                 goto fail;
 
@@ -517,6 +541,20 @@ fail:
         return r;
 }
 
+static int method_create_home(
+                sd_bus_message *message,
+                void *userdata,
+                sd_bus_error *error) {
+        return create_home_common(message, userdata, false, error);
+}
+
+static int method_create_home_ex(
+                sd_bus_message *message,
+                void *userdata,
+                sd_bus_error *error) {
+        return create_home_common(message, userdata, true, error);
+}
+
 static int method_realize_home(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         return generic_home_method(userdata, message, bus_home_method_realize, error);
 }
@@ -533,8 +571,14 @@ static int method_authenticate_home(sd_bus_message *message, void *userdata, sd_
         return generic_home_method(userdata, message, bus_home_method_authenticate, error);
 }
 
-static int method_update_home(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+static int update_home_common(
+                sd_bus_message *message,
+                void *userdata,
+                bool extended,
+                sd_bus_error *error) {
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
+        _cleanup_hashmap_free_ Hashmap *blobs = NULL;
+        uint64_t flags = 0;
         Manager *m = ASSERT_PTR(userdata);
         Home *h;
         int r;
@@ -545,13 +589,31 @@ static int method_update_home(sd_bus_message *message, void *userdata, sd_bus_er
         if (r < 0)
                 return r;
 
+        if (extended) {
+                r = bus_message_read_blobs(message, &blobs, error);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read(message, "t", &flags);
+                if (r < 0)
+                        return r;
+        }
+
         assert(hr->user_name);
 
         h = hashmap_get(m->homes_by_name, hr->user_name);
         if (!h)
                 return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_HOME, "No home for user %s known", hr->user_name);
 
-        return bus_home_method_update_record(h, message, hr, error);
+        return bus_home_method_update_record(h, message, hr, blobs, flags, error);
+}
+
+static int method_update_home(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return update_home_common(message, userdata, false, error);
+}
+
+static int method_update_home_ex(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return update_home_common(message, userdata, true, error);
 }
 
 static int method_resize_home(sd_bus_message *message, void *userdata, sd_bus_error *error) {
@@ -751,6 +813,11 @@ static const sd_bus_vtable manager_vtable[] = {
                                 SD_BUS_NO_RESULT,
                                 method_create_home,
                                 SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
+        SD_BUS_METHOD_WITH_ARGS("CreateHomeEx",
+                                SD_BUS_ARGS("s", user_record, "a{sh}", blobs, "t", flags),
+                                SD_BUS_NO_RESULT,
+                                method_create_home_ex,
+                                SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
 
         /* Create $HOME for already registered JSON entry */
         SD_BUS_METHOD_WITH_ARGS("RealizeHome",
@@ -785,6 +852,11 @@ static const sd_bus_vtable manager_vtable[] = {
                                 SD_BUS_ARGS("s", user_record),
                                 SD_BUS_NO_RESULT,
                                 method_update_home,
+                                SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
+        SD_BUS_METHOD_WITH_ARGS("UpdateHomeEx",
+                                SD_BUS_ARGS("s", user_record, "a{sh}", blobs, "t", flags),
+                                SD_BUS_NO_RESULT,
+                                method_update_home_ex,
                                 SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
 
         SD_BUS_METHOD_WITH_ARGS("ResizeHome",
