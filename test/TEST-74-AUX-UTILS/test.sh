@@ -11,6 +11,10 @@ NSPAWN_ARGUMENTS="--private-network"
 # (Hopefully) a temporary workaround for https://github.com/systemd/systemd/issues/30573
 KERNEL_APPEND="${KERNEL_APPEND:-} SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_BURST=100"
 
+# Make sure vsock is available in the VM
+CID=$((RANDOM + 3))
+QEMU_OPTIONS+=" -device vhost-vsock-pci,guest-cid=$CID"
+
 test_append_files() {
     local workspace="${1:?}"
 
@@ -26,7 +30,14 @@ test_append_files() {
         generate_module_dependencies
     fi
 
-    image_install socat
+    inst_binary socat
+    inst_binary ssh
+    inst_binary sshd
+    inst_binary ssh-keygen
+    instmods vmw_vsock_virtio_transport
+    instmods vsock_loopback
+    instmods vmw_vsock_vmci_transport
+    generate_module_dependencies
 }
 
 do_test "$@"
