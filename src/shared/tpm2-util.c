@@ -4,6 +4,7 @@
 
 #include "alloc-util.h"
 #include "constants.h"
+#include "creds-util.h"
 #include "cryptsetup-util.h"
 #include "dirent-util.h"
 #include "dlfcn-util.h"
@@ -25,6 +26,7 @@
 #include "nulstr-util.h"
 #include "parse-util.h"
 #include "random-util.h"
+#include "recurse-dir.h"
 #include "sha256.h"
 #include "sort-util.h"
 #include "stat-util.h"
@@ -6778,6 +6780,39 @@ int tpm2_pcrlock_search_file(const char *path, FILE **ret_file, char **ret_path)
         return 0;
 }
 
+int tpm2_pcrlock_policy_from_json(
+                JsonVariant *v,
+                Tpm2PCRLockPolicy *ret_policy) {
+
+        JsonDispatch policy_dispatch[] = {
+                { "pcrBank",    JSON_VARIANT_STRING,        json_dispatch_tpm2_algorithm, offsetof(Tpm2PCRLockPolicy, algorithm),       JSON_MANDATORY },
+                { "pcrValues",  JSON_VARIANT_ARRAY,         json_dispatch_variant,        offsetof(Tpm2PCRLockPolicy, prediction_json), JSON_MANDATORY },
+                { "nvIndex",    _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint32,         offsetof(Tpm2PCRLockPolicy, nv_index),        JSON_MANDATORY },
+                { "nvHandle",   JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, nv_handle),       JSON_MANDATORY },
+                { "nvPublic",   JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, nv_public),       JSON_MANDATORY },
+                { "srkHandle",  JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, srk_handle),      JSON_MANDATORY },
+                { "pinPublic",  JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, pin_public),      JSON_MANDATORY },
+                { "pinPrivate", JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, pin_private),     JSON_MANDATORY },
+                {}
+        };
+
+        _cleanup_(tpm2_pcrlock_policy_done) Tpm2PCRLockPolicy policy = {};
+        int r;
+
+        assert(v);
+
+        r = json_dispatch(v, policy_dispatch, JSON_LOG, &policy);
+        if (r < 0)
+                return r;
+
+        r = tpm2_pcr_prediction_from_json(&policy.prediction, policy.algorithm, policy.prediction_json);
+        if (r < 0)
+                return r;
+
+        *ret_policy = TAKE_STRUCT(policy);
+        return 1;
+}
+
 int tpm2_pcrlock_policy_load(
                 const char *path,
                 Tpm2PCRLockPolicy *ret_policy) {
@@ -6794,41 +6829,140 @@ int tpm2_pcrlock_policy_load(
         if (r < 0)
                 return log_error_errno(r, "Failed to load TPM2 pcrlock policy file: %m");
 
-        _cleanup_(json_variant_unrefp) JsonVariant *configuration_json = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         r = json_parse_file(
                         f,
                         discovered_path,
                         /* flags = */ 0,
-                        &configuration_json,
+                        &v,
                         /* ret_line= */ NULL,
                         /* ret_column= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse existing pcrlock policy file '%s': %m", discovered_path);
 
-        JsonDispatch policy_dispatch[] = {
-                { "pcrBank",    JSON_VARIANT_STRING,        json_dispatch_tpm2_algorithm, offsetof(Tpm2PCRLockPolicy, algorithm),       JSON_MANDATORY },
-                { "pcrValues",  JSON_VARIANT_ARRAY,         json_dispatch_variant,        offsetof(Tpm2PCRLockPolicy, prediction_json), JSON_MANDATORY },
-                { "nvIndex",    _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint32,         offsetof(Tpm2PCRLockPolicy, nv_index),        JSON_MANDATORY },
-                { "nvHandle",   JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, nv_handle),       JSON_MANDATORY },
-                { "nvPublic",   JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, nv_public),       JSON_MANDATORY },
-                { "srkHandle",  JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, srk_handle),      JSON_MANDATORY },
-                { "pinPublic",  JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, pin_public),      JSON_MANDATORY },
-                { "pinPrivate", JSON_VARIANT_STRING,        json_dispatch_unbase64_iovec, offsetof(Tpm2PCRLockPolicy, pin_private),     JSON_MANDATORY },
-                {}
-        };
+        return tpm2_pcrlock_policy_from_json(v, ret_policy);
+}
 
-        _cleanup_(tpm2_pcrlock_policy_done) Tpm2PCRLockPolicy policy = {};
+static int pcrlock_policy_load_credential(
+                const char *name,
+                const struct iovec *data,
+                Tpm2PCRLockPolicy *ret) {
 
-        r = json_dispatch(configuration_json, policy_dispatch, JSON_LOG, &policy);
+        _cleanup_free_ char *c = NULL;
+        int r;
+
+        assert(name);
+
+        c = strdup(name);
+        if (!c)
+                return log_oom();
+
+        ascii_strlower(c); /* Lowercase, to match what we did at encryption time */
+
+        _cleanup_(iovec_done) struct iovec decoded = {};
+        r = decrypt_credential_and_warn(
+                        c,
+                        now(CLOCK_REALTIME),
+                        /* tpm2_device= */ NULL,
+                        /* tpm2_signature_path= */ NULL,
+                        data,
+                        CREDENTIAL_ALLOW_NULL,
+                        &decoded);
         if (r < 0)
                 return r;
 
-        r = tpm2_pcr_prediction_from_json(&policy.prediction, policy.algorithm, policy.prediction_json);
+        if (memchr(decoded.iov_base, 0, decoded.iov_len))
+                return log_error_errno(r, "Credential '%s' contains embedded NUL byte, refusing.", name);
+
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        r = json_parse(decoded.iov_base,
+                       /* flags= */ 0,
+                       &v,
+                       /* ret_line= */ NULL,
+                       /* ret_column= */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse pcrlock policy: %m");
+
+        r = tpm2_pcrlock_policy_from_json(v, ret);
         if (r < 0)
                 return r;
 
-        *ret_policy = TAKE_STRUCT(policy);
-        return 1;
+        return 0;
+}
+
+int tpm2_pcrlock_policy_from_credentials(
+                const struct iovec *srk,
+                const struct iovec *nv,
+                Tpm2PCRLockPolicy *ret) {
+
+        _cleanup_close_ int dfd = -EBADF;
+        int r;
+
+        /* During boot we'll not have access to the pcrlock.json file in /var/. In order to support
+         * pcrlock-bound root file systems we'll store a copy of the JSON data, wrapped in an (plaintext)
+         * credential in the ESP or XBOOTLDR partition. There might be multiple of those however (because of
+         * multi-boot), hence we use the SRK and NV data from the LUKS2 header as search key, and parse all
+         * such JSON policies until we find a matching one. */
+
+        const char *cp = secure_getenv("SYSTEMD_ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY") ?: ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY;
+
+        dfd = open(cp, O_CLOEXEC|O_DIRECTORY);
+        if (dfd < 0) {
+                if (errno == ENOENT) {
+                        log_debug("No encrypted system credentials passed.");
+                        return 0;
+                }
+
+                return log_error_errno(errno, "Faile to open system credentials directory.");
+        }
+
+        _cleanup_free_ DirectoryEntries *de = NULL;
+        r = readdir_all(dfd, RECURSE_DIR_IGNORE_DOT, &de);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enumerate system credentials: %m");
+
+        FOREACH_ARRAY(i, de->entries, de->n_entries) {
+                _cleanup_(iovec_done) struct iovec data = {};
+                struct dirent *d = *i;
+
+                if (!startswith_no_case(d->d_name, "pcrlock.")) /* VFAT is case-insensitive, hence don't be too strict here */
+                        continue;
+
+                r = read_full_file_full(
+                                dfd, d->d_name,
+                                /* offset= */ UINT64_MAX,
+                                /* size= */ CREDENTIAL_ENCRYPTED_SIZE_MAX,
+                                READ_FULL_FILE_UNBASE64|READ_FULL_FILE_FAIL_WHEN_LARGER,
+                                /* bind_name= */ NULL,
+                                (char**) &data.iov_base,
+                                &data.iov_len);
+                if (r == -ENOENT)
+                        continue;
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to read credentials file %s/%s, skipping: %m", ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY, d->d_name);
+                        continue;
+                }
+
+                _cleanup_(tpm2_pcrlock_policy_done) Tpm2PCRLockPolicy loaded_policy = {};
+                r = pcrlock_policy_load_credential(
+                                d->d_name,
+                                &data,
+                                &loaded_policy);
+                if (r < 0) {
+                        log_warning_errno(r, "Loading of pcrlock policy from credential '%s/%s' failed, skipping.", ENCRYPTED_SYSTEM_CREDENTIALS_DIRECTORY, d->d_name);
+                        continue;
+                }
+
+                if ((!srk || iovec_memcmp(srk, &loaded_policy.srk_handle) == 0) &&
+                    (!nv || iovec_memcmp(nv, &loaded_policy.nv_handle) == 0)) {
+                        *ret = TAKE_STRUCT(loaded_policy);
+                        return 1;
+                }
+        }
+
+        log_info("No pcrlock policy found among system credentials.");
+        *ret = (Tpm2PCRLockPolicy) {};
+        return 0;
 }
 
 int tpm2_load_public_key_file(const char *path, TPM2B_PUBLIC *ret) {
@@ -6948,6 +7082,7 @@ int tpm2_make_luks2_json(
                 const struct iovec *policy_hash,
                 const struct iovec *salt,
                 const struct iovec *srk,
+                const struct iovec *pcrlock_nv,
                 TPM2Flags flags,
                 JsonVariant **ret) {
 
@@ -6990,7 +7125,8 @@ int tpm2_make_luks2_json(
                                        JSON_BUILD_PAIR_CONDITION(pubkey_pcr_mask != 0, "tpm2_pubkey_pcrs", JSON_BUILD_VARIANT(pkmj)),
                                        JSON_BUILD_PAIR_CONDITION(pubkey_pcr_mask != 0, "tpm2_pubkey", JSON_BUILD_IOVEC_BASE64(pubkey)),
                                        JSON_BUILD_PAIR_CONDITION(iovec_is_set(salt), "tpm2_salt", JSON_BUILD_IOVEC_BASE64(salt)),
-                                       JSON_BUILD_PAIR_CONDITION(iovec_is_set(srk), "tpm2_srk", JSON_BUILD_IOVEC_BASE64(srk))));
+                                       JSON_BUILD_PAIR_CONDITION(iovec_is_set(srk), "tpm2_srk", JSON_BUILD_IOVEC_BASE64(srk)),
+                                       JSON_BUILD_PAIR_CONDITION(iovec_is_set(pcrlock_nv), "tpm2_pcrlock_nv", JSON_BUILD_IOVEC_BASE64(pcrlock_nv))));
         if (r < 0)
                 return r;
 
@@ -7012,9 +7148,10 @@ int tpm2_parse_luks2_json(
                 struct iovec *ret_policy_hash,
                 struct iovec *ret_salt,
                 struct iovec *ret_srk,
+                struct iovec *ret_pcrlock_nv,
                 TPM2Flags *ret_flags) {
 
-        _cleanup_(iovec_done) struct iovec blob = {}, policy_hash = {}, pubkey = {}, salt = {}, srk = {};
+        _cleanup_(iovec_done) struct iovec blob = {}, policy_hash = {}, pubkey = {}, salt = {}, srk = {}, pcrlock_nv = {};
         uint32_t hash_pcr_mask = 0, pubkey_pcr_mask = 0;
         uint16_t primary_alg = TPM2_ALG_ECC; /* ECC was the only supported algorithm in systemd < 250, use that as implied default, for compatibility */
         uint16_t pcr_bank = UINT16_MAX; /* default: pick automatically */
@@ -7136,6 +7273,13 @@ int tpm2_parse_luks2_json(
                         return log_debug_errno(r, "Invalid base64 data in 'tpm2_srk' field.");
         }
 
+        w = json_variant_by_key(v, "tpm2_pcrlock_nv");
+        if (w) {
+                r = json_variant_unbase64_iovec(w, &pcrlock_nv);
+                if (r < 0)
+                        return log_debug_errno(r, "Invalid base64 data in 'tpm2_pcrlock_nv' field.");
+        }
+
         if (ret_keyslot)
                 *ret_keyslot = keyslot;
         if (ret_hash_pcr_mask)
@@ -7154,11 +7298,12 @@ int tpm2_parse_luks2_json(
                 *ret_policy_hash = TAKE_STRUCT(policy_hash);
         if (ret_salt)
                 *ret_salt = TAKE_STRUCT(salt);
-        if (ret_flags)
-                *ret_flags = flags;
         if (ret_srk)
                 *ret_srk = TAKE_STRUCT(srk);
-
+        if (ret_pcrlock_nv)
+                *ret_pcrlock_nv = TAKE_STRUCT(pcrlock_nv);
+        if (ret_flags)
+                *ret_flags = flags;
         return 0;
 }
 
