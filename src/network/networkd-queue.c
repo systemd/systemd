@@ -168,6 +168,10 @@ static int request_new(
         if (req->counter)
                 (*req->counter)++;
 
+        /* If this is called in the ORDERED_SET_FOREACH() loop of manager_process_requests(), we need to
+         * exit from the loop, due to the limitation of the iteration on OrderedSet. */
+        manager->request_queued = true;
+
         if (ret)
                 *ret = req;
 
@@ -215,51 +219,49 @@ int link_queue_request_full(
 }
 
 int manager_process_requests(Manager *manager) {
+        Request *req;
         int r;
 
         assert(manager);
 
-        for (;;) {
-                bool processed = false;
-                Request *req;
+        manager->request_queued = false;
 
-                ORDERED_SET_FOREACH(req, manager->request_queue) {
-                        _cleanup_(link_unrefp) Link *link = link_ref(req->link);
+        ORDERED_SET_FOREACH(req, manager->request_queue) {
+                _cleanup_(link_unrefp) Link *link = link_ref(req->link);
 
-                        assert(req->process);
+                assert(req->process);
 
-                        if (req->waiting_reply)
-                                continue; /* Waiting for netlink reply. */
+                if (req->waiting_reply)
+                        continue; /* Waiting for netlink reply. */
 
-                        /* Typically, requests send netlink message asynchronously. If there are many requests
-                         * queued, then this event may make reply callback queue in sd-netlink full. */
-                        if (netlink_get_reply_callback_count(manager->rtnl) >= REPLY_CALLBACK_COUNT_THRESHOLD ||
-                            netlink_get_reply_callback_count(manager->genl) >= REPLY_CALLBACK_COUNT_THRESHOLD ||
-                            fw_ctx_get_reply_callback_count(manager->fw_ctx) >= REPLY_CALLBACK_COUNT_THRESHOLD)
-                                return 0;
+                /* Typically, requests send netlink message asynchronously. If there are many requests
+                 * queued, then this event may make reply callback queue in sd-netlink full. */
+                if (netlink_get_reply_callback_count(manager->rtnl) >= REPLY_CALLBACK_COUNT_THRESHOLD ||
+                    netlink_get_reply_callback_count(manager->genl) >= REPLY_CALLBACK_COUNT_THRESHOLD ||
+                    fw_ctx_get_reply_callback_count(manager->fw_ctx) >= REPLY_CALLBACK_COUNT_THRESHOLD)
+                        return 0;
 
-                        r = req->process(req, link, req->userdata);
-                        if (r == 0)
-                                continue;
-
-                        processed = true;
-
-                        /* If the request sends netlink message, e.g. for Address or so, the Request object
-                         * is referenced by the netlink slot, and will be detached later by its destroy callback.
-                         * Otherwise, e.g. for DHCP client or so, detach the request from queue now. */
-                        if (!req->waiting_reply)
-                                request_detach(manager, req);
-
-                        if (r < 0 && link) {
-                                link_enter_failed(link);
-                                /* link_enter_failed() may remove multiple requests,
-                                 * hence we need to exit from the loop. */
-                                break;
-                        }
+                r = req->process(req, link, req->userdata);
+                if (r == 0) { /* The request is not ready. */
+                        if (manager->request_queued)
+                                break; /* a new request is queued during processing the request. */
+                        continue;
                 }
 
-                /* When at least one request is processed, then another request may be ready now. */
-                if (!processed)
+                /* If the request sends netlink message, e.g. for Address or so, the Request object is
+                 * referenced by the netlink slot, and will be detached later by its destroy callback.
+                 * Otherwise, e.g. for DHCP client or so, detach the request from queue now. */
+                if (!req->waiting_reply)
+                        request_detach(manager, req);
+
+                if (r < 0 && link) {
+                        link_enter_failed(link);
+                        /* link_enter_failed() may remove multiple requests,
+                         * hence we need to exit from the loop. */
+                        break;
+                }
+
+                if (manager->request_queued)
                         break;
         }
 
