@@ -456,6 +456,40 @@
         may be entered instead of a regular password to unlock the account.</para></listitem>
       </varlistentry>
 
+    <varlistentry>
+        <term><option>--blob=</option><replaceable>PATH</replaceable></term>
+        <term><option>-b</option> <replaceable>PATH</replaceable></term>
+        <term><option>--blob=</option><replaceable>FILENAME</replaceable>=<replaceable>PATH</replaceable></term>
+        <term><option>-b</option> <replaceable>FILENAME</replaceable>=<replaceable>PATH</replaceable></term>
+
+        <listitem><para>Accepts either a directory path, or a file name followed by a file path. If just a
+        directory path is specified, then the user's entire blob directory is replaced the specified path.
+        Note that this replacement is performed before per-file manipulations are applied, which means these per-file
+        manipulations will be applied on top of the specified directory. If a filename and file path are specified, then
+        the single specified blob file will be overwritten with the specified path. If completely blank, the entire blob
+        directory is emptied out (which also resets all previous blob-related flags up to this point). If a filename is
+        specified but the corresponding path is blank, that single file will be deleted from the blob directory. All changes
+        are performed in temporary copies of the specified files in directories, which means that the originals specified on
+        the command line are not modified. See <ulink url="https://systemd.io/USER_RECORD_BLOB_DIRS">User Record Blob Directories</ulink>
+        for more information about blob directories.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+    <varlistentry>
+        <term><option>--avatar=</option><replaceable>PATH</replaceable></term>
+        <term><option>--login-background=</option><replaceable>PATH</replaceable></term>
+
+        <listitem><para>Accept a file path. If set, the specifified file is used to overwrite the
+        corresponding file in the user's blob directory. If blank, the corresponding file is deleted
+        from the blob directory. Essentially, these options are shortcuts to
+        <option>--blob=</option><replaceable>FILENAME</replaceable>=<replaceable>PATH</replaceable>
+        for the known filenames defined in
+        <ulink url="https://systemd.io/USER_RECORD_BLOB_DIRS">User Record Blob Directories</ulink>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
       <varlistentry>
         <term><option>--locked=</option><replaceable>BOOLEAN</replaceable></term>
 

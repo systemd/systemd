@@ -12,7 +12,9 @@
 #include "cap-list.h"
 #include "capability-util.h"
 #include "cgroup-util.h"
+#include "copy.h"
 #include "creds-util.h"
+#include "dirent-util.h"
 #include "dns-domain.h"
 #include "env-util.h"
 #include "fd-util.h"
@@ -20,6 +22,7 @@
 #include "format-table.h"
 #include "fs-util.h"
 #include "glyph-util.h"
+#include "hashmap.h"
 #include "home-util.h"
 #include "homectl-fido2.h"
 #include "homectl-pkcs11.h"
@@ -40,8 +43,10 @@
 #include "process-util.h"
 #include "recurse-dir.h"
 #include "rlimit-util.h"
+#include "rm-rf.h"
 #include "spawn-polkit-agent.h"
 #include "terminal-util.h"
+#include "tmpfile-util.h"
 #include "uid-classification.h"
 #include "user-record.h"
 #include "user-record-password-quality.h"
@@ -85,6 +90,9 @@ static enum {
 static uint64_t arg_capability_bounding_set = UINT64_MAX;
 static uint64_t arg_capability_ambient_set = UINT64_MAX;
 static bool arg_prompt_new_user = false;
+static char *arg_blob_dir = NULL;
+static bool arg_blob_clear = false;
+static Hashmap *arg_blob_files = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra, json_variant_unrefp);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra_this_machine, json_variant_unrefp);
@@ -94,6 +102,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_identity_filter, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_filter_rlimits, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_pkcs11_token_uri, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fido2_device, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_blob_dir, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_blob_files, hashmap_freep);
 
 static const BusLocator *bus_mgr;
 
@@ -107,7 +117,10 @@ static bool identity_properties_specified(void) {
                 !strv_isempty(arg_identity_filter) ||
                 !strv_isempty(arg_identity_filter_rlimits) ||
                 !strv_isempty(arg_pkcs11_token_uri) ||
-                !strv_isempty(arg_fido2_device);
+                !strv_isempty(arg_fido2_device) ||
+                arg_blob_dir ||
+                arg_blob_clear ||
+                !hashmap_isempty(arg_blob_files);
 }
 
 static int acquire_bus(sd_bus **bus) {
@@ -1266,9 +1279,132 @@ static int acquire_new_password(
         }
 }
 
+static int acquire_merged_blob_dir(UserRecord *hr, bool existing, Hashmap **ret) {
+        _cleanup_free_ char *sys_blob_path = NULL;
+        _cleanup_hashmap_free_ Hashmap *blobs = NULL;
+        _cleanup_closedir_ DIR *d = NULL;
+        const char *src_blob_path, *filename;
+        void *fd_ptr;
+        int r;
+
+        assert(ret);
+
+        HASHMAP_FOREACH_KEY(fd_ptr, filename, arg_blob_files) {
+                _cleanup_free_ char *filename_dup = NULL;
+                _cleanup_close_ int fd_dup = -EBADF;
+
+                filename_dup = strdup(filename);
+                if (!filename_dup)
+                        return log_oom();
+
+                if (PTR_TO_FD(fd_ptr) != -EBADF) {
+                        fd_dup = fcntl(PTR_TO_FD(fd_ptr), F_DUPFD_CLOEXEC, 3);
+                        if (fd_dup < 0)
+                                return log_error_errno(errno, "Failed to duplicate fd of %s: %m", filename);
+                }
+
+                r = hashmap_ensure_put(&blobs, &blob_fd_hash_ops, filename_dup, FD_TO_PTR(fd_dup));
+                if (r < 0)
+                        return r;
+                TAKE_PTR(filename_dup); /* Ownership transferred to hashmap */
+                TAKE_FD(fd_dup);
+        }
+
+        if (arg_blob_dir)
+                src_blob_path = arg_blob_dir;
+        else if (existing && !arg_blob_clear) {
+                if (hr->blob_directory)
+                        src_blob_path = hr->blob_directory;
+                else {
+                        /* This isn't technically a correct thing to do for generic user records,
+                         * so anyone looking at this code for reference shouldn't replicate it.
+                         * However, since homectl is tied to homed, this is OK. This adds robustness
+                         * for situations where the user record is coming directly from the CLI and
+                         * thus doesn't have a blobDirectory set */
+
+                        sys_blob_path = path_join(home_system_blob_dir(), hr->user_name);
+                        if (!sys_blob_path)
+                                return log_oom();
+
+                        src_blob_path = sys_blob_path;
+                }
+        } else
+                goto nodir; /* Shortcut: no dir to merge with, so just return copy of arg_blob_files */
+
+        d = opendir(src_blob_path);
+        if (!d)
+                return log_error_errno(errno, "Failed to open %s: %m", src_blob_path);
+
+        FOREACH_DIRENT_ALL(de, d, return log_error_errno(errno, "Failed to read %s: %m", src_blob_path)) {
+                _cleanup_free_ char *name = NULL;
+                _cleanup_close_ int fd = -EBADF;
+
+                if (dot_or_dot_dot(de->d_name))
+                        continue;
+
+                if (hashmap_contains(blobs, de->d_name))
+                        continue; /* arg_blob_files should override the base dir */
+
+                if (!suitable_blob_filename(de->d_name)) {
+                        log_warning("File %s in blob directory %s has an invalid filename. Skipping.", de->d_name, src_blob_path);
+                        continue;
+                }
+
+                name = strdup(de->d_name);
+                if (!name)
+                        return log_oom();
+
+                fd = openat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                if (fd < 0)
+                        return log_error_errno(errno, "Failed to open %s in %s: %m", de->d_name, src_blob_path);
+
+                r = fd_verify_regular(fd);
+                if (r < 0) {
+                        log_warning_errno(r, "Entry %s in blob directory %s is not a regular file. Skipping.", de->d_name, src_blob_path);
+                        continue;
+                }
+
+                r = hashmap_ensure_put(&blobs, &blob_fd_hash_ops, name, FD_TO_PTR(fd));
+                if (r < 0)
+                        return r;
+                TAKE_PTR(name); /* Ownership transferred to hashmap */
+                TAKE_FD(fd);
+        }
+
+nodir:
+        *ret = TAKE_PTR(blobs);
+        return 0;
+}
+
+static int bus_message_append_blobs(sd_bus_message *m, Hashmap *blobs) {
+        const char *filename;
+        void *fd_ptr;
+        int r;
+
+        assert(m);
+
+        r = sd_bus_message_open_container(m, 'a', "{sh}");
+        if (r < 0)
+                return r;
+
+        HASHMAP_FOREACH_KEY(fd_ptr, filename, blobs) {
+                int fd = PTR_TO_FD(fd_ptr);
+
+                if (fd == -EBADF) /* File marked for deletion */
+                        continue;
+
+                r = sd_bus_message_append(m, "{sh}", filename, fd);
+                if (r < 0)
+                        return r;
+        }
+
+        return sd_bus_message_close_container(m);
+}
+
 static int create_home_common(JsonVariant *input) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
+        _cleanup_hashmap_free_ Hashmap *blobs = NULL;
         int r;
 
         r = acquire_bus(&bus);
@@ -1278,6 +1414,10 @@ static int create_home_common(JsonVariant *input) {
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
         r = acquire_new_home_record(input, &hr);
+        if (r < 0)
+                return r;
+
+        r = acquire_merged_blob_dir(hr, false, &blobs);
         if (r < 0)
                 return r;
 
@@ -1327,13 +1467,21 @@ static int create_home_common(JsonVariant *input) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to format user record: %m");
 
-                r = bus_message_new_method_call(bus, &m, bus_mgr, "CreateHome");
+                r = bus_message_new_method_call(bus, &m, bus_mgr, "CreateHomeEx");
                 if (r < 0)
                         return bus_log_create_error(r);
 
                 (void) sd_bus_message_sensitive(m);
 
                 r = sd_bus_message_append(m, "s", formatted);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = bus_message_append_blobs(m, blobs);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(m, "t", 0);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1492,7 +1640,7 @@ static int acquire_updated_home_record(
 
                 reply = sd_bus_message_unref(reply);
 
-                r = json_variant_filter(&json, STRV_MAKE("binding", "status", "signature"));
+                r = json_variant_filter(&json, STRV_MAKE("binding", "status", "signature", "blobManifest"));
                 if (r < 0)
                         return log_error_errno(r, "Failed to strip binding and status from record to update: %m");
         }
@@ -1562,6 +1710,7 @@ static int update_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL, *secret = NULL;
         _cleanup_free_ char *buffer = NULL;
+        _cleanup_hashmap_free_ Hashmap *blobs = NULL;
         const char *username;
         int r;
 
@@ -1595,6 +1744,10 @@ static int update_home(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
+        r = acquire_merged_blob_dir(hr, true, &blobs);
+        if (r < 0)
+                return r;
+
         /* If we do multiple operations, let's output things more verbosely, since otherwise the repeated
          * authentication might be confusing. */
 
@@ -1606,7 +1759,7 @@ static int update_home(int argc, char *argv[], void *userdata) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
                 _cleanup_free_ char *formatted = NULL;
 
-                r = bus_message_new_method_call(bus, &m, bus_mgr, "UpdateHome");
+                r = bus_message_new_method_call(bus, &m, bus_mgr, "UpdateHomeEx");
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -1617,6 +1770,14 @@ static int update_home(int argc, char *argv[], void *userdata) {
                 (void) sd_bus_message_sensitive(m);
 
                 r = sd_bus_message_append(m, "s", formatted);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = bus_message_append_blobs(m, blobs);
+                if (r < 0)
+                        return bus_log_create_error(r);
+
+                r = sd_bus_message_append(m, "t", 0);
                 if (r < 0)
                         return bus_log_create_error(r);
 
@@ -2451,7 +2612,13 @@ static int help(int argc, char *argv[], void *userdata) {
                "                               Whether to require user verification to unlock\n"
                "                               the account\n"
                "     --recovery-key=BOOL       Add a recovery key\n"
-               "\n%4$sAccount Management User  Record Properties:%5$s\n"
+               "\n%4$sBlob Directory User Record Properties:%5$s\n"
+               "  -b --blob=[FILENAME=]PATH\n"
+               "                               Path to a replacement blob directory, or replace\n"
+               "                               an individual files in the blob directory.\n"
+               "     --avatar=PATH             Path to user avatar picture\n"
+               "     --login-background=PATH   Path to user login background picture\n"
+               "\n%4$sAccount Management User Record Properties:%5$s\n"
                "     --locked=BOOL             Set locked account state\n"
                "     --not-before=TIMESTAMP    Do not allow logins before\n"
                "     --not-after=TIMESTAMP     Do not allow logins after\n"
@@ -2625,6 +2792,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_CAPABILITY_BOUNDING_SET,
                 ARG_CAPABILITY_AMBIENT_SET,
                 ARG_PROMPT_NEW_USER,
+                ARG_AVATAR,
+                ARG_LOGIN_BACKGROUND,
         };
 
         static const struct option options[] = {
@@ -2718,6 +2887,9 @@ static int parse_argv(int argc, char *argv[]) {
                 { "capability-bounding-set",     required_argument, NULL, ARG_CAPABILITY_BOUNDING_SET     },
                 { "capability-ambient-set",      required_argument, NULL, ARG_CAPABILITY_AMBIENT_SET      },
                 { "prompt-new-user",             no_argument,       NULL, ARG_PROMPT_NEW_USER             },
+                { "blob",                        required_argument, NULL, 'b'                             },
+                { "avatar",                      required_argument, NULL, ARG_AVATAR                      },
+                { "login-background",            required_argument, NULL, ARG_LOGIN_BACKGROUND            },
                 {}
         };
 
@@ -2729,7 +2901,7 @@ static int parse_argv(int argc, char *argv[]) {
         for (;;) {
                 int c;
 
-                c = getopt_long(argc, argv, "hH:M:I:c:d:u:k:s:e:G:jPE", options, NULL);
+                c = getopt_long(argc, argv, "hH:M:I:c:d:u:G:k:s:e:b:jPE", options, NULL);
                 if (c < 0)
                         break;
 
@@ -4005,6 +4177,78 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_PROMPT_NEW_USER:
                         arg_prompt_new_user = true;
                         break;
+
+                case 'b':
+                case ARG_AVATAR:
+                case ARG_LOGIN_BACKGROUND: {
+                        _cleanup_close_ int fd = -EBADF;
+                        _cleanup_free_ char *path = NULL, *filename = NULL;
+
+                        if (c == 'b') {
+                                char *eq;
+
+                                if (isempty(optarg)) { /* --blob= deletes everything, including existing blob dirs */
+                                        hashmap_clear(arg_blob_files);
+                                        arg_blob_dir = mfree(arg_blob_dir);
+                                        arg_blob_clear = true;
+                                        break;
+                                }
+
+                                eq = strrchr(optarg, '=');
+                                if (!eq) { /* --blob=/some/path replaces the blob dir */
+                                        r = parse_path_argument(optarg, false, &arg_blob_dir);
+                                        if (r < 0)
+                                                return log_error_errno(r, "Failed to parse path %s: %m", optarg);
+                                        break;
+                                }
+
+                                /* --blob=filename=/some/path replaces the file "filename" with /some/path */
+                                filename = strndup(optarg, eq - optarg);
+                                if (!filename)
+                                        return log_oom();
+
+                                if (isempty(filename))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Can't parse blob file assignment: %s", optarg);
+                                if (!suitable_blob_filename(filename))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid blob filename: %s", filename);
+
+                                r = parse_path_argument(eq + 1, false, &path);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse path %s: %m", eq + 1);
+                        } else {
+                                const char *well_known_filename =
+                                                  c == ARG_AVATAR ? "avatar" :
+                                        c == ARG_LOGIN_BACKGROUND ? "login-background" :
+                                                                    NULL;
+                                assert(well_known_filename);
+
+                                filename = strdup(well_known_filename);
+                                if (!filename)
+                                        return log_oom();
+
+                                r = parse_path_argument(optarg, false, &path);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse path %s: %m", optarg);
+                        }
+
+                        if (path) {
+                                fd = open(path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
+                                if (fd < 0)
+                                        return log_error_errno(errno, "Failed to open %s: %m", path);
+
+                                if (fd_verify_regular(fd) < 0)
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Provided blob is not a regular file: %s", path);
+                        } else
+                                fd = -EBADF; /* Delete the file */
+
+                        r = hashmap_ensure_put(&arg_blob_files, &blob_fd_hash_ops, filename, FD_TO_PTR(fd));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to map %s to %s in blob directory: %m", path, filename);
+                        TAKE_PTR(filename); /* hashmap takes ownership */
+                        TAKE_FD(fd);
+
+                        break;
+                }
 
                 case '?':
                         return -EINVAL;
