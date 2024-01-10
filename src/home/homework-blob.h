@@ -5,3 +5,5 @@
 #include "user-record.h"
 
 int home_reconcile_blob_dirs(UserRecord *h, int root_fd, int reconciled);
+
+int home_apply_new_blob_dir(UserRecord *h, Hashmap *blobs);
