@@ -24,7 +24,7 @@ typedef enum UserDisposition {
 typedef enum UserHomeStorage {
         USER_CLASSIC,
         USER_LUKS,
-        USER_DIRECTORY, /* A directory, and a .identity file in it, which USER_CLASSIC lacks */
+        USER_DIRECTORY, /* A directory, and a ~/.identity directory in it, which USER_CLASSIC lacks */
         USER_SUBVOLUME,
         USER_FSCRYPT,
         USER_CIFS,
@@ -237,6 +237,7 @@ typedef struct UserRecord {
         char *user_name;
         char *realm;
         char *user_name_and_realm_auto; /* the user_name field concatenated with '@' and the realm, if the latter is defined */
+        char *bulk_directory;
         char *real_name;
         char *email_address;
         char *password_hint;
