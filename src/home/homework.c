@@ -25,6 +25,7 @@
 #include "memory-util.h"
 #include "missing_magic.h"
 #include "mount-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "recovery-key.h"
 #include "rm-rf.h"
@@ -1314,7 +1315,7 @@ static int determine_default_storage(UserStorage *ret) {
         return 0;
 }
 
-static int home_create(UserRecord *h, UserRecord **ret_home) {
+static int home_create(UserRecord *h, Hashmap *blobs, uint64_t call_flags, UserRecord **ret_home) {
         _cleanup_strv_free_erase_ char **effective_passwords = NULL;
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
@@ -1375,6 +1376,10 @@ static int home_create(UserRecord *h, UserRecord **ret_home) {
                 return r;
         if (!IN_SET(r, USER_TEST_ABSENT, USER_TEST_UNDEFINED, USER_TEST_MAYBE))
                 return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Image path %s already exists, refusing.", user_record_image_path(h));
+
+        r = home_apply_new_blob_dir(h, blobs);
+        if (r < 0)
+                return r;
 
         switch (user_record_storage(h)) {
 
@@ -1581,7 +1586,7 @@ static int home_validate_update(UserRecord *h, HomeSetup *setup, HomeSetupFlags 
         return has_mount; /* return true if the home record is already active */
 }
 
-static int home_update(UserRecord *h, UserRecord **ret) {
+static int home_update(UserRecord *h, Hashmap *blobs, uint64_t call_flags, UserRecord **ret) {
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL, *header_home = NULL, *embedded_home = NULL;
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
@@ -1597,6 +1602,10 @@ static int home_update(UserRecord *h, UserRecord **ret) {
         assert(r > 0); /* Insist that a password was verified */
 
         r = home_validate_update(h, &setup, &flags);
+        if (r < 0)
+                return r;
+
+        r = home_apply_new_blob_dir(h, blobs);
         if (r < 0)
                 return r;
 
@@ -1867,10 +1876,13 @@ static int run(int argc, char *argv[]) {
         _cleanup_(user_record_unrefp) UserRecord *home = NULL, *new_home = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_fclose_ FILE *opened_file = NULL;
+        _cleanup_hashmap_free_ Hashmap *blobs = NULL;
         unsigned line = 0, column = 0;
-        const char *json_path = NULL;
+        const char *json_path = NULL, *blob_filename, *call_flags_env;
         FILE *json_file;
         usec_t start;
+        JsonVariant *fdmap, *blob_fd_variant;
+        uint64_t call_flags = 0;
         int r;
 
         start = now(CLOCK_MONOTONIC);
@@ -1901,6 +1913,48 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return log_error_errno(r, "[%s:%u:%u] Failed to parse JSON data: %m", json_path, line, column);
 
+        fdmap = json_variant_by_key(v, HOMEWORK_BLOB_FDMAP_FIELD);
+        if (fdmap) {
+                r = hashmap_ensure_allocated(&blobs, &blob_fd_hash_ops);
+                if (r < 0)
+                        return log_oom();
+
+                JSON_VARIANT_OBJECT_FOREACH(blob_filename, blob_fd_variant, fdmap) {
+                        _cleanup_free_ char *filename = NULL;
+                        _cleanup_close_ int fd = -EBADF;
+
+                        assert(json_variant_is_integer(blob_fd_variant));
+                        assert(json_variant_integer(blob_fd_variant) >= 0);
+                        assert(json_variant_integer(blob_fd_variant) <= INT_MAX - SD_LISTEN_FDS_START);
+                        fd = SD_LISTEN_FDS_START + (int) json_variant_integer(blob_fd_variant);
+
+                        if (DEBUG_LOGGING) {
+                                _cleanup_free_ char *resolved = NULL;
+                                r = fd_get_path(fd, &resolved);
+                                log_debug("Got blob from daemon: %s (%d) → %s",
+                                          blob_filename, fd, resolved ?: STRERROR(r));
+                        }
+
+                        filename = strdup(blob_filename);
+                        if (!filename)
+                                return log_oom();
+
+                        r = fd_cloexec(fd, true);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to enable O_CLOEXEC on blob %s: %m", filename);
+
+                        r = hashmap_put(blobs, filename, FD_TO_PTR(fd));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to insert blob %s into map: %m", filename);
+                        TAKE_PTR(filename); /* Ownership transfers to hashmap */
+                        TAKE_FD(fd);
+                }
+
+                r = json_variant_filter(&v, STRV_MAKE(HOMEWORK_BLOB_FDMAP_FIELD));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to strip internal fdmap from JSON: %m");
+        }
+
         home = user_record_new();
         if (!home)
                 return log_oom();
@@ -1908,6 +1962,13 @@ static int run(int argc, char *argv[]) {
         r = user_record_load(home, v, USER_RECORD_LOAD_FULL|USER_RECORD_LOG|USER_RECORD_PERMISSIVE);
         if (r < 0)
                 return r;
+
+        call_flags_env = getenv("SYSTEMD_HOMEWORK_CALL_FLAGS");
+        if (call_flags_env) {
+                r = safe_atou64(call_flags_env, &call_flags);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse $SYSTEMD_HOMEWORK_CALL_FLAGS: %m");
+        }
 
         /* Well known return values of these operations, that systemd-homed knows and converts to proper D-Bus errors:
          *
@@ -1944,11 +2005,11 @@ static int run(int argc, char *argv[]) {
         else if (streq(argv[1], "deactivate-force"))
                 r = home_deactivate(home, true);
         else if (streq(argv[1], "create"))
-                r = home_create(home, &new_home);
+                r = home_create(home, blobs, call_flags, &new_home);
         else if (streq(argv[1], "remove"))
                 r = home_remove(home);
         else if (streq(argv[1], "update"))
-                r = home_update(home, &new_home);
+                r = home_update(home, blobs, call_flags, &new_home);
         else if (streq(argv[1], "resize")) /* Resize on user request */
                 r = home_resize(home, false, &new_home);
         else if (streq(argv[1], "resize-auto")) /* Automatic resize */
