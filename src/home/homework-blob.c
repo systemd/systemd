@@ -150,3 +150,33 @@ int home_reconcile_blob_dirs(UserRecord *h, int root_fd, int reconciled) {
         }
         return 0;
 }
+
+int home_apply_new_blob_dir(UserRecord *h) {
+        _cleanup_free_ char *new_path = NULL, *sys_path = NULL;
+        _cleanup_close_ int new_fd = -EBADF, sys_fd = -EBADF;
+        int r;
+
+        r = user_record_steal_blob_dir(h, &new_path);
+        if (r == -ENOENT) /* No new blob dir path was specified */
+                return 0;
+        if (r < 0)
+                return r;
+
+        new_fd = open(new_path, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        if (new_fd < 0)
+                return log_error_errno(errno, "Failed to open replacement blob dir %s: %m", new_path);
+
+        sys_path = path_join(home_system_blob_dir(), h->user_name);
+        if (!sys_path)
+                return log_oom();
+        sys_fd = open(sys_path, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        if (sys_fd < 0)
+                return log_error_errno(errno, "Failed to open system blob dir %s: %m", sys_path);
+
+        r = overwrite_blob(new_fd, sys_fd, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to replace system blob directory with %s: %m", new_path);
+
+        log_info("Replaced system blob directory with contents of %s.", new_path);
+        return 0;
+}
