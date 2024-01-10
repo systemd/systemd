@@ -11,6 +11,7 @@
 #include "filesystems.h"
 #include "fs-util.h"
 #include "home-util.h"
+#include "homework-bulk.h"
 #include "homework-cifs.h"
 #include "homework-directory.h"
 #include "homework-fido2.h"
@@ -519,9 +520,13 @@ static int read_identity_file(int root_fd, JsonVariant **ret) {
         assert(root_fd >= 0);
         assert(ret);
 
-        identity_fd = openat(root_fd, ".identity", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW|O_NONBLOCK);
+        identity_fd = openat(root_fd, ".identity/record.json", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW|O_NONBLOCK);
+        if (identity_fd < 0 && errno == ENOTDIR) {
+                log_warning("Falling back to legacy embedded identity path.");
+                identity_fd = openat(root_fd, ".identity", O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW|O_NONBLOCK);
+        }
         if (identity_fd < 0)
-                return log_error_errno(errno, "Failed to open .identity file in home directory: %m");
+                return log_error_errno(errno, "Failed to open identity file in home directory: %m");
 
         r = fd_verify_regular(identity_fd);
         if (r < 0)
@@ -531,24 +536,79 @@ static int read_identity_file(int root_fd, JsonVariant **ret) {
         if (!identity_file)
                 return log_oom();
 
-        r = json_parse_file(identity_file, ".identity", JSON_PARSE_SENSITIVE, ret, &line, &column);
+        r = json_parse_file(identity_file, "identity", JSON_PARSE_SENSITIVE, ret, &line, &column);
         if (r < 0)
-                return log_error_errno(r, "[.identity:%u:%u] Failed to parse JSON data: %m", line, column);
+                return log_error_errno(r, "[identity:%u:%u] Failed to parse JSON data: %m", line, column);
 
-        log_info("Read embedded .identity file.");
+        log_info("Read embedded identity file.");
 
         return 0;
 }
 
+static int migrate_identity_file(int root_fd) {
+        _cleanup_free_ char *tmp = NULL;
+        _cleanup_close_ int dfd = -EBADF;
+        int r;
+
+        assert(root_fd >= 0);
+
+        /* Atomically migrates ~/.identity into ~/.identity/record.json, and
+         * if successful returns fd to ~/.identity */
+
+        r = tempfn_random(".identity", NULL, &tmp);
+        if (r < 0)
+                return r;
+
+        /* Step 1: Create and open ~/<tmp>/ */
+        dfd = open_mkdir_at(root_fd, tmp, O_CLOEXEC, 0700);
+        if (dfd < 0)
+                return dfd;
+
+        /* Step 2: Hard link ~/.identity -> ~/<tmp>/record.json */
+        if (linkat(root_fd, ".identity", dfd, "record.json", 0) < 0) {
+                r = log_error_errno(errno, "Failed to hard link .identity for migration: %m");
+                goto fail;
+        }
+
+        /* Step 3: Swap ~/.identity with ~/<tmp> */
+        if (renameat2(root_fd, tmp, root_fd, ".identity", RENAME_EXCHANGE) < 0) {
+                if (!ERRNO_IS_NOT_SUPPORTED(errno) && errno != EINVAL) {
+                        r = log_error_errno(errno, "Failed to swap .identity for migration: %m");
+                        goto fail;
+                }
+
+                /* Exchange is not supported. Fall back to the non-atomic unlink and rename */
+                if (unlinkat(root_fd, ".identity", 0) < 0) {
+                        r = log_error_errno(r, "Failed to unlink .identity for migration: %m");
+                        goto fail;
+                }
+                if (renameat(root_fd, tmp, root_fd, ".identity") < 0) {
+                        r = log_error_errno(errno, "Failed to rename for migration: %m");
+                        goto fail;
+                }
+        }
+
+        /* Step 4: Clean up ~/<tmp>, which after the swap is the old identity file */
+        if (unlinkat(root_fd, tmp, 0) < 0)
+                log_warning_errno(errno, "Failed to clean up after migration, ignoring: %m");
+
+        return TAKE_FD(dfd);
+
+fail:
+        (void) rm_rf_at(root_fd, tmp, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_MISSING_OK);
+        return r;
+}
+
 static int write_identity_file(int root_fd, JsonVariant *v, uid_t uid) {
         _cleanup_(json_variant_unrefp) JsonVariant *normalized = NULL;
-        _cleanup_fclose_ FILE *identity_file = NULL;
-        _cleanup_close_ int identity_fd = -EBADF;
+        _cleanup_fclose_ FILE *record_file = NULL;
+        _cleanup_close_ int identity_fd = -EBADF, record_fd = -EBADF;
         _cleanup_free_ char *fn = NULL;
         int r;
 
         assert(root_fd >= 0);
         assert(v);
+        assert(uid_is_valid(uid));
 
         normalized = json_variant_ref(v);
 
@@ -556,44 +616,50 @@ static int write_identity_file(int root_fd, JsonVariant *v, uid_t uid) {
         if (r < 0)
                 log_warning_errno(r, "Failed to normalize user record, ignoring: %m");
 
-        r = tempfn_random(".identity", NULL, &fn);
+        identity_fd = open_mkdir_at(root_fd, ".identity", O_CLOEXEC, 0700);
+        if (identity_fd == -EEXIST) /* Exists, but not a directory. Migrate and try again */
+                identity_fd = migrate_identity_file(root_fd);
+        if (identity_fd < 0)
+                return log_error_errno(identity_fd, "Failed to create/open .identity directory in home directory: %m");
+
+        r = tempfn_random("record.json", NULL, &fn);
         if (r < 0)
                 return r;
 
-        identity_fd = openat(root_fd, fn, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
-        if (identity_fd < 0)
-                return log_error_errno(errno, "Failed to create .identity file in home directory: %m");
+        record_fd = openat(identity_fd, fn, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0600);
+        if (record_fd < 0)
+                return log_error_errno(errno, "Failed to create identity file: %m");
 
-        identity_file = take_fdopen(&identity_fd, "w");
-        if (!identity_file) {
+        record_file = take_fdopen(&record_fd, "w");
+        if (!record_file) {
                 r = log_oom();
                 goto fail;
         }
 
-        json_variant_dump(normalized, JSON_FORMAT_PRETTY, identity_file, NULL);
+        json_variant_dump(normalized, JSON_FORMAT_PRETTY, record_file, NULL);
 
-        r = fflush_and_check(identity_file);
+        r = fflush_and_check(record_file);
         if (r < 0) {
-                log_error_errno(r, "Failed to write .identity file: %m");
+                log_error_errno(r, "Failed to write identity file: %m");
                 goto fail;
         }
 
-        if (fchown(fileno(identity_file), uid, uid) < 0) {
+        if (fchown(fileno(record_file), uid, uid) < 0) {
                 r = log_error_errno(errno, "Failed to change ownership of identity file: %m");
                 goto fail;
         }
 
-        if (renameat(root_fd, fn, root_fd, ".identity") < 0) {
+        if (renameat(identity_fd, fn, identity_fd, "record.json") < 0) {
                 r = log_error_errno(errno, "Failed to move identity file into place: %m");
                 goto fail;
         }
 
-        log_info("Wrote embedded .identity file.");
+        log_info("Wrote embedded identity file.");
 
         return 0;
 
 fail:
-        (void) unlinkat(root_fd, fn, 0);
+        (void) unlinkat(identity_fd, fn, 0);
         return r;
 }
 
@@ -638,7 +704,7 @@ int home_load_embedded_identity(
          *
          *      · The record we got passed from the host
          *      · The record included in the LUKS header (only if LUKS is used)
-         *      · The record in the home directory itself (~.identity)
+         *      · The record in the home directory itself (~/.identity/record.json)
          *
          *  Now we have to reconcile all three, and let the newest one win. */
 
@@ -695,16 +761,15 @@ int home_load_embedded_identity(
         if (ret_new_home)
                 *ret_new_home = TAKE_PTR(new_home);
 
-        return 0;
+        return r; /* We pass along who won the reconciliation */
 }
 
-int home_store_embedded_identity(UserRecord *h, int root_fd, uid_t uid, UserRecord *old_home) {
+int home_store_embedded_identity(UserRecord *h, int root_fd, UserRecord *old_home) {
         _cleanup_(user_record_unrefp) UserRecord *embedded = NULL;
         int r;
 
         assert(h);
         assert(root_fd >= 0);
-        assert(uid_is_valid(uid));
 
         r = user_record_clone(h, USER_RECORD_EXTRACT_EMBEDDED|USER_RECORD_PERMISSIVE, &embedded);
         if (r < 0)
@@ -827,7 +892,7 @@ int home_refresh(
                 UserRecord **ret_new_home) {
 
         _cleanup_(user_record_unrefp) UserRecord *embedded_home = NULL, *new_home = NULL;
-        int r;
+        int r, reconciled;
 
         assert(h);
         assert(setup);
@@ -836,9 +901,9 @@ int home_refresh(
         /* When activating a home directory, does the identity work: loads the identity from the $HOME
          * directory, reconciles it with our idea, chown()s everything. */
 
-        r = home_load_embedded_identity(h, setup->root_fd, header_home, USER_RECONCILE_ANY, cache, &embedded_home, &new_home);
-        if (r < 0)
-                return r;
+        reconciled = home_load_embedded_identity(h, setup->root_fd, header_home, USER_RECONCILE_ANY, cache, &embedded_home, &new_home);
+        if (reconciled < 0)
+                return reconciled;
 
         r = home_maybe_shift_uid(h, flags, setup);
         if (r < 0)
@@ -848,7 +913,11 @@ int home_refresh(
         if (r < 0)
                 return r;
 
-        r = home_store_embedded_identity(new_home, setup->root_fd, h->uid, embedded_home);
+        r = home_store_embedded_identity(new_home, setup->root_fd, embedded_home);
+        if (r < 0)
+                return r;
+
+        r = home_reconcile_bulk_dirs(new_home, setup->root_fd, reconciled);
         if (r < 0)
                 return r;
 
@@ -1068,7 +1137,11 @@ int home_populate(UserRecord *h, int dir_fd) {
         if (r < 0)
                 return r;
 
-        r = home_store_embedded_identity(h, dir_fd, h->uid, NULL);
+        r = home_store_embedded_identity(h, dir_fd, NULL);
+        if (r < 0)
+                return r;
+
+        r = home_reconcile_bulk_dirs(h, dir_fd, USER_RECONCILE_HOST_WON);
         if (r < 0)
                 return r;
 
@@ -1368,6 +1441,10 @@ static int home_create(UserRecord *h, UserRecord **ret_home) {
         if (!IN_SET(r, USER_TEST_ABSENT, USER_TEST_UNDEFINED, USER_TEST_MAYBE))
                 return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Image path %s already exists, refusing.", user_record_image_path(h));
 
+        r = home_apply_new_bulk_dir(h);
+        if (r < 0)
+                return r;
+
         switch (user_record_storage(h)) {
 
         case USER_LUKS:
@@ -1592,6 +1669,10 @@ static int home_update(UserRecord *h, UserRecord **ret) {
         if (r < 0)
                 return r;
 
+        r = home_apply_new_bulk_dir(h);
+        if (r < 0)
+                return r;
+
         r = home_setup(h, flags, &setup, &cache, &header_home);
         if (r < 0)
                 return r;
@@ -1608,7 +1689,11 @@ static int home_update(UserRecord *h, UserRecord **ret) {
         if (r < 0)
                 return r;
 
-        r = home_store_embedded_identity(new_home, setup.root_fd, h->uid, embedded_home);
+        r = home_store_embedded_identity(new_home, setup.root_fd, embedded_home);
+        if (r < 0)
+                return r;
+
+        r = home_reconcile_bulk_dirs(new_home, setup.root_fd, USER_RECONCILE_HOST_WON);
         if (r < 0)
                 return r;
 
@@ -1683,7 +1768,7 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
         HomeSetupFlags flags = 0;
-        int r;
+        int r, reconciled;
 
         assert(h);
         assert(ret_home);
@@ -1703,9 +1788,9 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = home_load_embedded_identity(h, setup.root_fd, header_home, USER_RECONCILE_REQUIRE_NEWER_OR_EQUAL, &cache, &embedded_home, &new_home);
-        if (r < 0)
-                return r;
+        reconciled = home_load_embedded_identity(h, setup.root_fd, header_home, USER_RECONCILE_REQUIRE_NEWER_OR_EQUAL, &cache, &embedded_home, &new_home);
+        if (reconciled < 0)
+                return reconciled;
 
         r = home_maybe_shift_uid(h, flags, &setup);
         if (r < 0)
@@ -1733,7 +1818,11 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = home_store_embedded_identity(new_home, setup.root_fd, h->uid, embedded_home);
+        r = home_store_embedded_identity(new_home, setup.root_fd, embedded_home);
+        if (r < 0)
+                return r;
+
+        r = home_reconcile_bulk_dirs(new_home, setup.root_fd, reconciled);
         if (r < 0)
                 return r;
 
