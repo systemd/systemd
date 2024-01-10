@@ -411,21 +411,6 @@ void dns_transaction_complete(DnsTransaction *t, DnsTransactionState state) {
                            "DNS_SERVER_FEATURE_LEVEL=%s", dns_server_feature_level_to_string(t->server->possible_feature_level));
         }
 
-        if (state == DNS_TRANSACTION_UPSTREAM_DNSSEC_FAILURE) {
-                dns_resource_key_to_string(dns_transaction_key(t), key_str, sizeof key_str);
-
-                log_struct(LOG_NOTICE,
-                           "MESSAGE_ID=" SD_MESSAGE_DNSSEC_FAILURE_STR,
-                           LOG_MESSAGE("Upstream resolver reported failure for question %s: %s%s%s",
-                                       key_str, dns_ede_rcode_to_string(t->answer_ede_rcode),
-                                       isempty(t->answer_ede_msg) ? "" : ": ", t->answer_ede_msg),
-                           "DNS_TRANSACTION=%" PRIu16, t->id,
-                           "DNS_QUESTION=%s", key_str,
-                           "DNS_EDE_RCODE=%s", dns_ede_rcode_to_string(t->answer_ede_rcode),
-                           "DNS_SERVER=%s", strna(dns_server_string_full(t->server)),
-                           "DNS_SERVER_FEATURE_LEVEL=%s", dns_server_feature_level_to_string(t->server->possible_feature_level));
-        }
-
         /* Note that this call might invalidate the query. Callers
          * should hence not attempt to access the query or transaction
          * after calling this function. */
@@ -1241,7 +1226,7 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                                                   FORMAT_DNS_EDE_RCODE(t->answer_ede_rcode),
                                                   isempty(t->answer_ede_msg) ? "" : ": ",
                                                   strempty(t->answer_ede_msg));
-                                        dns_transaction_complete(t, DNS_TRANSACTION_UPSTREAM_DNSSEC_FAILURE);
+                                        dns_transaction_complete(t, DNS_TRANSACTION_DNSSEC_FAILED);
                                         return;
                                 }
 
