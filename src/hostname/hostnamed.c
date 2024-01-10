@@ -14,6 +14,7 @@
 #include "bus-log-control-api.h"
 #include "bus-polkit.h"
 #include "constants.h"
+#include "daemon-util.h"
 #include "env-file-label.h"
 #include "env-file.h"
 #include "env-util.h"
@@ -1732,6 +1733,10 @@ static int run(int argc, char *argv[]) {
         r = connect_varlink(&context);
         if (r < 0)
                 return r;
+
+        r = sd_notify(false, NOTIFY_READY);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
 
         r = bus_event_loop_with_idle(
                         context.event,

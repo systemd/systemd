@@ -12,6 +12,7 @@
 #include "bus-polkit.h"
 #include "common-signal.h"
 #include "constants.h"
+#include "daemon-util.h"
 #include "env-util.h"
 #include "fd-util.h"
 #include "float.h"
@@ -1332,18 +1333,6 @@ static bool manager_check_idle(void *userdata) {
         return hashmap_isempty(m->transfers);
 }
 
-static int manager_run(Manager *m) {
-        assert(m);
-
-        return bus_event_loop_with_idle(
-                        m->event,
-                        m->bus,
-                        "org.freedesktop.import1",
-                        DEFAULT_EXIT_USEC,
-                        manager_check_idle,
-                        m);
-}
-
 static void manager_parse_env(Manager *m) {
         int r;
 
@@ -1394,7 +1383,17 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        r = manager_run(m);
+        r = sd_notify(false, NOTIFY_READY);
+        if (r < 0)
+                log_warning_errno(r, "Failed to send readiness notification, ignoring: %m");
+
+        r = bus_event_loop_with_idle(
+                        m->event,
+                        m->bus,
+                        "org.freedesktop.import1",
+                        DEFAULT_EXIT_USEC,
+                        manager_check_idle,
+                        m);
         if (r < 0)
                 return log_error_errno(r, "Failed to run event loop: %m");
 
