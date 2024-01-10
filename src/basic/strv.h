@@ -38,6 +38,9 @@ char** strv_copy_n(char * const *l, size_t n);
 static inline char** strv_copy(char * const *l) {
         return strv_copy_n(l, SIZE_MAX);
 }
+static inline char** strv_copy_or_null(char * const *l) {
+        return l ? strv_copy_n(l, SIZE_MAX) : NULL;
+}
 size_t strv_length(char * const *l) _pure_;
 
 int strv_extend_strv(char ***a, char * const *b, bool filter_duplicates);
