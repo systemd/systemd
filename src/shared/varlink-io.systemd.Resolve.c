@@ -40,7 +40,9 @@ static VARLINK_DEFINE_ERROR(InvalidReply);
 static VARLINK_DEFINE_ERROR(QueryAborted);
 static VARLINK_DEFINE_ERROR(
                 DNSSECValidationFailed,
-                VARLINK_DEFINE_FIELD(result, VARLINK_STRING, 0));
+                VARLINK_DEFINE_FIELD(result, VARLINK_STRING, 0),
+                VARLINK_DEFINE_FIELD(extendedDNSErrorCode, VARLINK_INT, VARLINK_NULLABLE),
+                VARLINK_DEFINE_FIELD(extendedDNSErrorMessage, VARLINK_STRING, VARLINK_NULLABLE));
 static VARLINK_DEFINE_ERROR(NoTrustAnchor);
 static VARLINK_DEFINE_ERROR(ResourceRecordTypeUnsupported);
 static VARLINK_DEFINE_ERROR(NetworkDown);
@@ -48,7 +50,9 @@ static VARLINK_DEFINE_ERROR(NoSource);
 static VARLINK_DEFINE_ERROR(StubLoop);
 static VARLINK_DEFINE_ERROR(
                 DNSError,
-                VARLINK_DEFINE_FIELD(rcode, VARLINK_INT, 0));
+                VARLINK_DEFINE_FIELD(rcode, VARLINK_INT, 0),
+                VARLINK_DEFINE_FIELD(extendedDNSErrorCode, VARLINK_INT, VARLINK_NULLABLE),
+                VARLINK_DEFINE_FIELD(extendedDNSErrorMessage, VARLINK_STRING, VARLINK_NULLABLE));
 static VARLINK_DEFINE_ERROR(CNAMELoop);
 static VARLINK_DEFINE_ERROR(BadAddressSize);
 

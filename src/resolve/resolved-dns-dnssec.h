@@ -20,11 +20,12 @@ enum DnssecResult {
         DNSSEC_NO_SIGNATURE,
         DNSSEC_MISSING_KEY,
 
-        /* These two are added by the DnsTransaction logic */
+        /* These five are added by the DnsTransaction logic */
         DNSSEC_UNSIGNED,
         DNSSEC_FAILED_AUXILIARY,
         DNSSEC_NSEC_MISMATCH,
         DNSSEC_INCOMPATIBLE_SERVER,
+        DNSSEC_UPSTREAM_FAILURE,
 
         _DNSSEC_RESULT_MAX,
         _DNSSEC_RESULT_INVALID = -EINVAL,
