@@ -438,6 +438,7 @@ int json_dispatch_user_disposition(const char *name, JsonVariant *variant, JsonD
 
 int per_machine_id_match(JsonVariant *ids, JsonDispatchFlags flags);
 int per_machine_hostname_match(JsonVariant *hns, JsonDispatchFlags flags);
+int per_machine_match(JsonVariant *entry, JsonDispatchFlags flags);
 int user_group_record_mangle(JsonVariant *v, UserRecordLoadFlags load_flags, JsonVariant **ret_variant, UserRecordMask *ret_mask);
 
 const char* user_storage_to_string(UserStorage t) _const_;
