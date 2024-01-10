@@ -144,10 +144,11 @@ static int extract_prefix(const char *path, char **ret) {
                 const char *e;
 
                 e = endswith(bn, ".raw");
-                if (!e)
-                        e = strchr(bn, 0);
-
-                m = e - bn;
+                if (!e) {
+                        m = strlen(bn);
+                        e = bn + m;
+                } else
+                        m = e - bn;
         }
 
         name = strndup(bn, m);
