@@ -1160,11 +1160,27 @@ int manager_monitor_send(Manager *m, DnsQuery *q) {
         SET_FOREACH(connection, m->varlink_subscription) {
                 r = varlink_notifyb(connection,
                                     JSON_BUILD_OBJECT(JSON_BUILD_PAIR("state", JSON_BUILD_STRING(dns_transaction_state_to_string(q->state))),
-                                                      JSON_BUILD_PAIR_CONDITION(q->state == DNS_TRANSACTION_RCODE_FAILURE, "rcode", JSON_BUILD_INTEGER(q->answer_rcode)),
-                                                      JSON_BUILD_PAIR_CONDITION(q->state == DNS_TRANSACTION_ERRNO, "errno", JSON_BUILD_INTEGER(q->answer_errno)),
+                                                      JSON_BUILD_PAIR_CONDITION(q->state == DNS_TRANSACTION_DNSSEC_FAILED,
+                                                                                "result", JSON_BUILD_STRING(dnssec_result_to_string(q->answer_dnssec_result))),
+                                                      JSON_BUILD_PAIR_CONDITION(q->state == DNS_TRANSACTION_RCODE_FAILURE,
+                                                                                "rcode", JSON_BUILD_INTEGER(q->answer_rcode)),
+                                                      JSON_BUILD_PAIR_CONDITION(q->state == DNS_TRANSACTION_ERRNO,
+                                                                                "errno", JSON_BUILD_INTEGER(q->answer_errno)),
+                                                      JSON_BUILD_PAIR_CONDITION(IN_SET(q->state,
+                                                                                       DNS_TRANSACTION_DNSSEC_FAILED,
+                                                                                       DNS_TRANSACTION_RCODE_FAILURE) &&
+                                                                                q->answer_ede_rcode >= 0,
+                                                                                "extendedDNSErrorCode", JSON_BUILD_INTEGER(q->answer_ede_rcode)),
+                                                      JSON_BUILD_PAIR_CONDITION(IN_SET(q->state,
+                                                                                       DNS_TRANSACTION_DNSSEC_FAILED,
+                                                                                       DNS_TRANSACTION_RCODE_FAILURE) &&
+                                                                                q->answer_ede_rcode >= 0 && !isempty(q->answer_ede_msg),
+                                                                                "extendedDNSErrorMessage", JSON_BUILD_STRING(q->answer_ede_msg)),
                                                       JSON_BUILD_PAIR("question", JSON_BUILD_VARIANT(jquestion)),
-                                                      JSON_BUILD_PAIR_CONDITION(jcollected_questions, "collectedQuestions", JSON_BUILD_VARIANT(jcollected_questions)),
-                                                      JSON_BUILD_PAIR_CONDITION(janswer, "answer", JSON_BUILD_VARIANT(janswer))));
+                                                      JSON_BUILD_PAIR_CONDITION(jcollected_questions,
+                                                                                "collectedQuestions", JSON_BUILD_VARIANT(jcollected_questions)),
+                                                      JSON_BUILD_PAIR_CONDITION(janswer,
+                                                                                "answer", JSON_BUILD_VARIANT(janswer))));
                 if (r < 0)
                         log_debug_errno(r, "Failed to send monitor event, ignoring: %m");
         }

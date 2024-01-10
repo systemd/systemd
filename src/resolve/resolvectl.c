@@ -2715,18 +2715,21 @@ static int print_answer(JsonVariant *answer) {
 
 static void monitor_query_dump(JsonVariant *v) {
         _cleanup_(json_variant_unrefp) JsonVariant *question = NULL, *answer = NULL, *collected_questions = NULL;
-        int rcode = -1, error = 0;
-        const char *state = NULL;
+        int rcode = -1, error = 0, ede_code = -1;
+        const char *state = NULL, *result = NULL, *ede_msg = NULL;
 
         assert(v);
 
         JsonDispatch dispatch_table[] = {
-                { "question",           JSON_VARIANT_ARRAY,         json_dispatch_variant,      PTR_TO_SIZE(&question),            JSON_MANDATORY },
-                { "answer",             JSON_VARIANT_ARRAY,         json_dispatch_variant,      PTR_TO_SIZE(&answer),              0              },
-                { "collectedQuestions", JSON_VARIANT_ARRAY,         json_dispatch_variant,      PTR_TO_SIZE(&collected_questions), 0              },
-                { "state",              JSON_VARIANT_STRING,        json_dispatch_const_string, PTR_TO_SIZE(&state),               JSON_MANDATORY },
-                { "rcode",              _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,          PTR_TO_SIZE(&rcode),               0              },
-                { "errno",              _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,          PTR_TO_SIZE(&error),               0              },
+                { "question",                JSON_VARIANT_ARRAY,         json_dispatch_variant,      PTR_TO_SIZE(&question),            JSON_MANDATORY },
+                { "answer",                  JSON_VARIANT_ARRAY,         json_dispatch_variant,      PTR_TO_SIZE(&answer),              0              },
+                { "collectedQuestions",      JSON_VARIANT_ARRAY,         json_dispatch_variant,      PTR_TO_SIZE(&collected_questions), 0              },
+                { "state",                   JSON_VARIANT_STRING,        json_dispatch_const_string, PTR_TO_SIZE(&state),               JSON_MANDATORY },
+                { "result",                  JSON_VARIANT_STRING,        json_dispatch_const_string, PTR_TO_SIZE(&result),              0              },
+                { "rcode",                   _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,          PTR_TO_SIZE(&rcode),               0              },
+                { "errno",                   _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,          PTR_TO_SIZE(&error),               0              },
+                { "extendedDNSErrorCode",    _JSON_VARIANT_TYPE_INVALID, json_dispatch_int,          PTR_TO_SIZE(&ede_code),            0              },
+                { "extendedDNSErrorMessage", JSON_VARIANT_STRING,        json_dispatch_const_string, PTR_TO_SIZE(&ede_msg),             0              },
                 {}
         };
 
@@ -2739,13 +2742,24 @@ static void monitor_query_dump(JsonVariant *v) {
         /* And then show the questions that led to this one in case this was a CNAME chain */
         print_question('C', ansi_highlight_grey(), collected_questions);
 
-        printf("%s%s S%s: %s\n",
+        printf("%s%s S%s: %s",
                streq_ptr(state, "success") ? ansi_highlight_green() : ansi_highlight_red(),
                special_glyph(SPECIAL_GLYPH_ARROW_LEFT),
                ansi_normal(),
                strna(streq_ptr(state, "errno") ? errno_to_name(error) :
                      streq_ptr(state, "rcode-failure") ? dns_rcode_to_string(rcode) :
                      state));
+
+        if (!isempty(result))
+                printf(": %s", result);
+
+        if (ede_code >= 0)
+                printf(" (%s%s%s)",
+                       FORMAT_DNS_EDE_RCODE(ede_code),
+                       !isempty(ede_msg) ? ": " : "",
+                       strempty(ede_msg));
+
+        puts("");
 
         print_answer(answer);
 }
