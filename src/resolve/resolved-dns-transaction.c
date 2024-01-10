@@ -888,8 +888,21 @@ static int dns_transaction_dnssec_ready(DnsTransaction *t) {
                         /* We handle DNSSEC failures different from other errors, as we care about the DNSSEC
                          * validation result */
 
-                        log_debug("Auxiliary DNSSEC RR query failed validation: %s", dnssec_result_to_string(dt->answer_dnssec_result));
-                        t->answer_dnssec_result = dt->answer_dnssec_result; /* Copy error code over */
+                        log_debug("Auxiliary DNSSEC RR query failed validation: %s%s%s%s%s%s",
+                                  dnssec_result_to_string(dt->answer_dnssec_result),
+                                  dt->answer_ede_rcode >= 0 ? " (" : "",
+                                  dt->answer_ede_rcode >= 0 ? FORMAT_DNS_EDE_RCODE(dt->answer_ede_rcode) : "",
+                                  (dt->answer_ede_rcode >= 0 && !isempty(dt->answer_ede_msg)) ? ": " : "",
+                                  dt->answer_ede_rcode >= 0 ? strempty(dt->answer_ede_msg) : "",
+                                  dt->answer_ede_rcode >= 0 ? ")" : "");
+
+                        /* Copy error code over */
+                        t->answer_dnssec_result = dt->answer_dnssec_result;
+                        t->answer_ede_rcode = dt->answer_ede_rcode;
+                        r = free_and_strdup(&t->answer_ede_msg, dt->answer_ede_msg);
+                        if (r < 0)
+                                log_oom_debug();
+
                         dns_transaction_complete(t, DNS_TRANSACTION_DNSSEC_FAILED);
                         return 0;
 
@@ -1226,6 +1239,8 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                                                   FORMAT_DNS_EDE_RCODE(t->answer_ede_rcode),
                                                   isempty(t->answer_ede_msg) ? "" : ": ",
                                                   strempty(t->answer_ede_msg));
+
+                                        t->answer_dnssec_result = DNSSEC_UPSTREAM_FAILURE;
                                         dns_transaction_complete(t, DNS_TRANSACTION_DNSSEC_FAILED);
                                         return;
                                 }

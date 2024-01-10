@@ -145,8 +145,13 @@ static int reply_query_state(DnsQuery *q) {
                 return reply_method_errorf(q, BUS_ERROR_ABORTED, "Query aborted");
 
         case DNS_TRANSACTION_DNSSEC_FAILED:
-                return reply_method_errorf(q, BUS_ERROR_DNSSEC_FAILED, "DNSSEC validation failed: %s",
-                                           dnssec_result_to_string(q->answer_dnssec_result));
+                return reply_method_errorf(q, BUS_ERROR_DNSSEC_FAILED, "DNSSEC validation failed: %s%s%s%s%s%s",
+                                           dnssec_result_to_string(q->answer_dnssec_result),
+                                           q->answer_ede_rcode >= 0 ? " (" : "",
+                                           q->answer_ede_rcode >= 0 ? FORMAT_DNS_EDE_RCODE(q->answer_ede_rcode) : "",
+                                           (q->answer_ede_rcode >= 0 && !isempty(q->answer_ede_msg)) ? ": " : "",
+                                           q->answer_ede_rcode >= 0 ? strempty(q->answer_ede_msg) : "",
+                                           q->answer_ede_rcode >= 0 ? ")" : "");
 
         case DNS_TRANSACTION_NO_TRUST_ANCHOR:
                 return reply_method_errorf(q, BUS_ERROR_NO_TRUST_ANCHOR, "No suitable trust anchor known");
@@ -183,7 +188,13 @@ static int reply_query_state(DnsQuery *q) {
 
                         rc = FORMAT_DNS_RCODE(q->answer_rcode);
                         n = strjoina(_BUS_ERROR_DNS, rc);
-                        sd_bus_error_setf(&error, n, "Could not resolve '%s', server or network returned error %s", dns_query_string(q), rc);
+                        sd_bus_error_setf(&error, n, "Could not resolve '%s', server or network returned error: %s%s%s%s%s%s",
+                                          dns_query_string(q), rc,
+                                          q->answer_ede_rcode >= 0 ? " (" : "",
+                                          q->answer_ede_rcode >= 0 ? FORMAT_DNS_EDE_RCODE(q->answer_ede_rcode) : "",
+                                          (q->answer_ede_rcode >= 0 && !isempty(q->answer_ede_msg)) ? ": " : "",
+                                          q->answer_ede_rcode >= 0 ? strempty(q->answer_ede_msg) : "",
+                                          q->answer_ede_rcode >= 0 ? ")" : "");
                 }
 
                 return sd_bus_reply_method_error(req, &error);
