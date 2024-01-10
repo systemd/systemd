@@ -128,7 +128,7 @@ typedef enum FilterPartitionType {
 
 static EmptyMode arg_empty = EMPTY_UNSET;
 static bool arg_dry_run = true;
-static const char *arg_node = NULL;
+static char *arg_node = NULL;
 static char *arg_root = NULL;
 static char *arg_image = NULL;
 static char **arg_definitions = NULL;
@@ -169,6 +169,7 @@ static char **arg_copy_from = NULL;
 static char *arg_copy_source = NULL;
 static char *arg_make_ddi = NULL;
 
+STATIC_DESTRUCTOR_REGISTER(arg_node, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_definitions, strv_freep);
@@ -7040,7 +7041,7 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_oom();
         }
 
-        arg_node = argc > optind ? argv[optind] : NULL;
+        arg_node = argc > optind ? strdup(argv[optind]) : NULL;
 
         if (IN_SET(arg_empty, EMPTY_FORCE, EMPTY_REQUIRE, EMPTY_CREATE) && !arg_node && !arg_image)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
