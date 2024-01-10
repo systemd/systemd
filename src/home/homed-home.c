@@ -55,7 +55,13 @@
 assert_cc(HOME_UID_MIN <= HOME_UID_MAX);
 assert_cc(HOME_USERS_MAX <= (HOME_UID_MAX - HOME_UID_MIN + 1));
 
-static int home_start_work(Home *h, const char *verb, UserRecord *hr, UserRecord *secret);
+static int home_start_work(
+                Home *h,
+                const char *verb,
+                UserRecord *hr,
+                UserRecord *secret,
+                Hashmap *blobs,
+                uint64_t flags);
 
 DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(operation_hash_ops, void, trivial_hash_func, trivial_compare_func, Operation, operation_unref);
 
@@ -738,7 +744,7 @@ static void home_fixate_finish(Home *h, int ret, UserRecord *hr) {
 
         if (IN_SET(h->state, HOME_FIXATING_FOR_ACTIVATION, HOME_FIXATING_FOR_ACQUIRE)) {
 
-                r = home_start_work(h, "activate", h->record, secret);
+                r = home_start_work(h, "activate", h->record, secret, NULL, 0);
                 if (r < 0) {
                         h->current_operation = operation_result_unref(h->current_operation, r, NULL);
                         home_set_state(h, _HOME_STATE_INVALID);
@@ -1178,10 +1184,17 @@ static int home_on_worker_process(sd_event_source *s, const siginfo_t *si, void 
         return 0;
 }
 
-static int home_start_work(Home *h, const char *verb, UserRecord *hr, UserRecord *secret) {
-        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+static int home_start_work(
+                Home *h,
+                const char *verb,
+                UserRecord *hr,
+                UserRecord *secret,
+                Hashmap *blobs,
+                uint64_t flags) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *fdmap = NULL;
         _cleanup_(erase_and_freep) char *formatted = NULL;
         _cleanup_close_ int stdin_fd = -EBADF, stdout_fd = -EBADF;
+        _cleanup_free_ int *blob_fds = NULL;
         pid_t pid = 0;
         int r;
 
@@ -1209,6 +1222,37 @@ static int home_start_work(Home *h, const char *verb, UserRecord *hr, UserRecord
                         return r;
         }
 
+        if (blobs) {
+                const char *blob_filename = NULL;
+                void *fd_ptr;
+                size_t i = 0;
+
+                blob_fds = new(int, hashmap_size(blobs));
+                if (!blob_fds)
+                        return -ENOMEM;
+
+                /* homework needs to be able to tell the difference between blobs being null
+                 * (the fdmap field is completely missing) and it being empty (the field is an
+                 * empty object) */
+                r = json_variant_new_object(&fdmap, NULL, 0);
+                if (r < 0)
+                        return r;
+
+                HASHMAP_FOREACH_KEY(fd_ptr, blob_filename, blobs) {
+                        blob_fds[i] = PTR_TO_FD(fd_ptr);
+
+                        r = json_variant_set_field_integer(&fdmap, blob_filename, i);
+                        if (r < 0)
+                                return r;
+
+                        i++;
+                }
+
+                r = json_variant_set_field(&v, HOMEWORK_BLOB_FDMAP_FIELD, fdmap);
+                if (r < 0)
+                        return r;
+        }
+
         r = json_variant_format(v, 0, &formatted);
         if (r < 0)
                 return r;
@@ -1225,8 +1269,9 @@ static int home_start_work(Home *h, const char *verb, UserRecord *hr, UserRecord
 
         r = safe_fork_full("(sd-homework)",
                            (int[]) { stdin_fd, stdout_fd, STDERR_FILENO },
-                           NULL, 0,
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO|FORK_LOG|FORK_REOPEN_LOG, &pid);
+                           blob_fds, hashmap_size(blobs),
+                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_CLOEXEC_OFF|FORK_PACK_FDS|FORK_DEATHSIG_SIGTERM|
+                           FORK_REARRANGE_STDIO|FORK_LOG|FORK_REOPEN_LOG, &pid);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -1267,9 +1312,23 @@ static int home_start_work(Home *h, const char *verb, UserRecord *hr, UserRecord
                                 _exit(EXIT_FAILURE);
                         }
 
+                if (flags > 0) {
+                        char flags_serialized[DECIMAL_STR_MAX(uint64_t) + 1];
+                        xsprintf(flags_serialized, "%" PRIu64, flags);
+
+                        if (setenv("SYSTEMD_HOMEWORK_CALL_FLAGS", flags_serialized, 1) < 0) {
+                                log_error_errno(errno, "Failed to set $SYSTEMD_HOMEWORK_FLAGS: %m");
+                                _exit(EXIT_FAILURE);
+                        }
+                }
+
                 r = setenv_systemd_exec_pid(true);
                 if (r < 0)
                         log_warning_errno(r, "Failed to update $SYSTEMD_EXEC_PID, ignoring: %m");
+
+                r = setenv_systemd_log_level();
+                if (r < 0)
+                        log_warning_errno(r, "Failed to update $SYSTEMD_LOG_LEVEL, ignoring: %m");
 
                 /* Allow overriding the homework path via an environment variable, to make debugging
                  * easier. */
@@ -1343,7 +1402,7 @@ static int home_fixate_internal(
         assert(secret);
         assert(IN_SET(for_state, HOME_FIXATING, HOME_FIXATING_FOR_ACTIVATION, HOME_FIXATING_FOR_ACQUIRE));
 
-        r = home_start_work(h, "inspect", h->record, secret);
+        r = home_start_work(h, "inspect", h->record, secret, NULL, 0);
         if (r < 0)
                 return r;
 
@@ -1392,7 +1451,7 @@ static int home_activate_internal(Home *h, UserRecord *secret, HomeState for_sta
         assert(secret);
         assert(IN_SET(for_state, HOME_ACTIVATING, HOME_ACTIVATING_FOR_ACQUIRE));
 
-        r = home_start_work(h, "activate", h->record, secret);
+        r = home_start_work(h, "activate", h->record, secret, NULL, 0);
         if (r < 0)
                 return r;
 
@@ -1444,7 +1503,7 @@ static int home_authenticate_internal(Home *h, UserRecord *secret, HomeState for
         assert(secret);
         assert(IN_SET(for_state, HOME_AUTHENTICATING, HOME_AUTHENTICATING_WHILE_ACTIVE, HOME_AUTHENTICATING_FOR_ACQUIRE));
 
-        r = home_start_work(h, "inspect", h->record, secret);
+        r = home_start_work(h, "inspect", h->record, secret, NULL, 0);
         if (r < 0)
                 return r;
 
@@ -1489,7 +1548,7 @@ static int home_deactivate_internal(Home *h, bool force, sd_bus_error *error) {
 
         home_unpin(h); /* unpin so that we can deactivate */
 
-        r = home_start_work(h, force ? "deactivate-force" : "deactivate", h->record, NULL);
+        r = home_start_work(h, force ? "deactivate-force" : "deactivate", h->record, NULL, NULL, 0);
         if (r < 0)
                 /* Operation failed before it even started, reacquire pin fd, if state still dictates so */
                 home_update_pin_fd(h, _HOME_STATE_INVALID);
@@ -1526,7 +1585,7 @@ int home_deactivate(Home *h, bool force, sd_bus_error *error) {
         return home_deactivate_internal(h, force, error);
 }
 
-int home_create(Home *h, UserRecord *secret, sd_bus_error *error) {
+int home_create(Home *h, UserRecord *secret, Hashmap *blobs, uint64_t flags, sd_bus_error *error) {
         int r;
 
         assert(h);
@@ -1569,7 +1628,7 @@ int home_create(Home *h, UserRecord *secret, sd_bus_error *error) {
                         return r;
         }
 
-        r = home_start_work(h, "create", h->record, secret);
+        r = home_start_work(h, "create", h->record, secret, blobs, flags);
         if (r < 0)
                 return r;
 
@@ -1599,7 +1658,7 @@ int home_remove(Home *h, sd_bus_error *error) {
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "Home %s is currently being used, or an operation on home %s is currently being executed.", h->user_name, h->user_name);
         }
 
-        r = home_start_work(h, "remove", h->record, NULL);
+        r = home_start_work(h, "remove", h->record, NULL, NULL, 0);
         if (r < 0)
                 return r;
 
@@ -1643,6 +1702,8 @@ static int home_update_internal(
                 const char *verb,
                 UserRecord *hr,
                 UserRecord *secret,
+                Hashmap *blobs,
+                uint64_t flags,
                 sd_bus_error *error) {
 
         _cleanup_(user_record_unrefp) UserRecord *new_hr = NULL, *saved_secret = NULL, *signed_hr = NULL;
@@ -1664,6 +1725,15 @@ static int home_update_internal(
                         return r;
 
                 secret = saved_secret;
+        }
+
+        if (blobs) {
+                const char *failed = NULL;
+                r = user_record_ensure_blob_manifest(hr, blobs, &failed);
+                if (r == -EINVAL)
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Provided blob files do not correspond to blob manifest.");
+                if (r < 0)
+                        return sd_bus_error_set_errnof(error, r, "Failed to generate hash for blob %s: %m", strnull(failed));
         }
 
         r = manager_verify_user_record(h->manager, hr);
@@ -1708,14 +1778,14 @@ static int home_update_internal(
                         return sd_bus_error_set(error, BUS_ERROR_HOME_RECORD_MISMATCH, "Home record different but timestamp remained the same, refusing.");
         }
 
-        r = home_start_work(h, verb, new_hr, secret);
+        r = home_start_work(h, verb, new_hr, secret, blobs, flags);
         if (r < 0)
                 return r;
 
         return 0;
 }
 
-int home_update(Home *h, UserRecord *hr, sd_bus_error *error) {
+int home_update(Home *h, UserRecord *hr, Hashmap *blobs, uint64_t flags, sd_bus_error *error) {
         HomeState state;
         int r;
 
@@ -1743,7 +1813,7 @@ int home_update(Home *h, UserRecord *hr, sd_bus_error *error) {
         if (r < 0)
                 return r;
 
-        r = home_update_internal(h, "update", hr, NULL, error);
+        r = home_update_internal(h, "update", hr, NULL, blobs, flags, error);
         if (r < 0)
                 return r;
 
@@ -1830,7 +1900,7 @@ int home_resize(Home *h,
                 c = TAKE_PTR(signed_c);
         }
 
-        r = home_update_internal(h, automatic ? "resize-auto" : "resize", c, secret, error);
+        r = home_update_internal(h, automatic ? "resize-auto" : "resize", c, secret, NULL, 0, error);
         if (r < 0)
                 return r;
 
@@ -1946,7 +2016,7 @@ int home_passwd(Home *h,
                         return r;
         }
 
-        r = home_update_internal(h, "passwd", signed_c, merged_secret, error);
+        r = home_update_internal(h, "passwd", signed_c, merged_secret, NULL, 0, error);
         if (r < 0)
                 return r;
 
@@ -2003,7 +2073,7 @@ int home_lock(Home *h, sd_bus_error *error) {
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "An operation on home %s is currently being executed.", h->user_name);
         }
 
-        r = home_start_work(h, "lock", h->record, NULL);
+        r = home_start_work(h, "lock", h->record, NULL, NULL, 0);
         if (r < 0)
                 return r;
 
@@ -2018,7 +2088,7 @@ static int home_unlock_internal(Home *h, UserRecord *secret, HomeState for_state
         assert(secret);
         assert(IN_SET(for_state, HOME_UNLOCKING, HOME_UNLOCKING_FOR_ACQUIRE));
 
-        r = home_start_work(h, "unlock", h->record, secret);
+        r = home_start_work(h, "unlock", h->record, secret, NULL, 0);
         if (r < 0)
                 return r;
 

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "dns-domain.h"
+#include "fd-util.h"
 #include "home-util.h"
 #include "libcrypt-util.h"
 #include "memory-util.h"
@@ -8,6 +9,8 @@
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
+
+DEFINE_HASH_OPS_FULL(blob_fd_hash_ops, char, path_hash_func, path_compare, free, void, close_fd_ptr);
 
 bool suitable_user_name(const char *name) {
 
