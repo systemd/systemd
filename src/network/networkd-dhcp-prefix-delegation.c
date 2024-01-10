@@ -366,7 +366,7 @@ static int dhcp_pd_request_address(
                 return log_link_warning_errno(link, r, "Failed to generate addresses for acquired DHCP delegated prefix: %m");
 
         SET_FOREACH(a, addresses) {
-                _cleanup_(address_freep) Address *address = NULL;
+                _cleanup_(address_unrefp) Address *address = NULL;
                 Address *existing;
 
                 r = address_new(&address);
