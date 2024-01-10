@@ -255,7 +255,7 @@ int pattern_match(const char *pattern, const char *s, InstanceMetadata *ret) {
 
                 } else
                         /* End of the string */
-                        assert_se(n = strchr(p, 0));
+                        assert_se(n = p + strlen(p));
                 t = strndup(p, n - p);
                 if (!t)
                         return -ENOMEM;
