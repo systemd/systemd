@@ -3,6 +3,7 @@
 #include <sys/xattr.h>
 
 #include "errno-util.h"
+#include "fd-util.h"
 #include "home-util.h"
 #include "id128-util.h"
 #include "libcrypt-util.h"
@@ -10,6 +11,7 @@
 #include "recovery-key.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
+#include "sha256.h"
 #include "stat-util.h"
 #include "user-record-util.h"
 #include "user-util.h"
@@ -1521,5 +1523,85 @@ int user_record_set_rebalance_weight(UserRecord *h, uint64_t weight) {
 
         h->rebalance_weight = weight;
         h->mask |= USER_RECORD_PER_MACHINE;
+        return 0;
+}
+
+int user_record_ensure_blob_manifest(UserRecord *h, Hashmap *blobs) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_hashmap_free_ Hashmap *manifest = NULL;
+        const char *filename;
+        void *key, *value;
+        int r;
+
+        assert(h);
+        assert(h->json);
+        assert(blobs);
+
+        /* Ensures that blobManifest exists (possibly creating it using the
+         * contents of blobs), and that the set of keys in both hashmaps are
+         * exactly the same */
+
+        if (h->blob_manifest) {
+                /* blobManifest already exists. In this case we verify
+                 * that the sets of keys are equal and that's it */
+
+                HASHMAP_FOREACH_KEY(value, key, h->blob_manifest)
+                        if (!hashmap_contains(blobs, key))
+                                return -EINVAL;
+                HASHMAP_FOREACH_KEY(value, key, blobs)
+                        if (!hashmap_contains(h->blob_manifest, key))
+                                return -EINVAL;
+
+                return 0;
+        }
+
+        /* blobManifest doesn't exist, so we need to create it */
+
+        HASHMAP_FOREACH_KEY(value, filename, blobs) {
+                _cleanup_free_ char *filename_dup = NULL;
+                _cleanup_free_ uint8_t *hash = NULL;
+                _cleanup_(json_variant_unrefp) JsonVariant *hash_json = NULL;
+                int fd = PTR_TO_FD(value);
+                off_t pos;
+
+                filename_dup = strdup(filename);
+                if (!filename_dup)
+                        return -ENOMEM;
+
+                hash = malloc(SHA256_DIGEST_SIZE);
+                if (!hash)
+                        return -ENOMEM;
+
+                pos = lseek(fd, 0, SEEK_CUR);
+                if (pos < 0)
+                        return -errno;
+
+                r = sha256_fd(fd, hash);
+                if (r < 0)
+                        return r;
+
+                if (lseek(fd, pos, SEEK_SET) < 0)
+                        return -errno;
+
+                r = json_variant_new_hex(&hash_json, hash, SHA256_DIGEST_SIZE);
+                if (r < 0)
+                        return r;
+
+                r = hashmap_ensure_put(&manifest, &path_hash_ops_free_free, filename_dup, hash);
+                if (r < 0)
+                        return r;
+                TAKE_PTR(filename_dup); /* Ownership transfers to hashmap */
+                TAKE_PTR(hash);
+
+                r = json_variant_set_field(&v, filename, hash_json);
+                if (r < 0)
+                        return r;
+        }
+
+        r = json_variant_set_field_non_null(&h->json, "blobManifest", v);
+        if (r < 0)
+                return r;
+
+        h->blob_manifest = TAKE_PTR(manifest);
         return 0;
 }
