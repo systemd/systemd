@@ -18,23 +18,35 @@
 
   <refnamediv>
     <refname>udev.conf</refname>
+    <refname>udev.conf.d</refname>
     <refpurpose>Configuration for device event managing daemon</refpurpose>
   </refnamediv>
 
   <refsynopsisdiv>
-    <para><filename>/etc/udev/udev.conf</filename></para>
+    <para>
+      <simplelist>
+        <member><filename>/etc/udev/udev.conf</filename></member>
+        <member><filename>/run/udev/udev.conf</filename></member>
+        <member><filename>/usr/lib/udev/udev.conf</filename></member>
+        <member><filename>/etc/udev/udev.conf.d/*.conf</filename></member>
+        <member><filename>/run/udev/udev.conf.d/*.conf</filename></member>
+        <member><filename>/usr/lib/udev/udev.conf.d/*.conf</filename></member>
+      </simplelist>
+    </para>
   </refsynopsisdiv>
 
   <refsect1>
     <title>Description</title>
 
+    <para>These files contain configuration options for
+      <citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+      The syntax of these files is very simple: a list
+      of assignments, one per line.
+      All empty lines or lines beginning with <literal>#</literal> are
+      ignored.
+    </para>
     <para>
-      <citerefentry><refentrytitle>systemd-udevd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-      expects its main configuration file at
-      <filename>/etc/udev/udev.conf</filename>. It consists of a set
-      of variables allowing the user to override default udev
-      values. All empty lines or lines beginning with '#' are
-      ignored. The following variables can be set:
+      The following options can be set:
     </para>
 
     <variablelist class='config-directives'>
@@ -46,6 +58,12 @@
           syslog priorities or their textual representations:
           <option>err</option>, <option>info</option> and
           <option>debug</option>.</para>
+
+          <note>
+            <para>This option is also honored by
+                <citerefentry><refentrytitle>udevadm</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+            </para>
+          </note>
 
           <xi:include href="version-info.xml" xpointer="v216"/>
         </listitem>
