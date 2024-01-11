@@ -2185,14 +2185,14 @@ install_dbus() {
     # Newer Fedora versions use dbus-broker by default. Let's install it if it's available.
     if [ -f "$ROOTLIBDIR/system/dbus-broker.service" ]; then
         inst "$ROOTLIBDIR/system/dbus-broker.service"
-        inst_symlink /etc/systemd/system/dbus.service
         inst /usr/bin/dbus-broker
         inst /usr/bin/dbus-broker-launch
+        image_install -o {/etc,/usr/lib}/systemd/system/dbus.service
     elif [ -f "$ROOTLIBDIR/system/dbus-daemon.service" ]; then
         # Fedora rawhide replaced dbus.service with dbus-daemon.service
         inst "$ROOTLIBDIR/system/dbus-daemon.service"
         # Alias symlink
-        inst_symlink /etc/systemd/system/dbus.service
+        image_install -o {/etc,/usr/lib}/systemd/system/dbus.service
     else
         inst "$ROOTLIBDIR/system/dbus.service"
     fi
@@ -2251,12 +2251,12 @@ EOF
     # Newer Fedora versions use dbus-broker by default. Let's install it if it's available.
     if [ -f "$userunitdir/dbus-broker.service" ]; then
         inst "$userunitdir/dbus-broker.service"
-        inst_symlink /etc/systemd/user/dbus.service
+        image_install -o {/etc,/usr/lib}/systemd/user/dbus.service
     elif [ -f "${ROOTLIBDIR:?}/system/dbus-daemon.service" ]; then
         # Fedora rawhide replaced dbus.service with dbus-daemon.service
         inst "$userunitdir/dbus-daemon.service"
         # Alias symlink
-        inst_symlink /etc/systemd/user/dbus.service
+        image_install -o {/etc,/usr/lib}/systemd/user/dbus.service
     else
         inst "$userunitdir/dbus.service"
     fi
