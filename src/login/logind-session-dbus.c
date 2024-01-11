@@ -476,6 +476,9 @@ static int method_take_device(sd_bus_message *message, void *userdata, sd_bus_er
         if (!DEVICE_MAJOR_VALID(major) || !DEVICE_MINOR_VALID(minor))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Device major/minor is not valid.");
 
+        if (!SESSION_CLASS_CAN_TAKE_DEVICE(s->class))
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Session class doesn't support taking device control.");
+
         if (!session_is_controller(s, sd_bus_message_get_sender(message)))
                 return sd_bus_error_set(error, BUS_ERROR_NOT_IN_CONTROL, "You are not in control of this session");
 
