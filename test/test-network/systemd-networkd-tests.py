@@ -573,8 +573,15 @@ def read_ip_sysctl_attr(link, attribute, ipv):
     with open(os.path.join('/proc/sys/net', ipv, 'conf', link, attribute), encoding='utf-8') as f:
         return f.readline().strip()
 
+def read_ip_neigh_sysctl_attr(link, attribute, ipv):
+    with open(os.path.join('/proc/sys/net', ipv, 'neigh', link, attribute), encoding='utf-8') as f:
+        return f.readline().strip()
+
 def read_ipv6_sysctl_attr(link, attribute):
     return read_ip_sysctl_attr(link, attribute, 'ipv6')
+
+def read_ipv6_neigh_sysctl_attr(link, attribute):
+    return read_ip_neigh_sysctl_attr(link, attribute, 'ipv6')
 
 def read_ipv4_sysctl_attr(link, attribute):
     return read_ip_sysctl_attr(link, attribute, 'ipv4')
@@ -905,6 +912,9 @@ class Utilities():
 
     def check_ipv6_sysctl_attr(self, link, attribute, expected):
         self.assertEqual(read_ipv6_sysctl_attr(link, attribute), expected)
+
+    def check_ipv6_neigh_sysctl_attr(self, link, attribute, expected):
+        self.assertEqual(read_ipv6_neigh_sysctl_attr(link, attribute), expected)
 
     def wait_links(self, *links, timeout=20, fail_assert=True):
         def links_exist(*links):
@@ -3480,6 +3490,60 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         print(output)
         for i in range(1, 5):
             self.assertRegex(output, f'2607:5300:203:5215:{i}::1 *proxy')
+
+    def test_ipv6_retrans_time(self):
+        link='test25'
+        copy_network_unit('25-dummy.netdev', '25-dummy.link', copy_dropins=False)
+
+        start_networkd()
+        self.wait_operstate(link, 'off', setup_state='unmanaged')
+        # self.wait_online([f'{link}:degraded'])
+
+        output = check_output(f'ip link show dev {link}')
+        print(output)
+
+        # expect retrans_time_ms updated
+        copy_network_unit('25-ipv6-retrans-time-3s.network')
+        networkctl_reload()
+        self.check_ipv6_neigh_sysctl_attr(link, 'retrans_time_ms', '3000')
+        remove_network_unit('25-ipv6-retrans-time-3s.network')
+
+        # expect retrans_time_ms unchanged
+        copy_network_unit('25-ipv6-retrans-time-0s.network')
+        networkctl_reload()
+        self.check_ipv6_neigh_sysctl_attr(link, 'retrans_time_ms', '3000')
+        remove_network_unit('25-ipv6-retrans-time-0s.network')
+
+        # expect retrans_time_ms unchanged
+        copy_network_unit('25-ipv6-retrans-time-toobig.network')
+        networkctl_reload()
+        self.check_ipv6_neigh_sysctl_attr(link, 'retrans_time_ms', '3000')
+        remove_network_unit('25-ipv6-retrans-time-toobig.network')
+
+        # expect retrans_time_ms unchanged
+        copy_network_unit('25-ipv6-retrans-time-invalid.network')
+        networkctl_reload()
+        self.check_ipv6_neigh_sysctl_attr(link, 'retrans_time_ms', '3000')
+        remove_network_unit('25-ipv6-retrans-time-invalid.network')
+
+        # expect retrans_time_ms updated
+        copy_network_unit('25-ipv6-retrans-time-4s.network')
+        networkctl_reload()
+        self.check_ipv6_neigh_sysctl_attr(link, 'retrans_time_ms', '4000')
+        remove_network_unit('25-ipv6-retrans-time-4s.network')
+
+        # expect retrans_time_ms unchanged
+        networkctl_reload()
+        self.check_ipv6_neigh_sysctl_attr(link, 'retrans_time_ms', '4000')
+
+        # test is finished, final cleanup
+        remove_network_unit('25-dummy.netdev', '25-dummy.link')
+        networkctl_reload()
+
+        output = check_output(f'ip link show dev {link}')
+        print(output)
+
+        remove_link(link)
 
     def test_neighbor(self):
         copy_network_unit('12-dummy.netdev', '25-neighbor-dummy.network', '25-neighbor-dummy.network.d/10-step1.conf',
