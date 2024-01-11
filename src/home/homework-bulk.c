@@ -24,6 +24,7 @@
 struct bulk_overwrite_data {
         int dest_dfd;
         uint64_t total_size;
+        uid_t uid;
 };
 
 static int bulk_overwrite_callback(
@@ -76,17 +77,18 @@ static int bulk_overwrite_callback(
         if (r < 0)
                 return r;
 
-        if (fchown(dest, 0, 0) < 0)
+        if (fchown(dest, d->uid, d->uid) < 0)
                 return log_debug_errno(errno, "Failed to chown %s in dest bulk: %m", path);
 
         return RECURSE_DIR_CONTINUE;
 }
 
-static int overwrite_bulk(int src_fd, int dest_fd) {
+static int overwrite_bulk(int src_fd, int dest_fd, uid_t uid) {
         _cleanup_close_ int dest_dup = -EBADF;
         struct bulk_overwrite_data userdata = {
                 .dest_dfd = dest_fd,
                 .total_size = 0,
+                .uid = uid,
         };
         int r;
 
@@ -100,6 +102,9 @@ static int overwrite_bulk(int src_fd, int dest_fd) {
         r = rm_rf_children(TAKE_FD(dest_dup), REMOVE_PHYSICAL|REMOVE_SUBVOLUME, NULL);
         if (r < 0)
                 return log_debug_errno(r, "Failed to clear dest bulk dir: %m");
+
+        if (fchown(dest_fd, uid, uid) < 0)
+                return log_debug_errno(r, "Failed to chown dest bulk: %m", path);
 
         return recurse_dir_at(src_fd, ".", STATX_TYPE|STATX_SIZE, UINT_MAX, RECURSE_DIR_SORT,
                               bulk_overwrite_callback, &userdata);
@@ -129,7 +134,7 @@ int home_reconcile_bulk_dirs(UserRecord *h, int root_fd, int reconciled) {
                 return log_error_errno(embedded_fd, "Failed to create/open embedded bulk dir: %m");
 
         if (reconciled == USER_RECONCILE_HOST_WON) {
-                r = overwrite_bulk(sys_fd, embedded_fd);
+                r = overwrite_bulk(sys_fd, embedded_fd, h->uid);
                 if (r < 0)
                         return log_error_errno(r, "Failed to replace embedded bulk with system bulk: %m");
 
@@ -137,7 +142,7 @@ int home_reconcile_bulk_dirs(UserRecord *h, int root_fd, int reconciled) {
         } else {
                 assert(reconciled == USER_RECONCILE_EMBEDDED_WON);
 
-                r = overwrite_bulk(embedded_fd, sys_fd);
+                r = overwrite_bulk(embedded_fd, sys_fd, 0);
                 if (r < 0)
                         return log_error_errno(r, "Failed to replace system bulk with embedded bulk: %m");
 
