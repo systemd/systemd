@@ -2632,7 +2632,7 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       enqueued and complete successfully. The key value pairs correspond (in lowercase) to the environment
       variables described in the <literal>Environment Variables Set or Propagated by the Service
       Manager</literal> section in
-      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>1</manvolnum></citerefentry>. Note
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Note
       that new key value pair may be added at any time in future versions. Existing entries will not be
       removed.</para>
     </refsect2>
