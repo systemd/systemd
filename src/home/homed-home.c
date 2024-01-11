@@ -33,6 +33,7 @@
 #include "process-util.h"
 #include "quota-util.h"
 #include "resize-fs.h"
+#include "rm-rf.h"
 #include "set.h"
 #include "signal-util.h"
 #include "stat-util.h"
@@ -96,7 +97,7 @@ static int suitable_home_record(UserRecord *hr) {
 
 int home_new(Manager *m, UserRecord *hr, const char *sysfs, Home **ret) {
         _cleanup_(home_freep) Home *home = NULL;
-        _cleanup_free_ char *nm = NULL, *ns = NULL;
+        _cleanup_free_ char *nm = NULL, *ns = NULL, *bulk = NULL;
         int r;
 
         assert(m);
@@ -161,6 +162,13 @@ int home_new(Manager *m, UserRecord *hr, const char *sysfs, Home **ret) {
         r = user_record_clone(hr, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_PERMISSIVE, &home->record);
         if (r < 0)
                 return r;
+
+        bulk = path_join(home_system_bulk_dir(), hr->user_name);
+        if (!bulk)
+                return -ENOMEM;
+        r = mkdir_safe(bulk, 0755, hr->uid, user_record_gid(hr), MKDIR_IGNORE_EXISTING);
+        if (r < 0)
+                log_warning_errno(r, "Failed to create bulk dir for user '%s': %m", home->user_name);
 
         (void) bus_manager_emit_auto_login_changed(m);
         (void) bus_home_emit_change(home);
@@ -322,7 +330,9 @@ int home_save_record(Home *h) {
 }
 
 int home_unlink_record(Home *h) {
+        _cleanup_free_ char *bulk = NULL;
         const char *fn;
+        int r;
 
         assert(h);
 
@@ -333,6 +343,13 @@ int home_unlink_record(Home *h) {
         fn = strjoina("/run/systemd/home/", h->user_name, ".ref");
         if (unlink(fn) < 0 && errno != ENOENT)
                 return -errno;
+
+        bulk = path_join(home_system_bulk_dir(), h->user_name);
+        if (!bulk)
+                return -ENOMEM;
+        r = rm_rf(bulk, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME|REMOVE_MISSING_OK);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -2512,6 +2529,7 @@ int home_augment_status(
         uint64_t disk_size = UINT64_MAX, disk_usage = UINT64_MAX, disk_free = UINT64_MAX, disk_ceiling = UINT64_MAX, disk_floor = UINT64_MAX;
         _cleanup_(json_variant_unrefp) JsonVariant *j = NULL, *v = NULL, *m = NULL, *status = NULL;
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
+        _cleanup_free_ char *bulk = NULL;
         statfs_f_type_t magic;
         const char *fstype;
         mode_t access_mode;
@@ -2545,6 +2563,10 @@ int home_augment_status(
 
         fstype = fs_type_to_string(magic);
 
+        bulk = path_join(home_system_bulk_dir(), h->user_name);
+        if (!bulk)
+                return -ENOMEM;
+
         if (disk_floor == UINT64_MAX || (disk_usage != UINT64_MAX && disk_floor < disk_usage))
                 disk_floor = disk_usage;
         if (disk_floor == UINT64_MAX || disk_floor < USER_DISK_SIZE_MIN)
@@ -2556,6 +2578,7 @@ int home_augment_status(
                        JSON_BUILD_OBJECT(
                                        JSON_BUILD_PAIR("state", JSON_BUILD_STRING(home_state_to_string(state))),
                                        JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Home")),
+                                       JSON_BUILD_PAIR("bulkDirectory", JSON_BUILD_STRING(bulk)),
                                        JSON_BUILD_PAIR_CONDITION(disk_size != UINT64_MAX, "diskSize", JSON_BUILD_UNSIGNED(disk_size)),
                                        JSON_BUILD_PAIR_CONDITION(disk_usage != UINT64_MAX, "diskUsage", JSON_BUILD_UNSIGNED(disk_usage)),
                                        JSON_BUILD_PAIR_CONDITION(disk_free != UINT64_MAX, "diskFree", JSON_BUILD_UNSIGNED(disk_free)),
