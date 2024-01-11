@@ -57,6 +57,9 @@ typedef enum SessionClass {
 /* Which sessions classes should be subject to stop-in-idle */
 #define SESSION_CLASS_CAN_STOP_ON_IDLE(class) (IN_SET((class), SESSION_USER, SESSION_USER_EARLY))
 
+/* Which session classes can take control of devices */
+#define SESSION_CLASS_CAN_TAKE_DEVICE(class) (IN_SET((class), SESSION_USER, SESSION_USER_EARLY, SESSION_GREETER, SESSION_LOCK_SCREEN))
+
 typedef enum SessionType {
         SESSION_UNSPECIFIED,
         SESSION_TTY,
