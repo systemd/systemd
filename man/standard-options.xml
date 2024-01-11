@@ -93,6 +93,13 @@
     off JSON output, the default).</para></listitem>
   </varlistentry>
 
+  <varlistentry id='j'>
+    <term><option>-j</option></term>
+
+    <listitem><para>Equivalent to <option>--json=pretty</option> if running on a terminal, and
+    <option>--json=short</option> otherwise.</para></listitem>
+  </varlistentry>
+
   <varlistentry id='signal'>
     <term><option>-s</option></term>
     <term><option>--signal=</option></term>
