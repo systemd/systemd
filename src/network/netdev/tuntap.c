@@ -33,11 +33,6 @@ static TunTap* TUNTAP(NetDev *netdev) {
         }
 }
 
-static void *close_fd_ptr(void *p) {
-        safe_close(PTR_TO_FD(p));
-        return NULL;
-}
-
 DEFINE_PRIVATE_HASH_OPS_FULL(named_fd_hash_ops, char, string_hash_func, string_compare_func, free, void, close_fd_ptr);
 
 int manager_add_tuntap_fd(Manager *m, int fd, const char *name) {
