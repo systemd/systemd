@@ -2,6 +2,7 @@
 
 #include "alloc-util.h"
 #include "dhcp-client-id-internal.h"
+#include "iovec-util.h"
 #include "unaligned.h"
 #include "utf8.h"
 
@@ -51,7 +52,9 @@ int sd_dhcp_client_id_set(
 
         assert_return(client_id, -EINVAL);
         assert_return(data, -EINVAL);
-        assert_return(client_id_data_size_is_valid(data_size), -EINVAL);
+
+        if (!client_id_data_size_is_valid(data_size))
+                return -EINVAL;
 
         client_id->id.type = type;
         memcpy(client_id->id.data, data, data_size);
@@ -67,9 +70,11 @@ int sd_dhcp_client_id_set_raw(
 
         assert_return(client_id, -EINVAL);
         assert_return(data, -EINVAL);
-        assert_return(client_id_size_is_valid(data_size), -EINVAL);
 
         /* Unlike sd_dhcp_client_id_set(), this takes whole client ID including its type. */
+
+        if (!client_id_size_is_valid(data_size))
+                return -EINVAL;
 
         memcpy(client_id->raw, data, data_size);
 
@@ -150,7 +155,6 @@ int sd_dhcp_client_id_to_string_from_raw(const void *data, size_t data_size, cha
         int r;
 
         assert_return(data, -EINVAL);
-        assert_return(client_id_size_is_valid(data_size), -EINVAL);
         assert_return(ret, -EINVAL);
 
         r = sd_dhcp_client_id_set_raw(&client_id, data, data_size);
@@ -173,4 +177,20 @@ int client_id_compare_func(const sd_dhcp_client_id *a, const sd_dhcp_client_id *
         assert(sd_dhcp_client_id_is_set(b));
 
         return memcmp_nn(a->raw, a->size, b->raw, b->size);
+}
+
+int json_dispatch_client_id(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        sd_dhcp_client_id *client_id = ASSERT_PTR(userdata);
+        _cleanup_(iovec_done) struct iovec iov = {};
+        int r;
+
+        r = json_dispatch_byte_array_iovec(name, variant, flags, &iov);
+        if (r < 0)
+                return r;
+
+        r = sd_dhcp_client_id_set_raw(client_id, iov.iov_base, iov.iov_len);
+        if (r < 0)
+                return json_log(variant, flags, r, "Failed to set DHCP client ID from JSON field '%s': %m", strna(name));
+
+        return 0;
 }
