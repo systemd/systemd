@@ -20,6 +20,13 @@ static int user_record_signable_json(UserRecord *ur, char **ret) {
         if (r < 0)
                 return r;
 
+        // TODO
+        _cleanup_free_ char *bulk_directory = NULL;
+        r = user_record_steal_bulk_dir(reduced, &bulk_directory);
+        if (r < 0)
+                return r;
+        // TODO
+        
         j = json_variant_ref(reduced->json);
 
         r = json_variant_normalize(&j);
