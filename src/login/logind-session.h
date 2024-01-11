@@ -60,6 +60,9 @@ typedef enum SessionClass {
 /* Which session classes can take control of devices */
 #define SESSION_CLASS_CAN_TAKE_DEVICE(class) (IN_SET((class), SESSION_USER, SESSION_USER_EARLY, SESSION_GREETER, SESSION_LOCK_SCREEN))
 
+/* Which session classes allow changing session types */
+#define SESSION_CLASS_CAN_CHANGE_TYPE(class) (IN_SET((class), SESSION_USER, SESSION_USER_EARLY, SESSION_GREETER, SESSION_LOCK_SCREEN))
+
 typedef enum SessionType {
         SESSION_UNSPECIFIED,
         SESSION_TTY,
