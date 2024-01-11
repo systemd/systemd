@@ -51,7 +51,9 @@ int sd_dhcp_client_id_set(
 
         assert_return(client_id, -EINVAL);
         assert_return(data, -EINVAL);
-        assert_return(client_id_data_size_is_valid(data_size), -EINVAL);
+
+        if (!client_id_data_size_is_valid(data_size))
+                return -EINVAL;
 
         client_id->id.type = type;
         memcpy(client_id->id.data, data, data_size);
@@ -67,9 +69,11 @@ int sd_dhcp_client_id_set_raw(
 
         assert_return(client_id, -EINVAL);
         assert_return(data, -EINVAL);
-        assert_return(client_id_size_is_valid(data_size), -EINVAL);
 
         /* Unlike sd_dhcp_client_id_set(), this takes whole client ID including its type. */
+
+        if (!client_id_size_is_valid(data_size))
+                return -EINVAL;
 
         memcpy(client_id->raw, data, data_size);
 
@@ -150,7 +154,6 @@ int sd_dhcp_client_id_to_string_from_raw(const void *data, size_t data_size, cha
         int r;
 
         assert_return(data, -EINVAL);
-        assert_return(client_id_size_is_valid(data_size), -EINVAL);
         assert_return(ret, -EINVAL);
 
         r = sd_dhcp_client_id_set_raw(&client_id, data, data_size);
