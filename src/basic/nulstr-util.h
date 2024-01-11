@@ -8,11 +8,11 @@
 
 #include "set.h"
 
-#define NULSTR_FOREACH(i, l)                                    \
-        for (typeof(*(l)) *(i) = (l); (i) && *(i); (i) = strchr((i), 0)+1)
+#define NULSTR_FOREACH(i, l) for (typeof(*(l)) *(i) = (l); (i) && *(i); (i) += strlen(i) + 1)
 
-#define NULSTR_FOREACH_PAIR(i, j, l)                             \
-        for (typeof(*(l)) *(i) = (l), *(j) = strchr((i), 0)+1; (i) && *(i); (i) = strchr((j), 0)+1, (j) = *(i) ? strchr((i), 0)+1 : (i))
+#define NULSTR_FOREACH_PAIR(i, j, l)                                         \
+        for (typeof(*(l)) *(i) = (l), *(j) = i + strlen(i) + 1; (i) && *(i); \
+             (i) = j + strlen(j) + 1, (j) = *(i) ? i + strlen(i) + 1 : (i))
 
 const char* nulstr_get(const char *nulstr, const char *needle);
 

@@ -1267,8 +1267,8 @@ TEST(strstrafter) {
         assert_se(strstrafter(buffer, "") == buffer);
         assert_se(strstrafter(buffer, "ab") == buffer + 2);
         assert_se(strstrafter(buffer, "cde") == buffer + 5);
-        assert_se(strstrafter(buffer, "xyz") == strchr(buffer, 0));
-        assert_se(strstrafter(buffer, buffer) == strchr(buffer, 0));
+        assert_se(strstrafter(buffer, "xyz") == buffer + strlen(buffer));
+        assert_se(strstrafter(buffer, buffer) == buffer + strlen(buffer));
         assert_se(!strstrafter(buffer, "-"));
 }
 

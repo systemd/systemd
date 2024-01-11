@@ -1522,7 +1522,7 @@ char *strrstr(const char *haystack, const char *needle) {
         /* Special case: for the empty string we return the very last possible occurrence, i.e. *after* the
          * last char, not before. */
         if (l == 0)
-                return strchr(haystack, 0);
+                return (char *) haystack + strlen(haystack);
 
         for (const char *p = haystack; *p; p++)
                 if (strneq(p, needle, l))

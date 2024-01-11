@@ -990,7 +990,7 @@ static int locale_gen_locale_supported(const char *locale_entry) {
         assert(locale_entry);
 
         /* Locale templates without country code are never supported */
-        if (!strstr(locale_entry, "_"))
+        if (!strchr(locale_entry, '_'))
                 return -EINVAL;
 
         f = fopen("/usr/share/i18n/SUPPORTED", "re");
