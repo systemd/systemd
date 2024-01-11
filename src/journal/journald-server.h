@@ -78,6 +78,7 @@ struct Server {
         int audit_fd;
         int hostname_fd;
         int notify_fd;
+        int forward_socket_fd;
 
         sd_event *event;
 
@@ -142,6 +143,7 @@ struct Server {
         int max_level_kmsg;
         int max_level_console;
         int max_level_wall;
+        int max_level_socket;
 
         Storage storage;
         SplitMode split_mode;
