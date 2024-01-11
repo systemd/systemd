@@ -508,7 +508,9 @@
 
     <varlistentry>
         <term><option>--bulk-directory=</option><replaceable>PATH</replaceable></term>
+        <term><option>-b</option> <replaceable>PATH</replaceable></term>
         <term><option>--bulk-directory=</option><replaceable>FILENAME</replaceable>=<replaceable>PATH</replaceable></term>
+        <term><option>-b</option> <replaceable>FILENAME</replaceable>=<replaceable>PATH</replaceable></term>
 
         <listitem><para>Accepts either a directory path, or a file name followed by a file path. If just a
         directory path is specified, then the user's entire bulk directory is replaced the specified path.
