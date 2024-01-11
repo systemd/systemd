@@ -216,7 +216,9 @@ int bus_session_method_lock(sd_bus_message *message, void *userdata, sd_bus_erro
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = session_send_lock(s, strstr(sd_bus_message_get_member(message), "Lock"));
+        r = session_send_lock(s, /* lock= */ strstr(sd_bus_message_get_member(message), "Lock"));
+        if (r == -ENOTTY)
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Session does not support lock screen.");
         if (r < 0)
                 return r;
 
@@ -248,7 +250,7 @@ static int method_set_idle_hint(sd_bus_message *message, void *userdata, sd_bus_
 
         r = session_set_idle_hint(s, b);
         if (r == -ENOTTY)
-                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Idle hint control is not supported on non-graphical sessions.");
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Idle hint control is not supported on non-graphical and non-user sessions.");
         if (r < 0)
                 return r;
 
@@ -278,7 +280,11 @@ static int method_set_locked_hint(sd_bus_message *message, void *userdata, sd_bu
         if (uid != 0 && uid != s->user->user_record->uid)
                 return sd_bus_error_set(error, SD_BUS_ERROR_ACCESS_DENIED, "Only owner of session may set locked hint");
 
-        session_set_locked_hint(s, b);
+        r = session_set_locked_hint(s, b);
+        if (r == -ENOTTY)
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Session does not support lock screen.");
+        if (r < 0)
+                return r;
 
         return sd_bus_reply_method_return(message, NULL);
 }
@@ -387,6 +393,9 @@ static int method_set_type(sd_bus_message *message, void *userdata, sd_bus_error
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "Invalid session type '%s'", t);
 
+        if (!SESSION_CLASS_CAN_CHANGE_TYPE(s->class))
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Session class doesn't support changing type.");
+
         if (!session_is_controller(s, sd_bus_message_get_sender(message)))
                 return sd_bus_error_set(error, BUS_ERROR_NOT_IN_CONTROL, "You must be in control of this session to set type");
 
@@ -469,6 +478,9 @@ static int method_take_device(sd_bus_message *message, void *userdata, sd_bus_er
 
         if (!DEVICE_MAJOR_VALID(major) || !DEVICE_MINOR_VALID(minor))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Device major/minor is not valid.");
+
+        if (!SESSION_CLASS_CAN_TAKE_DEVICE(s->class))
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Session class doesn't support taking device control.");
 
         if (!session_is_controller(s, sd_bus_message_get_sender(message)))
                 return sd_bus_error_set(error, BUS_ERROR_NOT_IN_CONTROL, "You are not in control of this session");
@@ -765,6 +777,9 @@ int session_send_lock(Session *s, bool lock) {
 
         assert(s);
 
+        if (!SESSION_CLASS_CAN_LOCK(s->class))
+                return -ENOTTY;
+
         p = session_bus_path(s);
         if (!p)
                 return -ENOMEM;
@@ -786,6 +801,9 @@ int session_send_lock_all(Manager *m, bool lock) {
         HASHMAP_FOREACH(session, m->sessions) {
                 int k;
 
+                if (!SESSION_CLASS_CAN_LOCK(session->class))
+                        continue;
+
                 k = session_send_lock(session, lock);
                 if (k < 0)
                         r = k;
@@ -800,7 +818,7 @@ static bool session_ready(Session *s) {
         /* Returns true when the session is ready, i.e. all jobs we enqueued for it are done (regardless if successful or not) */
 
         return !s->scope_job &&
-                !s->user->service_job;
+                (!SESSION_CLASS_WANTS_SERVICE_MANAGER(s->class) || !s->user->service_job);
 }
 
 int session_send_create_reply(Session *s, sd_bus_error *error) {
