@@ -393,6 +393,9 @@ static int method_set_type(sd_bus_message *message, void *userdata, sd_bus_error
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
                                          "Invalid session type '%s'", t);
 
+        if (!SESSION_CLASS_CAN_CHANGE_TYPE(s->class))
+                return sd_bus_error_set(error, SD_BUS_ERROR_NOT_SUPPORTED, "Session class doesn't support changing type.");
+
         if (!session_is_controller(s, sd_bus_message_get_sender(message)))
                 return sd_bus_error_set(error, BUS_ERROR_NOT_IN_CONTROL, "You must be in control of this session to set type");
 
