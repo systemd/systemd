@@ -497,9 +497,80 @@ static EFI_STATUS load_addons(
         return EFI_SUCCESS;
 }
 
+static EFI_STATUS pack_synthetic_creds(void **synthetic_creds_initrd, size_t *synthetic_creds_initrd_size) {
+        _cleanup_free_ char16_t *loader_creds_buf = NULL, **keys = NULL, **values = NULL;
+        _cleanup_free_ size_t *value_sizes = NULL;
+        size_t loader_creds_buf_size = 0, n_creds = 0, n_allocated = 0;
+        EFI_STATUS err;
+
+        assert(synthetic_creds_initrd);
+        assert(synthetic_creds_initrd_size);
+
+        /* In CVMs the serial console is under the control of the cloud provider, so refuse to pass along
+         * synthetized credentials. */
+        if (is_confidential_vm())
+                return EFI_SUCCESS;
+
+        err = efivar_get_raw(
+                        MAKE_GUID_PTR(LOADER),
+                        u"LoaderSyntheticCredentials",
+                        (char **) &loader_creds_buf,
+                        &loader_creds_buf_size);
+        if (err != EFI_SUCCESS)
+                return err;
+
+        for (char16_t *p = loader_creds_buf; loader_creds_buf_size > 0; ++n_creds) {
+                size_t key_len = strlen(p);
+                char16_t *key = p;
+
+                if (loader_creds_buf_size <= (key_len + 2) * sizeof(char16_t))
+                        break; /* No value? Nothing more to do then */
+
+                p = key + key_len + 1;
+                size_t value_len = strlen(p);
+                char16_t *value = p;
+
+                if (!value || value_len == 0)
+                        break;
+
+                loader_creds_buf_size -= (key_len + value_len + 2) * sizeof(char16_t);
+                p += value_len + 1;
+
+                if (n_creds + 1 > n_allocated) {
+                        /* We allocate 16 entries at a time, as a matter of optimization */
+                        if (n_creds > (SIZE_MAX / sizeof(uint16_t)) - 16) /* Overflow check, just in case */
+                                return log_oom();
+
+                        size_t m = n_creds + 16;
+                        keys = xrealloc(keys, n_allocated * sizeof(char16_t *), m * sizeof(char16_t *));
+                        values = xrealloc(values, n_allocated * sizeof(char16_t *), m * sizeof(char16_t *));
+                        value_sizes = xrealloc(value_sizes, n_allocated * sizeof(size_t), m * sizeof(size_t));
+                        n_allocated = m;
+                }
+
+                keys[n_creds] = key;
+                values[n_creds] = value;
+                value_sizes[n_creds] = value_len * sizeof(char16_t);
+        }
+
+        return pack_cpio_literals(
+                        (void**)values,
+                        value_sizes,
+                        keys,
+                        n_creds,
+                        ".extra/synthetic_credentials",
+                        /* dir_mode= */ 0555,
+                        /* access_mode= */ 0444,
+                        /* tpm_pcr= */ UINT32_MAX,
+                        /* tpm_description= */ NULL,
+                        synthetic_creds_initrd,
+                        synthetic_creds_initrd_size,
+                        /* ret_measured= */ NULL);
+}
+
 static EFI_STATUS run(EFI_HANDLE image) {
-        _cleanup_free_ void *credential_initrd = NULL, *global_credential_initrd = NULL, *sysext_initrd = NULL, *confext_initrd = NULL, *pcrsig_initrd = NULL, *pcrpkey_initrd = NULL;
-        size_t credential_initrd_size = 0, global_credential_initrd_size = 0, sysext_initrd_size = 0, confext_initrd_size = 0, pcrsig_initrd_size = 0, pcrpkey_initrd_size = 0;
+        _cleanup_free_ void *credential_initrd = NULL, *global_credential_initrd = NULL, *sysext_initrd = NULL, *confext_initrd = NULL, *pcrsig_initrd = NULL, *pcrpkey_initrd = NULL, *synthetic_creds_initrd = NULL;
+        size_t credential_initrd_size = 0, global_credential_initrd_size = 0, sysext_initrd_size = 0, confext_initrd_size = 0, pcrsig_initrd_size = 0, pcrpkey_initrd_size = 0, synthetic_creds_initrd_size = 0;
         void **dt_bases_addons_global = NULL, **dt_bases_addons_uki = NULL;
         char16_t **dt_filenames_addons_global = NULL, **dt_filenames_addons_uki = NULL;
         _cleanup_free_ size_t *dt_sizes_addons_global = NULL, *dt_sizes_addons_uki = NULL;
@@ -688,6 +759,9 @@ static EFI_STATUS run(EFI_HANDLE image) {
                       &m) == EFI_SUCCESS)
                 parameters_measured = parameters_measured < 0 ? m : (parameters_measured && m);
 
+        /* We don't measure credentials synthetized at the menu, as they are by definition unpredictable */
+        (void) pack_synthetic_creds(&synthetic_creds_initrd, &synthetic_creds_initrd_size);
+
         if (pack_cpio(loaded_image,
                       /* dropin_dir= */ NULL,
                       u".raw",         /* ideally we'd pick up only *.sysext.raw here, but for compat we pick up *.raw instead … */
@@ -793,13 +867,14 @@ static EFI_STATUS run(EFI_HANDLE image) {
         initrd_base = initrd_size != 0 ? POINTER_TO_PHYSICAL_ADDRESS(loaded_image->ImageBase) + addrs[UNIFIED_SECTION_INITRD] : 0;
 
         _cleanup_pages_ Pages initrd_pages = {};
-        if (credential_initrd || global_credential_initrd || sysext_initrd || confext_initrd || pcrsig_initrd || pcrpkey_initrd) {
+        if (credential_initrd || global_credential_initrd || synthetic_creds_initrd || sysext_initrd || confext_initrd || pcrsig_initrd || pcrpkey_initrd) {
                 /* If we have generated initrds dynamically, let's combine them with the built-in initrd. */
                 err = combine_initrd(
                                 initrd_base, initrd_size,
                                 (const void*const[]) {
                                         credential_initrd,
                                         global_credential_initrd,
+                                        synthetic_creds_initrd,
                                         sysext_initrd,
                                         confext_initrd,
                                         pcrsig_initrd,
@@ -808,6 +883,7 @@ static EFI_STATUS run(EFI_HANDLE image) {
                                 (const size_t[]) {
                                         credential_initrd_size,
                                         global_credential_initrd_size,
+                                        synthetic_creds_initrd_size,
                                         sysext_initrd_size,
                                         confext_initrd_size,
                                         pcrsig_initrd_size,

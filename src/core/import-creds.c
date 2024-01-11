@@ -277,6 +277,96 @@ static int import_credentials_boot(void) {
         return 0;
 }
 
+static int import_credentials_boot_menu(void) {
+        _cleanup_(import_credentials_context_free) ImportCredentialContext context = {
+                .target_dir_fd = -EBADF,
+        };
+        _cleanup_free_ DirectoryEntries *de = NULL;
+        _cleanup_close_ int source_dir_fd = -EBADF;
+        int r;
+
+        /* systemd-stub will wrap credentials typed via the boot menu as files for the initrd */
+
+        if (!in_initrd())
+                return 0;
+
+        source_dir_fd = open("/.extra/synthetic_credentials/", O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
+        if (source_dir_fd < 0) {
+                if (errno == ENOENT) {
+                        log_debug("No credentials passed via /.extra/synthetic_credentials/.");
+                        return 0;
+                }
+
+                return log_warning_errno(errno, "Failed to open '/.extra/synthetic_credentials/': %m");
+        }
+
+        r = readdir_all(source_dir_fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT, &de);
+        if (r < 0)
+                return log_warning_errno(r, "Failed to read '/.extra/synthetic_credentials/' contents: %m");
+
+        for (size_t i = 0; i < de->n_entries; i++) {
+                const struct dirent *d = de->entries[i];
+                _cleanup_close_ int cfd = -EBADF, nfd = -EBADF;
+                struct stat st;
+
+                if (!credential_name_valid(d->d_name)) {
+                        log_warning("Credential '%s' has invalid name, ignoring.", d->d_name);
+                        continue;
+                }
+
+                cfd = openat(source_dir_fd, d->d_name, O_RDONLY|O_CLOEXEC);
+                if (cfd < 0) {
+                        log_warning_errno(errno, "Failed to open %s, ignoring: %m", d->d_name);
+                        continue;
+                }
+
+                if (fstat(cfd, &st) < 0) {
+                        log_warning_errno(errno, "Failed to stat %s, ignoring: %m", d->d_name);
+                        continue;
+                }
+
+                r = stat_verify_regular(&st);
+                if (r < 0) {
+                        log_warning_errno(r, "Credential file %s is not a regular file, ignoring: %m", d->d_name);
+                        continue;
+                }
+
+                if (!credential_size_ok(&context, d->d_name, st.st_size))
+                        continue;
+
+                r = acquire_credential_directory(&context, SYSTEM_CREDENTIALS_DIRECTORY, /* with_mount= */ false);
+                if (r < 0)
+                        return r;
+
+                nfd = open_credential_file_for_write(context.target_dir_fd, SYSTEM_CREDENTIALS_DIRECTORY, d->d_name);
+                if (nfd == -EEXIST)
+                        continue;
+                if (nfd < 0)
+                        return nfd;
+
+                r = copy_bytes(cfd, nfd, st.st_size, 0);
+                if (r < 0) {
+                        (void) unlinkat(context.target_dir_fd, d->d_name, 0);
+                        return log_error_errno(r, "Failed to create credential '%s': %m", d->d_name);
+                }
+
+                context.size_sum += st.st_size;
+                context.n_credentials++;
+
+                log_debug("Successfully copied boot menu credential '%s'.", d->d_name);
+        }
+
+        if (context.n_credentials > 0) {
+                log_debug("Imported %u credentials from boot loader menu.", context.n_credentials);
+
+                r = finalize_credentials_dir(SYSTEM_CREDENTIALS_DIRECTORY, "SYSTEM_CREDENTIALS_DIRECTORY");
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
+}
+
 static int proc_cmdline_callback(const char *key, const char *value, void *data) {
         ImportCredentialContext *c = ASSERT_PTR(data);
         _cleanup_free_ void *binary = NULL;
@@ -917,11 +1007,9 @@ int import_credentials(void) {
                         }
                 }
 
-                r = import_credentials_boot();
-
-                q = import_credentials_trusted();
-                if (r >= 0)
-                        r = q;
+                RET_GATHER(r, import_credentials_boot());
+                RET_GATHER(r, import_credentials_boot_menu());
+                RET_GATHER(r, import_credentials_trusted());
         }
 
         report_credentials();
