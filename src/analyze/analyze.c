@@ -272,6 +272,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "                             specified time\n"
                "     --profile=name|PATH     Include the specified profile in the\n"
                "                             security review of the unit(s)\n"
+               "     --unit=UNIT             Evaluate conditions and asserts of unit\n"
                "     --table                 Output plot's raw time data as a table\n"
                "  -h --help                  Show this help\n"
                "     --version               Show package version\n"
@@ -558,6 +559,10 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_offline && !streq_ptr(argv[optind], "security"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Option --offline= is only supported for security right now.");
+
+        if (arg_offline && optind >= argc - 1)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Option --offline= requires one or more units to perform a security review");
 
         if (arg_json_format_flags != JSON_FORMAT_OFF && !STRPTR_IN_SET(argv[optind], "security", "inspect-elf", "plot", "fdstore", "pcrs", "architectures", "capability", "exit-status"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
