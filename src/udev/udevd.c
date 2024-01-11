@@ -10,6 +10,7 @@
 
 #include "sd-daemon.h"
 
+#include "conf-parser.h"
 #include "env-file.h"
 #include "errno-util.h"
 #include "fd-util.h"
@@ -65,70 +66,29 @@ static int listen_fds(int *ret_ctrl, int *ret_netlink) {
         return 0;
 }
 
+static DEFINE_CONFIG_PARSE_ENUM(config_parse_resolve_name_timing, resolve_name_timing, ResolveNameTiming, "Failed to parse resolve name timing");
+
 static int manager_parse_udev_config(Manager *manager) {
-        _cleanup_free_ char *log_val = NULL, *children_max = NULL, *exec_delay = NULL,
-                *event_timeout = NULL, *resolve_names = NULL, *timeout_signal = NULL;
-        int r;
+        int r, log_val = -1;
 
         assert(manager);
 
-        r = parse_env_file(NULL, "/etc/udev/udev.conf",
-                           "udev_log", &log_val,
-                           "children_max", &children_max,
-                           "exec_delay", &exec_delay,
-                           "event_timeout", &event_timeout,
-                           "resolve_names", &resolve_names,
-                           "timeout_signal", &timeout_signal);
-        if (r == -ENOENT)
-                return 0;
+        const ConfigTableItem config_table[] = {
+                { NULL, "udev_log",       config_parse_log_level,           0, &log_val                      },
+                { NULL, "children_max",   config_parse_unsigned,            0, &manager->children_max        },
+                { NULL, "exec_delay",     config_parse_sec,                 0, &manager->exec_delay_usec     },
+                { NULL, "event_timeout",  config_parse_sec,                 0, &manager->timeout_usec        },
+                { NULL, "resolve_names",  config_parse_resolve_name_timing, 0, &manager->resolve_name_timing },
+                { NULL, "timeout_signal", config_parse_signal,              0, &manager->timeout_signal      },
+                {}
+        };
+
+        r = udev_parse_config_full(config_table);
         if (r < 0)
                 return r;
 
-        r = udev_set_max_log_level(log_val);
-        if (r < 0)
-                log_syntax(NULL, LOG_WARNING, "/etc/udev/udev.conf", 0, r,
-                           "Failed to set udev log level '%s', ignoring: %m", log_val);
-
-        if (children_max) {
-                r = safe_atou(children_max, &manager->children_max);
-                if (r < 0)
-                        log_syntax(NULL, LOG_WARNING, "/etc/udev/udev.conf", 0, r,
-                                   "Failed to parse children_max=%s, ignoring: %m", children_max);
-        }
-
-        if (exec_delay) {
-                r = parse_sec(exec_delay, &manager->exec_delay_usec);
-                if (r < 0)
-                        log_syntax(NULL, LOG_WARNING, "/etc/udev/udev.conf", 0, r,
-                                   "Failed to parse exec_delay=%s, ignoring: %m", exec_delay);
-        }
-
-        if (event_timeout) {
-                r = parse_sec(event_timeout, &manager->timeout_usec);
-                if (r < 0)
-                        log_syntax(NULL, LOG_WARNING, "/etc/udev/udev.conf", 0, r,
-                                   "Failed to parse event_timeout=%s, ignoring: %m", event_timeout);
-        }
-
-        if (resolve_names) {
-                ResolveNameTiming t;
-
-                t = resolve_name_timing_from_string(resolve_names);
-                if (t < 0)
-                        log_syntax(NULL, LOG_WARNING, "/etc/udev/udev.conf", 0, r,
-                                   "Failed to parse resolve_names=%s, ignoring.", resolve_names);
-                else
-                        manager->resolve_name_timing = t;
-        }
-
-        if (timeout_signal) {
-                r = signal_from_string(timeout_signal);
-                if (r < 0)
-                        log_syntax(NULL, LOG_WARNING, "/etc/udev/udev.conf", 0, r,
-                                   "Failed to parse timeout_signal=%s, ignoring: %m", timeout_signal);
-                else
-                        manager->timeout_signal = r;
-        }
+        if (log_val >= 0)
+                log_set_max_level(log_val);
 
         return 0;
 }
