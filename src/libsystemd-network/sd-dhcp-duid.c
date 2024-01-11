@@ -71,7 +71,9 @@ int sd_dhcp_duid_set(
 
         assert_return(duid, -EINVAL);
         assert_return(data, -EINVAL);
-        assert_return(duid_data_size_is_valid(data_size), -EINVAL);
+
+        if (!duid_data_size_is_valid(data_size))
+                return -EINVAL;
 
         unaligned_write_be16(&duid->duid.type, duid_type);
         memcpy(duid->duid.data, data, data_size);
@@ -87,9 +89,11 @@ int sd_dhcp_duid_set_raw(
 
         assert_return(duid, -EINVAL);
         assert_return(data, -EINVAL);
-        assert_return(duid_size_is_valid(data_size), -EINVAL);
 
         /* Unlike sd_dhcp_duid_set(), this takes whole DUID including its type. */
+
+        if (!duid_size_is_valid(data_size))
+                return -EINVAL;
 
         memcpy(duid->raw, data, data_size);
 
@@ -209,8 +213,10 @@ int dhcp_duid_to_string_internal(uint16_t type, const void *data, size_t data_si
         const char *t;
 
         assert(data);
-        assert(duid_data_size_is_valid(data_size));
         assert(ret);
+
+        if (!duid_data_size_is_valid(data_size))
+                return -EINVAL;
 
         x = hexmem(data, data_size);
         if (!x)
