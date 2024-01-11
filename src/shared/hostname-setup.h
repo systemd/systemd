@@ -5,7 +5,7 @@
 #include <stdio.h>
 
 typedef enum HostnameSource {
-        HOSTNAME_STATIC,     /* from /etc/hostname */
+        HOSTNAME_STATIC,     /* from kernel commandline or /etc/hostname */
         HOSTNAME_TRANSIENT,  /* a transient hostname set through systemd, hostnamed, the container manager, or otherwise */
         HOSTNAME_DEFAULT,    /* the os-release default or the compiled-in fallback were used */
         _HOSTNAME_INVALID = -EINVAL,
@@ -20,6 +20,7 @@ int shorten_overlong(const char *s, char **ret);
 
 int read_etc_hostname_stream(FILE *f, char **ret);
 int read_etc_hostname(const char *path, char **ret);
+int read_static_hostname(const char *etc_hostname_path, char **ret);
 
 void hostname_update_source_hint(const char *hostname, HostnameSource source);
 int hostname_setup(bool really);
