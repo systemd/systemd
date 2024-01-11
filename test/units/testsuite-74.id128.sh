@@ -14,6 +14,13 @@ systemd-id128 show --value | tail
 systemd-id128 show 4f68bce3e8cd4db196e7fbcaf984b709 # root-x86-64
 systemd-id128 show --pretty 4f68bce3e8cd4db196e7fbcaf984b709
 
+systemd-id128 show -j
+systemd-id128 show --no-pager
+systemd-id128 show --json=short
+systemd-id128 show --no-legend
+systemd-id128 show --no-pager --no-legend
+systemd-id128 show root -P -u
+
 [[ "$(systemd-id128 new | wc -c)" -eq 33 ]]
 systemd-id128 new -p
 systemd-id128 new -u
