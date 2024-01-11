@@ -1163,7 +1163,7 @@
     <para>When invoked with the <command>firstboot</command> command, <command>homectl</command> supports the
     service credentials logic as implemented by
     <varname>ImportCredential=</varname>/<varname>LoadCredential=</varname>/<varname>SetCredential=</varname>
-    (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>1</manvolnum></citerefentry> for
+    (see <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
     details). The following credentials are used when passed in:</para>
 
     <variablelist class='system-credentials'>
