@@ -5,18 +5,22 @@
 
 #include "alloc-util.h"
 #include "build.h"
+#include "format-table.h"
 #include "gpt.h"
 #include "id128-print.h"
 #include "main-func.h"
+#include "parse-argument.h"
 #include "pretty-print.h"
 #include "strv.h"
-#include "format-table.h"
 #include "terminal-util.h"
 #include "verbs.h"
 
 static Id128PrettyPrintMode arg_mode = ID128_PRINT_ID128;
 static sd_id128_t arg_app = {};
 static bool arg_value = false;
+static PagerFlags arg_pager_flags = 0;
+static bool arg_legend = true;
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 
 static int verb_new(int argc, char **argv, void *userdata) {
         return id128_print_new(arg_mode);
@@ -150,9 +154,9 @@ static int verb_show(int argc, char **argv, void *userdata) {
                 }
 
         if (table) {
-                r = table_print(table, NULL);
+                r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
                 if (r < 0)
-                        return table_log_print_error(r);
+                        return r;
         }
 
         return 0;
@@ -177,6 +181,12 @@ static int help(void) {
                "  help                    Show this help\n"
                "\nOptions:\n"
                "  -h --help               Show this help\n"
+               "     --no-pager           Do not pipe output into a pager\n"
+               "     --no-legend          Do not show the headers and footers\n"
+               "     --json=FORMAT        Output inspection data in JSON (takes one of\n"
+               "                          pretty, short, off)\n"
+               "  -j                      Equivalent to --json=pretty (on TTY) or\n"
+               "                          --json=short (otherwise)\n"
                "  -p --pretty             Generate samples of program code\n"
                "  -P --value              Only print the value\n"
                "  -a --app-specific=ID    Generate app-specific IDs\n"
@@ -197,11 +207,17 @@ static int verb_help(int argc, char **argv, void *userdata) {
 static int parse_argv(int argc, char *argv[]) {
         enum {
                 ARG_VERSION = 0x100,
+                ARG_NO_PAGER,
+                ARG_NO_LEGEND,
+                ARG_JSON,
         };
 
         static const struct option options[] = {
                 { "help",         no_argument,       NULL, 'h'              },
                 { "version",      no_argument,       NULL, ARG_VERSION      },
+                { "no-pager",     no_argument,       NULL, ARG_NO_PAGER     },
+                { "no-legend",    no_argument,       NULL, ARG_NO_LEGEND    },
+                { "json",         required_argument, NULL, ARG_JSON         },
                 { "pretty",       no_argument,       NULL, 'p'              },
                 { "value",        no_argument,       NULL, 'P'              },
                 { "app-specific", required_argument, NULL, 'a'              },
@@ -214,7 +230,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hpa:uP", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hpa:uPj", options, NULL)) >= 0)
                 switch (c) {
 
                 case 'h':
@@ -223,6 +239,24 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_VERSION:
                         return version();
 
+                case ARG_NO_PAGER:
+                        arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                case ARG_NO_LEGEND:
+                        arg_legend = false;
+                        break;
+
+                case 'j':
+                        arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
+                        break;
+
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+
+                        break;
                 case 'p':
                         arg_mode = ID128_PRINT_PRETTY;
                         arg_value = false;
