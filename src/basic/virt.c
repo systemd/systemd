@@ -169,22 +169,23 @@ static Virtualization detect_vm_dmi_vendor(void) {
                 const char *vendor;
                 Virtualization id;
         } dmi_vendor_table[] = {
-                { "KVM",                  VIRTUALIZATION_KVM       },
-                { "OpenStack",            VIRTUALIZATION_KVM       }, /* Detect OpenStack instance as KVM in non x86 architecture */
-                { "KubeVirt",             VIRTUALIZATION_KVM       }, /* Detect KubeVirt instance as KVM in non x86 architecture */
-                { "Amazon EC2",           VIRTUALIZATION_AMAZON    },
-                { "QEMU",                 VIRTUALIZATION_QEMU      },
-                { "VMware",               VIRTUALIZATION_VMWARE    }, /* https://kb.vmware.com/s/article/1009458 */
-                { "VMW",                  VIRTUALIZATION_VMWARE    },
-                { "innotek GmbH",         VIRTUALIZATION_ORACLE    },
-                { "VirtualBox",           VIRTUALIZATION_ORACLE    },
-                { "Xen",                  VIRTUALIZATION_XEN       },
-                { "Bochs",                VIRTUALIZATION_BOCHS     },
-                { "Parallels",            VIRTUALIZATION_PARALLELS },
+                { "KVM",                   VIRTUALIZATION_KVM       },
+                { "OpenStack",             VIRTUALIZATION_KVM       }, /* Detect OpenStack instance as KVM in non x86 architecture */
+                { "KubeVirt",              VIRTUALIZATION_KVM       }, /* Detect KubeVirt instance as KVM in non x86 architecture */
+                { "Amazon EC2",            VIRTUALIZATION_AMAZON    },
+                { "QEMU",                  VIRTUALIZATION_QEMU      },
+                { "VMware",                VIRTUALIZATION_VMWARE    }, /* https://kb.vmware.com/s/article/1009458 */
+                { "VMW",                   VIRTUALIZATION_VMWARE    },
+                { "innotek GmbH",          VIRTUALIZATION_ORACLE    },
+                { "VirtualBox",            VIRTUALIZATION_ORACLE    },
+                { "Xen",                   VIRTUALIZATION_XEN       },
+                { "Bochs",                 VIRTUALIZATION_BOCHS     },
+                { "Parallels",             VIRTUALIZATION_PARALLELS },
                 /* https://wiki.freebsd.org/bhyve */
-                { "BHYVE",                VIRTUALIZATION_BHYVE     },
-                { "Hyper-V",              VIRTUALIZATION_MICROSOFT },
-                { "Apple Virtualization", VIRTUALIZATION_APPLE     },
+                { "BHYVE",                 VIRTUALIZATION_BHYVE     },
+                { "Hyper-V",               VIRTUALIZATION_MICROSOFT },
+                { "Apple Virtualization",  VIRTUALIZATION_APPLE     },
+                { "Google Compute Engine", VIRTUALIZATION_GOOGLE    }, /* https://cloud.google.com/run/docs/container-contract#sandbox */
         };
         int r;
 
@@ -1046,6 +1047,7 @@ static const char *const virtualization_table[_VIRTUALIZATION_MAX] = {
         [VIRTUALIZATION_POWERVM]         = "powervm",
         [VIRTUALIZATION_APPLE]           = "apple",
         [VIRTUALIZATION_SRE]             = "sre",
+        [VIRTUALIZATION_GOOGLE]          = "google",
         [VIRTUALIZATION_VM_OTHER]        = "vm-other",
 
         [VIRTUALIZATION_SYSTEMD_NSPAWN]  = "systemd-nspawn",

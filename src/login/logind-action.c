@@ -133,6 +133,11 @@ const HandleActionData* handle_action_lookup(HandleAction action) {
         return &handle_action_data_table[action];
 }
 
+static bool handle_action_sleep_supported(HandleAction action) {
+        assert(HANDLE_ACTION_IS_SLEEP(action) && action != HANDLE_SLEEP);
+        return sleep_supported(ASSERT_PTR(handle_action_lookup(action))->sleep_operation) > 0;
+}
+
 /* The order in which we try each sleep operation. We should typically prefer operations without a delay,
  * i.e. s2h and suspend, and use hibernation at last since it requires minimum hardware support.
  * hybrid-sleep is disabled by default, and thus should be ordered before suspend if manually chosen by user,
@@ -169,7 +174,7 @@ HandleAction handle_action_sleep_select(HandleActionSleepMask mask) {
                 if (!FLAGS_SET(mask, a))
                         continue;
 
-                if (sleep_supported(ASSERT_PTR(handle_action_lookup(*i))->sleep_operation) > 0)
+                if (handle_action_sleep_supported(*i))
                         return *i;
         }
 
@@ -266,18 +271,7 @@ static int handle_action_sleep_execute(
                 return handle_action_sleep_execute(m, a, ignore_inhibited, is_edge);
         }
 
-        bool supported;
-
-        if (handle == HANDLE_SUSPEND)
-                supported = sleep_supported(SLEEP_SUSPEND) > 0;
-        else if (handle == HANDLE_HIBERNATE)
-                supported = sleep_supported(SLEEP_HIBERNATE) > 0;
-        else if (handle == HANDLE_HYBRID_SLEEP)
-                supported = sleep_supported(SLEEP_HYBRID_SLEEP) > 0;
-        else if (handle == HANDLE_SUSPEND_THEN_HIBERNATE)
-                supported = sleep_supported(SLEEP_SUSPEND_THEN_HIBERNATE) > 0;
-        else
-                assert_not_reached();
+        bool supported = handle_action_sleep_supported(handle);
 
         if (!supported && handle != HANDLE_SUSPEND) {
                 supported = sleep_supported(SLEEP_SUSPEND) > 0;

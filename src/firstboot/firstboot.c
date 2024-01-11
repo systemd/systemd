@@ -89,6 +89,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_keymap, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_timezone, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_hostname, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root_password, erase_and_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_root_shell, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 static bool press_any_key(void) {
@@ -1239,11 +1241,13 @@ static int help(void) {
                "     --timezone=TIMEZONE          Set timezone\n"
                "     --hostname=NAME              Set hostname\n"
                "     --setup-machine-id           Set a random machine ID\n"
-               "     --machine-ID=ID              Set specified machine ID\n"
+               "     --machine-id=ID              Set specified machine ID\n"
                "     --root-password=PASSWORD     Set root password from plaintext password\n"
                "     --root-password-file=FILE    Set root password from file\n"
                "     --root-password-hashed=HASH  Set root password from hashed password\n"
                "     --root-shell=SHELL           Set root shell\n"
+               "     --kernel-command-line=CMDLINE\n"
+               "                                  Set kernel command line\n"
                "     --prompt-locale              Prompt the user for locale settings\n"
                "     --prompt-keymap              Prompt the user for keymap settings\n"
                "     --prompt-timezone            Prompt the user for timezone\n"

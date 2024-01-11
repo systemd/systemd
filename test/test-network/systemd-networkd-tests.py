@@ -4088,7 +4088,11 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         remove_network_unit('25-nexthop-nothing.network', '25-nexthop-dummy-2.network')
         copy_network_unit('25-nexthop-1.network', '25-nexthop-dummy-1.network')
-        networkctl_reload()
+        # Of course, networkctl_reconfigure() below is unnecessary in normal operation, but it is intentional
+        # here to test reconfiguring with different .network files does not trigger race.
+        # See also comments in link_drop_requests().
+        networkctl_reconfigure('dummy98') # reconfigured with 25-nexthop-dummy-2.network
+        networkctl_reload()               # reconfigured with 25-nexthop-dummy-1.network
 
         self.check_nexthop(manage_foreign_nexthops, first=True)
 
@@ -4603,6 +4607,20 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
 
     def tearDown(self):
         tear_down_common()
+
+    def test_bridge_mac_none(self):
+        copy_network_unit('12-dummy-mac.netdev', '26-bridge-mac-slave.network',
+                          '26-bridge-mac.netdev', '26-bridge-mac-master.network', '26-bridge-mac.link')
+        start_networkd()
+        self.wait_online(['dummy98:enslaved', 'bridge99:degraded'])
+
+        output = check_output('ip link show dev dummy98')
+        print(output)
+        self.assertIn('link/ether 12:34:56:78:9a:01', output)
+
+        output = check_output('ip link show dev bridge99')
+        print(output)
+        self.assertIn('link/ether 12:34:56:78:9a:01', output)
 
     def test_bridge_vlan(self):
         copy_network_unit('11-dummy.netdev', '26-bridge-vlan-slave.network',

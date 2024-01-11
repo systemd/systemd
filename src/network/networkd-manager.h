@@ -100,6 +100,7 @@ struct Manager {
 
         FirewallContext *fw_ctx;
 
+        bool request_queued;
         OrderedSet *request_queue;
 
         Hashmap *tuntap_fds_by_name;

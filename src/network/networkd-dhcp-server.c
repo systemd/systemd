@@ -92,7 +92,7 @@ int network_adjust_dhcp_server(Network *network, Set **addresses) {
                 }
 
         } else {
-                _cleanup_(address_freep) Address *a = NULL;
+                _cleanup_(address_unrefp) Address *a = NULL;
                 Address *existing;
                 unsigned line;
 

@@ -11,6 +11,7 @@
 #include "async.h"
 #include "fd-util.h"
 #include "logind-button.h"
+#include "logind-dbus.h"
 #include "missing_input.h"
 #include "string-util.h"
 
@@ -343,6 +344,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
                         b->lid_closed = true;
                         button_lid_switch_handle_action(b->manager, true);
                         button_install_check_event_source(b);
+                        manager_send_changed(b->manager, "LidClosed", NULL);
 
                 } else if (ev.code == SW_DOCK) {
                         log_struct(LOG_INFO,
@@ -361,6 +363,7 @@ static int button_dispatch(sd_event_source *s, int fd, uint32_t revents, void *u
 
                         b->lid_closed = false;
                         b->check_event_source = sd_event_source_unref(b->check_event_source);
+                        manager_send_changed(b->manager, "LidClosed", NULL);
 
                 } else if (ev.code == SW_DOCK) {
                         log_struct(LOG_INFO,
@@ -514,6 +517,7 @@ int button_check_switches(Button *b) {
 
         b->lid_closed = bitset_get(switches, SW_LID);
         b->docked = bitset_get(switches, SW_DOCK);
+        manager_send_changed(b->manager, "LidClosed", NULL);
 
         if (b->lid_closed)
                 button_install_check_event_source(b);

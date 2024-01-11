@@ -931,15 +931,51 @@ static void link_drop_from_master(Link *link) {
         link_unref(set_remove(master->slaves, link));
 }
 
-static void link_drop_requests(Link *link) {
+static int link_drop_requests(Link *link) {
         Request *req;
+        int ret = 0;
 
         assert(link);
         assert(link->manager);
 
-        ORDERED_SET_FOREACH(req, link->manager->request_queue)
-                if (req->link == link)
-                        request_detach(link->manager, req);
+        ORDERED_SET_FOREACH(req, link->manager->request_queue) {
+                if (req->link != link)
+                        continue;
+
+                /* If the request is already called, but its reply is not received, then we need to
+                 * drop the configuration (e.g. address) here. Note, if the configuration is known,
+                 * it will be handled later by link_drop_foreign_addresses() or so. */
+                if (req->waiting_reply && link->state != LINK_STATE_LINGER)
+                        switch (req->type) {
+                        case REQUEST_TYPE_ADDRESS: {
+                                Address *address = ASSERT_PTR(req->userdata);
+
+                                if (address_get(link, address, NULL) < 0)
+                                        RET_GATHER(ret, address_remove(address, link));
+                                break;
+                        }
+                        case REQUEST_TYPE_NEIGHBOR: {
+                                Neighbor *neighbor = ASSERT_PTR(req->userdata);
+
+                                if (neighbor_get(link, neighbor, NULL) < 0)
+                                        RET_GATHER(ret, neighbor_remove(neighbor, link));
+                                break;
+                        }
+                        case REQUEST_TYPE_NEXTHOP: {
+                                NextHop *nexthop = ASSERT_PTR(req->userdata);
+
+                                if (nexthop_get_by_id(link->manager, nexthop->id, NULL) < 0)
+                                        RET_GATHER(ret, nexthop_remove(nexthop, link->manager));
+                                break;
+                        }
+                        default:
+                                ;
+                        }
+
+                request_detach(link->manager, req);
+        }
+
+        return ret;
 }
 
 static Link *link_drop(Link *link) {
@@ -953,7 +989,7 @@ static Link *link_drop(Link *link) {
         /* Drop all references from other links and manager. Note that async netlink calls may have
          * references to the link, and they will be dropped when we receive replies. */
 
-        link_drop_requests(link);
+        (void) link_drop_requests(link);
 
         link_free_bound_to_list(link);
         link_free_bound_by_list(link);
@@ -1263,7 +1299,9 @@ int link_reconfigure_impl(Link *link, bool force) {
         if (r < 0)
                 return r;
 
-        link_drop_requests(link);
+        r = link_drop_requests(link);
+        if (r < 0)
+                return r;
 
         if (network && !force && network->keep_configuration != KEEP_CONFIGURATION_YES)
                 /* When a new/updated .network file is assigned, first make all configs (addresses,

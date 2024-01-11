@@ -219,6 +219,7 @@ int read_credential_strings_many_internal(
                 ...) {
 
         _cleanup_free_ void *b = NULL;
+        bool all = true;
         int r, ret = 0;
 
         /* Reads a bunch of credentials into the specified buffers. If the specified buffers are already
@@ -234,10 +235,11 @@ int read_credential_strings_many_internal(
         r = read_credential(first_name, &b, NULL);
         if (r == -ENXIO) /* No creds passed at all? Bail immediately. */
                 return 0;
-        if (r < 0) {
-                if (r != -ENOENT)
-                        ret = r;
-        } else
+        if (r == -ENOENT)
+                all = false;
+        else if (r < 0)
+                RET_GATHER(ret, r);
+        else
                 free_and_replace(*first_value, b);
 
         va_list ap;
@@ -252,20 +254,19 @@ int read_credential_strings_many_internal(
                 if (!name)
                         break;
 
-                value = va_arg(ap, char **);
-                if (*value)
-                        continue;
+                value = ASSERT_PTR(va_arg(ap, char **));
 
                 r = read_credential(name, &bb, NULL);
-                if (r < 0) {
-                        if (ret >= 0 && r != -ENOENT)
-                                ret = r;
-                } else
+                if (r == -ENOENT)
+                        all = false;
+                else if (r < 0)
+                        RET_GATHER(ret, r);
+                else
                         free_and_replace(*value, bb);
         }
 
         va_end(ap);
-        return ret;
+        return ret < 0 ? ret : all;
 }
 
 int read_credential_bool(const char *name) {

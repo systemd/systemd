@@ -208,12 +208,15 @@ static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
         ndisc_set_route_priority(link, route);
         if (!route->protocol_set)
                 route->protocol = RTPROT_RA;
-        if (route->quickack < 0)
-                route->quickack = link->network->ipv6_accept_ra_quickack;
-        if (route->mtu == 0)
-                route->mtu = mtu;
-        if (route->hop_limit == 0)
-                route->hop_limit = hop_limit;
+        r = route_metric_set(&route->metric, RTAX_MTU, mtu);
+        if (r < 0)
+                return r;
+        r = route_metric_set(&route->metric, RTAX_HOPLIMIT, hop_limit);
+        if (r < 0)
+                return r;
+        r = route_metric_set(&route->metric, RTAX_QUICKACK, link->network->ipv6_accept_ra_quickack);
+        if (r < 0)
+                return r;
 
         is_new = route_get(NULL, link, route, NULL) < 0;
 
@@ -244,7 +247,7 @@ static int ndisc_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
 }
 
 static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
-        _cleanup_(address_freep) Address *address = in;
+        _cleanup_(address_unrefp) Address *address = in;
         struct in6_addr router;
         bool is_new;
         int r;
@@ -461,7 +464,7 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
                 return log_link_warning_errno(link, r, "Failed to generate SLAAC addresses: %m");
 
         SET_FOREACH(a, addresses) {
-                _cleanup_(address_freep) Address *address = NULL;
+                _cleanup_(address_unrefp) Address *address = NULL;
 
                 r = address_new(&address);
                 if (r < 0)

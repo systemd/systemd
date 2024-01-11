@@ -49,6 +49,7 @@ static bool arg_legend = true;
 STATIC_DESTRUCTOR_REGISTER(arg_esp_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_xbootldr_path, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_root, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 typedef enum Action {
@@ -1181,7 +1182,7 @@ static int verb_add(int argc, char *argv[], void *userdata) {
         assert(argv);
 
         if (arg_root)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "'add' does not support --root=.");
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "'add' does not support --root= or --image=.");
 
         if (bypass())
                 return 0;
@@ -1219,6 +1220,9 @@ static int verb_add_all(int argc, char *argv[], void *userdata) {
         int ret = 0, r;
 
         assert(argv);
+
+        if (arg_root)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "'add-all' does not support --root= or --image=.");
 
         if (bypass())
                 return 0;
@@ -1308,7 +1312,7 @@ static int verb_remove(int argc, char *argv[], void *userdata) {
         assert(argv);
 
         if (arg_root)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "'remove' does not support --root=.");
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "'remove' does not support --root= or --image=.");
 
         if (argc > 2)
                 log_debug("Too many arguments specified. 'kernel-install remove' takes only kernel version. "
@@ -1448,6 +1452,9 @@ static int verb_inspect(int argc, char *argv[], void *userdata) {
 static int verb_list(int argc, char *argv[], void *userdata) {
         _cleanup_close_ int fd = -EBADF;
         int r;
+
+        if (arg_root)
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "'list' does not support --root= or --image=.");
 
         fd = open("/usr/lib/modules", O_DIRECTORY|O_RDONLY|O_CLOEXEC);
         if (fd < 0)

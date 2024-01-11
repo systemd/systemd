@@ -39,6 +39,7 @@
 static char *user_runtime_unit_dir = NULL;
 static bool can_unshare;
 static bool have_net_dummy;
+static bool have_netns;
 static unsigned n_ran_tests = 0;
 
 STATIC_DESTRUCTOR_REGISTER(user_runtime_unit_dir, freep);
@@ -1111,6 +1112,9 @@ static void test_exec_networknamespacepath(Manager *m) {
         if (!have_net_dummy)
                 return (void)log_notice("Skipping %s, dummy network interface not available", __func__);
 
+        if (!have_netns)
+                return (void)log_notice("Skipping %s, network namespace not available", __func__);
+
         r = find_executable("ip", NULL);
         if (r < 0) {
                 log_notice_errno(r, "Skipping %s, could not find ip binary: %m", __func__);
@@ -1452,8 +1456,8 @@ static int intro(void) {
 
         if (have_net_dummy) {
                 /* Create a network namespace and a dummy interface in it for NetworkNamespacePath= */
-                (void) system("ip netns add test-execute-netns");
-                (void) system("ip netns exec test-execute-netns ip link add dummy-test-ns type dummy");
+                have_netns = system("ip netns add test-execute-netns") == 0;
+                have_netns = have_netns && system("ip netns exec test-execute-netns ip link add dummy-test-ns type dummy") == 0;
         }
 
         return EXIT_SUCCESS;
