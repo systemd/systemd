@@ -592,6 +592,7 @@ static int migrate_identity_file(int root_fd) {
         if (unlinkat(root_fd, tmp, 0) < 0)
                 log_warning_errno(errno, "Failed to clean up after migration, ignoring: %m");
 
+        log_info("Migrated embedded record from ~/.identity to ~/.identity/record.json");
         return TAKE_FD(dfd);
 
 fail:
@@ -621,6 +622,11 @@ static int write_identity_file(int root_fd, JsonVariant *v, uid_t uid) {
                 identity_fd = migrate_identity_file(root_fd);
         if (identity_fd < 0)
                 return log_error_errno(identity_fd, "Failed to create/open .identity directory in home directory: %m");
+
+        if (fchown(identity_fd, uid, uid) < 0) {
+                r = log_error_errno(errno, "Failed to change ownership for migration: %m");
+                goto fail;
+        }
 
         r = tempfn_random("record.json", NULL, &fn);
         if (r < 0)
@@ -655,7 +661,6 @@ static int write_identity_file(int root_fd, JsonVariant *v, uid_t uid) {
         }
 
         log_info("Wrote embedded identity file.");
-
         return 0;
 
 fail:
