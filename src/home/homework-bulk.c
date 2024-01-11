@@ -173,7 +173,7 @@ int home_apply_new_bulk_dir(UserRecord *h) {
         if (sys_fd < 0)
                 return log_error_errno(errno, "Failed to open system bulk dir %s: %m", sys_path);
 
-        r = overwrite_bulk(new_fd, sys_fd);
+        r = overwrite_bulk(new_fd, sys_fd, 0);
         if (r < 0)
                 return log_error_errno(r, "Failed to replace system bulk directory with %s: %m", new_path);
 
