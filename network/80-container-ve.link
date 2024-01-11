@@ -17,7 +17,7 @@
 
 [Match]
 Kind=veth
-Name=ve-*
+OriginalName=ve-*
 
 [Link]
 NamePolicy=keep

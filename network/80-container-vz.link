@@ -16,7 +16,7 @@
 
 [Match]
 Kind=bridge
-Name=vz-*
+OriginalName=vz-*
 
 [Link]
 NamePolicy=keep
