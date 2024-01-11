@@ -84,6 +84,9 @@ static void set_type(unsigned type_num, char *to, size_t len) {
         case 0xf:
                 type = "optical";
                 break;
+        case 0x14:
+                type = "zbc";
+                break;
         default:
                 type = "generic";
                 break;
