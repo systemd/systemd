@@ -595,10 +595,7 @@ static int method_lock_all_homes(sd_bus_message *message, void *userdata, sd_bus
 
         HASHMAP_FOREACH(h, m->homes_by_name) {
 
-                /* Automatically suspend all homes that have at least one client referencing it that asked
-                 * for "please suspend", and no client that asked for "please do not suspend". */
-                if (h->ref_event_source_dont_suspend ||
-                    !h->ref_event_source_please_suspend)
+                if (!home_shall_suspend(h))
                         continue;
 
                 if (!o) {
@@ -727,7 +724,12 @@ static const sd_bus_vtable manager_vtable[] = {
                                 SD_BUS_ARGS("s", user_name, "s", secret),
                                 SD_BUS_NO_RESULT,
                                 method_activate_home,
-                                SD_BUS_VTABLE_SENSITIVE),
+                                SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
+        SD_BUS_METHOD_WITH_ARGS("ActivateHomeIfReferenced",
+                                SD_BUS_ARGS("s", user_name, "s", secret),
+                                SD_BUS_NO_RESULT,
+                                method_activate_home,
+                                SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
         SD_BUS_METHOD_WITH_ARGS("DeactivateHome",
                                 SD_BUS_ARGS("s", user_name),
                                 SD_BUS_NO_RESULT,
@@ -829,6 +831,11 @@ static const sd_bus_vtable manager_vtable[] = {
                                 method_acquire_home,
                                 SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
         SD_BUS_METHOD_WITH_ARGS("RefHome",
+                                SD_BUS_ARGS("s", user_name, "b", please_suspend),
+                                SD_BUS_RESULT("h", send_fd),
+                                method_ref_home,
+                                0),
+        SD_BUS_METHOD_WITH_ARGS("RefHomeUnrestricted",
                                 SD_BUS_ARGS("s", user_name, "b", please_suspend),
                                 SD_BUS_RESULT("h", send_fd),
                                 method_ref_home,
