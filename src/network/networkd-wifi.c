@@ -128,7 +128,7 @@ int manager_genl_process_nl80211_config(sd_netlink *genl, sd_netlink_message *me
                 return 0;
         }
 
-        r = sd_netlink_message_read_data_suffix0(message, NL80211_ATTR_SSID, &len, (void**) &ssid);
+        r = sd_netlink_message_read_data(message, NL80211_ATTR_SSID, &len, (void**) &ssid);
         if (r < 0 && r != -ENODATA) {
                 log_link_debug_errno(link, r, "nl80211: received %s(%u) message without valid SSID, ignoring: %m",
                                      strna(nl80211_cmd_to_string(cmd)), cmd);

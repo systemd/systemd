@@ -106,7 +106,6 @@ int sd_netlink_message_cancel_array(sd_netlink_message *m);
 /* Reading messages */
 int sd_netlink_message_read(sd_netlink_message *m, uint16_t attr_type, size_t size, void *data);
 int sd_netlink_message_read_data(sd_netlink_message *m, uint16_t attr_type, size_t *ret_size, void **ret_data);
-int sd_netlink_message_read_data_suffix0(sd_netlink_message *m, uint16_t attr_type, size_t *ret_size, void **ret_data);
 int sd_netlink_message_read_string_strdup(sd_netlink_message *m, uint16_t attr_type, char **data);
 int sd_netlink_message_read_string(sd_netlink_message *m, uint16_t attr_type, const char **data);
 int sd_netlink_message_read_strv(sd_netlink_message *m, uint16_t container_type, uint16_t attr_type, char ***ret);
