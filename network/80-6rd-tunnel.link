@@ -16,7 +16,7 @@
 
 [Match]
 Kind=sit
-Name=6rd-*
+OriginalName=6rd-*
 
 [Network]
 NamePolicy=keep

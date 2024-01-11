@@ -16,7 +16,7 @@
 
 [Match]
 Kind=tun
-Name=vt-*
+OriginalName=vt-*
 
 [Link]
 NamePolicy=keep
