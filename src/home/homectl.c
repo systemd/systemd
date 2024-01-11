@@ -2852,7 +2852,7 @@ static int parse_argv(int argc, char *argv[]) {
         for (;;) {
                 int c;
 
-                c = getopt_long(argc, argv, "hH:M:I:c:d:u:k:s:e:G:jPE", options, NULL);
+                c = getopt_long(argc, argv, "hH:M:I:c:d:u:G:k:s:e:b:jPE", options, NULL);
                 if (c < 0)
                         break;
 
