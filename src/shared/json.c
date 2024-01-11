@@ -4980,7 +4980,7 @@ int json_dispatch_byte_array_iovec(const char *name, JsonVariant *variant, JsonD
 
         sz = json_variant_elements(variant);
 
-        buffer = new(uint8_t, sz);
+        buffer = new(uint8_t, sz + 1);
         if (!buffer)
                 return json_log(variant, flags, SYNTHETIC_ERRNO(ENOMEM), "Out of memory.");
 
@@ -5000,6 +5000,9 @@ int json_dispatch_byte_array_iovec(const char *name, JsonVariant *variant, JsonD
                 buffer[k++] = (uint8_t) b;
         }
         assert(k == sz);
+
+        /* Append a NUL byte for safety, like we do in memdup_suffix0() and others. */
+        buffer[sz] = 0;
 
         free_and_replace(iov->iov_base, buffer);
         iov->iov_len = sz;
