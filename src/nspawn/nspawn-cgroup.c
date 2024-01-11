@@ -13,6 +13,7 @@
 #include "mountpoint-util.h"
 #include "nspawn-cgroup.h"
 #include "nspawn-mount.h"
+#include "nsresource.h"
 #include "path-util.h"
 #include "rm-rf.h"
 #include "string-util.h"
@@ -42,38 +43,6 @@ static int chown_cgroup_path(const char *path, uid_t uid_shift) {
                 if (fchownat(fd, fn, uid_shift, uid_shift, 0) < 0)
                         log_full_errno(errno == ENOENT ? LOG_DEBUG :  LOG_WARNING, errno,
                                        "Failed to chown \"%s/%s\", ignoring: %m", path, fn);
-
-        return 0;
-}
-
-int chown_cgroup(pid_t pid, CGroupUnified unified_requested, uid_t uid_shift) {
-        _cleanup_free_ char *path = NULL, *fs = NULL;
-        int r;
-
-        r = cg_pid_get_path(NULL, pid, &path);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get container cgroup path: %m");
-
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, path, NULL, &fs);
-        if (r < 0)
-                return log_error_errno(r, "Failed to get file system path for container cgroup: %m");
-
-        r = chown_cgroup_path(fs, uid_shift);
-        if (r < 0)
-                return log_error_errno(r, "Failed to chown() cgroup %s: %m", fs);
-
-        if (unified_requested == CGROUP_UNIFIED_SYSTEMD || (unified_requested == CGROUP_UNIFIED_NONE && cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) > 0)) {
-                _cleanup_free_ char *lfs = NULL;
-                /* Always propagate access rights from unified to legacy controller */
-
-                r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER_LEGACY, path, NULL, &lfs);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to get file system path for container cgroup: %m");
-
-                r = chown_cgroup_path(lfs, uid_shift);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to chown() cgroup %s: %m", lfs);
-        }
 
         return 0;
 }
@@ -142,7 +111,14 @@ finish:
         return r;
 }
 
-int create_subcgroup(pid_t pid, bool keep_unit, CGroupUnified unified_requested) {
+int create_subcgroup(
+                pid_t pid,
+                bool keep_unit,
+                CGroupUnified unified_requested,
+                uid_t uid_shift,
+                int userns_fd,
+                bool privileged) {
+
         _cleanup_free_ char *cgroup = NULL, *payload = NULL;
         CGroupMask supported;
         char *e;
@@ -185,21 +161,59 @@ int create_subcgroup(pid_t pid, bool keep_unit, CGroupUnified unified_requested)
         if (!payload)
                 return log_oom();
 
-        r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, payload, pid);
+        if (privileged)
+                r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, payload, pid);
+        else
+                r = cg_create(SYSTEMD_CGROUP_CONTROLLER, payload);
         if (r < 0)
                 return log_error_errno(r, "Failed to create %s subcgroup: %m", payload);
 
-        if (keep_unit) {
-                _cleanup_free_ char *supervisor = NULL;
-
-                supervisor = path_join(cgroup, "supervisor");
-                if (!supervisor)
-                        return log_oom();
-
-                r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, supervisor, 0);
+        if (privileged) {
+                _cleanup_free_ char *fs = NULL;
+                r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, payload, NULL, &fs);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to create %s subcgroup: %m", supervisor);
+                        return log_error_errno(r, "Failed to get file system path for container cgroup: %m");
+
+                r = chown_cgroup_path(fs, uid_shift);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to chown() cgroup %s: %m", fs);
+        } else if (userns_fd >= 0) {
+                _cleanup_close_ int cgroup_fd = -EBADF;
+
+                cgroup_fd = cg_path_open(SYSTEMD_CGROUP_CONTROLLER, payload);
+                if (cgroup_fd < 0)
+                        return log_error_errno(cgroup_fd, "Failed to open cgroup %s: %m", payload);
+
+                r = cg_fd_attach(cgroup_fd, pid);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add process " PID_FMT " to cgroup %s: %m", pid, payload);
+
+                r = nsresource_add_cgroup(userns_fd, cgroup_fd);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add cgroup %s to userns: %m", payload);
         }
+
+        if (unified_requested == CGROUP_UNIFIED_SYSTEMD || (unified_requested == CGROUP_UNIFIED_NONE && cg_unified_controller(SYSTEMD_CGROUP_CONTROLLER) > 0)) {
+                _cleanup_free_ char *lfs = NULL;
+                /* Always propagate access rights from unified to legacy controller */
+
+                r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER_LEGACY, payload, NULL, &lfs);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to get file system path for container cgroup: %m");
+
+                r = chown_cgroup_path(lfs, uid_shift);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to chown() cgroup %s: %m", lfs);
+        }
+
+        _cleanup_free_ char *supervisor = NULL;
+        supervisor = path_join(cgroup, "supervisor");
+        if (!supervisor)
+                return log_oom();
+
+        r = cg_create_and_attach(SYSTEMD_CGROUP_CONTROLLER, supervisor, 0);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create %s subcgroup: %m", supervisor);
 
         /* Try to enable as many controllers as possible for the new payload. */
         (void) cg_enable_everywhere(supported, supported, cgroup, NULL);

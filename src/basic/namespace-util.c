@@ -33,6 +33,14 @@ const struct namespace_info namespace_info[] = {
 
 #define pid_namespace_path(pid, type) procfs_file_alloca(pid, namespace_info[type].proc_path)
 
+static NamespaceType clone_flag_to_namespace_type(unsigned long clone_flag) {
+        for (NamespaceType t = 0; t < _NAMESPACE_TYPE_MAX; t++)
+                if (((namespace_info[t].clone_flag ^ clone_flag) & (CLONE_NEWCGROUP|CLONE_NEWIPC|CLONE_NEWNET|CLONE_NEWNS|CLONE_NEWPID|CLONE_NEWUSER|CLONE_NEWUTS|CLONE_NEWTIME)) == 0)
+                        return t;
+
+        return _NAMESPACE_TYPE_INVALID;
+}
+
 int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *userns_fd, int *root_fd) {
         _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, netnsfd = -EBADF, usernsfd = -EBADF;
         int rfd = -EBADF;
@@ -206,6 +214,89 @@ int detach_mount_namespace(void) {
         return 0;
 }
 
+int detach_mount_namespace_harder(uid_t target_uid, gid_t target_gid) {
+        int r;
+
+        /* Tried detach_mount_namespace() first. If that doesn't work due to permissions, opens up an
+         * unprivileged user namespace with a mapping of the originating UID/GID to the specified target
+         * UID/GID. Then, tries detach_mount_namespace() again.
+         *
+         * Or in other words: tries much harder to get a mount namespace, making use of unprivileged user
+         * namespaces if need be.
+         *
+         * Note that after this function completed:
+         *
+         *    → if we had privs, afterwards uids/gids on files and processes are as before
+         *
+         *    → if we had no privs, our own id and all our files will show up owned by target_uid/target_gid,
+         *    and everything else owned by nobody.
+         *
+         * Yes, that's quite a difference. */
+
+        if (!uid_is_valid(target_uid))
+                return -EINVAL;
+        if (!gid_is_valid(target_gid))
+                return -EINVAL;
+
+        r = detach_mount_namespace();
+        if (r != -EPERM)
+                return r;
+
+        if (unshare(CLONE_NEWUSER) < 0)
+                return log_debug_errno(errno, "Failed to acquire user namespace: %m");
+
+        r = write_string_filef("/proc/self/uid_map", 0,
+                               UID_FMT " " UID_FMT " 1\n", target_uid, getuid());
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write uid map: %m");
+
+        r = write_string_file("/proc/self/setgroups", "deny", 0);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write setgroups file: %m");
+
+        r = write_string_filef("/proc/self/gid_map", 0,
+                              GID_FMT " " GID_FMT " 1\n", target_gid, getgid());
+        if (r < 0)
+                return log_debug_errno(r, "Failed to write gid map: %m");
+
+        return detach_mount_namespace();
+}
+
+int detach_mount_namespace_userns(int userns_fd) {
+        int r;
+
+        assert(userns_fd >= 0);
+
+        if (setns(userns_fd, CLONE_NEWUSER) < 0)
+                return log_debug_errno(errno, "Failed to join user namespace: %m");
+
+        r = reset_uid_gid();
+        if (r < 0)
+                return log_debug_errno(r, "Failed to become root in user namespace: %m");
+
+        return detach_mount_namespace();
+}
+
+int userns_acquire_empty(void) {
+        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        _cleanup_close_ int userns_fd = -EBADF;
+
+        int r;
+
+        r = safe_fork("(sd-mkuserns)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_NEW_USERNS, &pid);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                /* Child. We do nothing here, just freeze until somebody kills us. */
+                freeze();
+
+        r = namespace_open(pid, NULL, NULL, NULL, &userns_fd, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open userns fd: %m");
+
+        return TAKE_FD(userns_fd);
+}
+
 int userns_acquire(const char *uid_map, const char *gid_map) {
         char path[STRLEN("/proc//uid_map") + DECIMAL_STR_MAX(pid_t) + 1];
         _cleanup_(sigkill_waitp) pid_t pid = 0;
@@ -241,7 +332,6 @@ int userns_acquire(const char *uid_map, const char *gid_map) {
                 return log_error_errno(r, "Failed to open userns fd: %m");
 
         return TAKE_FD(userns_fd);
-
 }
 
 int in_same_namespace(pid_t pid1, pid_t pid2, NamespaceType type) {
@@ -266,4 +356,51 @@ int in_same_namespace(pid_t pid1, pid_t pid2, NamespaceType type) {
                 return -errno;
 
         return stat_inode_same(&ns_st1, &ns_st2);
+}
+
+int namespace_open_by_type(NamespaceType type) {
+        const char *p;
+        int fd;
+
+        assert(type >= 0);
+        assert(type < _NAMESPACE_TYPE_MAX);
+
+        p = pid_namespace_path(0, type);
+
+        fd = RET_NERRNO(open(p, O_RDONLY|O_NOCTTY|O_CLOEXEC));
+        if (fd == -ENOENT && proc_mounted() == 0)
+                return -ENOSYS;
+
+        return fd;
+}
+
+int is_our_namespace(int fd, NamespaceType request_type) {
+        int clone_flag;
+
+        assert(fd >= 0);
+
+        clone_flag = ioctl(fd, NS_GET_NSTYPE);
+        if (clone_flag < 0)
+                return -errno;
+
+        NamespaceType found_type = clone_flag_to_namespace_type(clone_flag);
+        if (found_type < 0)
+                return -EBADF; /* Uh? Unknown namespace type? */
+
+        if (request_type >= 0 && request_type != found_type) /* It's a namespace, but not of the right type? */
+                return -EUCLEAN;
+
+        struct stat st_fd, st_ours;
+        if (fstat(fd, &st_fd) < 0)
+                return -errno;
+
+        const char *p = pid_namespace_path(0, found_type);
+        if (stat(p, &st_ours) < 0) {
+                if (errno == ENOENT)
+                        return proc_mounted() == 0 ? -ENOSYS : -ENOENT;
+
+                return -errno;
+        }
+
+        return stat_inode_same(&st_ours, &st_fd);
 }
