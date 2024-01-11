@@ -28,12 +28,13 @@ _systemd_id128() {
     local i verb comps
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]} words cword
     local -A OPTS=(
-        [STANDALONE]='-h --help --version -p --pretty'
-        [ARG]='-a --app-specific'
+        [STANDALONE]='-h --help --version -p --pretty --value -u --uuid --no-legend --no-pager -j'
+        [ARG]='-a --app-specific --json'
     )
 
     local -A VERBS=(
         [STANDALONE]='new machine-id boot-id invocation-id help'
+        [ARG]='show'
     )
 
     _init_completion || return
@@ -42,6 +43,9 @@ _systemd_id128() {
         case $prev in
             --app-specific|-a)
                 comps=""
+                ;;
+            --json)
+                comps="short pretty off"
                 ;;
         esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
@@ -65,6 +69,12 @@ _systemd_id128() {
         comps=${VERBS[*]}
     elif __contains_word "$verb" ${VERBS[STANDALONE]}; then
         comps=''
+    elif __contains_word "$verb" ${VERBS[ARG]}; then
+        case $verb in
+            show)
+                comps="$(IFS='\n ' systemd-id128 show --no-legend)"
+                ;;
+        esac
     fi
 
     COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
