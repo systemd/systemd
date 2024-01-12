@@ -364,6 +364,7 @@ int exec_spawn(Unit *unit,
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         _cleanup_fdset_free_ FDSet *fdset = NULL;
         _cleanup_fclose_ FILE *f = NULL;
+        bool move_child = true;
         int r;
 
         assert(unit);
@@ -404,8 +405,8 @@ int exec_spawn(Unit *unit,
          * child's memory.max, serialize all the state needed to start the unit, and pass it to the
          * systemd-executor binary. clone() with CLONE_VM + CLONE_VFORK will pause the parent until the exec
          * and ensure all memory is shared. The child immediately execs the new binary so the delay should
-         * be minimal. Once glibc provides a clone3 wrapper we can switch to that, and clone directly in the
-         * target cgroup. */
+         * be minimal. If glibc 2.39 is available pidfd_spawn() is used in order to get a race-free pid fd
+         * and to clone directly into the target cgroup (if we booted with cgroupv2). */
 
         r = open_serialization_file("sd-executor-state", &f);
         if (r < 0)
@@ -451,16 +452,19 @@ int exec_spawn(Unit *unit,
                                   "--log-level", log_level,
                                   "--log-target", log_target_to_string(manager_get_executor_log_target(unit->manager))),
                         environ,
+                        cg_unified() > 0 ? subcgroup_path : NULL,
                         &pidref);
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to spawn executor: %m");
+        if (r > 0)
+                move_child = false; /* Already in the right cgroup thanks to CLONE_INTO_CGROUP */
 
         log_unit_debug(unit, "Forked %s as "PID_FMT, command->path, pidref.pid);
 
         /* We add the new process to the cgroup both in the child (so that we can be sure that no user code is ever
          * executed outside of the cgroup) and in the parent (so that we can be sure that when we kill the cgroup the
          * process will be killed too). */
-        if (subcgroup_path)
+        if (move_child && subcgroup_path)
                 (void) cg_attach(SYSTEMD_CGROUP_CONTROLLER, subcgroup_path, pidref.pid);
 
         exec_status_start(&command->exec_status, pidref.pid);
