@@ -3,4 +3,5 @@
 Name=test25
 
 [Network]
+IPv6AcceptRA=no
 IPv6RetransmissionTimeSec=infinity
