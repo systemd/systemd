@@ -382,10 +382,6 @@ int exec_spawn(Unit *unit,
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to load environment files: %m");
 
-        /* Fork with up-to-date SELinux label database, so the child inherits the up-to-date db
-           and, until the next SELinux policy changes, we save further reloads in future children. */
-        mac_selinux_maybe_reload();
-
         /* We won't know the real executable path until we create the mount namespace in the child, but we
            want to log from the parent, so we use the possibly inaccurate path here. */
         log_command_line(unit, "About to execute", command->path, command->argv);
