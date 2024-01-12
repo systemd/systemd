@@ -358,7 +358,6 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
 }
 
 static int ndisc_router_process_icmp6_ratelimit(Link *link, sd_ndisc_router *rt) {
-        char buf[DECIMAL_STR_MAX(usec_t)];
         usec_t icmp6_ratelimit;
         int r;
 
@@ -380,9 +379,8 @@ static int ndisc_router_process_icmp6_ratelimit(Link *link, sd_ndisc_router *rt)
 
         /* Limit the maximal rates for sending ICMPv6 packets. 0 to disable any limiting, otherwise the
          * minimal space between responses in milliseconds. Default: 1000. */
-        xsprintf(buf, USEC_FMT, DIV_ROUND_UP(icmp6_ratelimit, USEC_PER_MSEC));
-
-        r = sysctl_write_ip_property(AF_INET6, NULL, "icmp/ratelimit", buf);
+        r = sysctl_write_ip_property_uint32(AF_INET6, NULL, "icmp/ratelimit",
+                (uint32_t)DIV_ROUND_UP(icmp6_ratelimit, USEC_PER_MSEC));
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to apply ICMP6 ratelimit, ignoring: %m");
 
