@@ -180,7 +180,7 @@ static int link_set_ipv6_hop_limit(Link *link) {
 }
 
 static int link_set_ipv6_retransmission_time(Link *link) {
-        uint32_t retrans_time_ms;
+        usec_t retrans_time_ms;
 
         assert(link);
 
@@ -190,7 +190,10 @@ static int link_set_ipv6_retransmission_time(Link *link) {
         if (!timestamp_is_set(link->network->ipv6_retransmission_time))
                 return 0;
 
-        retrans_time_ms = (uint32_t) DIV_ROUND_UP(link->network->ipv6_retransmission_time, USEC_PER_MSEC);
+        retrans_time_ms = DIV_ROUND_UP(link->network->ipv6_retransmission_time, USEC_PER_MSEC);
+         if (retrans_time_ms <= 0 || retrans_time_ms > UINT32_MAX)
+                return 0;
+
         return sysctl_write_ip_neighbor_property_uint32(AF_INET6, link->ifname, "retrans_time_ms", retrans_time_ms);
 }
 

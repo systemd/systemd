@@ -358,6 +358,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
 }
 
 static int ndisc_router_process_icmp6_ratelimit(Link *link, sd_ndisc_router *rt) {
+        char buf[DECIMAL_STR_MAX(usec_t)];
         usec_t icmp6_ratelimit;
         int r;
 
@@ -379,8 +380,9 @@ static int ndisc_router_process_icmp6_ratelimit(Link *link, sd_ndisc_router *rt)
 
         /* Limit the maximal rates for sending ICMPv6 packets. 0 to disable any limiting, otherwise the
          * minimal space between responses in milliseconds. Default: 1000. */
-        r = sysctl_write_ip_property_uint32(AF_INET6, NULL, "icmp/ratelimit",
-                (uint32_t)DIV_ROUND_UP(icmp6_ratelimit, USEC_PER_MSEC));
+        xsprintf(buf, USEC_FMT, DIV_ROUND_UP(icmp6_ratelimit, USEC_PER_MSEC));
+
+        r = sysctl_write_ip_property(AF_INET6, NULL, "icmp/ratelimit", buf);
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to apply ICMP6 ratelimit, ignoring: %m");
 
@@ -400,18 +402,26 @@ static int ndisc_router_process_retransmission_time(Link *link, sd_ndisc_router 
 
         r = sd_ndisc_router_get_retransmission_time(rt, &retrans_time);
         if (r < 0) {
-                log_link_debug(link, "Failed to get ICMP6 ratelimit from RA, ignoring: %m");
+                log_link_debug_errno(link, r, "Failed to get retransmission time from RA, ignoring: %m");
+                return 0;
+        }
+
+        if (retrans_time <= 0 || retrans_time > UINT32_MAX) {
+                log_link_debug(link, "Failed to get retransmission time from RA - out of range (%"PRIu64"), ignoring", retrans_time);
                 return 0;
         }
 
         /* Set the retransmission time for Neigbor Solicitations.
-         * 0 is the unspecified value and must not be set (see RFC4861, 6.3.4) */
-        if (timestamp_is_set(retrans_time)) {
-                r = sysctl_write_ip_neighbor_property_uint32(AF_INET6, link->ifname, "retrans_time_ms",
-                        (uint32_t)DIV_ROUND_UP(retrans_time, USEC_PER_MSEC));
-                if (r < 0)
-                        log_link_warning_errno(link, r, "Failed to apply neighbor retrans time, ignoring: %m");
-        }
+        * 0 is the unspecified value and must not be set (see RFC4861, 6.3.4) */
+        r = sysctl_write_ip_neighbor_property_uint32(
+                AF_INET6,
+                link->ifname,
+                "retrans_time_ms",
+                (uint32_t) retrans_time);
+        if (r < 0)
+                log_link_warning_errno(
+                        link, r, "Failed to apply neighbor retransmission time (%"PRIu64"), ignoring: %m", retrans_time);
+
         return 0;
 }
 
