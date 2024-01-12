@@ -17,6 +17,7 @@
 #include <linux/if_tunnel.h>
 #include <linux/ip.h>
 #include <linux/l2tp.h>
+#include <linux/net_namespace.h>
 #include <linux/netlink.h>
 #include <linux/nexthop.h>
 #include <linux/nl80211.h>
@@ -1185,6 +1186,13 @@ static const NLAPolicy rtnl_mdb_policies[] = {
 
 DEFINE_POLICY_SET(rtnl_mdb);
 
+static const NLAPolicy rtnl_nsid_policies[] = {
+        [NETNSA_FD]         = BUILD_POLICY(S32),
+        [NETNSA_NSID]       = BUILD_POLICY(U32),
+};
+
+DEFINE_POLICY_SET(rtnl_nsid);
+
 static const NLAPolicy rtnl_policies[] = {
         [RTM_NEWLINK]      = BUILD_POLICY_NESTED_WITH_SIZE(rtnl_link, sizeof(struct ifinfomsg)),
         [RTM_DELLINK]      = BUILD_POLICY_NESTED_WITH_SIZE(rtnl_link, sizeof(struct ifinfomsg)),
@@ -1220,6 +1228,9 @@ static const NLAPolicy rtnl_policies[] = {
         [RTM_NEWMDB]       = BUILD_POLICY_NESTED_WITH_SIZE(rtnl_mdb, sizeof(struct br_port_msg)),
         [RTM_DELMDB]       = BUILD_POLICY_NESTED_WITH_SIZE(rtnl_mdb, sizeof(struct br_port_msg)),
         [RTM_GETMDB]       = BUILD_POLICY_NESTED_WITH_SIZE(rtnl_mdb, sizeof(struct br_port_msg)),
+        [RTM_NEWNSID]      = BUILD_POLICY_NESTED_WITH_SIZE(rtnl_nsid, sizeof(struct rtgenmsg)),
+        [RTM_DELNSID]      = BUILD_POLICY_NESTED_WITH_SIZE(rtnl_nsid, sizeof(struct rtgenmsg)),
+        [RTM_GETNSID]      = BUILD_POLICY_NESTED_WITH_SIZE(rtnl_nsid, sizeof(struct rtgenmsg)),
 };
 
 DEFINE_POLICY_SET(rtnl);

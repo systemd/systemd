@@ -216,6 +216,8 @@ int sd_rtnl_message_traffic_control_get_parent(sd_netlink_message *m, uint32_t *
 
 int sd_rtnl_message_new_mdb(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type, int mdb_ifindex);
 
+int sd_rtnl_message_new_nsid(sd_netlink *rtnl, sd_netlink_message **ret, uint16_t nlmsg_type);
+
 /* genl */
 int sd_genl_socket_open(sd_netlink **ret);
 int sd_genl_message_new(sd_netlink *genl, const char *family_name, uint8_t cmd, sd_netlink_message **ret);
