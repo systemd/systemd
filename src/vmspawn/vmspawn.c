@@ -684,10 +684,10 @@ static int run_virtual_machine(void) {
         }
 
         /* shutdown qemu when we are shutdown */
-        (void) sd_event_add_signal(event, NULL, SIGINT, on_orderly_shutdown, PID_TO_PTR(child_pid));
-        (void) sd_event_add_signal(event, NULL, SIGTERM, on_orderly_shutdown, PID_TO_PTR(child_pid));
+        (void) sd_event_add_signal(event, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, on_orderly_shutdown, PID_TO_PTR(child_pid));
+        (void) sd_event_add_signal(event, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, on_orderly_shutdown, PID_TO_PTR(child_pid));
 
-        (void) sd_event_add_signal(event, NULL, SIGRTMIN+18, sigrtmin18_handler, NULL);
+        (void) sd_event_add_signal(event, NULL, (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, NULL);
 
         /* Exit when the child exits */
         (void) sd_event_add_child(event, NULL, child_pid, WEXITED, on_child_exit, NULL);
@@ -748,7 +748,7 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGTERM, SIGINT, SIGRTMIN+18, -1) >= 0);
+        assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
 
         return run_virtual_machine();
 }
