@@ -33,7 +33,7 @@
 #include "glyph-util.h"
 #include "gpt.h"
 #include "home-util.h"
-#include "homework-bulk.h"
+#include "homework-blob.h"
 #include "homework-luks.h"
 #include "homework-mount.h"
 #include "io-util.h"
@@ -3450,7 +3450,7 @@ int home_resize_luks(
                         if (r < 0)
                                 return r;
 
-                        r = home_reconcile_bulk_dirs(new_home, setup->root_fd, reconciled);
+                        r = home_reconcile_blob_dirs(new_home, setup->root_fd, reconciled);
                         if (r < 0)
                                 return r;
                 }
@@ -3542,7 +3542,7 @@ int home_resize_luks(
                         if (r < 0)
                                 return r;
 
-                        r = home_reconcile_bulk_dirs(new_home, setup->root_fd, reconciled);
+                        r = home_reconcile_blob_dirs(new_home, setup->root_fd, reconciled);
                         if (r < 0)
                                 return r;
                 }

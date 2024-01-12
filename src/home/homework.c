@@ -11,7 +11,7 @@
 #include "filesystems.h"
 #include "fs-util.h"
 #include "home-util.h"
-#include "homework-bulk.h"
+#include "homework-blob.h"
 #include "homework-cifs.h"
 #include "homework-directory.h"
 #include "homework-fido2.h"
@@ -852,7 +852,7 @@ int home_refresh(
         if (r < 0)
                 return r;
 
-        r = home_reconcile_bulk_dirs(new_home, setup->root_fd, reconciled);
+        r = home_reconcile_blob_dirs(new_home, setup->root_fd, reconciled);
         if (r < 0)
                 return r;
 
@@ -1076,7 +1076,7 @@ int home_populate(UserRecord *h, int dir_fd) {
         if (r < 0)
                 return r;
 
-        r = home_reconcile_bulk_dirs(h, dir_fd, USER_RECONCILE_HOST_WON);
+        r = home_reconcile_blob_dirs(h, dir_fd, USER_RECONCILE_HOST_WON);
         if (r < 0)
                 return r;
 
@@ -1628,7 +1628,7 @@ static int home_update(UserRecord *h, UserRecord **ret) {
         if (r < 0)
                 return r;
 
-        r = home_reconcile_bulk_dirs(new_home, setup.root_fd, USER_RECONCILE_HOST_WON);
+        r = home_reconcile_blob_dirs(new_home, setup.root_fd, USER_RECONCILE_HOST_WON);
         if (r < 0)
                 return r;
 
@@ -1757,7 +1757,7 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = home_reconcile_bulk_dirs(new_home, setup.root_fd, reconciled);
+        r = home_reconcile_blob_dirs(new_home, setup.root_fd, reconciled);
         if (r < 0)
                 return r;
 

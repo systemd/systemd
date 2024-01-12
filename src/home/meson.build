@@ -2,7 +2,7 @@
 
 systemd_homework_sources = files(
         'home-util.c',
-        'homework-bulk.c',
+        'homework-blob.c',
         'homework-cifs.c',
         'homework-directory.c',
         'homework-fscrypt.c',
