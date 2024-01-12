@@ -13,14 +13,93 @@
 #include "parse-util.h"
 #include "string-util.h"
 
-int multipath_route_get_link(Manager *manager, Link *link, const MultipathRoute *m, Link **ret) {
-        assert(manager);
-        assert(m);
+static void route_nexthop_done(RouteNextHop *nh) {
+        assert(nh);
 
-        if (m->ifindex > 0)
-                return link_get_by_index(manager, m->ifindex, ret);
-        if (m->ifname)
-                return link_get_by_name(manager, m->ifname, ret);
+        free(nh->ifname);
+}
+
+RouteNextHop* route_nexthop_free(RouteNextHop *nh) {
+        if (!nh)
+                return NULL;
+
+        route_nexthop_done(nh);
+
+        return mfree(nh);
+}
+
+void route_nexthops_done(Route *route) {
+        assert(route);
+
+        ordered_set_free(route->nexthops);
+}
+
+static void route_nexthop_hash_func(const RouteNextHop *nh, struct siphash *state) {
+        assert(nh);
+        assert(state);
+
+        /* See nh_comp() in net/ipv4/fib_semantics.c of the kernel. */
+
+        siphash24_compress_typesafe(nh->family, state);
+        if (!IN_SET(nh->family, AF_INET, AF_INET6))
+                return;
+
+        in_addr_hash_func(&nh->gw, nh->family, state);
+        siphash24_compress_typesafe(nh->weight, state);
+        siphash24_compress_typesafe(nh->ifindex, state);
+        if (nh->ifindex == 0)
+                siphash24_compress_string(nh->ifname, state); /* For Network or Request object. */
+}
+
+static int route_nexthop_compare_func(const RouteNextHop *a, const RouteNextHop *b) {
+        int r;
+
+        assert(a);
+        assert(b);
+
+        r = CMP(a->family, b->family);
+        if (r != 0)
+                return r;
+
+        if (!IN_SET(a->family, AF_INET, AF_INET6))
+                return 0;
+
+        r = memcmp(&a->gw, &b->gw, FAMILY_ADDRESS_SIZE(a->family));
+        if (r != 0)
+                return r;
+
+        r = CMP(a->weight, b->weight);
+        if (r != 0)
+                return r;
+
+        r = CMP(a->ifindex, b->ifindex);
+        if (r != 0)
+                return r;
+
+        if (a->ifindex == 0) {
+                r = strcmp_ptr(a->ifname, b->ifname);
+                if (r != 0)
+                        return r;
+        }
+
+        return 0;
+}
+
+DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+        route_nexthop_hash_ops,
+        RouteNextHop,
+        route_nexthop_hash_func,
+        route_nexthop_compare_func,
+        route_nexthop_free);
+
+int route_nexthop_get_link(Manager *manager, Link *link, const RouteNextHop *nh, Link **ret) {
+        assert(manager);
+        assert(nh);
+
+        if (nh->ifindex > 0)
+                return link_get_by_index(manager, nh->ifindex, ret);
+        if (nh->ifname)
+                return link_get_by_name(manager, nh->ifname, ret);
 
         if (link) {
                 if (ret)
@@ -31,13 +110,11 @@ int multipath_route_get_link(Manager *manager, Link *link, const MultipathRoute 
         return -ENOENT;
 }
 
-static bool multipath_route_is_ready_to_configure(const MultipathRoute *m, Link *link, bool onlink) {
-        union in_addr_union a = m->gateway.address;
-
-        assert(m);
+static bool route_nexthop_is_ready_to_configure(const RouteNextHop *nh, Link *link, bool onlink) {
+        assert(nh);
         assert(link);
 
-        if (multipath_route_get_link(link->manager, link, m, &link) < 0)
+        if (route_nexthop_get_link(link->manager, link, nh, &link))
                 return false;
 
         if (!link_is_ready_to_configure(link, /* allow_unmanaged = */ true))
@@ -48,7 +125,7 @@ static bool multipath_route_is_ready_to_configure(const MultipathRoute *m, Link 
         if (!link->network && !link_has_carrier(link))
                 return false;
 
-        return gateway_is_ready(link, onlink, m->gateway.family, &a);
+        return gateway_is_ready(link, onlink, nh->family, &nh->gw);
 }
 
 int route_nexthops_is_ready_to_configure(const Route *route, Link *link) {
@@ -79,12 +156,12 @@ int route_nexthops_is_ready_to_configure(const Route *route, Link *link) {
         if (route_type_is_reject(route))
                 return true;
 
-        if (ordered_set_isempty(route->multipath_routes))
+        if (ordered_set_isempty(route->nexthops))
                 return gateway_is_ready(link, FLAGS_SET(route->flags, RTNH_F_ONLINK), route->gw_family, &route->gw);
 
-        MultipathRoute *m;
-        ORDERED_SET_FOREACH(m, route->multipath_routes)
-                if (!multipath_route_is_ready_to_configure(m, link, FLAGS_SET(route->flags, RTNH_F_ONLINK)))
+        RouteNextHop *nh;
+        ORDERED_SET_FOREACH(nh, route->nexthops)
+                if (!route_nexthop_is_ready_to_configure(nh, link, FLAGS_SET(route->flags, RTNH_F_ONLINK)))
                         return false;
 
         return true;
@@ -114,7 +191,7 @@ int route_nexthops_to_string(const Route *route, char **ret) {
                 return 0;
         }
 
-        if (ordered_set_isempty(route->multipath_routes)) {
+        if (ordered_set_isempty(route->nexthops)) {
                 if (in_addr_is_set(route->gw_family, &route->gw))
                         buf = strjoin("gw: ", IN_ADDR_TO_STRING(route->gw_family, &route->gw));
                 else if (route->gateway_from_dhcp_or_ra) {
@@ -133,17 +210,16 @@ int route_nexthops_to_string(const Route *route, char **ret) {
                 return 0;
         }
 
-        MultipathRoute *m;
-        ORDERED_SET_FOREACH(m, route->multipath_routes) {
-                union in_addr_union a = m->gateway.address;
-                const char *s = in_addr_is_set(m->gateway.family, &a) ? IN_ADDR_TO_STRING(m->gateway.family, &a) : NULL;
+        RouteNextHop *nh;
+        ORDERED_SET_FOREACH(nh, route->nexthops) {
+                const char *s = in_addr_is_set(nh->family, &nh->gw) ? IN_ADDR_TO_STRING(nh->family, &nh->gw) : NULL;
 
-                if (m->ifindex > 0)
-                        r = strextendf_with_separator(&buf, ",", "%s@%i:%"PRIu32, strempty(s), m->ifindex, m->weight + 1);
-                else if (m->ifname)
-                        r = strextendf_with_separator(&buf, ",", "%s@%s:%"PRIu32, strempty(s), m->ifname, m->weight + 1);
+                if (nh->ifindex > 0)
+                        r = strextendf_with_separator(&buf, ",", "%s@%i:%"PRIu32, strempty(s), nh->ifindex, nh->weight + 1);
+                else if (nh->ifname)
+                        r = strextendf_with_separator(&buf, ",", "%s@%s:%"PRIu32, strempty(s), nh->ifname, nh->weight + 1);
                 else
-                        r = strextendf_with_separator(&buf, ",", "%s:%"PRIu32, strempty(s), m->weight + 1);
+                        r = strextendf_with_separator(&buf, ",", "%s:%"PRIu32, strempty(s), nh->weight + 1);
                 if (r < 0)
                         return r;
         }
@@ -156,22 +232,22 @@ int route_nexthops_to_string(const Route *route, char **ret) {
         return 0;
 }
 
-static int append_nexthop_one(Link *link, const Route *route, const MultipathRoute *m, struct rtattr **rta, size_t offset) {
+static int append_nexthop_one(Link *link, const Route *route, const RouteNextHop *nh, struct rtattr **rta, size_t offset) {
         struct rtnexthop *rtnh;
         struct rtattr *new_rta;
         int r;
 
         assert(route);
         assert(IN_SET(route->family, AF_INET, AF_INET6));
-        assert(m);
+        assert(nh);
         assert(rta);
         assert(*rta);
 
-        if (m->ifindex <= 0) {
+        if (nh->ifindex <= 0) {
                 assert(link);
                 assert(link->manager);
 
-                r = multipath_route_get_link(link->manager, link, m, &link);
+                r = route_nexthop_get_link(link->manager, link, nh, &link);
                 if (r < 0)
                         return r;
         }
@@ -184,31 +260,35 @@ static int append_nexthop_one(Link *link, const Route *route, const MultipathRou
         rtnh = (struct rtnexthop *)((uint8_t *) *rta + offset);
         *rtnh = (struct rtnexthop) {
                 .rtnh_len = sizeof(*rtnh),
-                .rtnh_ifindex = m->ifindex > 0 ? m->ifindex : link->ifindex,
-                .rtnh_hops = m->weight,
+                .rtnh_ifindex = nh->ifindex > 0 ? nh->ifindex : link->ifindex,
+                .rtnh_hops = nh->weight,
         };
 
         (*rta)->rta_len += sizeof(struct rtnexthop);
 
-        if (m->gateway.family == route->family) {
-                r = rtattr_append_attribute(rta, RTA_GATEWAY, &m->gateway.address, FAMILY_ADDRESS_SIZE(m->gateway.family));
+        if (nh->family == route->family) {
+                r = rtattr_append_attribute(rta, RTA_GATEWAY, &nh->gw, FAMILY_ADDRESS_SIZE(nh->family));
                 if (r < 0)
                         goto clear;
 
                 rtnh = (struct rtnexthop *)((uint8_t *) *rta + offset);
-                rtnh->rtnh_len += RTA_SPACE(FAMILY_ADDRESS_SIZE(m->gateway.family));
+                rtnh->rtnh_len += RTA_SPACE(FAMILY_ADDRESS_SIZE(nh->family));
 
-        } else if (m->gateway.family == AF_INET6) {
+        } else if (nh->family == AF_INET6) {
                 assert(route->family == AF_INET);
 
-                r = rtattr_append_attribute(rta, RTA_VIA, &m->gateway, sizeof(RouteVia));
+                r = rtattr_append_attribute(rta, RTA_VIA,
+                                            &(RouteVia) {
+                                                    .family = nh->family,
+                                                    .address = nh->gw,
+                                            }, sizeof(RouteVia));
                 if (r < 0)
                         goto clear;
 
                 rtnh = (struct rtnexthop *)((uint8_t *) *rta + offset);
                 rtnh->rtnh_len += RTA_SPACE(sizeof(RouteVia));
 
-        } else if (m->gateway.family == AF_INET)
+        } else if (nh->family == AF_INET)
                 assert_not_reached();
 
         return 0;
@@ -226,7 +306,7 @@ static int netlink_message_append_multipath_route(Link *link, const Route *route
         assert(route);
         assert(message);
 
-        if (ordered_set_isempty(route->multipath_routes))
+        if (ordered_set_isempty(route->nexthops))
                 return 0;
 
         rta = new(struct rtattr, 1);
@@ -239,11 +319,11 @@ static int netlink_message_append_multipath_route(Link *link, const Route *route
         };
         offset = (uint8_t *) RTA_DATA(rta) - (uint8_t *) rta;
 
-        MultipathRoute *m;
-        ORDERED_SET_FOREACH(m, route->multipath_routes) {
+        RouteNextHop *nh;
+        ORDERED_SET_FOREACH(nh, route->nexthops) {
                 struct rtnexthop *rtnh;
 
-                r = append_nexthop_one(link, route, m, &rta, offset);
+                r = append_nexthop_one(link, route, nh, &rta, offset);
                 if (r < 0)
                         return r;
 
@@ -267,7 +347,7 @@ int route_nexthops_set_netlink_message(Link *link, const Route *route, sd_netlin
         if (route_type_is_reject(route))
                 return 0;
 
-        if (ordered_set_isempty(route->multipath_routes)) {
+        if (ordered_set_isempty(route->nexthops)) {
 
                 if (in_addr_is_set(route->gw_family, &route->gw)) {
                         if (route->gw_family == route->family)
@@ -289,6 +369,92 @@ int route_nexthops_set_netlink_message(Link *link, const Route *route, sd_netlin
         }
 
         return netlink_message_append_multipath_route(link, route, message);
+}
+
+static int route_parse_nexthops(Route *route, const struct rtnexthop *rtnh, size_t size) {
+        _cleanup_ordered_set_free_ OrderedSet *nexthops = NULL;
+        int r;
+
+        assert(route);
+        assert(IN_SET(route->family, AF_INET, AF_INET6));
+        assert(rtnh);
+
+        if (size < sizeof(struct rtnexthop))
+                return -EBADMSG;
+
+        for (; size >= sizeof(struct rtnexthop); ) {
+                _cleanup_(route_nexthop_freep) RouteNextHop *nh = NULL;
+
+                if (NLMSG_ALIGN(rtnh->rtnh_len) > size)
+                        return -EBADMSG;
+
+                if (rtnh->rtnh_len < sizeof(struct rtnexthop))
+                        return -EBADMSG;
+
+                nh = new(RouteNextHop, 1);
+                if (!nh)
+                        return -ENOMEM;
+
+                *nh = (RouteNextHop) {
+                        .ifindex = rtnh->rtnh_ifindex,
+                        .weight = rtnh->rtnh_hops,
+                };
+
+                if (rtnh->rtnh_len > sizeof(struct rtnexthop)) {
+                        size_t len = rtnh->rtnh_len - sizeof(struct rtnexthop);
+                        bool have_gw = false;
+
+                        for (struct rtattr *attr = RTNH_DATA(rtnh); RTA_OK(attr, len); attr = RTA_NEXT(attr, len)) {
+
+                                switch (attr->rta_type) {
+                                case RTA_GATEWAY:
+                                        if (have_gw)
+                                                return -EBADMSG;
+
+                                        if (attr->rta_len != RTA_LENGTH(FAMILY_ADDRESS_SIZE(route->family)))
+                                                return -EBADMSG;
+
+                                        nh->family = route->family;
+                                        memcpy(&nh->gw, RTA_DATA(attr), FAMILY_ADDRESS_SIZE(nh->family));
+                                        have_gw = true;
+                                        break;
+
+                                case RTA_VIA:
+                                        if (have_gw)
+                                                return -EBADMSG;
+
+                                        if (route->family != AF_INET)
+                                                return -EBADMSG;
+
+                                        if (attr->rta_len != RTA_LENGTH(sizeof(RouteVia)))
+                                                return -EBADMSG;
+
+                                        RouteVia *via = RTA_DATA(attr);
+                                        if (via->family != AF_INET6)
+                                                return -EBADMSG;
+
+                                        nh->family = via->family;
+                                        nh->gw = via->address;
+                                        have_gw = true;
+                                        break;
+                                }
+                        }
+                }
+
+                r = ordered_set_ensure_put(&nexthops, &route_nexthop_hash_ops, nh);
+                assert(r != 0);
+                if (r > 0)
+                        TAKE_PTR(nh);
+                else if (r != -EEXIST)
+                        return r;
+
+                size -= NLMSG_ALIGN(rtnh->rtnh_len);
+                rtnh = RTNH_NEXT(rtnh);
+        }
+
+        ordered_set_free(route->nexthops);
+        route->nexthops = TAKE_PTR(nexthops);
+        return 0;
 }
 
 int route_nexthops_read_netlink_message(Route *route, sd_netlink_message *message) {
@@ -345,7 +511,7 @@ int route_nexthops_read_netlink_message(Route *route, sd_netlink_message *messag
         if (r < 0)
                 return log_warning_errno(r, "rtnl: failed to read RTA_MULTIPATH attribute, ignoring: %m");
 
-        r = rtattr_read_nexthop(rta, rta_len, route->family, &route->multipath_routes);
+        r = route_parse_nexthops(route, rta, rta_len);
         if (r < 0)
                 return log_warning_errno(r, "rtnl: failed to parse RTA_MULTIPATH attribute, ignoring: %m");
 
@@ -430,9 +596,9 @@ int route_section_verify_nexthops(Route *route) {
                                                  "Ignoring [Route] section from line %u.",
                                                  route->section->filename, route->section->line);
 
-                MultipathRoute *m;
-                ORDERED_SET_FOREACH(m, route->multipath_routes)
-                        if (m->gateway.family == AF_INET)
+                RouteNextHop *nh;
+                ORDERED_SET_FOREACH(nh, route->nexthops)
+                        if (nh->family == AF_INET)
                                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                                          "%s: IPv4 multipath route is specified for IPv6 route. "
                                                          "Ignoring [Route] section from line %u.",
@@ -442,7 +608,7 @@ int route_section_verify_nexthops(Route *route) {
         if (route->nexthop_id != 0 &&
             (route->gateway_from_dhcp_or_ra ||
              in_addr_is_set(route->gw_family, &route->gw) ||
-             !ordered_set_isempty(route->multipath_routes)))
+             !ordered_set_isempty(route->nexthops)))
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: NextHopId= cannot be specified with Gateway= or MultiPathRoute=. "
                                          "Ignoring [Route] section from line %u.",
@@ -451,7 +617,7 @@ int route_section_verify_nexthops(Route *route) {
         if (route_type_is_reject(route) &&
             (route->gateway_from_dhcp_or_ra ||
              in_addr_is_set(route->gw_family, &route->gw) ||
-             !ordered_set_isempty(route->multipath_routes)))
+             !ordered_set_isempty(route->nexthops)))
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: reject type route cannot be specified with Gateway= or MultiPathRoute=. "
                                          "Ignoring [Route] section from line %u.",
@@ -459,7 +625,7 @@ int route_section_verify_nexthops(Route *route) {
 
         if ((route->gateway_from_dhcp_or_ra ||
              in_addr_is_set(route->gw_family, &route->gw)) &&
-            !ordered_set_isempty(route->multipath_routes))
+            !ordered_set_isempty(route->nexthops))
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: Gateway= cannot be specified with MultiPathRoute=. "
                                          "Ignoring [Route] section from line %u.",
@@ -660,14 +826,13 @@ int config_parse_multipath_route(
                 void *data,
                 void *userdata) {
 
-        _cleanup_(multipath_route_freep) MultipathRoute *m = NULL;
+        _cleanup_(route_nexthop_freep) RouteNextHop *nh = NULL;
         _cleanup_(route_free_or_set_invalidp) Route *route = NULL;
         _cleanup_free_ char *word = NULL;
         Network *network = userdata;
-        union in_addr_union a;
-        int family, r;
         const char *p;
         char *dev;
+        int r;
 
         assert(filename);
         assert(section);
@@ -685,13 +850,13 @@ int config_parse_multipath_route(
         }
 
         if (isempty(rvalue)) {
-                route->multipath_routes = ordered_set_free_with_destructor(route->multipath_routes, multipath_route_free);
+                route->nexthops = ordered_set_free(route->nexthops);
                 TAKE_PTR(route);
                 return 0;
         }
 
-        m = new0(MultipathRoute, 1);
-        if (!m)
+        nh = new0(RouteNextHop, 1);
+        if (!nh)
                 return log_oom();
 
         p = rvalue;
@@ -710,7 +875,7 @@ int config_parse_multipath_route(
 
                 r = parse_ifindex(dev);
                 if (r > 0)
-                        m->ifindex = r;
+                        nh->ifindex = r;
                 else {
                         if (!ifname_valid_full(dev, IFNAME_VALID_ALTERNATIVE)) {
                                 log_syntax(unit, LOG_WARNING, filename, line, 0,
@@ -718,23 +883,21 @@ int config_parse_multipath_route(
                                 return 0;
                         }
 
-                        m->ifname = strdup(dev);
-                        if (!m->ifname)
+                        nh->ifname = strdup(dev);
+                        if (!nh->ifname)
                                 return log_oom();
                 }
         }
 
-        r = in_addr_from_string_auto(word, &family, &a);
+        r = in_addr_from_string_auto(word, &nh->family, &nh->gw);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Invalid multipath route gateway '%s', ignoring assignment: %m", rvalue);
                 return 0;
         }
-        m->gateway.address = a;
-        m->gateway.family = family;
 
         if (!isempty(p)) {
-                r = safe_atou32(p, &m->weight);
+                r = safe_atou32(p, &nh->weight);
                 if (r < 0) {
                         log_syntax(unit, LOG_WARNING, filename, line, r,
                                    "Invalid multipath route weight, ignoring assignment: %s", p);
@@ -744,15 +907,15 @@ int config_parse_multipath_route(
                  * range 0…254. MultiPathRoute= setting also takes weight in the same range which ip
                  * command uses, then networkd decreases by one and stores it to match the range which
                  * kernel uses. */
-                if (m->weight == 0 || m->weight > 256) {
+                if (nh->weight == 0 || nh->weight > 256) {
                         log_syntax(unit, LOG_WARNING, filename, line, 0,
                                    "Invalid multipath route weight, ignoring assignment: %s", p);
                         return 0;
                 }
-                m->weight--;
+                nh->weight--;
         }
 
-        r = ordered_set_ensure_put(&route->multipath_routes, NULL, m);
+        r = ordered_set_ensure_put(&route->nexthops, &route_nexthop_hash_ops, nh);
         if (r == -ENOMEM)
                 return log_oom();
         if (r < 0) {
@@ -761,7 +924,7 @@ int config_parse_multipath_route(
                 return 0;
         }
 
-        TAKE_PTR(m);
+        TAKE_PTR(nh);
         TAKE_PTR(route);
         return 0;
 }

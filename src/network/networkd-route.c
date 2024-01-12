@@ -103,7 +103,7 @@ Route *route_free(Route *route) {
         if (route->wireguard)
                 set_remove(route->wireguard->routes, route);
 
-        ordered_set_free_with_destructor(route->multipath_routes, multipath_route_free);
+        route_nexthops_done(route);
         route_metric_done(&route->metric);
         sd_event_source_disable_unref(route->expire);
 
@@ -312,7 +312,7 @@ int route_dup(const Route *src, Route **ret) {
         dest->section = NULL;
         dest->link = NULL;
         dest->manager = NULL;
-        dest->multipath_routes = NULL;
+        dest->nexthops = NULL;
         dest->metric = ROUTE_METRIC_NULL;
         dest->expire = NULL;
 
@@ -339,13 +339,13 @@ static void route_apply_nexthop(Route *route, const NextHop *nh, uint8_t nh_weig
                 route->type = RTN_BLACKHOLE;
 }
 
-static void route_apply_multipath_route(Route *route, const MultipathRoute *m) {
+static void route_apply_route_nexthop(Route *route, const RouteNextHop *nh) {
         assert(route);
-        assert(m);
+        assert(nh);
 
-        route->gw_family = m->gateway.family;
-        route->gw = m->gateway.address;
-        route->gw_weight = m->weight;
+        route->gw_family = nh->family;
+        route->gw = nh->gw;
+        route->gw_weight = nh->weight;
 }
 
 typedef struct ConvertedRoutes {
@@ -402,7 +402,7 @@ static int converted_routes_new(size_t n, ConvertedRoutes **ret) {
 static bool route_needs_convert(const Route *route) {
         assert(route);
 
-        return route->nexthop_id > 0 || !ordered_set_isempty(route->multipath_routes);
+        return route->nexthop_id > 0 || !ordered_set_isempty(route->nexthops);
 }
 
 static int route_convert(Manager *manager, Link *link, const Route *route, ConvertedRoutes **ret) {
@@ -471,22 +471,22 @@ static int route_convert(Manager *manager, Link *link, const Route *route, Conve
 
         }
 
-        assert(!ordered_set_isempty(route->multipath_routes));
+        assert(!ordered_set_isempty(route->nexthops));
 
-        r = converted_routes_new(ordered_set_size(route->multipath_routes), &c);
+        r = converted_routes_new(ordered_set_size(route->nexthops), &c);
         if (r < 0)
                 return r;
 
         size_t i = 0;
-        MultipathRoute *m;
-        ORDERED_SET_FOREACH(m, route->multipath_routes) {
+        RouteNextHop *nh;
+        ORDERED_SET_FOREACH(nh, route->nexthops) {
                 r = route_dup(route, &c->routes[i]);
                 if (r < 0)
                         return r;
 
-                route_apply_multipath_route(c->routes[i], m);
+                route_apply_route_nexthop(c->routes[i], nh);
 
-                r = multipath_route_get_link(manager, link, m, &c->links[i]);
+                r = route_nexthop_get_link(manager, link, nh, &c->links[i]);
                 if (r < 0)
                         return r;
 
@@ -2037,7 +2037,7 @@ int route_section_verify(Route *route) {
                 else if (IN_SET(route->type, RTN_UNICAST, RTN_UNSPEC) &&
                          !route->gateway_from_dhcp_or_ra &&
                          !in_addr_is_set(route->gw_family, &route->gw) &&
-                         ordered_set_isempty(route->multipath_routes) &&
+                         ordered_set_isempty(route->nexthops) &&
                          route->nexthop_id == 0)
                         route->scope = RT_SCOPE_LINK;
         }
