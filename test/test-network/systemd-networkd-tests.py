@@ -64,6 +64,7 @@ with_coverage = False
 
 active_units = []
 protected_links = {
+    'br0',
     'erspan0',
     'gre0',
     'gretap0',
