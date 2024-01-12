@@ -482,8 +482,8 @@ static int dhcp4_request_route_auto(
                                        IPV4_ADDRESS_FMT_VAL(route->dst.in), route->dst_prefixlen, IPV4_ADDRESS_FMT_VAL(*gw));
 
                 route->scope = RT_SCOPE_HOST;
-                route->gw_family = AF_UNSPEC;
-                route->gw = IN_ADDR_NULL;
+                route->nexthop.family = AF_UNSPEC;
+                route->nexthop.gw = IN_ADDR_NULL;
                 route->prefsrc = IN_ADDR_NULL;
 
         } else if (in4_addr_equal(&route->dst.in, &address)) {
@@ -493,8 +493,8 @@ static int dhcp4_request_route_auto(
                                        IPV4_ADDRESS_FMT_VAL(route->dst.in), route->dst_prefixlen, IPV4_ADDRESS_FMT_VAL(*gw));
 
                 route->scope = RT_SCOPE_HOST;
-                route->gw_family = AF_UNSPEC;
-                route->gw = IN_ADDR_NULL;
+                route->nexthop.family = AF_UNSPEC;
+                route->nexthop.gw = IN_ADDR_NULL;
                 route->prefsrc.in = address;
 
         } else if (in4_addr_is_null(gw)) {
@@ -516,8 +516,8 @@ static int dhcp4_request_route_auto(
                 }
 
                 route->scope = RT_SCOPE_LINK;
-                route->gw_family = AF_UNSPEC;
-                route->gw = IN_ADDR_NULL;
+                route->nexthop.family = AF_UNSPEC;
+                route->nexthop.gw = IN_ADDR_NULL;
                 route->prefsrc.in = address;
 
         } else {
@@ -526,8 +526,8 @@ static int dhcp4_request_route_auto(
                         return r;
 
                 route->scope = RT_SCOPE_UNIVERSE;
-                route->gw_family = AF_INET;
-                route->gw.in = *gw;
+                route->nexthop.family = AF_INET;
+                route->nexthop.gw.in = *gw;
                 route->prefsrc.in = address;
         }
 
@@ -619,8 +619,8 @@ static int dhcp4_request_default_gateway(Link *link) {
                 return r;
 
         /* Next, add a default gateway. */
-        route->gw_family = AF_INET;
-        route->gw.in = router;
+        route->nexthop.family = AF_INET;
+        route->nexthop.gw.in = router;
         route->prefsrc.in = address;
 
         return dhcp4_request_route(TAKE_PTR(route), link);
@@ -641,7 +641,7 @@ static int dhcp4_request_semi_static_routes(Link *link) {
                 if (!rt->gateway_from_dhcp_or_ra)
                         continue;
 
-                if (rt->gw_family != AF_INET)
+                if (rt->nexthop.family != AF_INET)
                         continue;
 
                 assert(rt->family == AF_INET);
@@ -663,7 +663,7 @@ static int dhcp4_request_semi_static_routes(Link *link) {
                 if (r < 0)
                         return r;
 
-                route->gw.in = gw;
+                route->nexthop.gw.in = gw;
 
                 r = dhcp4_request_route(TAKE_PTR(route), link);
                 if (r < 0)

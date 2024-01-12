@@ -237,7 +237,7 @@ static int route_append_json(Route *route, JsonVariant **array) {
                                 JSON_BUILD_PAIR_INTEGER("Family", route->family),
                                 JSON_BUILD_PAIR_IN_ADDR("Destination", &route->dst, route->family),
                                 JSON_BUILD_PAIR_UNSIGNED("DestinationPrefixLength", route->dst_prefixlen),
-                                JSON_BUILD_PAIR_IN_ADDR_NON_NULL("Gateway", &route->gw, route->gw_family),
+                                JSON_BUILD_PAIR_IN_ADDR_NON_NULL("Gateway", &route->nexthop.gw, route->nexthop.family),
                                 JSON_BUILD_PAIR_CONDITION(route->src_prefixlen > 0,
                                                           "Source", JSON_BUILD_IN_ADDR(&route->src, route->family)),
                                 JSON_BUILD_PAIR_UNSIGNED_NON_ZERO("SourcePrefixLength", route->src_prefixlen),

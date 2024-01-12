@@ -165,7 +165,7 @@ int route_nexthops_is_ready_to_configure(const Route *route, Link *link) {
                 return true;
 
         if (ordered_set_isempty(route->nexthops))
-                return gateway_is_ready(link, FLAGS_SET(route->flags, RTNH_F_ONLINK), route->gw_family, &route->gw);
+                return route_nexthop_is_ready_to_configure(&route->nexthop, link, FLAGS_SET(route->flags, RTNH_F_ONLINK));
 
         RouteNextHop *nh;
         ORDERED_SET_FOREACH(nh, route->nexthops)
@@ -200,12 +200,12 @@ int route_nexthops_to_string(const Route *route, char **ret) {
         }
 
         if (ordered_set_isempty(route->nexthops)) {
-                if (in_addr_is_set(route->gw_family, &route->gw))
-                        buf = strjoin("gw: ", IN_ADDR_TO_STRING(route->gw_family, &route->gw));
+                if (in_addr_is_set(route->nexthop.family, &route->nexthop.gw))
+                        buf = strjoin("gw: ", IN_ADDR_TO_STRING(route->nexthop.family, &route->nexthop.gw));
                 else if (route->gateway_from_dhcp_or_ra) {
-                        if (route->gw_family == AF_INET)
+                        if (route->nexthop.family == AF_INET)
                                 buf = strdup("gw: _dhcp4");
-                        else if (route->gw_family == AF_INET6)
+                        else if (route->nexthop.family == AF_INET6)
                                 buf = strdup("gw: _ipv6ra");
                         else
                                 buf = strdup("gw: _dhcp");
@@ -360,15 +360,15 @@ int route_nexthops_set_netlink_message(Link *link, const Route *route, sd_netlin
 
         if (ordered_set_isempty(route->nexthops)) {
 
-                if (in_addr_is_set(route->gw_family, &route->gw)) {
-                        if (route->gw_family == route->family)
-                                r = netlink_message_append_in_addr_union(message, RTA_GATEWAY, route->gw_family, &route->gw);
+                if (in_addr_is_set(route->nexthop.family, &route->nexthop.gw)) {
+                        if (route->nexthop.family == route->family)
+                                r = netlink_message_append_in_addr_union(message, RTA_GATEWAY, route->nexthop.family, &route->nexthop.gw);
                         else {
                                 assert(route->family == AF_INET);
                                 r = sd_netlink_message_append_data(message, RTA_VIA,
                                                                    &(const RouteVia) {
-                                                                           .family = route->gw_family,
-                                                                           .address = route->gw,
+                                                                           .family = route->nexthop.family,
+                                                                           .address = route->nexthop.gw,
                                                                    }, sizeof(RouteVia));
                         }
                         if (r < 0)
@@ -490,9 +490,9 @@ int route_nexthops_read_netlink_message(Route *route, sd_netlink_message *messag
                 return log_warning_errno(r, "rtnl: could not get ifindex from route message, ignoring: %m");
 
         if (ifindex > 0) {
-                r = netlink_message_read_in_addr_union(message, RTA_GATEWAY, route->family, &route->gw);
+                r = netlink_message_read_in_addr_union(message, RTA_GATEWAY, route->family, &route->nexthop.gw);
                 if (r >= 0) {
-                        route->gw_family = route->family;
+                        route->nexthop.family = route->family;
                         return 0;
                 }
                 if (r != -ENODATA)
@@ -504,8 +504,8 @@ int route_nexthops_read_netlink_message(Route *route, sd_netlink_message *messag
                 RouteVia via;
                 r = sd_netlink_message_read(message, RTA_VIA, sizeof(via), &via);
                 if (r >= 0) {
-                        route->gw_family = via.family;
-                        route->gw = via.address;
+                        route->nexthop.family = via.family;
+                        route->nexthop.gw = via.address;
                         return 0;
                 }
                 if (r != -ENODATA)
@@ -536,7 +536,7 @@ int route_section_verify_nexthops(Route *route) {
         if (route->gateway_from_dhcp_or_ra) {
                 assert(route->network);
 
-                if (route->gw_family == AF_UNSPEC)
+                if (route->nexthop.family == AF_UNSPEC)
                         /* When deprecated Gateway=_dhcp is set, then assume gateway family based on other settings. */
                         switch (route->family) {
                         case AF_UNSPEC:
@@ -544,7 +544,7 @@ int route_section_verify_nexthops(Route *route) {
                                             "Please use \"_dhcp4\" or \"_ipv6ra\" instead. Assuming \"_dhcp4\".",
                                             route->section->filename, route->section->line);
 
-                                route->gw_family = route->family = AF_INET;
+                                route->nexthop.family = route->family = AF_INET;
                                 break;
                         case AF_INET:
                         case AF_INET6:
@@ -552,7 +552,7 @@ int route_section_verify_nexthops(Route *route) {
                                             "Assuming \"%s\" based on Destination=, Source=, or PreferredSource= setting.",
                                             route->section->filename, route->section->line, route->family == AF_INET ? "_dhcp4" : "_ipv6ra");
 
-                                route->gw_family = route->family;
+                                route->nexthop.family = route->family;
                                 break;
                         default:
                                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -560,13 +560,13 @@ int route_section_verify_nexthops(Route *route) {
                                                          route->section->filename, route->section->line);
                         }
 
-                if (route->gw_family == AF_INET && !FLAGS_SET(route->network->dhcp, ADDRESS_FAMILY_IPV4))
+                if (route->nexthop.family == AF_INET && !FLAGS_SET(route->network->dhcp, ADDRESS_FAMILY_IPV4))
                         return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                                  "%s: Gateway=\"_dhcp4\" is specified but DHCPv4 client is disabled. "
                                                  "Ignoring [Route] section from line %u.",
                                                  route->section->filename, route->section->line);
 
-                if (route->gw_family == AF_INET6 && !route->network->ipv6_accept_ra)
+                if (route->nexthop.family == AF_INET6 && !route->network->ipv6_accept_ra)
                         return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                                  "%s: Gateway=\"_ipv6ra\" is specified but IPv6AcceptRA= is disabled. "
                                                  "Ignoring [Route] section from line %u.",
@@ -575,7 +575,7 @@ int route_section_verify_nexthops(Route *route) {
 
         /* When only Gateway= is specified, assume the route family based on the Gateway address. */
         if (route->family == AF_UNSPEC)
-                route->family = route->gw_family;
+                route->family = route->nexthop.family;
 
         if (route->family == AF_UNSPEC) {
                 assert(route->section);
@@ -587,7 +587,7 @@ int route_section_verify_nexthops(Route *route) {
                                          route->section->filename, route->section->line);
         }
 
-        if (route->gateway_onlink < 0 && in_addr_is_set(route->gw_family, &route->gw) &&
+        if (route->gateway_onlink < 0 && in_addr_is_set(route->nexthop.family, &route->nexthop.gw) &&
             route->network && ordered_hashmap_isempty(route->network->addresses_by_section)) {
                 /* If no address is configured, in most cases the gateway cannot be reachable.
                  * TODO: we may need to improve the condition above. */
@@ -601,7 +601,7 @@ int route_section_verify_nexthops(Route *route) {
                 SET_FLAG(route->flags, RTNH_F_ONLINK, route->gateway_onlink);
 
         if (route->family == AF_INET6) {
-                if (route->gw_family == AF_INET)
+                if (route->nexthop.family == AF_INET)
                         return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                                  "%s: IPv4 gateway is configured for IPv6 route. "
                                                  "Ignoring [Route] section from line %u.",
@@ -618,7 +618,7 @@ int route_section_verify_nexthops(Route *route) {
 
         if (route->nexthop_id != 0 &&
             (route->gateway_from_dhcp_or_ra ||
-             in_addr_is_set(route->gw_family, &route->gw) ||
+             in_addr_is_set(route->nexthop.family, &route->nexthop.gw) ||
              !ordered_set_isempty(route->nexthops)))
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: NextHopId= cannot be specified with Gateway= or MultiPathRoute=. "
@@ -627,7 +627,7 @@ int route_section_verify_nexthops(Route *route) {
 
         if (route_type_is_reject(route) &&
             (route->gateway_from_dhcp_or_ra ||
-             in_addr_is_set(route->gw_family, &route->gw) ||
+             in_addr_is_set(route->nexthop.family, &route->nexthop.gw) ||
              !ordered_set_isempty(route->nexthops)))
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: reject type route cannot be specified with Gateway= or MultiPathRoute=. "
@@ -635,7 +635,7 @@ int route_section_verify_nexthops(Route *route) {
                                          route->section->filename, route->section->line);
 
         if ((route->gateway_from_dhcp_or_ra ||
-             in_addr_is_set(route->gw_family, &route->gw)) &&
+             in_addr_is_set(route->nexthop.family, &route->nexthop.gw)) &&
             !ordered_set_isempty(route->nexthops))
                 return log_warning_errno(SYNTHETIC_ERRNO(EINVAL),
                                          "%s: Gateway= cannot be specified with MultiPathRoute=. "
@@ -689,38 +689,38 @@ int config_parse_gateway(
 
                 if (isempty(rvalue)) {
                         route->gateway_from_dhcp_or_ra = false;
-                        route->gw_family = AF_UNSPEC;
-                        route->gw = IN_ADDR_NULL;
+                        route->nexthop.family = AF_UNSPEC;
+                        route->nexthop.gw = IN_ADDR_NULL;
                         TAKE_PTR(route);
                         return 0;
                 }
 
                 if (streq(rvalue, "_dhcp")) {
                         route->gateway_from_dhcp_or_ra = true;
-                        route->gw_family = AF_UNSPEC;
-                        route->gw = IN_ADDR_NULL;
+                        route->nexthop.family = AF_UNSPEC;
+                        route->nexthop.gw = IN_ADDR_NULL;
                         TAKE_PTR(route);
                         return 0;
                 }
 
                 if (streq(rvalue, "_dhcp4")) {
                         route->gateway_from_dhcp_or_ra = true;
-                        route->gw_family = AF_INET;
-                        route->gw = IN_ADDR_NULL;
+                        route->nexthop.family = AF_INET;
+                        route->nexthop.gw = IN_ADDR_NULL;
                         TAKE_PTR(route);
                         return 0;
                 }
 
                 if (streq(rvalue, "_ipv6ra")) {
                         route->gateway_from_dhcp_or_ra = true;
-                        route->gw_family = AF_INET6;
-                        route->gw = IN_ADDR_NULL;
+                        route->nexthop.family = AF_INET6;
+                        route->nexthop.gw = IN_ADDR_NULL;
                         TAKE_PTR(route);
                         return 0;
                 }
         }
 
-        r = in_addr_from_string_auto(rvalue, &route->gw_family, &route->gw);
+        r = in_addr_from_string_auto(rvalue, &route->nexthop.family, &route->nexthop.gw);
         if (r < 0) {
                 log_syntax(unit, LOG_WARNING, filename, line, r,
                            "Invalid %s='%s', ignoring assignment: %m", lvalue, rvalue);
