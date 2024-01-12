@@ -160,6 +160,24 @@ PASSWORD=xEhErW0ndafV4s homectl with test-user -- rm /home/test-user/xyz
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- test ! -f /home/test-user/xyz
 (! PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz)
 
+# Make sure migration of ~/.identity to ~/.identity/record.json works
+PASSWORD=xEhErW0ndafV4s homectl activate test-user
+inspect test-user
+
+cp /home/test-user/.identity/record.json /tmp/identity
+rm -rf /home/test-user/.identity/
+cp /tmp/identity /home/test-user/.identity
+
+homectl deactivate test-user
+inspect test-user
+PASSWORD=xEhErW0ndafV4s homectl activate test-user
+inspect test-user
+
+test -d /home/test-user/.identity
+test -f /home/test-user/.identity/record.json
+diff /home/test-user/.identity/record.json /tmp/identity
+
+homectl deactivate test-user
 wait_for_state test-user inactive
 homectl remove test-user
 
@@ -169,6 +187,119 @@ if ! systemd-detect-virt -cq ; then
     wait_for_state test-user2 inactive
     homectl remove test-user2
 fi
+
+# bulk directory tests
+# See docs/USER_RECORD_BULK_DIRS.md
+checkbulk() {
+        test -f /var/cache/systemd/home/bulk-user/$1
+        stat -c "%u %#a" /var/cache/systemd/home/bulk-user/$1 | grep "^0 0644"
+        test -f /home/bulk-user/.identity/bulk/$1
+        stat -c "%u %#a" /home/bulk-user/.identity/bulk/$1 | grep "12345 0644"
+
+        diff /var/cache/systemd/home/bulk-user/$1 $2
+        diff /var/cache/systemd/home/bulk-user/$1 /home/bulk-user/.identity/bulk/$1
+}
+
+mkdir /tmp/bulk1 /tmp/bulk2
+echo data1 bulk1 > /tmp/bulk1/test1
+echo data1 bulk2 > /tmp/bulk2/test1
+echo data2 bulk1 > /tmp/bulk1/test2
+echo data2 bulk2 > /tmp/bulk2/test2
+echo invalid filename > /tmp/bulk1/файл
+ln -s /tmp/bulk1/test1 /tmp/bulk1/symlink
+echo data3 > /tmp/external-test3
+echo avatardata > /tmp/external-avatar
+ln -s /tmp/external-avatar /tmp/external-avatar-lnk
+
+# create w/ prepopulated bulk dir
+NEWPASSWORD=EMJuc3zQaMibJo homectl create bulk-user --uid=12345 \
+        --bulk-directory=/tmp/bulk1
+inspect bulk-user
+PASSWORD=EMJuc3zQaMibJo homectl activate bulk-user
+inspect bulk-user
+
+test -d /var/cache/systemd/home/bulk-user
+stat -c "%u %#a" /var/cache/systemd/home/bulk-user | grep "^0 0644"
+test -d /home/bulk-user/.identity/bulk
+stat -c "%u %#a" /home/bulk-user/.identity/bulk | grep "12345 0644"
+
+checkbulk test1 /tmp/bulk1/test1
+(! checkbulk test1 /tmp/bulk2/test1 )
+checkbulk test2 /tmp/bulk1/test2
+(! checkbulk test2 /tmp/bulk2/test2 )
+(! checkbulk фаил /tmp/bulk1/фаил )
+(! checkbulk symlink /tmp/bulk1/symlink )
+(! checkbulk test3 /tmp/external-test3 )
+(! checkbulk avatar /tmp/external-avatar )
+
+# append files to existing bulk, both well-known and other
+PASSWORD=EMJuc3zQaMibJo homectl update bulk-user \
+        -b test3=/tmp/external-test3 --avatar=/tmp/external-avatar
+inspect bulk-user
+checkbulk test1 /tmp/bulk1/test1
+(! checkbulk test1 /tmp/bulk2/test1 )
+checkbulk test2 /tmp/bulk1/test2
+(! checkbulk test2 /tmp/bulk2/test2 )
+(! checkbulk фаил /tmp/bulk1/фаил )
+(! checkbulk symlink /tmp/bulk1/symlink )
+checkbulk test3 /tmp/external-test3
+checkbulk avatar /tmp/external-avatar
+
+# delete files from existing bulk, both well-known and other
+PASSWORD=EMJuc3zQaMibJo homectl update bulk-user \
+        -b test3= --avatar=
+inspect bulk-user
+checkbulk test1 /tmp/bulk1/test1
+(! checkbulk test1 /tmp/bulk2/test1 )
+checkbulk test2 /tmp/bulk1/test2
+(! checkbulk test2 /tmp/bulk2/test2 )
+(! checkbulk фаил /tmp/bulk1/фаил )
+(! checkbulk symlink /tmp/bulk1/symlink )
+(! checkbulk test3 /tmp/external-test3 )
+(! checkbulk avatar /tmp/external-avatar )
+
+# swap entire bulk directory
+PASSWORD=EMJuc3zQaMibJo homectl update bulk-user \
+        -b /tmp/bulk2
+inspect bulk-user
+(! checkbulk test1 /tmp/bulk1/test1 )
+checkbulk test1 /tmp/bulk2/test1
+(! checkbulk test2 /tmp/bulk1/test2 )
+checkbulk test2 /tmp/bulk2/test2
+(! checkbulk фаил /tmp/bulk1/фаил )
+(! checkbulk symlink /tmp/bulk1/symlink )
+(! checkbulk test3 /tmp/external-test3 )
+(! checkbulk avatar /tmp/external-avatar )
+
+# create and delete files while swapping bulk directory. Also symlinks.
+PASSWORD=EMJuc3zQaMibJo homectl update bulk-user \
+        -b /tmp/bulk1 -b test2= -b test3=/tmp/external-test3 --avatar=/tmp/external-avatar-lnk
+inspect bulk-user
+checkbulk test1 /tmp/bulk1/test1
+(! checkbulk test1 /tmp/bulk2/test1 )
+(! checkbulk test2 /tmp/bulk1/test2 )
+(! checkbulk test2 /tmp/bulk2/test2 )
+(! checkbulk фаил /tmp/bulk1/фаил )
+(! checkbulk symlink /tmp/bulk1/symlink )
+checkbulk test3 /tmp/external-test3
+checkbulk avatar /tmp/external-avatar # target of the link
+
+# cancel bulk changes
+PASSWORD=EMJuc3zQaMibJo homectl update bulk-user \
+        -b /tmp/bulk2 -b test3=/tmp/external-test3 --bulk-directory=
+inspect bulk-user
+checkbulk test1 /tmp/bulk1/test1
+(! checkbulk test1 /tmp/bulk2/test1 )
+(! checkbulk test2 /tmp/bulk1/test2 )
+(! checkbulk test2 /tmp/bulk2/test2 )
+(! checkbulk фаил /tmp/bulk1/фаил )
+(! checkbulk symlink /tmp/bulk1/symlink )
+checkbulk test3 /tmp/external-test3
+checkbulk avatar /tmp/external-avatar
+
+homectl deactivate bulk-user
+wait_for_state bulk-user inactive
+homectl remove bulk-user
 
 # userdbctl tests
 export PAGER=

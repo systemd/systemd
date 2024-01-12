@@ -1510,3 +1510,84 @@ int user_record_set_rebalance_weight(UserRecord *h, uint64_t weight) {
         h->mask |= USER_RECORD_PER_MACHINE;
         return 0;
 }
+
+int user_record_steal_bulk_dir(UserRecord *h, char **ret) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        JsonVariant *per_machine;
+        int r;
+
+        assert(h);
+        assert(h->json);
+        assert(ret);
+
+        /* Returns the value of bulkDirectory in the user record, and
+         * removes the field from the record so it doesn't get persisted
+         * anywhere */
+
+         if (!h->bulk_directory)
+                return -ENOENT;
+
+        v = json_variant_ref(h->json);
+
+        /* Drop bulkDirectory from regular section */
+        r = json_variant_filter(&v, STRV_MAKE("bulkDirectory"));
+        if (r < 0)
+                return r;
+
+        /* Drop bulkDirectory from perMachine sections that match us. */
+        per_machine = json_variant_by_key(h->json, "perMachine");
+        if (per_machine) {
+                _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
+                JsonVariant *e;
+
+                JSON_VARIANT_ARRAY_FOREACH(e, per_machine) {
+                        _cleanup_(json_variant_unrefp) JsonVariant *f = NULL;
+
+                        if (!json_variant_is_object(e))
+                                return -EINVAL;
+
+                        r = per_machine_match(e, JSON_PERMISSIVE);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                continue;
+
+                        f = json_variant_ref(e);
+
+                        r = json_variant_filter(&f, STRV_MAKE("bulkDirectory"));
+                        if (r < 0)
+                                return r;
+
+                        if (per_machine_entry_empty(f))
+                                continue;
+
+                        r = json_variant_append_array(&array, f);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (json_variant_is_blank_array(array))
+                        r = json_variant_filter(&v, STRV_MAKE("perMachine"));
+                else
+                        r = json_variant_set_field(&v, "perMachine", array);
+                if (r < 0)
+                        return r;
+
+                SET_FLAG(h->mask, USER_RECORD_PER_MACHINE, !json_variant_is_blank_array(array));
+        }
+
+        /* Last location bulkDirectory can be is in the status section, but
+         * we shouldn't have a status section here. */
+        assert((h->mask & USER_RECORD_STATUS) == 0);
+
+        JSON_VARIANT_REPLACE(h->json, TAKE_PTR(v));
+
+        if (path_startswith(h->bulk_directory, home_system_bulk_dir())) {
+                /* For some reason the caller specified our own system bulk dir?!? */
+                h->bulk_directory = mfree(h->bulk_directory);
+                return -ENOENT;
+        }
+
+        *ret = TAKE_PTR(h->bulk_directory);
+        return 0;
+}

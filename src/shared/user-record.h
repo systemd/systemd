@@ -24,7 +24,7 @@ typedef enum UserDisposition {
 typedef enum UserHomeStorage {
         USER_CLASSIC,
         USER_LUKS,
-        USER_DIRECTORY, /* A directory, and a .identity file in it, which USER_CLASSIC lacks */
+        USER_DIRECTORY, /* A directory, and a ~/.identity directory in it, which USER_CLASSIC lacks */
         USER_SUBVOLUME,
         USER_FSCRYPT,
         USER_CIFS,
@@ -237,6 +237,7 @@ typedef struct UserRecord {
         char *user_name;
         char *realm;
         char *user_name_and_realm_auto; /* the user_name field concatenated with '@' and the realm, if the latter is defined */
+        char *bulk_directory;
         char *real_name;
         char *email_address;
         char *password_hint;
@@ -438,6 +439,7 @@ int json_dispatch_user_disposition(const char *name, JsonVariant *variant, JsonD
 
 int per_machine_id_match(JsonVariant *ids, JsonDispatchFlags flags);
 int per_machine_hostname_match(JsonVariant *hns, JsonDispatchFlags flags);
+int per_machine_match(JsonVariant *entry, JsonDispatchFlags flags);
 int user_group_record_mangle(JsonVariant *v, UserRecordLoadFlags load_flags, JsonVariant **ret_variant, UserRecordMask *ret_mask);
 
 const char* user_storage_to_string(UserStorage t) _const_;
