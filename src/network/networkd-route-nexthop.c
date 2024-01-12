@@ -12,6 +12,72 @@
 #include "parse-util.h"
 #include "string-util.h"
 
+int route_nexthops_to_string(const Route *route, char **ret) {
+        _cleanup_free_ char *buf = NULL;
+        int r;
+
+        assert(route);
+        assert(ret);
+
+        if (route->nexthop_id != 0) {
+                if (asprintf(&buf, "nexthop: %"PRIu32, route->nexthop_id) < 0)
+                        return -ENOMEM;
+
+                *ret = TAKE_PTR(buf);
+                return 0;
+        }
+
+        if (route_type_is_reject(route)) {
+                buf = strdup("gw: n/a");
+                if (!buf)
+                        return -ENOMEM;
+
+                *ret = TAKE_PTR(buf);
+                return 0;
+        }
+
+        if (ordered_set_isempty(route->multipath_routes)) {
+                if (in_addr_is_set(route->gw_family, &route->gw))
+                        buf = strjoin("gw: ", IN_ADDR_TO_STRING(route->gw_family, &route->gw));
+                else if (route->gateway_from_dhcp_or_ra) {
+                        if (route->gw_family == AF_INET)
+                                buf = strdup("gw: _dhcp4");
+                        else if (route->gw_family == AF_INET6)
+                                buf = strdup("gw: _ipv6ra");
+                        else
+                                buf = strdup("gw: _dhcp");
+                } else
+                        buf = strdup("gw: n/a");
+                if (!buf)
+                        return -ENOMEM;
+
+                *ret = TAKE_PTR(buf);
+                return 0;
+        }
+
+        MultipathRoute *m;
+        ORDERED_SET_FOREACH(m, route->multipath_routes) {
+                union in_addr_union a = m->gateway.address;
+                const char *s = in_addr_is_set(m->gateway.family, &a) ? IN_ADDR_TO_STRING(m->gateway.family, &a) : NULL;
+
+                if (m->ifindex > 0)
+                        r = strextendf_with_separator(&buf, ",", "%s@%i:%"PRIu32, strempty(s), m->ifindex, m->weight + 1);
+                else if (m->ifname)
+                        r = strextendf_with_separator(&buf, ",", "%s@%s:%"PRIu32, strempty(s), m->ifname, m->weight + 1);
+                else
+                        r = strextendf_with_separator(&buf, ",", "%s:%"PRIu32, strempty(s), m->weight + 1);
+                if (r < 0)
+                        return r;
+        }
+
+        char *p = strjoin("gw: ", strna(buf));
+        if (!p)
+                return -ENOMEM;
+
+        *ret = p;
+        return 0;
+}
+
 static int append_nexthop_one(Link *link, const Route *route, const MultipathRoute *m, struct rtattr **rta, size_t offset) {
         struct rtnexthop *rtnh;
         struct rtattr *new_rta;
