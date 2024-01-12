@@ -80,7 +80,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_VALUE_DESTRUCTOR(homes_by_sysfs_hash_ops, char, pat
 
 static int on_home_inotify(sd_event_source *s, const struct inotify_event *event, void *userdata);
 static int manager_gc_images(Manager *m);
-static int manager_gc_bulk(Manager *m);
+static int manager_gc_blob(Manager *m);
 static int manager_enumerate_images(Manager *m);
 static int manager_assess_image(Manager *m, int dir_fd, const char *dir_path, const char *dentry_name);
 static void manager_revalidate_image(Manager *m, Home *h);
@@ -1621,8 +1621,8 @@ int manager_startup(Manager *m) {
         /* Let's clean up home directories whose devices got removed while we were not running */
         (void) manager_enqueue_gc(m, NULL);
 
-        /* Let's clean up bulk directories for home dirs that no longer exist */
-        (void) manager_gc_bulk(m);
+        /* Let's clean up blob directories for home dirs that no longer exist */
+        (void) manager_gc_blob(m);
 
         return 0;
 }
@@ -1712,22 +1712,22 @@ int manager_gc_images(Manager *m) {
         return 0;
 }
 
-static int manager_gc_bulk(Manager *m) {
+static int manager_gc_blob(Manager *m) {
         _cleanup_closedir_ DIR *d = NULL;
         int r;
 
         assert(m);
 
-        d = opendir(home_system_bulk_dir());
+        d = opendir(home_system_blob_dir());
         if (!d)
                 return log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno,
-                                      "Failed to open %s: %m", home_system_bulk_dir());
+                                      "Failed to open %s: %m", home_system_blob_dir());
 
-        FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read system bulk directory: %m"))
+        FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read system blob directory: %m"))
                 if (!hashmap_contains(m->homes_by_name, de->d_name)) {
                         r = rm_rf_at(dirfd(d), de->d_name, REMOVE_ROOT|REMOVE_PHYSICAL|REMOVE_SUBVOLUME);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to delete bulk dir for missing user '%s': %m", de->d_name);
+                                return log_error_errno(r, "Failed to delete blob dir for missing user '%s': %m", de->d_name);
                 }
 
         return 0;
