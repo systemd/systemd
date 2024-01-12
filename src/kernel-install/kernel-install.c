@@ -1229,9 +1229,9 @@ static int verb_add_all(int argc, char *argv[], void *userdata) {
 
         c->action = ACTION_ADD;
 
-        fd = open("/usr/lib/modules", O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+        fd = chase_and_openat(c->rfd, "/usr/lib/modules", CHASE_AT_RESOLVE_IN_ROOT, O_DIRECTORY|O_RDONLY|O_CLOEXEC, NULL);
         if (fd < 0)
-                return log_error_errno(fd, "Failed to open /usr/lib/modules/: %m");
+                return log_error_errno(fd, "Failed to open %s/usr/lib/modules/: %m", strempty(arg_root));
 
         _cleanup_free_ DirectoryEntries *de = NULL;
         r = readdir_all(fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT, &de);
@@ -1239,15 +1239,10 @@ static int verb_add_all(int argc, char *argv[], void *userdata) {
                 return log_error_errno(r, "Failed to numerate /usr/lib/modules/ contents: %m");
 
         FOREACH_ARRAY(d, de->entries, de->n_entries) {
-
-                _cleanup_free_ char *j = path_join("/usr/lib/modules/", (*d)->d_name);
-                if (!j)
-                        return log_oom();
-
                 r = dirent_ensure_type(fd, *d);
                 if (r < 0) {
                         if (r != -ENOENT) /* don't log if just gone by now */
-                                log_debug_errno(r, "Failed to check if '%s' is a directory, ignoring: %m", j);
+                                log_debug_errno(r, "Failed to check if '%s/usr/lib/modules/%s' is a directory, ignoring: %m", strempty(arg_root), (*d)->d_name);
                         continue;
                 }
 
@@ -1260,7 +1255,7 @@ static int verb_add_all(int argc, char *argv[], void *userdata) {
 
                 if (faccessat(fd, fn, F_OK, AT_SYMLINK_NOFOLLOW) < 0) {
                         if (errno != ENOENT)
-                                log_debug_errno(errno, "Failed to check if '/usr/lib/modules/%s/vmlinuz' exists, ignoring: %m", (*d)->d_name);
+                                log_debug_errno(errno, "Failed to check if '%s/usr/lib/modules/%s/vmlinuz' exists, ignoring: %m", strempty(arg_root), (*d)->d_name);
 
                         log_notice("Not adding version '%s', because kernel image not found.", (*d)->d_name);
                         continue;
@@ -1272,6 +1267,8 @@ static int verb_add_all(int argc, char *argv[], void *userdata) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to copy execution context: %m");
 
+                /* do_add() will look up the path in the correct root directory so we don't need to prefix it
+                 * with arg_root here. */
                 _cleanup_free_ char *full = path_join("/usr/lib/modules/", fn);
                 if (!full)
                         return log_oom();
@@ -1450,15 +1447,13 @@ static int verb_inspect(int argc, char *argv[], void *userdata) {
 }
 
 static int verb_list(int argc, char *argv[], void *userdata) {
+        Context *c = ASSERT_PTR(userdata);
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        if (arg_root)
-                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "'list' does not support --root= or --image=.");
-
-        fd = open("/usr/lib/modules", O_DIRECTORY|O_RDONLY|O_CLOEXEC);
+        fd = chase_and_openat(c->rfd, "/usr/lib/modules", CHASE_AT_RESOLVE_IN_ROOT, O_DIRECTORY|O_RDONLY|O_CLOEXEC, NULL);
         if (fd < 0)
-                return log_error_errno(fd, "Failed to open /usr/lib/modules/: %m");
+                return log_error_errno(fd, "Failed to open %s/usr/lib/modules/: %m", strempty(arg_root));
 
         _cleanup_free_ DirectoryEntries *de = NULL;
         r = readdir_all(fd, RECURSE_DIR_SORT|RECURSE_DIR_IGNORE_DOT, &de);
@@ -1474,7 +1469,6 @@ static int verb_list(int argc, char *argv[], void *userdata) {
         table_set_align_percent(table, table_get_cell(table, 0, 1), 100);
 
         FOREACH_ARRAY(d, de->entries, de->n_entries) {
-
                 _cleanup_free_ char *j = path_join("/usr/lib/modules/", (*d)->d_name);
                 if (!j)
                         return log_oom();
@@ -1482,7 +1476,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
                 r = dirent_ensure_type(fd, *d);
                 if (r < 0) {
                         if (r != -ENOENT) /* don't log if just gone by now */
-                                log_debug_errno(r, "Failed to check if '%s' is a directory, ignoring: %m", j);
+                                log_debug_errno(r, "Failed to check if '%s/%s' is a directory, ignoring: %m", strempty(arg_root), j);
                         continue;
                 }
 
@@ -1496,7 +1490,7 @@ static int verb_list(int argc, char *argv[], void *userdata) {
                 bool exists;
                 if (faccessat(fd, fn, F_OK, AT_SYMLINK_NOFOLLOW) < 0) {
                         if (errno != ENOENT)
-                                log_debug_errno(errno, "Failed to check if '/usr/lib/modules/%s/vmlinuz' exists, ignoring: %m", (*d)->d_name);
+                                log_debug_errno(errno, "Failed to check if '%s/usr/lib/modules/%s/vmlinuz' exists, ignoring: %m", strempty(arg_root), (*d)->d_name);
 
                         exists = false;
                 } else
