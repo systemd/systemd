@@ -92,6 +92,7 @@ int address_new(Address **ret);
 int address_new_static(Network *network, const char *filename, unsigned section_line, Address **ret);
 int address_get(Link *link, const Address *in, Address **ret);
 int address_get_harder(Link *link, const Address *in, Address **ret);
+int address_get_request(Link *link, const Address *address, Request **ret);
 int address_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg);
 int address_remove(Address *address, Link *link);
 int address_remove_and_cancel(Address *address, Link *link);
