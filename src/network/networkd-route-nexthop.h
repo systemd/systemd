@@ -5,6 +5,8 @@
 
 typedef struct Route Route;
 
+int route_nexthops_to_string(const Route *route, char **ret);
+
 int route_nexthops_set_netlink_message(Link *link, const Route *route, sd_netlink_message *message);
 int route_nexthops_read_netlink_message(Route *route, sd_netlink_message *message);
 
