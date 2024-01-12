@@ -639,7 +639,7 @@ int home_load_embedded_identity(
          *
          *      · The record we got passed from the host
          *      · The record included in the LUKS header (only if LUKS is used)
-         *      · The record in the home directory itself (~.identity)
+         *      · The record in the home directory itself (~/.identity)
          *
          *  Now we have to reconcile all three, and let the newest one win. */
 
