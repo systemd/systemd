@@ -417,8 +417,6 @@ int netns_get_nsid(int netnsfd, uint32_t *ret) {
         _cleanup_close_ int _netns_fd = -EBADF;
         int r;
 
-        assert(ret);
-
         if (netnsfd < 0) {
                 r = namespace_open(
                                 0,
@@ -462,9 +460,16 @@ int netns_get_nsid(int netnsfd, uint32_t *ret) {
                 if (type != RTM_NEWNSID)
                         continue;
 
-                r = sd_netlink_message_read_u32(m, NETNSA_NSID, ret);
+                uint32_t u;
+                r = sd_netlink_message_read_u32(m, NETNSA_NSID, &u);
                 if (r < 0)
                         return r;
+
+                if (u == UINT32_MAX) /* no NSID assigned yet */
+                        return -ENODATA;
+
+                if (ret)
+                        *ret = u;
 
                 return 0;
         }
