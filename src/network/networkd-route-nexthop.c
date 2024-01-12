@@ -19,12 +19,12 @@ int multipath_route_get_link(Manager *manager, const MultipathRoute *m, Link **r
         assert(manager);
         assert(m);
 
+        if (m->ifindex > 0) {
+                r = link_get_by_index(manager, m->ifindex, ret);
+                return r < 0 ? r : 1;
+        }
         if (m->ifname) {
                 r = link_get_by_name(manager, m->ifname, ret);
-                return r < 0 ? r : 1;
-
-        } else if (m->ifindex > 0) { /* Always ignore ifindex if ifname is set. */
-                r = link_get_by_index(manager, m->ifindex, ret);
                 return r < 0 ? r : 1;
         }
 
@@ -33,7 +33,7 @@ int multipath_route_get_link(Manager *manager, const MultipathRoute *m, Link **r
         return 0;
 }
 
-static bool multipath_route_is_ready_to_configure(MultipathRoute *m, Link *link, bool onlink) {
+static bool multipath_route_is_ready_to_configure(const MultipathRoute *m, Link *link, bool onlink) {
         union in_addr_union a = m->gateway.address;
         Link *l = NULL;
         int r;
@@ -55,7 +55,6 @@ static bool multipath_route_is_ready_to_configure(MultipathRoute *m, Link *link,
         if (!link->network && !link_has_carrier(link))
                 return false;
 
-        m->ifindex = link->ifindex;
         return gateway_is_ready(link, onlink, m->gateway.family, &a);
 }
 
@@ -174,7 +173,18 @@ static int append_nexthop_one(Link *link, const Route *route, const MultipathRou
         assert(m);
         assert(rta);
         assert(*rta);
-        assert(m->ifindex > 0 || link);
+
+        if (m->ifindex <= 0) {
+                assert(link);
+                assert(link->manager);
+
+                Link *l;
+                r = multipath_route_get_link(link->manager, m, &l);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        link = l;
+        }
 
         new_rta = realloc(*rta, RTA_ALIGN((*rta)->rta_len) + RTA_SPACE(sizeof(struct rtnexthop)));
         if (!new_rta)
