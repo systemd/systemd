@@ -25,23 +25,35 @@ static int vl_method_get_states(Varlink *link, JsonVariant *parameters, VarlinkM
 }
 
 static int vl_method_get_namespace_id(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
-        uint64_t id;
+        uint64_t inode = 0;
+        uint32_t nsid = UINT32_MAX;
+        int r;
 
         assert(link);
 
         if (json_variant_elements(parameters) > 0)
                 return varlink_error_invalid_parameter(link, parameters);
 
+        /* Network namespaces have two identifiers: the inode number (which all namespace types have), and
+         * the "nsid" (aka the "cookie"), which only network namespaces know as a concept, and which is not
+         * assigned by default, but once it is, is fixed. Let's return both, to avoid any confusion which one
+         * this is. */
+
         struct stat st;
-        if (stat("/proc/self/ns/net", &st) < 0) {
+        if (stat("/proc/self/ns/net", &st) < 0)
                 log_warning_errno(errno, "Failed to stat network namespace, ignoring: %m");
-                id = 0;
-        } else
-                id = st.st_ino;
+        else
+                inode = st.st_ino;
+
+        r = netns_get_nsid(/* netnsfd= */ -EBADF, &nsid);
+        if (r < 0)
+                log_warning_errno(r, "Failed to query network nsid, ignoring: %m");
 
         return varlink_replyb(link,
                               JSON_BUILD_OBJECT(
-                                              JSON_BUILD_PAIR_UNSIGNED("NamespaceId", id)));
+                                              JSON_BUILD_PAIR_UNSIGNED("NamespaceId", inode),
+                                              JSON_BUILD_PAIR_CONDITION(nsid == UINT32_MAX, "NamespaceNSID", JSON_BUILD_NULL),
+                                              JSON_BUILD_PAIR_CONDITION(nsid != UINT32_MAX, "NamespaceNSID", JSON_BUILD_UNSIGNED(nsid))));
 }
 
 int manager_connect_varlink(Manager *m) {
