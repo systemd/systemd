@@ -4180,12 +4180,12 @@ int manager_start_scope(
                 const PidRef *pidref,
                 const char *slice,
                 const char *description,
-                char **wants,
-                char **after,
+                const char* const *requires,
+                const char* const *after,
                 const char *requires_mounts_for,
                 sd_bus_message *more_properties,
                 sd_bus_error *error,
-                char **job) {
+                char **ret_job) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         int r;
@@ -4219,8 +4219,8 @@ int manager_start_scope(
                         return r;
         }
 
-        STRV_FOREACH(i, wants) {
-                r = sd_bus_message_append(m, "(sv)", "Wants", "as", 1, *i);
+        STRV_FOREACH(i, requires) {
+                r = sd_bus_message_append(m, "(sv)", "Requires", "as", 1, *i);
                 if (r < 0)
                         return r;
         }
