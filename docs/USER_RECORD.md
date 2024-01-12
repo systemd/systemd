@@ -809,9 +809,9 @@ The following fields are defined in the `binding` section. They all have an
 identical format and override their equally named counterparts in the `regular`
 and `perMachine` sections:
 
-`imagePath`, `homeDirectory`, `partitionUuid`, `luksUuid`, `fileSystemUuid`,
-`uid`, `gid`, `storage`, `fileSystemType`, `luksCipher`, `luksCipherMode`,
-`luksVolumeKeySize`.
+`blobDirectory`, `imagePath`, `homeDirectory`, `partitionUuid`, `luksUuid`,
+`fileSystemUuid`, `uid`, `gid`, `storage`, `fileSystemType`, `luksCipher`,
+`luksCipherMode`, `luksVolumeKeySize`.
 
 ## Fields in the `status` section
 
@@ -1087,6 +1087,7 @@ A fully featured user record associated with a home directory managed by
                         "fileSystemUuid" : "758e88c8-5851-4a2a-b88f-e7474279c111",
                         "gid" : 60232,
                         "homeDirectory" : "/home/grobie",
+                        "blobDirectory" : "/var/cache/systemd/homed/grobie/",
                         "imagePath" : "/home/grobie.home",
                         "luksCipher" : "aes",
                         "luksCipherMode" : "xts-plain64",
@@ -1096,6 +1097,10 @@ A fully featured user record associated with a home directory managed by
                         "storage" : "luks",
                         "uid" : 60232
                 }
+        },
+        "blobManifest" : {
+                "avatar" : "c0636851d25a62d817ff7da4e081d1e646e42c74d0ecb53425f75fcf1ba43b52",
+                "login-background" : "da7ad0222a6edbc6cd095149c72d38d92fd3114f606e4b57469857ef47fade18"
         },
         "disposition" : "regular",
         "enforcePasswordPolicy" : false,
