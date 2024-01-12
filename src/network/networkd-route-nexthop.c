@@ -6,11 +6,97 @@
 #include "extract-word.h"
 #include "netlink-util.h"
 #include "networkd-network.h"
+#include "networkd-nexthop.h"
 #include "networkd-route.h"
 #include "networkd-route-nexthop.h"
 #include "networkd-route-util.h"
 #include "parse-util.h"
 #include "string-util.h"
+
+int multipath_route_get_link(Manager *manager, const MultipathRoute *m, Link **ret) {
+        int r;
+
+        assert(manager);
+        assert(m);
+
+        if (m->ifname) {
+                r = link_get_by_name(manager, m->ifname, ret);
+                return r < 0 ? r : 1;
+
+        } else if (m->ifindex > 0) { /* Always ignore ifindex if ifname is set. */
+                r = link_get_by_index(manager, m->ifindex, ret);
+                return r < 0 ? r : 1;
+        }
+
+        if (ret)
+                *ret = NULL;
+        return 0;
+}
+
+static bool multipath_route_is_ready_to_configure(MultipathRoute *m, Link *link, bool onlink) {
+        union in_addr_union a = m->gateway.address;
+        Link *l = NULL;
+        int r;
+
+        assert(m);
+        assert(link);
+
+        r = multipath_route_get_link(link->manager, m, &l);
+        if (r < 0)
+                return false;
+        if (r > 0)
+                link = l;
+
+        if (!link_is_ready_to_configure(link, /* allow_unmanaged = */ true))
+                return false;
+
+        /* If the interface is not managed by us, we request that the interface has carrier.
+         * That is, ConfigureWithoutCarrier=no is the default even for unamanaged interfaces. */
+        if (!link->network && !link_has_carrier(link))
+                return false;
+
+        m->ifindex = link->ifindex;
+        return gateway_is_ready(link, onlink, m->gateway.family, &a);
+}
+
+int route_nexthops_is_ready_to_configure(const Route *route, Link *link) {
+        int r;
+
+        assert(route);
+        assert(link);
+
+        Manager *manager = ASSERT_PTR(link->manager);
+
+        if (route->nexthop_id != 0) {
+                struct nexthop_grp *nhg;
+                NextHop *nh;
+
+                r = nexthop_is_ready(manager, route->nexthop_id, &nh);
+                if (r <= 0)
+                        return r;
+
+                HASHMAP_FOREACH(nhg, nh->group) {
+                        r = nexthop_is_ready(manager, nhg->id, NULL);
+                        if (r <= 0)
+                                return r;
+                }
+
+                return true;
+        }
+
+        if (route_type_is_reject(route))
+                return true;
+
+        if (ordered_set_isempty(route->multipath_routes))
+                return gateway_is_ready(link, FLAGS_SET(route->flags, RTNH_F_ONLINK), route->gw_family, &route->gw);
+
+        MultipathRoute *m;
+        ORDERED_SET_FOREACH(m, route->multipath_routes)
+                if (!multipath_route_is_ready_to_configure(m, link, FLAGS_SET(route->flags, RTNH_F_ONLINK)))
+                        return false;
+
+        return true;
+}
 
 int route_nexthops_to_string(const Route *route, char **ret) {
         _cleanup_free_ char *buf = NULL;
