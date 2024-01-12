@@ -21,7 +21,7 @@
 
   <refnamediv>
     <refname>systemd-ssh-generator</refname>
-    <refpurpose>Generator for binding a socket-activated SSH server to local <constant>AV_VSOCK</constant>
+    <refpurpose>Generator for binding a socket-activated SSH server to local <constant>AF_VSOCK</constant>
     and <constant>AF_UNIX</constant> sockets</refpurpose>
   </refnamediv>
 
@@ -33,7 +33,7 @@
     <title>Description</title>
 
     <para><command>systemd-ssh-generator</command> binds a socket-activated SSH server to local
-    <constant>AV_VSOCK</constant> and <constant>AF_UNIX</constant> sockets under certain conditions. It only
+    <constant>AF_VSOCK</constant> and <constant>AF_UNIX</constant> sockets under certain conditions. It only
     has an effect if the <citerefentry
     project="man-pages"><refentrytitle>sshd</refentrytitle><manvolnum>8</manvolnum></citerefentry> binary is
     installed. Specifically, it does the following:</para>
