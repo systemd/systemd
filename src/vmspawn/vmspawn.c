@@ -42,7 +42,7 @@ static char *arg_qemu_smp = NULL;
 static uint64_t arg_qemu_mem = 2ULL * 1024ULL * 1024ULL * 1024ULL;
 static int arg_qemu_kvm = -1;
 static int arg_qemu_vsock = -1;
-static uint64_t arg_vsock_cid = UINT64_MAX;
+static unsigned arg_vsock_cid = VMADDR_CID_ANY;
 static bool arg_qemu_gui = false;
 static int arg_secure_boot = -1;
 static MachineCredentialContext arg_credentials = {};
@@ -198,20 +198,21 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(r, "Failed to parse --qemu-vsock=%s: %m", optarg);
                         break;
 
-                case ARG_VSOCK_CID: {
-                        unsigned cid;
+                case ARG_VSOCK_CID:
                         if (isempty(optarg))
-                                cid = VMADDR_CID_ANY;
+                                arg_vsock_cid = VMADDR_CID_ANY;
                         else {
-                                r = safe_atou_bounded(optarg, 3, UINT_MAX - 1, &cid);
-                                if (r == -ERANGE)
-                                        return log_error_errno(r, "Invalid value for --vsock-cid=: %m");
+                                unsigned cid;
+
+                                r = vsock_parse_cid(optarg, &cid);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to parse --vsock-cid=%s: %m", optarg);
+                                        return log_error_errno(r, "Failed to parse --vsock-cid: %s", optarg);
+                                if (!VSOCK_CID_IS_REGULAR(cid))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Specified CID is not regular, refusing: %u", cid);
+
+                                arg_vsock_cid = cid;
                         }
-                        arg_vsock_cid = (uint64_t)cid;
                         break;
-                }
 
                 case ARG_QEMU_GUI:
                         arg_qemu_gui = true;
@@ -499,8 +500,7 @@ static int run_virtual_machine(void) {
         unsigned child_cid = VMADDR_CID_ANY;
         _cleanup_close_ int child_vsock_fd = -EBADF;
         if (use_vsock) {
-                if (arg_vsock_cid < UINT_MAX)
-                        child_cid = (unsigned)arg_vsock_cid;
+                child_cid = arg_vsock_cid;
 
                 r = vsock_fix_child_cid(&child_cid, arg_machine, &child_vsock_fd);
                 if (r < 0)
