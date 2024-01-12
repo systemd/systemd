@@ -4623,7 +4623,7 @@ int json_dispatch_full(
 
                         } else  {
                                 if (flags & JSON_ALLOW_EXTENSIONS) {
-                                        json_log(value, flags, 0, "Unrecognized object field '%s', assuming extension.", json_variant_string(key));
+                                        json_log(value, flags|JSON_DEBUG, 0, "Unrecognized object field '%s', assuming extension.", json_variant_string(key));
                                         continue;
                                 }
 
