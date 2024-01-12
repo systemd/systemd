@@ -349,6 +349,7 @@ AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u
 AuthorizedKeysCommandUser root
 UsePAM yes
 AcceptEnv PASSWORD
+LogLevel DEBUG3
 EOF
 
     cat > /run/systemd/system/mysshserver.socket <<EOF
