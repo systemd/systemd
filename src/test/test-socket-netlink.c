@@ -369,4 +369,16 @@ TEST(in_addr_port_ifindex_name_from_string_auto) {
         test_in_addr_port_ifindex_name_from_string_auto_one("[fe80::18]:53%lo#hoge.com", AF_INET6, 53, 1, "hoge.com", "[fe80::18]:53%1#hoge.com");
 }
 
+TEST(netns_get_nsid) {
+        uint32_t u;
+        int r;
+
+        r = netns_get_nsid(-EBADF, &u);
+        assert_se(r == -ENODATA || r >= 0);
+        if (r == -ENODATA)
+                log_info("Our network namespace has no NSID assigned.");
+        else
+                log_info("Our NSID is %" PRIu32, u);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
