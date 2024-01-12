@@ -4247,12 +4247,12 @@ int manager_start_scope(
                 const PidRef *pidref,
                 const char *slice,
                 const char *description,
-                char **wants,
-                char **after,
+                const char* const *requires,
+                const char* const *after,
                 const char *requires_mounts_for,
                 sd_bus_message *more_properties,
                 sd_bus_error *error,
-                char **job) {
+                char **ret_job) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         int r;
@@ -4260,7 +4260,7 @@ int manager_start_scope(
         assert(manager);
         assert(scope);
         assert(pidref_is_set(pidref));
-        assert(job);
+        assert(ret_job);
 
         r = bus_message_new_method_call(manager->bus, &m, bus_systemd_mgr, "StartTransientUnit");
         if (r < 0)
@@ -4286,8 +4286,8 @@ int manager_start_scope(
                         return r;
         }
 
-        STRV_FOREACH(i, wants) {
-                r = sd_bus_message_append(m, "(sv)", "Wants", "as", 1, *i);
+        STRV_FOREACH(i, requires) {
+                r = sd_bus_message_append(m, "(sv)", "Requires", "as", 1, *i);
                 if (r < 0)
                         return r;
         }
@@ -4344,7 +4344,7 @@ int manager_start_scope(
         if (r < 0)
                 return r;
 
-        return strdup_job(reply, job);
+        return strdup_job(reply, ret_job);
 }
 
 int manager_start_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job) {
