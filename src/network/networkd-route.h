@@ -53,6 +53,9 @@ struct Route {
         int gateway_onlink; /* Only used in conf parser and route_section_verify(). */
         uint32_t nexthop_id;
 
+        /* nexthops */
+        OrderedSet *nexthops; /* RTA_MULTIPATH */
+
         /* metrics (RTA_METRICS) */
         RouteMetric metric;
 
@@ -75,7 +78,6 @@ struct Route {
         union in_addr_union dst;
         union in_addr_union src;
         union in_addr_union prefsrc;
-        OrderedSet *multipath_routes;
 };
 
 extern const struct hash_ops route_hash_ops;
