@@ -278,6 +278,9 @@ bool address_is_ready(const Address *a) {
         assert(a);
         assert(a->link);
 
+        if (address_get_request(a->link, a, NULL) >= 0)
+                return false;
+
         if (!ipv4acd_bound(a->link, a))
                 return false;
 
@@ -849,7 +852,7 @@ static bool address_match_null(const Address *a, const Address *null_address) {
         return true;
 }
 
-static int address_get_request(Link *link, const Address *address, Request **ret) {
+int address_get_request(Link *link, const Address *address, Request **ret) {
         Request *req;
 
         assert(link);
