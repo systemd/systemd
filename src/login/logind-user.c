@@ -497,15 +497,15 @@ int user_start(User *u) {
         return 0;
 }
 
-static void user_stop_service(User *u, bool force) {
+static void user_stop_service_manager(User *u, bool force) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(u);
         assert(u->service);
 
-        /* The reverse of user_start_service(). Note that we only stop user@UID.service here, and let StopWhenUnneeded=
-         * deal with the slice and the user-runtime-dir@.service instance. */
+        /* The reverse of user_start_service_manager(). Note that we only stop user@UID.service here, and
+         * let StopWhenUnneeded= deal with the slice and the user-runtime-dir@.service instance. */
 
         u->service_job = mfree(u->service_job);
 
@@ -540,7 +540,7 @@ int user_stop(User *u, bool force) {
                         r = k;
         }
 
-        user_stop_service(u, force);
+        user_stop_service_manager(u, force);
 
         u->stopping = true;
 
