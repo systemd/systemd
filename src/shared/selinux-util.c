@@ -39,8 +39,6 @@ typedef enum Initialized {
         LAZY_INITIALIZED,
 } Initialized;
 
-static int mac_selinux_reload(int seqno);
-
 static int cached_use = -1;
 static Initialized initialized = UNINITIALIZED;
 static int last_policyload = 0;
@@ -214,6 +212,16 @@ int mac_selinux_init_lazy(void) {
         return 0;
 }
 
+#if HAVE_SELINUX
+static int mac_selinux_reload(int seqno) {
+        log_debug("SELinux reload %d", seqno);
+
+        (void) open_label_db();
+
+        return 0;
+}
+#endif
+
 void mac_selinux_maybe_reload(void) {
 #if HAVE_SELINUX
         int policyload;
@@ -255,16 +263,6 @@ void mac_selinux_finish(void) {
         initialized = false;
 #endif
 }
-
-#if HAVE_SELINUX
-static int mac_selinux_reload(int seqno) {
-        log_debug("SELinux reload %d", seqno);
-
-        (void) open_label_db();
-
-        return 0;
-}
-#endif
 
 #if HAVE_SELINUX
 static int selinux_fix_fd(
