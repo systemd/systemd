@@ -675,7 +675,6 @@ static int run_virtual_machine(void) {
                 _exit(EXIT_FAILURE);
         }
 
-
         int exit_status = INT_MAX;
         if (use_vsock) {
                 r = setup_notify_parent(event, vsock_fd, &exit_status, &notify_event_source);
@@ -713,7 +712,7 @@ static int determine_names(void) {
         int r;
 
         if (!arg_image)
-                return log_error_errno(SYNTHETIC_ERRNO(-EINVAL), "Missing required argument -i/--image=, quitting");
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Missing required argument -i/--image=, quitting");
 
         if (!arg_machine) {
                 char *e;
