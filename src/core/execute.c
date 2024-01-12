@@ -404,8 +404,8 @@ int exec_spawn(Unit *unit,
          * child's memory.max, serialize all the state needed to start the unit, and pass it to the
          * systemd-executor binary. clone() with CLONE_VM + CLONE_VFORK will pause the parent until the exec
          * and ensure all memory is shared. The child immediately execs the new binary so the delay should
-         * be minimal. Once glibc provides a clone3 wrapper we can switch to that, and clone directly in the
-         * target cgroup. */
+         * be minimal. If glibc 2.39 is available pidfd_spawn() is used in order to get a race-free pid fd
+         * and to clone directly into the target cgroup (if we booted with cgroupv2). */
 
         r = open_serialization_file("sd-executor-state", &f);
         if (r < 0)
@@ -451,6 +451,7 @@ int exec_spawn(Unit *unit,
                                   "--log-level", log_level,
                                   "--log-target", log_target_to_string(manager_get_executor_log_target(unit->manager))),
                         environ,
+                        cg_unified() > 0 ? subcgroup_path : NULL,
                         &pidref);
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to spawn executor: %m");
