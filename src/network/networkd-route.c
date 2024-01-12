@@ -529,9 +529,9 @@ void link_mark_routes(Link *link, NetworkConfigSource source) {
 }
 
 static void log_route_debug(const Route *route, const char *str, const Link *link, const Manager *manager) {
-        _cleanup_free_ char *state = NULL, *gw_alloc = NULL, *prefsrc = NULL,
+        _cleanup_free_ char *state = NULL, *nexthop = NULL, *prefsrc = NULL,
                 *table = NULL, *scope = NULL, *proto = NULL, *flags = NULL;
-        const char *gw = NULL, *dst, *src;
+        const char *dst, *src;
 
         assert(route);
         assert(str);
@@ -549,32 +549,8 @@ static void log_route_debug(const Route *route, const char *str, const Link *lin
         src = in_addr_is_set(route->family, &route->src) || route->src_prefixlen > 0 ?
                 IN_ADDR_PREFIX_TO_STRING(route->family, &route->src, route->src_prefixlen) : NULL;
 
-        if (in_addr_is_set(route->gw_family, &route->gw)) {
-                (void) in_addr_to_string(route->gw_family, &route->gw, &gw_alloc);
-                gw = gw_alloc;
-        } else if (route->gateway_from_dhcp_or_ra) {
-                if (route->gw_family == AF_INET)
-                        gw = "_dhcp4";
-                else if (route->gw_family == AF_INET6)
-                        gw = "_ipv6ra";
-        } else {
-                MultipathRoute *m;
+        (void) route_nexthops_to_string(route, &nexthop);
 
-                ORDERED_SET_FOREACH(m, route->multipath_routes) {
-                        _cleanup_free_ char *buf = NULL;
-                        union in_addr_union a = m->gateway.address;
-
-                        (void) in_addr_to_string(m->gateway.family, &a, &buf);
-                        (void) strextend_with_separator(&gw_alloc, ",", strna(buf));
-                        if (m->ifname)
-                                (void) strextend(&gw_alloc, "@", m->ifname);
-                        else if (m->ifindex > 0)
-                                (void) strextendf(&gw_alloc, "@%i", m->ifindex);
-                        /* See comments in config_parse_multipath_route(). */
-                        (void) strextendf(&gw_alloc, ":%"PRIu32, m->weight + 1);
-                }
-                gw = gw_alloc;
-        }
         if (in_addr_is_set(route->family, &route->prefsrc))
                 (void) in_addr_to_string(route->family, &route->prefsrc, &prefsrc);
         (void) route_scope_to_string_alloc(route->scope, &scope);
@@ -583,13 +559,13 @@ static void log_route_debug(const Route *route, const char *str, const Link *lin
         (void) route_flags_to_string_alloc(route->flags, &flags);
 
         log_link_debug(link,
-                       "%s %s route (%s): dst: %s, src: %s, gw: %s, prefsrc: %s, scope: %s, table: %s, "
-                       "proto: %s, type: %s, nexthop: %"PRIu32", priority: %"PRIu32", flags: %s",
+                       "%s %s route (%s): dst: %s, src: %s, %s, prefsrc: %s, "
+                       "table: %s, priority: %"PRIu32", "
+                       "proto: %s, scope: %s, type: %s, flags: %s",
                        str, strna(network_config_source_to_string(route->source)), strna(state),
-                       strna(dst), strna(src), strna(gw), strna(prefsrc),
-                       strna(scope), strna(table), strna(proto),
-                       strna(route_type_to_string(route->type)),
-                       route->nexthop_id, route->priority, strna(flags));
+                       strna(dst), strna(src), strna(nexthop), strna(prefsrc),
+                       strna(table), route->priority,
+                       strna(proto), strna(scope), strna(route_type_to_string(route->type)), strna(flags));
 }
 
 static int route_set_netlink_message(const Route *route, sd_netlink_message *req, Link *link) {
