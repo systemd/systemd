@@ -354,26 +354,6 @@ static void route_apply_multipath_route(Route *route, const MultipathRoute *m) {
         route->gw_weight = m->weight;
 }
 
-static int multipath_route_get_link(Manager *manager, const MultipathRoute *m, Link **ret) {
-        int r;
-
-        assert(manager);
-        assert(m);
-
-        if (m->ifname) {
-                r = link_get_by_name(manager, m->ifname, ret);
-                return r < 0 ? r : 1;
-
-        } else if (m->ifindex > 0) { /* Always ignore ifindex if ifname is set. */
-                r = link_get_by_index(manager, m->ifindex, ret);
-                return r < 0 ? r : 1;
-        }
-
-        if (ret)
-                *ret = NULL;
-        return 0;
-}
-
 typedef struct ConvertedRoutes {
         size_t n;
         Route **routes;
@@ -1064,51 +1044,13 @@ static int route_is_ready_to_configure(const Route *route, Link *link) {
         if (set_size(link->routes) >= routes_max())
                 return false;
 
-        if (route->nexthop_id > 0) {
-                struct nexthop_grp *nhg;
-                NextHop *nh;
-
-                r = nexthop_is_ready(link->manager, route->nexthop_id, &nh);
-                if (r <= 0)
-                        return r;
-
-                HASHMAP_FOREACH(nhg, nh->group) {
-                        r = nexthop_is_ready(link->manager, nhg->id, NULL);
-                        if (r <= 0)
-                                return r;
-                }
-        }
-
         if (in_addr_is_set(route->family, &route->prefsrc) > 0) {
                 r = manager_has_address(link->manager, route->family, &route->prefsrc);
                 if (r <= 0)
                         return r;
         }
 
-        if (!gateway_is_ready(link, FLAGS_SET(route->flags, RTNH_F_ONLINK), route->gw_family, &route->gw))
-                return false;
-
-        MultipathRoute *m;
-        ORDERED_SET_FOREACH(m, route->multipath_routes) {
-                union in_addr_union a = m->gateway.address;
-                Link *l = NULL;
-
-                r = multipath_route_get_link(link->manager, m, &l);
-                if (r < 0)
-                        return false;
-                if (r > 0) {
-                        if (!link_is_ready_to_configure(l, /* allow_unmanaged = */ true) ||
-                            !link_has_carrier(l))
-                                return false;
-
-                        m->ifindex = l->ifindex;
-                }
-
-                if (!gateway_is_ready(l ?: link, FLAGS_SET(route->flags, RTNH_F_ONLINK), m->gateway.family, &a))
-                        return false;
-        }
-
-        return true;
+        return route_nexthops_is_ready_to_configure(route, link);
 }
 
 static int route_process_request(Request *req, Link *link, Route *route) {
