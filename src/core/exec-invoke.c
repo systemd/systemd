@@ -4052,6 +4052,30 @@ int exec_invoke(
         assert(params);
         assert(exit_status);
 
+        /* Journald will try to look-up our cgroup in order to populate _SYSTEMD_CGROUP and _SYSTEMD_UNIT fields.
+         * Hence we need to migrate to the target cgroup from init.scope before connecting to journald */
+        if (params->cgroup_path) {
+                _cleanup_free_ char *p = NULL;
+
+                r = exec_params_get_cgroup_path(params, cgroup_context, &p);
+                if (r < 0) {
+                        *exit_status = EXIT_CGROUP;
+                        return log_exec_error_errno(context, params, r, "Failed to acquire cgroup path: %m");
+                }
+
+                r = cg_attach_everywhere(params->cgroup_supported, p, 0, NULL, NULL);
+                if (r == -EUCLEAN) {
+                        *exit_status = EXIT_CGROUP;
+                        return log_exec_error_errno(context, params, r, "Failed to attach process to cgroup %s "
+                                                    "because the cgroup or one of its parents or "
+                                                    "siblings is in the threaded mode: %m", p);
+                }
+                if (r < 0) {
+                        *exit_status = EXIT_CGROUP;
+                        return log_exec_error_errno(context, params, r, "Failed to attach to cgroup %s: %m", p);
+                }
+        }
+
         /* This should be mostly redundant, as the log level is also passed as an argument of the executor,
          * and is already applied earlier. Just for safety. */
         if (context->log_level_max >= 0)
@@ -4275,30 +4299,6 @@ int exec_invoke(
         /* If a socket is connected to STDIN/STDOUT/STDERR, we must drop O_NONBLOCK */
         if (socket_fd >= 0)
                 (void) fd_nonblock(socket_fd, false);
-
-        /* Journald will try to look-up our cgroup in order to populate _SYSTEMD_CGROUP and _SYSTEMD_UNIT fields.
-         * Hence we need to migrate to the target cgroup from init.scope before connecting to journald */
-        if (params->cgroup_path) {
-                _cleanup_free_ char *p = NULL;
-
-                r = exec_params_get_cgroup_path(params, cgroup_context, &p);
-                if (r < 0) {
-                        *exit_status = EXIT_CGROUP;
-                        return log_exec_error_errno(context, params, r, "Failed to acquire cgroup path: %m");
-                }
-
-                r = cg_attach_everywhere(params->cgroup_supported, p, 0, NULL, NULL);
-                if (r == -EUCLEAN) {
-                        *exit_status = EXIT_CGROUP;
-                        return log_exec_error_errno(context, params, r, "Failed to attach process to cgroup %s "
-                                                    "because the cgroup or one of its parents or "
-                                                    "siblings is in the threaded mode: %m", p);
-                }
-                if (r < 0) {
-                        *exit_status = EXIT_CGROUP;
-                        return log_exec_error_errno(context, params, r, "Failed to attach to cgroup %s: %m", p);
-                }
-        }
 
         if (context->network_namespace_path && runtime && runtime->shared && runtime->shared->netns_storage_socket[0] >= 0) {
                 r = open_shareable_ns_path(runtime->shared->netns_storage_socket, context->network_namespace_path, CLONE_NEWNET);
