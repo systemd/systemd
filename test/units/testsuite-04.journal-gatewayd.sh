@@ -142,3 +142,37 @@ curl -Lfsk https://localhost:19531/machine | jq
 curl -Lfsk https://localhost:19531/fields/_TRANSPORT
 
 kill "$GATEWAYD_PID"
+
+# Test a couple of error scenarios
+GATEWAYD_FILE="$(mktemp /tmp/test-gatewayd-XXX.journal)"
+
+/usr/lib/systemd/systemd-journal-remote --output="$GATEWAYD_FILE" --getter="journalctl -n5 -o export"
+systemd-run --unit="test-gatewayd.service" --socket-property="ListenStream=19531" \
+            /usr/lib/systemd/systemd-journal-gatewayd --file="$GATEWAYD_FILE"
+
+# Call an unsupported endpoint together with some garbage data - gatewayd should not send garbage in return
+# See: https://github.com/systemd/systemd/issues/9858
+OUT="$(mktemp)"
+for _ in {0..4}; do
+    curl --fail-with-body -d "plese process this🐱 $RANDOM" -L http://localhost:19531/upload | tee "$OUT"
+    (! grep '[^[:print:]]' "$OUT")
+done
+curl --fail-with-body --upload-file "$GATEWAYD_FILE" -L http://localhost:19531/upload | tee "$OUT"
+(! grep '[^[:print:]]' "$OUT")
+rm -rf "$OUT"
+
+curl -Lfs http://localhost:19531/browse | grep -qF "<title>Journal</title>"
+# Nuke the file behind the /browse endpoint
+mv /usr/share/systemd/gatewayd/browse.html /usr/share/systemd/gatewayd/browse.html.bak
+(! curl --fail-with-body -L http://localhost:19531/browse)
+mv /usr/share/systemd/gatewayd/browse.html.bak /usr/share/systemd/gatewayd/browse.html
+curl -Lfs http://localhost:19531/browse | grep -qF "<title>Journal</title>"
+
+# Nuke the journal file
+mv "$GATEWAYD_FILE" "$GATEWAYD_FILE.bak"
+(! curl --fail-with-body -L http://localhost:19531/fields/_PID)
+mv "$GATEWAYD_FILE.bak" "$GATEWAYD_FILE"
+curl -Lfs http://localhost:19531/fields/_PID
+
+systemctl stop test-gatewayd.{socket,service}
+rm -f "$GATEWAYD_FILE"
