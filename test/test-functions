@@ -120,6 +120,7 @@ SYSTEMD="${SYSTEMD:-$(command -v "$BUILD_DIR/systemd" || command -v "$ROOTLIBDIR
 SYSTEMD_NSPAWN="${SYSTEMD_NSPAWN:-$(command -v "$BUILD_DIR/systemd-nspawn" || command -v systemd-nspawn)}"
 JOURNALCTL="${JOURNALCTL:-$(command -v "$BUILD_DIR/journalctl" || command -v journalctl)}"
 SYSTEMCTL="${SYSTEMCTL:-$(command -v "$BUILD_DIR/systemctl" || command -v systemctl)}"
+SYSTEMD_ID128="${SYSTEMD_ID128:-$(command -v "$BUILD_DIR/systemd-id128" || command -v systemd-id128)}"
 
 TESTFILE="${BASH_SOURCE[1]}"
 if [ -z "$TESTFILE" ]; then
@@ -1653,7 +1654,7 @@ create_empty_image() {
     sfdisk "$LOOPDEV" <<EOF
 label: gpt
 type=C12A7328-F81F-11D2-BA4B-00A0C93EC93B name=esp  size=${esp_size}M
-type=$(systemd-id128 show root -Pu) name=root size=${root_size}M bootable
+type=$("${SYSTEMD_ID128:?}" show root -Pu) name=root size=${root_size}M bootable
 type=BC13C2FF-59E6-4262-A352-B275FD6F7172 name=boot size=${boot_size}M
 type=0FC63DAF-8483-4772-8E79-3D69D8477DE4 name=data
 EOF
