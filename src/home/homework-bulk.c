@@ -122,31 +122,31 @@ int home_reconcile_bulk_dirs(UserRecord *h, int root_fd, int reconciled) {
         if (reconciled == USER_RECONCILE_IDENTICAL)
                 return 0;
 
-        sys_path = path_join(home_system_bulk_dir(), h->user_name);
+        sys_path = path_join(home_system_blob_dir(), h->user_name);
         if (!sys_path)
                 return log_oom();
         sys_fd = open(sys_path, O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOFOLLOW);
         if (sys_fd < 0)
-                return log_error_errno(errno, "Failed to open system bulk dir %s: %m", sys_path);
+                return log_error_errno(errno, "Failed to open system blob dir %s: %m", sys_path);
 
-        embedded_fd = open_mkdir_at(root_fd, ".identity/bulk", O_CLOEXEC, 0700);
+        embedded_fd = open_mkdir_at(root_fd, ".identity/blob", O_CLOEXEC, 0700);
         if (embedded_fd < 0)
-                return log_error_errno(embedded_fd, "Failed to create/open embedded bulk dir: %m");
+                return log_error_errno(embedded_fd, "Failed to create/open embedded blob dir: %m");
 
         if (reconciled == USER_RECONCILE_HOST_WON) {
-                r = overwrite_bulk(sys_fd, embedded_fd, h->uid);
+                r = overwrite_blob(sys_fd, embedded_fd, h->uid);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to replace embedded bulk with system bulk: %m");
+                        return log_error_errno(r, "Failed to replace embedded blob with system blob: %m");
 
-                log_info("Replaced embedded bulk dir with contents of system bulk dir.");
+                log_info("Replaced embedded blob dir with contents of system blob dir.");
         } else {
                 assert(reconciled == USER_RECONCILE_EMBEDDED_WON);
 
-                r = overwrite_bulk(embedded_fd, sys_fd, 0);
+                r = overwrite_blob(embedded_fd, sys_fd, 0);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to replace system bulk with embedded bulk: %m");
+                        return log_error_errno(r, "Failed to replace system blob with embedded blob: %m");
 
-                log_info("Replaced system bulk dir with contents of embedded bulk dir.");
+                log_info("Replaced system blob dir with contents of embedded blob dir.");
         }
         return 0;
 }
