@@ -1835,9 +1835,9 @@ static int start_transient_service(sd_bus *bus) {
 
                         const char *ip_ingress = NULL, *ip_egress = NULL;
 
-                        if (c.ip_ingress_bytes != UINT64_MAX)
+                        if (!IN_SET(c.ip_ingress_bytes, 0, UINT64_MAX))
                                 ip_ingress = strjoina(" received: ", FORMAT_BYTES(c.ip_ingress_bytes));
-                        if (c.ip_egress_bytes != UINT64_MAX)
+                        if (!IN_SET(c.ip_egress_bytes, 0, UINT64_MAX))
                                 ip_egress = strjoina(" sent: ", FORMAT_BYTES(c.ip_egress_bytes));
 
                         if (ip_ingress || ip_egress)
@@ -1845,9 +1845,9 @@ static int start_transient_service(sd_bus *bus) {
 
                         const char *io_read = NULL, *io_write = NULL;
 
-                        if (c.io_read_bytes != UINT64_MAX)
+                        if (!IN_SET(c.io_read_bytes, 0, UINT64_MAX))
                                 io_read = strjoina(" read: %s", FORMAT_BYTES(c.io_read_bytes));
-                        if (c.io_write_bytes != UINT64_MAX)
+                        if (!IN_SET(c.io_write_bytes, 0, UINT64_MAX))
                                 io_write = strjoina(" written: %s", FORMAT_BYTES(c.io_write_bytes));
 
                         if (io_read || io_write)
