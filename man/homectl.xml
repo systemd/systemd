@@ -507,21 +507,21 @@
       </varlistentry>
 
     <varlistentry>
-        <term><option>--bulk-directory=</option><replaceable>PATH</replaceable></term>
+        <term><option>--blob-directory=</option><replaceable>PATH</replaceable></term>
         <term><option>-b</option> <replaceable>PATH</replaceable></term>
-        <term><option>--bulk-directory=</option><replaceable>FILENAME</replaceable>=<replaceable>PATH</replaceable></term>
+        <term><option>--blob-directory=</option><replaceable>FILENAME</replaceable>=<replaceable>PATH</replaceable></term>
         <term><option>-b</option> <replaceable>FILENAME</replaceable>=<replaceable>PATH</replaceable></term>
 
         <listitem><para>Accepts either a directory path, or a file name followed by a file path. If just a
-        directory path is specified, then the user's entire bulk directory is replaced the specified path.
+        directory path is specified, then the user's entire blob directory is replaced the specified path.
         Note that this replacement is performed before per-file manipulations are applied, which means these per-file
         manipulations will be applied on top of the specified directory. If a filename and file path are specified, then
-        the single specified file in the bulk directory will be overwritten with the specified path. If completely
-        blank, all changes to the bulk directory up to this point are reset. If a filename is specified but the corresponding
-        file path is blank, that single file will be deleted from the bulk directory. All changes are performed in temporary
+        the single specified file in the blob directory will be overwritten with the specified path. If completely
+        blank, all changes to the blob directory up to this point are reset. If a filename is specified but the corresponding
+        file path is blank, that single file will be deleted from the blob directory. All changes are performed in temporary
         copies of the specified files and directories, which means that the originals are not modified. See
-        <ulink url="https://systemd.io/USER_RECORD_BULK_DIRS">User Record Bulk Directories</ulink> for more information
-        about bulk directories.</para>
+        <ulink url="https://systemd.io/USER_RECORD_BLOB_DIRS">User Record Blob Directories</ulink> for more information
+        about blob directories.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
@@ -531,11 +531,11 @@
         <term><option>--login-background=</option><replaceable>PATH</replaceable></term>
 
         <listitem><para>Accept a file path. If set, the specifified file is used to overwrite the
-        corresponding file in the user's bulk directory. If blank, the corresponding file is deleted
-        from the bulk directory. Essentially, these options are shortcuts to
-        <option>--bulk-directory=</option><replaceable>FILENAME</replaceable>=<replaceable>PATH</replaceable>
+        corresponding file in the user's blob directory. If blank, the corresponding file is deleted
+        from the blob directory. Essentially, these options are shortcuts to
+        <option>--blob-directory=</option><replaceable>FILENAME</replaceable>=<replaceable>PATH</replaceable>
         for the known filenames defined in
-        <ulink url="https://systemd.io/USER_RECORD_BULK_DIRS">User Record Bulk Directories</ulink>.</para>
+        <ulink url="https://systemd.io/USER_RECORD_BLOB_DIRS">User Record Blob Directories</ulink>.</para>
 
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>

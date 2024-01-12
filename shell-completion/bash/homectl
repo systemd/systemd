@@ -107,7 +107,7 @@ _homectl() {
                         --stop-delay
                         --kill-processes
                         --auto-login
-                     -b --bulk-directory
+                     -b --blob-directory
                         --avatar
                         --login-background'
     )
@@ -133,7 +133,7 @@ _homectl() {
             --locked|--enforce-password-policy|--password-change-now|--luks-discard|--luks-offline-discard|--nosuid|--nodev|--noexec|--kill-processes|--auto-login)
                 comps='yes no'
                 ;;
-            -d|--home-dir|--skel|-b|--bulk-directory)
+            -d|--home-dir|--skel|-b|--blob-directory)
                 comps=$(compgen -A directory -- "$cur" )
                 compopt -o dirnames
                 ;;

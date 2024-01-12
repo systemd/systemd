@@ -90,8 +90,8 @@ static enum {
 static uint64_t arg_capability_bounding_set = UINT64_MAX;
 static uint64_t arg_capability_ambient_set = UINT64_MAX;
 static bool arg_prompt_new_user = false;
-static char *arg_bulk_dir = NULL;
-static Hashmap *arg_bulk_files = NULL;
+static char *arg_blob_dir = NULL;
+static Hashmap *arg_blob_files = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra, json_variant_unrefp);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_extra_this_machine, json_variant_unrefp);
@@ -101,9 +101,9 @@ STATIC_DESTRUCTOR_REGISTER(arg_identity_filter, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_identity_filter_rlimits, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_pkcs11_token_uri, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_fido2_device, strv_freep);
-STATIC_DESTRUCTOR_REGISTER(arg_bulk_files, hashmap_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_blob_files, hashmap_freep);
 
-DEFINE_PRIVATE_HASH_OPS_FULL(bulk_hash_ops, char, path_hash_func, path_compare, free, void, close_fd_ptr);
+DEFINE_PRIVATE_HASH_OPS_FULL(blob_hash_ops, char, path_hash_func, path_compare, free, void, close_fd_ptr);
 
 static const BusLocator *bus_mgr;
 
@@ -118,8 +118,8 @@ static bool identity_properties_specified(void) {
                 !strv_isempty(arg_identity_filter_rlimits) ||
                 !strv_isempty(arg_pkcs11_token_uri) ||
                 !strv_isempty(arg_fido2_device) ||
-                arg_bulk_dir ||
-                !hashmap_isempty(arg_bulk_files);
+                arg_blob_dir ||
+                !hashmap_isempty(arg_blob_files);
 }
 
 static int acquire_bus(sd_bus **bus) {
@@ -1093,39 +1093,39 @@ static int apply_identity_changes(JsonVariant **_v) {
         return 0;
 }
 
-static int apply_bulk_dir_changes(JsonVariant **v, bool new, char **ret_tmpdir) {
+static int apply_blob_dir_changes(JsonVariant **v, bool new, char **ret_tmpdir) {
         _cleanup_(rm_rf_physical_and_freep) char *tmpdir = NULL;
-        _cleanup_free_ char *sys_bulk_path = NULL;
+        _cleanup_free_ char *sys_blob_path = NULL;
         _cleanup_close_ int tmp_dfd = -EBADF;
-        const char *src_bulk_path, *filename;
+        const char *src_blob_path, *filename;
         void *f;
         int r;
 
         assert(v);
         assert(ret_tmpdir);
 
-        if (hashmap_isempty(arg_bulk_files)) {
+        if (hashmap_isempty(arg_blob_files)) {
                 /* Shortcut: No need to copy anything if we were either not told to do anything
                  * or are only replacing the directory wholesale */
-                if (arg_bulk_dir) {
-                        r = json_variant_set_field_string(v, "bulkDirectory", arg_bulk_dir);
+                if (arg_blob_dir) {
+                        r = json_variant_set_field_string(v, "blobDirectory", arg_blob_dir);
                         if (r < 0)
-                                return log_debug_errno(r, "Failed to set bulkDirectory field: %m");
+                                return log_debug_errno(r, "Failed to set blobDirectory field: %m");
                 }
                 return 0;
         }
 
         tmp_dfd = mkdtemp_open(NULL, 0, &tmpdir);
         if (tmp_dfd < 0)
-                return log_debug_errno(tmp_dfd, "Failed to open bulk tmpdir: %m");
+                return log_debug_errno(tmp_dfd, "Failed to open blob tmpdir: %m");
 
-        if (arg_bulk_dir)
-                src_bulk_path = arg_bulk_dir;
+        if (arg_blob_dir)
+                src_blob_path = arg_blob_dir;
         else if (!new) {
                 JsonVariant *un;
 
                 /* The correct thing to do here is parse the JSON and read whichever
-                 * bulkDirectory field is set. However, that is more complicated than
+                 * blobDirectory field is set. However, that is more complicated than
                  * the code here, and homectl only ever deals with homed-managed users.
                  * This approach is also a bit more robust about the user specifying their
                  * own replacement records via --identity. */
@@ -1134,42 +1134,42 @@ static int apply_bulk_dir_changes(JsonVariant **v, bool new, char **ret_tmpdir) 
                 if (!un)
                         return log_debug_errno(SYNTHETIC_ERRNO(EINVAL), "User record missing userName");
 
-                sys_bulk_path = path_join(home_system_bulk_dir(), json_variant_string(un));
-                if (!sys_bulk_path)
+                sys_blob_path = path_join(home_system_blob_dir(), json_variant_string(un));
+                if (!sys_blob_path)
                         return log_oom();
 
-                src_bulk_path = sys_bulk_path;
+                src_blob_path = sys_blob_path;
         } else
-                src_bulk_path = NULL;
+                src_blob_path = NULL;
 
-        if (src_bulk_path) {
-                r = copy_directory_at(AT_FDCWD, src_bulk_path, tmp_dfd, ".", COPY_MERGE|COPY_SAME_MOUNT);
+        if (src_blob_path) {
+                r = copy_directory_at(AT_FDCWD, src_blob_path, tmp_dfd, ".", COPY_MERGE|COPY_SAME_MOUNT);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to populate bulk dir with %s: %m", src_bulk_path);
+                        return log_error_errno(r, "Failed to populate blob dir with %s: %m", src_blob_path);
         }
 
-        HASHMAP_FOREACH_KEY(f, filename, arg_bulk_files) {
+        HASHMAP_FOREACH_KEY(f, filename, arg_blob_files) {
                 int fd = PTR_TO_FD(f);
 
                 if (fd == -EBADF) {
                         if (unlinkat(tmp_dfd, filename, 0) < 0)
-                                return log_error_errno(errno, "Failed to delete %s from bulk dir: %m", filename);
+                                return log_error_errno(errno, "Failed to delete %s from blob dir: %m", filename);
                 } else {
                         _cleanup_close_ int dest = -EBADF;
 
                         dest = openat(tmp_dfd, filename, O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, 0644);
                         if (dest < 0)
-                                return log_error_errno(errno, "Failed to create/open %s in bulk dir: %m", filename);
+                                return log_error_errno(errno, "Failed to create/open %s in blob dir: %m", filename);
 
                         r = copy_bytes(fd, dest, UINT64_MAX, 0);
                         if (r < 0)
-                                return log_error_errno(r, "Failed to write %s in bulk dir: %m", filename);
+                                return log_error_errno(r, "Failed to write %s in blob dir: %m", filename);
                 }
         }
 
-        r = json_variant_set_field_string(v, "bulkDirectory", tmpdir);
+        r = json_variant_set_field_string(v, "blobDirectory", tmpdir);
         if (r < 0)
-                return log_debug_errno(r, "Failed to set bulkDirectory field: %m");
+                return log_debug_errno(r, "Failed to set blobDirectory field: %m");
 
         *ret_tmpdir = TAKE_PTR(tmpdir);
         return 0;
@@ -1191,14 +1191,14 @@ static int add_disposition(JsonVariant **v) {
         return 1;
 }
 
-static int acquire_new_home_record(JsonVariant *input, UserRecord **ret, char **ret_bulk_tmpdir) {
+static int acquire_new_home_record(JsonVariant *input, UserRecord **ret, char **ret_blob_tmpdir) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
-        _cleanup_(rm_rf_physical_and_freep) char *bulk_tmpdir = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *blob_tmpdir = NULL;
         int r;
 
         assert(ret);
-        assert(ret_bulk_tmpdir);
+        assert(ret_blob_tmpdir);
 
         if (arg_identity) {
                 unsigned line, column;
@@ -1218,7 +1218,7 @@ static int acquire_new_home_record(JsonVariant *input, UserRecord **ret, char **
         if (r < 0)
                 return r;
 
-        r = apply_bulk_dir_changes(&v, true, &bulk_tmpdir);
+        r = apply_blob_dir_changes(&v, true, &blob_tmpdir);
         if (r < 0)
                 return r;
 
@@ -1271,7 +1271,7 @@ static int acquire_new_home_record(JsonVariant *input, UserRecord **ret, char **
                 return r;
 
         *ret = TAKE_PTR(hr);
-        *ret_bulk_tmpdir = TAKE_PTR(bulk_tmpdir);
+        *ret_blob_tmpdir = TAKE_PTR(blob_tmpdir);
         return 0;
 }
 
@@ -1371,7 +1371,7 @@ static int acquire_new_password(
 static int create_home_common(JsonVariant *input) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
-        _cleanup_(rm_rf_physical_and_freep) char *bulk_tmpdir = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *blob_tmpdir = NULL;
         int r;
 
         r = acquire_bus(&bus);
@@ -1380,7 +1380,7 @@ static int create_home_common(JsonVariant *input) {
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        r = acquire_new_home_record(input, &hr, &bulk_tmpdir);
+        r = acquire_new_home_record(input, &hr, &blob_tmpdir);
         if (r < 0)
                 return r;
 
@@ -1539,15 +1539,15 @@ static int acquire_updated_home_record(
                 sd_bus *bus,
                 const char *username,
                 UserRecord **ret,
-                char **ret_bulk_tmpdir) {
+                char **ret_blob_tmpdir) {
 
         _cleanup_(json_variant_unrefp) JsonVariant *json = NULL;
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
-        _cleanup_(rm_rf_physical_and_freep) char *bulk_tmpdir = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *blob_tmpdir = NULL;
         int r;
 
         assert(ret);
-        assert(ret_bulk_tmpdir);
+        assert(ret_blob_tmpdir);
 
         if (arg_identity) {
                 unsigned line, column;
@@ -1607,7 +1607,7 @@ static int acquire_updated_home_record(
         if (r < 0)
                 return r;
 
-        r = apply_bulk_dir_changes(&json, false, &bulk_tmpdir);
+        r = apply_blob_dir_changes(&json, false, &blob_tmpdir);
         if (r < 0)
                 return r;
 
@@ -1641,7 +1641,7 @@ static int acquire_updated_home_record(
                 return r;
 
         *ret = TAKE_PTR(hr);
-        *ret_bulk_tmpdir = TAKE_PTR(bulk_tmpdir);
+        *ret_blob_tmpdir = TAKE_PTR(blob_tmpdir);
         return 0;
 }
 
@@ -1672,7 +1672,7 @@ static int home_record_reset_human_interaction_permission(UserRecord *hr) {
 static int update_home(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL, *secret = NULL;
-        _cleanup_(rm_rf_physical_and_freep) char *bulk_tmpdir = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *blob_tmpdir = NULL;
         _cleanup_free_ char *buffer = NULL;
         const char *username;
         int r;
@@ -1694,7 +1694,7 @@ static int update_home(int argc, char *argv[], void *userdata) {
 
         (void) polkit_agent_open_if_enabled(arg_transport, arg_ask_password);
 
-        r = acquire_updated_home_record(bus, username, &hr, &bulk_tmpdir);
+        r = acquire_updated_home_record(bus, username, &hr, &blob_tmpdir);
         if (r < 0)
                 return r;
 
@@ -2563,10 +2563,10 @@ static int help(int argc, char *argv[], void *userdata) {
                "                               Whether to require user verification to unlock\n"
                "                               the account\n"
                "     --recovery-key=BOOL       Add a recovery key\n"
-               "\n%4$sBulk Directory User Record Properties:%5$s\n"
-               "  -b --bulk-directory=[FILENAME=]PATH\n"
-               "                               Path to a replacement bulk directory, or replace\n"
-               "                               an individual files in the bulk directory.\n"
+               "\n%4$sBlob Directory User Record Properties:%5$s\n"
+               "  -b --blob-directory=[FILENAME=]PATH\n"
+               "                               Path to a replacement blob directory, or replace\n"
+               "                               an individual files in the blob directory.\n"
                "     --avatar=PATH             Path to user avatar picture\n"
                "     --login-background=PATH   Path to user login background picture\n"
                "\n%4$sAccount Management User Record Properties:%5$s\n"
@@ -2838,7 +2838,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "capability-bounding-set",     required_argument, NULL, ARG_CAPABILITY_BOUNDING_SET     },
                 { "capability-ambient-set",      required_argument, NULL, ARG_CAPABILITY_AMBIENT_SET      },
                 { "prompt-new-user",             no_argument,       NULL, ARG_PROMPT_NEW_USER             },
-                { "bulk-directory",              required_argument, NULL, 'b'                             },
+                { "blob-directory",              required_argument, NULL, 'b'                             },
                 { "avatar",                      required_argument, NULL, ARG_AVATAR                      },
                 { "login-background",            required_argument, NULL, ARG_LOGIN_BACKGROUND            },
                 {}
@@ -4138,30 +4138,30 @@ static int parse_argv(int argc, char *argv[]) {
                         if (c == 'b') {
                                 char *eq;
 
-                                if (isempty(optarg)) { /* --bulk-dir= resets everything */
-                                        hashmap_clear(arg_bulk_files);
-                                        arg_bulk_dir = NULL;
+                                if (isempty(optarg)) { /* --blob-dir= resets everything */
+                                        hashmap_clear(arg_blob_files);
+                                        arg_blob_dir = NULL;
                                         break;
                                 }
 
                                 eq = strchr(optarg, '=');
-                                if (!eq) { /* --bulk-dir=/some/path replaces the bulk dir */
-                                        r = parse_path_argument(optarg, false, &arg_bulk_dir);
+                                if (!eq) { /* --blob-dir=/some/path replaces the blob dir */
+                                        r = parse_path_argument(optarg, false, &arg_blob_dir);
                                         if (r < 0)
                                                 return log_error_errno(r, "Failed to parse path %s: %m", optarg);
 
                                         break;
                                 }
 
-                                /* --bulk-dir=filename=/some/path replaces the file "filename" with /some/path */
+                                /* --blob-dir=filename=/some/path replaces the file "filename" with /some/path */
                                 filename = strndup(optarg, eq - optarg);
                                 if (!filename)
                                         return log_oom();
 
                                 if (isempty(filename))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Can't parse bulk directory assignment: %s", optarg);
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Can't parse blob directory assignment: %s", optarg);
                                 if (!filename_is_valid(filename) || !ascii_is_valid(filename) || string_has_cc(filename, NULL))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid bulk directory filename: %s", filename);
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid blob directory filename: %s", filename);
 
                                 r = parse_path_argument(eq + 1, false, &path);
                                 if (r < 0)
@@ -4189,9 +4189,9 @@ static int parse_argv(int argc, char *argv[]) {
                         } else
                                 fd = -EBADF; /* Delete the file */
 
-                        r = hashmap_ensure_put(&arg_bulk_files, &bulk_hash_ops, filename, FD_TO_PTR(fd));
+                        r = hashmap_ensure_put(&arg_blob_files, &blob_hash_ops, filename, FD_TO_PTR(fd));
                         if (r < 0)
-                                return log_error_errno(r, "Failed to map %s to %s in bulk directory: %m", path, filename);
+                                return log_error_errno(r, "Failed to map %s to %s in blob directory: %m", path, filename);
                         TAKE_PTR(filename); /* hashmap takes ownership */
                         TAKE_FD(fd);
 
