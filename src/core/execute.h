@@ -482,7 +482,7 @@ int exec_spawn(Unit *unit,
                ExecParameters *exec_params,
                ExecRuntime *runtime,
                const CGroupContext *cgroup_context,
-               pid_t *ret);
+               PidRef *ret);
 
 void exec_command_done(ExecCommand *c);
 void exec_command_done_array(ExecCommand *c, size_t n);
