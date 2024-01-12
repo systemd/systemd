@@ -100,7 +100,7 @@ static int firmware_executable(const char *name, JsonVariant *v, JsonDispatchFla
                 {}
         };
 
-        return json_dispatch(v, table, 0, userdata);
+        return json_dispatch(v, table, flags, userdata);
 }
 
 static int firmware_nvram_template(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
@@ -110,7 +110,7 @@ static int firmware_nvram_template(const char *name, JsonVariant *v, JsonDispatc
                 {}
         };
 
-        return json_dispatch(v, table, 0, userdata);
+        return json_dispatch(v, table, flags, userdata);
 }
 
 static int firmware_mapping(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
@@ -121,7 +121,7 @@ static int firmware_mapping(const char *name, JsonVariant *v, JsonDispatchFlags 
                 {}
         };
 
-        return json_dispatch(v, table, 0, userdata);
+        return json_dispatch(v, table, flags, userdata);
 }
 
 int find_ovmf_config(int search_sb, OvmfConfig **ret) {
@@ -183,7 +183,7 @@ int find_ovmf_config(int search_sb, OvmfConfig **ret) {
                 if (!fwd)
                         return -ENOMEM;
 
-                r = json_dispatch(config_json, table, 0, fwd);
+                r = json_dispatch(config_json, table, JSON_ALLOW_EXTENSIONS, fwd);
                 if (r == -ENOMEM)
                         return r;
                 if (r < 0) {
