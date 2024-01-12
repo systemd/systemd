@@ -1511,7 +1511,7 @@ int user_record_set_rebalance_weight(UserRecord *h, uint64_t weight) {
         return 0;
 }
 
-int user_record_steal_bulk_dir(UserRecord *h, char **ret) {
+int user_record_steal_blob_dir(UserRecord *h, char **ret) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         JsonVariant *per_machine;
         int r;
@@ -1520,21 +1520,21 @@ int user_record_steal_bulk_dir(UserRecord *h, char **ret) {
         assert(h->json);
         assert(ret);
 
-        /* Returns the value of bulkDirectory in the user record, and
+        /* Returns the value of blobDirectory in the user record, and
          * removes the field from the record so it doesn't get persisted
          * anywhere */
 
-         if (!h->bulk_directory)
+         if (!h->blob_directory)
                 return -ENOENT;
 
         v = json_variant_ref(h->json);
 
-        /* Drop bulkDirectory from regular section */
-        r = json_variant_filter(&v, STRV_MAKE("bulkDirectory"));
+        /* Drop blobDirectory from regular section */
+        r = json_variant_filter(&v, STRV_MAKE("blobDirectory"));
         if (r < 0)
                 return r;
 
-        /* Drop bulkDirectory from perMachine sections that match us. */
+        /* Drop blobDirectory from perMachine sections that match us. */
         per_machine = json_variant_by_key(h->json, "perMachine");
         if (per_machine) {
                 _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
@@ -1554,7 +1554,7 @@ int user_record_steal_bulk_dir(UserRecord *h, char **ret) {
 
                         f = json_variant_ref(e);
 
-                        r = json_variant_filter(&f, STRV_MAKE("bulkDirectory"));
+                        r = json_variant_filter(&f, STRV_MAKE("blobDirectory"));
                         if (r < 0)
                                 return r;
 
@@ -1576,18 +1576,18 @@ int user_record_steal_bulk_dir(UserRecord *h, char **ret) {
                 SET_FLAG(h->mask, USER_RECORD_PER_MACHINE, !json_variant_is_blank_array(array));
         }
 
-        /* Last location bulkDirectory can be is in the status section, but
+        /* Last location blobDirectory can be is in the status section, but
          * we shouldn't have a status section here. */
         assert((h->mask & USER_RECORD_STATUS) == 0);
 
         JSON_VARIANT_REPLACE(h->json, TAKE_PTR(v));
 
-        if (path_startswith(h->bulk_directory, home_system_bulk_dir())) {
-                /* For some reason the caller specified our own system bulk dir?!? */
-                h->bulk_directory = mfree(h->bulk_directory);
+        if (path_startswith(h->blob_directory, home_system_blob_dir())) {
+                /* For some reason the caller specified our own system blob dir?!? */
+                h->blob_directory = mfree(h->blob_directory);
                 return -ENOENT;
         }
 
-        *ret = TAKE_PTR(h->bulk_directory);
+        *ret = TAKE_PTR(h->blob_directory);
         return 0;
 }

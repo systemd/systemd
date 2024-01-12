@@ -1376,7 +1376,7 @@ static int home_create(UserRecord *h, UserRecord **ret_home) {
         if (!IN_SET(r, USER_TEST_ABSENT, USER_TEST_UNDEFINED, USER_TEST_MAYBE))
                 return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Image path %s already exists, refusing.", user_record_image_path(h));
 
-        r = home_apply_new_bulk_dir(h);
+        r = home_apply_new_blob_dir(h);
         if (r < 0)
                 return r;
 
@@ -1604,7 +1604,7 @@ static int home_update(UserRecord *h, UserRecord **ret) {
         if (r < 0)
                 return r;
 
-        r = home_apply_new_bulk_dir(h);
+        r = home_apply_new_blob_dir(h);
         if (r < 0)
                 return r;
 
