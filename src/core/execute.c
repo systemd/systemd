@@ -357,13 +357,13 @@ int exec_spawn(Unit *unit,
                ExecParameters *params,
                ExecRuntime *runtime,
                const CGroupContext *cgroup_context,
-               pid_t *ret) {
+               PidRef *ret) {
 
         char serialization_fd_number[DECIMAL_STR_MAX(int) + 1];
         _cleanup_free_ char *subcgroup_path = NULL, *log_level = NULL, *executor_path = NULL;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         _cleanup_fdset_free_ FDSet *fdset = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        pid_t pid;
         int r;
 
         assert(unit);
@@ -451,21 +451,21 @@ int exec_spawn(Unit *unit,
                                   "--log-level", log_level,
                                   "--log-target", log_target_to_string(manager_get_executor_log_target(unit->manager))),
                         environ,
-                        &pid);
+                        &pidref);
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to spawn executor: %m");
 
-        log_unit_debug(unit, "Forked %s as "PID_FMT, command->path, pid);
+        log_unit_debug(unit, "Forked %s as "PID_FMT, command->path, pidref.pid);
 
         /* We add the new process to the cgroup both in the child (so that we can be sure that no user code is ever
          * executed outside of the cgroup) and in the parent (so that we can be sure that when we kill the cgroup the
          * process will be killed too). */
         if (subcgroup_path)
-                (void) cg_attach(SYSTEMD_CGROUP_CONTROLLER, subcgroup_path, pid);
+                (void) cg_attach(SYSTEMD_CGROUP_CONTROLLER, subcgroup_path, pidref.pid);
 
-        exec_status_start(&command->exec_status, pid);
+        exec_status_start(&command->exec_status, pidref.pid);
 
-        *ret = pid;
+        *ret = TAKE_PIDREF(pidref);
         return 0;
 }
 
