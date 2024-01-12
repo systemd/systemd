@@ -124,10 +124,10 @@ static void route_hash_func(const Route *route, struct siphash *state) {
                 siphash24_compress_typesafe(route->src_prefixlen, state);
                 in_addr_hash_func(&route->src, route->family, state);
 
-                siphash24_compress_typesafe(route->gw_family, state);
-                if (IN_SET(route->gw_family, AF_INET, AF_INET6)) {
-                        in_addr_hash_func(&route->gw, route->gw_family, state);
-                        siphash24_compress_typesafe(route->gw_weight, state);
+                siphash24_compress_typesafe(route->nexthop.family, state);
+                if (IN_SET(route->nexthop.family, AF_INET, AF_INET6)) {
+                        in_addr_hash_func(&route->nexthop.gw, route->nexthop.family, state);
+                        siphash24_compress_typesafe(route->nexthop.weight, state);
                 }
 
                 in_addr_hash_func(&route->prefsrc, route->family, state);
@@ -174,16 +174,16 @@ static int route_compare_func(const Route *a, const Route *b) {
                 if (r != 0)
                         return r;
 
-                r = CMP(a->gw_family, b->gw_family);
+                r = CMP(a->nexthop.family, b->nexthop.family);
                 if (r != 0)
                         return r;
 
-                if (IN_SET(a->gw_family, AF_INET, AF_INET6)) {
-                        r = memcmp(&a->gw, &b->gw, FAMILY_ADDRESS_SIZE(a->family));
+                if (IN_SET(a->nexthop.family, AF_INET, AF_INET6)) {
+                        r = memcmp(&a->nexthop.gw, &b->nexthop.gw, FAMILY_ADDRESS_SIZE(a->family));
                         if (r != 0)
                                 return r;
 
-                        r = CMP(a->gw_weight, b->gw_weight);
+                        r = CMP(a->nexthop.weight, b->nexthop.weight);
                         if (r != 0)
                                 return r;
                 }
@@ -335,11 +335,11 @@ static void route_apply_nexthop(Route *route, const NextHop *nh, uint8_t nh_weig
         assert(nh);
         assert(hashmap_isempty(nh->group));
 
-        route->gw_family = nh->family;
-        route->gw = nh->gw;
+        route->nexthop.family = nh->family;
+        route->nexthop.gw = nh->gw;
 
         if (nh_weight != UINT8_MAX)
-                route->gw_weight = nh_weight;
+                route->nexthop.weight = nh_weight;
 
         if (nh->blackhole)
                 route->type = RTN_BLACKHOLE;
@@ -349,9 +349,9 @@ static void route_apply_route_nexthop(Route *route, const RouteNextHop *nh) {
         assert(route);
         assert(nh);
 
-        route->gw_family = nh->family;
-        route->gw = nh->gw;
-        route->gw_weight = nh->weight;
+        route->nexthop.family = nh->family;
+        route->nexthop.gw = nh->gw;
+        route->nexthop.weight = nh->weight;
 }
 
 typedef struct ConvertedRoutes {
@@ -2034,7 +2034,7 @@ int route_section_verify(Route *route) {
                         route->scope = RT_SCOPE_LINK;
                 else if (IN_SET(route->type, RTN_UNICAST, RTN_UNSPEC) &&
                          !route->gateway_from_dhcp_or_ra &&
-                         !in_addr_is_set(route->gw_family, &route->gw) &&
+                         !in_addr_is_set(route->nexthop.family, &route->nexthop.gw) &&
                          ordered_set_isempty(route->nexthops) &&
                          route->nexthop_id == 0)
                         route->scope = RT_SCOPE_LINK;

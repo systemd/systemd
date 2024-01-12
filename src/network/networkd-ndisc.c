@@ -321,8 +321,8 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
 
                 route->family = AF_INET6;
                 route->pref = preference;
-                route->gw_family = AF_INET6;
-                route->gw.in6 = gateway;
+                route->nexthop.family = AF_INET6;
+                route->nexthop.gw.in6 = gateway;
                 route->lifetime_usec = lifetime_usec;
 
                 r = ndisc_request_route(TAKE_PTR(route), link, rt);
@@ -337,14 +337,14 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                 if (!route_gw->gateway_from_dhcp_or_ra)
                         continue;
 
-                if (route_gw->gw_family != AF_INET6)
+                if (route_gw->nexthop.family != AF_INET6)
                         continue;
 
                 r = route_dup(route_gw, &route);
                 if (r < 0)
                         return r;
 
-                route->gw.in6 = gateway;
+                route->nexthop.gw.in6 = gateway;
                 if (!route->pref_set)
                         route->pref = preference;
                 route->lifetime_usec = lifetime_usec;
@@ -624,8 +624,8 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
 
         route->family = AF_INET6;
         route->pref = preference;
-        route->gw.in6 = gateway;
-        route->gw_family = AF_INET6;
+        route->nexthop.gw.in6 = gateway;
+        route->nexthop.family = AF_INET6;
         route->dst.in6 = dst;
         route->dst_prefixlen = prefixlen;
         route->lifetime_usec = lifetime_usec;

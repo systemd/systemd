@@ -74,7 +74,7 @@ bool link_find_default_gateway(Link *link, int family, Route **gw) {
                         continue;
                 if (route->scope != RT_SCOPE_UNIVERSE)
                         continue;
-                if (!in_addr_is_set(route->gw_family, &route->gw))
+                if (!in_addr_is_set(route->nexthop.family, &route->nexthop.gw))
                         continue;
 
                 /* Found a default gateway. */
@@ -83,7 +83,7 @@ bool link_find_default_gateway(Link *link, int family, Route **gw) {
 
                 /* If we have already found another gw, then let's compare their weight and priority. */
                 if (*gw) {
-                        if (route->gw_weight > (*gw)->gw_weight)
+                        if (route->nexthop.weight > (*gw)->nexthop.weight)
                                 continue;
                         if (route->priority >= (*gw)->priority)
                                 continue;
