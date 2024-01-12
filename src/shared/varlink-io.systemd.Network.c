@@ -11,7 +11,8 @@ static VARLINK_DEFINE_METHOD(GetStates,
                              VARLINK_DEFINE_OUTPUT(OperationalState, VARLINK_STRING, 0));
 
 static VARLINK_DEFINE_METHOD(GetNamespaceId,
-                             VARLINK_DEFINE_OUTPUT(NamespaceId, VARLINK_INT, 0));
+                             VARLINK_DEFINE_OUTPUT(NamespaceId, VARLINK_INT, 0),
+                             VARLINK_DEFINE_OUTPUT(NamespaceNSID, VARLINK_INT, VARLINK_NULLABLE));
 
 VARLINK_DEFINE_INTERFACE(
                 io_systemd_Network,
