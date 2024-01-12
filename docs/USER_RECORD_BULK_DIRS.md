@@ -122,7 +122,7 @@ bulk directory ensures that the bulk data is available while the home directory
 is encrypted or otherwise unavailable, and the home bulk directory ensures that
 the user account remains portable between systems. To implement this behavior,
 `systemd-homed.service` always sets `bulkDirectory` to the system bulk directory
-in the `binding` section of the user record (i.e. this is _not_ persisted to
+in the `status` section of the user record (i.e. this is _not_ persisted to
 `~/.identity/record.json`). If some client tries to update the user record
 and sets `bulkDirectory` to something new, `systemd-homed.service` will copy
 the updated bulk directory into both the system and home bulk locations.
