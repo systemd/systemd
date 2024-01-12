@@ -1822,23 +1822,36 @@ static int start_transient_service(sd_bus *bus) {
                                 log_info("CPU time consumed: %s",
                                          FORMAT_TIMESPAN(DIV_ROUND_UP(c.cpu_usage_nsec, NSEC_PER_USEC), USEC_PER_MSEC));
 
-                        if (c.memory_peak != UINT64_MAX)
-                                log_info("Memory peak: %s", FORMAT_BYTES(c.memory_peak));
+                        if (c.memory_peak != UINT64_MAX) {
+                                const char *swap;
 
-                        if (c.memory_swap_peak != UINT64_MAX)
-                                log_info("Memory swap peak: %s", FORMAT_BYTES(c.memory_swap_peak));
+                                if (c.memory_swap_peak != UINT64_MAX)
+                                        swap = strjoina(" (swap: %s)", FORMAT_BYTES(c.memory_swap_peak));
+                                else
+                                        swap = "";
+
+                                log_info("Memory peak: %s%s", FORMAT_BYTES(c.memory_peak), swap);
+                        }
+
+                        const char *ip_ingress = NULL, *ip_egress = NULL;
 
                         if (c.ip_ingress_bytes != UINT64_MAX)
-                                log_info("IP traffic received: %s", FORMAT_BYTES(c.ip_ingress_bytes));
-
+                                ip_ingress = strjoina(" received: ", FORMAT_BYTES(c.ip_ingress_bytes));
                         if (c.ip_egress_bytes != UINT64_MAX)
-                                log_info("IP traffic sent: %s", FORMAT_BYTES(c.ip_egress_bytes));
+                                ip_egress = strjoina(" sent: ", FORMAT_BYTES(c.ip_egress_bytes));
+
+                        if (ip_ingress || ip_egress)
+                                log_info("IP traffic%s%s", strempty(ip_ingress), strempty(ip_egress));
+
+                        const char *io_read = NULL, *io_write = NULL;
 
                         if (c.io_read_bytes != UINT64_MAX)
-                                log_info("IO bytes read: %s", FORMAT_BYTES(c.io_read_bytes));
-
+                                io_read = strjoina(" read: %s", FORMAT_BYTES(c.io_read_bytes));
                         if (c.io_write_bytes != UINT64_MAX)
-                                log_info("IO bytes written: %s", FORMAT_BYTES(c.io_write_bytes));
+                                io_write = strjoina(" written: %s", FORMAT_BYTES(c.io_write_bytes));
+
+                        if (io_read || io_write)
+                                log_info("IO bytes%s%s", strempty(io_read), strempty(io_write));
                 }
 
                 /* Try to propagate the service's return value. But if the service defines
