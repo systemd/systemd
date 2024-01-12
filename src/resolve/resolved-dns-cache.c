@@ -979,6 +979,7 @@ static int answer_add_clamp_ttl(
                 }
         }
 
+        rr->until = until;
         r = dns_answer_add_extend(answer, rr, ifindex, answer_flags, rrsig);
         if (r < 0)
                 return r;

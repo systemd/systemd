@@ -354,6 +354,7 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
         Manager *m = userdata;
         DnsScope *scope;
         int r;
+        bool unsolicited_packet = true, has_goodbye = false;
 
         r = manager_recv(m, fd, DNS_PROTOCOL_MDNS, &p);
         if (r <= 0)
@@ -407,30 +408,7 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                                 log_debug("Got a goodbye packet");
                                 /* See the section 10.1 of RFC6762 */
                                 rr->ttl = 1;
-                        }
-                }
-
-                for (bool match = true; match;) {
-                        match = false;
-                        LIST_FOREACH(transactions_by_scope, t, scope->transactions) {
-                                if (t->state != DNS_TRANSACTION_PENDING)
-                                        continue;
-
-                                r = dns_answer_match_key(p->answer, dns_transaction_key(t), NULL);
-                                if (r <= 0) {
-                                        if (r < 0)
-                                                log_debug_errno(r, "Failed to match resource key, ignoring: %m");
-                                        continue;
-                                }
-
-                                /* This packet matches the transaction, let's pass it on as reply */
-                                dns_transaction_process_reply(t, p, false);
-
-                                /* The dns_transaction_process_reply() -> dns_transaction_complete() ->
-                                 * dns_query_candidate_stop() may free multiple transactions. Hence, restart
-                                 * the loop. */
-                                match = true;
-                                break;
+                                has_goodbye = true;
                         }
                 }
 
@@ -448,6 +426,35 @@ static int on_mdns_packet(sd_event_source *s, int fd, uint32_t revents, void *us
                         p->family,
                         &p->sender,
                         scope->manager->stale_retention_usec);
+
+                for (bool match = true; match;) {
+                        match = false;
+                        LIST_FOREACH(transactions_by_scope, t, scope->transactions) {
+                                if (t->state != DNS_TRANSACTION_PENDING)
+                                        continue;
+
+                                r = dns_answer_match_key(p->answer, dns_transaction_key(t), NULL);
+                                if (r <= 0) {
+                                        if (r < 0)
+                                                log_debug_errno(r, "Failed to match resource key, ignoring: %m");
+                                        continue;
+                                }
+
+                                unsolicited_packet = false;
+                                /* This packet matches the transaction, let's pass it on as reply */
+                                dns_transaction_process_reply(t, p, false);
+
+                                /* The dns_transaction_process_reply() -> dns_transaction_complete() ->
+                                 * dns_query_candidate_stop() may free multiple transactions. Hence, restart
+                                 * the loop. */
+                                match = true;
+                                break;
+                        }
+                }
+
+                /* Check incoming packet key matches with active clients if yes update the same */
+                if (unsolicited_packet)
+                        mdns_notify_browsers_unsolicited_updates(m, p->answer, p->family, has_goodbye);
 
         } else if (dns_packet_validate_query(p) > 0)  {
                 log_debug("Got mDNS query packet for id %u", DNS_PACKET_ID(p));
