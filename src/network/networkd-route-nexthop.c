@@ -62,20 +62,24 @@ int config_parse_gateway(
 
                 if (streq(rvalue, "_dhcp")) {
                         route->gateway_from_dhcp_or_ra = true;
+                        route->gw_family = AF_UNSPEC;
+                        route->gw = IN_ADDR_NULL;
                         TAKE_PTR(route);
                         return 0;
                 }
 
                 if (streq(rvalue, "_dhcp4")) {
-                        route->gw_family = AF_INET;
                         route->gateway_from_dhcp_or_ra = true;
+                        route->gw_family = AF_INET;
+                        route->gw = IN_ADDR_NULL;
                         TAKE_PTR(route);
                         return 0;
                 }
 
                 if (streq(rvalue, "_ipv6ra")) {
-                        route->gw_family = AF_INET6;
                         route->gateway_from_dhcp_or_ra = true;
+                        route->gw_family = AF_INET6;
+                        route->gw = IN_ADDR_NULL;
                         TAKE_PTR(route);
                         return 0;
                 }
