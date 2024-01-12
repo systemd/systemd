@@ -179,7 +179,7 @@ static int link_set_ipv6_hop_limit(Link *link) {
         return sysctl_write_ip_property_int(AF_INET6, link->ifname, "hop_limit", link->network->ipv6_hop_limit);
 }
 
-static int link_set_ipv6_retrans_time(Link *link) {
+static int link_set_ipv6_retransmission_time(Link *link) {
         uint32_t retrans_time_ms;
 
         assert(link);
@@ -187,11 +187,11 @@ static int link_set_ipv6_retrans_time(Link *link) {
         if (!link_is_configured_for_family(link, AF_INET6))
                 return 0;
 
-        if (link->network->ipv6_retrans_time <= 0)
+        if (!timestamp_is_set(link->network->ipv6_retransmission_time))
                 return 0;
 
-        retrans_time_ms = (uint32_t) DIV_ROUND_UP(link->network->ipv6_retrans_time, USEC_PER_MSEC);
-        return sysctl_write_ip_neigh_property_uint32(AF_INET6, link->ifname, "retrans_time_ms", retrans_time_ms);
+        retrans_time_ms = (uint32_t) DIV_ROUND_UP(link->network->ipv6_retransmission_time, USEC_PER_MSEC);
+        return sysctl_write_ip_neighbor_property_uint32(AF_INET6, link->ifname, "retrans_time_ms", retrans_time_ms);
 }
 
 static int link_set_ipv6_proxy_ndp(Link *link) {
@@ -312,7 +312,7 @@ int link_set_sysctl(Link *link) {
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot set IPv6 hop limit for interface, ignoring: %m");
 
-        r = link_set_ipv6_retrans_time(link);
+        r = link_set_ipv6_retransmission_time(link);
         if (r < 0)
                 log_link_warning_errno(link, r, "Cannot set IPv6 retransmission time for interface, ignoring: %m");
 

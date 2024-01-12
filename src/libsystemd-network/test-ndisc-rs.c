@@ -65,7 +65,7 @@ static void router_dump(sd_ndisc_router *rt) {
         assert_se(sd_ndisc_router_get_lifetime_timestamp(rt, CLOCK_REALTIME, &t) >= 0);
         log_info("Lifetime: %s (%s)", FORMAT_TIMESPAN(lifetime, USEC_PER_SEC), FORMAT_TIMESTAMP(t));
 
-        assert_se(sd_ndisc_router_get_retrans_time(rt, &retrans_time) >= 0);
+        assert_se(sd_ndisc_router_get_retransmission_time(rt, &retrans_time) >= 0);
         log_info("Retransmission Time: %s", FORMAT_TIMESPAN(retrans_time, USEC_PER_SEC));
 
         if (sd_ndisc_router_get_mtu(rt, &mtu) < 0)

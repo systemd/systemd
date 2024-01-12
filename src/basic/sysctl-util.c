@@ -96,7 +96,7 @@ int sysctl_write_ip_property(int af, const char *ifname, const char *property, c
         return sysctl_write(p, value);
 }
 
-int sysctl_write_ip_neigh_property(int af, const char *ifname, const char *property, const char *value) {
+int sysctl_write_ip_neighbor_property(int af, const char *ifname, const char *property, const char *value) {
         const char *p;
 
         assert(property);

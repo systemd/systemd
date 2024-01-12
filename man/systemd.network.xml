@@ -879,9 +879,9 @@ Table=1234</programlisting></para>
         <term><varname>IPv6RetransmissionTimeSec=</varname></term>
         <listitem>
           <para>Configures IPv6 Retransmission Time. The time between retransmitted Neighbor
-          Solicitation messages.  Used by address resolution and the Neighbor Unreachability
+          Solicitation messages. Used by address resolution and the Neighbor Unreachability
           Detection algorithm. A value of zero is ignored and the kernel's current value
-          will be used.</para>
+          will be used. Defaults to unset, and the kernel's current value will be used.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
