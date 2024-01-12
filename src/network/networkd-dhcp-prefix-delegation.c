@@ -782,8 +782,8 @@ static int dhcp4_pd_request_default_gateway_on_6rd_tunnel(Link *link, const stru
 
         route->source = NETWORK_CONFIG_SOURCE_DHCP_PD;
         route->family = AF_INET6;
-        route->gw_family = AF_INET6;
-        route->gw.in6.s6_addr32[3] = br_address->s_addr;
+        route->nexthop.family = AF_INET6;
+        route->nexthop.gw.in6.s6_addr32[3] = br_address->s_addr;
         route->scope = RT_SCOPE_UNIVERSE;
         route->protocol = RTPROT_DHCP;
         route->priority = IP6_RT_PRIO_USER;
