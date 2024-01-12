@@ -4047,6 +4047,20 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
                 if (streq_ptr(path, user->service_job)) {
                         user->service_job = mfree(user->service_job);
 
+                        if (user->service_state == USER_SERVICE_STARTING) {
+                                if (streq(result, "done"))
+                                        user->service_state = USER_SERVICE_RUNNING;
+                                else
+                                        user->service_state = USER_SERVICE_INACTIVE;
+                        } else if (user->service_state == USER_SERVICE_STOPPING) {
+                                if (streq(result, "canceled"))
+                                        // FIXME: ??
+                                        user->service_state = USER_SERVICE_START_PENDING;
+                                else
+                                        user->service_state = USER_SERVICE_INACTIVE;
+                        } else
+                                assert_not_reached();
+
                         LIST_FOREACH(sessions_by_user, s, user->sessions)
                                 (void) session_jobs_reply(s, id, unit, NULL /* don't propagate user service failures to the client */);
 
