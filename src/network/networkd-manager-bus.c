@@ -279,6 +279,31 @@ static int property_get_namespace_id(
         return sd_bus_message_append(reply, "t", id);
 }
 
+static int property_get_namespace_nsid(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        uint32_t nsid = UINT32_MAX;
+        int r;
+
+        assert(bus);
+        assert(reply);
+
+        /* Returns our own "nsid", which is another ID for the network namespace, different from the inode
+         * number. */
+
+        r = netns_get_nsid(/* netnsfd= */ -EBADF, &nsid);
+        if (r < 0)
+                log_warning_errno(r, "Failed to query network nsid, ignoring: %m");
+
+        return sd_bus_message_append(reply, "u", nsid);
+}
+
 static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_VTABLE_START(0),
 
@@ -289,6 +314,7 @@ static const sd_bus_vtable manager_vtable[] = {
         SD_BUS_PROPERTY("IPv6AddressState", "s", property_get_address_state, offsetof(Manager, ipv6_address_state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("OnlineState", "s", property_get_online_state, offsetof(Manager, online_state), SD_BUS_VTABLE_PROPERTY_EMITS_CHANGE),
         SD_BUS_PROPERTY("NamespaceId", "t", property_get_namespace_id, 0, SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("NamespaceNSID", "u", property_get_namespace_nsid, 0, 0),
 
         SD_BUS_METHOD_WITH_ARGS("ListLinks",
                                 SD_BUS_NO_ARGS,
