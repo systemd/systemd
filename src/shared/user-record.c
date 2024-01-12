@@ -135,6 +135,7 @@ static UserRecord* user_record_free(UserRecord *h) {
         free(h->user_name);
         free(h->realm);
         free(h->user_name_and_realm_auto);
+        free(h->bulk_directory);
         free(h->real_name);
         free(h->email_address);
         erase_and_free(h->password_hint);
@@ -1133,11 +1134,39 @@ int per_machine_hostname_match(JsonVariant *hns, JsonDispatchFlags flags) {
         return false;
 }
 
+int per_machine_match(JsonVariant *entry, JsonDispatchFlags flags) {
+        JsonVariant *m;
+        int r;
+
+        assert(json_variant_is_object(entry));
+
+        m = json_variant_by_key(entry, "matchMachineId");
+        if (m) {
+                r = per_machine_id_match(m, flags);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return true;
+        }
+
+        m = json_variant_by_key(entry, "matchHostname");
+        if (m) {
+                r = per_machine_hostname_match(m, flags);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return true;
+        }
+
+        return false;
+}
+
 static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
 
         static const JsonDispatch per_machine_dispatch_table[] = {
                 { "matchMachineId",             _JSON_VARIANT_TYPE_INVALID, NULL,                                 0,                                                   0         },
                 { "matchHostname",              _JSON_VARIANT_TYPE_INVALID, NULL,                                 0,                                                   0         },
+                { "bulkDirectory",              JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, bulk_directory),                0         },
                 { "iconName",                   JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, icon_name),                     JSON_SAFE },
                 { "location",                   JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, location),                      0         },
                 { "shell",                      JSON_VARIANT_STRING,        json_dispatch_filename_or_path,       offsetof(UserRecord, shell),                         0         },
@@ -1219,33 +1248,13 @@ static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDisp
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array.", strna(name));
 
         JSON_VARIANT_ARRAY_FOREACH(e, variant) {
-                bool matching = false;
-                JsonVariant *m;
-
                 if (!json_variant_is_object(e))
                         return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of objects.", strna(name));
 
-                m = json_variant_by_key(e, "matchMachineId");
-                if (m) {
-                        r = per_machine_id_match(m, flags);
-                        if (r < 0)
-                                return r;
-
-                        matching = r > 0;
-                }
-
-                if (!matching) {
-                        m = json_variant_by_key(e, "matchHostname");
-                        if (m) {
-                                r = per_machine_hostname_match(m, flags);
-                                if (r < 0)
-                                        return r;
-
-                                matching = r > 0;
-                        }
-                }
-
-                if (!matching)
+                r = per_machine_match(e, flags);
+                if (r < 0)
+                        return r;
+                if (r == 0)
                         continue;
 
                 r = json_dispatch(e, per_machine_dispatch_table, flags, userdata);
@@ -1266,6 +1275,7 @@ static int dispatch_status(const char *name, JsonVariant *variant, JsonDispatchF
                 { "diskFloor",                  _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,      offsetof(UserRecord, disk_floor),                    0         },
                 { "state",                      JSON_VARIANT_STRING,        json_dispatch_string,      offsetof(UserRecord, state),                         JSON_SAFE },
                 { "service",                    JSON_VARIANT_STRING,        json_dispatch_string,      offsetof(UserRecord, service),                       JSON_SAFE },
+                { "bulkDirectory",              JSON_VARIANT_STRING,        json_dispatch_path,        offsetof(UserRecord, bulk_directory),                0         },
                 { "signedLocally",              _JSON_VARIANT_TYPE_INVALID, json_dispatch_tristate,    offsetof(UserRecord, signed_locally),                0         },
                 { "goodAuthenticationCounter",  _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,      offsetof(UserRecord, good_authentication_counter),   0         },
                 { "badAuthenticationCounter",   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,      offsetof(UserRecord, bad_authentication_counter),    0         },
@@ -1488,6 +1498,7 @@ int user_record_load(UserRecord *h, JsonVariant *v, UserRecordLoadFlags load_fla
         static const JsonDispatch user_dispatch_table[] = {
                 { "userName",                   JSON_VARIANT_STRING,        json_dispatch_user_group_name,        offsetof(UserRecord, user_name),                     JSON_RELAX},
                 { "realm",                      JSON_VARIANT_STRING,        json_dispatch_realm,                  offsetof(UserRecord, realm),                         0         },
+                { "bulkDirectory",              JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, bulk_directory),                0         },
                 { "realName",                   JSON_VARIANT_STRING,        json_dispatch_gecos,                  offsetof(UserRecord, real_name),                     0         },
                 { "emailAddress",               JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, email_address),                 JSON_SAFE },
                 { "iconName",                   JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, icon_name),                     JSON_SAFE },
