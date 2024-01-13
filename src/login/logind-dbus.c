@@ -1725,6 +1725,7 @@ static int execute_shutdown_or_sleep(
         int r;
 
         assert(m);
+        assert(!m->action_job);
         assert(a);
 
         if (a->inhibit_what == INHIBIT_SHUTDOWN)
@@ -1744,9 +1745,11 @@ static int execute_shutdown_or_sleep(
         if (r < 0)
                 goto error;
 
-        r = free_and_strdup(&m->action_job, p);
-        if (r < 0)
+        m->action_job = strdup(p);
+        if (!m->action_job) {
+                r = -ENOMEM;
                 goto error;
+        }
 
         m->delayed_action = a;
 
@@ -2335,8 +2338,9 @@ static int manager_scheduled_shutdown_handler(
 
         /* Don't allow multiple jobs being executed at the same time */
         if (m->delayed_action) {
-                r = -EALREADY;
-                log_error("Scheduled shutdown to %s failed: shutdown or sleep operation already in progress", a->target);
+                r = log_error_errno(SYNTHETIC_ERRNO(EALREADY),
+                                    "Scheduled shutdown to %s failed: shutdown or sleep operation already in progress.",
+                                    a->target);
                 goto error;
         }
 
