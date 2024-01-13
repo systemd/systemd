@@ -252,18 +252,6 @@ DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 route_compare_func,
                 route_free);
 
-static bool route_type_is_reject(const Route *route) {
-        assert(route);
-
-        return IN_SET(route->type, RTN_UNREACHABLE, RTN_PROHIBIT, RTN_BLACKHOLE, RTN_THROW);
-}
-
-static bool route_needs_convert(const Route *route) {
-        assert(route);
-
-        return route->nexthop_id > 0 || !ordered_set_isempty(route->multipath_routes);
-}
-
 static int route_add(Manager *manager, Link *link, Route *route) {
         int r;
 
@@ -442,6 +430,12 @@ static int converted_routes_new(size_t n, ConvertedRoutes **ret) {
 
         *ret = TAKE_PTR(c);
         return 0;
+}
+
+static bool route_needs_convert(const Route *route) {
+        assert(route);
+
+        return route->nexthop_id > 0 || !ordered_set_isempty(route->multipath_routes);
 }
 
 static int route_convert(Manager *manager, const Route *route, ConvertedRoutes **ret) {
