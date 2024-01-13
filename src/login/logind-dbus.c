@@ -4101,14 +4101,19 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
         user = hashmap_get(m->user_units, unit);
         if (user) {
                 /* If the user is stopping, we're tracking stop jobs here. So don't send reply. */
-                if (!user->stopping && streq_ptr(path, user->service_job)) {
-                        user->service_job = mfree(user->service_job);
+                if (!user->stopping) {
+                        char **user_job;
+                        FOREACH_ARGUMENT(user_job, &user->runtime_dir_job, &user->service_manager_job)
+                                if (streq_ptr(path, *user_job)) {
+                                        *user_job = mfree(*user_job);
 
-                        LIST_FOREACH(sessions_by_user, s, user->sessions)
-                                /* Don't propagate user service failures to the client */
-                                (void) session_jobs_reply(s, id, unit, /* error = */ NULL);
+                                        LIST_FOREACH(sessions_by_user, s, user->sessions)
+                                                /* Don't propagate user service failures to the client */
+                                                (void) session_jobs_reply(s, id, unit, /* error = */ NULL);
 
-                        user_save(user);
+                                        user_save(user);
+                                        break;
+                                }
                 }
 
                 user_add_to_gc_queue(user);
