@@ -137,6 +137,13 @@ Features:
   to read them from. This way the data doesn't remain in the SMBIOS blob during
   runtime, but only in the credentials fs.
 
+* machined: make machine registration available via varlink to simplify
+  nspawn/vmspawn, and to have an extensible way to register VM/machine metadata
+
+* ssh-proxy: add support for "ssh machine/foobar" to automatically connect to
+  machined registered machine "foobar". Requires updating machined to track CID
+  and unix-export dir of containers.
+
 * add a new ExecStart= flag that inserts the configured user's shell as first
   word in the command line. (maybe use character '.'). Usecase: tool such as
   uid0 can use that to spawn the target user's default shell.
@@ -300,15 +307,6 @@ Features:
   and then remains referenced by it. The new object should also carry an fd to
   the realized cgroup, to pin it (and later execute all cgroup operations over,
   once we drop cgroupv1 compat).
-
-* add new "systemd-ssh-generator", which allows basic ssh config via
-  credentials (host key). It generates sshd.socket for IP, but also
-  sshd-vsock.socket for listening on AF_VSOCK when running in a VM, and
-  sshd-unix.socket on AF_UNIX when running in a container. It also generates a
-  matching sshd.service file with a host key passed in on the cmdline via
-  credentials. Then, add a ssh_config drop-in that matches some suitable
-  hostname pattern and has a ProxyCommand set that allows connecting to any
-  local VM/container that way without any networking configured.
 
 * Varlinkification of the following command line tools, to open them up to
   other programs via IPC:
@@ -1212,14 +1210,6 @@ Features:
 * portabled: when extracting unit files and copying to system.attached, if a
   .p7s is available in the image, use it to protect the system.attached copy
   with fs-verity, so that it cannot be tampered with
-
-* logind introduce two types of sessions: "heavy" and "light". The former would
-  be our current sessions. But the latter would be a new type of session that
-  is mostly the same but does not pull in user@.service or wait for it. Then,
-  allow configuration which type of session is desired via pam_systemd
-  parameters, and then make user@.service's session one of these "light" ones.
-  People could then choose to make FTP sessions and suchlike "light" if they
-  don't want the service manager to be started for that.
 
 * /etc/veritytab: allow that the roothash column can be specified as fs path
   including a path to an AF_UNIX path, similar to how we do things with the

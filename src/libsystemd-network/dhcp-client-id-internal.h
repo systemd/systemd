@@ -4,6 +4,7 @@
 #include "sd-dhcp-client-id.h"
 
 #include "dhcp-duid-internal.h"
+#include "json.h"
 #include "macro.h"
 #include "siphash24.h"
 #include "sparse-endian.h"
@@ -55,3 +56,5 @@ static inline bool client_id_data_size_is_valid(size_t size) {
 
 void client_id_hash_func(const sd_dhcp_client_id *client_id, struct siphash *state);
 int client_id_compare_func(const sd_dhcp_client_id *a, const sd_dhcp_client_id *b);
+
+int json_dispatch_client_id(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata);

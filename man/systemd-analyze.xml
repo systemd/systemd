@@ -1107,8 +1107,10 @@ x86-64      native</programlisting>
       <varlistentry>
         <term><option>--root=<replaceable>PATH</replaceable></option></term>
 
-        <listitem><para>With <command>cat-files</command> and <command>verify</command>,
-        operate on files underneath the specified root path <replaceable>PATH</replaceable>.</para>
+        <listitem><para>With <command>cat-config</command>, <command>verify</command>,
+        <command>condition</command> and <command>security</command> when used with
+        <option>--offline=</option>, operate on files underneath the specified root path
+        <replaceable>PATH</replaceable>.</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
@@ -1116,8 +1118,10 @@ x86-64      native</programlisting>
       <varlistentry>
         <term><option>--image=<replaceable>PATH</replaceable></option></term>
 
-        <listitem><para>With <command>cat-files</command> and <command>verify</command>,
-        operate on files inside the specified image path <replaceable>PATH</replaceable>.</para>
+        <listitem><para>With <command>cat-config</command>, <command>verify</command>,
+        <command>condition</command> and <command>security</command> when used with
+        <option>--offline=</option>, operate on files inside the specified image path
+        <replaceable>PATH</replaceable>.</para>
 
         <xi:include href="version-info.xml" xpointer="v250"/></listitem>
       </varlistentry>

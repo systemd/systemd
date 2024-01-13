@@ -53,6 +53,14 @@ struct Route {
         /* metrics (RTA_METRICS) */
         RouteMetric metric;
 
+        /* This is an absolute point in time, and NOT a timespan/duration.
+         * Must be specified with clock_boottime_or_monotonic(). */
+        usec_t lifetime_usec; /* RTA_EXPIRES (IPv6 only) */
+        /* Used when kernel does not support RTA_EXPIRES attribute. */
+        sd_event_source *expire;
+        bool expiration_managed_by_kernel:1; /* RTA_CACHEINFO has nonzero rta_expires */
+
+        /* Only used by conf persers and route_section_verify(). */
         bool scope_set:1;
         bool table_set:1;
         bool priority_set:1;
@@ -65,12 +73,6 @@ struct Route {
         union in_addr_union src;
         union in_addr_union prefsrc;
         OrderedSet *multipath_routes;
-
-        /* This is an absolute point in time, and NOT a timespan/duration.
-         * Must be specified with clock_boottime_or_monotonic(). */
-        usec_t lifetime_usec;
-        /* Used when kernel does not support RTA_EXPIRES attribute. */
-        sd_event_source *expire;
 };
 
 extern const struct hash_ops route_hash_ops;
@@ -81,7 +83,7 @@ Route *route_free(Route *route);
 DEFINE_SECTION_CLEANUP_FUNCTIONS(Route, route_free);
 int route_dup(const Route *src, Route **ret);
 
-int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg);
+int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, Route *route, const char *error_msg);
 int route_remove(Route *route);
 int route_remove_and_drop(Route *route);
 
@@ -110,13 +112,11 @@ void network_drop_invalid_routes(Network *network);
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(Route, route);
 void link_mark_routes(Link *link, NetworkConfigSource source);
 
-CONFIG_PARSER_PROTOTYPE(config_parse_gateway);
 CONFIG_PARSER_PROTOTYPE(config_parse_preferred_src);
 CONFIG_PARSER_PROTOTYPE(config_parse_destination);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_priority);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_scope);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_table);
-CONFIG_PARSER_PROTOTYPE(config_parse_route_gateway_onlink);
 CONFIG_PARSER_PROTOTYPE(config_parse_ipv6_route_preference);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_protocol);
 CONFIG_PARSER_PROTOTYPE(config_parse_route_type);

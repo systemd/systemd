@@ -139,7 +139,7 @@ static int ndisc_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request 
 
         assert(link);
 
-        r = route_configure_handler_internal(rtnl, m, link, "Could not set NDisc route");
+        r = route_configure_handler_internal(rtnl, m, link, route, "Could not set NDisc route");
         if (r <= 0)
                 return r;
 
@@ -358,7 +358,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
 }
 
 static int ndisc_router_process_icmp6_ratelimit(Link *link, sd_ndisc_router *rt) {
-        usec_t icmp6_ratelimit;
+        usec_t icmp6_ratelimit, msec;
         int r;
 
         assert(link);
@@ -374,13 +374,17 @@ static int ndisc_router_process_icmp6_ratelimit(Link *link, sd_ndisc_router *rt)
                 return 0;
         }
 
+        /* We do not allow 0 here. */
         if (!timestamp_is_set(icmp6_ratelimit))
+                return 0;
+
+        msec = DIV_ROUND_UP(icmp6_ratelimit, USEC_PER_MSEC);
+        if (msec <= 0 || msec > INT_MAX)
                 return 0;
 
         /* Limit the maximal rates for sending ICMPv6 packets. 0 to disable any limiting, otherwise the
          * minimal space between responses in milliseconds. Default: 1000. */
-        r = sysctl_write_ip_property_uint32(AF_INET6, NULL, "icmp/ratelimit",
-                (uint32_t)DIV_ROUND_UP(icmp6_ratelimit, USEC_PER_MSEC));
+        r = sysctl_write_ip_property_int(AF_INET6, NULL, "icmp/ratelimit", (int) msec);
         if (r < 0)
                 log_link_warning_errno(link, r, "Failed to apply ICMP6 ratelimit, ignoring: %m");
 

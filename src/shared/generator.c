@@ -29,6 +29,7 @@ int generator_open_unit_file_full(
                 const char *source,
                 const char *fn,
                 FILE **ret_file,
+                char **ret_final_path,
                 char **ret_temp_path) {
 
         _cleanup_free_ char *p = NULL;
@@ -72,9 +73,12 @@ int generator_open_unit_file_full(
                 program_invocation_short_name);
 
         *ret_file = f;
+
+        if (ret_final_path)
+                *ret_final_path = TAKE_PTR(p);
+
         return 0;
 }
-
 
 int generator_add_symlink_full(
                 const char *dir,
@@ -88,11 +92,13 @@ int generator_add_symlink_full(
 
         assert(dir);
         assert(dst);
-        assert(dep_type);
         assert(src);
 
-        /* Adds a symlink from <dst>.<dep_type>/ to <src> (if src is absolute) or ../<src> (otherwise). If
-         * <instance> is specified, then <src> must be a template unit name, and we'll instantiate it. */
+        /* If 'dep_type' is specified adds a symlink from <dst>.<dep_type>/ to <src> (if src is absolute) or ../<src> (otherwise).
+         *
+         * If 'dep_type' is NULL, it will create a symlink to <src> (i.e. create an alias.
+         *
+         * If <instance> is specified, then <src> must be a template unit name, and we'll instantiate it. */
 
         r = path_extract_directory(src, &dn);
         if (r < 0 && r != -EDESTADDRREQ) /* EDESTADDRREQ → just a file name was passed */
@@ -110,11 +116,19 @@ int generator_add_symlink_full(
                         return log_error_errno(r, "Failed to instantiate '%s' for '%s': %m", fn, instance);
         }
 
-        from = path_join(dn ?: "..", fn);
-        if (!from)
-                return log_oom();
+        if (dep_type) { /* Create a .wants/ style dep */
+                from = path_join(dn ?: "..", fn);
+                if (!from)
+                        return log_oom();
 
-        to = strjoin(dir, "/", dst, ".", dep_type, "/", instantiated ?: fn);
+                to = strjoin(dir, "/", dst, ".", dep_type, "/", instantiated ?: fn);
+        } else { /* or create an alias */
+                from = dn ? path_join(dn, fn) : strdup(fn);
+                if (!from)
+                        return log_oom();
+
+                to = strjoin(dir, "/", dst);
+        }
         if (!to)
                 return log_oom();
 

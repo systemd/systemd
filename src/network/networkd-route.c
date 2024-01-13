@@ -1014,26 +1014,26 @@ static int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdat
 }
 
 static int route_setup_timer(Route *route, const struct rta_cacheinfo *cacheinfo) {
-        Manager *manager;
         int r;
 
         assert(route);
-        assert(route->manager || (route->link && route->link->manager));
-
-        manager = route->manager ?: route->link->manager;
-
-        if (route->lifetime_usec == USEC_INFINITY)
-                return 0;
 
         if (cacheinfo && cacheinfo->rta_expires != 0)
-                /* Assume that non-zero rta_expires means kernel will handle the route expiration. */
-                return 0;
+                route->expiration_managed_by_kernel = true;
 
+        if (route->lifetime_usec == USEC_INFINITY || /* We do not request expiration for the route. */
+            route->expiration_managed_by_kernel) {   /* We have received nonzero expiration previously. The expiration is managed by the kernel. */
+                route->expire = sd_event_source_disable_unref(route->expire);
+                return 0;
+        }
+
+        Manager *manager = ASSERT_PTR(route->manager ?: ASSERT_PTR(route->link)->manager);
         r = event_reset_time(manager->event, &route->expire, CLOCK_BOOTTIME,
                              route->lifetime_usec, 0, route_expire_handler, route, 0, "route-expiration", true);
         if (r < 0)
-                return r;
+                return log_link_warning_errno(route->link, r, "Failed to configure expiration timer for route, ignoring: %m");
 
+        log_route_debug(route, "Configured expiration timer for", route->link, manager);
         return 1;
 }
 
@@ -1122,16 +1122,28 @@ static int append_nexthops(const Link *link, const Route *route, sd_netlink_mess
         return 0;
 }
 
-int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, const char *error_msg) {
+int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, Route *route, const char *error_msg) {
         int r;
 
         assert(m);
         assert(link);
+        assert(link->manager);
+        assert(route);
         assert(error_msg);
 
         r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -EEXIST) {
-                log_link_message_warning_errno(link, m, r, "Could not set route");
+        if (r == -EEXIST) {
+                Route *existing;
+
+                if (route_get(link->manager, link, route, &existing) >= 0) {
+                        /* When re-configuring an existing route, kernel does not send RTM_NEWROUTE
+                         * notification, so we need to update the timer here. */
+                        existing->lifetime_usec = route->lifetime_usec;
+                        (void) route_setup_timer(existing, NULL);
+                }
+
+        } else if (r < 0) {
+                log_link_message_warning_errno(link, m, r, error_msg);
                 link_enter_failed(link);
                 return 0;
         }
@@ -1378,16 +1390,6 @@ int link_request_route(
                 existing->lifetime_usec = route->lifetime_usec;
                 if (consume_object)
                         route_free(route);
-
-                if (existing->expire) {
-                        /* When re-configuring an existing route, kernel does not send RTM_NEWROUTE
-                         * message, so we need to update the timer here. */
-                        r = route_setup_timer(existing, NULL);
-                        if (r < 0)
-                                log_link_warning_errno(link, r, "Failed to update expiration timer for route, ignoring: %m");
-                        if (r > 0)
-                                log_route_debug(existing, "Updated expiration timer for", link, link->manager);
-                }
         }
 
         log_route_debug(existing, "Requesting", link, link->manager);
@@ -1409,7 +1411,7 @@ static int static_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request
 
         assert(link);
 
-        r = route_configure_handler_internal(rtnl, m, link, "Could not set route");
+        r = route_configure_handler_internal(rtnl, m, link, route, "Could not set route");
         if (r <= 0)
                 return r;
 
@@ -1534,7 +1536,7 @@ static int process_route_one(
 
         _cleanup_(route_freep) Route *tmp = in;
         Route *route = NULL;
-        bool update_dhcp4;
+        bool is_new = false, update_dhcp4;
         int r;
 
         assert(manager);
@@ -1549,32 +1551,31 @@ static int process_route_one(
 
         switch (type) {
         case RTM_NEWROUTE:
-                if (route) {
-                        route->flags = tmp->flags;
-                        route_enter_configured(route);
-                        log_route_debug(route, "Received remembered", link, manager);
+                if (!route) {
+                        if (!manager->manage_foreign_routes) {
+                                route_enter_configured(tmp);
+                                log_route_debug(tmp, "Ignoring received", link, manager);
+                                return 0;
+                        }
 
-                        r = route_setup_timer(route, cacheinfo);
-                        if (r < 0)
-                                log_link_warning_errno(link, r, "Failed to configure expiration timer for route, ignoring: %m");
-                        if (r > 0)
-                                log_route_debug(route, "Configured expiration timer for", link, manager);
-
-                } else if (!manager->manage_foreign_routes) {
-                        route_enter_configured(tmp);
-                        log_route_debug(tmp, "Ignoring received", link, manager);
-
-                } else {
-                        /* A route appeared that we did not request */
-                        route_enter_configured(tmp);
-                        log_route_debug(tmp, "Received new", link, manager);
+                        /* If we do not know the route, then save it. */
                         r = route_add(manager, link, tmp);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Failed to remember foreign route, ignoring: %m");
                                 return 0;
                         }
-                        TAKE_PTR(tmp);
-                }
+
+                        route = TAKE_PTR(tmp);
+                        is_new = true;
+
+                } else
+                        /* Update remembered route with the received notification. */
+                        route->flags = tmp->flags;
+
+                route_enter_configured(route);
+                log_route_debug(route, is_new ? "Received new" : "Received remembered", link, manager);
+
+                (void) route_setup_timer(route, cacheinfo);
 
                 break;
 
@@ -1892,89 +1893,6 @@ int network_add_default_route_on_device(Network *network) {
         return 0;
 }
 
-int config_parse_gateway(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Network *network = userdata;
-        _cleanup_(route_free_or_set_invalidp) Route *route = NULL;
-        int r;
-
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        if (streq(section, "Network")) {
-                /* we are not in an Route section, so use line number instead */
-                r = route_new_static(network, filename, line, &route);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to allocate route, ignoring assignment: %m");
-                        return 0;
-                }
-        } else {
-                r = route_new_static(network, filename, section_line, &route);
-                if (r == -ENOMEM)
-                        return log_oom();
-                if (r < 0) {
-                        log_syntax(unit, LOG_WARNING, filename, line, r,
-                                   "Failed to allocate route, ignoring assignment: %m");
-                        return 0;
-                }
-
-                if (isempty(rvalue)) {
-                        route->gateway_from_dhcp_or_ra = false;
-                        route->gw_family = AF_UNSPEC;
-                        route->gw = IN_ADDR_NULL;
-                        TAKE_PTR(route);
-                        return 0;
-                }
-
-                if (streq(rvalue, "_dhcp")) {
-                        route->gateway_from_dhcp_or_ra = true;
-                        TAKE_PTR(route);
-                        return 0;
-                }
-
-                if (streq(rvalue, "_dhcp4")) {
-                        route->gw_family = AF_INET;
-                        route->gateway_from_dhcp_or_ra = true;
-                        TAKE_PTR(route);
-                        return 0;
-                }
-
-                if (streq(rvalue, "_ipv6ra")) {
-                        route->gw_family = AF_INET6;
-                        route->gateway_from_dhcp_or_ra = true;
-                        TAKE_PTR(route);
-                        return 0;
-                }
-        }
-
-        r = in_addr_from_string_auto(rvalue, &route->gw_family, &route->gw);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Invalid %s='%s', ignoring assignment: %m", lvalue, rvalue);
-                return 0;
-        }
-
-        route->gateway_from_dhcp_or_ra = false;
-        TAKE_PTR(route);
-        return 0;
-}
-
 int config_parse_preferred_src(
                 const char *unit,
                 const char *filename,
@@ -2203,50 +2121,6 @@ int config_parse_route_table(
         }
 
         route->table_set = true;
-        TAKE_PTR(route);
-        return 0;
-}
-
-int config_parse_route_gateway_onlink(
-                const char *unit,
-                const char *filename,
-                unsigned line,
-                const char *section,
-                unsigned section_line,
-                const char *lvalue,
-                int ltype,
-                const char *rvalue,
-                void *data,
-                void *userdata) {
-
-        Network *network = userdata;
-        _cleanup_(route_free_or_set_invalidp) Route *route = NULL;
-        int r;
-
-        assert(filename);
-        assert(section);
-        assert(lvalue);
-        assert(rvalue);
-        assert(data);
-
-        r = route_new_static(network, filename, section_line, &route);
-        if (r == -ENOMEM)
-                return log_oom();
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Failed to allocate route, ignoring assignment: %m");
-                return 0;
-        }
-
-        r = parse_boolean(rvalue);
-        if (r < 0) {
-                log_syntax(unit, LOG_WARNING, filename, line, r,
-                           "Could not parse %s=\"%s\", ignoring assignment: %m", lvalue, rvalue);
-                return 0;
-        }
-
-        route->gateway_onlink = r;
-
         TAKE_PTR(route);
         return 0;
 }

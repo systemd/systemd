@@ -16,9 +16,9 @@
 
 [Match]
 Kind=sit
-Name=6rd-*
+OriginalName=6rd-*
 
-[Network]
+[Link]
 NamePolicy=keep
 MACAddressPolicy=persistent
 Property=ID_NET_MANAGED_BY=io.systemd.Network

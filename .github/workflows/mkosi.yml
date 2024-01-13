@@ -85,6 +85,10 @@ jobs:
         Distribution=${{ matrix.distro }}
         Release=${{ matrix.release }}
 
+        [Output]
+        # Build a disk image in CI as this logic is much more prone to breakage.
+        Format=disk
+
         [Content]
         Environment=CI_BUILD=1
                     SLOW_TESTS=true

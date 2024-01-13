@@ -28,7 +28,13 @@ static int network_save(Network *network, const char *dest_dir) {
 
         assert(network);
 
-        r = generator_open_unit_file_full(dest_dir, NULL, NULL, &f, &temp_path);
+        r = generator_open_unit_file_full(
+                        dest_dir,
+                        /* source= */ NULL,
+                        /* name= */ NULL,
+                        &f,
+                        /* ret_final_path= */ NULL,
+                        &temp_path);
         if (r < 0)
                 return r;
 
@@ -56,7 +62,13 @@ static int netdev_save(NetDev *netdev, const char *dest_dir) {
 
         assert(netdev);
 
-        r = generator_open_unit_file_full(dest_dir, NULL, NULL, &f, &temp_path);
+        r = generator_open_unit_file_full(
+                        dest_dir,
+                        /* source= */ NULL,
+                        /* name= */ NULL,
+                        &f,
+                        /* ret_final_path= */ NULL,
+                        &temp_path);
         if (r < 0)
                 return r;
 
@@ -81,7 +93,13 @@ static int link_save(Link *link, const char *dest_dir) {
 
         assert(link);
 
-        r = generator_open_unit_file_full(dest_dir, NULL, NULL, &f, &temp_path);
+        r = generator_open_unit_file_full(
+                        dest_dir,
+                        /* source= */ NULL,
+                        /* name= */ NULL,
+                        &f,
+                        /* ret_final_path= */ NULL,
+                        &temp_path);
         if (r < 0)
                 return r;
 
