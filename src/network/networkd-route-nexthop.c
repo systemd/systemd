@@ -35,7 +35,7 @@ void route_nexthops_done(Route *route) {
         ordered_set_free(route->nexthops);
 }
 
-static void route_nexthop_hash_func(const RouteNextHop *nh, struct siphash *state) {
+static void route_nexthop_hash_func_full(const RouteNextHop *nh, struct siphash *state, bool all) {
         assert(nh);
         assert(state);
 
@@ -46,13 +46,15 @@ static void route_nexthop_hash_func(const RouteNextHop *nh, struct siphash *stat
                 return;
 
         in_addr_hash_func(&nh->gw, nh->family, state);
+        if (!all)
+                return;
         siphash24_compress_typesafe(nh->weight, state);
         siphash24_compress_typesafe(nh->ifindex, state);
         if (nh->ifindex == 0)
                 siphash24_compress_string(nh->ifname, state); /* For Network or Request object. */
 }
 
-static int route_nexthop_compare_func(const RouteNextHop *a, const RouteNextHop *b) {
+static int route_nexthop_compare_func_full(const RouteNextHop *a, const RouteNextHop *b, bool all) {
         int r;
 
         assert(a);
@@ -68,6 +70,9 @@ static int route_nexthop_compare_func(const RouteNextHop *a, const RouteNextHop 
         r = memcmp(&a->gw, &b->gw, FAMILY_ADDRESS_SIZE(a->family));
         if (r != 0)
                 return r;
+
+        if (!all)
+                return 0;
 
         r = CMP(a->weight, b->weight);
         if (r != 0)
@@ -86,12 +91,82 @@ static int route_nexthop_compare_func(const RouteNextHop *a, const RouteNextHop 
         return 0;
 }
 
+static void route_nexthop_hash_func(const RouteNextHop *nh, struct siphash *state) {
+        route_nexthop_hash_func_full(nh, state, /* all = */ true);
+}
+
+static int route_nexthop_compare_func(const RouteNextHop *a, const RouteNextHop *b) {
+        return route_nexthop_compare_func_full(a, b, /* all = */ true);
+}
+
 DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
         route_nexthop_hash_ops,
         RouteNextHop,
         route_nexthop_hash_func,
         route_nexthop_compare_func,
         route_nexthop_free);
+
+static size_t route_n_nexthops(const Route *route) {
+        if (route->nexthop_id != 0 || route_type_is_reject(route))
+                return 0;
+
+        if (ordered_set_isempty(route->nexthops))
+                return 1;
+
+        return ordered_set_size(route->nexthops);
+}
+
+void route_nexthops_hash_func(const Route *route, struct siphash *state) {
+        assert(route);
+
+        size_t nhs = route_n_nexthops(route);
+        siphash24_compress_typesafe(nhs, state);
+
+        switch (nhs) {
+        case 0:
+                siphash24_compress_typesafe(route->nexthop_id, state);
+                return;
+
+        case 1:
+                route_nexthop_hash_func_full(&route->nexthop, state, /* all = */ false);
+                return;
+
+        default: {
+                RouteNextHop *nh;
+                ORDERED_SET_FOREACH(nh, route->nexthops)
+                        route_nexthop_hash_func(nh, state);
+        }}
+}
+
+int route_nexthops_compare_func(const Route *a, const Route *b) {
+        int r;
+
+        assert(a);
+        assert(b);
+
+        size_t a_nhs = route_n_nexthops(a);
+        size_t b_nhs = route_n_nexthops(b);
+        r = CMP(a_nhs, b_nhs);
+        if (r != 0)
+                return r;
+
+        switch (a_nhs) {
+        case 0:
+                return CMP(a->nexthop_id, b->nexthop_id);
+
+        case 1:
+                return route_nexthop_compare_func_full(&a->nexthop, &b->nexthop, /* all = */ false);
+
+        default: {
+                RouteNextHop *nh;
+                ORDERED_SET_FOREACH(nh, a->nexthops) {
+                        r = CMP(nh, (RouteNextHop*) ordered_set_get(a->nexthops, nh));
+                        if (r != 0)
+                                return r;
+                }
+                return 0;
+        }}
+}
 
 int route_nexthop_get_link(Manager *manager, Link *link, const RouteNextHop *nh, Link **ret) {
         assert(manager);
