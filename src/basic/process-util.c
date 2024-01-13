@@ -1063,7 +1063,7 @@ int getenv_for_pid(pid_t pid, const char *field, char **ret) {
                 _cleanup_free_ char *line = NULL;
                 const char *match;
 
-                if (sum > ENVIRONMENT_BLOCK_MAX) /* Give up searching eventually */
+                if (sum >= ENVIRONMENT_BLOCK_MAX) /* Give up searching eventually */
                         return -ENOBUFS;
 
                 r = read_nul_string(f, LONG_LINE_MAX, &line);
