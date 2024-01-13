@@ -175,11 +175,11 @@ fi
 checkblob() {
         test -f "/var/cache/systemd/home/blob-user/$1"
         stat -c "%u %#a" "/var/cache/systemd/home/blob-user/$1" | grep "^0 0644"
-        test -f "/home/blob-user/.identity/blob/$1"
-        stat -c "%u %#a" "/home/blob-user/.identity/blob/$1" | grep "12345 0644"
+        test -f "/home/blob-user/.identity-blob/$1"
+        stat -c "%u %#a" "/home/blob-user/.identity-blob/$1" | grep "12345 0644"
 
         diff "/var/cache/systemd/home/blob-user/$1" "$2"
-        diff "/var/cache/systemd/home/blob-user/$1" "/home/blob-user/.identity/blob/$1"
+        diff "/var/cache/systemd/home/blob-user/$1" "/home/blob-user/.identity-blob/$1"
 }
 
 mkdir /tmp/blob1 /tmp/blob2
@@ -202,8 +202,8 @@ inspect blob-user
 
 test -d /var/cache/systemd/home/blob-user
 stat -c "%u %#a" /var/cache/systemd/home/blob-user | grep "^0 0644"
-test -d /home/blob-user/.identity/blob
-stat -c "%u %#a" /home/blob-user/.identity/blob | grep "12345 0644"
+test -d /home/blob-user/.identity-blob
+stat -c "%u %#a" /home/blob-user/.identity-blob | grep "12345 0644"
 
 checkblob test1 /tmp/blob1/test1
 (! checkblob test1 /tmp/blob2/test1 )
