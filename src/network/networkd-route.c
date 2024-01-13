@@ -549,73 +549,88 @@ static void log_route_debug(const Route *route, const char *str, const Link *lin
                        strna(proto), strna(scope), strna(route_type_to_string(route->type)), strna(flags));
 }
 
-static int route_set_netlink_message(const Route *route, sd_netlink_message *req, Link *link) {
+static int route_set_netlink_message(const Route *route, sd_netlink_message *m, Link *link) {
         int r;
 
         assert(route);
-        assert(req);
+        assert(m);
 
         /* link may be NULL */
 
+        /* rtmsg header (and relevant attributes) */
         if (route->dst_prefixlen > 0) {
-                r = netlink_message_append_in_addr_union(req, RTA_DST, route->family, &route->dst);
+                r = netlink_message_append_in_addr_union(m, RTA_DST, route->family, &route->dst);
                 if (r < 0)
                         return r;
 
-                r = sd_rtnl_message_route_set_dst_prefixlen(req, route->dst_prefixlen);
+                r = sd_rtnl_message_route_set_dst_prefixlen(m, route->dst_prefixlen);
                 if (r < 0)
                         return r;
         }
 
         if (route->src_prefixlen > 0) {
-                r = netlink_message_append_in_addr_union(req, RTA_SRC, route->family, &route->src);
+                r = netlink_message_append_in_addr_union(m, RTA_SRC, route->family, &route->src);
                 if (r < 0)
                         return r;
 
-                r = sd_rtnl_message_route_set_src_prefixlen(req, route->src_prefixlen);
+                r = sd_rtnl_message_route_set_src_prefixlen(m, route->src_prefixlen);
                 if (r < 0)
                         return r;
         }
+
+        r = sd_rtnl_message_route_set_tos(m, route->tos);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_message_route_set_scope(m, route->scope);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_message_route_set_type(m, route->type);
+        if (r < 0)
+                return r;
+
+        r = sd_rtnl_message_route_set_flags(m, route->flags & ~RTNH_COMPARE_MASK);
+        if (r < 0)
+                return r;
+
+        /* attributes */
+        r = sd_netlink_message_append_u32(m, RTA_PRIORITY, route->priority);
+        if (r < 0)
+                return r;
 
         if (in_addr_is_set(route->family, &route->prefsrc)) {
-                r = netlink_message_append_in_addr_union(req, RTA_PREFSRC, route->family, &route->prefsrc);
+                r = netlink_message_append_in_addr_union(m, RTA_PREFSRC, route->family, &route->prefsrc);
                 if (r < 0)
                         return r;
         }
 
-        r = sd_rtnl_message_route_set_scope(req, route->scope);
-        if (r < 0)
-                return r;
-
-        r = sd_rtnl_message_route_set_flags(req, route->flags & RTNH_F_ONLINK);
-        if (r < 0)
-                return r;
-
         if (route->table < 256) {
-                r = sd_rtnl_message_route_set_table(req, route->table);
+                r = sd_rtnl_message_route_set_table(m, route->table);
                 if (r < 0)
                         return r;
         } else {
-                r = sd_rtnl_message_route_set_table(req, RT_TABLE_UNSPEC);
+                r = sd_rtnl_message_route_set_table(m, RT_TABLE_UNSPEC);
                 if (r < 0)
                         return r;
 
                 /* Table attribute to allow more than 256. */
-                r = sd_netlink_message_append_u32(req, RTA_TABLE, route->table);
+                r = sd_netlink_message_append_u32(m, RTA_TABLE, route->table);
                 if (r < 0)
                         return r;
         }
 
-        r = sd_netlink_message_append_u8(req, RTA_PREF, route->pref);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_message_append_u32(req, RTA_PRIORITY, route->priority);
+        r = sd_netlink_message_append_u8(m, RTA_PREF, route->pref);
         if (r < 0)
                 return r;
 
         /* nexthops */
-        r = route_nexthops_set_netlink_message(link, route, req);
+        r = route_nexthops_set_netlink_message(link, route, m);
+        if (r < 0)
+                return r;
+
+        /* metrics */
+        r = route_metric_set_netlink_message(&route->metric, m);
         if (r < 0)
                 return r;
 
@@ -640,7 +655,7 @@ static int route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *l
 }
 
 int route_remove(Route *route) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         unsigned char type;
         Manager *manager;
         Link *link;
@@ -655,11 +670,13 @@ int route_remove(Route *route) {
 
         log_route_debug(route, "Removing", link, manager);
 
-        r = sd_rtnl_message_new_route(manager->rtnl, &req,
-                                      RTM_DELROUTE, route->family,
-                                      route->protocol);
+        r = sd_rtnl_message_new_route(manager->rtnl, &m, RTM_DELROUTE, route->family, route->protocol);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not create netlink message: %m");
+
+        r = route_set_netlink_message(route, m, link);
+        if (r < 0)
+                return log_error_errno(r, "Could not fill netlink message: %m");
 
         if (route->family == AF_INET && route->nexthop_id > 0 && route->type == RTN_BLACKHOLE)
                 /* When IPv4 route has nexthop id and the nexthop type is blackhole, even though kernel
@@ -672,15 +689,11 @@ int route_remove(Route *route) {
         else
                 type = route->type;
 
-        r = sd_rtnl_message_route_set_type(req, type);
+        r = sd_rtnl_message_route_set_type(m, type);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not set route type: %m");
 
-        r = route_set_netlink_message(route, req, link);
-        if (r < 0)
-                return log_error_errno(r, "Could not fill netlink message: %m");
-
-        r = netlink_call_async(manager->rtnl, NULL, req, route_remove_handler,
+        r = netlink_call_async(manager->rtnl, NULL, m, route_remove_handler,
                                link ? link_netlink_destroy_callback : NULL, link);
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not send netlink message: %m");
@@ -1011,10 +1024,6 @@ static int route_configure(const Route *route, uint32_t lifetime_sec, Link *link
         if (r < 0)
                 return r;
 
-        r = sd_rtnl_message_route_set_type(m, route->type);
-        if (r < 0)
-                return r;
-
         r = route_set_netlink_message(route, m, link);
         if (r < 0)
                 return r;
@@ -1024,11 +1033,6 @@ static int route_configure(const Route *route, uint32_t lifetime_sec, Link *link
                 if (r < 0)
                         return r;
         }
-
-        /* metrics */
-        r = route_metric_set_netlink_message(&route->metric, m);
-        if (r < 0)
-                return r;
 
         return request_call_netlink_async(link->manager->rtnl, m, req);
 }
