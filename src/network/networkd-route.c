@@ -21,69 +21,7 @@
 #include "vrf.h"
 #include "wireguard.h"
 
-int route_new(Route **ret) {
-        _cleanup_(route_freep) Route *route = NULL;
-
-        route = new(Route, 1);
-        if (!route)
-                return -ENOMEM;
-
-        *route = (Route) {
-                .family = AF_UNSPEC,
-                .scope = RT_SCOPE_UNIVERSE,
-                .protocol = RTPROT_UNSPEC,
-                .type = RTN_UNICAST,
-                .table = RT_TABLE_MAIN,
-                .lifetime_usec = USEC_INFINITY,
-                .gateway_onlink = -1,
-        };
-
-        *ret = TAKE_PTR(route);
-
-        return 0;
-}
-
-int route_new_static(Network *network, const char *filename, unsigned section_line, Route **ret) {
-        _cleanup_(config_section_freep) ConfigSection *n = NULL;
-        _cleanup_(route_freep) Route *route = NULL;
-        int r;
-
-        assert(network);
-        assert(ret);
-        assert(filename);
-        assert(section_line > 0);
-
-        r = config_section_new(filename, section_line, &n);
-        if (r < 0)
-                return r;
-
-        route = hashmap_get(network->routes_by_section, n);
-        if (route) {
-                *ret = TAKE_PTR(route);
-                return 0;
-        }
-
-        if (hashmap_size(network->routes_by_section) >= routes_max())
-                return -E2BIG;
-
-        r = route_new(&route);
-        if (r < 0)
-                return r;
-
-        route->protocol = RTPROT_STATIC;
-        route->network = network;
-        route->section = TAKE_PTR(n);
-        route->source = NETWORK_CONFIG_SOURCE_STATIC;
-
-        r = hashmap_ensure_put(&network->routes_by_section, &config_section_hash_ops, route->section, route);
-        if (r < 0)
-                return r;
-
-        *ret = TAKE_PTR(route);
-        return 0;
-}
-
-Route *route_free(Route *route) {
+Route* route_free(Route *route) {
         if (!route)
                 return NULL;
 
@@ -91,8 +29,6 @@ Route *route_free(Route *route) {
                 assert(route->section);
                 hashmap_remove(route->network->routes_by_section, route->section);
         }
-
-        config_section_free(route->section);
 
         if (route->link)
                 set_remove(route->link->routes, route);
@@ -103,6 +39,7 @@ Route *route_free(Route *route) {
         if (route->wireguard)
                 set_remove(route->wireguard->routes, route);
 
+        config_section_free(route->section);
         route_nexthops_done(route);
         route_metric_done(&route->metric);
         sd_event_source_disable_unref(route->expire);
@@ -238,6 +175,68 @@ DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 route_compare_func,
                 route_free);
 
+int route_new(Route **ret) {
+        _cleanup_(route_freep) Route *route = NULL;
+
+        route = new(Route, 1);
+        if (!route)
+                return -ENOMEM;
+
+        *route = (Route) {
+                .family = AF_UNSPEC,
+                .scope = RT_SCOPE_UNIVERSE,
+                .protocol = RTPROT_UNSPEC,
+                .type = RTN_UNICAST,
+                .table = RT_TABLE_MAIN,
+                .lifetime_usec = USEC_INFINITY,
+                .gateway_onlink = -1,
+        };
+
+        *ret = TAKE_PTR(route);
+
+        return 0;
+}
+
+int route_new_static(Network *network, const char *filename, unsigned section_line, Route **ret) {
+        _cleanup_(config_section_freep) ConfigSection *n = NULL;
+        _cleanup_(route_freep) Route *route = NULL;
+        int r;
+
+        assert(network);
+        assert(ret);
+        assert(filename);
+        assert(section_line > 0);
+
+        r = config_section_new(filename, section_line, &n);
+        if (r < 0)
+                return r;
+
+        route = hashmap_get(network->routes_by_section, n);
+        if (route) {
+                *ret = TAKE_PTR(route);
+                return 0;
+        }
+
+        if (hashmap_size(network->routes_by_section) >= routes_max())
+                return -E2BIG;
+
+        r = route_new(&route);
+        if (r < 0)
+                return r;
+
+        route->protocol = RTPROT_STATIC;
+        route->network = network;
+        route->section = TAKE_PTR(n);
+        route->source = NETWORK_CONFIG_SOURCE_STATIC;
+
+        r = hashmap_ensure_put(&network->routes_by_section, &config_section_hash_ops, route->section, route);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(route);
+        return 0;
+}
+
 static int route_add(Manager *manager, Link *link, Route *route) {
         int r;
 
@@ -307,11 +306,11 @@ int route_dup(const Route *src, Route **ret) {
                 return -ENOMEM;
 
         /* Unset all pointers */
+        dest->manager = NULL;
         dest->network = NULL;
         dest->wireguard = NULL;
         dest->section = NULL;
         dest->link = NULL;
-        dest->manager = NULL;
         dest->nexthops = NULL;
         dest->metric = ROUTE_METRIC_NULL;
         dest->expire = NULL;
