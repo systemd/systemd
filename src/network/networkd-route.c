@@ -54,31 +54,51 @@ static void route_hash_func(const Route *route, struct siphash *state) {
 
         switch (route->family) {
         case AF_INET:
-        case AF_INET6:
-                siphash24_compress_typesafe(route->dst_prefixlen, state);
-                in_addr_hash_func(&route->dst, route->family, state);
-
-                siphash24_compress_typesafe(route->src_prefixlen, state);
-                in_addr_hash_func(&route->src, route->family, state);
-
-                siphash24_compress_typesafe(route->nexthop.family, state);
-                if (IN_SET(route->nexthop.family, AF_INET, AF_INET6)) {
-                        in_addr_hash_func(&route->nexthop.gw, route->nexthop.family, state);
-                        siphash24_compress_typesafe(route->nexthop.weight, state);
-                }
-
-                in_addr_hash_func(&route->prefsrc, route->family, state);
-
-                siphash24_compress_typesafe(route->tos, state);
-                siphash24_compress_typesafe(route->priority, state);
+                /* First, the table, destination prefix, priority, and tos (dscp), are used to find routes.
+                 * See fib_table_insert(), fib_find_node(), and fib_find_alias() in net/ipv4/fib_trie.c of the kernel. */
                 siphash24_compress_typesafe(route->table, state);
+                in_addr_hash_func(&route->dst, route->family, state);
+                siphash24_compress_typesafe(route->dst_prefixlen, state);
+                siphash24_compress_typesafe(route->priority, state);
+                siphash24_compress_typesafe(route->tos, state);
+
+                /* Then, protocol, scope, type, flags, prefsrc, metrics (RTAX_* attributes), and nexthops (gateways)
+                 * are used to find routes. See fib_find_info() in net/ipv4/fib_semantics.c of the kernel. */
                 siphash24_compress_typesafe(route->protocol, state);
                 siphash24_compress_typesafe(route->scope, state);
                 siphash24_compress_typesafe(route->type, state);
-                route_metric_hash_func(&route->metric, state);
-                siphash24_compress_typesafe(route->nexthop_id, state);
+                unsigned flags = route->flags & ~RTNH_COMPARE_MASK;
+                siphash24_compress_typesafe(flags, state);
+                in_addr_hash_func(&route->prefsrc, route->family, state);
 
+                /* nexthops (id, number of nexthops, nexthop) */
+                route_nexthops_hash_func(route, state);
+
+                /* metrics */
+                route_metric_hash_func(&route->metric, state);
                 break;
+
+        case AF_INET6:
+                /* First, table and destination prefix are used for classifying routes.
+                 * See fib6_add() and fib6_add_1() in net/ipv6/ip6_fib.c of the kernel. */
+                siphash24_compress_typesafe(route->table, state);
+                in_addr_hash_func(&route->dst, route->family, state);
+                siphash24_compress_typesafe(route->dst_prefixlen, state);
+
+                /* Then, source prefix is used. See fib6_add(). */
+                in_addr_hash_func(&route->src, route->family, state);
+                siphash24_compress_typesafe(route->src_prefixlen, state);
+
+                /* See fib6_add_rt2node(). */
+                siphash24_compress_typesafe(route->priority, state);
+
+                /* See rt6_duplicate_nexthop() in include/net/ip6_route.h of the kernel.
+                 * Here, we hash nexthop in a similar way as the one for IPv4. */
+                route_nexthops_hash_func(route, state);
+
+                /* Unlike IPv4 routes, metrics are not taken into account. */
+                break;
+
         default:
                 /* treat any other address family as AF_UNSPEC */
                 break;
@@ -94,8 +114,7 @@ static int route_compare_func(const Route *a, const Route *b) {
 
         switch (a->family) {
         case AF_INET:
-        case AF_INET6:
-                r = CMP(a->dst_prefixlen, b->dst_prefixlen);
+                r = CMP(a->table, b->table);
                 if (r != 0)
                         return r;
 
@@ -103,33 +122,7 @@ static int route_compare_func(const Route *a, const Route *b) {
                 if (r != 0)
                         return r;
 
-                r = CMP(a->src_prefixlen, b->src_prefixlen);
-                if (r != 0)
-                        return r;
-
-                r = memcmp(&a->src, &b->src, FAMILY_ADDRESS_SIZE(a->family));
-                if (r != 0)
-                        return r;
-
-                r = CMP(a->nexthop.family, b->nexthop.family);
-                if (r != 0)
-                        return r;
-
-                if (IN_SET(a->nexthop.family, AF_INET, AF_INET6)) {
-                        r = memcmp(&a->nexthop.gw, &b->nexthop.gw, FAMILY_ADDRESS_SIZE(a->family));
-                        if (r != 0)
-                                return r;
-
-                        r = CMP(a->nexthop.weight, b->nexthop.weight);
-                        if (r != 0)
-                                return r;
-                }
-
-                r = memcmp(&a->prefsrc, &b->prefsrc, FAMILY_ADDRESS_SIZE(a->family));
-                if (r != 0)
-                        return r;
-
-                r = CMP(a->tos, b->tos);
+                r = CMP(a->dst_prefixlen, b->dst_prefixlen);
                 if (r != 0)
                         return r;
 
@@ -137,7 +130,7 @@ static int route_compare_func(const Route *a, const Route *b) {
                 if (r != 0)
                         return r;
 
-                r = CMP(a->table, b->table);
+                r = CMP(a->tos, b->tos);
                 if (r != 0)
                         return r;
 
@@ -153,15 +146,47 @@ static int route_compare_func(const Route *a, const Route *b) {
                 if (r != 0)
                         return r;
 
-                r = route_metric_compare_func(&a->metric, &b->metric);
+                r = CMP(a->flags & ~RTNH_COMPARE_MASK, b->flags & ~RTNH_COMPARE_MASK);
                 if (r != 0)
                         return r;
 
-                r = CMP(a->nexthop_id, b->nexthop_id);
+                r = memcmp(&a->prefsrc, &b->prefsrc, FAMILY_ADDRESS_SIZE(a->family));
                 if (r != 0)
                         return r;
 
-                return 0;
+                r = route_nexthops_compare_func(a, b);
+                if (r != 0)
+                        return r;
+
+                return route_metric_compare_func(&a->metric, &b->metric);
+
+        case AF_INET6:
+                r = CMP(a->table, b->table);
+                if (r != 0)
+                        return r;
+
+                r = memcmp(&a->dst, &b->dst, FAMILY_ADDRESS_SIZE(a->family));
+                if (r != 0)
+                        return r;
+
+                r = CMP(a->dst_prefixlen, b->dst_prefixlen);
+                if (r != 0)
+                        return r;
+
+                r = memcmp(&a->src, &b->src, FAMILY_ADDRESS_SIZE(a->family));
+                if (r != 0)
+                        return r;
+
+                r = CMP(a->src_prefixlen, b->src_prefixlen);
+                if (r != 0)
+                        return r;
+
+                r = CMP(a->priority, b->priority);
+                if (r != 0)
+                        return r;
+
+                return route_nexthops_compare_func(a, b);
+
         default:
                 /* treat any other address family as AF_UNSPEC */
                 return 0;
