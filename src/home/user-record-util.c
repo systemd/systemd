@@ -282,7 +282,7 @@ int user_record_add_binding(
                 gid_t gid) {
 
         _cleanup_(json_variant_unrefp) JsonVariant *new_binding_entry = NULL, *binding = NULL;
-        _cleanup_free_ char *ip = NULL, *hd = NULL, *ip_auto = NULL, *lc = NULL, *lcm = NULL, *fst = NULL;
+        _cleanup_free_ char *blob = NULL, *ip = NULL, *hd = NULL, *ip_auto = NULL, *lc = NULL, *lcm = NULL, *fst = NULL;
         sd_id128_t mid;
         int r;
 
@@ -290,6 +290,10 @@ int user_record_add_binding(
 
         if (!h->json)
                 return -EUNATCH;
+
+        blob = path_join(home_system_blob_dir(), h->user_name);
+        if (!blob)
+                return -ENOMEM;
 
         r = sd_id128_get_machine(&mid);
         if (r < 0)
@@ -331,6 +335,7 @@ int user_record_add_binding(
 
         r = json_build(&new_binding_entry,
                        JSON_BUILD_OBJECT(
+                                       JSON_BUILD_PAIR("blobDirectory", JSON_BUILD_STRING(blob)),
                                        JSON_BUILD_PAIR_CONDITION(!!image_path, "imagePath", JSON_BUILD_STRING(image_path)),
                                        JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(partition_uuid), "partitionUuid", JSON_BUILD_STRING(SD_ID128_TO_UUID_STRING(partition_uuid))),
                                        JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(luks_uuid), "luksUuid", JSON_BUILD_STRING(SD_ID128_TO_UUID_STRING(luks_uuid))),
@@ -369,6 +374,8 @@ int user_record_add_binding(
         r = json_variant_set_field(&h->json, "binding", binding);
         if (r < 0)
                 return r;
+
+        free_and_replace(h->blob_directory, blob);
 
         if (storage >= 0)
                 h->storage = storage;
@@ -1382,6 +1389,12 @@ int user_record_is_supported(UserRecord *hr, sd_bus_error *error) {
         if (hr->service && !streq(hr->service, "io.systemd.Home"))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Not accepted with service not matching io.systemd.Home.");
 
+        if (hr->blob_directory) {
+                /* This function is always called w/o binding section, so if hr->blob_dir is set then the caller set it themselves */
+                assert((hr->mask & USER_RECORD_BINDING) == 0);
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Cannot manage custom bulk directories.");
+        }
+
         return 0;
 }
 
@@ -1508,5 +1521,86 @@ int user_record_set_rebalance_weight(UserRecord *h, uint64_t weight) {
 
         h->rebalance_weight = weight;
         h->mask |= USER_RECORD_PER_MACHINE;
+        return 0;
+}
+
+int user_record_steal_blob_dir(UserRecord *h, char **ret) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        JsonVariant *per_machine;
+        int r;
+
+        assert(h);
+        assert(h->json);
+        assert(ret);
+
+        /* Returns the value of blobDirectory in the user record, and
+         * removes the field from the record so it doesn't get persisted
+         * anywhere */
+
+         if (!h->blob_directory)
+                return -ENOENT;
+
+        v = json_variant_ref(h->json);
+
+        /* Drop blobDirectory from regular section */
+        r = json_variant_filter(&v, STRV_MAKE("blobDirectory"));
+        if (r < 0)
+                return r;
+
+        /* Drop blobDirectory from perMachine sections that match us. */
+        per_machine = json_variant_by_key(h->json, "perMachine");
+        if (per_machine) {
+                _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
+                JsonVariant *e;
+
+                JSON_VARIANT_ARRAY_FOREACH(e, per_machine) {
+                        _cleanup_(json_variant_unrefp) JsonVariant *f = NULL;
+
+                        if (!json_variant_is_object(e))
+                                return -EINVAL;
+
+                        r = per_machine_match(e, JSON_PERMISSIVE);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                continue;
+
+                        f = json_variant_ref(e);
+
+                        r = json_variant_filter(&f, STRV_MAKE("blobDirectory"));
+                        if (r < 0)
+                                return r;
+
+                        if (per_machine_entry_empty(f))
+                                continue;
+
+                        r = json_variant_append_array(&array, f);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (json_variant_is_blank_array(array))
+                        r = json_variant_filter(&v, STRV_MAKE("perMachine"));
+                else
+                        r = json_variant_set_field(&v, "perMachine", array);
+                if (r < 0)
+                        return r;
+
+                SET_FLAG(h->mask, USER_RECORD_PER_MACHINE, !json_variant_is_blank_array(array));
+        }
+
+        /* Last location blobDirectory can be is in the status section, but
+         * we shouldn't have a status section here. */
+        assert((h->mask & USER_RECORD_STATUS) == 0);
+
+        JSON_VARIANT_REPLACE(h->json, TAKE_PTR(v));
+
+        if (path_startswith(h->blob_directory, home_system_blob_dir())) {
+                /* For some reason the caller specified our own system blob dir?!? */
+                h->blob_directory = mfree(h->blob_directory);
+                return -ENOENT;
+        }
+
+        *ret = TAKE_PTR(h->blob_directory);
         return 0;
 }
