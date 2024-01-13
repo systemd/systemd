@@ -436,19 +436,32 @@ static void log_nexthop_debug(const NextHop *nexthop, const char *str, Manager *
                        yes_no(nexthop->blackhole), strna(group), strna(flags));
 }
 
-static int nexthop_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *link) {
+static int nexthop_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, RemoveRequest *rreq) {
         int r;
 
         assert(m);
+        assert(rreq);
 
-        /* link may be NULL. */
-
-        if (link && IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
-                return 1;
+        Manager *manager = ASSERT_PTR(rreq->manager);
+        NextHop *nexthop = ASSERT_PTR(rreq->userdata);
 
         r = sd_netlink_message_get_errno(m);
-        if (r < 0 && r != -ENOENT)
-                log_link_message_warning_errno(link, m, r, "Could not drop nexthop, ignoring");
+        if (r < 0) {
+                log_message_full_errno(m,
+                                       (r == -ENOENT || !nexthop->manager) ? LOG_DEBUG : LOG_WARNING,
+                                       r, "Could not drop nexthop, ignoring");
+
+                if (nexthop->manager) {
+                        /* If the nexthop cannot be removed, then assume the nexthop is already removed. */
+                        log_nexthop_debug(nexthop, "Forgetting", manager);
+
+                        Request *req;
+                        if (nexthop_get_request_by_id(manager, nexthop->id, &req) >= 0)
+                                nexthop_enter_removed(req->userdata);
+
+                        nexthop_detach(nexthop);
+                }
+        }
 
         return 1;
 }
@@ -475,12 +488,9 @@ int nexthop_remove(NextHop *nexthop, Manager *manager) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not append NHA_ID attribute: %m");
 
-        r = netlink_call_async(manager->rtnl, NULL, m, nexthop_remove_handler,
-                               link ? link_netlink_destroy_callback : NULL, link);
+        r = manager_remove_request_add(manager, nexthop, nexthop, manager->rtnl, m, nexthop_remove_handler);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not send rtnetlink message: %m");
-
-        link_ref(link); /* link may be NULL, link_ref() is OK with that */
+                return log_link_error_errno(link, r, "Could not queue rtnetlink message: %m");
 
         nexthop_enter_removing(nexthop);
         return 0;
