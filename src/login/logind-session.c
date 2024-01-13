@@ -740,7 +740,7 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
 
                 /* These two have StopWhenUnneeded= set, hence add a dep towards them */
                 wants = strv_new(s->user->runtime_dir_service,
-                                 SESSION_CLASS_WANTS_SERVICE_MANAGER(s->class) ? s->user->service : STRV_IGNORE);
+                                 SESSION_CLASS_WANTS_SERVICE_MANAGER(s->class) ? s->user->service_manager_unit : STRV_IGNORE);
                 if (!wants)
                         return log_oom();
 
@@ -753,7 +753,7 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
                 after = strv_new("systemd-logind.service",
                                  s->user->runtime_dir_service,
                                  SESSION_CLASS_IS_EARLY(s->class) ? STRV_IGNORE : "systemd-user-sessions.service",
-                                 s->user->service);
+                                 s->user->service_manager_unit);
                 if (!after)
                         return log_oom();
 
