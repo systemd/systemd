@@ -740,8 +740,8 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
                 description = strjoina("Session ", s->id, " of User ", s->user->user_record->user_name);
 
                 /* These two have StopWhenUnneeded= set, hence add a dep towards them */
-                wants = strv_new(s->user->runtime_dir_service,
-                                 SESSION_CLASS_WANTS_SERVICE_MANAGER(s->class) ? s->user->service : STRV_IGNORE);
+                wants = strv_new(s->user->runtime_dir_unit,
+                                 SESSION_CLASS_WANTS_SERVICE_MANAGER(s->class) ? s->user->service_manager_unit : STRV_IGNORE);
                 if (!wants)
                         return log_oom();
 
@@ -752,9 +752,9 @@ static int session_start_scope(Session *s, sd_bus_message *properties, sd_bus_er
                  * ordering after systemd-user-sessions.service and the user instance is optional we make use
                  * of STRV_IGNORE with strv_new() to skip these order constraints when needed. */
                 after = strv_new("systemd-logind.service",
-                                 s->user->runtime_dir_service,
+                                 s->user->runtime_dir_unit,
                                  SESSION_CLASS_IS_EARLY(s->class) ? STRV_IGNORE : "systemd-user-sessions.service",
-                                 s->user->service);
+                                 s->user->service_manager_unit);
                 if (!after)
                         return log_oom();
 
@@ -1221,8 +1221,8 @@ void session_set_class(Session *s, SessionClass c) {
         (void) session_save(s);
         (void) session_send_changed(s, "Class", NULL);
 
-        /* This class change might mean we need the per-user session manager now. Try to start it */
-        user_start_service_manager(s->user);
+        /* This class change might mean we need the per-user session manager now. Try to start it. */
+        (void) user_start_service_manager(s->user);
 }
 
 int session_set_display(Session *s, const char *display) {
