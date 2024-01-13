@@ -1389,6 +1389,12 @@ int user_record_is_supported(UserRecord *hr, sd_bus_error *error) {
         if (hr->service && !streq(hr->service, "io.systemd.Home"))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Not accepted with service not matching io.systemd.Home.");
 
+        if (hr->blob_directory) {
+                /* This function is always called w/o binding section, so if hr->blob_dir is set then the caller set it themselves */
+                assert((hr->mask & USER_RECORD_BINDING) == 0);
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Cannot manage custom bulk directories.");
+        }
+
         return 0;
 }
 
