@@ -1406,13 +1406,7 @@ static int process_route_one(
 }
 
 int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
-        _cleanup_(converted_routes_freep) ConvertedRoutes *converted = NULL;
         _cleanup_(route_freep) Route *tmp = NULL;
-        struct rta_cacheinfo cacheinfo;
-        bool has_cacheinfo;
-        Link *link = NULL;
-        uint32_t ifindex;
-        uint16_t type;
         int r;
 
         assert(rtnl);
@@ -1427,6 +1421,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
                 return 0;
         }
 
+        uint16_t type;
         r = sd_netlink_message_get_type(message, &type);
         if (r < 0) {
                 log_warning_errno(r, "rtnl: could not get message type, ignoring: %m");
@@ -1436,36 +1431,16 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
                 return 0;
         }
 
-        r = sd_netlink_message_read_u32(message, RTA_OIF, &ifindex);
-        if (r < 0 && r != -ENODATA) {
-                log_warning_errno(r, "rtnl: could not get ifindex from route message, ignoring: %m");
-                return 0;
-        } else if (r >= 0) {
-                if (ifindex <= 0) {
-                        log_warning("rtnl: received route message with invalid ifindex %u, ignoring.", ifindex);
-                        return 0;
-                }
-
-                r = link_get_by_index(m, ifindex, &link);
-                if (r < 0) {
-                        /* when enumerating we might be out of sync, but we will
-                         * get the route again, so just ignore it */
-                        if (!m->enumerating)
-                                log_warning("rtnl: received route message for link (%u) we do not know about, ignoring", ifindex);
-                        return 0;
-                }
-        }
-
         r = route_new(&tmp);
         if (r < 0)
                 return log_oom();
 
         r = sd_rtnl_message_route_get_family(message, &tmp->family);
         if (r < 0) {
-                log_link_warning(link, "rtnl: received route message without family, ignoring");
+                log_warning_errno(r, "rtnl: received route message without family, ignoring: %m");
                 return 0;
         } else if (!IN_SET(tmp->family, AF_INET, AF_INET6)) {
-                log_link_debug(link, "rtnl: received route message with invalid family '%i', ignoring", tmp->family);
+                log_debug("rtnl: received route message with invalid family '%i', ignoring.", tmp->family);
                 return 0;
         }
 
@@ -1483,49 +1458,49 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
 
         r = netlink_message_read_in_addr_union(message, RTA_DST, tmp->family, &tmp->dst);
         if (r < 0 && r != -ENODATA) {
-                log_link_warning_errno(link, r, "rtnl: received route message without valid destination, ignoring: %m");
+                log_warning_errno(r, "rtnl: received route message without valid destination, ignoring: %m");
                 return 0;
         }
 
         r = netlink_message_read_in_addr_union(message, RTA_SRC, tmp->family, &tmp->src);
         if (r < 0 && r != -ENODATA) {
-                log_link_warning_errno(link, r, "rtnl: received route message without valid source, ignoring: %m");
+                log_warning_errno(r, "rtnl: received route message without valid source, ignoring: %m");
                 return 0;
         }
 
         r = netlink_message_read_in_addr_union(message, RTA_PREFSRC, tmp->family, &tmp->prefsrc);
         if (r < 0 && r != -ENODATA) {
-                log_link_warning_errno(link, r, "rtnl: received route message without valid preferred source, ignoring: %m");
+                log_warning_errno(r, "rtnl: received route message without valid preferred source, ignoring: %m");
                 return 0;
         }
 
         r = sd_rtnl_message_route_get_dst_prefixlen(message, &tmp->dst_prefixlen);
         if (r < 0) {
-                log_link_warning_errno(link, r, "rtnl: received route message with invalid destination prefixlen, ignoring: %m");
+                log_warning_errno(r, "rtnl: received route message with invalid destination prefixlen, ignoring: %m");
                 return 0;
         }
 
         r = sd_rtnl_message_route_get_src_prefixlen(message, &tmp->src_prefixlen);
         if (r < 0) {
-                log_link_warning_errno(link, r, "rtnl: received route message with invalid source prefixlen, ignoring: %m");
+                log_warning_errno(r, "rtnl: received route message with invalid source prefixlen, ignoring: %m");
                 return 0;
         }
 
         r = sd_rtnl_message_route_get_scope(message, &tmp->scope);
         if (r < 0) {
-                log_link_warning_errno(link, r, "rtnl: received route message with invalid scope, ignoring: %m");
+                log_warning_errno(r, "rtnl: received route message with invalid scope, ignoring: %m");
                 return 0;
         }
 
         r = sd_rtnl_message_route_get_tos(message, &tmp->tos);
         if (r < 0) {
-                log_link_warning_errno(link, r, "rtnl: received route message with invalid tos, ignoring: %m");
+                log_warning_errno(r, "rtnl: received route message with invalid tos, ignoring: %m");
                 return 0;
         }
 
         r = sd_rtnl_message_route_get_type(message, &tmp->type);
         if (r < 0) {
-                log_link_warning_errno(link, r, "rtnl: received route message with invalid type, ignoring: %m");
+                log_warning_errno(r, "rtnl: received route message with invalid type, ignoring: %m");
                 return 0;
         }
 
@@ -1538,13 +1513,13 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
                         tmp->table = table;
         }
         if (r < 0) {
-                log_link_warning_errno(link, r, "rtnl: received route message with invalid table, ignoring: %m");
+                log_warning_errno(r, "rtnl: received route message with invalid table, ignoring: %m");
                 return 0;
         }
 
         r = sd_netlink_message_read_u32(message, RTA_PRIORITY, &tmp->priority);
         if (r < 0 && r != -ENODATA) {
-                log_link_warning_errno(link, r, "rtnl: received route message with invalid priority, ignoring: %m");
+                log_warning_errno(r, "rtnl: received route message with invalid priority, ignoring: %m");
                 return 0;
         }
 
@@ -1556,22 +1531,31 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
         if (route_metric_read_netlink_message(&tmp->metric, message) < 0)
                 return 0;
 
+        bool has_cacheinfo;
+        struct rta_cacheinfo cacheinfo;
         r = sd_netlink_message_read(message, RTA_CACHEINFO, sizeof(cacheinfo), &cacheinfo);
         if (r < 0 && r != -ENODATA) {
-                log_link_warning_errno(link, r, "rtnl: failed to read RTA_CACHEINFO attribute, ignoring: %m");
+                log_warning_errno(r, "rtnl: failed to read RTA_CACHEINFO attribute, ignoring: %m");
                 return 0;
         }
         has_cacheinfo = r >= 0;
 
-        /* IPv6 routes with reject type are always assigned to the loopback interface. See kernel's
-         * fib6_nh_init() in net/ipv6/route.c. However, we'd like to manage them by Manager. Hence, set
-         * link to NULL here. */
-        if (route_type_is_reject(tmp))
-                link = NULL;
+        Link *link = NULL;
+        if (tmp->nexthop.ifindex > 0) {
+                r = link_get_by_index(m, tmp->nexthop.ifindex, &link);
+                if (r < 0) {
+                        /* when enumerating we might be out of sync, but we will
+                         * get the route again, so just ignore it */
+                        if (!m->enumerating)
+                                log_warning("rtnl: received route message for link (%i) we do not know about, ignoring", tmp->nexthop.ifindex);
+                        return 0;
+                }
+        }
 
         if (!route_needs_convert(tmp))
                 return process_route_one(m, link, type, TAKE_PTR(tmp), has_cacheinfo ? &cacheinfo : NULL);
 
+        _cleanup_(converted_routes_freep) ConvertedRoutes *converted = NULL;
         r = route_convert(m, link, tmp, &converted);
         if (r < 0) {
                 log_link_warning_errno(link, r, "rtnl: failed to convert received route, ignoring: %m");
