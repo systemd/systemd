@@ -163,11 +163,9 @@ static int user_save_internal(User *u) {
                 "# This is private data. Do not parse.\n"
                 "NAME=%s\n"
                 "STATE=%s\n"         /* friendly user-facing state */
-                "STOPPING=%s\n"      /* low-level state */
                 "GC_MODE=%s\n",
                 u->user_record->user_name,
                 user_state_to_string(user_get_state(u)),
-                yes_no(u->stopping),
                 user_gc_mode_to_string(u->gc_mode));
 
         /* LEGACY: no-one reads RUNTIME= anymore, drop it at some point */
@@ -354,28 +352,35 @@ static bool user_wants_service_manager(User *u) {
         return false;
 }
 
-void user_start_service_manager(User *u) {
+static void user_start_service_manager(User *u) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(u);
+        assert(u->manager);
+        assert(u->service);
 
-        /* Start the service containing the "systemd --user" instance (user@.service). Note that we don't explicitly
-         * start the per-user slice or the systemd-runtime-dir@.service instance, as those are pulled in both by
-         * user@.service and the session scopes as dependencies. */
+        /* Start the service containing the "systemd --user" instance (user@.service). Note that we don't
+         * explicitly start the per-user slice or the user-runtime-dir@.service instance, as those are
+         * pulled in both by user@.service and the session scopes as dependencies. */
 
-        if (u->stopping) /* Don't try to start this if the user is going down */
+        if (USER_SERVICE_MANAGER_IS_ACTIVE(u))
                 return;
 
-        if (!user_wants_service_manager(u)) /* Only start user service manager if there's at least one session which wants it */
+        /* Only start user service manager if there's at least one session which wants it */
+        if (!user_wants_service_manager(u))
                 return;
 
+        assert(!u->service_job || u->service_state == USER_SERVICE_STOPPING);
         u->service_job = mfree(u->service_job);
+        u->service_state = USER_SERVICE_START_PENDING;
 
         r = manager_start_unit(u->manager, u->service, &error, &u->service_job);
         if (r < 0)
                 log_full_errno(sd_bus_error_has_name(&error, BUS_ERROR_UNIT_MASKED) ? LOG_DEBUG : LOG_WARNING, r,
                                "Failed to start user service '%s', ignoring: %s", u->service, bus_error_message(&error, r));
+        else
+                u->service_state == USER_SERVICE_STARTING;
 }
 
 static int update_slice_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
@@ -462,17 +467,8 @@ static int user_update_slice(User *u) {
 int user_start(User *u) {
         assert(u);
 
-        if (u->started && !u->stopping)
+        if (USER_SERVICE_MANAGER_IS_ACTIVE(u))
                 return 0;
-
-        /* If u->stopping is set, the user is marked for removal and service stop-jobs are queued. We have to clear
-         * that flag before queueing the start-jobs again. If they succeed, the user object can be re-used just fine
-         * (pid1 takes care of job-ordering and proper restart), but if they fail, we want to force another user_stop()
-         * so possibly pending units are stopped. */
-        u->stopping = false;
-
-        if (!u->started)
-                log_debug("Tracking new user %s.", u->user_record->user_name);
 
         /* Save the user data so far, because pam_systemd will read the XDG_RUNTIME_DIR out of it while starting up
          * systemd --user.  We need to do user_save_internal() because we have not "officially" started yet. */
@@ -481,14 +477,13 @@ int user_start(User *u) {
         /* Set slice parameters */
         (void) user_update_slice(u);
 
-        /* Start user@UID.service */
+        /* Start user@UID.service if needed */
         user_start_service_manager(u);
 
-        if (!u->started) {
-                if (!dual_timestamp_is_set(&u->timestamp))
-                        dual_timestamp_now(&u->timestamp);
+        if (!dual_timestamp_is_set(timestamp)) {
+                log_debug("Tracking new user %s.", u->user_record->user_name);
+                dual_timestamp_now(&u->timestamp);
                 user_send_signal(u, true);
-                u->started = true;
         }
 
         /* Save new user data */
@@ -497,17 +492,23 @@ int user_start(User *u) {
         return 0;
 }
 
-static void user_stop_service(User *u, bool force) {
+static void user_stop_service_manager(User *u, bool force) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(u);
+        assert(u->manager);
         assert(u->service);
 
-        /* The reverse of user_start_service(). Note that we only stop user@UID.service here, and let StopWhenUnneeded=
-         * deal with the slice and the user-runtime-dir@.service instance. */
+        /* The reverse of user_start_service_manager(). Note that we only stop user@UID.service here, and
+         * let StopWhenUnneeded= deal with the slice and the user-runtime-dir@.service instance. */
 
+        if (USER_SERVICE_MANAGER_IS_INACTIVE_OR_STOPPING(u))
+                return;
+
+        assert(!u->service_job || u->service_state == USER_SERVICE_STARTING);
         u->service_job = mfree(u->service_job);
+        u->service_state = USER_SERVICE_STOPPING;
 
         r = manager_stop_unit(u->manager, u->service, force ? "replace" : "fail", &error, &u->service_job);
         if (r < 0)
@@ -524,25 +525,10 @@ int user_stop(User *u, bool force) {
          * session left pinning it (in which case 'force' is false). Note that this just initiates tearing down of the
          * user, the User object will remain in memory until user_finalize() is called, see below. */
 
-        if (!u->started)
-                return 0;
+        LIST_FOREACH(sessions_by_user, s, u->sessions)
+                RET_GATHER(r, session_stop(s, force));
 
-        if (u->stopping) { /* Stop jobs have already been queued */
-                user_save(u);
-                return 0;
-        }
-
-        LIST_FOREACH(sessions_by_user, s, u->sessions) {
-                int k;
-
-                k = session_stop(s, force);
-                if (k < 0)
-                        r = k;
-        }
-
-        user_stop_service(u, force);
-
-        u->stopping = true;
+        user_stop_service_manager(u, force);
 
         user_save(u);
 
@@ -550,21 +536,15 @@ int user_stop(User *u, bool force) {
 }
 
 int user_finalize(User *u) {
-        int r = 0, k;
+        int r = 0;
 
         assert(u);
 
         /* Called when the user is really ready to be freed, i.e. when all unit stop jobs and suchlike for it are
          * done. This is called as a result of an earlier user_done() when all jobs are completed. */
 
-        if (u->started)
-                log_debug("User %s logged out.", u->user_record->user_name);
-
-        LIST_FOREACH(sessions_by_user, s, u->sessions) {
-                k = session_finalize(s);
-                if (k < 0)
-                        r = k;
-        }
+        LIST_FOREACH(sessions_by_user, s, u->sessions)
+                RET_GATHER(r, session_finalize(s));
 
         /* Clean SysV + POSIX IPC objects, but only if this is not a system user. Background: in many setups cronjobs
          * are run in full PAM and thus logind sessions, even if the code run doesn't belong to actual users but to
@@ -572,18 +552,15 @@ int user_finalize(User *u) {
          * cases, as we shouldn't accidentally remove a system service's IPC objects while it is running, just because
          * a cronjob running as the same user just finished. Hence: exclude system users generally from IPC clean-up,
          * and do it only for normal users. */
-        if (u->manager->remove_ipc && !uid_is_system(u->user_record->uid)) {
-                k = clean_ipc_by_uid(u->user_record->uid);
-                if (k < 0)
-                        r = k;
-        }
+        if (u->manager->remove_ipc && !uid_is_system(u->user_record->uid))
+                RET_GATHER(r, clean_ipc_by_uid(u->user_record->uid));
 
         (void) unlink(u->state_file);
         user_add_to_gc_queue(u);
 
-        if (u->started) {
+        if (dual_timestamp_is_set(timestamp)) {
+                log_debug("User %s logged out.", u->user_record->user_name);
                 user_send_signal(u, false);
-                u->started = false;
         }
 
         return r;
@@ -706,7 +683,7 @@ bool user_may_gc(User *u, bool drop_not_started) {
 
         assert(u);
 
-        if (drop_not_started && !u->started)
+        if (drop_not_started && (user_wants_service_manager(u) != USER_SERVICE_MANAGER_IS_ACTIVE(u)))
                 return true;
 
         if (user_pinned_by_sessions(u))
@@ -762,11 +739,17 @@ void user_add_to_gc_queue(User *u) {
 UserState user_get_state(User *u) {
         assert(u);
 
-        if (u->stopping)
-                return USER_CLOSING;
+        if (!dual_timestamp_is_set(&u->timestamp))
+                return USER_OFFLINE;
 
-        if (!u->started || u->service_job)
+        if (!user_wants_service_manager(u))
+                return USER_ONLINE;
+
+        if (u->service_state == USER_JOB_START_PENDING)
                 return USER_OPENING;
+
+        if (user_wants_service_manager(u) != USER_SERVICE_MANAGER_IS_ACTIVE(u))
+                return USER_CLOSING;
 
         bool any = false, all_closing = true;
         LIST_FOREACH(sessions_by_user, i, u->sessions) {

@@ -8,6 +8,30 @@ typedef struct User User;
 #include "logind.h"
 #include "user-record.h"
 
+typedef enum UserServiceState {
+        USER_SERVICE_INACTIVE,
+        USER_SERVICE_START_PENDING,
+        USER_SERVICE_STARTING,
+        USER_SERVICE_RUNNING,
+        USER_SERVICE_STOPPING,
+        _USER_SERVICE_MAX,
+        _USER_SERVICE_INVALID = -EINVAL,
+} UserServiceState;
+
+static bool USER_SERVICE_MANAGER_IS_ACTIVE(User *u) {
+        assert(u);
+        assert(u->service_state >= 0);
+        assert(u->service_state < _USER_SERVICE_MAX);
+        return IN_SET(u->service_state, USER_SERVICE_STARTING, USER_SERVICE_RUNNING);
+}
+
+static bool USER_SERVICE_MANAGER_IS_INACTIVE_OR_STOPPING(User *u) {
+        assert(u);
+        assert(u->service_state >= 0);
+        assert(u->service_state < _USER_SERVICE_MAX);
+        return IN_SET(u->service_state, USER_SERVICE_INACTIVE, USER_SERVICE_STOPPING);
+}
+
 typedef enum UserState {
         USER_OFFLINE,    /* Not logged in at all */
         USER_OPENING,    /* Is logging in */
@@ -38,21 +62,18 @@ struct User {
         char *service;                   /* user@UID.service */
         char *runtime_dir_service;       /* user-runtime-dir@UID.service */
 
+        UserServiceState service_state;
         char *service_job;
 
-        Session *display;
+        dual_timestamp timestamp;            /* When this User object was 'started' the first time */
+        usec_t last_session_timestamp;       /* When the number of sessions of this user went from 1 to 0 the last time */
 
-        dual_timestamp timestamp;      /* When this User object was 'started' the first time */
-        usec_t last_session_timestamp; /* When the number of sessions of this user went from 1 to 0 the last time */
-
-        /* Set up when the last session of the user logs out */
-        sd_event_source *timer_event_source;
+        sd_event_source *timer_event_source; /* Set up when the last session of the user logs out */
 
         UserGCMode gc_mode;
-        bool in_gc_queue:1;
+        bool in_gc_queue;
 
-        bool started:1;       /* Whenever the user being started, has been started or is being stopped again. */
-        bool stopping:1;      /* Whenever the user is being stopped or has been stopped. */
+        Session *display;
 
         LIST_HEAD(Session, sessions);
         LIST_FIELDS(User, gc_queue);
@@ -65,7 +86,6 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(User *, user_free);
 
 bool user_may_gc(User *u, bool drop_not_started);
 void user_add_to_gc_queue(User *u);
-void user_start_service_manager(User *u);
 int user_start(User *u);
 int user_stop(User *u, bool force);
 int user_finalize(User *u);
