@@ -13,39 +13,32 @@
 #include "parse-util.h"
 #include "string-util.h"
 
-int multipath_route_get_link(Manager *manager, const MultipathRoute *m, Link **ret) {
-        int r;
-
+int multipath_route_get_link(Manager *manager, Link *link, const MultipathRoute *m, Link **ret) {
         assert(manager);
         assert(m);
 
-        if (m->ifindex > 0) {
-                r = link_get_by_index(manager, m->ifindex, ret);
-                return r < 0 ? r : 1;
-        }
-        if (m->ifname) {
-                r = link_get_by_name(manager, m->ifname, ret);
-                return r < 0 ? r : 1;
+        if (m->ifindex > 0)
+                return link_get_by_index(manager, m->ifindex, ret);
+        if (m->ifname)
+                return link_get_by_name(manager, m->ifname, ret);
+
+        if (link) {
+                if (ret)
+                        *ret = link;
+                return 0;
         }
 
-        if (ret)
-                *ret = NULL;
-        return 0;
+        return -ENOENT;
 }
 
 static bool multipath_route_is_ready_to_configure(const MultipathRoute *m, Link *link, bool onlink) {
         union in_addr_union a = m->gateway.address;
-        Link *l = NULL;
-        int r;
 
         assert(m);
         assert(link);
 
-        r = multipath_route_get_link(link->manager, m, &l);
-        if (r < 0)
+        if (multipath_route_get_link(link->manager, link, m, &link) < 0)
                 return false;
-        if (r > 0)
-                link = l;
 
         if (!link_is_ready_to_configure(link, /* allow_unmanaged = */ true))
                 return false;
@@ -178,12 +171,9 @@ static int append_nexthop_one(Link *link, const Route *route, const MultipathRou
                 assert(link);
                 assert(link->manager);
 
-                Link *l;
-                r = multipath_route_get_link(link->manager, m, &l);
+                r = multipath_route_get_link(link->manager, link, m, &link);
                 if (r < 0)
                         return r;
-                if (r > 0)
-                        link = l;
         }
 
         new_rta = realloc(*rta, RTA_ALIGN((*rta)->rta_len) + RTA_SPACE(sizeof(struct rtnexthop)));

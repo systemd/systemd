@@ -8,7 +8,7 @@ typedef struct Manager Manager;
 typedef struct MultipathRoute MultipathRoute;
 typedef struct Route Route;
 
-int multipath_route_get_link(Manager *manager, const MultipathRoute *m, Link **ret);
+int multipath_route_get_link(Manager *manager, Link *link, const MultipathRoute *m, Link **ret);
 int route_nexthops_is_ready_to_configure(const Route *route, Link *link);
 
 int route_nexthops_to_string(const Route *route, char **ret);
