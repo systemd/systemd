@@ -36,19 +36,23 @@ struct Route {
         NetworkConfigState state;
         union in_addr_union provider; /* DHCP server or router address */
 
+        /* rtmsg header */
         int family;
-
         unsigned char dst_prefixlen;
-        unsigned char src_prefixlen;
-        unsigned char scope;
+        unsigned char src_prefixlen; /* IPv6 only */
+        unsigned char tos; /* IPv4 only */
         unsigned char protocol;  /* RTPROT_* */
-        unsigned char type; /* RTN_* */
-        unsigned char tos;
-        uint32_t priority; /* note that ip(8) calls this 'metric' */
-        uint32_t table;
-        unsigned char pref;
-        unsigned flags;
-        int gateway_onlink; /* Only used in conf parser and route_section_verify(). */
+        unsigned char scope; /* IPv4 only */
+        unsigned char type; /* RTN_*, e.g. RTN_LOCAL, RTN_UNREACHABLE */
+        unsigned flags; /* e.g. RTNH_F_ONLINK */
+
+        /* attributes */
+        union in_addr_union dst; /* RTA_DST */
+        union in_addr_union src; /* RTA_SRC (IPv6 only) */
+        uint32_t priority; /* RTA_PRIORITY, note that ip(8) calls this 'metric' */
+        union in_addr_union prefsrc; /* RTA_PREFSRC */
+        uint32_t table; /* RTA_TABLE, also used in rtmsg header */
+        uint8_t pref; /* RTA_PREF (IPv6 only) */
 
         /* nexthops */
         RouteNextHop nexthop; /* RTA_OIF, and RTA_GATEWAY or RTA_VIA (IPv4 only) */
@@ -72,10 +76,7 @@ struct Route {
         bool protocol_set:1;
         bool pref_set:1;
         bool gateway_from_dhcp_or_ra:1;
-
-        union in_addr_union dst;
-        union in_addr_union src;
-        union in_addr_union prefsrc;
+        int gateway_onlink;
 };
 
 extern const struct hash_ops route_hash_ops;
