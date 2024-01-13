@@ -384,9 +384,6 @@ static int netlink_message_append_multipath_route(Link *link, const Route *route
         assert(route);
         assert(message);
 
-        if (ordered_set_isempty(route->nexthops))
-                return 0;
-
         rta = new(struct rtattr, 1);
         if (!rta)
                 return -ENOMEM;
@@ -397,16 +394,23 @@ static int netlink_message_append_multipath_route(Link *link, const Route *route
         };
         offset = (uint8_t *) RTA_DATA(rta) - (uint8_t *) rta;
 
-        RouteNextHop *nh;
-        ORDERED_SET_FOREACH(nh, route->nexthops) {
-                struct rtnexthop *rtnh;
-
-                r = append_nexthop_one(link, route, nh, &rta, offset);
+        if (ordered_set_isempty(route->nexthops)) {
+                r = append_nexthop_one(link, route, &route->nexthop, &rta, offset);
                 if (r < 0)
                         return r;
 
-                rtnh = (struct rtnexthop *)((uint8_t *) rta + offset);
-                offset = (uint8_t *) RTNH_NEXT(rtnh) - (uint8_t *) rta;
+        } else {
+                RouteNextHop *nh;
+                ORDERED_SET_FOREACH(nh, route->nexthops) {
+                        struct rtnexthop *rtnh;
+
+                        r = append_nexthop_one(link, route, nh, &rta, offset);
+                        if (r < 0)
+                                return r;
+
+                        rtnh = (struct rtnexthop *)((uint8_t *) rta + offset);
+                        offset = (uint8_t *) RTNH_NEXT(rtnh) - (uint8_t *) rta;
+                }
         }
 
         return sd_netlink_message_append_data(message, RTA_MULTIPATH, RTA_DATA(rta), RTA_PAYLOAD(rta));
@@ -425,7 +429,9 @@ int route_nexthops_set_netlink_message(Link *link, const Route *route, sd_netlin
         if (route_type_is_reject(route))
                 return 0;
 
-        if (ordered_set_isempty(route->nexthops)) {
+        /* We request IPv6 multipath routes separatedly. Even though, if weight is non-zero, we need to use
+         * RTA_MULTIPATH, as we have no way to specify the weight of the nexthop. */
+        if (ordered_set_isempty(route->nexthops) && route->nexthop.weight == 0) {
 
                 if (in_addr_is_set(route->nexthop.family, &route->nexthop.gw)) {
                         if (route->nexthop.family == route->family)
