@@ -20,7 +20,7 @@ typedef void* (*mfree_func_t)(void *p);
  * proceeding and smashing the stack limits. Note that by default RLIMIT_STACK is 8M on Linux. */
 #define ALLOCA_MAX (4U*1024U*1024U)
 
-#define new(t, n) ((t*) malloc_multiply(sizeof(t), (n)))
+#define new(t, n) ((t*) malloc_multiply((n), sizeof(t)))
 
 #define new0(t, n) ((t*) calloc((n) ?: 1, sizeof(t)))
 
@@ -45,7 +45,7 @@ typedef void* (*mfree_func_t)(void *p);
                 (t*) alloca0((sizeof(t)*_n_));                          \
         })
 
-#define newdup(t, p, n) ((t*) memdup_multiply(p, sizeof(t), (n)))
+#define newdup(t, p, n) ((t*) memdup_multiply(p, (n), sizeof(t)))
 
 #define newdup_suffix0(t, p, n) ((t*) memdup_suffix0_multiply(p, sizeof(t), (n)))
 
@@ -112,7 +112,7 @@ static inline bool size_multiply_overflow(size_t size, size_t need) {
         return _unlikely_(need != 0 && size > (SIZE_MAX / need));
 }
 
-_malloc_ _alloc_(1, 2) static inline void *malloc_multiply(size_t size, size_t need) {
+_malloc_ _alloc_(1, 2) static inline void *malloc_multiply(size_t need, size_t size) {
         if (size_multiply_overflow(size, need))
                 return NULL;
 
@@ -128,7 +128,7 @@ _alloc_(2, 3) static inline void *reallocarray(void *p, size_t need, size_t size
 }
 #endif
 
-_alloc_(2, 3) static inline void *memdup_multiply(const void *p, size_t size, size_t need) {
+_alloc_(2, 3) static inline void *memdup_multiply(const void *p, size_t need, size_t size) {
         if (size_multiply_overflow(size, need))
                 return NULL;
 
