@@ -129,7 +129,7 @@ int home_reconcile_blob_dirs(UserRecord *h, int root_fd, int reconciled) {
         if (sys_fd < 0)
                 return log_error_errno(errno, "Failed to open system blob dir %s: %m", sys_path);
 
-        embedded_fd = open_mkdir_at(root_fd, ".identity/blob", O_CLOEXEC, 0700);
+        embedded_fd = open_mkdir_at(root_fd, ".identity-blob", O_CLOEXEC, 0700);
         if (embedded_fd < 0)
                 return log_error_errno(embedded_fd, "Failed to create/open embedded blob dir: %m");
 
