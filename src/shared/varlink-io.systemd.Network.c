@@ -7,7 +7,7 @@ static VARLINK_DEFINE_METHOD(GetStates,
                              VARLINK_DEFINE_OUTPUT(IPv4AddressState, VARLINK_STRING, 0),
                              VARLINK_DEFINE_OUTPUT(IPv6AddressState, VARLINK_STRING, 0),
                              VARLINK_DEFINE_OUTPUT(CarrierState, VARLINK_STRING, 0),
-                             VARLINK_DEFINE_OUTPUT(OnlineState, VARLINK_STRING, 0),
+                             VARLINK_DEFINE_OUTPUT(OnlineState, VARLINK_STRING, VARLINK_NULLABLE),
                              VARLINK_DEFINE_OUTPUT(OperationalState, VARLINK_STRING, 0));
 
 static VARLINK_DEFINE_METHOD(GetNamespaceId,
