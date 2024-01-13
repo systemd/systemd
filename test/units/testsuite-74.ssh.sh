@@ -24,6 +24,8 @@ if [[ -v ASAN_OPTIONS ]] ; then
 fi
 
 ROOTID=$(mktemp -u)
+# Needed on Ubuntu/Debian as we copy binaries manually
+mkdir -p /run/sshd
 
 removesshid() {
     rm -f "$ROOTID" "$ROOTID".pub
