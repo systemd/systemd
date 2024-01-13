@@ -315,6 +315,25 @@ int route_get(Manager *manager, Link *link, const Route *in, Route **ret) {
         return 0;
 }
 
+static int route_get_link(Manager *manager, const Route *route, Link **ret) {
+        int r;
+
+        assert(manager);
+        assert(route);
+
+        if (route->nexthop_id != 0) {
+                NextHop *nh;
+
+                r = nexthop_get_by_id(manager, route->nexthop_id, &nh);
+                if (r < 0)
+                        return r;
+
+                return link_get_by_index(manager, nh->ifindex, ret);
+        }
+
+        return route_nexthop_get_link(manager, NULL, &route->nexthop, ret);
+}
+
 int route_dup(const Route *src, Route **ret) {
         _cleanup_(route_freep) Route *dest = NULL;
         int r;
@@ -532,19 +551,20 @@ void link_mark_routes(Link *link, NetworkConfigSource source) {
         }
 }
 
-static void log_route_debug(const Route *route, const char *str, const Link *link, const Manager *manager) {
+static void log_route_debug(const Route *route, const char *str, Manager *manager) {
         _cleanup_free_ char *state = NULL, *nexthop = NULL, *prefsrc = NULL,
                 *table = NULL, *scope = NULL, *proto = NULL, *flags = NULL;
         const char *dst, *src;
+        Link *link = NULL;
 
         assert(route);
         assert(str);
         assert(manager);
 
-        /* link may be NULL. */
-
         if (!DEBUG_LOGGING)
                 return;
+
+        (void) route_get_link(manager, route, &link);
 
         (void) network_config_state_to_string_alloc(route->state, &state);
 
@@ -691,7 +711,7 @@ int route_remove(Route *route) {
         link = route->link;
         manager = route->manager ?: link->manager;
 
-        log_route_debug(route, "Removing", link, manager);
+        log_route_debug(route, "Removing", manager);
 
         r = sd_rtnl_message_new_route(manager->rtnl, &m, RTM_DELROUTE, route->family, route->protocol);
         if (r < 0)
@@ -996,7 +1016,7 @@ static int route_setup_timer(Route *route, const struct rta_cacheinfo *cacheinfo
         if (r < 0)
                 return log_link_warning_errno(route->link, r, "Failed to configure expiration timer for route, ignoring: %m");
 
-        log_route_debug(route, "Configured expiration timer for", route->link, manager);
+        log_route_debug(route, "Configured expiration timer for", manager);
         return 1;
 }
 
@@ -1034,14 +1054,11 @@ static int route_configure(const Route *route, uint32_t lifetime_sec, Link *link
         int r;
 
         assert(route);
-        assert(IN_SET(route->family, AF_INET, AF_INET6));
         assert(link);
         assert(link->manager);
-        assert(link->manager->rtnl);
-        assert(link->ifindex > 0);
         assert(req);
 
-        log_route_debug(route, "Configuring", link, link->manager);
+        log_route_debug(route, "Configuring", link->manager);
 
         r = sd_rtnl_message_new_route(link->manager->rtnl, &m, RTM_NEWROUTE, route->family, route->protocol);
         if (r < 0)
@@ -1214,7 +1231,7 @@ int link_request_route(
                         route_free(route);
         }
 
-        log_route_debug(existing, "Requesting", link, link->manager);
+        log_route_debug(existing, "Requesting", link->manager);
         r = link_queue_request_safe(link, REQUEST_TYPE_ROUTE,
                                     existing, NULL,
                                     route_hash_func,
@@ -1255,7 +1272,7 @@ static int link_request_static_route(Link *link, Route *route) {
                 return link_request_route(link, route, false, &link->static_route_messages,
                                           static_route_handler, NULL);
 
-        log_route_debug(route, "Requesting", link, link->manager);
+        log_route_debug(route, "Requesting", link->manager);
         return link_queue_request_safe(link, REQUEST_TYPE_ROUTE,
                                        route, NULL, route_hash_func, route_compare_func,
                                        route_process_request,
@@ -1376,7 +1393,7 @@ static int process_route_one(
                 if (!route) {
                         if (!manager->manage_foreign_routes) {
                                 route_enter_configured(tmp);
-                                log_route_debug(tmp, "Ignoring received", link, manager);
+                                log_route_debug(tmp, "Ignoring received", manager);
                                 return 0;
                         }
 
@@ -1395,7 +1412,7 @@ static int process_route_one(
                         route->flags = tmp->flags;
 
                 route_enter_configured(route);
-                log_route_debug(route, is_new ? "Received new" : "Received remembered", link, manager);
+                log_route_debug(route, is_new ? "Received new" : "Received remembered", manager);
 
                 (void) route_setup_timer(route, cacheinfo);
 
@@ -1405,14 +1422,14 @@ static int process_route_one(
                 if (route) {
                         route_enter_removed(route);
                         if (route->state == 0) {
-                                log_route_debug(route, "Forgetting", link, manager);
+                                log_route_debug(route, "Forgetting", manager);
                                 route_free(route);
                         } else
-                                log_route_debug(route, "Removed", link, manager);
+                                log_route_debug(route, "Removed", manager);
                 } else
                         log_route_debug(tmp,
                                         manager->manage_foreign_routes ? "Kernel removed unknown" : "Ignoring received",
-                                        link, manager);
+                                        manager);
 
                 break;
 
