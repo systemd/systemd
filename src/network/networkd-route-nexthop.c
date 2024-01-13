@@ -365,8 +365,7 @@ int route_nexthops_set_netlink_message(Link *link, const Route *route, sd_netlin
                                 return r;
                 }
 
-                assert(link);
-                return sd_netlink_message_append_u32(message, RTA_OIF, link->ifindex);
+                return sd_netlink_message_append_u32(message, RTA_OIF, route->nexthop.ifindex > 0 ? route->nexthop.ifindex : ASSERT_PTR(link)->ifindex);
         }
 
         return netlink_message_append_multipath_route(link, route, message);
@@ -474,12 +473,14 @@ int route_nexthops_read_netlink_message(Route *route, sd_netlink_message *messag
                  * routes. Hence, skip reading of RTA_OIF. */
                 return 0;
 
-        uint32_t ifindex = 0;
+        uint32_t ifindex;
         r = sd_netlink_message_read_u32(message, RTA_OIF, &ifindex);
-        if (r < 0 && r != -ENODATA)
+        if (r >= 0)
+                route->nexthop.ifindex = (int) ifindex;
+        else if (r != -ENODATA)
                 return log_warning_errno(r, "rtnl: could not get ifindex from route message, ignoring: %m");
 
-        if (ifindex > 0) {
+        if (route->nexthop.ifindex > 0) {
                 r = netlink_message_read_in_addr_union(message, RTA_GATEWAY, route->family, &route->nexthop.gw);
                 if (r >= 0) {
                         route->nexthop.family = route->family;
