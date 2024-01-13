@@ -341,7 +341,7 @@ int route_adjust_nexthops(Route *route, Link *link) {
         return true; /* updated */
 }
 
-int route_nexthop_get_link(Manager *manager, Link *link, const RouteNextHop *nh, Link **ret) {
+int route_nexthop_get_link(Manager *manager, const RouteNextHop *nh, Link **ret) {
         assert(manager);
         assert(nh);
 
@@ -350,20 +350,16 @@ int route_nexthop_get_link(Manager *manager, Link *link, const RouteNextHop *nh,
         if (nh->ifname)
                 return link_get_by_name(manager, nh->ifname, ret);
 
-        if (link) {
-                if (ret)
-                        *ret = link;
-                return 0;
-        }
-
         return -ENOENT;
 }
 
-static bool route_nexthop_is_ready_to_configure(const RouteNextHop *nh, Link *link, bool onlink) {
-        assert(nh);
-        assert(link);
+static bool route_nexthop_is_ready_to_configure(const RouteNextHop *nh, Manager *manager, bool onlink) {
+        Link *link;
 
-        if (route_nexthop_get_link(link->manager, link, nh, &link))
+        assert(nh);
+        assert(manager);
+
+        if (route_nexthop_get_link(manager, nh, &link) < 0)
                 return false;
 
         if (!link_is_ready_to_configure(link, /* allow_unmanaged = */ true))
@@ -377,13 +373,11 @@ static bool route_nexthop_is_ready_to_configure(const RouteNextHop *nh, Link *li
         return gateway_is_ready(link, onlink, nh->family, &nh->gw);
 }
 
-int route_nexthops_is_ready_to_configure(const Route *route, Link *link) {
+int route_nexthops_is_ready_to_configure(const Route *route, Manager *manager) {
         int r;
 
         assert(route);
-        assert(link);
-
-        Manager *manager = ASSERT_PTR(link->manager);
+        assert(manager);
 
         if (route->nexthop_id != 0) {
                 struct nexthop_grp *nhg;
@@ -406,11 +400,11 @@ int route_nexthops_is_ready_to_configure(const Route *route, Link *link) {
                 return true;
 
         if (ordered_set_isempty(route->nexthops))
-                return route_nexthop_is_ready_to_configure(&route->nexthop, link, FLAGS_SET(route->flags, RTNH_F_ONLINK));
+                return route_nexthop_is_ready_to_configure(&route->nexthop, manager, FLAGS_SET(route->flags, RTNH_F_ONLINK));
 
         RouteNextHop *nh;
         ORDERED_SET_FOREACH(nh, route->nexthops)
-                if (!route_nexthop_is_ready_to_configure(nh, link, FLAGS_SET(route->flags, RTNH_F_ONLINK)))
+                if (!route_nexthop_is_ready_to_configure(nh, manager, FLAGS_SET(route->flags, RTNH_F_ONLINK)))
                         return false;
 
         return true;
@@ -481,7 +475,7 @@ int route_nexthops_to_string(const Route *route, char **ret) {
         return 0;
 }
 
-static int append_nexthop_one(Link *link, const Route *route, const RouteNextHop *nh, struct rtattr **rta, size_t offset) {
+static int append_nexthop_one(const Route *route, const RouteNextHop *nh, struct rtattr **rta, size_t offset) {
         struct rtnexthop *rtnh;
         struct rtattr *new_rta;
         int r;
@@ -492,15 +486,6 @@ static int append_nexthop_one(Link *link, const Route *route, const RouteNextHop
         assert(rta);
         assert(*rta);
 
-        if (nh->ifindex <= 0) {
-                assert(link);
-                assert(link->manager);
-
-                r = route_nexthop_get_link(link->manager, link, nh, &link);
-                if (r < 0)
-                        return r;
-        }
-
         new_rta = realloc(*rta, RTA_ALIGN((*rta)->rta_len) + RTA_SPACE(sizeof(struct rtnexthop)));
         if (!new_rta)
                 return -ENOMEM;
@@ -509,7 +494,7 @@ static int append_nexthop_one(Link *link, const Route *route, const RouteNextHop
         rtnh = (struct rtnexthop *)((uint8_t *) *rta + offset);
         *rtnh = (struct rtnexthop) {
                 .rtnh_len = sizeof(*rtnh),
-                .rtnh_ifindex = nh->ifindex > 0 ? nh->ifindex : link->ifindex,
+                .rtnh_ifindex = nh->ifindex,
                 .rtnh_hops = nh->weight,
         };
 
@@ -547,7 +532,7 @@ clear:
         return r;
 }
 
-static int netlink_message_append_multipath_route(Link *link, const Route *route, sd_netlink_message *message) {
+static int netlink_message_append_multipath_route(const Route *route, sd_netlink_message *message) {
         _cleanup_free_ struct rtattr *rta = NULL;
         size_t offset;
         int r;
@@ -566,7 +551,7 @@ static int netlink_message_append_multipath_route(Link *link, const Route *route
         offset = (uint8_t *) RTA_DATA(rta) - (uint8_t *) rta;
 
         if (ordered_set_isempty(route->nexthops)) {
-                r = append_nexthop_one(link, route, &route->nexthop, &rta, offset);
+                r = append_nexthop_one(route, &route->nexthop, &rta, offset);
                 if (r < 0)
                         return r;
 
@@ -575,7 +560,7 @@ static int netlink_message_append_multipath_route(Link *link, const Route *route
                 ORDERED_SET_FOREACH(nh, route->nexthops) {
                         struct rtnexthop *rtnh;
 
-                        r = append_nexthop_one(link, route, nh, &rta, offset);
+                        r = append_nexthop_one(route, nh, &rta, offset);
                         if (r < 0)
                                 return r;
 
@@ -587,7 +572,7 @@ static int netlink_message_append_multipath_route(Link *link, const Route *route
         return sd_netlink_message_append_data(message, RTA_MULTIPATH, RTA_DATA(rta), RTA_PAYLOAD(rta));
 }
 
-int route_nexthops_set_netlink_message(Link *link, const Route *route, sd_netlink_message *message) {
+int route_nexthops_set_netlink_message(const Route *route, sd_netlink_message *message) {
         int r;
 
         assert(route);
@@ -619,10 +604,11 @@ int route_nexthops_set_netlink_message(Link *link, const Route *route, sd_netlin
                                 return r;
                 }
 
-                return sd_netlink_message_append_u32(message, RTA_OIF, route->nexthop.ifindex > 0 ? route->nexthop.ifindex : ASSERT_PTR(link)->ifindex);
+                assert(route->nexthop.ifindex > 0);
+                return sd_netlink_message_append_u32(message, RTA_OIF, route->nexthop.ifindex);
         }
 
-        return netlink_message_append_multipath_route(link, route, message);
+        return netlink_message_append_multipath_route(route, message);
 }
 
 static int route_parse_nexthops(Route *route, const struct rtnexthop *rtnh, size_t size) {
