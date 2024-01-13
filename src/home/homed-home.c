@@ -2529,7 +2529,6 @@ int home_augment_status(
         uint64_t disk_size = UINT64_MAX, disk_usage = UINT64_MAX, disk_free = UINT64_MAX, disk_ceiling = UINT64_MAX, disk_floor = UINT64_MAX;
         _cleanup_(json_variant_unrefp) JsonVariant *j = NULL, *v = NULL, *m = NULL, *status = NULL;
         _cleanup_(user_record_unrefp) UserRecord *ur = NULL;
-        _cleanup_free_ char *blob = NULL;
         statfs_f_type_t magic;
         const char *fstype;
         mode_t access_mode;
@@ -2563,10 +2562,6 @@ int home_augment_status(
 
         fstype = fs_type_to_string(magic);
 
-        blob = path_join(home_system_blob_dir(), h->user_name);
-        if (!blob)
-                return -ENOMEM;
-
         if (disk_floor == UINT64_MAX || (disk_usage != UINT64_MAX && disk_floor < disk_usage))
                 disk_floor = disk_usage;
         if (disk_floor == UINT64_MAX || disk_floor < USER_DISK_SIZE_MIN)
@@ -2578,7 +2573,6 @@ int home_augment_status(
                        JSON_BUILD_OBJECT(
                                        JSON_BUILD_PAIR("state", JSON_BUILD_STRING(home_state_to_string(state))),
                                        JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Home")),
-                                       JSON_BUILD_PAIR("blobDirectory", JSON_BUILD_STRING(blob)),
                                        JSON_BUILD_PAIR_CONDITION(disk_size != UINT64_MAX, "diskSize", JSON_BUILD_UNSIGNED(disk_size)),
                                        JSON_BUILD_PAIR_CONDITION(disk_usage != UINT64_MAX, "diskUsage", JSON_BUILD_UNSIGNED(disk_usage)),
                                        JSON_BUILD_PAIR_CONDITION(disk_free != UINT64_MAX, "diskFree", JSON_BUILD_UNSIGNED(disk_free)),
