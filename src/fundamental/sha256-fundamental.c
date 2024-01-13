@@ -29,7 +29,7 @@
 #endif
 
 #include "macro-fundamental.h"
-#include "sha256.h"
+#include "sha256-fundamental.h"
 #include "unaligned-fundamental.h"
 
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
