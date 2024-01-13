@@ -395,8 +395,7 @@ static int dhcp4_request_route(Route *in, Link *link) {
         else
                 route_unmark(existing);
 
-        return link_request_route(link, TAKE_PTR(route), true, &link->dhcp4_messages,
-                                  dhcp4_route_handler, NULL);
+        return link_request_route(link, route, &link->dhcp4_messages, dhcp4_route_handler, NULL);
 }
 
 static bool link_prefixroute(Link *link) {
@@ -659,7 +658,7 @@ static int dhcp4_request_semi_static_routes(Link *link) {
                 if (r < 0)
                         return r;
 
-                r = route_dup(rt, &route);
+                r = route_dup(rt, NULL, &route);
                 if (r < 0)
                         return r;
 

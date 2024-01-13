@@ -31,6 +31,9 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(RouteNextHop*, route_nexthop_free);
 
 void route_nexthops_done(Route *route);
 
+int route_nexthops_copy(const Route *src, const RouteNextHop *nh, Route *dest);
+int route_adjust_nexthops(Route *route, Link *link);
+
 void route_nexthops_hash_func(const Route *route, struct siphash *state);
 int route_nexthops_compare_func(const Route *a, const Route *b);
 

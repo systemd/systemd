@@ -220,8 +220,7 @@ static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
 
         is_new = route_get(NULL, link, route, NULL) < 0;
 
-        r = link_request_route(link, TAKE_PTR(route), true, &link->ndisc_messages,
-                               ndisc_route_handler, NULL);
+        r = link_request_route(link, route, &link->ndisc_messages, ndisc_route_handler, NULL);
         if (r < 0)
                 return r;
         if (r > 0 && is_new)
@@ -340,7 +339,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                 if (route_gw->nexthop.family != AF_INET6)
                         continue;
 
-                r = route_dup(route_gw, &route);
+                r = route_dup(route_gw, NULL, &route);
                 if (r < 0)
                         return r;
 
