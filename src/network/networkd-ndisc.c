@@ -172,8 +172,7 @@ static void ndisc_set_route_priority(Link *link, Route *route) {
         }
 }
 
-static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
-        _cleanup_(route_freep) Route *route = in;
+static int ndisc_request_route(Route *route, Link *link, sd_ndisc_router *rt) {
         struct in6_addr router;
         uint8_t hop_limit = 0;
         uint32_t mtu = 0;
@@ -326,7 +325,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                 route->gw.in6 = gateway;
                 route->lifetime_usec = lifetime_usec;
 
-                r = ndisc_request_route(TAKE_PTR(route), link, rt);
+                r = ndisc_request_route(route, link, rt);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not request default route: %m");
         }
@@ -350,7 +349,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                         route->pref = preference;
                 route->lifetime_usec = lifetime_usec;
 
-                r = ndisc_request_route(TAKE_PTR(route), link, rt);
+                r = ndisc_request_route(route, link, rt);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not request gateway: %m");
         }
@@ -500,7 +499,7 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         route->pref = preference;
         route->lifetime_usec = lifetime_usec;
 
-        r = ndisc_request_route(TAKE_PTR(route), link, rt);
+        r = ndisc_request_route(route, link, rt);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Could not request prefix route: %m");
 
@@ -633,7 +632,7 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         route->dst_prefixlen = prefixlen;
         route->lifetime_usec = lifetime_usec;
 
-        r = ndisc_request_route(TAKE_PTR(route), link, rt);
+        r = ndisc_request_route(route, link, rt);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Could not request additional route: %m");
 

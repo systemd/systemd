@@ -346,8 +346,7 @@ static int dhcp4_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request 
         return 1;
 }
 
-static int dhcp4_request_route(Route *in, Link *link) {
-        _cleanup_(route_freep) Route *route = in;
+static int dhcp4_request_route(Route *route, Link *link) {
         struct in_addr server;
         Route *existing;
         int r;
@@ -422,7 +421,7 @@ static int dhcp4_request_prefix_route(Link *link) {
         if (r < 0)
                 return r;
 
-        return dhcp4_request_route(TAKE_PTR(route), link);
+        return dhcp4_request_route(route, link);
 }
 
 static int dhcp4_request_route_to_gateway(Link *link, const struct in_addr *gw) {
@@ -447,15 +446,14 @@ static int dhcp4_request_route_to_gateway(Link *link, const struct in_addr *gw) 
         route->prefsrc.in = address;
         route->scope = RT_SCOPE_LINK;
 
-        return dhcp4_request_route(TAKE_PTR(route), link);
+        return dhcp4_request_route(route, link);
 }
 
 static int dhcp4_request_route_auto(
-                Route *in,
+                Route *route,
                 Link *link,
                 const struct in_addr *gw) {
 
-        _cleanup_(route_freep) Route *route = in;
         struct in_addr address;
         int r;
 
@@ -524,7 +522,7 @@ static int dhcp4_request_route_auto(
                 route->prefsrc.in = address;
         }
 
-        return dhcp4_request_route(TAKE_PTR(route), link);
+        return dhcp4_request_route(route, link);
 }
 
 static int dhcp4_request_classless_static_or_static_routes(Link *link) {
@@ -564,7 +562,7 @@ static int dhcp4_request_classless_static_or_static_routes(Link *link) {
                 if (r < 0)
                         return r;
 
-                r = dhcp4_request_route_auto(TAKE_PTR(route), link, &gw);
+                r = dhcp4_request_route_auto(route, link, &gw);
                 if (r < 0)
                         return r;
         }
@@ -616,7 +614,7 @@ static int dhcp4_request_default_gateway(Link *link) {
         route->gw.in = router;
         route->prefsrc.in = address;
 
-        return dhcp4_request_route(TAKE_PTR(route), link);
+        return dhcp4_request_route(route, link);
 }
 
 static int dhcp4_request_semi_static_routes(Link *link) {
@@ -658,7 +656,7 @@ static int dhcp4_request_semi_static_routes(Link *link) {
 
                 route->gw.in = gw;
 
-                r = dhcp4_request_route(TAKE_PTR(route), link);
+                r = dhcp4_request_route(route, link);
                 if (r < 0)
                         return r;
         }
@@ -701,7 +699,7 @@ static int dhcp4_request_routes_to_servers(
                 route->dst.in = *dst;
                 route->dst_prefixlen = 32;
 
-                r = dhcp4_request_route_auto(TAKE_PTR(route), link, &gw);
+                r = dhcp4_request_route_auto(route, link, &gw);
                 if (r < 0)
                         return r;
         }
