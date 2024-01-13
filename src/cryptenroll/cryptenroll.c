@@ -488,7 +488,7 @@ static int parse_argv(int argc, char *argv[]) {
                                         if (n > INT_MAX)
                                                 return log_error_errno(SYNTHETIC_ERRNO(ERANGE), "Slot index out of range: %u", n);
 
-                                        a = reallocarray(arg_wipe_slots, sizeof(int), arg_n_wipe_slots + 1);
+                                        a = reallocarray(arg_wipe_slots, arg_n_wipe_slots + 1, sizeof(int));
                                         if (!a)
                                                 return log_oom();
 
