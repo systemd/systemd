@@ -51,6 +51,7 @@ struct User {
         UserGCMode gc_mode;
         bool in_gc_queue:1;
 
+        /* Tracked through user-runtime-dir@.service */
         bool started:1;       /* Whenever the user being started, has been started or is being stopped again. */
         bool stopping:1;      /* Whenever the user is being stopped or has been stopped. */
 
@@ -65,7 +66,6 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(User *, user_free);
 
 bool user_may_gc(User *u, bool drop_not_started);
 void user_add_to_gc_queue(User *u);
-void user_start_service_manager(User *u);
 int user_start(User *u);
 int user_stop(User *u, bool force);
 int user_finalize(User *u);
