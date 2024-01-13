@@ -1720,8 +1720,10 @@ static int manager_gc_blob(Manager *m) {
 
         d = opendir(home_system_blob_dir());
         if (!d)
-                return log_full_errno(errno == ENOENT ? LOG_DEBUG : LOG_ERR, errno,
-                                      "Failed to open %s: %m", home_system_blob_dir());
+                if (errno == ENOENT)
+                        return 0;
+                else
+                        return log_error_errno(errno, "Failed to open %s: %m", home_system_blob_dir());
 
         FOREACH_DIRENT(de, d, return log_error_errno(errno, "Failed to read system blob directory: %m"))
                 if (!hashmap_contains(m->homes_by_name, de->d_name)) {
