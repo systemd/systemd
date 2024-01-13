@@ -135,12 +135,14 @@ static UserRecord* user_record_free(UserRecord *h) {
         free(h->user_name);
         free(h->realm);
         free(h->user_name_and_realm_auto);
-        free(h->blob_directory);
         free(h->real_name);
         free(h->email_address);
         erase_and_free(h->password_hint);
         free(h->location);
         free(h->icon_name);
+
+        free(h->blob_directory);
+        hashmap_free(h->blob_manifest);
 
         free(h->shell);
 
@@ -1014,6 +1016,7 @@ static int dispatch_privileged(const char *name, JsonVariant *variant, JsonDispa
 static int dispatch_binding(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
 
         static const JsonDispatch binding_dispatch_table[] = {
+                { "blobDirectory",     JSON_VARIANT_STRING,        json_dispatch_path,           offsetof(UserRecord, blob_directory),       0         },
                 { "imagePath",         JSON_VARIANT_STRING,        json_dispatch_image_path,     offsetof(UserRecord, image_path),           0         },
                 { "homeDirectory",     JSON_VARIANT_STRING,        json_dispatch_home_directory, offsetof(UserRecord, home_directory),       0         },
                 { "partitionUuid",     JSON_VARIANT_STRING,        json_dispatch_id128,          offsetof(UserRecord, partition_uuid),       0         },
@@ -1048,6 +1051,49 @@ static int dispatch_binding(const char *name, JsonVariant *variant, JsonDispatch
                 return 0;
 
         return json_dispatch(m, binding_dispatch_table, flags, userdata);
+}
+
+static int dispatch_blob_manifest(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        _cleanup_hashmap_free_ Hashmap *manifest = NULL;
+        Hashmap **ret = ASSERT_PTR(userdata);
+        JsonVariant *value;
+        const char *key;
+        int r;
+
+        if (!variant)
+                return 0;
+
+        if (!json_variant_is_object(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an object.", strna(name));
+
+        JSON_VARIANT_OBJECT_FOREACH(key, value, variant) {
+                _cleanup_free_ char *filename = NULL;
+                _cleanup_free_ uint8_t *hash = NULL;
+
+                if (!json_variant_is_string(value))
+                        return json_log(value, flags, SYNTHETIC_ERRNO(EINVAL), "Bulk entry '%s' has invalid hash.", key);
+
+                filename = strdup(key);
+                if (!filename)
+                        return json_log_oom(value, flags);
+
+                hash = malloc(SHA256_DIGEST_SIZE);
+                if (!hash)
+                        return json_log_oom(value, flags);
+
+                r = parse_sha256(json_variant_string(value), hash);
+                if (r < 0)
+                        return json_log(value, flags, r, "Bulk entry '%s' has invalid hash: %s", filename, json_variant_string(value));
+
+                r = hashmap_ensure_put(&manifest, &path_hash_ops_free_free, filename, hash);
+                if (r < 0)
+                        return json_log(value, flags, r, "Failed to insert blob manifest entry '%s': %m", filename);
+                TAKE_PTR(filename); /* Ownership transfers to hashmap */
+                TAKE_PTR(hash);
+        }
+
+        hashmap_free_and_replace(*ret, manifest);
+        return 0;
 }
 
 int per_machine_id_match(JsonVariant *ids, JsonDispatchFlags flags) {
@@ -1167,6 +1213,7 @@ static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDisp
                 { "matchMachineId",             _JSON_VARIANT_TYPE_INVALID, NULL,                                 0,                                                   0         },
                 { "matchHostname",              _JSON_VARIANT_TYPE_INVALID, NULL,                                 0,                                                   0         },
                 { "blobDirectory",              JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, blob_directory),                0         },
+                { "blobManifest",               JSON_VARIANT_OBJECT,        dispatch_blob_manifest,               offsetof(UserRecord, blob_manifest),                 0         },
                 { "iconName",                   JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, icon_name),                     JSON_SAFE },
                 { "location",                   JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, location),                      0         },
                 { "shell",                      JSON_VARIANT_STRING,        json_dispatch_filename_or_path,       offsetof(UserRecord, shell),                         0         },
@@ -1275,7 +1322,6 @@ static int dispatch_status(const char *name, JsonVariant *variant, JsonDispatchF
                 { "diskFloor",                  _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,      offsetof(UserRecord, disk_floor),                    0         },
                 { "state",                      JSON_VARIANT_STRING,        json_dispatch_string,      offsetof(UserRecord, state),                         JSON_SAFE },
                 { "service",                    JSON_VARIANT_STRING,        json_dispatch_string,      offsetof(UserRecord, service),                       JSON_SAFE },
-                { "blobDirectory",              JSON_VARIANT_STRING,        json_dispatch_path,        offsetof(UserRecord, blob_directory),                0         },
                 { "signedLocally",              _JSON_VARIANT_TYPE_INVALID, json_dispatch_tristate,    offsetof(UserRecord, signed_locally),                0         },
                 { "goodAuthenticationCounter",  _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,      offsetof(UserRecord, good_authentication_counter),   0         },
                 { "badAuthenticationCounter",   _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,      offsetof(UserRecord, bad_authentication_counter),    0         },
@@ -1499,6 +1545,7 @@ int user_record_load(UserRecord *h, JsonVariant *v, UserRecordLoadFlags load_fla
                 { "userName",                   JSON_VARIANT_STRING,        json_dispatch_user_group_name,        offsetof(UserRecord, user_name),                     JSON_RELAX},
                 { "realm",                      JSON_VARIANT_STRING,        json_dispatch_realm,                  offsetof(UserRecord, realm),                         0         },
                 { "blobDirectory",              JSON_VARIANT_STRING,        json_dispatch_path,                   offsetof(UserRecord, blob_directory),                0         },
+                { "blobManifest",               JSON_VARIANT_OBJECT,        dispatch_blob_manifest,               offsetof(UserRecord, blob_manifest),                 0         },
                 { "realName",                   JSON_VARIANT_STRING,        json_dispatch_gecos,                  offsetof(UserRecord, real_name),                     0         },
                 { "emailAddress",               JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, email_address),                 JSON_SAFE },
                 { "iconName",                   JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, icon_name),                     JSON_SAFE },

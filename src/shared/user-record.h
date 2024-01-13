@@ -6,6 +6,7 @@
 
 #include "sd-id128.h"
 
+#include "hashmap.h"
 #include "json.h"
 #include "missing_resource.h"
 #include "time-util.h"
@@ -237,12 +238,14 @@ typedef struct UserRecord {
         char *user_name;
         char *realm;
         char *user_name_and_realm_auto; /* the user_name field concatenated with '@' and the realm, if the latter is defined */
-        char *blob_directory;
         char *real_name;
         char *email_address;
         char *password_hint;
         char *icon_name;
         char *location;
+
+        char *blob_directory;
+        Hashmap *blob_manifest;
 
         UserDisposition disposition;
         uint64_t last_change_usec;
