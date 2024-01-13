@@ -865,6 +865,16 @@ int route_section_verify_nexthops(Route *route) {
                                          "Ignoring [Route] section from line %u.",
                                          route->section->filename, route->section->line);
 
+        if (ordered_set_size(route->nexthops) == 1) {
+                _cleanup_(route_nexthop_freep) RouteNextHop *nh = ordered_set_steal_first(route->nexthops);
+
+                route_nexthop_done(&route->nexthop);
+                route->nexthop = TAKE_STRUCT(*nh);
+
+                assert(ordered_set_isempty(route->nexthops));
+                route->nexthops = ordered_set_free(route->nexthops);
+        }
+
         return 0;
 }
 
