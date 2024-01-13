@@ -34,11 +34,17 @@ struct User {
         char *state_file;
         char *runtime_path;
 
-        char *slice;                     /* user-UID.slice */
-        char *service;                   /* user@UID.service */
-        char *runtime_dir_service;       /* user-runtime-dir@UID.service */
+        /* user-UID.slice */
+        char *slice;
 
-        char *service_job;
+        /* user-runtime-dir@UID.service */
+        char *runtime_dir_unit;
+        char *runtime_dir_job;
+
+        /* user@UID.service */
+        bool service_manager_started;
+        char *service_manager_unit;
+        char *service_manager_job;
 
         Session *display;
 
@@ -51,7 +57,8 @@ struct User {
         UserGCMode gc_mode;
         bool in_gc_queue:1;
 
-        bool started:1;       /* Whenever the user being started, has been started or is being stopped again. */
+        bool started:1;       /* Whenever the user being started, has been started or is being stopped again
+                                 (tracked through user-runtime-dir@.service) */
         bool stopping:1;      /* Whenever the user is being stopped or has been stopped. */
 
         LIST_HEAD(Session, sessions);
@@ -63,10 +70,11 @@ User *user_free(User *u);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(User *, user_free);
 
+int user_start_service_manager(User *u);
+int user_start(User *u);
+
 bool user_may_gc(User *u, bool drop_not_started);
 void user_add_to_gc_queue(User *u);
-void user_start_service_manager(User *u);
-int user_start(User *u);
 int user_stop(User *u, bool force);
 int user_finalize(User *u);
 UserState user_get_state(User *u);
