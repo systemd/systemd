@@ -815,7 +815,15 @@ int session_send_lock_all(Manager *m, bool lock) {
 static bool session_ready(Session *s) {
         assert(s);
 
-        /* Returns true when the session is ready, i.e. all jobs we enqueued for it are done (regardless if successful or not) */
+        /* Returns true when the session is ready, i.e. all jobs we enqueued for it are done (regardless
+         * if successful or not). Note that user->service_job could be tracking user-runtime-dir@.service
+         * or user@.service, but we don't particularly care about the former. IOW, we hold back only when
+         * we want the manager. After all, if the manager is not needed, the only reason why job for
+         * user-runtime-dir@.service should be explicitly enqueued is to avoid job type conflict when
+         * JobMode=fail. See #30910.
+         *
+         * Also, this prevents the possible deadlock when a manager class session is starting, but
+         * service_job is tracking user@.service. */
 
         return !s->scope_job &&
                 (!SESSION_CLASS_WANTS_SERVICE_MANAGER(s->class) || !s->user->service_job);
