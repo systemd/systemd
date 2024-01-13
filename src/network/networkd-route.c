@@ -269,7 +269,7 @@ static int route_add(Manager *manager, Route *route) {
         assert(!route->wireguard);
 
         Link *link;
-        if (route_nexthop_get_link(manager, NULL, &route->nexthop, &link) >= 0) {
+        if (route_nexthop_get_link(manager, &route->nexthop, &link) >= 0) {
                 r = set_ensure_put(&link->routes, &route_hash_ops, route);
                 if (r < 0)
                         return r;
@@ -297,7 +297,7 @@ int route_get(Manager *manager, Link *link, const Route *route, Route **ret) {
                 manager = ASSERT_PTR(ASSERT_PTR(link)->manager);
         assert(route);
 
-        if (route_nexthop_get_link(manager, NULL, &route->nexthop, &link) >= 0)
+        if (route_nexthop_get_link(manager, &route->nexthop, &link) >= 0)
                 existing = set_get(link->routes, route);
         else
                 existing = set_get(manager->routes, route);
@@ -326,7 +326,7 @@ static int route_get_link(Manager *manager, const Route *route, Link **ret) {
                 return link_get_by_index(manager, nh->ifindex, ret);
         }
 
-        return route_nexthop_get_link(manager, NULL, &route->nexthop, ret);
+        return route_nexthop_get_link(manager, &route->nexthop, ret);
 }
 
 static int route_get_request(Manager *manager, const Route *route, Request **ret) {
@@ -438,13 +438,11 @@ static void log_route_debug(const Route *route, const char *str, Manager *manage
                        strna(proto), strna(scope), strna(route_type_to_string(route->type)), strna(flags));
 }
 
-static int route_set_netlink_message(const Route *route, sd_netlink_message *m, Link *link) {
+static int route_set_netlink_message(const Route *route, sd_netlink_message *m) {
         int r;
 
         assert(route);
         assert(m);
-
-        /* link may be NULL */
 
         /* rtmsg header (and relevant attributes) */
         if (route->dst_prefixlen > 0) {
@@ -514,7 +512,7 @@ static int route_set_netlink_message(const Route *route, sd_netlink_message *m, 
                 return r;
 
         /* nexthops */
-        r = route_nexthops_set_netlink_message(link, route, m);
+        r = route_nexthops_set_netlink_message(route, m);
         if (r < 0)
                 return r;
 
@@ -561,7 +559,7 @@ int route_remove(Route *route) {
         if (r < 0)
                 return log_link_error_errno(link, r, "Could not create netlink message: %m");
 
-        r = route_set_netlink_message(route, m, link);
+        r = route_set_netlink_message(route, m);
         if (r < 0)
                 return log_error_errno(r, "Could not fill netlink message: %m");
 
@@ -900,7 +898,7 @@ static int route_configure(const Route *route, uint32_t lifetime_sec, Link *link
         if (r < 0)
                 return r;
 
-        r = route_set_netlink_message(route, m, link);
+        r = route_set_netlink_message(route, m);
         if (r < 0)
                 return r;
 
@@ -931,7 +929,7 @@ static int route_is_ready_to_configure(const Route *route, Link *link) {
                         return r;
         }
 
-        return route_nexthops_is_ready_to_configure(route, link);
+        return route_nexthops_is_ready_to_configure(route, link->manager);
 }
 
 static int route_requeue_request(Request *req, Link *link, const Route *route) {
