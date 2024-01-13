@@ -405,13 +405,15 @@ static bool route_needs_convert(const Route *route) {
         return route->nexthop_id > 0 || !ordered_set_isempty(route->multipath_routes);
 }
 
-static int route_convert(Manager *manager, const Route *route, ConvertedRoutes **ret) {
+static int route_convert(Manager *manager, Link *link, const Route *route, ConvertedRoutes **ret) {
         _cleanup_(converted_routes_freep) ConvertedRoutes *c = NULL;
         int r;
 
         assert(manager);
         assert(route);
         assert(ret);
+
+        /* link may be NULL */
 
         if (!route_needs_convert(route)) {
                 *ret = NULL;
@@ -484,7 +486,7 @@ static int route_convert(Manager *manager, const Route *route, ConvertedRoutes *
 
                 route_apply_multipath_route(c->routes[i], m);
 
-                r = multipath_route_get_link(manager, m, &c->links[i]);
+                r = multipath_route_get_link(manager, link, m, &c->links[i]);
                 if (r < 0)
                         return r;
 
@@ -748,7 +750,7 @@ static void manager_mark_routes(Manager *manager, bool foreign, const Link *exce
                         _cleanup_(converted_routes_freep) ConvertedRoutes *converted = NULL;
                         Route *existing;
 
-                        r = route_convert(manager, route, &converted);
+                        r = route_convert(manager, link, route, &converted);
                         if (r < 0)
                                 continue;
                         if (r == 0) {
@@ -847,7 +849,7 @@ int link_drop_foreign_routes(Link *link) {
                 _cleanup_(converted_routes_freep) ConvertedRoutes *converted = NULL;
                 Route *existing;
 
-                r = route_convert(link->manager, route, &converted);
+                r = route_convert(link->manager, link, route, &converted);
                 if (r < 0)
                         continue;
                 if (r == 0) {
@@ -1069,7 +1071,7 @@ static int route_process_request(Request *req, Link *link, Route *route) {
                 return 0;
 
         if (route_needs_convert(route)) {
-                r = route_convert(link->manager, route, &converted);
+                r = route_convert(link->manager, link, route, &converted);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Failed to convert route: %m");
 
@@ -1570,7 +1572,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
         if (!route_needs_convert(tmp))
                 return process_route_one(m, link, type, TAKE_PTR(tmp), has_cacheinfo ? &cacheinfo : NULL);
 
-        r = route_convert(m, tmp, &converted);
+        r = route_convert(m, link, tmp, &converted);
         if (r < 0) {
                 log_link_warning_errno(link, r, "rtnl: failed to convert received route, ignoring: %m");
                 return 0;
