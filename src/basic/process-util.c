@@ -652,9 +652,6 @@ int get_process_environ(pid_t pid, char **ret) {
         for (;;) {
                 char c;
 
-                if (sz >= ENVIRONMENT_BLOCK_MAX)
-                        return -ENOBUFS;
-
                 if (!GREEDY_REALLOC(outcome, sz + 5))
                         return -ENOMEM;
 
@@ -668,6 +665,9 @@ int get_process_environ(pid_t pid, char **ret) {
                         outcome[sz++] = '\n';
                 else
                         sz += cescape_char(c, outcome + sz);
+
+                if (sz >= ENVIRONMENT_BLOCK_MAX)
+                        return -ENOBUFS;
         }
 
         outcome[sz] = '\0';
@@ -1063,16 +1063,11 @@ int getenv_for_pid(pid_t pid, const char *field, char **ret) {
                 _cleanup_free_ char *line = NULL;
                 const char *match;
 
-                if (sum > ENVIRONMENT_BLOCK_MAX) /* Give up searching eventually */
-                        return -ENOBUFS;
-
                 r = read_nul_string(f, LONG_LINE_MAX, &line);
                 if (r < 0)
                         return r;
-                if (r == 0)  /* EOF */
+                if (r == 0) /* EOF */
                         break;
-
-                sum += r;
 
                 match = startswith(line, field);
                 if (match && *match == '=') {
@@ -1083,6 +1078,10 @@ int getenv_for_pid(pid_t pid, const char *field, char **ret) {
                         *ret = value;
                         return 1;
                 }
+
+                sum += r;
+                if (sum >= ENVIRONMENT_BLOCK_MAX) /* Give up searching eventually */
+                        return -ENOBUFS;
         }
 
         *ret = NULL;
