@@ -638,9 +638,20 @@ static int on_stream_complete(DnsStream *s, int error) {
                 }
         }
 
-        if (error != 0)
-                LIST_FOREACH(transactions_by_stream, t, s->transactions)
+        if (error != 0) {
+                /* First, detach the stream from the server. Otherwise, transactions attached to this stream
+                 * may be restarted by on_transaction_stream_error() below with this stream. */
+                dns_stream_detach(s);
+
+                /* Do not use LIST_FOREACH() here, as
+                 *     on_transaction_stream_error()
+                 *         -> dns_transaction_complete_errno()
+                 *             -> dns_transaction_free()
+                 * may free multiple transactions in the list. */
+                DnsTransaction *t;
+                while ((t = s->transactions))
                         on_transaction_stream_error(t, error);
+        }
 
         return 0;
 }
