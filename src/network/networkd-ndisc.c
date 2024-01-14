@@ -181,6 +181,7 @@ static int ndisc_request_route(Route *route, Link *link, sd_ndisc_router *rt) {
 
         assert(route);
         assert(link);
+        assert(link->manager);
         assert(link->network);
         assert(rt);
 
@@ -221,7 +222,7 @@ static int ndisc_request_route(Route *route, Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return r;
 
-        is_new = route_get(NULL, link, route, NULL) < 0;
+        is_new = route_get(link->manager, route, NULL) < 0;
 
         r = link_request_route(link, route, &link->ndisc_messages, ndisc_route_handler);
         if (r < 0)
@@ -1118,6 +1119,7 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
         int r, ret = 0;
 
         assert(link);
+        assert(link->manager);
 
         /* If an address or friends is already assigned, but not valid anymore, then refuse to update it,
          * and let's immediately remove it.
@@ -1125,8 +1127,11 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
          * valid lifetimes to improve the reaction of SLAAC to renumbering events.
          * See draft-ietf-6man-slaac-renum-02, section 4.2. */
 
-        SET_FOREACH(route, link->routes) {
+        SET_FOREACH(route, link->manager->routes) {
                 if (route->source != NETWORK_CONFIG_SOURCE_NDISC)
+                        continue;
+
+                if (route->nexthop.ifindex != link->ifindex)
                         continue;
 
                 if (route->lifetime_usec >= timestamp_usec)
@@ -1216,8 +1221,11 @@ static int ndisc_setup_expire(Link *link) {
         assert(link);
         assert(link->manager);
 
-        SET_FOREACH(route, link->routes) {
+        SET_FOREACH(route, link->manager->routes) {
                 if (route->source != NETWORK_CONFIG_SOURCE_NDISC)
+                        continue;
+
+                if (route->nexthop.ifindex != link->ifindex)
                         continue;
 
                 if (!route_exists(route))
