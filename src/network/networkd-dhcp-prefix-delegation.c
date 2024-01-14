@@ -300,13 +300,16 @@ static int dhcp_pd_request_route(Link *link, const struct in6_addr *prefix, usec
         route->priority = link->network->dhcp_pd_route_metric;
         route->lifetime_usec = lifetime_usec;
 
+        r = route_adjust_nexthops(route, link);
+        if (r < 0)
+                return r;
+
         if (route_get(NULL, link, route, &existing) < 0)
                 link->dhcp_pd_configured = false;
         else
                 route_unmark(existing);
 
-        r = link_request_route(link, TAKE_PTR(route), true, &link->dhcp_pd_messages,
-                               dhcp_pd_route_handler, NULL);
+        r = link_request_route(link, route, &link->dhcp_pd_messages, dhcp_pd_route_handler);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request DHCP-PD prefix route: %m");
 
@@ -695,12 +698,16 @@ static int dhcp_request_unreachable_route(
         route->priority = IP6_RT_PRIO_USER;
         route->lifetime_usec = lifetime_usec;
 
+        r = route_adjust_nexthops(route, link);
+        if (r < 0)
+                return r;
+
         if (route_get(link->manager, NULL, route, &existing) < 0)
                 *configured = false;
         else
                 route_unmark(existing);
 
-        r = link_request_route(link, TAKE_PTR(route), true, counter, callback, NULL);
+        r = link_request_route(link, route, counter, callback);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request unreachable route for DHCP delegated prefix %s: %m",
                                             IN6_ADDR_PREFIX_TO_STRING(addr, prefixlen));
@@ -789,13 +796,16 @@ static int dhcp4_pd_request_default_gateway_on_6rd_tunnel(Link *link, const stru
         route->priority = IP6_RT_PRIO_USER;
         route->lifetime_usec = lifetime_usec;
 
+        r = route_adjust_nexthops(route, link);
+        if (r < 0)
+                return r;
+
         if (route_get(NULL, link, route, &existing) < 0) /* This is a new route. */
                 link->dhcp_pd_configured = false;
         else
                 route_unmark(existing);
 
-        r = link_request_route(link, TAKE_PTR(route), true, &link->dhcp_pd_messages,
-                               dhcp_pd_route_handler, NULL);
+        r = link_request_route(link, route, &link->dhcp_pd_messages, dhcp_pd_route_handler);
         if (r < 0)
                 return log_link_debug_errno(link, r, "Failed to request default gateway for DHCP delegated prefix: %m");
 

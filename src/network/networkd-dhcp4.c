@@ -390,13 +390,16 @@ static int dhcp4_request_route(Route *in, Link *link) {
         if (r < 0)
                 return r;
 
+        r = route_adjust_nexthops(route, link);
+        if (r < 0)
+                return r;
+
         if (route_get(NULL, link, route, &existing) < 0) /* This is a new route. */
                 link->dhcp4_configured = false;
         else
                 route_unmark(existing);
 
-        return link_request_route(link, TAKE_PTR(route), true, &link->dhcp4_messages,
-                                  dhcp4_route_handler, NULL);
+        return link_request_route(link, route, &link->dhcp4_messages, dhcp4_route_handler);
 }
 
 static bool link_prefixroute(Link *link) {

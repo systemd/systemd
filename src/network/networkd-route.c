@@ -260,24 +260,16 @@ int route_new_static(Network *network, const char *filename, unsigned section_li
         return 0;
 }
 
-static int route_add(Manager *manager, Link *link, Route *route) {
+static int route_add(Manager *manager, Route *route) {
         int r;
 
+        assert(manager);
         assert(route);
+        assert(!route->network);
+        assert(!route->wireguard);
 
-        if (route_type_is_reject(route)) {
-                assert(manager);
-
-                r = set_ensure_put(&manager->routes, &route_hash_ops, route);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return -EEXIST;
-
-                route->manager = manager;
-        } else {
-                assert(link);
-
+        Link *link;
+        if (route_nexthop_get_link(manager, NULL, &route->nexthop, &link) >= 0) {
                 r = set_ensure_put(&link->routes, &route_hash_ops, route);
                 if (r < 0)
                         return r;
@@ -285,32 +277,35 @@ static int route_add(Manager *manager, Link *link, Route *route) {
                         return -EEXIST;
 
                 route->link = link;
+                return 0;
         }
 
+        r = set_ensure_put(&manager->routes, &route_hash_ops, route);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EEXIST;
+
+        route->manager = manager;
         return 0;
 }
 
-int route_get(Manager *manager, Link *link, const Route *in, Route **ret) {
-        Route *route;
+int route_get(Manager *manager, Link *link, const Route *route, Route **ret) {
+        Route *existing;
 
-        assert(in);
+        if (!manager)
+                manager = ASSERT_PTR(ASSERT_PTR(link)->manager);
+        assert(route);
 
-        if (route_type_is_reject(in)) {
-                if (!manager)
-                        return -ENOENT;
-
-                route = set_get(manager->routes, in);
-        } else {
-                if (!link)
-                        return -ENOENT;
-
-                route = set_get(link->routes, in);
-        }
-        if (!route)
+        if (route_nexthop_get_link(manager, NULL, &route->nexthop, &link) >= 0)
+                existing = set_get(link->routes, route);
+        else
+                existing = set_get(manager->routes, route);
+        if (!existing)
                 return -ENOENT;
 
         if (ret)
-                *ret = route;
+                *ret = existing;
 
         return 0;
 }
@@ -332,6 +327,27 @@ static int route_get_link(Manager *manager, const Route *route, Link **ret) {
         }
 
         return route_nexthop_get_link(manager, NULL, &route->nexthop, ret);
+}
+
+static int route_get_request(Manager *manager, const Route *route, Request **ret) {
+        Request *req;
+
+        assert(manager);
+        assert(route);
+
+        req = ordered_set_get(manager->request_queue,
+                              &(const Request) {
+                                      .type = REQUEST_TYPE_ROUTE,
+                                      .userdata = (void*) route,
+                                      .hash_func = (hash_func_t) route_hash_func,
+                                      .compare_func = (compare_func_t) route_compare_func,
+                              });
+        if (!req)
+                return -ENOENT;
+
+        if (ret)
+                *ret = req;
+        return 0;
 }
 
 int route_dup(const Route *src, const RouteNextHop *nh, Route **ret) {
@@ -366,179 +382,6 @@ int route_dup(const Route *src, const RouteNextHop *nh, Route **ret) {
 
         *ret = TAKE_PTR(dest);
         return 0;
-}
-
-static void route_apply_nexthop(Route *route, const NextHop *nh, uint8_t nh_weight) {
-        assert(route);
-        assert(nh);
-        assert(hashmap_isempty(nh->group));
-
-        route->nexthop.family = nh->family;
-        route->nexthop.gw = nh->gw;
-
-        if (nh_weight != UINT8_MAX)
-                route->nexthop.weight = nh_weight;
-
-        if (nh->blackhole)
-                route->type = RTN_BLACKHOLE;
-}
-
-static void route_apply_route_nexthop(Route *route, const RouteNextHop *nh) {
-        assert(route);
-        assert(nh);
-
-        route->nexthop.family = nh->family;
-        route->nexthop.gw = nh->gw;
-        route->nexthop.weight = nh->weight;
-}
-
-typedef struct ConvertedRoutes {
-        size_t n;
-        Route **routes;
-        Link **links;
-} ConvertedRoutes;
-
-static ConvertedRoutes *converted_routes_free(ConvertedRoutes *c) {
-        if (!c)
-                return NULL;
-
-        for (size_t i = 0; i < c->n; i++)
-                route_free(c->routes[i]);
-
-        free(c->routes);
-        free(c->links);
-
-        return mfree(c);
-}
-
-DEFINE_TRIVIAL_CLEANUP_FUNC(ConvertedRoutes*, converted_routes_free);
-
-static int converted_routes_new(size_t n, ConvertedRoutes **ret) {
-        _cleanup_(converted_routes_freep) ConvertedRoutes *c = NULL;
-        _cleanup_free_ Route **routes = NULL;
-        _cleanup_free_ Link **links = NULL;
-
-        assert(n > 0);
-        assert(ret);
-
-        routes = new0(Route*, n);
-        if (!routes)
-                return -ENOMEM;
-
-        links = new0(Link*, n);
-        if (!links)
-                return -ENOMEM;
-
-        c = new(ConvertedRoutes, 1);
-        if (!c)
-                return -ENOMEM;
-
-        *c = (ConvertedRoutes) {
-                .n = n,
-                .routes = TAKE_PTR(routes),
-                .links = TAKE_PTR(links),
-        };
-
-        *ret = TAKE_PTR(c);
-        return 0;
-}
-
-static bool route_needs_convert(const Route *route) {
-        assert(route);
-
-        return route->nexthop_id > 0 || !ordered_set_isempty(route->nexthops);
-}
-
-static int route_convert(Manager *manager, Link *link, const Route *route, ConvertedRoutes **ret) {
-        _cleanup_(converted_routes_freep) ConvertedRoutes *c = NULL;
-        int r;
-
-        assert(manager);
-        assert(route);
-        assert(ret);
-
-        /* link may be NULL */
-
-        if (!route_needs_convert(route)) {
-                *ret = NULL;
-                return 0;
-        }
-
-        if (route->nexthop_id > 0) {
-                struct nexthop_grp *nhg;
-                NextHop *nh;
-
-                r = nexthop_get_by_id(manager, route->nexthop_id, &nh);
-                if (r < 0)
-                        return r;
-
-                if (hashmap_isempty(nh->group)) {
-                        r = converted_routes_new(1, &c);
-                        if (r < 0)
-                                return r;
-
-                        r = route_dup(route, NULL, &c->routes[0]);
-                        if (r < 0)
-                                return r;
-
-                        route_apply_nexthop(c->routes[0], nh, UINT8_MAX);
-                        (void) link_get_by_index(manager, nh->ifindex, c->links);
-
-                        *ret = TAKE_PTR(c);
-                        return 1;
-                }
-
-                r = converted_routes_new(hashmap_size(nh->group), &c);
-                if (r < 0)
-                        return r;
-
-                size_t i = 0;
-                HASHMAP_FOREACH(nhg, nh->group) {
-                        NextHop *h;
-
-                        r = nexthop_get_by_id(manager, nhg->id, &h);
-                        if (r < 0)
-                                return r;
-
-                        r = route_dup(route, NULL, &c->routes[i]);
-                        if (r < 0)
-                                return r;
-
-                        route_apply_nexthop(c->routes[i], h, nhg->weight);
-                        (void) link_get_by_index(manager, h->ifindex, c->links + i);
-
-                        i++;
-                }
-
-                *ret = TAKE_PTR(c);
-                return 1;
-
-        }
-
-        assert(!ordered_set_isempty(route->nexthops));
-
-        r = converted_routes_new(ordered_set_size(route->nexthops), &c);
-        if (r < 0)
-                return r;
-
-        size_t i = 0;
-        RouteNextHop *nh;
-        ORDERED_SET_FOREACH(nh, route->nexthops) {
-                r = route_dup(route, NULL, &c->routes[i]);
-                if (r < 0)
-                        return r;
-
-                route_apply_route_nexthop(c->routes[i], nh);
-
-                r = route_nexthop_get_link(manager, link, nh, &c->links[i]);
-                if (r < 0)
-                        return r;
-
-                i++;
-        }
-
-        *ret = TAKE_PTR(c);
-        return 1;
 }
 
 void link_mark_routes(Link *link, NetworkConfigSource source) {
@@ -702,14 +545,12 @@ static int route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *l
 
 int route_remove(Route *route) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        unsigned char type;
         Manager *manager;
         Link *link;
         int r;
 
         assert(route);
         assert(route->manager || (route->link && route->link->manager));
-        assert(IN_SET(route->family, AF_INET, AF_INET6));
 
         link = route->link;
         manager = route->manager ?: link->manager;
@@ -723,21 +564,6 @@ int route_remove(Route *route) {
         r = route_set_netlink_message(route, m, link);
         if (r < 0)
                 return log_error_errno(r, "Could not fill netlink message: %m");
-
-        if (route->family == AF_INET && route->nexthop_id > 0 && route->type == RTN_BLACKHOLE)
-                /* When IPv4 route has nexthop id and the nexthop type is blackhole, even though kernel
-                 * sends RTM_NEWROUTE netlink message with blackhole type, kernel's internal route type
-                 * fib_rt_info::type may not be blackhole. Thus, we cannot know the internal value.
-                 * Moreover, on route removal, the matching is done with the hidden value if we set
-                 * non-zero type in RTM_DELROUTE message. Note, sd_rtnl_message_new_route() sets
-                 * RTN_UNICAST by default. So, we need to clear the type here. */
-                type = RTN_UNSPEC;
-        else
-                type = route->type;
-
-        r = sd_rtnl_message_route_set_type(m, type);
-        if (r < 0)
-                return log_link_error_errno(link, r, "Could not set route type: %m");
 
         r = netlink_call_async(manager->rtnl, NULL, m, route_remove_handler,
                                link ? link_netlink_destroy_callback : NULL, link);
@@ -765,10 +591,32 @@ int route_remove_and_drop(Route *route) {
         return 0;
 }
 
+static int link_unmark_route(Link *link, const Route *route, const RouteNextHop *nh) {
+        _cleanup_(route_freep) Route *tmp = NULL;
+        Route *existing;
+        int r;
+
+        assert(link);
+        assert(route);
+
+        r = route_dup(route, nh, &tmp);
+        if (r < 0)
+                return r;
+
+        r = route_adjust_nexthops(tmp, link);
+        if (r < 0)
+                return r;
+
+        if (route_get(link->manager, link, tmp, &existing) < 0)
+                return 0;
+
+        route_unmark(existing);
+        return 1;
+}
+
 static void manager_mark_routes(Manager *manager, bool foreign, const Link *except) {
         Route *route;
         Link *link;
-        int r;
 
         assert(manager);
 
@@ -805,21 +653,14 @@ static void manager_mark_routes(Manager *manager, bool foreign, const Link *exce
                         continue;
 
                 HASHMAP_FOREACH(route, link->network->routes_by_section) {
-                        _cleanup_(converted_routes_freep) ConvertedRoutes *converted = NULL;
-                        Route *existing;
+                        if (route->family == AF_INET || ordered_set_isempty(route->nexthops))
+                                (void) link_unmark_route(link, route, NULL);
 
-                        r = route_convert(manager, link, route, &converted);
-                        if (r < 0)
-                                continue;
-                        if (r == 0) {
-                                if (route_get(manager, NULL, route, &existing) >= 0)
-                                        route_unmark(existing);
-                                continue;
+                        else {
+                                RouteNextHop *nh;
+                                ORDERED_SET_FOREACH(nh, route->nexthops)
+                                        (void) link_unmark_route(link, route, nh);
                         }
-
-                        for (size_t i = 0; i < converted->n; i++)
-                                if (route_get(manager, NULL, converted->routes[i], &existing) >= 0)
-                                        route_unmark(existing);
                 }
         }
 }
@@ -863,12 +704,11 @@ static void link_unmark_wireguard_routes(Link *link) {
         if (!link->netdev || link->netdev->kind != NETDEV_KIND_WIREGUARD)
                 return;
 
-        Route *route, *existing;
+        Route *route;
         Wireguard *w = WIREGUARD(link->netdev);
 
         SET_FOREACH(route, w->routes)
-                if (route_get(NULL, link, route, &existing) >= 0)
-                        route_unmark(existing);
+                (void) link_unmark_route(link, route, NULL);
 }
 
 int link_drop_foreign_routes(Link *link) {
@@ -904,21 +744,14 @@ int link_drop_foreign_routes(Link *link) {
         }
 
         HASHMAP_FOREACH(route, link->network->routes_by_section) {
-                _cleanup_(converted_routes_freep) ConvertedRoutes *converted = NULL;
-                Route *existing;
+                if (route->family == AF_INET || ordered_set_isempty(route->nexthops))
+                        (void) link_unmark_route(link, route, NULL);
 
-                r = route_convert(link->manager, link, route, &converted);
-                if (r < 0)
-                        continue;
-                if (r == 0) {
-                        if (route_get(NULL, link, route, &existing) >= 0)
-                                route_unmark(existing);
-                        continue;
+                else {
+                        RouteNextHop *nh;
+                        ORDERED_SET_FOREACH(nh, route->nexthops)
+                                (void) link_unmark_route(link, route, nh);
                 }
-
-                for (size_t i = 0; i < converted->n; i++)
-                        if (route_get(NULL, link, converted->routes[i], &existing) >= 0)
-                                route_unmark(existing);
         }
 
         link_unmark_wireguard_routes(link);
@@ -1080,6 +913,51 @@ static int route_configure(const Route *route, uint32_t lifetime_sec, Link *link
         return request_call_netlink_async(link->manager->rtnl, m, req);
 }
 
+static int route_requeue_request(Request *req, Link *link, const Route *route) {
+        _cleanup_(route_freep) Route *tmp = NULL;
+        int r;
+
+        assert(req);
+        assert(link);
+        assert(link->manager);
+        assert(route);
+
+        if (!route_nexthops_needs_adjust(route))
+                return 0;
+
+        r = route_dup(route, NULL, &tmp);
+        if (r < 0)
+                return r;
+
+        r = route_adjust_nexthops(tmp, link);
+        if (r < 0)
+                return r;
+
+        if (route_compare_func(route, tmp) == 0)
+                return 0;
+
+        request_ref(req);
+        request_detach(link->manager, req);
+        r = link_queue_request_full(link,
+                                    req->type,
+                                    tmp,
+                                    req->free_func,
+                                    req->hash_func,
+                                    req->compare_func,
+                                    req->process,
+                                    req->counter,
+                                    req->netlink_handler,
+                                    NULL);
+        request_unref(req);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return 1; /* Already queued?? That's OK. */
+
+        TAKE_PTR(tmp);
+        return 1;
+}
+
 static int route_is_ready_to_configure(const Route *route, Link *link) {
         int r;
 
@@ -1102,7 +980,7 @@ static int route_is_ready_to_configure(const Route *route, Link *link) {
 }
 
 static int route_process_request(Request *req, Link *link, Route *route) {
-        _cleanup_(converted_routes_freep) ConvertedRoutes *converted = NULL;
+        Route *existing;
         int r;
 
         assert(req);
@@ -1116,36 +994,6 @@ static int route_process_request(Request *req, Link *link, Route *route) {
         if (r == 0)
                 return 0;
 
-        if (route_needs_convert(route)) {
-                r = route_convert(link->manager, link, route, &converted);
-                if (r < 0)
-                        return log_link_warning_errno(link, r, "Failed to convert route: %m");
-
-                assert(r > 0);
-                assert(converted);
-
-                for (size_t i = 0; i < converted->n; i++) {
-                        Route *existing;
-
-                        if (route_get(link->manager, converted->links[i] ?: link, converted->routes[i], &existing) < 0) {
-                                _cleanup_(route_freep) Route *tmp = NULL;
-
-                                r = route_dup(converted->routes[i], NULL, &tmp);
-                                if (r < 0)
-                                        return log_oom();
-
-                                r = route_add(link->manager, converted->links[i] ?: link, tmp);
-                                if (r < 0)
-                                        return log_link_warning_errno(link, r, "Failed to add route: %m");
-
-                                TAKE_PTR(tmp);
-                        } else {
-                                existing->source = converted->routes[i]->source;
-                                existing->provider = converted->routes[i]->provider;
-                        }
-                }
-        }
-
         usec_t now_usec;
         assert_se(sd_event_now(link->manager->event, CLOCK_BOOTTIME, &now_usec) >= 0);
         uint32_t sec = usec_to_sec(route->lifetime_usec, now_usec);
@@ -1153,99 +1001,98 @@ static int route_process_request(Request *req, Link *link, Route *route) {
                 log_link_debug(link, "Refuse to configure %s route with zero lifetime.",
                                network_config_source_to_string(route->source));
 
-                if (converted)
-                        for (size_t i = 0; i < converted->n; i++) {
-                                Route *existing;
-
-                                assert_se(route_get(link->manager, converted->links[i] ?: link, converted->routes[i], &existing) >= 0);
-                                route_cancel_requesting(existing);
-                        }
-                else
-                        route_cancel_requesting(route);
-
+                route_cancel_requesting(route);
+                if (route_get(link->manager, link, route, &existing) >= 0)
+                        route_cancel_requesting(existing);
                 return 1;
         }
+
+        r = route_requeue_request(req, link, route);
+        if (r != 0)
+                return r;
 
         r = route_configure(route, sec, link, req);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to configure route: %m");
 
-        if (converted)
-                for (size_t i = 0; i < converted->n; i++) {
-                        Route *existing;
-
-                        assert_se(route_get(link->manager, converted->links[i] ?: link, converted->routes[i], &existing) >= 0);
-                        route_enter_configuring(existing);
-                }
-        else
-                route_enter_configuring(route);
-
+        route_enter_configuring(route);
+        if (route_get(link->manager, link, route, &existing) >= 0)
+                route_enter_configuring(existing);
         return 1;
 }
 
-int link_request_route(
+static int link_request_route_one(
                 Link *link,
-                Route *route,
-                bool consume_object,
+                const Route *route,
+                const RouteNextHop *nh,
                 unsigned *message_counter,
-                route_netlink_handler_t netlink_handler,
-                Request **ret) {
+                route_netlink_handler_t netlink_handler) {
 
+        _cleanup_(route_freep) Route *tmp = NULL;
         Route *existing = NULL;
         int r;
 
         assert(link);
         assert(link->manager);
         assert(route);
-        assert(route->source != NETWORK_CONFIG_SOURCE_FOREIGN);
-        assert(!route_needs_convert(route));
 
-        (void) route_get(link->manager, link, route, &existing);
+        r = route_dup(route, nh, &tmp);
+        if (r < 0)
+                return r;
 
-        if (route->lifetime_usec == 0) {
-                if (consume_object)
-                        route_free(route);
+        r = route_adjust_nexthops(tmp, link);
+        if (r < 0)
+                return r;
 
-                /* The requested route is outdated. Let's remove it. */
-                return route_remove_and_drop(existing);
-        }
+        if (route_get(link->manager, link, tmp, &existing) >= 0)
+                /* Copy state for logging below. */
+                tmp->state = existing->state;
 
-        if (!existing) {
-                _cleanup_(route_freep) Route *tmp = NULL;
-
-                if (consume_object)
-                        tmp = route;
-                else {
-                        r = route_dup(route, NULL, &tmp);
-                        if (r < 0)
-                                return r;
-                }
-
-                r = route_add(link->manager, link, tmp);
-                if (r < 0)
-                        return r;
-
-                existing = TAKE_PTR(tmp);
-        } else {
-                existing->source = route->source;
-                existing->provider = route->provider;
-                existing->lifetime_usec = route->lifetime_usec;
-                if (consume_object)
-                        route_free(route);
-        }
-
-        log_route_debug(existing, "Requesting", link->manager);
+        log_route_debug(tmp, "Requesting", link->manager);
         r = link_queue_request_safe(link, REQUEST_TYPE_ROUTE,
-                                    existing, NULL,
+                                    tmp,
+                                    route_free,
                                     route_hash_func,
                                     route_compare_func,
                                     route_process_request,
-                                    message_counter, netlink_handler, ret);
+                                    message_counter,
+                                    netlink_handler,
+                                    NULL);
         if (r <= 0)
                 return r;
 
-        route_enter_requesting(existing);
+        route_enter_requesting(tmp);
+        if (existing)
+                route_enter_requesting(existing);
+
+        TAKE_PTR(tmp);
         return 1;
+}
+
+int link_request_route(
+                Link *link,
+                const Route *route,
+                unsigned *message_counter,
+                route_netlink_handler_t netlink_handler) {
+
+        int r;
+
+        assert(link);
+        assert(link->manager);
+        assert(route);
+        assert(route->source != NETWORK_CONFIG_SOURCE_FOREIGN);
+
+        if (route->family == AF_INET || route_type_is_reject(route) || ordered_set_isempty(route->nexthops))
+                return link_request_route_one(link, route, NULL, message_counter, netlink_handler);
+
+        RouteNextHop *nh;
+        ORDERED_SET_FOREACH(nh, route->nexthops) {
+                r = link_request_route_one(link, route, nh, message_counter, netlink_handler);
+                if (r < 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 static int static_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request *req, Link *link, Route *route) {
@@ -1264,22 +1111,6 @@ static int static_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Request
         }
 
         return 1;
-}
-
-static int link_request_static_route(Link *link, Route *route) {
-        assert(link);
-        assert(link->manager);
-        assert(route);
-
-        if (!route_needs_convert(route))
-                return link_request_route(link, route, false, &link->static_route_messages,
-                                          static_route_handler, NULL);
-
-        log_route_debug(route, "Requesting", link->manager);
-        return link_queue_request_safe(link, REQUEST_TYPE_ROUTE,
-                                       route, NULL, route_hash_func, route_compare_func,
-                                       route_process_request,
-                                       &link->static_route_messages, static_route_handler, NULL);
 }
 
 static int link_request_wireguard_routes(Link *link, bool only_ipv4) {
@@ -1301,7 +1132,7 @@ static int link_request_wireguard_routes(Link *link, bool only_ipv4) {
                 if (only_ipv4 && route->family != AF_INET)
                         continue;
 
-                r = link_request_static_route(link, route);
+                r = link_request_route(link, route, &link->static_route_messages, static_route_handler);
                 if (r < 0)
                         return r;
         }
@@ -1325,7 +1156,7 @@ int link_request_static_routes(Link *link, bool only_ipv4) {
                 if (only_ipv4 && route->family != AF_INET)
                         continue;
 
-                r = link_request_static_route(link, route);
+                r = link_request_route(link, route, &link->static_route_messages, static_route_handler);
                 if (r < 0)
                         return r;
         }
@@ -1371,13 +1202,14 @@ void route_cancel_request(Route *route, Link *link) {
 
 static int process_route_one(
                 Manager *manager,
-                Link *link,
                 uint16_t type,
                 Route *in,
                 const struct rta_cacheinfo *cacheinfo) {
 
         _cleanup_(route_freep) Route *tmp = in;
+        Request *req = NULL;
         Route *route = NULL;
+        Link *link = NULL;
         bool is_new = false, update_dhcp4;
         int r;
 
@@ -1385,23 +1217,23 @@ static int process_route_one(
         assert(tmp);
         assert(IN_SET(type, RTM_NEWROUTE, RTM_DELROUTE));
 
-        /* link may be NULL. This consumes 'in'. */
+        (void) route_get(manager, NULL, tmp, &route);
+        (void) route_get_request(manager, tmp, &req);
+        (void) route_get_link(manager, tmp, &link);
 
         update_dhcp4 = link && tmp->family == AF_INET6 && tmp->dst_prefixlen == 0;
-
-        (void) route_get(manager, link, tmp, &route);
 
         switch (type) {
         case RTM_NEWROUTE:
                 if (!route) {
-                        if (!manager->manage_foreign_routes) {
+                        if (!manager->manage_foreign_routes && !(req && req->waiting_reply)) {
                                 route_enter_configured(tmp);
                                 log_route_debug(tmp, "Ignoring received", manager);
                                 return 0;
                         }
 
                         /* If we do not know the route, then save it. */
-                        r = route_add(manager, link, tmp);
+                        r = route_add(manager, tmp);
                         if (r < 0) {
                                 log_link_warning_errno(link, r, "Failed to remember foreign route, ignoring: %m");
                                 return 0;
@@ -1412,7 +1244,16 @@ static int process_route_one(
 
                 } else
                         /* Update remembered route with the received notification. */
-                        route->flags = tmp->flags;
+                        route->nexthop.weight = tmp->nexthop.weight;
+
+                /* Also update information that cannot be obtained through netlink notification. */
+                if (req && req->waiting_reply) {
+                        Route *rt = ASSERT_PTR(req->userdata);
+
+                        route->source = rt->source;
+                        route->provider = rt->provider;
+                        route->lifetime_usec = rt->lifetime_usec;
+                }
 
                 route_enter_configured(route);
                 log_route_debug(route, is_new ? "Received new" : "Received remembered", manager);
@@ -1424,15 +1265,15 @@ static int process_route_one(
         case RTM_DELROUTE:
                 if (route) {
                         route_enter_removed(route);
-                        if (route->state == 0) {
-                                log_route_debug(route, "Forgetting", manager);
-                                route_free(route);
-                        } else
-                                log_route_debug(route, "Removed", manager);
+                        log_route_debug(route, "Forgetting removed", manager);
+                        route_free(route);
                 } else
                         log_route_debug(tmp,
                                         manager->manage_foreign_routes ? "Kernel removed unknown" : "Ignoring received",
                                         manager);
+
+                if (req)
+                        route_enter_removed(req->userdata);
 
                 break;
 
@@ -1594,37 +1435,21 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
         }
         has_cacheinfo = r >= 0;
 
-        Link *link = NULL;
-        if (tmp->nexthop.ifindex > 0) {
-                r = link_get_by_index(m, tmp->nexthop.ifindex, &link);
-                if (r < 0) {
-                        /* when enumerating we might be out of sync, but we will
-                         * get the route again, so just ignore it */
-                        if (!m->enumerating)
-                                log_warning("rtnl: received route message for link (%i) we do not know about, ignoring", tmp->nexthop.ifindex);
-                        return 0;
-                }
+        if (tmp->family == AF_INET || ordered_set_isempty(tmp->nexthops))
+                return process_route_one(m, type, TAKE_PTR(tmp), has_cacheinfo ? &cacheinfo : NULL);
+
+        RouteNextHop *nh;
+        ORDERED_SET_FOREACH(nh, tmp->nexthops) {
+                _cleanup_(route_freep) Route *dup = NULL;
+
+                r = route_dup(tmp, nh, &dup);
+                if (r < 0)
+                        return log_oom();
+
+                r = process_route_one(m, type, TAKE_PTR(dup), has_cacheinfo ? &cacheinfo : NULL);
+                if (r < 0)
+                        return r;
         }
-
-        if (!route_needs_convert(tmp))
-                return process_route_one(m, link, type, TAKE_PTR(tmp), has_cacheinfo ? &cacheinfo : NULL);
-
-        _cleanup_(converted_routes_freep) ConvertedRoutes *converted = NULL;
-        r = route_convert(m, link, tmp, &converted);
-        if (r < 0) {
-                log_link_warning_errno(link, r, "rtnl: failed to convert received route, ignoring: %m");
-                return 0;
-        }
-
-        assert(r > 0);
-        assert(converted);
-
-        for (size_t i = 0; i < converted->n; i++)
-                (void) process_route_one(m,
-                                         converted->links[i] ?: link,
-                                         type,
-                                         TAKE_PTR(converted->routes[i]),
-                                         has_cacheinfo ? &cacheinfo : NULL);
 
         return 1;
 }
