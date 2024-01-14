@@ -86,14 +86,20 @@
         <term>suspend-then-hibernate</term>
 
         <listitem>
-          <para>A low power state where the system is initially suspended (the state is stored in
-          RAM). If the system supports low-battery alarms (ACPI _BTP), then the system will be woken up by
-          the ACPI low-battery signal and hibernated (the state is then stored on disk). Also, if not
-          interrupted within the timespan specified by <varname>HibernateDelaySec=</varname> or the estimated
-          timespan until the system battery charge level goes down to 5%, then the system will be woken up by the
-          RTC alarm and hibernated. The estimated timespan is calculated from the change of the battery
-          capacity level after the time specified by <varname>SuspendEstimationSec=</varname> or when
-          the system is woken up from the suspend.</para>
+          <para>A low power state where the system is initially suspended (the state is stored in RAM).
+          When the battery level is too low (less than 5%) or a certain timespan has passed, whichever
+          happens first, the system is automatically woken up and then hibernated. This establishes a balance
+          between speed and safety.</para>
+
+          <para>If the system has no battery, it would be hibernated after <varname>HibernateDelaySec=</varname>
+          has passed. If not set, then defaults to <literal>2h</literal>.</para>
+
+          <para>If the system has battery and <varname>HibernateDelaySec=</varname> is not set, low-battery
+          alarms (ACPI _BTP) are tried first for detecting battery percentage and wake up the system for hibernation.
+          If not available, or <varname>HibernateDelaySec=</varname> is set, the system would regularly wake
+          up to check the time and detect the battery percentage/discharging rate. The rate is used to
+          schedule the next detection. If that is also not available, <varname>SuspendEstimationSec=</varname>
+          is used as last resort.</para>
 
           <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>
@@ -194,8 +200,8 @@
           <para>The amount of time the system spends in suspend mode before the system is
           automatically put into hibernate mode. Only used by
           <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-          If the system has a battery, then defaults to the estimated timespan until the system battery charge level goes down to 5%.
-          If the system has no battery, then defaults to 2h.</para>
+          Refer to <command>suspend-then-hibernate</command> for details on how this option interacts with
+          other options/system battery state.</para>
 
           <xi:include href="version-info.xml" xpointer="v239"/>
         </listitem>
@@ -206,10 +212,10 @@
 
         <listitem>
           <para>The RTC alarm will wake the system after the specified timespan to measure the system battery
-          capacity level and estimate battery discharging rate, which is used for estimating timespan until the system battery charge
-          level goes down to 5%. Only used by
+          capacity level and estimate battery discharging rate. Only used by
           <citerefentry><refentrytitle>systemd-suspend-then-hibernate.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-          Defaults to 1h.</para>
+          Refer to <command>suspend-then-hibernate</command> for details on how this option interacts with
+          other options/system battery state.</para>
 
           <xi:include href="version-info.xml" xpointer="v253"/></listitem>
       </varlistentry>
