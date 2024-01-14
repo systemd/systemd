@@ -144,49 +144,91 @@ static int show_table(Table *table, const char *word) {
         return 0;
 }
 
-static int list_sessions(int argc, char *argv[], void *userdata) {
+static int list_sessions_table_add(Table *table, sd_bus_message *reply) {
+        int r;
+
+        assert(table);
+        assert(reply);
+
+        r = sd_bus_message_enter_container(reply, 'a', "(sussussbto)");
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        for (;;) {
+                const char *session_id, *user, *seat, *class, *tty;
+                uint32_t uid, leader_pid;
+                int idle;
+                uint64_t idle_timestamp_monotonic;
+
+                r = sd_bus_message_read(reply, "(sussussbto)",
+                                        &session_id,
+                                        &uid,
+                                        &user,
+                                        &seat,
+                                        &leader_pid,
+                                        &class,
+                                        &tty,
+                                        &idle,
+                                        &idle_timestamp_monotonic,
+                                        /* object = */ NULL);
+                if (r < 0)
+                        return bus_log_parse_error(r);
+                if (r == 0)
+                        break;
+
+                r = table_add_many(table,
+                                   TABLE_STRING, session_id,
+                                   TABLE_UID, (uid_t) uid,
+                                   TABLE_STRING, user,
+                                   TABLE_STRING, empty_to_null(seat),
+                                   TABLE_PID, (pid_t) leader_pid,
+                                   TABLE_STRING, class,
+                                   TABLE_STRING, empty_to_null(tty),
+                                   TABLE_BOOLEAN, idle);
+                if (r < 0)
+                        return table_log_add_error(r);
+
+                if (idle)
+                        r = table_add_cell(table, NULL, TABLE_TIMESTAMP_RELATIVE_MONOTONIC, &idle_timestamp_monotonic);
+                else
+                        r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
+                if (r < 0)
+                        return table_log_add_error(r);
+        }
+
+        r = sd_bus_message_exit_container(reply);
+        if (r < 0)
+                return bus_log_parse_error(r);
+
+        return 0;
+}
+
+static int list_sessions_table_add_fallback(Table *table, sd_bus_message *reply, sd_bus *bus) {
 
         static const struct bus_properties_map map[] = {
+                { "Leader",                 "u", NULL, offsetof(SessionStatusInfo, leader)                        },
+                { "Class",                  "s", NULL, offsetof(SessionStatusInfo, class)                         },
+                { "TTY",                    "s", NULL, offsetof(SessionStatusInfo, tty)                           },
                 { "IdleHint",               "b", NULL, offsetof(SessionStatusInfo, idle_hint)                     },
                 { "IdleSinceHintMonotonic", "t", NULL, offsetof(SessionStatusInfo, idle_hint_timestamp.monotonic) },
-                { "State",                  "s", NULL, offsetof(SessionStatusInfo, state)                         },
-                { "TTY",                    "s", NULL, offsetof(SessionStatusInfo, tty)                           },
                 {},
         };
 
-        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
-        _cleanup_(table_unrefp) Table *table = NULL;
-        sd_bus *bus = ASSERT_PTR(userdata);
         int r;
 
-        assert(argv);
-
-        pager_open(arg_pager_flags);
-
-        r = bus_call_method(bus, bus_login_mgr, "ListSessions", &error, &reply, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to list sessions: %s", bus_error_message(&error, r));
+        assert(table);
+        assert(reply);
+        assert(bus);
 
         r = sd_bus_message_enter_container(reply, 'a', "(susso)");
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        table = table_new("session", "uid", "user", "seat", "tty", "state", "idle", "since");
-        if (!table)
-                return log_oom();
-
-        /* Right-align the first two fields (since they are numeric) */
-        (void) table_set_align_percent(table, TABLE_HEADER_CELL(0), 100);
-        (void) table_set_align_percent(table, TABLE_HEADER_CELL(1), 100);
-
-        (void) table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
-
         for (;;) {
                 _cleanup_(sd_bus_error_free) sd_bus_error e = SD_BUS_ERROR_NULL;
+                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
                 const char *id, *user, *seat, *object;
                 uint32_t uid;
-                _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
                 SessionStatusInfo i = {};
 
                 r = sd_bus_message_read(reply, "(susso)", &id, &uid, &user, &seat, &object);
@@ -209,8 +251,9 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
                                    TABLE_UID, (uid_t) uid,
                                    TABLE_STRING, user,
                                    TABLE_STRING, empty_to_null(seat),
+                                   TABLE_PID, i.leader,
+                                   TABLE_STRING, i.class,
                                    TABLE_STRING, empty_to_null(i.tty),
-                                   TABLE_STRING, i.state,
                                    TABLE_BOOLEAN, i.idle_hint);
                 if (r < 0)
                         return table_log_add_error(r);
@@ -226,6 +269,50 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
         r = sd_bus_message_exit_container(reply);
         if (r < 0)
                 return bus_log_parse_error(r);
+
+        return 0;
+}
+
+static int list_sessions(int argc, char *argv[], void *userdata) {
+        sd_bus *bus = ASSERT_PTR(userdata);
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        _cleanup_(table_unrefp) Table *table = NULL;
+        bool use_ex = true;
+        int r;
+
+        assert(argv);
+
+        pager_open(arg_pager_flags);
+
+        r = bus_call_method(bus, bus_login_mgr, "ListSessionsEx", &error, &reply, NULL);
+        if (r < 0) {
+                if (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD)) {
+                        sd_bus_error_free(&error);
+
+                        use_ex = false;
+                        r = bus_call_method(bus, bus_login_mgr, "ListSessions", &error, &reply, NULL);
+                }
+                if (r < 0)
+                        return log_error_errno(r, "Failed to list sessions: %s", bus_error_message(&error, r));
+        }
+
+        table = table_new("session", "uid", "user", "seat", "leader", "class", "tty", "idle", "since");
+        if (!table)
+                return log_oom();
+
+        /* Right-align the first two fields (since they are numeric) */
+        (void) table_set_align_percent(table, TABLE_HEADER_CELL(0), 100);
+        (void) table_set_align_percent(table, TABLE_HEADER_CELL(1), 100);
+
+        (void) table_set_ersatz_string(table, TABLE_ERSATZ_DASH);
+
+        if (use_ex)
+                r = list_sessions_table_add(table, reply);
+        else
+                r = list_sessions_table_add_fallback(table, reply, bus);
+        if (r < 0)
+                return r;
 
         return show_table(table, "sessions");
 }
