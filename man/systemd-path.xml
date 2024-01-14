@@ -57,7 +57,7 @@
         <listitem><para>Printed paths are suffixed by the specified string.</para></listitem>
       </varlistentry>
 
-      <xi:include href="standard-options.xml" xpointer="no-pager-255"/>
+      <xi:include href="standard-options.xml" xpointer="no-pager"/>
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>

@@ -3,9 +3,7 @@
   "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd">
 <!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
 
-<variablelist
-    xmlns:xi="http://www.w3.org/2001/XInclude">
-
+<variablelist>
   <varlistentry id='help'>
     <term><option>-h</option></term>
     <term><option>--help</option></term>
@@ -28,16 +26,6 @@
 
     <listitem>
       <para>Do not pipe output into a pager.</para>
-    </listitem>
-  </varlistentry>
-
-  <varlistentry id='no-pager-255'>
-    <term><option>--no-pager</option></term>
-
-    <listitem>
-      <para>Do not pipe output into a pager.</para>
-
-      <xi:include href="version-info.xml" xpointer="v255"/>
     </listitem>
   </varlistentry>
 
