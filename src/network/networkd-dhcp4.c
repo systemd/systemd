@@ -246,9 +246,12 @@ static int dhcp4_remove_address_and_routes(Link *link, bool only_marked) {
         int ret = 0;
 
         assert(link);
+        assert(link->manager);
 
-        SET_FOREACH(route, link->routes) {
+        SET_FOREACH(route, link->manager->routes) {
                 if (route->source != NETWORK_CONFIG_SOURCE_DHCP4)
+                        continue;
+                if (route->nexthop.ifindex != 0 && route->nexthop.ifindex != link->ifindex)
                         continue;
                 if (only_marked && !route_is_marked(route))
                         continue;
@@ -360,6 +363,7 @@ static int dhcp4_request_route(Route *route, Link *link) {
 
         assert(route);
         assert(link);
+        assert(link->manager);
         assert(link->network);
         assert(link->dhcp_lease);
 
@@ -393,7 +397,7 @@ static int dhcp4_request_route(Route *route, Link *link) {
         if (r < 0)
                 return r;
 
-        if (route_get(NULL, link, route, &existing) < 0) /* This is a new route. */
+        if (route_get(link->manager, route, &existing) < 0) /* This is a new route. */
                 link->dhcp4_configured = false;
         else
                 route_unmark(existing);
@@ -986,7 +990,7 @@ static int dhcp4_request_address_and_routes(Link *link, bool announce) {
         assert(link);
 
         link_mark_addresses(link, NETWORK_CONFIG_SOURCE_DHCP4);
-        link_mark_routes(link, NETWORK_CONFIG_SOURCE_DHCP4);
+        manager_mark_routes(link->manager, link, NETWORK_CONFIG_SOURCE_DHCP4);
 
         r = dhcp4_request_address(link, announce);
         if (r < 0)
