@@ -557,16 +557,16 @@ int route_remove(Route *route) {
 
         r = sd_rtnl_message_new_route(manager->rtnl, &m, RTM_DELROUTE, route->family, route->protocol);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not create netlink message: %m");
+                return log_link_warning_errno(link, r, "Could not create netlink message: %m");
 
         r = route_set_netlink_message(route, m);
         if (r < 0)
-                return log_error_errno(r, "Could not fill netlink message: %m");
+                return log_link_warning_errno(link, r, "Could not fill netlink message: %m");
 
         r = netlink_call_async(manager->rtnl, NULL, m, route_remove_handler,
                                link ? link_netlink_destroy_callback : NULL, link);
         if (r < 0)
-                return log_link_error_errno(link, r, "Could not send netlink message: %m");
+                return log_link_warning_errno(link, r, "Could not send netlink message: %m");
 
         link_ref(link);
 
@@ -962,7 +962,7 @@ static int route_is_ready_to_configure(const Route *route, Link *link) {
         assert(route);
         assert(link);
 
-        if (!link_is_ready_to_configure(link, false))
+        if (!link_is_ready_to_configure(link, /* allow_unmanaged = */ false))
                 return false;
 
         if (set_size(link->routes) >= routes_max())
