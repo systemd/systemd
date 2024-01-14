@@ -27,7 +27,6 @@ typedef int (*route_netlink_handler_t)(
                 Route *route);
 
 struct Route {
-        Link *link;
         Manager *manager;
         Network *network;
         Wireguard *wireguard;
@@ -92,11 +91,16 @@ int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Li
 int route_remove(Route *route);
 int route_remove_and_drop(Route *route);
 
-int route_get(Manager *manager, Link *link, const Route *in, Route **ret);
+int route_get(Manager *manager, const Route *route, Route **ret);
 
-int link_drop_managed_routes(Link *link);
-int link_drop_foreign_routes(Link *link);
-void link_foreignize_routes(Link *link);
+int link_drop_routes(Link *link, bool foreign);
+static inline int link_drop_managed_routes(Link *link) {
+        return link_drop_routes(link, false);
+}
+static inline int link_drop_foreign_routes(Link *link) {
+        return link_drop_routes(link, true);
+}
+int link_foreignize_routes(Link *link);
 
 void route_cancel_request(Route *route, Link *link);
 int link_request_route(
@@ -114,7 +118,7 @@ void network_drop_invalid_routes(Network *network);
 int route_section_verify(Route *route);
 
 DEFINE_NETWORK_CONFIG_STATE_FUNCTIONS(Route, route);
-void link_mark_routes(Link *link, NetworkConfigSource source);
+void manager_mark_routes(Manager *manager, Link *link, NetworkConfigSource source);
 
 CONFIG_PARSER_PROTOTYPE(config_parse_preferred_src);
 CONFIG_PARSER_PROTOTYPE(config_parse_destination);
