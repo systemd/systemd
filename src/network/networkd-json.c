@@ -202,15 +202,10 @@ static int nexthops_append_json(Manager *manager, int ifindex, JsonVariant **v) 
 
 static int route_append_json(Route *route, JsonVariant **array) {
         _cleanup_free_ char *scope = NULL, *protocol = NULL, *table = NULL, *flags = NULL, *state = NULL;
-        Manager *manager;
         int r;
 
         assert(route);
         assert(array);
-
-        manager = route->link ? route->link->manager : route->manager;
-
-        assert(manager);
 
         r = route_scope_to_string_alloc(route->scope, &scope);
         if (r < 0)
@@ -220,7 +215,7 @@ static int route_append_json(Route *route, JsonVariant **array) {
         if (r < 0)
                 return r;
 
-        r = manager_get_route_table_to_string(manager, route->table, /* append_num = */ false, &table);
+        r = manager_get_route_table_to_string(route->manager, route->table, /* append_num = */ false, &table);
         if (r < 0)
                 return r;
 
@@ -262,14 +257,18 @@ static int route_append_json(Route *route, JsonVariant **array) {
                                 JSON_BUILD_PAIR_IN_ADDR_NON_NULL("ConfigProvider", &route->provider, route->family)));
 }
 
-static int routes_append_json(Set *routes, JsonVariant **v) {
+static int routes_append_json(Manager *manager, int ifindex, JsonVariant **v) {
         _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
         Route *route;
         int r;
 
+        assert(manager);
         assert(v);
 
-        SET_FOREACH(route, routes) {
+        SET_FOREACH(route, manager->routes) {
+                if (route->nexthop.ifindex != ifindex)
+                        continue;
+
                 r = route_append_json(route, &array);
                 if (r < 0)
                         return r;
@@ -1330,7 +1329,7 @@ int link_build_json(Link *link, JsonVariant **ret) {
         if (r < 0)
                 return r;
 
-        r = routes_append_json(link->routes, &v);
+        r = routes_append_json(link->manager, link->ifindex, &v);
         if (r < 0)
                 return r;
 
@@ -1393,7 +1392,7 @@ int manager_build_json(Manager *manager, JsonVariant **ret) {
         if (r < 0)
                 return r;
 
-        r = routes_append_json(manager->routes, &v);
+        r = routes_append_json(manager, /* ifindex = */ 0, &v);
         if (r < 0)
                 return r;
 
