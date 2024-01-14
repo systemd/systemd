@@ -570,10 +570,8 @@ static int dns_transaction_maybe_restart(DnsTransaction *t) {
         return 1;
 }
 
-static void on_transaction_stream_error(DnsTransaction *t, int error) {
+static void on_transaction_stream_error(DnsTransaction *t, int error, bool allow_retry) {
         assert(t);
-
-        dns_transaction_close_connection(t, true);
 
         if (ERRNO_IS_DISCONNECT(error)) {
                 if (t->scope->protocol == DNS_PROTOCOL_LLMNR) {
@@ -583,8 +581,10 @@ static void on_transaction_stream_error(DnsTransaction *t, int error) {
                         return;
                 }
 
-                dns_transaction_retry(t, true);
-                return;
+                if (allow_retry) {
+                        dns_transaction_retry(t, true);
+                        return;
+                }
         }
         if (error != 0)
                 dns_transaction_complete_errno(t, error);
@@ -638,9 +638,37 @@ static int on_stream_complete(DnsStream *s, int error) {
                 }
         }
 
-        if (error != 0)
-                LIST_FOREACH(transactions_by_stream, t, s->transactions)
-                        on_transaction_stream_error(t, error);
+        if (error != 0) {
+                /* Do not use LIST_FOREACH() here, as
+                 *     on_transaction_stream_error()
+                 *         -> dns_transaction_complete_errno()
+                 *             -> dns_transaction_free()
+                 * may free multiple transactions in the list. Also, as
+                 *     on_transaction_stream_error()
+                 *         -> dns_transaction_retry()
+                 * may restart a transaction and prepended it to the list, we cannot call
+                 * on_transaction_stream_error() in while ((t = s->transactions)).
+                 * Hence, let's pick all transactions and save them to another buffer. See issue #30928. */
+
+                _cleanup_set_free_ Set *transactions = NULL;
+                DnsTransaction *t;
+
+                while ((t = s->transactions)) {
+
+                        /* First, detach the transaction from the list. */
+                        dns_transaction_close_connection(t, /* use_graveyard = */ true);
+
+                        /* Then save it another buffer. */
+                        if (set_ensure_put(&transactions, NULL, t) < 0) {
+                                /* Huh, then forcibly complete the transaction. */
+                                log_oom_debug();
+                                on_transaction_stream_error(t, error, /* allow_retry = */ false);
+                        }
+                }
+
+                while ((t = set_steal_first(transactions)))
+                        on_transaction_stream_error(t, error, /* allow_retry = */ true);
+        }
 
         return 0;
 }
