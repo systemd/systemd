@@ -30,9 +30,6 @@ Route* route_free(Route *route) {
                 hashmap_remove(route->network->routes_by_section, route->section);
         }
 
-        if (route->link)
-                set_remove(route->link->routes, route);
-
         if (route->manager)
                 set_remove(route->manager->routes, route);
 
@@ -268,18 +265,6 @@ static int route_add(Manager *manager, Route *route) {
         assert(!route->network);
         assert(!route->wireguard);
 
-        Link *link;
-        if (route_nexthop_get_link(manager, &route->nexthop, &link) >= 0) {
-                r = set_ensure_put(&link->routes, &route_hash_ops, route);
-                if (r < 0)
-                        return r;
-                if (r == 0)
-                        return -EEXIST;
-
-                route->link = link;
-                return 0;
-        }
-
         r = set_ensure_put(&manager->routes, &route_hash_ops, route);
         if (r < 0)
                 return r;
@@ -290,17 +275,13 @@ static int route_add(Manager *manager, Route *route) {
         return 0;
 }
 
-int route_get(Manager *manager, Link *link, const Route *route, Route **ret) {
+int route_get(Manager *manager, const Route *route, Route **ret) {
         Route *existing;
 
-        if (!manager)
-                manager = ASSERT_PTR(ASSERT_PTR(link)->manager);
+        assert(manager);
         assert(route);
 
-        if (route_nexthop_get_link(manager, &route->nexthop, &link) >= 0)
-                existing = set_get(link->routes, route);
-        else
-                existing = set_get(manager->routes, route);
+        existing = set_get(manager->routes, route);
         if (!existing)
                 return -ENOENT;
 
@@ -366,7 +347,6 @@ int route_dup(const Route *src, const RouteNextHop *nh, Route **ret) {
         dest->network = NULL;
         dest->wireguard = NULL;
         dest->section = NULL;
-        dest->link = NULL;
         dest->nexthop = ROUTE_NEXTHOP_NULL;
         dest->nexthops = NULL;
         dest->metric = ROUTE_METRIC_NULL;
@@ -382,19 +362,6 @@ int route_dup(const Route *src, const RouteNextHop *nh, Route **ret) {
 
         *ret = TAKE_PTR(dest);
         return 0;
-}
-
-void link_mark_routes(Link *link, NetworkConfigSource source) {
-        Route *route;
-
-        assert(link);
-
-        SET_FOREACH(route, link->routes) {
-                if (route->source != source)
-                        continue;
-
-                route_mark(route);
-        }
 }
 
 static void log_route_debug(const Route *route, const char *str, Manager *manager) {
@@ -543,17 +510,15 @@ static int route_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Link *l
 
 int route_remove(Route *route) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-        Manager *manager;
-        Link *link;
+        Link *link = NULL;
         int r;
 
         assert(route);
-        assert(route->manager || (route->link && route->link->manager));
-
-        link = route->link;
-        manager = route->manager ?: link->manager;
+        Manager *manager = ASSERT_PTR(route->manager);
 
         log_route_debug(route, "Removing", manager);
+
+        (void) route_get_link(manager, route, &link);
 
         r = sd_rtnl_message_new_route(manager->rtnl, &m, RTM_DELROUTE, route->family, route->protocol);
         if (r < 0)
@@ -589,239 +554,16 @@ int route_remove_and_drop(Route *route) {
         return 0;
 }
 
-static int link_unmark_route(Link *link, const Route *route, const RouteNextHop *nh) {
-        _cleanup_(route_freep) Route *tmp = NULL;
-        Route *existing;
-        int r;
-
-        assert(link);
-        assert(route);
-
-        r = route_dup(route, nh, &tmp);
-        if (r < 0)
-                return r;
-
-        r = route_adjust_nexthops(tmp, link);
-        if (r < 0)
-                return r;
-
-        if (route_get(link->manager, link, tmp, &existing) < 0)
-                return 0;
-
-        route_unmark(existing);
-        return 1;
-}
-
-static void manager_mark_routes(Manager *manager, bool foreign, const Link *except) {
-        Route *route;
-        Link *link;
-
-        assert(manager);
-
-        /* First, mark all routes. */
-        SET_FOREACH(route, manager->routes) {
-                /* Do not touch routes managed by the kernel. */
-                if (route->protocol == RTPROT_KERNEL)
-                        continue;
-
-                /* When 'foreign' is true, mark only foreign routes, and vice versa. */
-                if (foreign != (route->source == NETWORK_CONFIG_SOURCE_FOREIGN))
-                        continue;
-
-                /* Do not touch dynamic routes. They will removed by dhcp_pd_prefix_lost() */
-                if (IN_SET(route->source, NETWORK_CONFIG_SOURCE_DHCP4, NETWORK_CONFIG_SOURCE_DHCP6))
-                        continue;
-
-                /* Ignore routes not assigned yet or already removed. */
-                if (!route_exists(route))
-                        continue;
-
-                route_mark(route);
-        }
-
-        /* Then, unmark all routes requested by active links. */
-        HASHMAP_FOREACH(link, manager->links_by_index) {
-                if (link == except)
-                        continue;
-
-                if (!link->network)
-                        continue;
-
-                if (!IN_SET(link->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
-                        continue;
-
-                HASHMAP_FOREACH(route, link->network->routes_by_section) {
-                        if (route->family == AF_INET || ordered_set_isempty(route->nexthops))
-                                (void) link_unmark_route(link, route, NULL);
-
-                        else {
-                                RouteNextHop *nh;
-                                ORDERED_SET_FOREACH(nh, route->nexthops)
-                                        (void) link_unmark_route(link, route, nh);
-                        }
-                }
-        }
-}
-
-static int manager_drop_marked_routes(Manager *manager) {
-        Route *route;
-        int r = 0;
-
-        assert(manager);
-
-        SET_FOREACH(route, manager->routes) {
-                if (!route_is_marked(route))
-                        continue;
-
-                RET_GATHER(r, route_remove(route));
-        }
-
-        return r;
-}
-
-static bool route_by_kernel(const Route *route) {
-        assert(route);
-
-        if (route->protocol == RTPROT_KERNEL)
-                return true;
-
-        /* The kernels older than a826b04303a40d52439aa141035fca5654ccaccd (v5.11) create the IPv6
-         * multicast with RTPROT_BOOT. Do not touch it. */
-        if (route->protocol == RTPROT_BOOT &&
-            route->family == AF_INET6 &&
-            route->dst_prefixlen == 8 &&
-            in6_addr_equal(&route->dst.in6, & (struct in6_addr) {{{ 0xff,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0 }}}))
-                return true;
-
-        return false;
-}
-
-static void link_unmark_wireguard_routes(Link *link) {
-        assert(link);
-
-        if (!link->netdev || link->netdev->kind != NETDEV_KIND_WIREGUARD)
-                return;
-
-        Route *route;
-        Wireguard *w = WIREGUARD(link->netdev);
-
-        SET_FOREACH(route, w->routes)
-                (void) link_unmark_route(link, route, NULL);
-}
-
-int link_drop_foreign_routes(Link *link) {
-        Route *route;
-        int r;
-
-        assert(link);
-        assert(link->manager);
-        assert(link->network);
-
-        SET_FOREACH(route, link->routes) {
-                /* do not touch routes managed by the kernel */
-                if (route_by_kernel(route))
-                        continue;
-
-                /* Do not remove routes we configured. */
-                if (route->source != NETWORK_CONFIG_SOURCE_FOREIGN)
-                        continue;
-
-                /* Ignore routes not assigned yet or already removed. */
-                if (!route_exists(route))
-                        continue;
-
-                if (route->protocol == RTPROT_STATIC &&
-                    FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
-                        continue;
-
-                if (route->protocol == RTPROT_DHCP &&
-                    FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP))
-                        continue;
-
-                route_mark(route);
-        }
-
-        HASHMAP_FOREACH(route, link->network->routes_by_section) {
-                if (route->family == AF_INET || ordered_set_isempty(route->nexthops))
-                        (void) link_unmark_route(link, route, NULL);
-
-                else {
-                        RouteNextHop *nh;
-                        ORDERED_SET_FOREACH(nh, route->nexthops)
-                                (void) link_unmark_route(link, route, nh);
-                }
-        }
-
-        link_unmark_wireguard_routes(link);
-
-        r = 0;
-        SET_FOREACH(route, link->routes) {
-                if (!route_is_marked(route))
-                        continue;
-
-                RET_GATHER(r, route_remove(route));
-        }
-
-        manager_mark_routes(link->manager, /* foreign = */ true, NULL);
-
-        return RET_GATHER(r, manager_drop_marked_routes(link->manager));
-}
-
-int link_drop_managed_routes(Link *link) {
-        Route *route;
-        int r = 0;
-
-        assert(link);
-
-        SET_FOREACH(route, link->routes) {
-                /* do not touch routes managed by the kernel */
-                if (route_by_kernel(route))
-                        continue;
-
-                /* Do not touch routes managed by kernel or other tools. */
-                if (route->source == NETWORK_CONFIG_SOURCE_FOREIGN)
-                        continue;
-
-                if (!route_exists(route))
-                        continue;
-
-                RET_GATHER(r, route_remove(route));
-        }
-
-        manager_mark_routes(link->manager, /* foreign = */ false, link);
-
-        return RET_GATHER(r, manager_drop_marked_routes(link->manager));
-}
-
-void link_foreignize_routes(Link *link) {
-        Route *route;
-
-        assert(link);
-
-        SET_FOREACH(route, link->routes)
-                route->source = NETWORK_CONFIG_SOURCE_FOREIGN;
-
-        manager_mark_routes(link->manager, /* foreign = */ false, link);
-
-        SET_FOREACH(route, link->manager->routes) {
-                if (!route_is_marked(route))
-                        continue;
-
-                route->source = NETWORK_CONFIG_SOURCE_FOREIGN;
-        }
-}
-
 static int route_expire_handler(sd_event_source *s, uint64_t usec, void *userdata) {
         Route *route = ASSERT_PTR(userdata);
-        Link *link;
         int r;
 
-        assert(route->manager || (route->link && route->link->manager));
-
-        link = route->link; /* This may be NULL. */
+        assert(route->manager);
 
         r = route_remove(route);
         if (r < 0) {
+                Link *link = NULL;
+                (void) route_get_link(route->manager, route, &link);
                 log_link_warning_errno(link, r, "Could not remove route: %m");
                 if (link)
                         link_enter_failed(link);
@@ -844,11 +586,14 @@ static int route_setup_timer(Route *route, const struct rta_cacheinfo *cacheinfo
                 return 0;
         }
 
-        Manager *manager = ASSERT_PTR(route->manager ?: ASSERT_PTR(route->link)->manager);
+        Manager *manager = ASSERT_PTR(route->manager);
         r = event_reset_time(manager->event, &route->expire, CLOCK_BOOTTIME,
                              route->lifetime_usec, 0, route_expire_handler, route, 0, "route-expiration", true);
-        if (r < 0)
-                return log_link_warning_errno(route->link, r, "Failed to configure expiration timer for route, ignoring: %m");
+        if (r < 0) {
+                Link *link = NULL;
+                (void) route_get_link(manager, route, &link);
+                return log_link_warning_errno(link, r, "Failed to configure expiration timer for route, ignoring: %m");
+        }
 
         log_route_debug(route, "Configured expiration timer for", manager);
         return 1;
@@ -867,7 +612,7 @@ int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Li
         if (r == -EEXIST) {
                 Route *existing;
 
-                if (route_get(link->manager, link, route, &existing) >= 0) {
+                if (route_get(link->manager, route, &existing) >= 0) {
                         /* When re-configuring an existing route, kernel does not send RTM_NEWROUTE
                          * notification, so we need to update the timer here. */
                         existing->lifetime_usec = route->lifetime_usec;
@@ -965,9 +710,6 @@ static int route_is_ready_to_configure(const Route *route, Link *link) {
         if (!link_is_ready_to_configure(link, /* allow_unmanaged = */ false))
                 return false;
 
-        if (set_size(link->routes) >= routes_max())
-                return false;
-
         if (in_addr_is_set(route->family, &route->prefsrc) > 0) {
                 r = manager_has_address(link->manager, route->family, &route->prefsrc);
                 if (r <= 0)
@@ -1000,7 +742,7 @@ static int route_process_request(Request *req, Link *link, Route *route) {
                                network_config_source_to_string(route->source));
 
                 route_cancel_requesting(route);
-                if (route_get(link->manager, link, route, &existing) >= 0)
+                if (route_get(link->manager, route, &existing) >= 0)
                         route_cancel_requesting(existing);
                 return 1;
         }
@@ -1014,7 +756,7 @@ static int route_process_request(Request *req, Link *link, Route *route) {
                 return log_link_warning_errno(link, r, "Failed to configure route: %m");
 
         route_enter_configuring(route);
-        if (route_get(link->manager, link, route, &existing) >= 0)
+        if (route_get(link->manager, route, &existing) >= 0)
                 route_enter_configuring(existing);
         return 1;
 }
@@ -1042,7 +784,7 @@ static int link_request_route_one(
         if (r < 0)
                 return r;
 
-        if (route_get(link->manager, link, tmp, &existing) >= 0)
+        if (route_get(link->manager, tmp, &existing) >= 0)
                 /* Copy state for logging below. */
                 tmp->state = existing->state;
 
@@ -1179,22 +921,18 @@ void route_cancel_request(Route *route, Link *link) {
 
         assert(route);
 
-        link = route->link ?: link;
-
-        assert(link);
-
         if (!route_is_requesting(route))
                 return;
 
         req = (Request) {
-                .link = link,
                 .type = REQUEST_TYPE_ROUTE,
                 .userdata = route,
                 .hash_func = (hash_func_t) route_hash_func,
                 .compare_func = (compare_func_t) route_compare_func,
         };
 
-        request_detach(link->manager, &req);
+        Manager *manager = ASSERT_PTR(link ? link->manager : route->manager);
+        request_detach(manager, &req);
         route_cancel_requesting(route);
 }
 
@@ -1215,7 +953,7 @@ static int process_route_one(
         assert(tmp);
         assert(IN_SET(type, RTM_NEWROUTE, RTM_DELROUTE));
 
-        (void) route_get(manager, NULL, tmp, &route);
+        (void) route_get(manager, tmp, &route);
         (void) route_get_request(manager, tmp, &req);
         (void) route_get_link(manager, tmp, &link);
 
@@ -1450,6 +1188,197 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
         }
 
         return 1;
+}
+
+void manager_mark_routes(Manager *manager, Link *link, NetworkConfigSource source) {
+        Route *route;
+
+        assert(manager);
+
+        SET_FOREACH(route, manager->routes) {
+                if (route->source != source)
+                        continue;
+
+                if (link) {
+                        Link *route_link;
+
+                        if (route_get_link(manager, route, &route_link) < 0)
+                                continue;
+                        if (route_link != link)
+                                continue;
+                }
+
+                route_mark(route);
+        }
+}
+
+static bool route_by_kernel(const Route *route) {
+        assert(route);
+
+        if (route->protocol == RTPROT_KERNEL)
+                return true;
+
+        /* The kernels older than a826b04303a40d52439aa141035fca5654ccaccd (v5.11) create the IPv6
+         * multicast with RTPROT_BOOT. Do not touch it. */
+        if (route->protocol == RTPROT_BOOT &&
+            route->family == AF_INET6 &&
+            route->dst_prefixlen == 8 &&
+            in6_addr_equal(&route->dst.in6, & (struct in6_addr) {{{ 0xff,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0 }}}))
+                return true;
+
+        return false;
+}
+
+static int link_unmark_route(Link *link, const Route *route, const RouteNextHop *nh) {
+        _cleanup_(route_freep) Route *tmp = NULL;
+        Route *existing;
+        int r;
+
+        assert(link);
+        assert(route);
+
+        r = route_dup(route, nh, &tmp);
+        if (r < 0)
+                return r;
+
+        r = route_adjust_nexthops(tmp, link);
+        if (r < 0)
+                return r;
+
+        if (route_get(link->manager, tmp, &existing) < 0)
+                return 0;
+
+        route_unmark(existing);
+        return 1;
+}
+
+static int link_mark_routes(Link *link, bool foreign) {
+        Route *route;
+        Link *other;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+
+        /* First, mark all routes. */
+        SET_FOREACH(route, link->manager->routes) {
+                /* Do not touch routes managed by the kernel. */
+                if (route_by_kernel(route))
+                        continue;
+
+                /* When 'foreign' is true, mark only foreign routes, and vice versa.
+                 * Note, do not touch dynamic routes. They will removed by when e.g. lease is lost. */
+                if (route->source != (foreign ? NETWORK_CONFIG_SOURCE_FOREIGN : NETWORK_CONFIG_SOURCE_STATIC))
+                        continue;
+
+                /* Ignore routes not assigned yet or already removed. */
+                if (!route_exists(route))
+                        continue;
+
+                if (link->network) {
+                        if (route->protocol == RTPROT_STATIC &&
+                            FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_STATIC))
+                                continue;
+
+                        if (route->protocol == RTPROT_DHCP &&
+                            FLAGS_SET(link->network->keep_configuration, KEEP_CONFIGURATION_DHCP))
+                                continue;
+                }
+
+                /* When we mark foreign routes, do not mark routes assigned to other interfaces.
+                 * Otherwise, routes assigned to unmanaged interfaces will be dropped.
+                 * Note, route_get_link() does not provide assigned link for routes with an unreachable type
+                 * or IPv4 multipath routes. So, the current implementation does not support managing such
+                 * routes by other daemon or so, unless ManageForeignRoutes=no. */
+                if (foreign) {
+                        Link *route_link;
+
+                        if (route_get_link(link->manager, route, &route_link) >= 0 && route_link != link)
+                                continue;
+                }
+
+                route_mark(route);
+        }
+
+        /* Then, unmark all routes requested by active links. */
+        HASHMAP_FOREACH(other, link->manager->links_by_index) {
+                if (!foreign && other == link)
+                        continue;
+
+                if (!IN_SET(other->state, LINK_STATE_CONFIGURING, LINK_STATE_CONFIGURED))
+                        continue;
+
+                HASHMAP_FOREACH(route, other->network->routes_by_section) {
+                        if (route->family == AF_INET || ordered_set_isempty(route->nexthops)) {
+                                r = link_unmark_route(other, route, NULL);
+                                if (r < 0)
+                                        return r;
+
+                        } else {
+                                RouteNextHop *nh;
+                                ORDERED_SET_FOREACH(nh, route->nexthops) {
+                                        r = link_unmark_route(other, route, nh);
+                                        if (r < 0)
+                                                return r;
+                                }
+                        }
+                }
+        }
+
+        /* Also unmark routes requested in .netdev file. */
+        if (foreign && link->netdev && link->netdev->kind == NETDEV_KIND_WIREGUARD) {
+                Wireguard *w = WIREGUARD(link->netdev);
+
+                SET_FOREACH(route, w->routes) {
+                        r = link_unmark_route(link, route, NULL);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
+        return 0;
+}
+
+int link_drop_routes(Link *link, bool foreign) {
+        Route *route;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+
+        r = link_mark_routes(link, foreign);
+        if (r < 0)
+                return r;
+
+        SET_FOREACH(route, link->manager->routes) {
+                if (!route_is_marked(route))
+                        continue;
+
+                RET_GATHER(r, route_remove(route));
+        }
+
+        return r;
+}
+
+int link_foreignize_routes(Link *link) {
+        Route *route;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+
+        r = link_mark_routes(link, /* foreign = */ false);
+        if (r < 0)
+                return r;
+
+        SET_FOREACH(route, link->manager->routes) {
+                if (!route_is_marked(route))
+                        continue;
+
+                route->source = NETWORK_CONFIG_SOURCE_FOREIGN;
+        }
+
+        return 0;
 }
 
 int network_add_ipv4ll_route(Network *network) {
