@@ -170,6 +170,36 @@ int route_nexthops_compare_func(const Route *a, const Route *b) {
         }}
 }
 
+static int route_nexthop_copy(const RouteNextHop *src, RouteNextHop *dest) {
+        assert(src);
+        assert(dest);
+
+        *dest = *src;
+
+        /* unset pointer copied in the above. */
+        dest->ifname = NULL;
+
+        return strdup_or_null(src->ifindex == 0 ? NULL : src->ifname, &dest->ifname);
+}
+
+int route_nexthops_copy(const Route *src, const RouteNextHop *nh, Route *dest) {
+        assert(src);
+        assert(dest);
+
+        if (src->nexthop_id != 0 || route_type_is_reject(src))
+                return 0;
+
+        if (nh)
+                return route_nexthop_copy(nh, &dest->nexthop);
+
+        if (ordered_set_isempty(src->nexthops))
+                return route_nexthop_copy(&src->nexthop, &dest->nexthop);
+
+        /* Currently, this does not copy multipath routes. */
+
+        return 0;
+}
+
 int route_nexthop_get_link(Manager *manager, Link *link, const RouteNextHop *nh, Link **ret) {
         assert(manager);
         assert(nh);
