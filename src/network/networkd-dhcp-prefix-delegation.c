@@ -128,10 +128,13 @@ static int dhcp_pd_get_assigned_subnet_prefix(Link *link, const struct in6_addr 
         } else {
                 Route *route;
 
-                SET_FOREACH(route, link->routes) {
+                SET_FOREACH(route, link->manager->routes) {
                         if (route->source != NETWORK_CONFIG_SOURCE_DHCP_PD)
                                 continue;
                         assert(route->family == AF_INET6);
+
+                        if (route->nexthop.ifindex != link->ifindex)
+                                continue;
 
                         if (in6_addr_prefix_covers(pd_prefix, pd_prefix_len, &route->dst.in6) > 0) {
                                 if (ret)
@@ -159,8 +162,10 @@ int dhcp_pd_remove(Link *link, bool only_marked) {
         if (!link->network->dhcp_pd_assign) {
                 Route *route;
 
-                SET_FOREACH(route, link->routes) {
+                SET_FOREACH(route, link->manager->routes) {
                         if (route->source != NETWORK_CONFIG_SOURCE_DHCP_PD)
+                                continue;
+                        if (route->nexthop.ifindex != link->ifindex)
                                 continue;
                         if (only_marked && !route_is_marked(route))
                                 continue;
@@ -282,6 +287,7 @@ static int dhcp_pd_request_route(Link *link, const struct in6_addr *prefix, usec
         int r;
 
         assert(link);
+        assert(link->manager);
         assert(link->network);
         assert(prefix);
 
@@ -304,7 +310,7 @@ static int dhcp_pd_request_route(Link *link, const struct in6_addr *prefix, usec
         if (r < 0)
                 return r;
 
-        if (route_get(NULL, link, route, &existing) < 0)
+        if (route_get(link->manager, route, &existing) < 0)
                 link->dhcp_pd_configured = false;
         else
                 route_unmark(existing);
@@ -548,7 +554,7 @@ static int dhcp_pd_prepare(Link *link) {
                 return 0;
 
         link_mark_addresses(link, NETWORK_CONFIG_SOURCE_DHCP_PD);
-        link_mark_routes(link, NETWORK_CONFIG_SOURCE_DHCP_PD);
+        manager_mark_routes(link->manager, link, NETWORK_CONFIG_SOURCE_DHCP_PD);
 
         return 1;
 }
@@ -671,6 +677,7 @@ static int dhcp_request_unreachable_route(
         int r;
 
         assert(link);
+        assert(link->manager);
         assert(addr);
         assert(IN_SET(source, NETWORK_CONFIG_SOURCE_DHCP4, NETWORK_CONFIG_SOURCE_DHCP6));
         assert(server_address);
@@ -702,7 +709,7 @@ static int dhcp_request_unreachable_route(
         if (r < 0)
                 return r;
 
-        if (route_get(link->manager, NULL, route, &existing) < 0)
+        if (route_get(link->manager, route, &existing) < 0)
                 *configured = false;
         else
                 route_unmark(existing);
@@ -781,6 +788,7 @@ static int dhcp4_pd_request_default_gateway_on_6rd_tunnel(Link *link, const stru
         int r;
 
         assert(link);
+        assert(link->manager);
         assert(br_address);
 
         r = route_new(&route);
@@ -800,7 +808,7 @@ static int dhcp4_pd_request_default_gateway_on_6rd_tunnel(Link *link, const stru
         if (r < 0)
                 return r;
 
-        if (route_get(NULL, link, route, &existing) < 0) /* This is a new route. */
+        if (route_get(link->manager, route, &existing) < 0) /* This is a new route. */
                 link->dhcp_pd_configured = false;
         else
                 route_unmark(existing);
