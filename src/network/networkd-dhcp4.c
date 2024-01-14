@@ -659,7 +659,7 @@ static int dhcp4_request_semi_static_routes(Link *link) {
                 if (r < 0)
                         return r;
 
-                r = route_dup(rt, &route);
+                r = route_dup(rt, NULL, &route);
                 if (r < 0)
                         return r;
 
