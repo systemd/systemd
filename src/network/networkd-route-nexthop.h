@@ -24,6 +24,8 @@ typedef struct RouteNextHop {
         /* unsupported attributes: RTA_FLOW (IPv4 only), RTA_ENCAP_TYPE, RTA_ENCAP. */
 } RouteNextHop;
 
+#define ROUTE_NEXTHOP_NULL ((const RouteNextHop) {})
+
 RouteNextHop* route_nexthop_free(RouteNextHop *nh);
 DEFINE_TRIVIAL_CLEANUP_FUNC(RouteNextHop*, route_nexthop_free);
 
@@ -31,6 +33,8 @@ void route_nexthops_done(Route *route);
 
 void route_nexthops_hash_func(const Route *route, struct siphash *state);
 int route_nexthops_compare_func(const Route *a, const Route *b);
+
+int route_nexthops_copy(const Route *src, const RouteNextHop *nh, Route *dest);
 
 int route_nexthop_get_link(Manager *manager, Link *link, const RouteNextHop *nh, Link **ret);
 int route_nexthops_is_ready_to_configure(const Route *route, Link *link);
