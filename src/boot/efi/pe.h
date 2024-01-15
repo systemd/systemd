@@ -3,6 +3,12 @@
 
 #include "efi.h"
 
+/* This is used to hold PE-specific metadata
+ * under the section `.sdmeta`               */
+struct pe_metadata {
+        const char *fname;
+};
+
 EFI_STATUS pe_memory_locate_sections(
                 const void *base,
                 const char * const sections[],

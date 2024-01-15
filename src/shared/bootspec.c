@@ -60,6 +60,7 @@ static void boot_entry_free(BootEntry *entry) {
         free(entry->kernel);
         free(entry->efi);
         strv_free(entry->initrd);
+        strv_free(entry->addons);
         free(entry->device_tree);
         strv_free(entry->device_tree_overlay);
 }
@@ -376,6 +377,8 @@ static int boot_entry_load_type1(
                         r = parse_path_one(tmp.path, line, field, &tmp.efi, p);
                 else if (streq(field, "initrd"))
                         r = parse_path_strv(tmp.path, line, field, &tmp.initrd, p);
+                else if (streq(field, "addon"))
+                        r = parse_path_strv(tmp.path, line, field, &tmp.addons, p);
                 else if (streq(field, "devicetree"))
                         r = parse_path_one(tmp.path, line, field, &tmp.device_tree, p);
                 else if (streq(field, "devicetree-overlay"))
@@ -1323,6 +1326,12 @@ int show_boot_entry(
                                      *s,
                                      &status);
 
+        STRV_FOREACH(s, e->addons)
+                boot_entry_file_list(s == e->addons ? "addons" : NULL,
+                                     e->root,
+                                     *s,
+                                     &status);
+
         if (!strv_isempty(e->options)) {
                 _cleanup_free_ char *t = NULL, *t2 = NULL;
                 _cleanup_strv_free_ char **ts = NULL;
@@ -1389,6 +1398,7 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                                                        JSON_BUILD_PAIR_CONDITION(e->kernel, "linux", JSON_BUILD_STRING(e->kernel)),
                                                        JSON_BUILD_PAIR_CONDITION(e->efi, "efi", JSON_BUILD_STRING(e->efi)),
                                                        JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->initrd), "initrd", JSON_BUILD_STRV(e->initrd)),
+                                                       JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->addons), "addons", JSON_BUILD_STRV(e->addons)),
                                                        JSON_BUILD_PAIR_CONDITION(e->device_tree, "devicetree", JSON_BUILD_STRING(e->device_tree)),
                                                        JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->device_tree_overlay), "devicetreeOverlay", JSON_BUILD_STRV(e->device_tree_overlay))));
                         if (r < 0)
