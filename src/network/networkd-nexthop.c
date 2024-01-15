@@ -857,15 +857,20 @@ void link_foreignize_nexthops(Link *link) {
         }
 }
 
-static int nexthop_update_group(NextHop *nexthop, const struct nexthop_grp *group, size_t size) {
+static int nexthop_update_group(NextHop *nexthop, sd_netlink_message *message) {
         _cleanup_hashmap_free_free_ Hashmap *h = NULL;
-        size_t n_group;
+        _cleanup_free_ struct nexthop_grp *group = NULL;
+        size_t size = 0, n_group;
         int r;
 
         assert(nexthop);
-        assert(group || size == 0);
+        assert(message);
 
-        if (size == 0 || size % sizeof(struct nexthop_grp) != 0)
+        r = sd_netlink_message_read_data(message, NHA_GROUP, &size, (void**) &group);
+        if (r < 0 && r != -ENODATA)
+                return log_debug_errno(r, "rtnl: could not get NHA_GROUP attribute, ignoring: %m");
+
+        if (size % sizeof(struct nexthop_grp) != 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "rtnl: received nexthop message with invalid nexthop group size, ignoring.");
 
@@ -908,8 +913,6 @@ static int nexthop_update_group(NextHop *nexthop, const struct nexthop_grp *grou
 }
 
 int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
-        _cleanup_free_ void *raw_group = NULL;
-        size_t raw_group_size;
         uint16_t type;
         uint32_t id, ifindex;
         NextHop *nexthop = NULL;
@@ -997,13 +1000,7 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
         if (r < 0)
                 log_debug_errno(r, "rtnl: could not get nexthop flags, ignoring: %m");
 
-        r = sd_netlink_message_read_data(message, NHA_GROUP, &raw_group_size, &raw_group);
-        if (r == -ENODATA)
-                nexthop->group = hashmap_free_free(nexthop->group);
-        else if (r < 0)
-                log_debug_errno(r, "rtnl: could not get NHA_GROUP attribute, ignoring: %m");
-        else
-                (void) nexthop_update_group(nexthop, raw_group, raw_group_size);
+        (void) nexthop_update_group(nexthop, message);
 
         if (nexthop->family != AF_UNSPEC) {
                 r = netlink_message_read_in_addr_union(message, NHA_GATEWAY, nexthop->family, &nexthop->gw);
