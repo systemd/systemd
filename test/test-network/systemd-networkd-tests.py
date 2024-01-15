@@ -12,6 +12,7 @@ import itertools
 import json
 import os
 import pathlib
+import random
 import re
 import shutil
 import signal
@@ -5109,9 +5110,7 @@ class NetworkdRATests(unittest.TestCase, Utilities):
 
         self.teardown_nftset('addr6', 'network6', 'ifindex')
 
-    def test_ipv6_token_static(self):
-        copy_network_unit('25-veth.netdev', '25-ipv6-prefix.network', '25-ipv6-prefix-veth-token-static.network')
-        start_networkd()
+    def check_ipv6_token_static(self):
         self.wait_online(['veth99:routable', 'veth-peer:degraded'])
 
         output = networkctl_status('veth99')
@@ -5120,6 +5119,26 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         self.assertRegex(output, '2002:da8:1:0:fa:de:ca:fe')
         self.assertRegex(output, '2002:da8:2:0:1a:2b:3c:4d')
         self.assertRegex(output, '2002:da8:2:0:fa:de:ca:fe')
+
+    def test_ipv6_token_static(self):
+        copy_network_unit('25-veth.netdev', '25-ipv6-prefix.network', '25-ipv6-prefix-veth-token-static.network')
+        start_networkd()
+
+        self.check_ipv6_token_static()
+
+        for _ in range(20):
+            check_output('ip link set veth99 down')
+            check_output('ip link set veth99 up')
+
+        self.check_ipv6_token_static()
+
+        for _ in range(20):
+            check_output('ip link set veth99 down')
+            time.sleep(random.uniform(0, 0.1))
+            check_output('ip link set veth99 up')
+            time.sleep(random.uniform(0, 0.1))
+
+        self.check_ipv6_token_static()
 
     def test_ipv6_token_prefixstable(self):
         copy_network_unit('25-veth.netdev', '25-ipv6-prefix.network', '25-ipv6-prefix-veth-token-prefixstable.network')
@@ -5360,6 +5379,24 @@ class NetworkdDHCPServerRelayAgentTests(unittest.TestCase, Utilities):
         output = networkctl_status('client')
         print(output)
         self.assertRegex(output, r'Address: 192.168.5.150 \(DHCP4 via 192.168.5.1\)')
+
+    def test_replay_agent_on_bridge(self):
+        copy_network_unit('25-agent-bridge.netdev',
+                          '25-agent-veth-client.netdev',
+                          '25-agent-bridge.network',
+                          '25-agent-bridge-port.network',
+                          '25-agent-client.network')
+        start_networkd()
+        self.wait_online(['bridge-relay:routable', 'client-peer:enslaved'])
+
+        # For issue #30763.
+        expect = 'bridge-relay: DHCPv4 server: STARTED'
+        for _ in range(20):
+            if expect in read_networkd_log():
+                break
+            time.sleep(0.5)
+        else:
+            self.fail()
 
 class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
 

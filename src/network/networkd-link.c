@@ -207,7 +207,6 @@ static Link *link_free(Link *link) {
         link_ntp_settings_clear(link);
         link_dns_settings_clear(link);
 
-        link->routes = set_free(link->routes);
         link->neighbors = set_free(link->neighbors);
         link->addresses = set_free(link->addresses);
         link->qdiscs = set_free(link->qdiscs);
@@ -381,6 +380,8 @@ int link_stop_engines(Link *link, bool may_keep_dhcp) {
 }
 
 void link_enter_failed(Link *link) {
+        int r;
+
         assert(link);
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
@@ -390,7 +391,22 @@ void link_enter_failed(Link *link) {
 
         link_set_state(link, LINK_STATE_FAILED);
 
-        (void) link_stop_engines(link, false);
+        if (!ratelimit_below(&link->automatic_reconfigure_ratelimit)) {
+                log_link_warning(link, "The interface entered the failed state frequently, refusing to reconfigure it automatically.");
+                goto stop;
+        }
+
+        log_link_info(link, "Trying to reconfigure the interface.");
+        r = link_reconfigure(link, /* force = */ true);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
+                goto stop;
+        }
+
+        return;
+
+stop:
+        (void) link_stop_engines(link, /* may_keep_dhcp = */ false);
 }
 
 void link_check_ready(Link *link) {
@@ -416,11 +432,9 @@ void link_check_ready(Link *link) {
         if (!link->activated)
                 return (void) log_link_debug(link, "%s(): link is not activated.", __func__);
 
-        if (link->iftype == ARPHRD_CAN) {
+        if (link->iftype == ARPHRD_CAN)
                 /* let's shortcut things for CAN which doesn't need most of checks below. */
-                link_set_state(link, LINK_STATE_CONFIGURED);
-                return;
-        }
+                goto ready;
 
         if (!link->stacked_netdevs_created)
                 return (void) log_link_debug(link, "%s(): stacked netdevs are not created.", __func__);
@@ -966,6 +980,13 @@ static int link_drop_requests(Link *link) {
 
                                 if (nexthop_get_by_id(link->manager, nexthop->id, NULL) < 0)
                                         RET_GATHER(ret, nexthop_remove(nexthop, link->manager));
+                                break;
+                        }
+                        case REQUEST_TYPE_ROUTE: {
+                                Route *route = ASSERT_PTR(req->userdata);
+
+                                if (route_get(link->manager, route, NULL) < 0)
+                                        RET_GATHER(ret, route_remove(route, link->manager));
                                 break;
                         }
                         default:
@@ -2554,6 +2575,7 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
                 .n_ref = 1,
                 .state = LINK_STATE_PENDING,
                 .online_state = _LINK_ONLINE_STATE_INVALID,
+                .automatic_reconfigure_ratelimit = (const RateLimit) { .interval = 10 * USEC_PER_SEC, .burst = 5 },
                 .ifindex = ifindex,
                 .iftype = iftype,
                 .ifname = TAKE_PTR(ifname),
