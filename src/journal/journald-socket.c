@@ -9,58 +9,40 @@
 #include <sys/socket.h>
 #include <sys/uio.h>
 
-void server_open_vm_forward_socket(Server *s, const SocketAddress *addr) {
+void server_open_forward_socket(Server *s) {
         _cleanup_close_ int socket_fd = -EBADF;
-        _cleanup_free_ char *pretty = NULL;
-        socket_address_print(addr, &pretty);
+        const SocketAddress *addr;
+        int family;
 
         assert(s);
+        assert(s->forward_socket_fd < 0);
 
-        if (s->forward_socket_fd >= 0) {
-                log_debug("Forward socket already exists, refusing to open a VM forward socket.");
+        addr = &s->forward_address;
+
+        /* if no forwarding address has been set don't open the socket. */
+        if (!socket_address_verify(addr, true))
+                return;
+
+        family = socket_address_family(addr);
+
+        if (!IN_SET(family, AF_UNIX, AF_INET, AF_INET6, AF_VSOCK)) {
+                log_debug("Unsupported socket type for forward socket: %d", family);
                 return;
         }
 
-        socket_fd = socket(AF_VSOCK, SOCK_STREAM|SOCK_CLOEXEC, 0);
+        socket_fd = socket(family, SOCK_STREAM|SOCK_CLOEXEC, 0);
         if (socket_fd < 0) {
-                log_debug_errno(errno, "Failed to create AF_VSOCK socket, ignoring: %m");
+                log_debug_errno(errno, "Failed to create forward socket, ignoring: %m");
                 return;
         }
 
         if (connect(socket_fd, &addr->sockaddr.sa, addr->size) < 0) {
-                log_debug_errno(errno, "Failed to connect to vsock address for forwarding, ignoring: %m");
+                log_debug_errno(errno, "Failed to connect to remote address for forwarding, ignoring: %m");
                 return;
         }
 
         s->forward_socket_fd = TAKE_FD(socket_fd);
-        log_debug("Successfully connected to vsock for forwarding");
-}
-
-void server_detect_unix_forward_socket(Server *s) {
-        _cleanup_close_ int socket_fd = -EBADF;
-        int r;
-
-        assert(s);
-
-        if (s->forward_socket_fd >= 0) {
-                log_debug("Forward socket already connected, not detecting unix socket.");
-                return;
-        }
-
-        socket_fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
-        if (socket_fd < 0) {
-                log_debug_errno(errno, "Failed to create AF_UNIX socket, ignoring: %m");
-                return;
-        }
-
-        r = connect_unix_path(socket_fd, AT_FDCWD, "/run/host/journal/socket");
-        if (r < 0) {
-                log_debug_errno(r, "Failed to connect to /run/systemd/journal/stdout, ignoring: %m");
-                return;
-        }
-
-        s->forward_socket_fd = TAKE_FD(socket_fd);
-        log_debug("Successfully connected to unix socket for forwarding");
+        log_debug("Successfully connected to remote address for forwarding");
 }
 
 void server_forward_socket(

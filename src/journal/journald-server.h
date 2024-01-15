@@ -5,6 +5,7 @@
 #include <sys/types.h>
 
 #include "sd-event.h"
+#include "socket-util.h"
 
 typedef struct Server Server;
 
@@ -124,6 +125,7 @@ struct Server {
         bool forward_to_syslog;
         bool forward_to_console;
         bool forward_to_wall;
+        SocketAddress forward_address;
 
         unsigned n_forward_syslog_missed;
         usec_t last_warn_forward_syslog_missed;
@@ -216,6 +218,7 @@ const struct ConfigPerfItem* journald_gperf_lookup(const char *key, GPERF_LEN_TY
 CONFIG_PARSER_PROTOTYPE(config_parse_storage);
 CONFIG_PARSER_PROTOTYPE(config_parse_line_max);
 CONFIG_PARSER_PROTOTYPE(config_parse_compress);
+CONFIG_PARSER_PROTOTYPE(config_parse_forward_address);
 
 const char *storage_to_string(Storage s) _const_;
 Storage storage_from_string(const char *s) _pure_;
