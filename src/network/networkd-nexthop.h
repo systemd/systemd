@@ -41,8 +41,9 @@ typedef struct NextHop {
         /* Only used in conf parser and nexthop_section_verify(). */
         int onlink;
 
-        /* For managing nexthops that depend on this nexthop. */
+        /* For managing routes and nexthops that depend on this nexthop. */
         Set *nexthops;
+        Set *routes;
 } NextHop;
 
 NextHop* nexthop_ref(NextHop *nexthop);
