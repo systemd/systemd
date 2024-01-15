@@ -81,6 +81,7 @@ struct Route {
 };
 
 extern const struct hash_ops route_hash_ops;
+extern const struct hash_ops route_hash_ops_unref;
 
 Route* route_ref(Route *route);
 Route* route_unref(Route *route);
