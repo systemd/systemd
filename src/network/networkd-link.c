@@ -380,6 +380,8 @@ int link_stop_engines(Link *link, bool may_keep_dhcp) {
 }
 
 void link_enter_failed(Link *link) {
+        int r;
+
         assert(link);
 
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
@@ -389,7 +391,22 @@ void link_enter_failed(Link *link) {
 
         link_set_state(link, LINK_STATE_FAILED);
 
-        (void) link_stop_engines(link, false);
+        if (!ratelimit_below(&link->automatic_reconfigure_ratelimit)) {
+                log_link_warning(link, "The interface entered the failed state frequently, refusing to reconfigure it automatically.");
+                goto stop;
+        }
+
+        log_link_info(link, "Trying to reconfigure the interface.");
+        r = link_reconfigure(link, /* force = */ true);
+        if (r < 0) {
+                log_link_warning_errno(link, r, "Failed to reconfigure interface: %m");
+                goto stop;
+        }
+
+        return;
+
+stop:
+        (void) link_stop_engines(link, /* may_keep_dhcp = */ false);
 }
 
 void link_check_ready(Link *link) {
@@ -2575,6 +2592,7 @@ static int link_new(Manager *manager, sd_netlink_message *message, Link **ret) {
                 .n_ref = 1,
                 .state = LINK_STATE_PENDING,
                 .online_state = _LINK_ONLINE_STATE_INVALID,
+                .automatic_reconfigure_ratelimit = (const RateLimit) { .interval = 10 * USEC_PER_SEC, .burst = 5 },
                 .ifindex = ifindex,
                 .iftype = iftype,
                 .ifname = TAKE_PTR(ifname),
