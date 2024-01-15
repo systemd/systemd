@@ -10,6 +10,16 @@
 #define ARCHITECTURE_SUPPORTS_SMBIOS 0
 #endif
 
+#if defined(__arm__) || defined(__aarch64__)
+#define DEFAULT_SERIAL_TTY "ttyAMA0"
+#elif defined(__s390__) || defined(__s390x__)
+#define DEFAULT_SERIAL_TTY "ttysclp0"
+#elif defined(__powerpc__) || defined(__powerpc64__)
+#define DEFAULT_SERIAL_TTY "hvc0"
+#else
+#define DEFAULT_SERIAL_TTY "ttyS0"
+#endif
+
 typedef struct OvmfConfig {
         char *path;
         char *vars;
