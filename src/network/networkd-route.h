@@ -37,8 +37,6 @@ struct Route {
         union in_addr_union provider; /* DHCP server or router address */
 
         int family;
-        int gw_family;
-        uint32_t gw_weight;
 
         unsigned char dst_prefixlen;
         unsigned char src_prefixlen;
@@ -51,7 +49,11 @@ struct Route {
         unsigned char pref;
         unsigned flags;
         int gateway_onlink; /* Only used in conf parser and route_section_verify(). */
-        uint32_t nexthop_id;
+
+        /* nexthops */
+        RouteNextHop nexthop; /* RTA_OIF, and RTA_GATEWAY or RTA_VIA (IPv4 only) */
+        OrderedSet *nexthops; /* RTA_MULTIPATH */
+        uint32_t nexthop_id; /* RTA_NH_ID */
 
         /* metrics (RTA_METRICS) */
         RouteMetric metric;
@@ -71,11 +73,9 @@ struct Route {
         bool pref_set:1;
         bool gateway_from_dhcp_or_ra:1;
 
-        union in_addr_union gw;
         union in_addr_union dst;
         union in_addr_union src;
         union in_addr_union prefsrc;
-        OrderedSet *multipath_routes;
 };
 
 extern const struct hash_ops route_hash_ops;
