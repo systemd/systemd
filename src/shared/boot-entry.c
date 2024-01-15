@@ -15,20 +15,18 @@ bool boot_entry_token_valid(const char *p) {
         return utf8_is_valid(p) && string_is_safe(p) && filename_is_valid(p);
 }
 
-static int entry_token_load(int rfd, const char *etc_kernel, BootEntryTokenType *type, char **token) {
+static int entry_token_load_one(int rfd, const char *dir, BootEntryTokenType *type, char **token) {
         _cleanup_free_ char *buf = NULL, *p = NULL;
         _cleanup_fclose_ FILE *f = NULL;
         int r;
 
         assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(dir);
         assert(type);
         assert(*type == BOOT_ENTRY_TOKEN_AUTO);
         assert(token);
 
-        if (!etc_kernel)
-                return 0;
-
-        p = path_join(etc_kernel, "entry-token");
+        p = path_join(dir, "entry-token");
         if (!p)
                 return log_oom();
 
@@ -53,6 +51,26 @@ static int entry_token_load(int rfd, const char *etc_kernel, BootEntryTokenType 
         *token = TAKE_PTR(buf);
         *type = BOOT_ENTRY_TOKEN_LITERAL;
         return 1;
+}
+
+static int entry_token_load(int rfd, const char *etc_kernel, BootEntryTokenType *type, char **token) {
+        int r;
+
+        assert(rfd >= 0 || rfd == AT_FDCWD);
+        assert(type);
+        assert(*type == BOOT_ENTRY_TOKEN_AUTO);
+        assert(token);
+
+        if (etc_kernel)
+                return entry_token_load_one(rfd, etc_kernel, type, token);
+
+        FOREACH_STRING(path, "/etc/kernel", "/usr/lib/kernel") {
+                r = entry_token_load_one(rfd, path, type, token);
+                if (r != 0)
+                        return r;
+        }
+
+        return 0;
 }
 
 static int entry_token_from_machine_id(sd_id128_t machine_id, BootEntryTokenType *type, char **token) {
