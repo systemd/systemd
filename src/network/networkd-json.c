@@ -2,6 +2,7 @@
 
 #include <linux/nexthop.h>
 
+#include "dhcp-lease-internal.h"
 #include "dhcp-server-lease-internal.h"
 #include "dhcp6-internal.h"
 #include "dhcp6-lease-internal.h"
@@ -1170,6 +1171,29 @@ static int dhcp_client_pd_append_json(Link *link, JsonVariant **v) {
         return json_variant_set_field_non_null(v, "6rdPrefix", array);
 }
 
+static int dhcp_client_private_options_append_json(Link *link, JsonVariant **v) {
+        _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
+        int r;
+
+        assert(link);
+        assert(v);
+
+        if (!link->dhcp_lease)
+                return 0;
+
+        LIST_FOREACH(options, option, link->dhcp_lease->private_options) {
+
+                r = json_variant_append_arrayb(
+                                &array,
+                                JSON_BUILD_OBJECT(
+                                               JSON_BUILD_PAIR_UNSIGNED("Option", option->tag),
+                                               JSON_BUILD_PAIR_HEX("PrivateOptionData", option->data, option->length)));
+                if (r < 0)
+                        return 0;
+        }
+        return json_variant_set_field_non_null(v, "PrivateOptions", array);
+}
+
 static int dhcp_client_append_json(Link *link, JsonVariant **v) {
         _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
         int r;
@@ -1185,6 +1209,10 @@ static int dhcp_client_append_json(Link *link, JsonVariant **v) {
                 return r;
 
         r = dhcp_client_pd_append_json(link, &w);
+        if (r < 0)
+                return r;
+
+        r = dhcp_client_private_options_append_json(link, &w);
         if (r < 0)
                 return r;
 
