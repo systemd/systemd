@@ -324,25 +324,31 @@ static int write_timeout(
                 const char *where,
                 const char *opts,
                 const char *filter,
-                const char *variable) {
+                const char *unit_setting) {
 
         _cleanup_free_ char *timeout = NULL;
         usec_t u;
         int r;
 
+        assert(f);
+        assert(where);
+        assert(opts);
+        assert(filter);
+        assert(unit_setting);
+
         r = fstab_filter_options(opts, filter, NULL, &timeout, NULL, NULL);
         if (r < 0)
-                return log_warning_errno(r, "Failed to parse options: %m");
+                return log_error_errno(r, "Failed to parse options for '%s': %m", where);
         if (r == 0)
                 return 0;
 
         r = parse_sec_fix_0(timeout, &u);
         if (r < 0) {
-                log_warning("Failed to parse timeout for %s, ignoring: %s", where, timeout);
+                log_warning_errno(r, "Failed to parse timeout '%s' for '%s', ignoring: %m", timeout, where);
                 return 0;
         }
 
-        fprintf(f, "%s=%s\n", variable, FORMAT_TIMESPAN(u, 0));
+        fprintf(f, "%s=%s\n", unit_setting, FORMAT_TIMESPAN(u, 0));
 
         return 0;
 }
@@ -359,114 +365,120 @@ static int write_mount_timeout(FILE *f, const char *where, const char *opts) {
 
 static int write_dependency(
                 FILE *f,
+                const char *where,
                 const char *opts,
                 const char *filter,
-                const char *format) {
+                const char* const *unit_settings) {
 
-        _cleanup_strv_free_ char **names = NULL, **units = NULL;
-        _cleanup_free_ char *res = NULL;
+        _cleanup_strv_free_ char **unit_names = NULL;
+        _cleanup_free_ char *units = NULL;
         int r;
 
         assert(f);
         assert(opts);
+        assert(filter);
+        assert(unit_settings);
 
-        r = fstab_filter_options(opts, filter, NULL, NULL, &names, NULL);
+        r = fstab_filter_options(opts, filter, NULL, NULL, &unit_names, NULL);
         if (r < 0)
-                return log_warning_errno(r, "Failed to parse options: %m");
+                return log_error_errno(r, "Failed to parse options for '%s': %m", where);
         if (r == 0)
                 return 0;
 
-        STRV_FOREACH(s, names) {
-                char *x;
+        STRV_FOREACH(s, unit_names) {
+                _cleanup_free_ char *mangled = NULL;
 
-                r = unit_name_mangle_with_suffix(*s, "as dependency", 0, ".mount", &x);
+                r = unit_name_mangle_with_suffix(*s, "as dependency", 0, ".mount", &mangled);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to generate unit name: %m");
+                        return log_error_errno(r, "Failed to generate dependency unit name for '%s': %m", where);
 
-                r = strv_consume(&units, x);
-                if (r < 0)
+                if (!strextend_with_separator(&units, " ", mangled))
                         return log_oom();
         }
 
-        if (units) {
-                res = strv_join(units, " ");
-                if (!res)
-                        return log_oom();
-
-                DISABLE_WARNING_FORMAT_NONLITERAL;
-                fprintf(f, format, res);
-                REENABLE_WARNING;
-        }
+        STRV_FOREACH(setting, unit_settings)
+                fprintf(f, "%s=%s\n", *setting, units);
 
         return 0;
 }
 
-static int write_after(FILE *f, const char *opts) {
-        return write_dependency(f, opts,
-                                "x-systemd.after\0", "After=%1$s\n");
+static int write_after(FILE *f, const char *where, const char *opts) {
+        return write_dependency(f, where, opts,
+                                "x-systemd.after\0", STRV_MAKE_CONST("After"));
 }
 
-static int write_requires_after(FILE *f, const char *opts) {
-        return write_dependency(f, opts,
-                                "x-systemd.requires\0", "After=%1$s\nRequires=%1$s\n");
+static int write_requires_after(FILE *f, const char *where, const char *opts) {
+        return write_dependency(f, where, opts,
+                                "x-systemd.requires\0", STRV_MAKE_CONST("Requires", "After"));
 }
 
-static int write_before(FILE *f, const char *opts) {
-        return write_dependency(f, opts,
-                                "x-systemd.before\0", "Before=%1$s\n");
+static int write_before(FILE *f, const char *where, const char *opts) {
+        return write_dependency(f, where, opts,
+                                "x-systemd.before\0", STRV_MAKE_CONST("Before"));
 }
 
-static int write_mounts_for(const char *x_opt, const char *unit_setting, FILE *f, const char *opts) {
+static int write_mounts_for(
+                FILE *f,
+                const char *where,
+                const char *opts,
+                const char *filter,
+                const char *unit_setting) {
+
         _cleanup_strv_free_ char **paths = NULL, **paths_escaped = NULL;
-        _cleanup_free_ char *res = NULL;
         int r;
 
-        assert(x_opt);
-        assert(unit_setting);
         assert(f);
+        assert(where);
         assert(opts);
+        assert(filter);
+        assert(unit_setting);
 
-        r = fstab_filter_options(opts, x_opt, NULL, NULL, &paths, NULL);
+        r = fstab_filter_options(opts, filter, NULL, NULL, &paths, NULL);
         if (r < 0)
-                return log_warning_errno(r, "Failed to parse options: %m");
+                return log_error_errno(r, "Failed to parse options for '%s': %m", where);
         if (r == 0)
                 return 0;
 
         r = specifier_escape_strv(paths, &paths_escaped);
         if (r < 0)
-                return log_error_errno(r, "Failed to escape paths: %m");
+                return log_error_errno(r, "Failed to escape paths for '%s': %m", where);
 
-        res = strv_join(paths_escaped, " ");
-        if (!res)
-                return log_oom();
-
-        fprintf(f, "%s=%s\n", unit_setting, res);
+        fprintf(f, "%s=", unit_setting);
+        fputstrv(f, paths_escaped, NULL, NULL);
+        putchar('\n');
 
         return 0;
 }
 
-static int write_extra_dependencies(FILE *f, const char *opts) {
+static int write_extra_dependencies(FILE *f, const char *where, const char *opts) {
         int r;
 
         assert(f);
 
-        if (opts) {
-                r = write_after(f, opts);
-                if (r < 0)
-                        return r;
-                r = write_requires_after(f, opts);
-                if (r < 0)
-                        return r;
-                r = write_before(f, opts);
-                if (r < 0)
-                        return r;
-                r = write_mounts_for("x-systemd.requires-mounts-for\0", "RequiresMountsFor", f, opts);
-                if (r < 0)
-                        return r;
-                r = write_mounts_for("x-systemd.wants-mounts-for\0", "WantsMountsFor", f, opts);
-                if (r < 0)
-                        return r;
-        }
+        if (!opts)
+                return 0;
+
+        r = write_after(f, where, opts);
+        if (r < 0)
+                return r;
+
+        r = write_requires_after(f, where, opts);
+        if (r < 0)
+                return r;
+
+        r = write_before(f, where, opts);
+        if (r < 0)
+                return r;
+
+        r = write_mounts_for(f, where, opts,
+                             "x-systemd.requires-mounts-for\0", "RequiresMountsFor");
+        if (r < 0)
+                return r;
+
+        r = write_mounts_for(f, where, opts,
+                             "x-systemd.wants-mounts-for\0", "WantsMountsFor");
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -611,7 +623,7 @@ static int add_mount(
                       f);
         }
 
-        r = write_extra_dependencies(f, opts);
+        r = write_extra_dependencies(f, where, opts);
         if (r < 0)
                 return r;
 
