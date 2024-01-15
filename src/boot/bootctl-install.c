@@ -81,11 +81,13 @@ static int load_etc_machine_info(void) {
         return 0;
 }
 
-static int load_etc_kernel_install_conf(void) {
+static int load_kernel_install_conf_one(const char *dir) {
         _cleanup_free_ char *layout = NULL, *p = NULL;
         int r;
 
-        p = path_join(arg_root, etc_kernel(), "install.conf");
+        assert(dir);
+
+        p = path_join(arg_root, dir, "install.conf");
         if (!p)
                 return log_oom();
 
@@ -98,6 +100,23 @@ static int load_etc_kernel_install_conf(void) {
         if (!isempty(layout)) {
                 log_debug("layout=%s is specified in %s.", layout, p);
                 free_and_replace(arg_install_layout, layout);
+        }
+
+        return 1;
+}
+
+static int load_kernel_install_conf(void) {
+        const char *conf_root;
+        int r;
+
+        conf_root = getenv("KERNEL_INSTALL_CONF_ROOT");
+        if (conf_root)
+                return load_kernel_install_conf_one(conf_root);
+
+        FOREACH_STRING(p, "/etc/kernel", "/usr/lib/kernel") {
+                r = load_kernel_install_conf_one(p);
+                if (r != 0)
+                        return r;
         }
 
         return 0;
@@ -120,7 +139,7 @@ static int settle_make_entry_directory(void) {
         if (r < 0)
                 return r;
 
-        r = load_etc_kernel_install_conf();
+        r = load_kernel_install_conf();
         if (r < 0)
                 return r;
 
@@ -557,7 +576,7 @@ static int install_entry_token(void) {
         if (!arg_make_entry_directory && arg_entry_token_type == BOOT_ENTRY_TOKEN_MACHINE_ID)
                 return 0;
 
-        p = path_join(arg_root, etc_kernel(), "entry-token");
+        p = path_join(arg_root, getenv("KERNEL_INSTALL_CONF_ROOT") ?: "/etc/kernel/", "entry-token");
         if (!p)
                 return log_oom();
 
