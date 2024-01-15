@@ -428,8 +428,9 @@ static int verb_cat(int argc, char **argv, void *userdata) {
                                         timestamp,
                                         arg_tpm2_device,
                                         arg_tpm2_signature,
+                                        getuid(),
                                         &IOVEC_MAKE(data, size),
-                                        /* flags= */ 0,
+                                        CREDENTIAL_ANY_SCOPE,
                                         &plaintext);
                         if (r < 0)
                                 return r;
@@ -501,6 +502,7 @@ static int verb_encrypt(int argc, char **argv, void *userdata) {
                         arg_tpm2_pcr_mask,
                         arg_tpm2_public_key,
                         arg_tpm2_public_key_pcr_mask,
+                        /* uid= */ UID_INVALID,
                         &plaintext,
                         /* flags= */ 0,
                         &output);
@@ -590,6 +592,7 @@ static int verb_decrypt(int argc, char **argv, void *userdata) {
                         timestamp,
                         arg_tpm2_device,
                         arg_tpm2_signature,
+                        /* uid= */ UID_INVALID,
                         &input,
                         /* flags= */ 0,
                         &plaintext);
@@ -1029,6 +1032,7 @@ static int vl_method_encrypt(Varlink *link, JsonVariant *parameters, VarlinkMeth
                         arg_tpm2_pcr_mask,
                         arg_tpm2_public_key,
                         arg_tpm2_public_key_pcr_mask,
+                        /* uid= */ UID_INVALID,
                         p.text ? &IOVEC_MAKE_STRING(p.text) : &p.data,
                         /* flags= */ 0,
                         &output);
@@ -1101,6 +1105,7 @@ static int vl_method_decrypt(Varlink *link, JsonVariant *parameters, VarlinkMeth
                         p.timestamp,
                         arg_tpm2_device,
                         arg_tpm2_signature,
+                        /* uid= */ UID_INVALID,
                         &p.blob,
                         /* flags= */ 0,
                         &output);

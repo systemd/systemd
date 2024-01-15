@@ -6891,6 +6891,7 @@ static int pcrlock_policy_load_credential(
                         now(CLOCK_REALTIME),
                         /* tpm2_device= */ NULL,
                         /* tpm2_signature_path= */ NULL,
+                        UID_INVALID,
                         data,
                         CREDENTIAL_ALLOW_NULL,
                         &decoded);
