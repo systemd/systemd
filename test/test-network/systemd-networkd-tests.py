@@ -3949,6 +3949,33 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         self.check_nexthop(manage_foreign_nexthops, first=True)
 
+        # Remove nexthop with ID 20
+        check_output('ip nexthop del id 20')
+        copy_network_unit('11-dummy.netdev', '25-nexthop-test1.network')
+        networkctl_reload()
+
+        # 25-nexthop-test1.network requests a route with nexthop ID 21,
+        # which is silently removed by the kernel when nexthop with ID 20 is removed in the above,
+        # hence test1 should be stuck in the configuring state.
+        self.wait_operstate('test1', operstate='routable', setup_state='configuring')
+
+        # Wait for a while, and check if the interface is still in the configuring state.
+        time.sleep(1)
+        output = networkctl_status('test1')
+        self.assertIn('State: routable (configuring)', output)
+
+        # Reconfigure the interface that has nexthop with ID 20 and 21,
+        # then the route requested by test1 can be configured.
+        networkctl_reconfigure('dummy98')
+        self.wait_online(['test1:routable'])
+
+        # Check if the requested route actually configured.
+        output = check_output('ip route show 10.10.11.10')
+        print(output)
+        self.assertIn('10.10.11.10 nhid 21 proto static', output)
+        self.assertIn('nexthop via 192.168.5.1 dev veth99 weight 3', output)
+        self.assertIn('nexthop via 192.168.20.1 dev dummy98 weight 1', output)
+
         remove_link('veth99')
         time.sleep(2)
 
