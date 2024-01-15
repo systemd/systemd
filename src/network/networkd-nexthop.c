@@ -18,6 +18,48 @@
 #include "stdio-util.h"
 #include "string-util.h"
 
+static void nexthop_detach_from_group_members(NextHop *nexthop) {
+        assert(nexthop);
+        assert(nexthop->manager);
+        assert(nexthop->id > 0);
+
+        struct nexthop_grp *nhg;
+        HASHMAP_FOREACH(nhg, nexthop->group) {
+                NextHop *nh;
+
+                if (nexthop_get_by_id(nexthop->manager, nhg->id, &nh) < 0)
+                        continue;
+
+                set_remove(nh->nexthops, UINT32_TO_PTR(nexthop->id));
+        }
+}
+
+static void nexthop_attach_to_group_members(NextHop *nexthop) {
+        int r;
+
+        assert(nexthop);
+        assert(nexthop->manager);
+        assert(nexthop->id > 0);
+
+        struct nexthop_grp *nhg;
+        HASHMAP_FOREACH(nhg, nexthop->group) {
+                NextHop *nh;
+
+                r = nexthop_get_by_id(nexthop->manager, nhg->id, &nh);
+                if (r < 0) {
+                        if (nexthop->manager->manage_foreign_nexthops)
+                                log_debug_errno(r, "Nexthop (id=%"PRIu32") has unknown group member (%"PRIu32"), ignoring.",
+                                                nexthop->id, nhg->id);
+                        continue;
+                }
+
+                r = set_ensure_put(&nh->nexthops, NULL, UINT32_TO_PTR(nexthop->id));
+                if (r < 0)
+                        log_debug_errno(r, "Failed to save nexthop ID (%"PRIu32") to group member (%"PRIu32"), ignoring: %m",
+                                        nexthop->id, nhg->id);
+        }
+}
+
 static NextHop* nexthop_detach_impl(NextHop *nexthop) {
         assert(nexthop);
         assert(!nexthop->manager || !nexthop->network);
@@ -31,6 +73,9 @@ static NextHop* nexthop_detach_impl(NextHop *nexthop) {
 
         if (nexthop->manager) {
                 assert(nexthop->id > 0);
+
+                nexthop_detach_from_group_members(nexthop);
+
                 hashmap_remove(nexthop->manager->nexthops_by_id, UINT32_TO_PTR(nexthop->id));
                 nexthop->manager = NULL;
                 return nexthop;
@@ -51,6 +96,7 @@ static NextHop* nexthop_free(NextHop *nexthop) {
 
         config_section_free(nexthop->section);
         hashmap_free_free(nexthop->group);
+        set_free(nexthop->nexthops);
 
         return mfree(nexthop);
 }
@@ -870,6 +916,8 @@ static int nexthop_update_group(NextHop *nexthop, sd_netlink_message *message) {
         if (r < 0 && r != -ENODATA)
                 return log_debug_errno(r, "rtnl: could not get NHA_GROUP attribute, ignoring: %m");
 
+        nexthop_detach_from_group_members(nexthop);
+
         if (size % sizeof(struct nexthop_grp) != 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "rtnl: received nexthop message with invalid nexthop group size, ignoring.");
@@ -909,6 +957,8 @@ static int nexthop_update_group(NextHop *nexthop, sd_netlink_message *message) {
 
         hashmap_free_free(nexthop->group);
         nexthop->group = TAKE_PTR(h);
+
+        nexthop_attach_to_group_members(nexthop);
         return 0;
 }
 
