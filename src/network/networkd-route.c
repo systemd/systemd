@@ -103,7 +103,7 @@ Route *route_free(Route *route) {
         if (route->wireguard)
                 set_remove(route->wireguard->routes, route);
 
-        ordered_set_free_with_destructor(route->multipath_routes, multipath_route_free);
+        route_nexthops_done(route);
         route_metric_done(&route->metric);
         sd_event_source_disable_unref(route->expire);
 
@@ -124,10 +124,10 @@ static void route_hash_func(const Route *route, struct siphash *state) {
                 siphash24_compress_typesafe(route->src_prefixlen, state);
                 in_addr_hash_func(&route->src, route->family, state);
 
-                siphash24_compress_typesafe(route->gw_family, state);
-                if (IN_SET(route->gw_family, AF_INET, AF_INET6)) {
-                        in_addr_hash_func(&route->gw, route->gw_family, state);
-                        siphash24_compress_typesafe(route->gw_weight, state);
+                siphash24_compress_typesafe(route->nexthop.family, state);
+                if (IN_SET(route->nexthop.family, AF_INET, AF_INET6)) {
+                        in_addr_hash_func(&route->nexthop.gw, route->nexthop.family, state);
+                        siphash24_compress_typesafe(route->nexthop.weight, state);
                 }
 
                 in_addr_hash_func(&route->prefsrc, route->family, state);
@@ -174,16 +174,16 @@ static int route_compare_func(const Route *a, const Route *b) {
                 if (r != 0)
                         return r;
 
-                r = CMP(a->gw_family, b->gw_family);
+                r = CMP(a->nexthop.family, b->nexthop.family);
                 if (r != 0)
                         return r;
 
-                if (IN_SET(a->gw_family, AF_INET, AF_INET6)) {
-                        r = memcmp(&a->gw, &b->gw, FAMILY_ADDRESS_SIZE(a->family));
+                if (IN_SET(a->nexthop.family, AF_INET, AF_INET6)) {
+                        r = memcmp(&a->nexthop.gw, &b->nexthop.gw, FAMILY_ADDRESS_SIZE(a->family));
                         if (r != 0)
                                 return r;
 
-                        r = CMP(a->gw_weight, b->gw_weight);
+                        r = CMP(a->nexthop.weight, b->nexthop.weight);
                         if (r != 0)
                                 return r;
                 }
@@ -312,7 +312,7 @@ int route_dup(const Route *src, Route **ret) {
         dest->section = NULL;
         dest->link = NULL;
         dest->manager = NULL;
-        dest->multipath_routes = NULL;
+        dest->nexthops = NULL;
         dest->metric = ROUTE_METRIC_NULL;
         dest->expire = NULL;
 
@@ -329,23 +329,23 @@ static void route_apply_nexthop(Route *route, const NextHop *nh, uint8_t nh_weig
         assert(nh);
         assert(hashmap_isempty(nh->group));
 
-        route->gw_family = nh->family;
-        route->gw = nh->gw;
+        route->nexthop.family = nh->family;
+        route->nexthop.gw = nh->gw;
 
         if (nh_weight != UINT8_MAX)
-                route->gw_weight = nh_weight;
+                route->nexthop.weight = nh_weight;
 
         if (nh->blackhole)
                 route->type = RTN_BLACKHOLE;
 }
 
-static void route_apply_multipath_route(Route *route, const MultipathRoute *m) {
+static void route_apply_route_nexthop(Route *route, const RouteNextHop *nh) {
         assert(route);
-        assert(m);
+        assert(nh);
 
-        route->gw_family = m->gateway.family;
-        route->gw = m->gateway.address;
-        route->gw_weight = m->weight;
+        route->nexthop.family = nh->family;
+        route->nexthop.gw = nh->gw;
+        route->nexthop.weight = nh->weight;
 }
 
 typedef struct ConvertedRoutes {
@@ -402,7 +402,7 @@ static int converted_routes_new(size_t n, ConvertedRoutes **ret) {
 static bool route_needs_convert(const Route *route) {
         assert(route);
 
-        return route->nexthop_id > 0 || !ordered_set_isempty(route->multipath_routes);
+        return route->nexthop_id > 0 || !ordered_set_isempty(route->nexthops);
 }
 
 static int route_convert(Manager *manager, Link *link, const Route *route, ConvertedRoutes **ret) {
@@ -471,22 +471,22 @@ static int route_convert(Manager *manager, Link *link, const Route *route, Conve
 
         }
 
-        assert(!ordered_set_isempty(route->multipath_routes));
+        assert(!ordered_set_isempty(route->nexthops));
 
-        r = converted_routes_new(ordered_set_size(route->multipath_routes), &c);
+        r = converted_routes_new(ordered_set_size(route->nexthops), &c);
         if (r < 0)
                 return r;
 
         size_t i = 0;
-        MultipathRoute *m;
-        ORDERED_SET_FOREACH(m, route->multipath_routes) {
+        RouteNextHop *nh;
+        ORDERED_SET_FOREACH(nh, route->nexthops) {
                 r = route_dup(route, &c->routes[i]);
                 if (r < 0)
                         return r;
 
-                route_apply_multipath_route(c->routes[i], m);
+                route_apply_route_nexthop(c->routes[i], nh);
 
-                r = multipath_route_get_link(manager, link, m, &c->links[i]);
+                r = route_nexthop_get_link(manager, link, nh, &c->links[i]);
                 if (r < 0)
                         return r;
 
@@ -1406,13 +1406,7 @@ static int process_route_one(
 }
 
 int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
-        _cleanup_(converted_routes_freep) ConvertedRoutes *converted = NULL;
         _cleanup_(route_freep) Route *tmp = NULL;
-        struct rta_cacheinfo cacheinfo;
-        bool has_cacheinfo;
-        Link *link = NULL;
-        uint32_t ifindex;
-        uint16_t type;
         int r;
 
         assert(rtnl);
@@ -1427,6 +1421,7 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
                 return 0;
         }
 
+        uint16_t type;
         r = sd_netlink_message_get_type(message, &type);
         if (r < 0) {
                 log_warning_errno(r, "rtnl: could not get message type, ignoring: %m");
@@ -1436,36 +1431,16 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
                 return 0;
         }
 
-        r = sd_netlink_message_read_u32(message, RTA_OIF, &ifindex);
-        if (r < 0 && r != -ENODATA) {
-                log_warning_errno(r, "rtnl: could not get ifindex from route message, ignoring: %m");
-                return 0;
-        } else if (r >= 0) {
-                if (ifindex <= 0) {
-                        log_warning("rtnl: received route message with invalid ifindex %u, ignoring.", ifindex);
-                        return 0;
-                }
-
-                r = link_get_by_index(m, ifindex, &link);
-                if (r < 0) {
-                        /* when enumerating we might be out of sync, but we will
-                         * get the route again, so just ignore it */
-                        if (!m->enumerating)
-                                log_warning("rtnl: received route message for link (%u) we do not know about, ignoring", ifindex);
-                        return 0;
-                }
-        }
-
         r = route_new(&tmp);
         if (r < 0)
                 return log_oom();
 
         r = sd_rtnl_message_route_get_family(message, &tmp->family);
         if (r < 0) {
-                log_link_warning(link, "rtnl: received route message without family, ignoring");
+                log_warning_errno(r, "rtnl: received route message without family, ignoring: %m");
                 return 0;
         } else if (!IN_SET(tmp->family, AF_INET, AF_INET6)) {
-                log_link_debug(link, "rtnl: received route message with invalid family '%i', ignoring", tmp->family);
+                log_debug("rtnl: received route message with invalid family '%i', ignoring.", tmp->family);
                 return 0;
         }
 
@@ -1483,49 +1458,49 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
 
         r = netlink_message_read_in_addr_union(message, RTA_DST, tmp->family, &tmp->dst);
         if (r < 0 && r != -ENODATA) {
-                log_link_warning_errno(link, r, "rtnl: received route message without valid destination, ignoring: %m");
+                log_warning_errno(r, "rtnl: received route message without valid destination, ignoring: %m");
                 return 0;
         }
 
         r = netlink_message_read_in_addr_union(message, RTA_SRC, tmp->family, &tmp->src);
         if (r < 0 && r != -ENODATA) {
-                log_link_warning_errno(link, r, "rtnl: received route message without valid source, ignoring: %m");
+                log_warning_errno(r, "rtnl: received route message without valid source, ignoring: %m");
                 return 0;
         }
 
         r = netlink_message_read_in_addr_union(message, RTA_PREFSRC, tmp->family, &tmp->prefsrc);
         if (r < 0 && r != -ENODATA) {
-                log_link_warning_errno(link, r, "rtnl: received route message without valid preferred source, ignoring: %m");
+                log_warning_errno(r, "rtnl: received route message without valid preferred source, ignoring: %m");
                 return 0;
         }
 
         r = sd_rtnl_message_route_get_dst_prefixlen(message, &tmp->dst_prefixlen);
         if (r < 0) {
-                log_link_warning_errno(link, r, "rtnl: received route message with invalid destination prefixlen, ignoring: %m");
+                log_warning_errno(r, "rtnl: received route message with invalid destination prefixlen, ignoring: %m");
                 return 0;
         }
 
         r = sd_rtnl_message_route_get_src_prefixlen(message, &tmp->src_prefixlen);
         if (r < 0) {
-                log_link_warning_errno(link, r, "rtnl: received route message with invalid source prefixlen, ignoring: %m");
+                log_warning_errno(r, "rtnl: received route message with invalid source prefixlen, ignoring: %m");
                 return 0;
         }
 
         r = sd_rtnl_message_route_get_scope(message, &tmp->scope);
         if (r < 0) {
-                log_link_warning_errno(link, r, "rtnl: received route message with invalid scope, ignoring: %m");
+                log_warning_errno(r, "rtnl: received route message with invalid scope, ignoring: %m");
                 return 0;
         }
 
         r = sd_rtnl_message_route_get_tos(message, &tmp->tos);
         if (r < 0) {
-                log_link_warning_errno(link, r, "rtnl: received route message with invalid tos, ignoring: %m");
+                log_warning_errno(r, "rtnl: received route message with invalid tos, ignoring: %m");
                 return 0;
         }
 
         r = sd_rtnl_message_route_get_type(message, &tmp->type);
         if (r < 0) {
-                log_link_warning_errno(link, r, "rtnl: received route message with invalid type, ignoring: %m");
+                log_warning_errno(r, "rtnl: received route message with invalid type, ignoring: %m");
                 return 0;
         }
 
@@ -1538,13 +1513,13 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
                         tmp->table = table;
         }
         if (r < 0) {
-                log_link_warning_errno(link, r, "rtnl: received route message with invalid table, ignoring: %m");
+                log_warning_errno(r, "rtnl: received route message with invalid table, ignoring: %m");
                 return 0;
         }
 
         r = sd_netlink_message_read_u32(message, RTA_PRIORITY, &tmp->priority);
         if (r < 0 && r != -ENODATA) {
-                log_link_warning_errno(link, r, "rtnl: received route message with invalid priority, ignoring: %m");
+                log_warning_errno(r, "rtnl: received route message with invalid priority, ignoring: %m");
                 return 0;
         }
 
@@ -1556,22 +1531,31 @@ int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Ma
         if (route_metric_read_netlink_message(&tmp->metric, message) < 0)
                 return 0;
 
+        bool has_cacheinfo;
+        struct rta_cacheinfo cacheinfo;
         r = sd_netlink_message_read(message, RTA_CACHEINFO, sizeof(cacheinfo), &cacheinfo);
         if (r < 0 && r != -ENODATA) {
-                log_link_warning_errno(link, r, "rtnl: failed to read RTA_CACHEINFO attribute, ignoring: %m");
+                log_warning_errno(r, "rtnl: failed to read RTA_CACHEINFO attribute, ignoring: %m");
                 return 0;
         }
         has_cacheinfo = r >= 0;
 
-        /* IPv6 routes with reject type are always assigned to the loopback interface. See kernel's
-         * fib6_nh_init() in net/ipv6/route.c. However, we'd like to manage them by Manager. Hence, set
-         * link to NULL here. */
-        if (route_type_is_reject(tmp))
-                link = NULL;
+        Link *link = NULL;
+        if (tmp->nexthop.ifindex > 0) {
+                r = link_get_by_index(m, tmp->nexthop.ifindex, &link);
+                if (r < 0) {
+                        /* when enumerating we might be out of sync, but we will
+                         * get the route again, so just ignore it */
+                        if (!m->enumerating)
+                                log_warning("rtnl: received route message for link (%i) we do not know about, ignoring", tmp->nexthop.ifindex);
+                        return 0;
+                }
+        }
 
         if (!route_needs_convert(tmp))
                 return process_route_one(m, link, type, TAKE_PTR(tmp), has_cacheinfo ? &cacheinfo : NULL);
 
+        _cleanup_(converted_routes_freep) ConvertedRoutes *converted = NULL;
         r = route_convert(m, link, tmp, &converted);
         if (r < 0) {
                 log_link_warning_errno(link, r, "rtnl: failed to convert received route, ignoring: %m");
@@ -2036,8 +2020,8 @@ int route_section_verify(Route *route) {
                         route->scope = RT_SCOPE_LINK;
                 else if (IN_SET(route->type, RTN_UNICAST, RTN_UNSPEC) &&
                          !route->gateway_from_dhcp_or_ra &&
-                         !in_addr_is_set(route->gw_family, &route->gw) &&
-                         ordered_set_isempty(route->multipath_routes) &&
+                         !in_addr_is_set(route->nexthop.family, &route->nexthop.gw) &&
+                         ordered_set_isempty(route->nexthops) &&
                          route->nexthop_id == 0)
                         route->scope = RT_SCOPE_LINK;
         }
