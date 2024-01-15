@@ -71,6 +71,8 @@
 #include "udev-util.h"
 #include "vrf.h"
 
+#define MAX_FAILED_COUNT 10
+
 bool link_ipv6_enabled(Link *link) {
         assert(link);
 
@@ -386,11 +388,26 @@ void link_enter_failed(Link *link) {
         if (IN_SET(link->state, LINK_STATE_FAILED, LINK_STATE_LINGER))
                 return;
 
-        log_link_warning(link, "Failed");
-
         link_set_state(link, LINK_STATE_FAILED);
+        link->failed_count++;
 
-        (void) link_stop_engines(link, false);
+        if (link->failed_count >= MAX_FAILED_COUNT) {
+                log_link_warning(link, "Failed. The interface entered the failed state so many times, refusing to reconfigure it automatically.");
+                (void) link_stop_engines(link, false);
+                return;
+        }
+
+        log_link_info(link, "Failed. Trying to reconfigure the interface.");
+        if (link_reconfigure(link, /* force = */ true) < 0)
+                link_enter_failed(link);
+}
+
+static void link_enter_configured(Link *link) {
+        assert(link);
+        assert(link->state == LINK_STATE_CONFIGURING);
+
+        link_set_state(link, LINK_STATE_CONFIGURED);
+        link->failed_count = 0;
 }
 
 void link_check_ready(Link *link) {
@@ -416,11 +433,9 @@ void link_check_ready(Link *link) {
         if (!link->activated)
                 return (void) log_link_debug(link, "%s(): link is not activated.", __func__);
 
-        if (link->iftype == ARPHRD_CAN) {
+        if (link->iftype == ARPHRD_CAN)
                 /* let's shortcut things for CAN which doesn't need most of checks below. */
-                link_set_state(link, LINK_STATE_CONFIGURED);
-                return;
-        }
+                return link_enter_configured(link);
 
         if (!link->stacked_netdevs_created)
                 return (void) log_link_debug(link, "%s(): stacked netdevs are not created.", __func__);
@@ -474,14 +489,14 @@ void link_check_ready(Link *link) {
 
         /* If at least one static address is requested, do not request that dynamic addressing protocols are finished. */
         if (has_static_address)
-                goto ready;
+                return link_enter_configured(link);
 
         /* If no dynamic addressing protocol enabled, assume the interface is ready.
          * Note, ignore NDisc when ConfigureWithoutCarrier= is enabled, as IPv6AcceptRA= is enabled by default. */
         if (!link_ipv4ll_enabled(link) && !link_dhcp4_enabled(link) &&
             !link_dhcp6_enabled(link) && !link_dhcp_pd_is_enabled(link) &&
             (link->network->configure_without_carrier || !link_ipv6_accept_ra_enabled(link)))
-                goto ready;
+                return link_enter_configured(link);
 
         bool ipv4ll_ready =
                 link_ipv4ll_enabled(link) && link->ipv4ll_address_configured &&
@@ -533,8 +548,7 @@ void link_check_ready(Link *link) {
                        yes_no(dhcp_pd_ready),
                        yes_no(ndisc_ready));
 
-ready:
-        link_set_state(link, LINK_STATE_CONFIGURED);
+        link_enter_configured(link);
 }
 
 static int link_request_static_configs(Link *link) {

@@ -100,6 +100,7 @@ typedef struct Link {
         NetDev *netdev;
 
         LinkState state;
+        unsigned failed_count;
         LinkOperationalState operstate;
         LinkCarrierState carrier_state;
         LinkAddressState address_state;
