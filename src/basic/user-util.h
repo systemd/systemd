@@ -42,8 +42,8 @@ typedef enum UserCredsFlags {
         USER_CREDS_CLEAN         = 1 << 2,  /* try to clean up shell and home fields with invalid data */
 } UserCredsFlags;
 
-int get_user_creds(const char **username, uid_t *uid, gid_t *gid, const char **home, const char **shell, UserCredsFlags flags);
-int get_group_creds(const char **groupname, gid_t *gid, UserCredsFlags flags);
+int get_user_creds(const char **username, uid_t *ret_uid, gid_t *ret_gid, const char **ret_home, const char **ret_shell, UserCredsFlags flags);
+int get_group_creds(const char **groupname, gid_t *ret_gid, UserCredsFlags flags);
 
 char* uid_to_name(uid_t uid);
 char* gid_to_name(gid_t gid);
