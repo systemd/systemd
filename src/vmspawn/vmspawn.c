@@ -616,22 +616,25 @@ static int run_virtual_machine(void) {
         if (r < 0)
                 return log_oom();
 
-        if (!strv_isempty(arg_parameters)) {
-                if (ARCHITECTURE_SUPPORTS_SMBIOS) {
-                        _cleanup_free_ char *kcl = strv_join(arg_parameters, " ");
-                        if (!kcl)
-                                return log_oom();
+        char default_tty[] = "console=" DEFAULT_SERIAL_TTY;
+        r = strv_insert(&arg_parameters, 0, default_tty);
+        if (r < 0)
+                return log_oom();
 
-                        r = strv_extend(&cmdline, "-smbios");
-                        if (r < 0)
-                                return log_oom();
+        if (ARCHITECTURE_SUPPORTS_SMBIOS) {
+                _cleanup_free_ char *kcl = strv_join(arg_parameters, " ");
+                if (!kcl)
+                        return log_oom();
 
-                        r = strv_extendf(&cmdline, "type=11,value=io.systemd.stub.kernel-cmdline-extra=%s", kcl);
-                        if (r < 0)
-                                return log_oom();
-                } else
-                        log_warning("Cannot append extra args to kernel cmdline, native architecture doesn't support SMBIOS");
-        }
+                r = strv_extend(&cmdline, "-smbios");
+                if (r < 0)
+                        return log_oom();
+
+                r = strv_extendf(&cmdline, "type=11,value=io.systemd.stub.kernel-cmdline-extra=%s", kcl);
+                if (r < 0)
+                        return log_oom();
+        } else
+                log_warning("Cannot append extra args to kernel cmdline, native architecture doesn't support SMBIOS");
 
         if (use_vsock) {
                 vsock_fd = open_vsock();
