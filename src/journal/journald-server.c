@@ -53,6 +53,7 @@
 #include "rm-rf.h"
 #include "selinux-util.h"
 #include "signal-util.h"
+#include "socket-netlink.h"
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -2460,66 +2461,27 @@ static int server_setup_memory_pressure(Server *s) {
         return 0;
 }
 
-static int server_load_boolean_credential(const char *name) {
-        _cleanup_free_ void *data = NULL;
-        int r;
-
-        /* Similar to read_credential_bool but empty creds are valid and evaluated as true */
-
-        r = read_credential(name, &data, NULL);
-        if (r < 0)
-                return r;
-
-        if (isempty(data))
-                return true;
-
-        return parse_boolean(data);
-}
-
 static void server_load_credentials(Server *s) {
         _cleanup_free_ void *data = NULL;
-        SocketAddress address;
         int r;
 
         assert(s);
 
-        r = server_load_boolean_credential("journald.forward_to_syslog");
-        if (r < 0)
-                log_debug_errno(r, "Failed to read credential journald.forward_to_syslog, ignoring: %m");
-        else {
-                s->forward_to_syslog = r;
-                log_debug("Acquired forward_to_syslog from credential.");
-        }
-
-        r = server_load_boolean_credential("journald.forward_to_kmsg");
-        if (r < 0)
-                log_debug_errno(r, "Failed to read credential journald.forward_to_kmsg, ignoring: %m");
-        else {
-                s->forward_to_kmsg = r;
-                log_debug("Acquired forward_to_kmsg from credential.");
-        }
-
-        r = server_load_boolean_credential("journald.forward_to_console");
-        if (r < 0)
-                log_debug_errno(r, "Failed to read credential journald.forward_to_console, ignoring: %m");
-        else {
-                s->forward_to_console = r;
-                log_debug("Acquired forward_to_console from credential.");
-        }
-
-        r = read_credential("journald.vsock_forward_address", &data, NULL);
-        if (r < 0) {
-                log_debug_errno(r, "Failed to read credential journald.vsock_forward_address, ignoring: %m");
+        /* if we already have a forward address from config don't load the credential */
+        if (socket_address_verify(&s->forward_address, true)) {
+                log_debug("Socket forward address already set not loading journald.forward_address");
                 return;
         }
 
-        r = socket_address_parse_vsock(&address, data);
+        r = read_credential("journald.forward_address", &data, NULL);
         if (r < 0) {
-                log_debug_errno(r, "Failed to parse credential journald.vsock_forward_address, ignoring: %m");
+                log_debug_errno(r, "Failed to read credential journald.forward_address, ignoring: %m");
                 return;
         }
 
-        server_open_vm_forward_socket(s, &address);
+        r = socket_address_parse(&s->forward_address, data);
+        if (r < 0)
+                log_debug_errno(r, "Failed to parse credential journald.forward_address, ignoring: %m");
 }
 
 int server_new(Server **ret) {
@@ -2606,8 +2568,6 @@ int server_init(Server *s, const char *namespace) {
         server_parse_config_file(s);
 
         server_load_credentials(s);
-
-        server_detect_unix_forward_socket(s);
 
         if (!s->namespace) {
                 /* Parse kernel command line, but only if we are not a namespace instance */
@@ -3009,6 +2969,33 @@ int config_parse_compress(
                                 compress->enabled = true;
                 } else
                         compress->enabled = r;
+        }
+
+        return 0;
+}
+
+int config_parse_forward_address(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        SocketAddress* addr = data;
+        int r;
+
+        if (isempty(rvalue))
+                log_syntax(unit, LOG_WARNING, filename, line, 0, "ForwardAddress= cannot be empty");
+        else {
+                r = socket_address_parse(addr, rvalue);
+                if (r < 0)
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to parse ForwardAddress= value, ignoring: %s", rvalue);
         }
 
         return 0;
