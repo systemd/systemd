@@ -415,11 +415,9 @@ void link_check_ready(Link *link) {
         if (!link->activated)
                 return (void) log_link_debug(link, "%s(): link is not activated.", __func__);
 
-        if (link->iftype == ARPHRD_CAN) {
+        if (link->iftype == ARPHRD_CAN)
                 /* let's shortcut things for CAN which doesn't need most of checks below. */
-                link_set_state(link, LINK_STATE_CONFIGURED);
-                return;
-        }
+                goto ready;
 
         if (!link->stacked_netdevs_created)
                 return (void) log_link_debug(link, "%s(): stacked netdevs are not created.", __func__);
