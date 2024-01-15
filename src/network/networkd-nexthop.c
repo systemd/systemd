@@ -478,6 +478,29 @@ static void log_nexthop_debug(const NextHop *nexthop, const char *str, Manager *
                        yes_no(nexthop->blackhole), strna(group), strna(flags));
 }
 
+static int nexthop_remove_dependents(NextHop *nexthop, Manager *manager) {
+        int r = 0;
+
+        assert(nexthop);
+        assert(manager);
+
+        /* If a nexthop is removed, the kernel silently removes nexthops that depend on the
+         * removed nexthop. Let's remove them for safety (though, they are already removed in the kernel,
+         * hence that should fail), and forget them. */
+
+        void *id;
+        SET_FOREACH(id, nexthop->nexthops) {
+                NextHop *nh;
+
+                if (nexthop_get_by_id(manager, PTR_TO_UINT32(id), &nh) < 0)
+                        continue;
+
+                RET_GATHER(r, nexthop_remove(nh, manager));
+        }
+
+        return r;
+}
+
 static int nexthop_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, RemoveRequest *rreq) {
         int r;
 
@@ -492,6 +515,8 @@ static int nexthop_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Remov
                 log_message_full_errno(m,
                                        (r == -ENOENT || !nexthop->manager) ? LOG_DEBUG : LOG_WARNING,
                                        r, "Could not drop nexthop, ignoring");
+
+                (void) nexthop_remove_dependents(nexthop, manager);
 
                 if (nexthop->manager) {
                         /* If the nexthop cannot be removed, then assume the nexthop is already removed. */
@@ -1010,6 +1035,7 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
                 if (nexthop) {
                         nexthop_enter_removed(nexthop);
                         log_nexthop_debug(nexthop, "Forgetting removed", m);
+                        (void) nexthop_remove_dependents(nexthop, m);
                         nexthop_detach(nexthop);
                 } else
                         log_nexthop_debug(&(const NextHop) { .id = id }, "Kernel removed unknown", m);
