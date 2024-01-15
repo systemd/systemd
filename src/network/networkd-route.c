@@ -33,6 +33,7 @@ static Route* route_detach_impl(Route *route) {
         }
 
         if (route->manager) {
+                route_detach_from_nexthop(route);
                 set_remove(route->manager->routes, route);
                 route->manager = NULL;
                 return route;
@@ -219,6 +220,13 @@ DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 route_hash_func,
                 route_compare_func,
                 route_detach);
+
+DEFINE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+                route_hash_ops_unref,
+                Route,
+                route_hash_func,
+                route_compare_func,
+                route_unref);
 
 DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
                 route_section_hash_ops,

@@ -97,6 +97,7 @@ static NextHop* nexthop_free(NextHop *nexthop) {
         config_section_free(nexthop->section);
         hashmap_free_free(nexthop->group);
         set_free(nexthop->nexthops);
+        set_free(nexthop->routes);
 
         return mfree(nexthop);
 }
