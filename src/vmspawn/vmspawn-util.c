@@ -191,6 +191,12 @@ int find_ovmf_config(int search_sb, OvmfConfig **ret) {
                         continue;
                 }
 
+                int enrolled_keys = !!strv_find(fwd->features, "enrolled-keys");
+                if (enrolled_keys) {
+                        log_debug("Skipping %s, firmware has enrolled keys which has been known to cause issues", *file);
+                        continue;
+                }
+
                 int sb_present = !!strv_find(fwd->features, "secure-boot");
 
                 /* exclude firmware which doesn't match our Secure Boot requirements */
