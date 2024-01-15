@@ -60,6 +60,7 @@
 #include "seccomp-util.h"
 #include "securebits-util.h"
 #include "selinux-util.h"
+#include "service.h"
 #include "signal-util.h"
 #include "socket-netlink.h"
 #include "specifier.h"
@@ -6290,20 +6291,38 @@ int unit_load_fragment(Unit *u) {
         const char *id = u->id;
         _cleanup_free_ char *filename = NULL, *free_id = NULL;
 
+        // XXX extract into a function
         if (fragment) {
+                const char *file_id;
                 r = path_extract_filename(fragment, &filename);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to extract filename from fragment '%s': %m", fragment);
-                id = filename;
+                file_id = filename;
+                if (unit_name_is_valid(file_id, UNIT_NAME_UTEMPLATE)) {
+                        assert(u->instance.instance); /* If we're not trying to use a template for non-instanced unit,
+                                                       * this must be set. */
 
-                if (unit_name_is_valid(id, UNIT_NAME_TEMPLATE)) {
-                        assert(u->instance); /* If we're not trying to use a template for non-instanced unit,
-                                              * this must be set. */
-
-                        r = unit_name_replace_instance(id, u->instance, &free_id);
+                        r = unit_name_replace_instance(file_id, u->instance, &free_id);
                         if (r < 0)
-                                return log_debug_errno(r, "Failed to build id (%s + %s): %m", id, u->instance);
+                                return log_debug_errno(r, "Failed to build id (%s + %s): %m", id, u->instance.instance);
                         id = free_id;
+                } else if (unit_name_is_valid(file_id, UNIT_NAME_RTEMPLATE))  {
+                        if (unit_name_to_type(u->id) != UNIT_SERVICE)
+                                return log_unit_warning_errno(u, -EINVAL, "Rtemplates only valid for service units.");
+
+                        if (unit_name_is_valid(u->id, UNIT_NAME_PLAIN)) {
+                                Unit *uf = unit_following(u);
+                                if (!uf) {
+                                        r = unit_new_next_generation(u->manager, u, file_id, &uf);
+                                        if (r < 0)
+                                                return r;
+
+                                        service_set_current_generation(SERVICE(u), SERVICE(uf));
+                                        unit_add_to_load_queue(uf);
+                                }
+                        } else if (!unit_name_is_valid(u->id, UNIT_NAME_GENERATION))
+                                return log_warning_errno(-EINVAL, "Mismatch in unit name type %s and fragment %s", u->id, file_id);
+                        id = u->id;
                 }
         }
 

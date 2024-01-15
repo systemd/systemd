@@ -27,20 +27,20 @@
         ":-_.\\"
 
 /* The same, but also permits the single @ character that may appear */
-#define VALID_CHARS_WITH_AT                     \
-        "@"                                     \
+#define VALID_CHARS_WITH_ATHASH                 \
+        "@#"                                    \
         VALID_CHARS
 
 /* All chars valid in a unit name glob */
 #define VALID_CHARS_GLOB                        \
-        VALID_CHARS_WITH_AT                     \
+        VALID_CHARS_WITH_ATHASH                 \
         "[]!-*?"
 
 #define LONG_UNIT_NAME_HASH_KEY SD_ID128_MAKE(ec,f2,37,fb,58,32,4a,32,84,9f,06,9b,0d,21,eb,9a)
 #define UNIT_NAME_HASH_LENGTH_CHARS 16
 
 bool unit_name_is_valid(const char *n, UnitNameFlags flags) {
-        const char *e, *i, *at;
+        const char *e, *i, *at, *hash;
 
         assert((flags & ~(UNIT_NAME_PLAIN|UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE)) == 0);
 
@@ -60,28 +60,40 @@ bool unit_name_is_valid(const char *n, UnitNameFlags flags) {
         if (unit_type_from_string(e + 1) < 0)
                 return false;
 
-        for (i = n, at = NULL; i < e; i++) {
-
+        for (i = n, at = NULL, hash = NULL; i < e; i++) {
                 if (*i == '@' && !at)
                         at = i;
+                else if (*i == '#' && !hash)
+                        hash = i;
 
-                if (!strchr(VALID_CHARS_WITH_AT, *i))
+                if (!strchr(VALID_CHARS_WITH_ATHASH, *i))
                         return false;
         }
 
-        if (at == n)
+        if (at == n || hash == n)
+                return false;
+        /* XXX support templated rtemplate handle services? foo@inst#gen.service */
+        if (at && hash)
                 return false;
 
         if (flags & UNIT_NAME_PLAIN)
-                if (!at)
+                if (!at && !hash)
                         return true;
-
-        if (flags & UNIT_NAME_INSTANCE)
+        /* (at ^ hash) below */
+        if (flags & UNIT_NAME_UINSTANCE)
                 if (at && e > at + 1)
                         return true;
 
-        if (flags & UNIT_NAME_TEMPLATE)
+        if (flags & UNIT_NAME_UTEMPLATE)
                 if (at && e == at + 1)
+                        return true;
+
+        if (flags & UNIT_NAME_GENERATION)
+                if (hash && e > hash + 1)
+                        return true;
+
+        if (flags & UNIT_NAME_RTEMPLATE)
+                if (hash && e == hash + 1)
                         return true;
 
         return false;
@@ -97,18 +109,47 @@ bool unit_prefix_is_valid(const char *p) {
         return in_charset(p, VALID_CHARS);
 }
 
-bool unit_instance_is_valid(const char *i) {
+bool unit_instance_is_null(UnitInstanceArg i) {
+        return !i.instance && !i.generation;
+}
+
+bool unit_instance_is_valid(UnitInstanceArg i) {
 
         /* The max length depends on the length of the string, so we
          * don't really check this here. */
 
-        if (isempty(i))
-                return false;
-
         /* We allow additional @ in the instance string, we do not
          * allow them in the prefix! */
+        if (!isempty(i.instance) && !in_charset(i.instance, "@" VALID_CHARS))
+                return false;
 
-        return in_charset(i, "@" VALID_CHARS);
+        if (!isempty(i.generation) && !in_charset(i.generation, VALID_CHARS))
+                return false;
+
+        return !(isempty(i.instance) && isempty(i.generation));
+}
+
+// TODO better return the result
+int unit_instance_to_string(UnitInstanceArg i, char **ret) {
+        char *s;
+        assert(ret);
+
+        /* XXX no support for templated rtemplate handle units */
+        if (!isempty(i.instance) && !isempty(i.generation))
+                return -ENOTSUP;
+
+        s = i.instance ? strdup(i.instance) :
+            i.generation ? strdup(i.generation) :
+            strdup("");
+        if (!s)
+                return -ENOMEM;
+        *ret = s;
+        return 0;
+}
+
+bool unit_instance_eq(UnitInstanceArg a, UnitInstanceArg b) {
+        return streq_ptr(a.instance, b.instance) &&
+               streq_ptr(a.generation, b.generation);
 }
 
 bool unit_suffix_is_valid(const char *s) {
@@ -134,7 +175,7 @@ int unit_name_to_prefix(const char *n, char **ret) {
         if (!unit_name_is_valid(n, UNIT_NAME_ANY))
                 return -EINVAL;
 
-        p = strchr(n, '@');
+        p = strchr(n, '@') ?: strchr(n, '#');
         if (!p)
                 p = strrchr(n, '.');
 
@@ -148,8 +189,9 @@ int unit_name_to_prefix(const char *n, char **ret) {
         return 0;
 }
 
-UnitNameFlags unit_name_to_instance(const char *n, char **ret) {
+UnitNameFlags unit_name_to_instance(const char *n, UnitInstanceArg *ret) {
         const char *p, *d;
+        char c;
 
         assert(n);
 
@@ -157,13 +199,13 @@ UnitNameFlags unit_name_to_instance(const char *n, char **ret) {
                 return -EINVAL;
 
         /* Everything past the first @ and before the last . is the instance */
-        p = strchr(n, '@');
+        p = strchr(n, '@') ?: strchr(n, '#');
         if (!p) {
                 if (ret)
-                        *ret = NULL;
+                        *ret = (UnitInstanceArg){ NULL };
                 return UNIT_NAME_PLAIN;
         }
-
+        c = *p;
         p++;
 
         d = strrchr(p, '.');
@@ -171,13 +213,20 @@ UnitNameFlags unit_name_to_instance(const char *n, char **ret) {
                 return -EINVAL;
 
         if (ret) {
-                char *i = strndup(p, d-p);
-                if (!i)
+                UnitInstanceArg i = {
+                        .instance = strndup(p, d-p),
+                        .generation = NULL,
+                };
+                if (!i.instance)
                         return -ENOMEM;
+                if (c == '#')
+                        SWAP_TWO(i.instance, i.generation);
 
                 *ret = i;
         }
-        return d > p ? UNIT_NAME_INSTANCE : UNIT_NAME_TEMPLATE;
+        return d > p ?
+                (c == '#' ? UNIT_NAME_GENERATION : UNIT_NAME_UINSTANCE) :
+                (c == '#' ? UNIT_NAME_RTEMPLATE : UNIT_NAME_UTEMPLATE);
 }
 
 int unit_name_to_prefix_and_instance(const char *n, char **ret) {
@@ -249,7 +298,7 @@ int unit_name_change_suffix(const char *n, const char *suffix, char **ret) {
         return 0;
 }
 
-int unit_name_build(const char *prefix, const char *instance, const char *suffix, char **ret) {
+int unit_name_build(const char *prefix, UnitInstanceArg instance, const char *suffix, char **ret) {
         UnitType type;
 
         assert(prefix);
@@ -266,7 +315,7 @@ int unit_name_build(const char *prefix, const char *instance, const char *suffix
         return unit_name_build_from_type(prefix, instance, type, ret);
 }
 
-int unit_name_build_from_type(const char *prefix, const char *instance, UnitType type, char **ret) {
+int unit_name_build_from_type(const char *prefix, UnitInstanceArg instance, UnitType type, char **ret) {
         _cleanup_free_ char *s = NULL;
         const char *ut;
 
@@ -280,18 +329,21 @@ int unit_name_build_from_type(const char *prefix, const char *instance, UnitType
 
         ut = unit_type_to_string(type);
 
-        if (instance) {
+        if (!unit_instance_is_null(instance)) {
                 if (!unit_instance_is_valid(instance))
                         return -EINVAL;
 
-                s = strjoin(prefix, "@", instance, ".", ut);
+                if (instance.instance)
+                        s = strjoin(prefix, "@", instance.instance, ".", ut);
+                else if (instance.generation)
+                        s = strjoin(prefix, "#", instance.generation, ".", ut);
         } else
                 s = strjoin(prefix, ".", ut);
         if (!s)
                 return -ENOMEM;
 
         /* Verify that this didn't grow too large (or otherwise is invalid) */
-        if (!unit_name_is_valid(s, instance ? UNIT_NAME_INSTANCE : UNIT_NAME_PLAIN))
+        if (!unit_name_is_valid(s, !unit_instance_is_null(instance) ? UNIT_NAME_INSTANCE : UNIT_NAME_PLAIN))
                 return -EINVAL;
 
         *ret = TAKE_PTR(s);
@@ -454,13 +506,13 @@ int unit_name_path_unescape(const char *f, char **ret) {
         return 0;
 }
 
-int unit_name_replace_instance(const char *f, const char *i, char **ret) {
-        _cleanup_free_ char *s = NULL;
+int unit_name_replace_instance(const char *f, UnitInstanceArg i, char **ret) {
+        _cleanup_free_ char *s = NULL, *n = NULL;
         const char *p, *e;
         size_t a, b;
+        int r;
 
         assert(f);
-        assert(i);
         assert(ret);
 
         if (!unit_name_is_valid(f, UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE))
@@ -468,17 +520,21 @@ int unit_name_replace_instance(const char *f, const char *i, char **ret) {
         if (!unit_instance_is_valid(i))
                 return -EINVAL;
 
-        assert_se(p = strchr(f, '@'));
+        assert_se(p = strchr(f, '@') ?: strchr(f, '#'));
         assert_se(e = strrchr(f, '.'));
 
         a = p - f;
-        b = strlen(i);
+        b = i.instance ? strlen(i.instance) : 0;
+        b += i.generation ? strlen(i.generation) : 0;
 
         s = new(char, a + 1 + b + strlen(e) + 1);
         if (!s)
                 return -ENOMEM;
+        r = unit_instance_to_string(i, &n);
+        if (r < 0)
+                return r;
 
-        strcpy(mempcpy(mempcpy(s, f, a + 1), i, b), e);
+        strcpy(mempcpy(mempcpy(s, f, a + 1), n, b), e);
 
         /* Make sure the resulting name still is valid, i.e. didn't grow too large */
         if (!unit_name_is_valid(s, UNIT_NAME_INSTANCE))
@@ -499,7 +555,8 @@ int unit_name_template(const char *f, char **ret) {
         if (!unit_name_is_valid(f, UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE))
                 return -EINVAL;
 
-        assert_se(p = strchr(f, '@'));
+        /* XXX Assumes no templated rtemplate handle unit */
+        assert_se(p = strchr(f, '@') ?: strchr(f, '#'));
         assert_se(e = strrchr(f, '.'));
 
         a = p - f;
@@ -510,6 +567,27 @@ int unit_name_template(const char *f, char **ret) {
 
         strcpy(mempcpy(s, f, a + 1), e);
 
+        *ret = s;
+        return 0;
+}
+
+int unit_name_make_rtemplate(const char *f, char **ret) {
+        char *s, *e;
+
+        assert(f);
+        assert(ret);
+
+        if (!unit_name_is_valid(f, UNIT_NAME_PLAIN))
+                return -EINVAL;
+
+        assert_se(e = strrchr(f, '.'));
+
+        s = new(char, strlen(f) + 2);
+        if (!s)
+                return -ENOMEM;
+
+        memcpy(s, f, e - f);
+        stpcpy(stpcpy(s + (e - f), "#"), e);
         *ret = s;
         return 0;
 }
@@ -677,7 +755,7 @@ static bool do_escape_mangle(const char *f, bool allow_globs, char *t) {
          * Returns true if any characters were mangled, false otherwise.
          */
 
-        valid_chars = allow_globs ? VALID_CHARS_GLOB : VALID_CHARS_WITH_AT;
+        valid_chars = allow_globs ? VALID_CHARS_GLOB : VALID_CHARS_WITH_ATHASH;
 
         for (; *f; f++)
                 if (*f == '/') {

@@ -17,6 +17,7 @@
 #include "macro.h"
 #include "parse-util.h"
 #include "serialize.h"
+#include "service.h"
 #include "set.h"
 #include "sort-util.h"
 #include "special.h"
@@ -1000,9 +1001,16 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
 
         /* Patch restart jobs so that they become normal start jobs */
         if (result == JOB_DONE && t == JOB_RESTART) {
-
                 job_change_type(j, JOB_START);
                 job_set_state(j, JOB_WAITING);
+
+                /* Switch generation after job has matching state */
+                if (j->unit_next) {
+                        service_set_current_generation(SERVICE(u), SERVICE(j->unit_next));
+                        // XXX pairs with service_stop()
+                        j->unit_next->rtemplate_job = false;
+                        j->unit_next = NULL;
+                }
 
                 job_add_to_dbus_queue(j);
                 job_add_to_run_queue(j);

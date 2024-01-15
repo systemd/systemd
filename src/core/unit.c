@@ -161,6 +161,45 @@ int unit_new_for_name(Manager *m, size_t size, const char *name, Unit **ret) {
         return r;
 }
 
+static int unit_next_generation_name(Unit *u, UnitInstanceArg *ret) {
+        sd_id128_t rnd;
+        int r;
+
+        // XXX u is unused, no fancy state-dependent naming?
+        /* u may be handle or a generation unit */
+        assert(ret);
+
+        r = sd_id128_randomize(&rnd);
+        if (r < 0)
+                return log_unit_error_errno(u, r, "Failed to generate random generation name: %m");
+
+        snprintf((char *)ret->generation, UNIT_NAME_GENERATION_MAX, SD_ID128_FORMAT_STR, SD_ID128_FORMAT_VAL(rnd));
+        return 0;
+}
+
+int unit_new_next_generation(Manager *m, Unit *u, const char *name, Unit **ret) {
+        UnitInstanceArg gen = {};
+        Unit *next_u;
+        _cleanup_free_ char *new_id;
+        int r;
+
+        gen.generation = alloca_safe(UNIT_NAME_GENERATION_MAX);
+        r = unit_next_generation_name(u, &gen);
+        if (r < 0)
+                return log_unit_error_errno(u, r, "Failed to allocate generation name: %m");
+
+        r = unit_name_replace_instance(name, gen, &new_id);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to build id (%s + %s): %m", name, gen.generation);
+
+        r = unit_new_for_name(m, sizeof(Service), new_id, &next_u);
+        if (r < 0)
+                return log_unit_error_errno(u, r, "Failed to allocate generation unit %s: %m", new_id);
+
+        *ret = next_u;
+        return 0;
+}
+
 bool unit_has_name(const Unit *u, const char *name) {
         assert(u);
         assert(name);
@@ -243,7 +282,8 @@ static int unit_add_alias(Unit *u, char *donated_name) {
 }
 
 int unit_add_name(Unit *u, const char *text) {
-        _cleanup_free_ char *name = NULL, *instance = NULL;
+        _cleanup_free_ char *name = NULL;
+        _cleanup_(unit_instance_freep) UnitInstanceArg instance = {};
         UnitType t;
         int r;
 
@@ -251,7 +291,7 @@ int unit_add_name(Unit *u, const char *text) {
         assert(text);
 
         if (unit_name_is_valid(text, UNIT_NAME_TEMPLATE)) {
-                if (!u->instance)
+                if (unit_instance_is_null(u->instance))
                         return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL),
                                                     "instance is not set when adding name '%s': %m", text);
 
@@ -290,14 +330,15 @@ int unit_add_name(Unit *u, const char *text) {
         if (r < 0)
                 return log_unit_debug_errno(u, r, "failed to extract instance from name '%s': %m", name);
 
-        if (instance && !unit_type_may_template(t))
+        if (!unit_instance_is_null(instance) && !unit_type_may_template(t))
                 return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL), "templates are not allowed for name '%s': %m", name);
 
         /* Ensure that this unit either has no instance, or that the instance matches. */
-        if (u->type != _UNIT_TYPE_INVALID && !streq_ptr(u->instance, instance))
+        if (u->type != _UNIT_TYPE_INVALID && !unit_instance_eq(u->instance, instance))
+                // XXX proper unit_instance_to_string
                 return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EINVAL),
                                             "cannot add name %s, the instances don't match (\"%s\" != \"%s\").",
-                                            name, instance, u->instance);
+                                            name, instance.instance, u->instance.instance);
 
         if (u->id && !unit_type_may_alias(t))
                 return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EEXIST),
@@ -323,11 +364,12 @@ int unit_add_name(Unit *u, const char *text) {
         } else {
                 /* A new name, we don't need the set yet. */
                 assert(u->type == _UNIT_TYPE_INVALID);
-                assert(!u->instance);
+                assert(unit_instance_is_null(u->instance));
 
                 u->type = t;
                 u->id = TAKE_PTR(name);
-                u->instance = TAKE_PTR(instance);
+                u->instance = instance;
+                instance = (UnitInstanceArg){};
 
                 LIST_PREPEND(units_by_type, u->manager->units_by_type[t], u);
                 unit_init(u);
@@ -346,7 +388,7 @@ int unit_choose_id(Unit *u, const char *name) {
         assert(name);
 
         if (unit_name_is_valid(name, UNIT_NAME_TEMPLATE)) {
-                if (!u->instance)
+                if (unit_instance_is_null(u->instance))
                         return -EINVAL;
 
                 r = unit_name_replace_instance(name, u->instance, &t);
@@ -445,7 +487,7 @@ bool unit_may_gc(Unit *u) {
          * using markers to properly collect dependency loops.
          */
 
-        if (u->job || u->nop_job)
+        if (u->job || u->nop_job || u->rtemplate_job)
                 return false;
 
         if (u->perpetual)
@@ -537,7 +579,7 @@ void unit_add_to_gc_queue(Unit *u) {
         if (!unit_may_gc(u))
                 return;
 
-        LIST_PREPEND(gc_queue, u->manager->gc_unit_queue, u);
+        LIST_APPEND(gc_queue, u->manager->gc_unit_queue, u);
         u->in_gc_queue = true;
 }
 
@@ -884,7 +926,7 @@ Unit* unit_free(Unit *u) {
         free(u->fragment_path);
         free(u->source_path);
         strv_free(u->dropin_paths);
-        free(u->instance);
+        unit_instance_free(u->instance);
 
         free(u->job_timeout_reboot_arg);
         free(u->reboot_arg);
@@ -1185,8 +1227,8 @@ int unit_merge(Unit *u, Unit *other) {
 
         if (!IN_SET(other->load_state, UNIT_STUB, UNIT_NOT_FOUND))
                 return -EEXIST;
-
-        if (!streq_ptr(u->instance, other->instance))
+        // XXX emptiness
+        if (!unit_instance_eq(u->instance, other->instance))
                 return -EINVAL;
 
         if (other->job)
@@ -1246,7 +1288,11 @@ int unit_merge_by_name(Unit *u, const char *name) {
         assert(name);
 
         if (unit_name_is_valid(name, UNIT_NAME_TEMPLATE)) {
-                if (!u->instance)
+                /* foo#.service names of foo.service is only for fragment loading, not a true name */
+                if (unit_name_is_valid(u->id, UNIT_NAME_PLAIN) && unit_name_is_valid(name, UNIT_NAME_RTEMPLATE))
+                        return 0;
+
+                if (unit_instance_is_null(u->instance))
                         return -EINVAL;
 
                 r = unit_name_replace_instance(name, u->instance, &s);
@@ -1370,7 +1416,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
         if (c->log_namespace) {
                 _cleanup_free_ char *socket_unit = NULL, *varlink_socket_unit = NULL;
 
-                r = unit_name_build_from_type("systemd-journald", c->log_namespace, UNIT_SOCKET, &socket_unit);
+                r = unit_name_build_from_type("systemd-journald", UNIT_ARG_INSTANCE(c->log_namespace), UNIT_SOCKET, &socket_unit);
                 if (r < 0)
                         return r;
 
@@ -1378,7 +1424,7 @@ int unit_add_exec_dependencies(Unit *u, ExecContext *c) {
                 if (r < 0)
                         return r;
 
-                r = unit_name_build_from_type("systemd-journald-varlink", c->log_namespace, UNIT_SOCKET, &varlink_socket_unit);
+                r = unit_name_build_from_type("systemd-journald-varlink", UNIT_ARG_INSTANCE(c->log_namespace), UNIT_SOCKET, &varlink_socket_unit);
                 if (r < 0)
                         return r;
 
@@ -2621,7 +2667,12 @@ static bool unit_process_job(Job *j, UnitActiveState ns, bool reload_success) {
 
                 if (UNIT_IS_INACTIVE_OR_FAILED(ns))
                         job_finish_and_invalidate(j, JOB_DONE, true, false);
-                else if (j->state == JOB_RUNNING && ns != UNIT_DEACTIVATING) {
+                else if (j->type == JOB_RESTART && j->unit_next && UNIT_IS_ACTIVE_OR_RELOADING(ns)) {
+                        /* We expect SERVICE_RUNNING_PASSIVE */
+                        if (ns == UNIT_ACTIVE)
+                                job_finish_and_invalidate(j, JOB_DONE, true, false);
+                        /* SERVICE_PASSIVATE job runs... */
+                } else if (j->state == JOB_RUNNING && ns != UNIT_DEACTIVATING) {
                         unexpected = true;
                         job_finish_and_invalidate(j, JOB_FAILED, true, false);
                 }
@@ -3118,6 +3169,8 @@ static int unit_add_dependency_impl(
                 [UNIT_RELOAD_PROPAGATED_FROM] = UNIT_PROPAGATES_RELOAD_TO,
                 [UNIT_PROPAGATES_STOP_TO]     = UNIT_STOP_PROPAGATED_FROM,
                 [UNIT_STOP_PROPAGATED_FROM]   = UNIT_PROPAGATES_STOP_TO,
+                [UNIT_PROPAGATES_RAW_STOP_TO] = UNIT_RAW_STOP_PROPAGATED_FROM,
+                [UNIT_RAW_STOP_PROPAGATED_FROM]=UNIT_PROPAGATES_RAW_STOP_TO,
                 [UNIT_JOINS_NAMESPACE_OF]     = UNIT_JOINS_NAMESPACE_OF, /* symmetric! 👓 */
                 [UNIT_REFERENCES]             = UNIT_REFERENCED_BY,
                 [UNIT_REFERENCED_BY]          = UNIT_REFERENCES,
@@ -3306,7 +3359,7 @@ static int resolve_template(Unit *u, const char *name, char **buf, const char **
                 return 0;
         }
 
-        if (u->instance)
+        if (!unit_instance_is_null(u->instance))
                 r = unit_name_replace_instance(name, u->instance, buf);
         else {
                 _cleanup_free_ char *i = NULL;
@@ -3315,7 +3368,8 @@ static int resolve_template(Unit *u, const char *name, char **buf, const char **
                 if (r < 0)
                         return r;
 
-                r = unit_name_replace_instance(name, i, buf);
+                // XXX Why is prefix converted to instance name?
+                r = unit_name_replace_instance(name, UNIT_ARG_INSTANCE(i), buf);
         }
         if (r < 0)
                 return r;
@@ -3485,7 +3539,7 @@ int unit_set_default_slice(Unit *u) {
         if (UNIT_GET_SLICE(u))
                 return 0;
 
-        if (u->instance) {
+        if (!unit_instance_is_null(u->instance)) {
                 _cleanup_free_ char *prefix = NULL, *escaped = NULL;
 
                 /* Implicitly place all instantiated units in their
@@ -3766,7 +3820,7 @@ int unit_add_blockdev_dependency(Unit *u, const char *what, UnitDependencyMask m
         if (r < 0)
                 return r;
 
-        r = unit_name_build("blockdev", escaped, ".target", &target);
+        r = unit_name_build("blockdev", UNIT_ARG_INSTANCE(escaped), ".target", &target);
         if (r < 0)
                 return r;
 
@@ -5378,6 +5432,11 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
         p->unit_id = strdup(u->id);
         if (!p->unit_id)
                 return -ENOMEM;
+        if (u->instance.generation) {
+                p->generation = strdup(u->instance.generation);
+                if (!p->generation)
+                        return -ENOMEM;
+        }
 
         return 0;
 }

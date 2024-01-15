@@ -2375,6 +2375,8 @@ static int bus_unit_set_transient_property(
                             UNIT_RELOAD_PROPAGATED_FROM,
                             UNIT_PROPAGATES_STOP_TO,
                             UNIT_STOP_PROPAGATED_FROM,
+                            UNIT_PROPAGATES_RAW_STOP_TO,
+                            UNIT_RAW_STOP_PROPAGATED_FROM,
                             UNIT_JOINS_NAMESPACE_OF))
                     return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Dependency type %s may not be created transiently.", unit_dependency_to_string(d));
 

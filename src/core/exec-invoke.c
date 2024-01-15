@@ -1827,7 +1827,7 @@ static int build_environment(
         assert(p);
         assert(ret);
 
-#define N_ENV_VARS 19
+#define N_ENV_VARS 20
         our_env = new0(char*, N_ENV_VARS + _EXEC_DIRECTORY_TYPE_MAX);
         if (!our_env)
                 return -ENOMEM;
@@ -1924,6 +1924,14 @@ static int build_environment(
                 assert(p->invocation_id_string);
 
                 x = strjoin("INVOCATION_ID=", p->invocation_id_string);
+                if (!x)
+                        return -ENOMEM;
+
+                our_env[n_env++] = x;
+        }
+
+        if (!isempty(p->generation)) {
+                x = strjoin("GENERATION_ID=", p->generation);
                 if (!x)
                         return -ENOMEM;
 

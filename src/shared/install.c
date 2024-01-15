@@ -781,10 +781,10 @@ static int is_symlink_with_known_name(const InstallInfo *i, const char *name) {
                 return true;
 
         /* Look for template symlink matching DefaultInstance */
-        if (i->default_instance && unit_name_is_valid(i->name, UNIT_NAME_TEMPLATE)) {
+        if (i->default_instance && unit_name_is_valid(i->name, UNIT_NAME_UTEMPLATE)) {
                 _cleanup_free_ char *s = NULL;
 
-                r = unit_name_replace_instance(i->name, i->default_instance, &s);
+                r = unit_name_replace_instance(i->name, UNIT_ARG_INSTANCE(i->default_instance), &s);
                 if (r < 0) {
                         if (r != -EINVAL)
                                 return r;
@@ -1292,11 +1292,11 @@ static int config_parse_default_instance(
         assert(lvalue);
         assert(rvalue);
 
-        if (unit_name_is_valid(unit, UNIT_NAME_INSTANCE))
+        if (unit_name_is_valid(unit, UNIT_NAME_UINSTANCE))
                 /* When enabling an instance, we might be using a template unit file,
                  * but we should ignore DefaultInstance silently. */
                 return 0;
-        if (!unit_name_is_valid(unit, UNIT_NAME_TEMPLATE))
+        if (!unit_name_is_valid(unit, UNIT_NAME_UTEMPLATE))
                 return log_syntax(unit, LOG_WARNING, filename, line, 0,
                                   "DefaultInstance= only makes sense for template units, ignoring.");
 
@@ -1308,7 +1308,7 @@ static int config_parse_default_instance(
         if (isempty(printed))
                 printed = mfree(printed);
 
-        if (printed && !unit_instance_is_valid(printed))
+        if (printed && !unit_instance_is_valid(UNIT_ARG_INSTANCE(printed)))
                 return log_syntax(unit, LOG_WARNING, filename, line, SYNTHETIC_ERRNO(EINVAL),
                                   "Invalid DefaultInstance= value \"%s\".", printed);
 
@@ -1666,10 +1666,10 @@ static int install_info_traverse(
 
                         bn = basename(i->symlink_target);
 
-                        if (unit_name_is_valid(i->name, UNIT_NAME_INSTANCE) &&
-                            unit_name_is_valid(bn, UNIT_NAME_TEMPLATE)) {
+                        if (unit_name_is_valid(i->name, UNIT_NAME_UINSTANCE) &&
+                            unit_name_is_valid(bn, UNIT_NAME_UTEMPLATE)) {
 
-                                _cleanup_free_ char *instance = NULL;
+                                _cleanup_(unit_instance_freep) UnitInstanceArg instance = {};
 
                                 r = unit_name_to_instance(i->name, &instance);
                                 if (r < 0)
@@ -1833,7 +1833,7 @@ int unit_file_verify_alias(
                                                "Invalid unit name component \"%s\" in alias.", dir);
                 }
 
-                const bool instance_propagation = type == UNIT_NAME_TEMPLATE;
+                const bool instance_propagation = type & UNIT_NAME_TEMPLATE;
 
                 /* That's the name we want to use for verification. */
                 r = unit_symlink_name_compatible(path_alias, info->name, instance_propagation);
@@ -1849,8 +1849,8 @@ int unit_file_verify_alias(
         } else {
                 /* If the symlink target has an instance set and the symlink source doesn't, we "propagate
                  * the instance", i.e. instantiate the symlink source with the target instance. */
-                if (unit_name_is_valid(dst, UNIT_NAME_TEMPLATE)) {
-                        _cleanup_free_ char *inst = NULL;
+                if (unit_name_is_valid(dst, UNIT_NAME_UTEMPLATE)) {
+                        _cleanup_(unit_instance_freep) UnitInstanceArg inst = {};
 
                         UnitNameFlags type = unit_name_to_instance(info->name, &inst);
                         if (type < 0) {
@@ -1858,11 +1858,11 @@ int unit_file_verify_alias(
                                 return log_debug_errno(type, "Failed to extract instance name from \"%s\": %m", info->name);
                         }
 
-                        if (type == UNIT_NAME_INSTANCE) {
+                        if (type == UNIT_NAME_UINSTANCE) {
                                 r = unit_name_replace_instance(dst, inst, &dst_updated);
                                 if (r < 0)
                                         return log_error_errno(r, "Failed to build unit name from %s+%s: %m",
-                                                               dst, inst);
+                                                               dst, inst.instance);
                         }
                 }
 
@@ -1958,14 +1958,14 @@ static int install_info_symlink_wants(
         if (strv_isempty(list))
                 return 0;
 
-        if (unit_name_is_valid(info->name, UNIT_NAME_PLAIN | UNIT_NAME_INSTANCE))
+        if (unit_name_is_valid(info->name, UNIT_NAME_PLAIN | UNIT_NAME_UINSTANCE))
                 /* Not a template unit. Use the name directly. */
                 n = info->name;
 
         else if (info->default_instance) {
                 /* If this is a template, and we have a default instance, use it. */
 
-                r = unit_name_replace_instance(info->name, info->default_instance, &instance.name);
+                r = unit_name_replace_instance(info->name, UNIT_ARG_INSTANCE(info->default_instance), &instance.name);
                 if (r < 0)
                         return r;
 
@@ -1982,7 +1982,7 @@ static int install_info_symlink_wants(
                 /* We have a template, but no instance yet. When used with an instantiated unit, we will get
                  * the instance from that unit. Cannot be used with non-instance units. */
 
-                valid_dst_type = UNIT_NAME_INSTANCE | UNIT_NAME_TEMPLATE;
+                valid_dst_type = UNIT_NAME_UINSTANCE | UNIT_NAME_UTEMPLATE;
                 n = info->name;
         }
 
@@ -3363,13 +3363,13 @@ static int pattern_match_multiple_instances(
                 return 0;
 
         /* Compose a list of specified instances when unit name is a template  */
-        if (unit_name_is_valid(unit_name, UNIT_NAME_TEMPLATE)) {
+        if (unit_name_is_valid(unit_name, UNIT_NAME_UTEMPLATE)) {
                 _cleanup_strv_free_ char **out_strv = NULL;
 
                 STRV_FOREACH(iter, rule.instances) {
                         _cleanup_free_ char *name = NULL;
 
-                        r = unit_name_replace_instance(unit_name, *iter, &name);
+                        r = unit_name_replace_instance(unit_name, UNIT_ARG_INSTANCE(*iter), &name);
                         if (r < 0)
                                 return r;
 
@@ -3380,17 +3380,19 @@ static int pattern_match_multiple_instances(
 
                 *ret = TAKE_PTR(out_strv);
                 return 1;
-        } else {
-                /* We now know the input unit name is an instance name */
-                _cleanup_free_ char *instance_name = NULL;
+        } else if (unit_name_is_valid(unit_name, UNIT_NAME_UINSTANCE)) {
+                _cleanup_(unit_instance_freep) UnitInstanceArg instance = {};
 
-                r = unit_name_to_instance(unit_name, &instance_name);
+                r = unit_name_to_instance(unit_name, &instance);
                 if (r < 0)
                         return r;
 
-                if (strv_find(rule.instances, instance_name))
+                if (strv_find(rule.instances, instance.instance))
                         return 1;
-        }
+        } else
+                /* rtemplate */
+                return -EINVAL;
+
         return 0;
 }
 

@@ -116,6 +116,7 @@ struct JobDependency {
 struct Job {
         Manager *manager;
         Unit *unit;
+        Unit *unit_next;
 
         LIST_FIELDS(Job, transaction);
         LIST_FIELDS(Job, dbus_queue);

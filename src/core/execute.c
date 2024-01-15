@@ -2502,6 +2502,7 @@ void exec_params_shallow_clear(ExecParameters *p) {
         p->bpf_outer_map_fd = -EBADF;
         p->unit_id = mfree(p->unit_id);
         p->invocation_id = SD_ID128_NULL;
+        p->generation = mfree(p->generation);
         p->invocation_id_string[0] = '\0';
         p->confirm_spawn = mfree(p->confirm_spawn);
 }

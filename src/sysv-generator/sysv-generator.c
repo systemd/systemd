@@ -287,7 +287,7 @@ static int sysv_translate_facility(SysvStub *s, unsigned line, const char *name,
 
         /* Facilities starting with $ are most likely targets */
         if (*name == '$')  {
-                r = unit_name_build(n, NULL, ".target", ret);
+                r = unit_name_build(n, UNIT_ARG_INSTANCE(NULL), ".target", ret);
                 if (r < 0)
                         return log_error_errno(r, "[%s:%u] Could not build name for facility %s: %m", s->path, line, name);
 

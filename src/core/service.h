@@ -51,6 +51,7 @@ typedef enum ServiceExecCommand {
         SERVICE_EXEC_START,
         SERVICE_EXEC_START_POST,
         SERVICE_EXEC_RELOAD,
+        SERVICE_EXEC_RESTART_PRE,
         SERVICE_EXEC_STOP,
         SERVICE_EXEC_STOP_POST,
         _SERVICE_EXEC_COMMAND_MAX,
@@ -133,6 +134,7 @@ struct Service {
         bool timeout_abort_set;
         usec_t runtime_max_usec;
         usec_t runtime_rand_extra_usec;
+        usec_t runtime_passive_max_usec;
         ServiceTimeoutFailureMode timeout_start_failure_mode;
         ServiceTimeoutFailureMode timeout_stop_failure_mode;
 
@@ -142,6 +144,8 @@ struct Service {
         usec_t watchdog_override_usec;   /* the watchdog timeout requested by the service itself through sd_notify() */
         bool watchdog_override_enable;
         sd_event_source *watchdog_event_source;
+
+        UnitRef current_gen_service;
 
         ExecCommand* exec_command[_SERVICE_EXEC_COMMAND_MAX];
 
@@ -254,6 +258,7 @@ int service_set_socket_fd(Service *s, int fd, struct Socket *socket, struct Sock
 void service_release_socket_fd(Service *s);
 
 usec_t service_restart_usec_next(Service *s);
+void service_set_current_generation(Service *s, Service *cs);
 
 int service_determine_exec_selinux_label(Service *s, char **ret);
 

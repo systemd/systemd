@@ -458,6 +458,7 @@ struct ExecParameters {
         /* Used for logging in the executor functions */
         char *unit_id;
         sd_id128_t invocation_id;
+        char *generation;
         char invocation_id_string[SD_ID128_STRING_MAX];
 };
 

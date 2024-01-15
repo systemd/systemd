@@ -345,7 +345,7 @@ static int create_veritytab_device(
         if (!hu)
                 return log_oom();
 
-        r = unit_name_build("systemd-veritysetup", e, ".service", &n);
+        r = unit_name_build("systemd-veritysetup", UNIT_ARG_INSTANCE(e), ".service", &n);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate unit name: %m");
 

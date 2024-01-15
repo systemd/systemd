@@ -56,6 +56,8 @@ static const UnitActiveState state_translation_table[_SERVICE_STATE_MAX] = {
         [SERVICE_START] = UNIT_ACTIVATING,
         [SERVICE_START_POST] = UNIT_ACTIVATING,
         [SERVICE_RUNNING] = UNIT_ACTIVE,
+        [SERVICE_PASSIVATE] = UNIT_RELOADING,
+        [SERVICE_RUNNING_PASSIVE]= UNIT_ACTIVE, /* d'oh */
         [SERVICE_EXITED] = UNIT_ACTIVE,
         [SERVICE_RELOAD] = UNIT_RELOADING,
         [SERVICE_RELOAD_SIGNAL] = UNIT_RELOADING,
@@ -86,6 +88,8 @@ static const UnitActiveState state_translation_table_idle[_SERVICE_STATE_MAX] = 
         [SERVICE_START] = UNIT_ACTIVE,
         [SERVICE_START_POST] = UNIT_ACTIVE,
         [SERVICE_RUNNING] = UNIT_ACTIVE,
+        [SERVICE_PASSIVATE] = UNIT_RELOADING,
+        [SERVICE_RUNNING_PASSIVE]= UNIT_ACTIVE, /* d'oh */
         [SERVICE_EXITED] = UNIT_ACTIVE,
         [SERVICE_RELOAD] = UNIT_RELOADING,
         [SERVICE_RELOAD_SIGNAL] = UNIT_RELOADING,
@@ -112,6 +116,7 @@ static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *us
 static int service_dispatch_watchdog(sd_event_source *source, usec_t usec, void *userdata);
 static int service_dispatch_exec_io(sd_event_source *source, int fd, uint32_t events, void *userdata);
 
+static void service_set_state(Service *s, ServiceState state);
 static void service_enter_signal(Service *s, ServiceState state, ServiceResult f);
 static void service_enter_reload_by_notify(Service *s);
 
@@ -222,6 +227,12 @@ static int service_set_main_pidref(Service *s, PidRef *pidref) {
 void service_release_socket_fd(Service *s) {
         assert(s);
 
+        if (UNIT_ISSET(s->current_gen_service)) {
+                log_unit_debug(UNIT(s), "Releasing fd on %s", UNIT_DEREF(s->current_gen_service)->id);
+                service_release_socket_fd(SERVICE(UNIT_DEREF(s->current_gen_service)));
+                return;
+        }
+
         if (s->socket_fd < 0 && !UNIT_ISSET(s->accept_socket) && !s->socket_peer)
                 return;
 
@@ -246,6 +257,28 @@ static void service_override_notify_access(Service *s, NotifyAccess notify_acces
 
         log_unit_debug(UNIT(s), "notify_access=%s", notify_access_to_string(s->notify_access));
         log_unit_debug(UNIT(s), "notify_access_override=%s", notify_access_to_string(s->notify_access_override));
+}
+
+void service_set_current_generation(Service *s, Service *cs) {
+        Unit *prev_gen;
+
+        assert(s);
+        assert(cs);
+
+        log_unit_debug(UNIT(s), "setting current generation %s", UNIT(cs)->id);
+        prev_gen = UNIT_DEREF(s->current_gen_service);
+        unit_ref_set(&s->current_gen_service, UNIT(s), UNIT(cs));
+        /* main service follows new current state */
+        service_set_state(s, cs->state);
+        /* current_gen_service will have stop job via follow-forwarding,
+         * all matured generations will have propagated jobs (stop on stop, nothing on restart).
+         * State of current_gen_service is observed by the handle service, so handle service will not be GC'd
+         * as long as current_gen_service is active. We need a reference from matured generations to keep
+         * handle service around (to ultimately stop them).
+         */
+        if (prev_gen)
+                unit_add_dependency(prev_gen, UNIT_RAW_STOP_PROPAGATED_FROM, UNIT(s), true, UNIT_DEPENDENCY_IMPLICIT);
+        // XXX transfer socket_fd between generations?
 }
 
 static void service_stop_watchdog(Service *s) {
@@ -472,6 +505,8 @@ static void service_done(Unit *u) {
 
         s->usb_function_descriptors = mfree(s->usb_function_descriptors);
         s->usb_function_strings = mfree(s->usb_function_strings);
+
+        unit_ref_unset(&s->current_gen_service);
 
         service_stop_watchdog(s);
 
@@ -1203,6 +1238,7 @@ static void service_search_main_pid(Service *s) {
 static void service_set_state(Service *s, ServiceState state) {
         ServiceState old_state;
         const UnitActiveState *table;
+        int r;
 
         assert(s);
 
@@ -1230,6 +1266,7 @@ static void service_set_state(Service *s, ServiceState state) {
                     SERVICE_START, SERVICE_START_POST,
                     SERVICE_RUNNING,
                     SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY,
+                    SERVICE_PASSIVATE, SERVICE_RUNNING_PASSIVE,
                     SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
                     SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL)) {
                 service_unwatch_main_pid(s);
@@ -1239,6 +1276,7 @@ static void service_set_state(Service *s, ServiceState state) {
         if (!IN_SET(state,
                     SERVICE_CONDITION, SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
                     SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY,
+                    SERVICE_PASSIVATE, SERVICE_RUNNING_PASSIVE,
                     SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
                     SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
                     SERVICE_CLEANING)) {
@@ -1270,6 +1308,21 @@ static void service_set_state(Service *s, ServiceState state) {
                 log_unit_debug(UNIT(s), "Changed %s -> %s", service_state_to_string(old_state), service_state_to_string(state));
 
         unit_notify(UNIT(s), table[old_state], table[state], s->reload_result == SERVICE_SUCCESS);
+
+        // XXX this would warrant trigger-like relationship and a new unit type
+        _cleanup_set_free_ Set *following_set = NULL;
+        r = unit_following_set(UNIT(s), &following_set);
+        if (r > 0) {
+                Unit *f;
+                SET_FOREACH(f, following_set) {
+                        Service *fs = SERVICE(f);
+                        if (!fs)
+                                continue;
+                        // XXX needs to be transformed, 'passivate' on generation != 'passivate' on handler "service"
+                        log_unit_debug(UNIT(s), "Propagating state %s to %s", service_state_to_string(state), f->id);
+                        service_set_state(fs, state);
+                }
+        }
 }
 
 static usec_t service_coldplug_timeout(Service *s) {
@@ -1382,6 +1435,36 @@ static int service_coldplug(Unit *u) {
         return 0;
 }
 
+static int service_rtemplate_handle(Service *s, Service **ret) {
+        _cleanup_free_ char *name = NULL, *prefix = NULL;
+        Unit *u = UNIT(s);
+        Unit *handle;
+        int r;
+
+        assert(s);
+        assert(ret);
+
+        if (!unit_name_is_valid(u->id, UNIT_NAME_GENERATION))
+                return 0;
+
+        r = unit_name_to_prefix(u->id, &prefix);
+        if (r < 0)
+                return log_unit_error_errno(u, r, "Failed to build prefix unit name: %m");
+
+        r = unit_name_build_from_type(prefix, UNIT_ARG_GENERATION(NULL), UNIT_SERVICE, &name);
+        if (r < 0)
+                return log_unit_error_errno(u, r, "Failed to build unit name: %m");
+
+        handle = manager_get_unit(u->manager, name);
+        if (!handle) {
+                log_unit_warning(u, "Unhandled rtemplate generation.");
+                return 0;
+        }
+
+        *ret = SERVICE(handle);
+        return 1;
+}
+
 static int service_collect_fds(
                 Service *s,
                 int **fds,
@@ -1414,11 +1497,17 @@ static int service_collect_fds(
 
                 rn_socket_fds = 1;
         } else {
-                Unit *u;
+                Unit *u, *u_trigee;
+                Service *h_service;
+
+                u_trigee = UNIT(s);
+                if (service_rtemplate_handle(s, &h_service) > 0) {
+                        u_trigee = UNIT(h_service);
+                        log_unit_debug(UNIT(s), "collecting fds from %s", u_trigee->id);
+                }
 
                 /* Pass all our configured sockets for singleton services */
-
-                UNIT_FOREACH_DEPENDENCY(u, UNIT(s), UNIT_ATOM_TRIGGERED_BY) {
+                UNIT_FOREACH_DEPENDENCY(u, u_trigee, UNIT_ATOM_TRIGGERED_BY) {
                         _cleanup_free_ int *cfds = NULL;
                         Socket *sock;
                         int cn_fds;
@@ -1457,6 +1546,7 @@ static int service_collect_fds(
                 }
         }
 
+        // XXX use handle service's fd_store
         if (s->n_fd_store > 0) {
                 size_t n_fds;
                 char **nl;
@@ -1503,6 +1593,7 @@ static int service_allocate_exec_fd_event_source(
 
         _cleanup_(sd_event_source_unrefp) sd_event_source *source = NULL;
         int r;
+        // XXX use handle service's fd_store
 
         assert(s);
         assert(fd >= 0);
@@ -1514,6 +1605,7 @@ static int service_allocate_exec_fd_event_source(
 
         /* This is a bit lower priority than SIGCHLD, as that carries a lot more interesting failure information */
 
+        // XXX use handle service's fd_store
         r = sd_event_source_set_priority(source, SD_EVENT_PRIORITY_NORMAL-3);
         if (r < 0)
                 return log_unit_error_errno(UNIT(s), r, "Failed to adjust priority of exec_fd event source: %m");
@@ -2159,6 +2251,45 @@ fail:
                 service_enter_dead(s, SERVICE_FAILURE_RESOURCES, /* allow_restart= */ true);
 }
 
+static void service_enter_passivate(Service *s, ServiceResult f) {
+        int r;
+        // XXX refactor common parts with service_enter_stop?
+        assert(s);
+
+        if (s->result == SERVICE_SUCCESS)
+                s->result = f;
+
+        service_unwatch_control_pid(s);
+        (void) unit_enqueue_rewatch_pids(UNIT(s));
+
+        s->control_command = s->exec_command[SERVICE_EXEC_RESTART_PRE];
+        if (s->control_command) {
+                s->control_command_id = SERVICE_EXEC_RESTART_PRE;
+
+                r = service_spawn(s,
+                                  s->control_command,
+                                  s->timeout_stop_usec, // XXX document or change this, see also service_run_next_control
+                                  EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_IS_CONTROL|EXEC_SETENV_RESULT|EXEC_CONTROL_CGROUP,
+                                  &s->control_pid);
+                if (r < 0)
+                        goto fail;
+
+        } else {
+                /* implicit passivation, e.g. from a successor generation */
+                r = service_arm_timer(s, /* relative= */ true, s->timeout_stop_usec);
+                // TODO handle the timer
+                if (r < 0)
+                        goto fail;
+        }
+        service_set_state(s, SERVICE_PASSIVATE);
+
+        return;
+
+fail:
+        log_unit_warning_errno(UNIT(s), r, "Failed to run 'passivate' task: %m");
+        service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_RESOURCES);
+}
+
 static void service_enter_stop_by_notify(Service *s) {
         int r;
 
@@ -2261,6 +2392,23 @@ static void service_enter_running(Service *s, ServiceResult f) {
 
         } else if (s->remain_after_exit)
                 service_set_state(s, SERVICE_EXITED);
+        else
+                service_enter_stop(s, SERVICE_SUCCESS);
+}
+
+static void service_enter_running_passive(Service *s, ServiceResult f) {
+        assert(s);
+
+        if (s->result == SERVICE_SUCCESS)
+                s->result = f;
+
+        service_unwatch_control_pid(s);
+
+        if (s->result != SERVICE_SUCCESS)
+                service_enter_signal(s, SERVICE_STOP_SIGTERM, f);
+        else if (service_good(s))
+                service_set_state(s, SERVICE_RUNNING_PASSIVE);
+                // TODO passive state timeout
         else
                 service_enter_stop(s, SERVICE_SUCCESS);
 }
@@ -2632,6 +2780,7 @@ fail:
 }
 
 static void service_run_next_control(Service *s) {
+        // TODO adjust for restart command
         usec_t timeout;
         int r;
 
@@ -2765,8 +2914,31 @@ static int service_start(Unit *u) {
 
 static int service_stop(Unit *u) {
         Service *s = SERVICE(u);
+        Service *h_service;
 
         assert(s);
+
+        // XXX move below NOPs
+        if (service_rtemplate_handle(s, &h_service) > 0 &&
+            UNIT(h_service)->job && UNIT(h_service)->job->type == JOB_RESTART &&
+            UNIT_DEREF(h_service->current_gen_service) == u) {
+                /* Forwarded restart/stop from handle service to us */
+                Job *h_job = UNIT(h_service)->job;
+                Unit *un;
+                int r;
+
+                r = unit_new_next_generation(u->manager, u, u->id, &un);
+                if (r < 0)
+                        return r;
+                unit_add_to_load_queue(un);
+                log_unit_debug(UNIT(h_service), "preloading %s", un->id);
+
+                h_job->unit_next = un;
+                h_job->unit_next->rtemplate_job = true;
+
+                service_enter_passivate(s, SERVICE_SUCCESS);
+                return 1;
+        }
 
         /* Don't create restart jobs from manual stops. */
         s->forbid_restart = true;
@@ -2797,6 +2969,7 @@ static int service_stop(Unit *u) {
         case SERVICE_RELOAD_SIGNAL:
         case SERVICE_RELOAD_NOTIFY:
         case SERVICE_STOP_WATCHDOG:
+        case SERVICE_PASSIVATE:
                 /* If there's already something running we go directly into kill mode. */
                 service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_SUCCESS);
                 return 0;
@@ -2808,6 +2981,7 @@ static int service_stop(Unit *u) {
 
         case SERVICE_RUNNING:
         case SERVICE_EXITED:
+        case SERVICE_RUNNING_PASSIVE:
                 service_enter_stop(s, SERVICE_SUCCESS);
                 return 1;
 
@@ -3616,6 +3790,11 @@ static void service_notify_cgroup_empty_event(Unit *u) {
                 service_enter_running(s, SERVICE_SUCCESS);
                 break;
 
+        case SERVICE_RUNNING_PASSIVE:
+                /* same as above, XXX refactor?, can it be really empty? */
+                service_enter_running_passive(s, SERVICE_SUCCESS);
+                break;
+
         case SERVICE_STOP_WATCHDOG:
         case SERVICE_STOP_SIGTERM:
         case SERVICE_STOP_SIGKILL:
@@ -3835,6 +4014,10 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                         service_enter_running(s, f);
                                         break;
 
+                                case SERVICE_RUNNING_PASSIVE:
+                                        service_enter_running_passive(s, f);
+                                        break;
+
                                 case SERVICE_STOP_WATCHDOG:
                                 case SERVICE_STOP_SIGTERM:
                                 case SERVICE_STOP_SIGKILL:
@@ -4016,6 +4199,10 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                         service_set_state(s, SERVICE_RELOAD_NOTIFY);
                                 else
                                         service_enter_running(s, SERVICE_SUCCESS);
+                                break;
+
+                        case SERVICE_PASSIVATE:
+                                service_enter_running_passive(s, SERVICE_SUCCESS);
                                 break;
 
                         case SERVICE_STOP:
@@ -4731,6 +4918,13 @@ int service_set_socket_fd(
         /* This is called by the socket code when instantiating a new service for a stream socket and the socket needs
          * to be configured. We take ownership of the passed fd on success. */
 
+        /* Rtemplate handle service does nothing, pass to current generation */
+        if (UNIT_ISSET(s->current_gen_service)) {
+                log_unit_debug(UNIT(s), "Setting fd on %s", UNIT_DEREF(s->current_gen_service)->id);
+                return service_set_socket_fd(SERVICE(UNIT_DEREF(s->current_gen_service)),
+                                             fd, sock, peer, selinux_context_net);
+        }
+
         if (UNIT(s)->load_state != UNIT_LOADED)
                 return -EINVAL;
 
@@ -4844,6 +5038,40 @@ static const char* service_status_text(Unit *u) {
         assert(s);
 
         return s->status_text;
+}
+
+static Unit *service_following(Unit *u) {
+        Service *s = SERVICE(u);
+        assert(s);
+        return UNIT_DEREF(s->current_gen_service);
+}
+
+static int service_following_set(Unit *u, Set **_set) {
+        Service *s = SERVICE(u);
+        Service *other;
+        _cleanup_set_free_ Set *set = NULL;
+        int r;
+
+        assert(s);
+        assert(_set);
+
+        r = service_rtemplate_handle(s, &other);
+        if (r <= 0) /* 0 is empty set */
+                return r;
+
+        if (service_following(UNIT(other)) != u)
+                return 0;
+
+        set = set_new(NULL);
+        if (!set)
+                return -ENOMEM;
+
+        r = set_put(set, UNIT(other));
+        if (r < 0)
+                return r;
+
+        *_set = TAKE_PTR(set);
+        return 1;
 }
 
 static int service_clean(Unit *u, ExecCleanMask mask) {
@@ -5072,6 +5300,7 @@ static const char* const service_exec_command_table[_SERVICE_EXEC_COMMAND_MAX] =
         [SERVICE_EXEC_START]      = "ExecStart",
         [SERVICE_EXEC_START_POST] = "ExecStartPost",
         [SERVICE_EXEC_RELOAD]     = "ExecReload",
+        [SERVICE_EXEC_RESTART_PRE]= "ExecRestartPre",
         [SERVICE_EXEC_STOP]       = "ExecStop",
         [SERVICE_EXEC_STOP_POST]  = "ExecStopPost",
 };
@@ -5193,6 +5422,9 @@ const UnitVTable service_vtable = {
         .needs_console = service_needs_console,
         .exit_status = service_exit_status,
         .status_text = service_status_text,
+
+        .following = service_following,
+        .following_set = service_following_set,
 
         .status_message_formats = {
                 .finished_start_job = {

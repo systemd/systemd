@@ -670,6 +670,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
         fprintf(f,
                 "%s\tDescription: %s\n"
                 "%s\tInstance: %s\n"
+                "%s\tGeneration: %s\n"
                 "%s\tUnit Load State: %s\n"
                 "%s\tUnit Active State: %s\n"
                 "%s\tState Change Timestamp: %s\n"
@@ -683,7 +684,8 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 "%s\tPerpetual: %s\n"
                 "%s\tGarbage Collection Mode: %s\n",
                 prefix, unit_description(u),
-                prefix, strna(u->instance),
+                prefix, strna(u->instance.instance),
+                prefix, strna(u->instance.generation),
                 prefix, unit_load_state_to_string(u->load_state),
                 prefix, unit_active_state_to_string(unit_active_state(u)),
                 prefix, strna(FORMAT_TIMESTAMP(u->state_change_timestamp.realtime)),
@@ -764,7 +766,7 @@ void unit_dump(Unit *u, FILE *f, const char *prefix) {
                 fprintf(f, "%s\tFollowing: %s\n", prefix, following->id);
 
         r = unit_following_set(u, &following_set);
-        if (r >= 0) {
+        if (r > 0) {
                 Unit *other;
 
                 SET_FOREACH(other, following_set)

@@ -111,7 +111,7 @@ int generator_add_symlink_full(
                 return log_error_errno(SYNTHETIC_ERRNO(EISDIR), "Expected path to regular file name, but got '%s', refusing.", src);
 
         if (instance) {
-                r = unit_name_replace_instance(fn, instance, &instantiated);
+                r = unit_name_replace_instance(fn, UNIT_ARG_INSTANCE(instance), &instantiated);
                 if (r < 0)
                         return log_error_errno(r, "Failed to instantiate '%s' for '%s': %m", fn, instance);
         }
@@ -161,7 +161,7 @@ static int generator_add_ordering(
          * specified, it is inserted into <dst>. */
 
         if (instance) {
-                r = unit_name_replace_instance(dst, instance, &instantiated);
+                r = unit_name_replace_instance(dst, UNIT_ARG_INSTANCE(instance), &instantiated);
                 if (r < 0)
                         return log_error_errno(r, "Failed to instantiate '%s' for '%s': %m", dst, instance);
 

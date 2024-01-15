@@ -1402,6 +1402,12 @@ static int exec_parameters_serialize(const ExecParameters *p, const ExecContext 
         if (r < 0)
                 return r;
 
+        if (!isempty(p->generation)) {
+                r = serialize_item(f, "exec-parameters-instance-generation", p->generation);
+                if (r < 0)
+                        return r;
+        }
+
         r = serialize_item(f, "exec-parameters-invocation-id-string", p->invocation_id_string);
         if (r < 0)
                 return r;
@@ -1649,6 +1655,10 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                                 return r;
                 } else if ((val = startswith(l, "exec-parameters-unit-id="))) {
                         r = free_and_strdup(&p->unit_id, val);
+                        if (r < 0)
+                                return r;
+                } else if ((val = startswith(l, "exec-parameters-instance-generation="))) {
+                        r = free_and_strdup(&p->generation, val);
                         if (r < 0)
                                 return r;
                 } else if ((val = startswith(l, "exec-parameters-invocation-id-string="))) {

@@ -216,7 +216,7 @@ typedef struct Unit {
         Unit *merged_into;
 
         char *id;   /* The one special name that we use for identification */
-        char *instance;
+        UnitInstanceArg instance;
 
         Set *aliases; /* All the other names. */
 
@@ -264,6 +264,9 @@ typedef struct Unit {
 
         /* JOB_NOP jobs are special and can be installed without disturbing the real job. */
         Job *nop_job;
+
+        /* Protects from GC during rtemplate handle restart */
+        bool rtemplate_job;
 
         /* The slot used for watching NameOwnerChanged signals */
         sd_bus_slot *match_bus_slot;
@@ -857,6 +860,7 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(Unit *, unit_free);
 
 int unit_new_for_name(Manager *m, size_t size, const char *name, Unit **ret);
 int unit_add_name(Unit *u, const char *name);
+int unit_new_next_generation(Manager *m, Unit *u, const char *name, Unit **ret);
 
 int unit_add_dependency(Unit *u, UnitDependency d, Unit *other, bool add_reference, UnitDependencyMask mask);
 int unit_add_two_dependencies(Unit *u, UnitDependency d, UnitDependency e, Unit *other, bool add_reference, UnitDependencyMask mask);

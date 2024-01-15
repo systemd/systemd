@@ -131,7 +131,8 @@ static int unit_file_find_dirs(
                 const char *suffix,
                 char ***dirs) {
 
-        _cleanup_free_ char *prefix = NULL, *instance = NULL, *built = NULL;
+        _cleanup_free_ char *prefix = NULL, *built = NULL;
+        _cleanup_(unit_instance_freep) UnitInstanceArg instance = {};
         bool is_instance, chopped;
         const char *dash;
         UnitType type;

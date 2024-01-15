@@ -563,7 +563,7 @@ static int device_add_udev_wants(Unit *u, sd_device *dev) {
                 if (r < 0)
                         return log_unit_error_errno(u, r, "Failed to parse property %s with value %s: %m", property, wants);
 
-                if (unit_name_is_valid(word, UNIT_NAME_TEMPLATE) && d->sysfs) {
+                if (unit_name_is_valid(word, UNIT_NAME_UTEMPLATE) && d->sysfs) {
                         _cleanup_free_ char *escaped = NULL;
 
                         /* If the unit name is specified as template, then automatically fill in the sysfs path of the
@@ -573,7 +573,7 @@ static int device_add_udev_wants(Unit *u, sd_device *dev) {
                         if (r < 0)
                                 return log_unit_error_errno(u, r, "Failed to escape %s: %m", d->sysfs);
 
-                        r = unit_name_replace_instance(word, escaped, &k);
+                        r = unit_name_replace_instance(word, UNIT_ARG_INSTANCE(escaped), &k);
                         if (r < 0)
                                 return log_unit_error_errno(u, r, "Failed to build %s instance of template %s: %m", escaped, word);
                 } else {
