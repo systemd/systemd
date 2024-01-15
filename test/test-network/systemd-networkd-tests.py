@@ -11,6 +11,7 @@ import itertools
 import json
 import os
 import pathlib
+import random
 import re
 import shutil
 import signal
@@ -5029,9 +5030,7 @@ class NetworkdRATests(unittest.TestCase, Utilities):
 
         self.teardown_nftset('addr6', 'network6', 'ifindex')
 
-    def test_ipv6_token_static(self):
-        copy_network_unit('25-veth.netdev', '25-ipv6-prefix.network', '25-ipv6-prefix-veth-token-static.network')
-        start_networkd()
+    def check_ipv6_token_static(self):
         self.wait_online(['veth99:routable', 'veth-peer:degraded'])
 
         output = check_output(*networkctl_cmd, '-n', '0', 'status', 'veth99', env=env)
@@ -5040,6 +5039,26 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         self.assertRegex(output, '2002:da8:1:0:fa:de:ca:fe')
         self.assertRegex(output, '2002:da8:2:0:1a:2b:3c:4d')
         self.assertRegex(output, '2002:da8:2:0:fa:de:ca:fe')
+
+    def test_ipv6_token_static(self):
+        copy_network_unit('25-veth.netdev', '25-ipv6-prefix.network', '25-ipv6-prefix-veth-token-static.network')
+        start_networkd()
+
+        self.check_ipv6_token_static()
+
+        for _ in range(20):
+            check_output('ip link set veth99 down')
+            check_output('ip link set veth99 up')
+
+        self.check_ipv6_token_static()
+
+        for _ in range(20):
+            check_output('ip link set veth99 down')
+            time.sleep(random.uniform(0, 0.1))
+            check_output('ip link set veth99 up')
+            time.sleep(random.uniform(0, 0.1))
+
+        self.check_ipv6_token_static()
 
     def test_ipv6_token_prefixstable(self):
         copy_network_unit('25-veth.netdev', '25-ipv6-prefix.network', '25-ipv6-prefix-veth-token-prefixstable.network')
