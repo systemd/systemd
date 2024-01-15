@@ -281,8 +281,9 @@ static int maybe_decrypt_and_write_credential(
                                 now(CLOCK_REALTIME),
                                 /* tpm2_device= */ NULL,
                                 /* tpm2_signature_path= */ NULL,
+                                getuid(),
                                 &IOVEC_MAKE(data, size),
-                                /* flags= */ 0,
+                                CREDENTIAL_ANY_SCOPE,
                                 &plaintext);
                 if (r < 0)
                         return r;
@@ -707,8 +708,9 @@ static int acquire_credentials(
                                         now(CLOCK_REALTIME),
                                         /* tpm2_device= */ NULL,
                                         /* tpm2_signature_path= */ NULL,
+                                        getuid(),
                                         &IOVEC_MAKE(sc->data, sc->size),
-                                        /* flags= */ 0,
+                                        CREDENTIAL_ANY_SCOPE,
                                         &plaintext);
                         if (r < 0)
                                 return r;
