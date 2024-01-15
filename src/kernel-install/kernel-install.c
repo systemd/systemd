@@ -133,9 +133,10 @@ static int context_copy(const Context *source, Context *ret) {
 
         assert(source);
         assert(ret);
+        assert(source->rfd >= 0 || source->rfd == AT_FDCWD);
 
         _cleanup_(context_done) Context copy = (Context) {
-                .rfd = -EBADF,
+                .rfd = AT_FDCWD,
                 .action = source->action,
                 .machine_id = source->machine_id,
                 .machine_id_is_random = source->machine_id_is_random,
@@ -144,9 +145,11 @@ static int context_copy(const Context *source, Context *ret) {
                 .entry_token_type = source->entry_token_type,
         };
 
-        copy.rfd = fd_reopen(source->rfd, O_CLOEXEC|O_DIRECTORY|O_PATH);
-        if (copy.rfd < 0)
-                return copy.rfd;
+        if (source->rfd >= 0) {
+                copy.rfd = fd_reopen(source->rfd, O_CLOEXEC|O_DIRECTORY|O_PATH);
+                if (copy.rfd < 0)
+                        return copy.rfd;
+        }
 
         r = strdup_or_null(source->layout_other, &copy.layout_other);
         if (r < 0)
@@ -169,9 +172,9 @@ static int context_copy(const Context *source, Context *ret) {
         r = strdup_or_null(source->kernel, &copy.kernel);
         if (r < 0)
                 return r;
-        copy.initrds = strv_copy(source->initrds);
-        if (!copy.initrds)
-                return -ENOMEM;
+        r = strv_copy_unless_empty(source->initrds, &copy.initrds);
+        if (r < 0)
+                return r;
         r = strdup_or_null(source->initrd_generator, &copy.initrd_generator);
         if (r < 0)
                 return r;
@@ -181,15 +184,15 @@ static int context_copy(const Context *source, Context *ret) {
         r = strdup_or_null(source->staging_area, &copy.staging_area);
         if (r < 0)
                 return r;
-        copy.plugins = strv_copy(source->plugins);
-        if (!copy.plugins)
-                return -ENOMEM;
-        copy.argv = strv_copy(source->argv);
-        if (!copy.argv)
-                return -ENOMEM;
-        copy.envp = strv_copy(source->envp);
-        if (!copy.envp)
-                return -ENOMEM;
+        r = strv_copy_unless_empty(source->plugins, &copy.plugins);
+        if (r < 0)
+                return r;
+        r = strv_copy_unless_empty(source->argv, &copy.argv);
+        if (r < 0)
+                return r;
+        r = strv_copy_unless_empty(source->envp, &copy.envp);
+        if (r < 0)
+                return r;
 
         *ret = copy;
         copy = CONTEXT_NULL;
@@ -1284,7 +1287,7 @@ static int verb_add_all(int argc, char *argv[], void *userdata) {
         }
 
         if (n > 0)
-                log_info("Installed %zu kernels.", n);
+                log_debug("Installed %zu kernel(s).", n);
         else if (ret == 0)
                 ret = log_error_errno(SYNTHETIC_ERRNO(ENOENT), "No kernels to install found.");
 
