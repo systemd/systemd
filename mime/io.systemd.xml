@@ -10,6 +10,24 @@
     <comment>Configuration Extension DDI</comment>
     <glob pattern="*.confext.raw"/>
   </mime-type>
+  <mime-type type="application/x.systemd-journal">
+    <comment>Journal Log File</comment>
+    <magic>
+      <match type="string" value="LPKSHHRH" offset="0"/>
+    </magic>
+  </mime-type>
+  <mime-type type="application/x.systemd-catalog">
+    <comment>Journal Message Catalog</comment>
+    <magic>
+      <match type="string" value="RHHHKSLP" offset="0"/>
+    </magic>
+  </mime-type>
+  <mime-type type="application/x.systemd-hwdb">
+    <comment>Hardware Database</comment>
+    <magic>
+      <match type="string" value="KSLPHHRH" offset="0"/>
+    </magic>
+  </mime-type>
   <mime-type type="application/x.systemd-credential">
     <comment>Encrypted Credential</comment>
     <generic-icon name="security-high"/>
