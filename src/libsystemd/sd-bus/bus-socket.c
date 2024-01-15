@@ -735,12 +735,12 @@ static int bus_socket_inotify_setup(sd_bus *b) {
         assert(b->sockaddr.sa.sa_family == AF_UNIX);
         assert(b->sockaddr.un.sun_path[0] != 0);
 
-        /* Sets up an inotify fd in case watch_bind is enabled: wait until the configured AF_UNIX file system socket
-         * appears before connecting to it. The implemented is pretty simplistic: we just subscribe to relevant changes
-         * to all prefix components of the path, and every time we get an event for that we try to reconnect again,
-         * without actually caring what precisely the event we got told us. If we still can't connect we re-subscribe
-         * to all relevant changes of anything in the path, so that our watches include any possibly newly created path
-         * components. */
+        /* Sets up an inotify fd in case watch_bind is enabled: wait until the configured AF_UNIX file system
+         * socket appears before connecting to it. The implemented is pretty simplistic: we just subscribe to
+         * relevant changes to all components of the path, and every time we get an event for that we try to
+         * reconnect again, without actually caring what precisely the event we got told us. If we still
+         * can't connect we re-subscribe to all relevant changes of anything in the path, so that our watches
+         * include any possibly newly created path components. */
 
         if (b->inotify_fd < 0) {
                 b->inotify_fd = inotify_init1(IN_NONBLOCK|IN_CLOEXEC);
@@ -759,17 +759,17 @@ static int bus_socket_inotify_setup(sd_bus *b) {
         if (r < 0)
                 goto fail;
 
-        /* Watch all parent directories, and don't mind any prefix that doesn't exist yet. For the innermost directory
-         * that exists we want to know when files are created or moved into it. For all parents of it we just care if
-         * they are removed or renamed. */
+        /* Watch all components of the path, and don't mind any prefix that doesn't exist yet. For the
+         * innermost directory that exists we want to know when files are created or moved into it. For all
+         * parents of it we just care if they are removed or renamed. */
 
         if (!GREEDY_REALLOC(new_watches, n + 1)) {
                 r = -ENOMEM;
                 goto fail;
         }
 
-        /* Start with the top-level directory, which is a bit simpler than the rest, since it can't be a symlink, and
-         * always exists */
+        /* Start with the top-level directory, which is a bit simpler than the rest, since it can't be a
+         * symlink, and always exists */
         wd = inotify_add_watch(b->inotify_fd, "/", IN_CREATE|IN_MOVED_TO);
         if (wd < 0) {
                 r = log_debug_errno(errno, "Failed to add inotify watch on /: %m");
