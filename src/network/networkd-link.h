@@ -25,6 +25,7 @@
 #include "networkd-ipv6ll.h"
 #include "networkd-util.h"
 #include "ordered-set.h"
+#include "ratelimit.h"
 #include "resolve-util.h"
 #include "set.h"
 
@@ -106,6 +107,7 @@ typedef struct Link {
         LinkAddressState ipv4_address_state;
         LinkAddressState ipv6_address_state;
         LinkOnlineState online_state;
+        RateLimit automatic_reconfigure_ratelimit;
 
         unsigned static_address_messages;
         unsigned static_address_label_messages;
