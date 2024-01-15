@@ -28,7 +28,6 @@
 #include "sparse-endian.h"
 #include "stat-util.h"
 #include "tpm2-util.h"
-#include "virt.h"
 
 #define PUBLIC_KEY_MAX (UINT32_C(1024) * UINT32_C(1024))
 
