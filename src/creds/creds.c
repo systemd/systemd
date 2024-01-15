@@ -59,6 +59,7 @@ static usec_t arg_not_after = USEC_INFINITY;
 static bool arg_pretty = false;
 static bool arg_quiet = false;
 static bool arg_varlink = false;
+static uid_t arg_uid = UID_INVALID;
 
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_public_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_signature, freep);
@@ -428,7 +429,7 @@ static int verb_cat(int argc, char **argv, void *userdata) {
                                         timestamp,
                                         arg_tpm2_device,
                                         arg_tpm2_signature,
-                                        getuid(),
+                                        uid_is_valid(arg_uid) ? arg_uid : getuid(),
                                         &IOVEC_MAKE(data, size),
                                         CREDENTIAL_ANY_SCOPE,
                                         &plaintext);
@@ -502,7 +503,7 @@ static int verb_encrypt(int argc, char **argv, void *userdata) {
                         arg_tpm2_pcr_mask,
                         arg_tpm2_public_key,
                         arg_tpm2_public_key_pcr_mask,
-                        /* uid= */ UID_INVALID,
+                        arg_uid,
                         &plaintext,
                         /* flags= */ 0,
                         &output);
@@ -592,7 +593,7 @@ static int verb_decrypt(int argc, char **argv, void *userdata) {
                         timestamp,
                         arg_tpm2_device,
                         arg_tpm2_signature,
-                        /* uid= */ UID_INVALID,
+                        arg_uid,
                         &input,
                         /* flags= */ 0,
                         &plaintext);
@@ -710,6 +711,8 @@ static int verb_help(int argc, char **argv, void *userdata) {
                "                          Specify TPM2 PCRs to seal against (public key)\n"
                "     --tpm2-signature=PATH\n"
                "                          Specify signature for public key PCR policy\n"
+               "     --user               Select user-scoped credential encryption\n"
+               "     --uid=UID            Select user for scoped credentials\n"
                "  -q --quiet              Suppress output for 'has-tpm2' verb\n"
                "\nSee the %2$s for details.\n"
                , program_invocation_short_name
@@ -740,6 +743,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NAME,
                 ARG_TIMESTAMP,
                 ARG_NOT_AFTER,
+                ARG_USER,
+                ARG_UID,
         };
 
         static const struct option options[] = {
@@ -762,6 +767,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "timestamp",            required_argument, NULL, ARG_TIMESTAMP            },
                 { "not-after",            required_argument, NULL, ARG_NOT_AFTER            },
                 { "quiet",                no_argument,       NULL, 'q'                      },
+                { "user",                 no_argument,       NULL, ARG_USER                 },
+                { "uid",                  required_argument, NULL, ARG_UID                  },
                 {}
         };
 
@@ -923,6 +930,32 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_USER:
+                        if (!uid_is_valid(arg_uid))
+                                arg_uid = getuid();
+
+                        break;
+
+                case ARG_UID:
+                        if (isempty(optarg))
+                                arg_uid = UID_INVALID;
+                        else if (streq(optarg, "self"))
+                                arg_uid = getuid();
+                        else {
+                                const char *name = optarg;
+
+                                r = get_user_creds(
+                                                &name,
+                                                &arg_uid,
+                                                /* ret_gid= */ NULL,
+                                                /* ret_home= */ NULL,
+                                                /* ret_shell= */ NULL,
+                                                /* flags= */ 0);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to resolve user '%s': %m", optarg);
+                        }
+                        break;
+
                 case 'q':
                         arg_quiet = true;
                         break;
@@ -933,6 +966,21 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached();
                 }
+        }
+
+        if (uid_is_valid(arg_uid)) {
+                /* If a UID is specified, then switch to scoped credentials */
+
+                if (sd_id128_equal(arg_with_key, _CRED_AUTO))
+                        arg_with_key = _CRED_AUTO_SCOPED;
+                else if (sd_id128_in_set(arg_with_key, CRED_AES256_GCM_BY_HOST, CRED_AES256_GCM_BY_HOST_SCOPED))
+                        arg_with_key = CRED_AES256_GCM_BY_HOST_SCOPED;
+                else if (sd_id128_in_set(arg_with_key, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED))
+                        arg_with_key = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED;
+                else if (sd_id128_in_set(arg_with_key, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK, CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED))
+                        arg_with_key = CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED;
+                else
+                        return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Selected key not available in --uid= scoped mode, refusing.");
         }
 
         if (arg_tpm2_pcr_mask == UINT32_MAX)
@@ -1032,7 +1080,7 @@ static int vl_method_encrypt(Varlink *link, JsonVariant *parameters, VarlinkMeth
                         arg_tpm2_pcr_mask,
                         arg_tpm2_public_key,
                         arg_tpm2_public_key_pcr_mask,
-                        /* uid= */ UID_INVALID,
+                        arg_uid,
                         p.text ? &IOVEC_MAKE_STRING(p.text) : &p.data,
                         /* flags= */ 0,
                         &output);
@@ -1105,7 +1153,7 @@ static int vl_method_decrypt(Varlink *link, JsonVariant *parameters, VarlinkMeth
                         p.timestamp,
                         arg_tpm2_device,
                         arg_tpm2_signature,
-                        /* uid= */ UID_INVALID,
+                        arg_uid,
                         &p.blob,
                         /* flags= */ 0,
                         &output);
