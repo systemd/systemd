@@ -16,6 +16,7 @@
 #include "dhcp-lease-internal.h"
 #include "dhcp-option.h"
 #include "dns-domain.h"
+#include "dns-resolver.h"
 #include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -23,6 +24,7 @@
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
+#include "list.h"
 #include "network-common.h"
 #include "network-internal.h"
 #include "parse-util.h"
@@ -229,6 +231,16 @@ int sd_dhcp_lease_get_captive_portal(sd_dhcp_lease *lease, const char **ret) {
         return 0;
 }
 
+int sd_dhcp_lease_get_dnr(sd_dhcp_lease *lease, ResolverData **ret_resolvers) {
+        assert_return(ret_resolvers, -EINVAL);
+
+        if (!lease->resolvers || lease->n_resolvers == 0)
+                return -ENODATA;
+
+        *ret_resolvers = lease->resolvers;
+        return lease->n_resolvers;
+}
+
 int sd_dhcp_lease_get_router(sd_dhcp_lease *lease, const struct in_addr **addr) {
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
@@ -418,6 +430,7 @@ static sd_dhcp_lease *dhcp_lease_free(sd_dhcp_lease *lease) {
         for (sd_dhcp_lease_server_type_t i = 0; i < _SD_DHCP_LEASE_SERVER_TYPE_MAX; i++)
                 free(lease->servers[i].addr);
 
+        dhcp_resolver_data_free_all(lease->resolvers);
         free(lease->static_routes);
         free(lease->classless_routes);
         free(lease->vendor_specific);
@@ -557,6 +570,218 @@ static int lease_parse_sip_server(const uint8_t *option, size_t len, struct in_a
         }
 
         return lease_parse_in_addrs(option + 1, len - 1, ret, n_ret);
+}
+
+//FIXME: this is wonky
+static int lease_parse_dns_name(const uint8_t *option, size_t len, char **ret) {
+        _cleanup_free_ char *name = NULL;
+        char *p;
+
+        if (len == 0)
+                return -EINVAL;
+
+        if (strnlen((const char*) option+1, len-1) != len-2)
+                return -EINVAL;
+
+        name = new0(char, len);
+        p = stpncpy(name, (const char*) option + 1, len - 1);
+        if (p != name + len - 2)
+                return -EINVAL;
+
+        size_t n = *option;
+        while (n < len - 1) {
+                uint8_t tmp = name[n];
+                name[n] = '.';
+                n += tmp + 1;
+        }
+        if (n != len-1 || name[n] != '\0')
+                return -EINVAL;
+
+        *ret = TAKE_PTR(name);
+        return 0;
+}
+
+static int lease_parse_dnr_params(const uint8_t *option, size_t len, ResolverData *resolver) {
+        size_t offset = 0;
+
+        assert(resolver);
+
+        if (len < 4)
+                return -EINVAL;
+
+        DNSALPNFlags transports = 0;
+        uint16_t port = 0;
+        _cleanup_free_ char *dohpath = NULL;
+        bool alpn = false;
+
+        while (offset < len) {
+                uint16_t key = unaligned_read_be16(&option[offset]);
+                offset += 2;
+
+                uint16_t plen = unaligned_read_be16(&option[offset]);
+                if (offset + plen > len)
+                        return -EINVAL;
+                offset += 2;
+
+                switch (key) {
+                /* Mandatory keys must be understood by the client, otherwise the record should be discarded.
+                 * Automatic mandatory keys must not appear in the mandatory parameter, so these are all
+                 * supplementary. We don't understand any supplementary keys, so if the mandatory parameter
+                 * is present, we cannot use this record.*/
+                case DNS_SVC_PARAM_KEY_MANDATORY:
+                        if (plen > 0)
+                                return -EINVAL;
+                        break;
+
+                case DNS_SVC_PARAM_KEY_ALPN:
+                        if (plen == 0)
+                                return 0;
+                        alpn = true; /* alpn is required. Record that the requirement is met. */
+
+                        size_t poff = offset;
+                        size_t pend = offset + plen;
+                        while (poff < pend) {
+                                uint8_t alen = option[poff++];
+                                if (poff + alen > len)
+                                        return -EINVAL;
+                                if (alen == 3 && strneq((const char*) &option[poff], "dot", alen))
+                                        SET_FLAG(transports, SD_DNS_ALPN_DOT, true);
+                                if (alen == 2 && strneq((const char*) &option[poff], "h2", alen))
+                                        SET_FLAG(transports, SD_DNS_ALPN_HTTP_2_TLS, true);
+                                if (alen == 2 && strneq((const char*) &option[poff], "h3", alen))
+                                        SET_FLAG(transports, SD_DNS_ALPN_HTTP_3, true);
+                                if (alen == 3 && strneq((const char*) &option[poff], "doq", alen))
+                                        SET_FLAG(transports, SD_DNS_ALPN_DOQ, true);
+                                poff += alen;
+                        }
+                        if (poff != pend)
+                                return -EINVAL;
+                        break;
+
+                //FIXME: should we even support this?
+                case DNS_SVC_PARAM_KEY_PORT:
+                        if (plen != 2)
+                                return -EINVAL;
+                        port = unaligned_read_be16(&option[offset]);
+                        /* Server should indicate default port by omitting this param */
+                        if (port == 0)
+                                return -EINVAL;
+                        break;
+
+                /* RFC9463 § 5.1 service params MUST NOT include ipv4hint/ipv6hint */
+                case DNS_SVC_PARAM_KEY_IPV4HINT:
+                case DNS_SVC_PARAM_KEY_IPV6HINT:
+                        return -EINVAL;
+
+                case DNS_SVC_PARAM_KEY_DOHPATH:
+                        if (!make_cstring((const char*) &option[offset], plen,
+                                        MAKE_CSTRING_REFUSE_TRAILING_NUL, &dohpath))
+                                return -EINVAL;
+                        break;
+
+                default:
+                        break;
+                }
+                offset += plen;
+        }
+        if (offset != len)
+                return -EINVAL;
+
+        /* DNR cannot be used without alpn */
+        if (!alpn)
+                return -EINVAL;
+
+        /* DoH cannot be used without dohpath */
+        if (!dohpath)
+                SET_FLAG(transports, SD_DNS_ALPN_HTTP_2_TLS|SD_DNS_ALPN_HTTP_3, false);
+
+        /* No useful transports */
+        if (!transports)
+                return 0;
+
+        resolver->transports = transports;
+        resolver->port = port;
+        free_and_replace(resolver->dohpath, dohpath);
+        return transports;
+}
+
+static int lease_parse_designated_resolvers(const uint8_t *option, size_t len, ResolverData **ret_resolvers,
+                size_t *ret_n_resolvers) {
+        int r;
+        _cleanup_(dhcp_resolver_data_free_allp) ResolverData *resolvers = NULL;
+        size_t n_resolvers = 0;
+
+        assert(option);
+        assert(ret_resolvers);
+        assert(ret_n_resolvers);
+
+        size_t offset = 0;
+        while (offset < len) {
+                _cleanup_(dhcp_resolver_data_free_allp) ResolverData *resolver = NULL;
+                if (len < 2)
+                        return -EINVAL;
+
+                /* Instance Data length */
+                size_t ilen = unaligned_read_be16(&option[offset]);
+                if (2 + ilen > len)
+                        return -EINVAL;
+                offset += 2;
+
+                resolver = new0(ResolverData, 1);
+                if (!resolver)
+                        return -ENOMEM;
+
+                resolver->priority = unaligned_read_be16(&option[offset]);
+                offset += 2;
+
+                /* Authenticated Domain Name */
+                ilen = option[offset++];
+                if (offset + ilen > len)
+                        return -EINVAL;
+
+                r = lease_parse_dns_name(&option[offset], ilen, &resolver->auth_name);
+                if (r < 0)
+                        return r;
+                offset += ilen;
+
+                /* IPv4 addrs */
+                ilen = option[offset++];
+                r = lease_parse_in_addrs(&option[offset], ilen, &resolver->addrs, &resolver->n_addrs);
+                if (r < 0)
+                        return r;
+                offset += ilen;
+
+                /* service params */
+                r = lease_parse_dnr_params(&option[offset], len-offset, resolver);
+                if (r < 0)
+                        return r;
+                else if (r == 0) {
+                        *ret_resolvers = dhcp_resolver_data_free_all(*ret_resolvers);
+                        *ret_n_resolvers = 0;
+                        return 0;
+                }
+                offset += ilen;
+
+                /* Record resolvers in priority order */
+                if (!resolvers)
+                        resolvers = TAKE_PTR(resolver);
+                else {
+                        LIST_FOREACH(resolvers, i, resolvers) {
+                                if (resolver->priority < i->priority) {
+                                        LIST_INSERT_BEFORE(resolvers, resolvers, TAKE_PTR(resolver), i);
+                                        break;
+                                }
+                        }
+                        if (resolver)
+                                LIST_INSERT_AFTER(resolvers, resolvers, resolvers, TAKE_PTR(resolver));
+                }
+                n_resolvers++;
+        }
+
+        free_and_replace_full(*ret_resolvers, resolvers, dhcp_resolver_data_free_all);
+        *ret_n_resolvers = n_resolvers;
+
+        return 0;
 }
 
 static int lease_parse_static_routes(sd_dhcp_lease *lease, const uint8_t *option, size_t len) {
@@ -874,6 +1099,16 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
 
                 break;
         }
+
+        case SD_DHCP_OPTION_V4_DNR:
+                //FIXME: remove matching entries from DNS so they aren't duplicated?
+                r = lease_parse_designated_resolvers(option, len, &lease->resolvers, &lease->n_resolvers);
+                if (r < 0) {
+                        log_warning("Failed to parse network-designated resolvers %d\n", r);
+                        return 0;
+                }
+
+                break;
 
         case SD_DHCP_OPTION_VENDOR_SPECIFIC:
 

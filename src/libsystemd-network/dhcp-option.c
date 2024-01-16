@@ -428,6 +428,17 @@ static sd_dhcp_option* dhcp_option_free(sd_dhcp_option *i) {
         return mfree(i);
 }
 
+ResolverData *dhcp_resolver_data_free_all(ResolverData *first) {
+        LIST_FOREACH(resolvers, i, first) {
+                free(i->auth_name);
+                free(i->addrs);
+                free(i->dohpath);
+                free(i);
+        }
+
+        return NULL;
+}
+
 int sd_dhcp_option_new(uint8_t option, const void *data, size_t length, sd_dhcp_option **ret) {
         assert_return(ret, -EINVAL);
         assert_return(length == 0 || data, -EINVAL);
