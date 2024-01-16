@@ -336,6 +336,29 @@ static int route_get_link(Manager *manager, const Route *route, Link **ret) {
         return route_nexthop_get_link(manager, NULL, &route->nexthop, ret);
 }
 
+static int route_get_request(Link *link, const Route *route, Request **ret) {
+        Request *req;
+
+        assert(link);
+        assert(link->manager);
+        assert(route);
+
+        req = ordered_set_get(link->manager->request_queue,
+                              &(const Request) {
+                                      .link = link,
+                                      .type = REQUEST_TYPE_ROUTE,
+                                      .userdata = (void*) route,
+                                      .hash_func = (hash_func_t) route_hash_func,
+                                      .compare_func = (compare_func_t) route_compare_func,
+                              });
+        if (!req)
+                return -ENOENT;
+
+        if (ret)
+                *ret = req;
+        return 0;
+}
+
 int route_dup(const Route *src, const RouteNextHop *nh, Route **ret) {
         _cleanup_(route_freep) Route *dest = NULL;
         int r;
@@ -1348,29 +1371,17 @@ int link_request_static_routes(Link *link, bool only_ipv4) {
 }
 
 void route_cancel_request(Route *route, Link *link) {
-        Request *req;
-
         assert(route);
 
-        link = route->link ?: link;
-
-        assert(link);
-        assert(link->manager);
+        link = ASSERT_PTR(route->link ?: link);
 
         if (!route_is_requesting(route))
                 return;
 
-        req = ordered_set_get(link->manager->request_queue,
-                              &(Request) {
-                                      .link = link,
-                                      .type = REQUEST_TYPE_ROUTE,
-                                      .userdata = route,
-                                      .hash_func = (hash_func_t) route_hash_func,
-                                      .compare_func = (compare_func_t) route_compare_func,
-                              });
-
-        if (req)
+        Request *req;
+        if (route_get_request(link, route, &req) >= 0)
                 request_detach(req);
+
         route_cancel_requesting(route);
 }
 
