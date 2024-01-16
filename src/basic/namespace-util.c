@@ -33,71 +33,78 @@ const struct namespace_info namespace_info[] = {
 
 #define pid_namespace_path(pid, type) procfs_file_alloca(pid, namespace_info[type].proc_path)
 
-int namespace_open(pid_t pid, int *pidns_fd, int *mntns_fd, int *netns_fd, int *userns_fd, int *root_fd) {
-        _cleanup_close_ int pidnsfd = -EBADF, mntnsfd = -EBADF, netnsfd = -EBADF, usernsfd = -EBADF;
-        int rfd = -EBADF;
+int namespace_open(
+                pid_t pid,
+                int *ret_pidns_fd,
+                int *ret_mntns_fd,
+                int *ret_netns_fd,
+                int *ret_userns_fd,
+                int *ret_root_fd) {
+
+        _cleanup_close_ int pidns_fd = -EBADF, mntns_fd = -EBADF, netns_fd = -EBADF,
+                userns_fd = -EBADF, root_fd = -EBADF;
 
         assert(pid >= 0);
 
-        if (mntns_fd) {
-                const char *mntns;
-
-                mntns = pid_namespace_path(pid, NAMESPACE_MOUNT);
-                mntnsfd = open(mntns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
-                if (mntnsfd < 0)
-                        return -errno;
-        }
-
-        if (pidns_fd) {
+        if (ret_pidns_fd) {
                 const char *pidns;
 
                 pidns = pid_namespace_path(pid, NAMESPACE_PID);
-                pidnsfd = open(pidns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
-                if (pidnsfd < 0)
+                pidns_fd = open(pidns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+                if (pidns_fd < 0)
                         return -errno;
         }
 
-        if (netns_fd) {
+        if (ret_mntns_fd) {
+                const char *mntns;
+
+                mntns = pid_namespace_path(pid, NAMESPACE_MOUNT);
+                mntns_fd = open(mntns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+                if (mntns_fd < 0)
+                        return -errno;
+        }
+
+        if (ret_netns_fd) {
                 const char *netns;
 
                 netns = pid_namespace_path(pid, NAMESPACE_NET);
-                netnsfd = open(netns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
-                if (netnsfd < 0)
+                netns_fd = open(netns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+                if (netns_fd < 0)
                         return -errno;
         }
 
-        if (userns_fd) {
+        if (ret_userns_fd) {
                 const char *userns;
 
                 userns = pid_namespace_path(pid, NAMESPACE_USER);
-                usernsfd = open(userns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
-                if (usernsfd < 0 && errno != ENOENT)
+                userns_fd = open(userns, O_RDONLY|O_NOCTTY|O_CLOEXEC);
+                if (userns_fd < 0 && errno != ENOENT)
                         return -errno;
         }
 
-        if (root_fd) {
+        if (ret_root_fd) {
                 const char *root;
 
                 root = procfs_file_alloca(pid, "root");
-                rfd = open(root, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
-                if (rfd < 0)
+                root_fd = open(root, O_RDONLY|O_NOCTTY|O_CLOEXEC|O_DIRECTORY);
+                if (root_fd < 0)
                         return -errno;
         }
 
-        if (pidns_fd)
-                *pidns_fd = TAKE_FD(pidnsfd);
+        if (ret_pidns_fd)
+                *ret_pidns_fd = TAKE_FD(pidns_fd);
 
-        if (mntns_fd)
-                *mntns_fd = TAKE_FD(mntnsfd);
+        if (ret_mntns_fd)
+                *ret_mntns_fd = TAKE_FD(mntns_fd);
 
-        if (netns_fd)
-                *netns_fd = TAKE_FD(netnsfd);
+        if (ret_netns_fd)
+                *ret_netns_fd = TAKE_FD(netns_fd);
 
-        if (userns_fd)
-                *userns_fd = TAKE_FD(usernsfd);
+        if (ret_userns_fd)
+                *ret_userns_fd = TAKE_FD(userns_fd);
 
-        if (root_fd)
-                *root_fd = TAKE_FD(rfd);
+        if (ret_root_fd)
+                *ret_root_fd = TAKE_FD(root_fd);
 
         return 0;
 }
