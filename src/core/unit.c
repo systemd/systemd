@@ -6530,11 +6530,7 @@ int activation_details_append_pair(ActivationDetails *details, char ***strv) {
                 return 0;
 
         if (!isempty(details->trigger_unit_name)) {
-                r = strv_extend(strv, "trigger_unit");
-                if (r < 0)
-                        return r;
-
-                r = strv_extend(strv, details->trigger_unit_name);
+                r = strv_extend_many(strv, "trigger_unit", details->trigger_unit_name);
                 if (r < 0)
                         return r;
         }
