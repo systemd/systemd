@@ -144,6 +144,7 @@ struct Network {
         int dhcp_use_rapid_commit;
         bool dhcp_use_dns;
         bool dhcp_use_dns_set;
+        int dhcp_use_dnr;
         bool dhcp_routes_to_dns;
         bool dhcp_use_ntp;
         bool dhcp_use_ntp_set;
