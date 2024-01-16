@@ -215,6 +215,10 @@ static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
         if (route->hop_limit == 0)
                 route->hop_limit = hop_limit;
 
+        r = route_adjust_nexthops(route, link);
+        if (r < 0)
+                return r;
+
         is_new = route_get(NULL, link, route, NULL) < 0;
 
         r = link_request_route(link, TAKE_PTR(route), true, &link->ndisc_messages,
