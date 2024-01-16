@@ -2,6 +2,8 @@
 
 #include "creds-util.h"
 #include "fileio.h"
+#include "format-util.h"
+#include "hexdecoct.h"
 #include "id128-util.h"
 #include "iovec-util.h"
 #include "path-util.h"
@@ -9,6 +11,7 @@
 #include "tests.h"
 #include "tmpfile-util.h"
 #include "tpm2-util.h"
+#include "user-util.h"
 
 TEST(read_credential_strings) {
         _cleanup_free_ char *x = NULL, *y = NULL, *saved = NULL, *p = NULL;
@@ -117,11 +120,14 @@ TEST(credential_glob_valid) {
         assert_se(credential_glob_valid(buf));
 }
 
-static void test_encrypt_decrypt_with(sd_id128_t mode) {
+static void test_encrypt_decrypt_with(sd_id128_t mode, uid_t uid) {
         static const struct iovec plaintext = CONST_IOVEC_MAKE_STRING("this is a super secret string");
         int r;
 
-        log_notice("Running encryption/decryption test with mode " SD_ID128_FORMAT_STR ".", SD_ID128_FORMAT_VAL(mode));
+        if (uid_is_valid(uid))
+                log_notice("Running encryption/decryption test with mode " SD_ID128_FORMAT_STR " for UID " UID_FMT ".", SD_ID128_FORMAT_VAL(mode), uid);
+        else
+                log_notice("Running encryption/decryption test with mode " SD_ID128_FORMAT_STR ".", SD_ID128_FORMAT_VAL(mode));
 
         _cleanup_(iovec_done) struct iovec encrypted = {};
         r = encrypt_credential_and_warn(
@@ -133,6 +139,7 @@ static void test_encrypt_decrypt_with(sd_id128_t mode) {
                         /* tpm2_hash_pcr_mask= */ 0,
                         /* tpm2_pubkey_path= */ NULL,
                         /* tpm2_pubkey_pcr_mask= */ 0,
+                        uid,
                         &plaintext,
                         CREDENTIAL_ALLOW_NULL,
                         &encrypted);
@@ -153,6 +160,7 @@ static void test_encrypt_decrypt_with(sd_id128_t mode) {
                         /* validate_timestamp= */ USEC_INFINITY,
                         /* tpm2_device= */ NULL,
                         /* tpm2_signature_path= */ NULL,
+                        uid,
                         &encrypted,
                         CREDENTIAL_ALLOW_NULL,
                         &decrypted);
@@ -163,6 +171,7 @@ static void test_encrypt_decrypt_with(sd_id128_t mode) {
                         /* validate_timestamp= */ USEC_INFINITY,
                         /* tpm2_device= */ NULL,
                         /* tpm2_signature_path= */ NULL,
+                        uid,
                         &encrypted,
                         CREDENTIAL_ALLOW_NULL,
                         &decrypted);
@@ -190,7 +199,9 @@ TEST(credential_encrypt_decrypt) {
         _cleanup_(rm_rf_physical_and_freep) char *d = NULL;
         _cleanup_free_ char *j = NULL;
 
-        test_encrypt_decrypt_with(CRED_AES256_GCM_BY_NULL);
+        log_set_max_level(LOG_DEBUG);
+
+        test_encrypt_decrypt_with(CRED_AES256_GCM_BY_NULL, UID_INVALID);
 
         assert_se(mkdtemp_malloc(NULL, &d) >= 0);
         j = path_join(d, "secret");
@@ -204,16 +215,47 @@ TEST(credential_encrypt_decrypt) {
 
         assert_se(setenv("SYSTEMD_CREDENTIAL_SECRET", j, true) >= 0);
 
-        test_encrypt_decrypt_with(CRED_AES256_GCM_BY_HOST);
+        test_encrypt_decrypt_with(CRED_AES256_GCM_BY_HOST, UID_INVALID);
+        test_encrypt_decrypt_with(CRED_AES256_GCM_BY_HOST_SCOPED, 0);
 
         if (try_tpm2()) {
-                test_encrypt_decrypt_with(CRED_AES256_GCM_BY_TPM2_HMAC);
-                test_encrypt_decrypt_with(CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC);
+                test_encrypt_decrypt_with(CRED_AES256_GCM_BY_TPM2_HMAC, UID_INVALID);
+                test_encrypt_decrypt_with(CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC, UID_INVALID);
+                test_encrypt_decrypt_with(CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED, 0);
         }
 
         if (ec)
                 assert_se(setenv("SYSTEMD_CREDENTIAL_SECRET", ec, true) >= 0);
+}
 
+TEST(mime_type_matches) {
+
+        static const sd_id128_t tags[] = {
+                CRED_AES256_GCM_BY_HOST,
+                CRED_AES256_GCM_BY_HOST_SCOPED,
+                CRED_AES256_GCM_BY_TPM2_HMAC,
+                CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK,
+                CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC,
+                CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED,
+                CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,
+                CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED,
+                CRED_AES256_GCM_BY_NULL,
+        };
+
+        /* Generates the right <match/> expressions for these credentials according to the shared mime-info database */
+        FOREACH_ARRAY(t, tags, ELEMENTSOF(tags)) {
+                _cleanup_free_ char *encoded = NULL;
+
+                assert_se(base64mem(t, sizeof(sd_id128_t), &encoded) >= 0);
+
+                /* Validate that the size matches expectations for the ¾ factor expectation (rounding up) */
+                assert_se(strlen(encoded) == DIV_ROUND_UP((128U / 8U), 3U) * 4U);
+
+                /* Cut off rounded string where the ID ends, but now round up to get rid of characters that might contain follow-up data */
+                encoded[128 / 6] = 0;
+
+                printf("<match type=\"string\" value=\"%s\" offset=\"0\"/>\n", encoded);
+        }
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);

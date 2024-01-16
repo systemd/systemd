@@ -59,6 +59,7 @@ int get_credential_user_password(const char *username, char **ret_password, bool
 
 typedef enum CredentialFlags {
         CREDENTIAL_ALLOW_NULL = 1 << 0, /* allow decryption of NULL key, even if TPM is around */
+        CREDENTIAL_ANY_SCOPE  = 1 << 1, /* allow decryption of both system and user credentials */
 } CredentialFlags;
 
 /* The four modes we support: keyed only by on-disk key, only by TPM2 HMAC key, and by the combination of
@@ -66,11 +67,16 @@ typedef enum CredentialFlags {
  * authenticity or confidentiality, but is still useful for integrity protection, and makes things simpler
  * for us to handle). */
 #define CRED_AES256_GCM_BY_HOST               SD_ID128_MAKE(5a,1c,6a,86,df,9d,40,96,b1,d5,a6,5e,08,62,f1,9a)
+#define CRED_AES256_GCM_BY_HOST_SCOPED        SD_ID128_MAKE(55,b9,ed,1d,38,59,4d,43,a8,31,9d,2e,bb,33,2a,c6)
 #define CRED_AES256_GCM_BY_TPM2_HMAC          SD_ID128_MAKE(0c,7c,c0,7b,11,76,45,91,9c,4b,0b,ea,08,bc,20,fe)
 #define CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK  SD_ID128_MAKE(fa,f7,eb,93,41,e3,41,2c,a1,a4,36,f9,5a,29,36,2f)
 #define CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC SD_ID128_MAKE(93,a8,94,09,48,74,44,90,90,ca,f2,fc,93,ca,b5,53)
+#define CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_SCOPED            \
+                                              SD_ID128_MAKE(ef,4a,c1,36,79,a9,48,0e,a7,db,68,89,7f,9f,16,5d)
 #define CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK           \
                                               SD_ID128_MAKE(af,49,50,a8,49,13,4e,b1,a7,38,46,30,4f,f3,0c,05)
+#define CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK_SCOPED    \
+                                              SD_ID128_MAKE(ad,bc,4c,a3,ef,b6,42,01,ba,88,1b,6f,2e,40,95,ea)
 #define CRED_AES256_GCM_BY_NULL               SD_ID128_MAKE(05,84,69,da,f6,f5,43,24,80,05,49,da,0f,8e,a2,fb)
 
 /* Two special IDs to pick a general automatic mode (i.e. tpm2+host if TPM2 exists, only host otherwise) or
@@ -80,6 +86,10 @@ typedef enum CredentialFlags {
  * with an underscore. */
 #define _CRED_AUTO                            SD_ID128_MAKE(a2,19,cb,07,85,b2,4c,04,b1,6d,18,ca,b9,d2,ee,01)
 #define _CRED_AUTO_INITRD                     SD_ID128_MAKE(02,dc,8e,de,3a,02,43,ab,a9,ec,54,9c,05,e6,a0,71)
+#define _CRED_AUTO_SCOPED                     SD_ID128_MAKE(23,88,96,85,6f,74,48,8a,9c,78,6f,6a,b0,e7,3b,6a)
 
-int encrypt_credential_and_warn(sd_id128_t with_key, const char *name, usec_t timestamp, usec_t not_after, const char *tpm2_device, uint32_t tpm2_hash_pcr_mask, const char *tpm2_pubkey_path, uint32_t tpm2_pubkey_pcr_mask, const struct iovec *input, CredentialFlags flags, struct iovec *ret);
-int decrypt_credential_and_warn(const char *validate_name, usec_t validate_timestamp, const char *tpm2_device, const char *tpm2_signature_path, const struct iovec *input, CredentialFlags flags, struct iovec *ret);
+int encrypt_credential_and_warn(sd_id128_t with_key, const char *name, usec_t timestamp, usec_t not_after, const char *tpm2_device, uint32_t tpm2_hash_pcr_mask, const char *tpm2_pubkey_path, uint32_t tpm2_pubkey_pcr_mask, uid_t uid, const struct iovec *input, CredentialFlags flags, struct iovec *ret);
+int decrypt_credential_and_warn(const char *validate_name, usec_t validate_timestamp, const char *tpm2_device, const char *tpm2_signature_path, uid_t uid, const struct iovec *input, CredentialFlags flags, struct iovec *ret);
+
+int ipc_encrypt_credential(const char *name, usec_t timestamp, usec_t not_after, uid_t uid, const struct iovec *input, CredentialFlags flags, struct iovec *ret);
+int ipc_decrypt_credential(const char *validate_name, usec_t validate_timestamp, uid_t uid, const struct iovec *input, CredentialFlags flags, struct iovec *ret);
