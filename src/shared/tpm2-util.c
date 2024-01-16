@@ -4196,6 +4196,11 @@ int tpm2_tpm2b_public_to_openssl_pkey(const TPM2B_PUBLIC *public, EVP_PKEY **ret
         }
 }
 
+/* Be careful before changing anything in this function, as the TPM key "name" is calculated using the entire
+ * TPMT_PUBLIC (after marshalling), and that "name" is used (for example) to calculate the policy hash for
+ * the Authorize policy. So we must ensure this conversion of a PEM to TPM2B_PUBLIC does not change the
+ * "name", because it would break unsealing of previously-sealed objects that used (for example)
+ * tpm2_calculate_policy_authorize(). See bug #30546. */
 int tpm2_tpm2b_public_from_openssl_pkey(const EVP_PKEY *pkey, TPM2B_PUBLIC *ret) {
         int key_id, r;
 
@@ -4274,8 +4279,11 @@ int tpm2_tpm2b_public_from_openssl_pkey(const EVP_PKEY *pkey, TPM2B_PUBLIC *ret)
                 uint32_t exponent = 0;
                 memcpy(&exponent, e, e_size);
                 exponent = be32toh(exponent) >> (32 - e_size * 8);
-                if (exponent == TPM2_RSA_DEFAULT_EXPONENT)
-                        exponent = 0;
+
+                /* TPM specification Part 2 ("Structures") section for TPMS_RSA_PARAMS states "An exponent of
+                 * zero indicates that the exponent is the default of 2^16 + 1". However, we have no reason
+                 * to special case it in our PEM->TPM2B_PUBLIC conversion, and doing so could break backwards
+                 * compatibility, so even if it is the "default" value of 0x10001, we do not set it to 0. */
                 public.parameters.rsaDetail.exponent = exponent;
 
                 break;
@@ -5549,11 +5557,25 @@ int tpm2_unseal(Tpm2Context *c,
 
                 /* If we know the policy hash to expect, and it doesn't match, we can shortcut things here, and not
                  * wait until the TPM2 tells us to go away. */
-                if (iovec_is_set(known_policy_hash) &&
-                        memcmp_nn(policy_digest->buffer, policy_digest->size, known_policy_hash->iov_base, known_policy_hash->iov_len) != 0)
+                if (iovec_is_set(known_policy_hash) && memcmp_nn(policy_digest->buffer,
+                                                                 policy_digest->size,
+                                                                 known_policy_hash->iov_base,
+                                                                 known_policy_hash->iov_len) != 0) {
+#if HAVE_OPENSSL
+                        if (iovec_is_set(pubkey) &&
+                            pubkey_tpm2b.publicArea.type == TPM2_ALG_RSA &&
+                            pubkey_tpm2b.publicArea.parameters.rsaDetail.exponent == TPM2_RSA_DEFAULT_EXPONENT) {
+                                /* Due to bug #30546, if using RSA pubkey with the default exponent, we may
+                                 * need to set the exponent to the TPM special-case value of 0 and retry. */
+                                log_debug("Policy hash mismatch, retrying with RSA pubkey exponent set to 0.");
+                                pubkey_tpm2b.publicArea.parameters.rsaDetail.exponent = 0;
+                                continue;
+                        } else
+#endif
                                 return log_debug_errno(SYNTHETIC_ERRNO(EPERM),
                                                        "Current policy digest does not match stored policy digest, cancelling "
                                                        "TPM2 authentication attempt.");
+                }
 
                 log_debug("Unsealing HMAC key.");
 
