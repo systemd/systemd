@@ -47,7 +47,8 @@ typedef enum VarlinkServerFlags {
         VARLINK_SERVER_MYSELF_ONLY      = 1 << 1, /* Only accessible by our own UID */
         VARLINK_SERVER_ACCOUNT_UID      = 1 << 2, /* Do per user accounting */
         VARLINK_SERVER_INHERIT_USERDATA = 1 << 3, /* Initialize Varlink connection userdata from VarlinkServer userdata */
-        _VARLINK_SERVER_FLAGS_ALL = (1 << 4) - 1,
+        VARLINK_SERVER_INPUT_SENSITIVE  = 1 << 4, /* Automatically mark al connection input as sensitive */
+        _VARLINK_SERVER_FLAGS_ALL = (1 << 5) - 1,
 } VarlinkServerFlags;
 
 typedef int (*VarlinkMethod)(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata);
@@ -153,6 +154,9 @@ int varlink_set_relative_timeout(Varlink *v, usec_t usec);
 VarlinkServer* varlink_get_server(Varlink *v);
 
 int varlink_set_description(Varlink *v, const char *d);
+
+/* Automatically mark the parameters part of incoming messages as security sensitive */
+int varlink_set_input_sensitive(Varlink *v);
 
 /* Create a varlink server */
 int varlink_server_new(VarlinkServer **ret, VarlinkServerFlags flags);

@@ -998,7 +998,7 @@ static int manager_bind_varlink(Manager *m) {
         assert(m);
         assert(!m->varlink_server);
 
-        r = varlink_server_new(&m->varlink_server, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA);
+        r = varlink_server_new(&m->varlink_server, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA|VARLINK_SERVER_INPUT_SENSITIVE);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate varlink server object: %m");
 
