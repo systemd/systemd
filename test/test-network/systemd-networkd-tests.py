@@ -3993,7 +3993,9 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             self.assertIn('nexthop via 192.168.5.3 dev veth99 weight 3', output)
         self.assertIn('nexthop via 192.168.20.1 dev dummy98 weight 1', output)
 
-        check_json(networkctl_json())
+        output = networkctl_json()
+        check_json(output)
+        self.assertNotIn('"Destination":[10.10.10.14]', output)
 
     def _test_nexthop(self, manage_foreign_nexthops):
         if not manage_foreign_nexthops:
@@ -4051,6 +4053,11 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         time.sleep(1)
         output = networkctl_status('test1')
         self.assertIn('State: routable (configuring)', output)
+
+        # Check if the route which needs nexthop 20 and 21 are forgotten.
+        output = networkctl_json()
+        check_json(output)
+        self.assertNotIn('"Destination":[10.10.10.14]', output)
 
         # Reconfigure the interface that has nexthop with ID 20 and 21,
         # then the route requested by test1 can be configured.

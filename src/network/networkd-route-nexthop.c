@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "extract-word.h"
 #include "netlink-util.h"
+#include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-nexthop.h"
 #include "networkd-route.h"
@@ -12,6 +13,48 @@
 #include "networkd-route-util.h"
 #include "parse-util.h"
 #include "string-util.h"
+
+void route_detach_from_nexthop(Route *route) {
+        NextHop *nh;
+
+        assert(route);
+        assert(route->manager);
+
+        if (route->nexthop_id == 0)
+                return;
+
+        if (nexthop_get_by_id(route->manager, route->nexthop_id, &nh) < 0)
+                return;
+
+        route_unref(set_remove(nh->routes, route));
+}
+
+void route_attach_to_nexthop(Route *route) {
+        NextHop *nh;
+        int r;
+
+        assert(route);
+        assert(route->manager);
+
+        if (route->nexthop_id == 0)
+                return;
+
+        r = nexthop_get_by_id(route->manager, route->nexthop_id, &nh);
+        if (r < 0) {
+                if (route->manager->manage_foreign_nexthops)
+                        log_debug_errno(r, "Route has unknown nexthop ID (%"PRIu32"), ignoring.",
+                                        route->nexthop_id);
+                return;
+        }
+
+        r = set_ensure_put(&nh->routes, &route_hash_ops_unref, route);
+        if (r < 0)
+                return (void) log_debug_errno(r, "Failed to save route to nexthop, ignoring: %m");
+        if (r == 0)
+                return (void) log_debug("Duplicated route assigned to nexthop, ignoring.");
+
+        route_ref(route);
+}
 
 static void route_nexthop_done(RouteNextHop *nh) {
         assert(nh);
@@ -35,7 +78,7 @@ void route_nexthops_done(Route *route) {
         ordered_set_free(route->nexthops);
 }
 
-static void route_nexthop_hash_func_full(const RouteNextHop *nh, struct siphash *state, bool hash_all_parameters) {
+static void route_nexthop_hash_func_full(const RouteNextHop *nh, struct siphash *state, bool with_weight) {
         assert(nh);
         assert(state);
 
@@ -46,15 +89,14 @@ static void route_nexthop_hash_func_full(const RouteNextHop *nh, struct siphash 
                 return;
 
         in_addr_hash_func(&nh->gw, nh->family, state);
-        if (!hash_all_parameters)
-                return;
-        siphash24_compress_typesafe(nh->weight, state);
+        if (with_weight)
+                siphash24_compress_typesafe(nh->weight, state);
         siphash24_compress_typesafe(nh->ifindex, state);
         if (nh->ifindex == 0)
                 siphash24_compress_string(nh->ifname, state); /* For Network or Request object. */
 }
 
-static int route_nexthop_compare_func_full(const RouteNextHop *a, const RouteNextHop *b, bool hash_all_parameters) {
+static int route_nexthop_compare_func_full(const RouteNextHop *a, const RouteNextHop *b, bool with_weight) {
         int r;
 
         assert(a);
@@ -71,12 +113,11 @@ static int route_nexthop_compare_func_full(const RouteNextHop *a, const RouteNex
         if (r != 0)
                 return r;
 
-        if (!hash_all_parameters)
-                return 0;
-
-        r = CMP(a->weight, b->weight);
-        if (r != 0)
-                return r;
+        if (with_weight) {
+                r = CMP(a->weight, b->weight);
+                if (r != 0)
+                        return r;
+        }
 
         r = CMP(a->ifindex, b->ifindex);
         if (r != 0)
@@ -92,11 +133,11 @@ static int route_nexthop_compare_func_full(const RouteNextHop *a, const RouteNex
 }
 
 static void route_nexthop_hash_func(const RouteNextHop *nh, struct siphash *state) {
-        route_nexthop_hash_func_full(nh, state, /* hash_all_parameters = */ true);
+        route_nexthop_hash_func_full(nh, state, /* with_weight = */ true);
 }
 
 static int route_nexthop_compare_func(const RouteNextHop *a, const RouteNextHop *b) {
-        return route_nexthop_compare_func_full(a, b, /* hash_all_parameters = */ true);
+        return route_nexthop_compare_func_full(a, b, /* with_weight = */ true);
 }
 
 DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
@@ -107,8 +148,6 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
         route_nexthop_free);
 
 static size_t route_n_nexthops(const Route *route) {
-        assert(route);
-
         if (route->nexthop_id != 0 || route_type_is_reject(route))
                 return 0;
 
@@ -130,7 +169,7 @@ void route_nexthops_hash_func(const Route *route, struct siphash *state) {
                 return;
 
         case 1:
-                route_nexthop_hash_func_full(&route->nexthop, state, /* hash_all_parameters = */ false);
+                route_nexthop_hash_func_full(&route->nexthop, state, /* with_weight = */ false);
                 return;
 
         default: {
@@ -157,7 +196,7 @@ int route_nexthops_compare_func(const Route *a, const Route *b) {
                 return CMP(a->nexthop_id, b->nexthop_id);
 
         case 1:
-                return route_nexthop_compare_func_full(&a->nexthop, &b->nexthop, /* hash_all_parameters = */ false);
+                return route_nexthop_compare_func_full(&a->nexthop, &b->nexthop, /* with_weight = */ false);
 
         default: {
                 RouteNextHop *nh;
@@ -170,7 +209,184 @@ int route_nexthops_compare_func(const Route *a, const Route *b) {
         }}
 }
 
-int route_nexthop_get_link(Manager *manager, Link *link, const RouteNextHop *nh, Link **ret) {
+static int route_nexthop_copy(const RouteNextHop *src, RouteNextHop *dest) {
+        assert(src);
+        assert(dest);
+
+        *dest = *src;
+
+        dest->ifname = NULL;
+
+        if (src->ifindex == 0)
+                return free_and_strdup(&dest->ifname, src->ifname);
+
+        return 0;
+}
+
+static int route_nexthop_dup(const RouteNextHop *src, RouteNextHop **ret) {
+        _cleanup_(route_nexthop_freep) RouteNextHop *dest = NULL;
+        int r;
+
+        assert(src);
+        assert(ret);
+
+        dest = new(RouteNextHop, 1);
+        if (!dest)
+                return -ENOMEM;
+
+        r = route_nexthop_copy(src, dest);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(dest);
+        return 0;
+}
+
+int route_nexthops_copy(const Route *src, const RouteNextHop *nh, Route *dest) {
+        int r;
+
+        assert(src);
+        assert(dest);
+
+        if (src->nexthop_id != 0 || route_type_is_reject(src))
+                return 0;
+
+        if (nh)
+                return route_nexthop_copy(nh, &dest->nexthop);
+
+        if (ordered_set_isempty(src->nexthops))
+                return route_nexthop_copy(&src->nexthop, &dest->nexthop);
+
+        ORDERED_SET_FOREACH(nh, src->nexthops) {
+                _cleanup_(route_nexthop_freep) RouteNextHop *nh_dup = NULL;
+
+                r = route_nexthop_dup(nh, &nh_dup);
+                if (r < 0)
+                        return r;
+
+                r = ordered_set_ensure_put(&dest->nexthops, &route_nexthop_hash_ops, nh_dup);
+                if (r < 0)
+                        return r;
+                assert(r > 0);
+
+                TAKE_PTR(nh_dup);
+        }
+
+        return 0;
+}
+
+static bool multipath_routes_needs_adjust(const Route *route) {
+        assert(route);
+
+        RouteNextHop *nh;
+        ORDERED_SET_FOREACH(nh, route->nexthops)
+                if (route->nexthop.ifindex == 0)
+                        return true;
+
+        return false;
+}
+
+bool route_nexthops_needs_adjust(const Route *route) {
+        assert(route);
+
+        if (route->nexthop_id != 0)
+                /* At this stage, the nexthop may not be configured, or may be under reconfiguring.
+                 * Hence, we cannot know if the nexthop is blackhole or not. */
+                return route->type != RTN_BLACKHOLE;
+
+        if (route_type_is_reject(route))
+                return false;
+
+        if (ordered_set_isempty(route->nexthops))
+                return route->nexthop.ifindex == 0;
+
+        return multipath_routes_needs_adjust(route);
+}
+
+static bool route_nexthop_set_ifindex(RouteNextHop *nh, Link *link) {
+        assert(nh);
+        assert(link);
+        assert(link->manager);
+
+        if (nh->ifindex > 0) {
+                nh->ifname = mfree(nh->ifname);
+                return false;
+        }
+
+        /* If an interface name is specified, use it. Otherwise, use the interface that requests this route. */
+        if (nh->ifname && link_get_by_name(link->manager, nh->ifname, &link) < 0)
+                return false;
+
+        nh->ifindex = link->ifindex;
+        nh->ifname = mfree(nh->ifname);
+        return true; /* updated */
+}
+
+int route_adjust_nexthops(Route *route, Link *link) {
+        int r;
+
+        assert(route);
+        assert(link);
+        assert(link->manager);
+
+        /* When an IPv4 route has nexthop id and the nexthop type is blackhole, even though kernel sends
+         * RTM_NEWROUTE netlink message with blackhole type, kernel's internal route type fib_rt_info::type
+         * may not be blackhole. Thus, we cannot know the internal value. Moreover, on route removal, the
+         * matching is done with the hidden value if we set non-zero type in RTM_DELROUTE message. So,
+         * here let's set route type to BLACKHOLE when the nexthop is blackhole. */
+        if (route->nexthop_id != 0) {
+                NextHop *nexthop;
+
+                r = nexthop_is_ready(link->manager, route->nexthop_id, &nexthop);
+                if (r <= 0)
+                        return r; /* r == 0 means the nexthop is under (re-)configuring.
+                                   * We cannot use the currently remembered information. */
+
+                if (!nexthop->blackhole)
+                        return false;
+
+                if (route->type == RTN_BLACKHOLE)
+                        return false;
+
+                route->type = RTN_BLACKHOLE;
+                return true; /* updated */
+        }
+
+        if (route_type_is_reject(route))
+                return false;
+
+        if (ordered_set_isempty(route->nexthops))
+                return route_nexthop_set_ifindex(&route->nexthop, link);
+
+        if (!multipath_routes_needs_adjust(route))
+                return false;
+
+        _cleanup_ordered_set_free_ OrderedSet *nexthops = NULL;
+        for (;;) {
+                _cleanup_(route_nexthop_freep) RouteNextHop *nh = NULL;
+
+                nh = ordered_set_steal_first(route->nexthops);
+                if (!nh)
+                        break;
+
+                (void) route_nexthop_set_ifindex(nh, link);
+
+                r = ordered_set_ensure_put(&nexthops, &route_nexthop_hash_ops, nh);
+                if (r == -EEXIST)
+                        continue; /* Duplicated? Let's drop the nexthop. */
+                if (r < 0)
+                        return r;
+                assert(r > 0);
+
+                TAKE_PTR(nh);
+        }
+
+        ordered_set_free(route->nexthops);
+        route->nexthops = TAKE_PTR(nexthops);
+        return true; /* updated */
+}
+
+int route_nexthop_get_link(Manager *manager, const RouteNextHop *nh, Link **ret) {
         assert(manager);
         assert(nh);
 
@@ -179,20 +395,16 @@ int route_nexthop_get_link(Manager *manager, Link *link, const RouteNextHop *nh,
         if (nh->ifname)
                 return link_get_by_name(manager, nh->ifname, ret);
 
-        if (link) {
-                if (ret)
-                        *ret = link;
-                return 0;
-        }
-
         return -ENOENT;
 }
 
-static bool route_nexthop_is_ready_to_configure(const RouteNextHop *nh, Link *link, bool onlink) {
-        assert(nh);
-        assert(link);
+static bool route_nexthop_is_ready_to_configure(const RouteNextHop *nh, Manager *manager, bool onlink) {
+        Link *link;
 
-        if (route_nexthop_get_link(link->manager, link, nh, &link))
+        assert(nh);
+        assert(manager);
+
+        if (route_nexthop_get_link(manager, nh, &link) < 0)
                 return false;
 
         if (!link_is_ready_to_configure(link, /* allow_unmanaged = */ true))
@@ -206,13 +418,11 @@ static bool route_nexthop_is_ready_to_configure(const RouteNextHop *nh, Link *li
         return gateway_is_ready(link, onlink, nh->family, &nh->gw);
 }
 
-int route_nexthops_is_ready_to_configure(const Route *route, Link *link) {
+int route_nexthops_is_ready_to_configure(const Route *route, Manager *manager) {
         int r;
 
         assert(route);
-        assert(link);
-
-        Manager *manager = ASSERT_PTR(link->manager);
+        assert(manager);
 
         if (route->nexthop_id != 0) {
                 struct nexthop_grp *nhg;
@@ -235,11 +445,11 @@ int route_nexthops_is_ready_to_configure(const Route *route, Link *link) {
                 return true;
 
         if (ordered_set_isempty(route->nexthops))
-                return route_nexthop_is_ready_to_configure(&route->nexthop, link, FLAGS_SET(route->flags, RTNH_F_ONLINK));
+                return route_nexthop_is_ready_to_configure(&route->nexthop, manager, FLAGS_SET(route->flags, RTNH_F_ONLINK));
 
         RouteNextHop *nh;
         ORDERED_SET_FOREACH(nh, route->nexthops)
-                if (!route_nexthop_is_ready_to_configure(nh, link, FLAGS_SET(route->flags, RTNH_F_ONLINK)))
+                if (!route_nexthop_is_ready_to_configure(nh, manager, FLAGS_SET(route->flags, RTNH_F_ONLINK)))
                         return false;
 
         return true;
@@ -310,7 +520,7 @@ int route_nexthops_to_string(const Route *route, char **ret) {
         return 0;
 }
 
-static int append_nexthop_one(Link *link, const Route *route, const RouteNextHop *nh, struct rtattr **rta, size_t offset) {
+static int append_nexthop_one(const Route *route, const RouteNextHop *nh, struct rtattr **rta, size_t offset) {
         struct rtnexthop *rtnh;
         struct rtattr *new_rta;
         int r;
@@ -321,15 +531,6 @@ static int append_nexthop_one(Link *link, const Route *route, const RouteNextHop
         assert(rta);
         assert(*rta);
 
-        if (nh->ifindex <= 0) {
-                assert(link);
-                assert(link->manager);
-
-                r = route_nexthop_get_link(link->manager, link, nh, &link);
-                if (r < 0)
-                        return r;
-        }
-
         new_rta = realloc(*rta, RTA_ALIGN((*rta)->rta_len) + RTA_SPACE(sizeof(struct rtnexthop)));
         if (!new_rta)
                 return -ENOMEM;
@@ -338,7 +539,7 @@ static int append_nexthop_one(Link *link, const Route *route, const RouteNextHop
         rtnh = (struct rtnexthop *)((uint8_t *) *rta + offset);
         *rtnh = (struct rtnexthop) {
                 .rtnh_len = sizeof(*rtnh),
-                .rtnh_ifindex = nh->ifindex > 0 ? nh->ifindex : link->ifindex,
+                .rtnh_ifindex = nh->ifindex,
                 .rtnh_hops = nh->weight,
         };
 
@@ -376,16 +577,13 @@ clear:
         return r;
 }
 
-static int netlink_message_append_multipath_route(Link *link, const Route *route, sd_netlink_message *message) {
+static int netlink_message_append_multipath_route(const Route *route, sd_netlink_message *message) {
         _cleanup_free_ struct rtattr *rta = NULL;
         size_t offset;
         int r;
 
         assert(route);
         assert(message);
-
-        if (ordered_set_isempty(route->nexthops))
-                return 0;
 
         rta = new(struct rtattr, 1);
         if (!rta)
@@ -397,22 +595,29 @@ static int netlink_message_append_multipath_route(Link *link, const Route *route
         };
         offset = (uint8_t *) RTA_DATA(rta) - (uint8_t *) rta;
 
-        RouteNextHop *nh;
-        ORDERED_SET_FOREACH(nh, route->nexthops) {
-                struct rtnexthop *rtnh;
-
-                r = append_nexthop_one(link, route, nh, &rta, offset);
+        if (ordered_set_isempty(route->nexthops)) {
+                r = append_nexthop_one(route, &route->nexthop, &rta, offset);
                 if (r < 0)
                         return r;
 
-                rtnh = (struct rtnexthop *)((uint8_t *) rta + offset);
-                offset = (uint8_t *) RTNH_NEXT(rtnh) - (uint8_t *) rta;
+        } else {
+                RouteNextHop *nh;
+                ORDERED_SET_FOREACH(nh, route->nexthops) {
+                        struct rtnexthop *rtnh;
+
+                        r = append_nexthop_one(route, nh, &rta, offset);
+                        if (r < 0)
+                                return r;
+
+                        rtnh = (struct rtnexthop *)((uint8_t *) rta + offset);
+                        offset = (uint8_t *) RTNH_NEXT(rtnh) - (uint8_t *) rta;
+                }
         }
 
         return sd_netlink_message_append_data(message, RTA_MULTIPATH, RTA_DATA(rta), RTA_PAYLOAD(rta));
 }
 
-int route_nexthops_set_netlink_message(Link *link, const Route *route, sd_netlink_message *message) {
+int route_nexthops_set_netlink_message(const Route *route, sd_netlink_message *message) {
         int r;
 
         assert(route);
@@ -425,7 +630,9 @@ int route_nexthops_set_netlink_message(Link *link, const Route *route, sd_netlin
         if (route_type_is_reject(route))
                 return 0;
 
-        if (ordered_set_isempty(route->nexthops)) {
+        /* We request IPv6 multipath routes separatedly. Even though, if weight is non-zero, we need to use
+         * RTA_MULTIPATH, as we have no way to specify the weight of the nexthop. */
+        if (ordered_set_isempty(route->nexthops) && route->nexthop.weight == 0) {
 
                 if (in_addr_is_set(route->nexthop.family, &route->nexthop.gw)) {
                         if (route->nexthop.family == route->family)
@@ -442,10 +649,11 @@ int route_nexthops_set_netlink_message(Link *link, const Route *route, sd_netlin
                                 return r;
                 }
 
-                return sd_netlink_message_append_u32(message, RTA_OIF, route->nexthop.ifindex > 0 ? route->nexthop.ifindex : ASSERT_PTR(link)->ifindex);
+                assert(route->nexthop.ifindex > 0);
+                return sd_netlink_message_append_u32(message, RTA_OIF, route->nexthop.ifindex);
         }
 
-        return netlink_message_append_multipath_route(link, route, message);
+        return netlink_message_append_multipath_route(route, message);
 }
 
 static int route_parse_nexthops(Route *route, const struct rtnexthop *rtnh, size_t size) {
@@ -710,6 +918,16 @@ int route_section_verify_nexthops(Route *route) {
                                          "Ignoring [Route] section from line %u.",
                                          route->section->filename, route->section->line);
 
+        if (ordered_set_size(route->nexthops) == 1) {
+                _cleanup_(route_nexthop_freep) RouteNextHop *nh = ordered_set_steal_first(route->nexthops);
+
+                route_nexthop_done(&route->nexthop);
+                route->nexthop = TAKE_STRUCT(*nh);
+
+                assert(ordered_set_isempty(route->nexthops));
+                route->nexthops = ordered_set_free(route->nexthops);
+        }
+
         return 0;
 }
 
@@ -726,7 +944,7 @@ int config_parse_gateway(
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_(route_free_or_set_invalidp) Route *route = NULL;
+        _cleanup_(route_unref_or_set_invalidp) Route *route = NULL;
         int r;
 
         assert(filename);
@@ -813,7 +1031,7 @@ int config_parse_route_gateway_onlink(
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_(route_free_or_set_invalidp) Route *route = NULL;
+        _cleanup_(route_unref_or_set_invalidp) Route *route = NULL;
         int r;
 
         assert(filename);
@@ -853,7 +1071,7 @@ int config_parse_route_nexthop(
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_(route_free_or_set_invalidp) Route *route = NULL;
+        _cleanup_(route_unref_or_set_invalidp) Route *route = NULL;
         uint32_t id;
         int r;
 
@@ -906,7 +1124,7 @@ int config_parse_multipath_route(
                 void *userdata) {
 
         _cleanup_(route_nexthop_freep) RouteNextHop *nh = NULL;
-        _cleanup_(route_free_or_set_invalidp) Route *route = NULL;
+        _cleanup_(route_unref_or_set_invalidp) Route *route = NULL;
         _cleanup_free_ char *word = NULL;
         Network *network = userdata;
         const char *p;
