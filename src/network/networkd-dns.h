@@ -17,6 +17,7 @@ typedef enum UseDomains {
 
 UseDomains link_get_use_domains(Link *link, NetworkConfigSource proto);
 bool link_get_use_dns(Link *link, NetworkConfigSource proto);
+bool link_get_use_dnr(Link *link, NetworkConfigSource proto);
 
 const char* use_domains_to_string(UseDomains p) _const_;
 UseDomains use_domains_from_string(const char *s) _pure_;
