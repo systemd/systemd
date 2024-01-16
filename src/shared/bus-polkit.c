@@ -280,8 +280,13 @@ static int async_polkit_read_reply(sd_bus_message *reply, AsyncPolkitQuery *q) {
 
                 e = sd_bus_message_get_error(reply);
 
-                if (bus_error_is_unknown_service(e))
-                        /* Treat no PK available as access denied */
+                if (bus_error_is_unknown_service(e) ||
+                    sd_bus_error_has_names(
+                                    e,
+                                    "org.freedesktop.PolicyKit1.Error.Failed",
+                                    "org.freedesktop.PolicyKit1.Error.Cancelled",
+                                    "org.freedesktop.PolicyKit1.Error.NotAuthorized"))
+                        /* Treat no PK available as access denied. Also treat some of the well-known PK errors as such. */
                         q->denied_action = TAKE_PTR(a);
                 else {
                         /* Save error from polkit reply, so it can be returned when the same authorization
@@ -381,7 +386,7 @@ static int async_polkit_callback(sd_bus_message *reply, void *userdata, sd_bus_e
                 if (q->request)
                         (void) sd_bus_reply_method_errno(q->request, r, NULL);
                 if (q->link)
-                        varlink_error_errno(q->link, r);
+                        (void) varlink_error_errno(q->link, r);
                 async_polkit_query_unref(q);
         }
         return r;
@@ -742,10 +747,9 @@ int varlink_verify_polkit_async(
                 if (r < 0) {
                         /* Reply with a nice error */
                         if (sd_bus_error_has_name(&error, SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED))
-                                return varlink_error(link, VARLINK_ERROR_INTERACTIVE_AUTHENTICATION_REQUIRED, NULL);
-
-                        if (ERRNO_IS_NEG_PRIVILEGE(r))
-                                return varlink_error(link, VARLINK_ERROR_PERMISSION_DENIED, NULL);
+                                (void) varlink_error(link, VARLINK_ERROR_INTERACTIVE_AUTHENTICATION_REQUIRED, NULL);
+                        else if (ERRNO_IS_NEG_PRIVILEGE(r))
+                                (void) varlink_error(link, VARLINK_ERROR_PERMISSION_DENIED, NULL);
 
                         return r;
                 }
