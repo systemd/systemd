@@ -235,8 +235,9 @@
       <varlistentry>
         <term><varname>RequiredForOnline=</varname></term>
         <listitem>
-          <para>Takes a boolean or a minimum operational state and an optional maximum operational
-          state. Please see
+          <para>Takes a boolean, a minimum operational state (e.g., <literal>carrier</literal>), or a range
+          of operational state separated with a colon (e.g., <literal>degraded:routable</literal>).
+          Please see
           <citerefentry><refentrytitle>networkctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
           for possible operational states. When <literal>yes</literal>, the network is deemed required
           when determining whether the system is online (including when running
@@ -245,6 +246,12 @@
           maximum operational state are set, <literal>yes</literal> is implied, and this controls the
           minimum and maximum operational state required for the network interface to be considered
           online.</para>
+
+          <para>When <literal>yes</literal> is specified for a CAN device,
+          <command>systemd-networkd-wait-online</command> deems that the interface is online when its
+          operational state becomes <literal>carrier</literal>. For an interface with other type, e.g.
+          <literal>ether</literal>, the interface is deened online when its online state is
+          <literal>degraded</literal> or <literal>routable</literal>.</para>
 
           <para>Defaults to <literal>yes</literal> when <varname>ActivationPolicy=</varname> is not
           set, or set to <literal>up</literal>, <literal>always-up</literal>, or

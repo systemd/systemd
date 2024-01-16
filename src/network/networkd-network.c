@@ -372,7 +372,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .n_ref = 1,
 
                 .required_for_online = -1,
-                .required_operstate_for_online = LINK_OPERSTATE_RANGE_DEFAULT,
+                .required_operstate_for_online = LINK_OPERSTATE_RANGE_INVALID,
                 .activation_policy = _ACTIVATION_POLICY_INVALID,
                 .group = -1,
                 .arp = -1,
@@ -1215,7 +1215,7 @@ int config_parse_required_for_online(
 
         if (isempty(rvalue)) {
                 network->required_for_online = -1;
-                network->required_operstate_for_online = LINK_OPERSTATE_RANGE_DEFAULT;
+                network->required_operstate_for_online = LINK_OPERSTATE_RANGE_INVALID;
                 return 0;
         }
 
