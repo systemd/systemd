@@ -424,15 +424,24 @@ static int verb_cat(int argc, char **argv, void *userdata) {
                 if (encrypted) {
                         _cleanup_(iovec_done_erase) struct iovec plaintext = {};
 
-                        r = decrypt_credential_and_warn(
-                                        *cn,
-                                        timestamp,
-                                        arg_tpm2_device,
-                                        arg_tpm2_signature,
-                                        uid_is_valid(arg_uid) ? arg_uid : getuid(),
-                                        &IOVEC_MAKE(data, size),
-                                        CREDENTIAL_ANY_SCOPE,
-                                        &plaintext);
+                        if (geteuid() != 0)
+                                r = ipc_decrypt_credential(
+                                                *cn,
+                                                timestamp,
+                                                uid_is_valid(arg_uid) ? arg_uid : getuid(),
+                                                &IOVEC_MAKE(data, size),
+                                                CREDENTIAL_ANY_SCOPE,
+                                                &plaintext);
+                        else
+                                r = decrypt_credential_and_warn(
+                                                *cn,
+                                                timestamp,
+                                                arg_tpm2_device,
+                                                arg_tpm2_signature,
+                                                uid_is_valid(arg_uid) ? arg_uid : getuid(),
+                                                &IOVEC_MAKE(data, size),
+                                                CREDENTIAL_ANY_SCOPE,
+                                                &plaintext);
                         if (r < 0)
                                 return r;
 
@@ -494,19 +503,29 @@ static int verb_encrypt(int argc, char **argv, void *userdata) {
         if (arg_not_after != USEC_INFINITY && arg_not_after < timestamp)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Credential is invalidated before it is valid.");
 
-        r = encrypt_credential_and_warn(
-                        arg_with_key,
-                        name,
-                        timestamp,
-                        arg_not_after,
-                        arg_tpm2_device,
-                        arg_tpm2_pcr_mask,
-                        arg_tpm2_public_key,
-                        arg_tpm2_public_key_pcr_mask,
-                        arg_uid,
-                        &plaintext,
-                        /* flags= */ 0,
-                        &output);
+        if (geteuid() != 0)
+                r = ipc_encrypt_credential(
+                                name,
+                                timestamp,
+                                arg_not_after,
+                                arg_uid,
+                                &plaintext,
+                                /* flags= */ 0,
+                                &output);
+        else
+                r = encrypt_credential_and_warn(
+                                arg_with_key,
+                                name,
+                                timestamp,
+                                arg_not_after,
+                                arg_tpm2_device,
+                                arg_tpm2_pcr_mask,
+                                arg_tpm2_public_key,
+                                arg_tpm2_public_key_pcr_mask,
+                                arg_uid,
+                                &plaintext,
+                                /* flags= */ 0,
+                                &output);
         if (r < 0)
                 return r;
 
@@ -588,15 +607,24 @@ static int verb_decrypt(int argc, char **argv, void *userdata) {
 
         timestamp = arg_timestamp != USEC_INFINITY ? arg_timestamp : now(CLOCK_REALTIME);
 
-        r = decrypt_credential_and_warn(
-                        name,
-                        timestamp,
-                        arg_tpm2_device,
-                        arg_tpm2_signature,
-                        arg_uid,
-                        &input,
-                        /* flags= */ 0,
-                        &plaintext);
+        if (geteuid() != 0)
+                r = ipc_decrypt_credential(
+                                name,
+                                timestamp,
+                                arg_uid,
+                                &input,
+                                /* flags= */ 0,
+                                &plaintext);
+        else
+                r = decrypt_credential_and_warn(
+                                name,
+                                timestamp,
+                                arg_tpm2_device,
+                                arg_tpm2_signature,
+                                arg_uid,
+                                &input,
+                                /* flags= */ 0,
+                                &plaintext);
         if (r < 0)
                 return r;
 
