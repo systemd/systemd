@@ -107,9 +107,9 @@ static void test_variant_one(const char *data, Test test) {
         assert_se(json_variant_equal(v, w));
 
         s = mfree(s);
-        r = json_variant_format(w, JSON_FORMAT_REFUSE_SENSITIVE, &s);
-        assert_se(r == -EPERM);
-        assert_se(!s);
+        r = json_variant_format(w, JSON_FORMAT_CENSOR_SENSITIVE, &s);
+        assert_se(s);
+        assert_se(streq_ptr(s, "\"<sensitive data>\""));
 
         s = mfree(s);
         r = json_variant_format(w, JSON_FORMAT_PRETTY, &s);
@@ -886,10 +886,11 @@ TEST(json_sensitive) {
 
         json_variant_sensitive(a);
 
-        assert_se(json_variant_format(a, JSON_FORMAT_REFUSE_SENSITIVE, &s) == -EPERM);
-        assert_se(!s);
+        assert_se(json_variant_format(a, JSON_FORMAT_CENSOR_SENSITIVE, &s) >= 0);
+        assert_se(streq_ptr(s, "\"<sensitive data>\""));
+        s = mfree(s);
 
-        r = json_variant_format(b, JSON_FORMAT_REFUSE_SENSITIVE, &s);
+        r = json_variant_format(b, JSON_FORMAT_CENSOR_SENSITIVE, &s);
         assert_se(r >= 0);
         assert_se(s);
         assert_se((size_t) r == strlen(s));
@@ -901,7 +902,7 @@ TEST(json_sensitive) {
                                              JSON_BUILD_PAIR("e", JSON_BUILD_EMPTY_OBJECT))) >= 0);
         json_variant_dump(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, NULL, NULL);
 
-        r = json_variant_format(v, JSON_FORMAT_REFUSE_SENSITIVE, &s);
+        r = json_variant_format(v, JSON_FORMAT_CENSOR_SENSITIVE, &s);
         assert_se(r >= 0);
         assert_se(s);
         assert_se((size_t) r == strlen(s));
@@ -915,7 +916,7 @@ TEST(json_sensitive) {
                                              JSON_BUILD_PAIR("e", JSON_BUILD_EMPTY_OBJECT))) >= 0);
         json_variant_dump(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, NULL, NULL);
 
-        r = json_variant_format(v, JSON_FORMAT_REFUSE_SENSITIVE, &s);
+        r = json_variant_format(v, JSON_FORMAT_CENSOR_SENSITIVE, &s);
         assert_se(r >= 0);
         assert_se(s);
         assert_se((size_t) r == strlen(s));
@@ -930,8 +931,9 @@ TEST(json_sensitive) {
                                              JSON_BUILD_PAIR("e", JSON_BUILD_EMPTY_OBJECT))) >= 0);
         json_variant_dump(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, NULL, NULL);
 
-        assert_se(json_variant_format(v, JSON_FORMAT_REFUSE_SENSITIVE, &s) == -EPERM);
-        assert_se(!s);
+        assert_se(json_variant_format(v, JSON_FORMAT_CENSOR_SENSITIVE, &s) >= 0);
+        assert_se(streq_ptr(s, "{\"b\":[\"foo\",\"bar\",\"baz\",\"qux\"],\"a\":\"<sensitive data>\",\"c\":-9223372036854775808,\"d\":\"-9223372036854775808\",\"e\":{}}"));
+        s = mfree(s);
         v = json_variant_unref(v);
 
         assert_se(json_build(&v, JSON_BUILD_OBJECT(
@@ -942,8 +944,9 @@ TEST(json_sensitive) {
                                              JSON_BUILD_PAIR("e", JSON_BUILD_EMPTY_OBJECT))) >= 0);
         json_variant_dump(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, NULL, NULL);
 
-        assert_se(json_variant_format(v, JSON_FORMAT_REFUSE_SENSITIVE, &s) == -EPERM);
-        assert_se(!s);
+        assert_se(json_variant_format(v, JSON_FORMAT_CENSOR_SENSITIVE, &s) >= 0);
+        assert_se(streq_ptr(s, "{\"b\":[\"foo\",\"bar\",\"baz\",\"qux\"],\"c\":-9223372036854775808,\"a\":\"<sensitive data>\",\"d\":\"-9223372036854775808\",\"e\":{}}"));
+        s = mfree(s);
         v = json_variant_unref(v);
 
         assert_se(json_build(&v, JSON_BUILD_OBJECT(
@@ -954,8 +957,9 @@ TEST(json_sensitive) {
                                              JSON_BUILD_PAIR("e", JSON_BUILD_EMPTY_OBJECT))) >= 0);
         json_variant_dump(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, NULL, NULL);
 
-        assert_se(json_variant_format(v, JSON_FORMAT_REFUSE_SENSITIVE, &s) == -EPERM);
-        assert_se(!s);
+        assert_se(json_variant_format(v, JSON_FORMAT_CENSOR_SENSITIVE, &s) >= 0);
+        assert_se(streq_ptr(s, "{\"b\":[\"foo\",\"bar\",\"baz\",\"qux\"],\"c\":-9223372036854775808,\"d\":\"-9223372036854775808\",\"a\":\"<sensitive data>\",\"e\":{}}"));
+        s = mfree(s);
         v = json_variant_unref(v);
 
         assert_se(json_build(&v, JSON_BUILD_OBJECT(
@@ -966,8 +970,8 @@ TEST(json_sensitive) {
                                              JSON_BUILD_PAIR_VARIANT("a", a))) >= 0);
         json_variant_dump(v, JSON_FORMAT_COLOR|JSON_FORMAT_PRETTY, NULL, NULL);
 
-        assert_se(json_variant_format(v, JSON_FORMAT_REFUSE_SENSITIVE, &s) == -EPERM);
-        assert_se(!s);
+        assert_se(json_variant_format(v, JSON_FORMAT_CENSOR_SENSITIVE, &s) >= 0);
+        assert_se(streq_ptr(s, "{\"b\":[\"foo\",\"bar\",\"baz\",\"qux\"],\"c\":-9223372036854775808,\"d\":\"-9223372036854775808\",\"e\":{},\"a\":\"<sensitive data>\"}"));
 }
 
 TEST(json_iovec) {
