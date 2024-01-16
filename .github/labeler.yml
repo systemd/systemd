@@ -7,6 +7,9 @@ apparmor:
 binfmt:
   - changed-files:
     - any-glob-to-any-file: '**/*binfmt*'
+bsod:
+  - changed-files:
+    - any-glob-to-any-file: '**/*bsod*'
 btrfs:
   - changed-files:
     - any-glob-to-any-file: '**/*btrfs*'
@@ -46,6 +49,9 @@ fstab-generator:
 growfs:
   - changed-files:
     - any-glob-to-any-file: '**/*growfs*'
+hibernate-resume:
+  - changed-files:
+    - any-glob-to-any-file: '**/*hibernate-resume*'
 hwdb:
   - changed-files:
     - any-glob-to-any-file: 'hwdb.d/**/*'
@@ -70,6 +76,9 @@ mkosi:
 network:
   - changed-files:
     - any-glob-to-any-file: ['src/libsystemd-network/**/*', 'src/network/**/*']
+nspawn:
+  - changed-files:
+    - any-glob-to-any-file: '**/*nspawn*'
 portable:
   - changed-files:
     - any-glob-to-any-file: 'src/portable/**/*'
@@ -184,6 +193,9 @@ util-lib:
 vconsole:
   - changed-files:
     - any-glob-to-any-file: '**/*vconsole*'
+vmspawn:
+  - changed-files:
+    - any-glob-to-any-file: '**/*vmspawn*'
 xdg-autostart:
   - changed-files:
     - any-glob-to-any-file: '**/**xdg-autostart-generator*'
