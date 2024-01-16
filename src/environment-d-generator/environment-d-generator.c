@@ -26,7 +26,7 @@ static int environment_dirs(char ***ret) {
         if (r < 0)
                 return r;
 
-        r = strv_extend_front(&dirs, c);
+        r = strv_consume_prepend(&dirs, TAKE_PTR(c));
         if (r < 0)
                 return r;
 

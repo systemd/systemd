@@ -56,7 +56,6 @@ static inline int strv_extend(char ***l, const char *value) {
 }
 
 int strv_extendf(char ***l, const char *format, ...) _printf_(2,3);
-int strv_extend_front(char ***l, const char *value);
 
 int strv_push_with_size(char ***l, size_t *n, char *value);
 static inline int strv_push(char ***l, char *value) {
