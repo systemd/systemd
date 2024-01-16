@@ -2271,7 +2271,9 @@ static int bus_unit_set_transient_property(
                                 u->documentation = strv_free(u->documentation);
                                 unit_write_settingf(u, flags, name, "%s=", name);
                         } else {
-                                strv_extend_strv(&u->documentation, l, false);
+                                r = strv_extend_strv(&u->documentation, l, /* filter_duplicates= */ false);
+                                if (r < 0)
+                                        return r;
 
                                 STRV_FOREACH(p, l)
                                         unit_write_settingf(u, flags, name, "%s=%s", name, *p);
