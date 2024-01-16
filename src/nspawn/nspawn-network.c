@@ -10,6 +10,7 @@
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "device-util.h"
 #include "ether-addr-util.h"
 #include "hexdecoct.h"
 #include "lock-util.h"
@@ -503,6 +504,51 @@ int test_network_interfaces_initialized(char **iface_pairs) {
         return 0;
 }
 
+static int move_network_interface_one(sd_netlink **rtnl, int netns_fd, sd_device *dev, const char *name) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        const char *sysname;
+        int r, ifindex;
+
+        assert(rtnl);
+        assert(netns_fd >= 0);
+        assert(dev);
+        assert(name);
+
+        if (!*rtnl) {
+                r = sd_netlink_open(rtnl);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect to rtnetlink: %m");
+        }
+
+        r = sd_device_get_ifindex(dev, &ifindex);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to get ifindex: %m");
+
+        r = sd_rtnl_message_new_link(*rtnl, &m, RTM_SETLINK, ifindex);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to allocate netlink message: %m");
+
+        r = sd_netlink_message_append_u32(m, IFLA_NET_NS_FD, netns_fd);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to append namespace fd to netlink message: %m");
+
+        r = sd_device_get_sysname(dev, &sysname);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to get sysname: %m");
+
+        if (!streq(name, sysname)) {
+                r = sd_netlink_message_append_string(m, IFLA_IFNAME, name);
+                if (r < 0)
+                        return log_device_error_errno(dev, r, "Failed to add netlink interface name: %m");
+        }
+
+        r = sd_netlink_call(*rtnl, m, 0, NULL);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to move interface to namespace: %m");
+
+        return 0;
+}
+
 int move_network_interfaces(int netns_fd, char **iface_pairs) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         int r;
@@ -510,35 +556,18 @@ int move_network_interfaces(int netns_fd, char **iface_pairs) {
         if (strv_isempty(iface_pairs))
                 return 0;
 
-        r = sd_netlink_open(&rtnl);
-        if (r < 0)
-                return log_error_errno(r, "Failed to connect to netlink: %m");
+        assert(netns_fd >= 0);
 
         STRV_FOREACH_PAIR(i, b, iface_pairs) {
-                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-                int ifi;
+                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
 
-                ifi = rtnl_resolve_interface_or_warn(&rtnl, *i);
-                if (ifi < 0)
-                        return ifi;
-
-                r = sd_rtnl_message_new_link(rtnl, &m, RTM_SETLINK, ifi);
+                r = sd_device_new_from_ifname(&dev, *i);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to allocate netlink message: %m");
+                        return log_error_errno(r, "Unknown interface name %s: %m", *i);
 
-                r = sd_netlink_message_append_u32(m, IFLA_NET_NS_FD, netns_fd);
+                r = move_network_interface_one(&rtnl, netns_fd, dev, *b);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to append namespace fd to netlink message: %m");
-
-                if (!streq(*b, *i)) {
-                        r = sd_netlink_message_append_string(m, IFLA_IFNAME, *b);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add netlink interface name: %m");
-                }
-
-                r = sd_netlink_call(rtnl, m, 0, NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to move interface %s to namespace: %m", *i);
+                        return r;
         }
 
         return 0;
