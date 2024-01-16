@@ -6,6 +6,7 @@
 
 #include "sd-id128.h"
 
+#include "hashmap.h"
 #include "json.h"
 #include "missing_resource.h"
 #include "time-util.h"
@@ -243,6 +244,9 @@ typedef struct UserRecord {
         char *icon_name;
         char *location;
 
+        char *blob_directory;
+        Hashmap *blob_manifest;
+
         UserDisposition disposition;
         uint64_t last_change_usec;
         uint64_t last_password_change_usec;
@@ -438,6 +442,7 @@ int json_dispatch_user_disposition(const char *name, JsonVariant *variant, JsonD
 
 int per_machine_id_match(JsonVariant *ids, JsonDispatchFlags flags);
 int per_machine_hostname_match(JsonVariant *hns, JsonDispatchFlags flags);
+int per_machine_match(JsonVariant *entry, JsonDispatchFlags flags);
 int user_group_record_mangle(JsonVariant *v, UserRecordLoadFlags load_flags, JsonVariant **ret_variant, UserRecordMask *ret_mask);
 
 const char* user_storage_to_string(UserStorage t) _const_;

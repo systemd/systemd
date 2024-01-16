@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "dns-domain.h"
+#include "fd-util.h"
 #include "home-util.h"
 #include "libcrypt-util.h"
 #include "memory-util.h"
@@ -8,6 +9,9 @@
 #include "string-util.h"
 #include "strv.h"
 #include "user-util.h"
+#include "utf8.h"
+
+DEFINE_HASH_OPS_FULL(blob_fd_hash_ops, char, path_hash_func, path_compare, free, void, close_fd_ptr);
 
 bool suitable_user_name(const char *name) {
 
@@ -61,6 +65,12 @@ int suitable_image_path(const char *path) {
         return !empty_or_root(path) &&
                 path_is_valid(path) &&
                 path_is_absolute(path);
+}
+
+int suitable_blob_filename(const char *name) {
+        return filename_is_valid(name) &&
+               ascii_is_valid(name) &&
+               !string_has_cc(name, NULL);
 }
 
 bool supported_fstype(const char *fstype) {
@@ -136,4 +146,8 @@ int bus_message_append_secret(sd_bus_message *m, UserRecord *secret) {
 
 const char *home_record_dir(void) {
         return secure_getenv("SYSTEMD_HOME_RECORD_DIR") ?: "/var/lib/systemd/home/";
+}
+
+const char *home_system_blob_dir(void) {
+        return secure_getenv("SYSTEMD_HOME_SYSTEM_BLOB_DIR") ?: "/var/cache/systemd/home/";
 }
