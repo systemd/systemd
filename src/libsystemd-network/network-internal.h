@@ -17,6 +17,9 @@ void serialize_in6_addrs(FILE *f, const struct in6_addr *addresses,
                          bool *with_leading_space);
 int deserialize_in6_addrs(struct in6_addr **addresses, const char *string);
 
+int serialize_dnr(FILE *f, const ResolverData *resolvers, bool *with_leading_space);
+int deserialize_dnr(ResolverData **ret, const char *string);
+
 /* don't include "dhcp-lease-internal.h" as it causes conflicts between netinet/ip.h and linux/ip.h */
 struct sd_dhcp_route;
 struct sd_dhcp_lease;

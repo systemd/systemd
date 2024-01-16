@@ -1277,6 +1277,14 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
                 fputc('\n', f);
         }
 
+        ResolverData *resolvers;
+        r = sd_dhcp_lease_get_dnr(lease, &resolvers);
+        if (r > 0) {
+                fputs("DNR=", f);
+                serialize_dnr(f, resolvers, NULL);
+                fputc('\n', f);
+        }
+
         r = sd_dhcp_lease_get_ntp(lease, &addresses);
         if (r > 0) {
                 fputs("NTP=", f);
@@ -1385,6 +1393,7 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                 *next_server = NULL,
                 *broadcast = NULL,
                 *dns = NULL,
+                *dnr = NULL,
                 *ntp = NULL,
                 *sip = NULL,
                 *pop3 = NULL,
@@ -1422,6 +1431,7 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                            "NEXT_SERVER", &next_server,
                            "BROADCAST", &broadcast,
                            "DNS", &dns,
+                           "DNR", &dnr,
                            "NTP", &ntp,
                            "SIP", &sip,
                            "POP3", &pop3,
@@ -1522,6 +1532,12 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                         log_debug_errno(r, "Failed to deserialize DNS servers %s, ignoring: %m", dns);
                 else
                         lease->servers[SD_DHCP_LEASE_DNS].size = r;
+        }
+
+        if (dnr) {
+                r = deserialize_dnr(&lease->resolvers, dnr);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to deserialize DNR servers %s, ignoring: %m", dnr);
         }
 
         if (ntp) {
