@@ -231,42 +231,40 @@ int manager_process_requests(Manager *manager) {
         manager->request_queued = false;
 
         ORDERED_SET_FOREACH(req, manager->request_queue) {
-                _cleanup_(link_unrefp) Link *link = link_ref(req->link);
-
-                assert(req->process);
-
                 if (req->waiting_reply)
-                        continue; /* Waiting for netlink reply. */
+                        continue; /* Already processed, and waiting for netlink reply. */
 
                 /* Typically, requests send netlink message asynchronously. If there are many requests
                  * queued, then this event may make reply callback queue in sd-netlink full. */
                 if (netlink_get_reply_callback_count(manager->rtnl) >= REPLY_CALLBACK_COUNT_THRESHOLD ||
                     netlink_get_reply_callback_count(manager->genl) >= REPLY_CALLBACK_COUNT_THRESHOLD ||
                     fw_ctx_get_reply_callback_count(manager->fw_ctx) >= REPLY_CALLBACK_COUNT_THRESHOLD)
-                        return 0;
+                        break;
 
+                /* Avoid the request and link freed by req->process() and request_detach(). */
+                _unused_ _cleanup_(request_unrefp) Request *req_unref = request_ref(req);
+                _cleanup_(link_unrefp) Link *link = link_ref(req->link);
+
+                assert(req->process);
                 r = req->process(req, link, req->userdata);
-                if (r == 0) { /* The request is not ready. */
-                        if (manager->request_queued)
-                                break; /* a new request is queued during processing the request. */
-                        continue;
-                }
-
-                /* If the request sends netlink message, e.g. for Address or so, the Request object is
-                 * referenced by the netlink slot, and will be detached later by its destroy callback.
-                 * Otherwise, e.g. for DHCP client or so, detach the request from queue now. */
-                if (!req->waiting_reply)
+                if (r < 0) {
                         request_detach(manager, req);
 
-                if (r < 0 && link) {
-                        link_enter_failed(link);
-                        /* link_enter_failed() may remove multiple requests,
-                         * hence we need to exit from the loop. */
-                        break;
+                        if (link) {
+                                link_enter_failed(link);
+                                /* link_enter_failed() may detach multiple requests from the queue.
+                                 * Hence, we need to exit from the loop. */
+                                break;
+                        }
                 }
+                if (r > 0 && !req->waiting_reply)
+                        /* If the request sends netlink message, e.g. for Address or so, the Request object is
+                         * referenced by the netlink slot, and will be detached later by its destroy callback.
+                         * Otherwise, e.g. for DHCP client or so, detach the request from queue now. */
+                        request_detach(manager, req);
 
                 if (manager->request_queued)
-                        break;
+                        break; /* New request is queued. Exit from the loop. */
         }
 
         return 0;
