@@ -59,6 +59,8 @@ KERNEL=="vd*", ATTRS{serial}=="?*", ENV{ID_SERIAL}="$attr{serial}", SYMLINK+="di
 
 # ATA
 KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}!="?*", SUBSYSTEMS=="scsi", ATTRS{vendor}=="ATA", IMPORT{program}="ata_id --export $devnode"
+KERNEL=="sd*[!0-9]|sr*", ENV{ID_BUS}=="ata", ENV{ID_ATA_PERIPHERAL_DEVICE_TYPE}=="20", PROGRAM="scsi_id -u -g $devnode", \
+  SYMLINK+="disk/by-id/scsi-$result$env{.PART_SUFFIX}"
 
 # ATAPI devices (SPC-3 or later)
 KERNEL=="sd*[!0-9]|sr*", ENV{ID_SERIAL}!="?*", SUBSYSTEMS=="scsi", ATTRS{type}=="5", ATTRS{scsi_level}=="[6-9]*", IMPORT{program}="ata_id --export $devnode"
