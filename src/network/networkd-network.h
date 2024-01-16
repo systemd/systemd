@@ -145,6 +145,7 @@ struct Network {
         int dhcp_use_rapid_commit;
         bool dhcp_use_dns;
         bool dhcp_use_dns_set;
+        int dhcp_use_dnr;
         bool dhcp_routes_to_dns;
         bool dhcp_use_ntp;
         bool dhcp_use_ntp_set;
@@ -412,6 +413,10 @@ int network_load(Manager *manager, OrderedHashmap **networks);
 int network_reload(Manager *manager);
 int network_load_one(Manager *manager, OrderedHashmap **networks, const char *filename);
 int network_verify(Network *network);
+static inline int network_dhcp_use_dnr(Network *network) {
+        assert(network);
+        return network->dhcp_use_dnr < 0 ? network->dhcp_use_dns : network->dhcp_use_dnr;
+}
 
 int manager_build_dhcp_pd_subnet_ids(Manager *manager);
 
