@@ -17,6 +17,9 @@ enum {
         _COLOR_MAX,
 };
 
+#define varlink_idl_log(error, format, ...) log_debug_errno(error, "Varlink-IDL: " format, ##__VA_ARGS__)
+#define varlink_idl_log_full(level, error, format, ...) log_full_errno(level, error, "Varlink-IDL: " format, ##__VA_ARGS__)
+
 static int varlink_idl_format_all_fields(FILE *f, const VarlinkSymbol *symbol, VarlinkFieldDirection direction, const char *indent, const char *const colors[static _COLOR_MAX]);
 
 static int varlink_idl_format_enum_values(
@@ -512,7 +515,7 @@ static int varlink_idl_subparse_token(
 
                 l = token_match(*p, allowed_delimiters, allowed_chars);
                 if (l == 0)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "Couldn't find token of allowed chars '%s' or allowed delimiters '%s'.", strempty(allowed_chars), strempty(allowed_delimiters));
+                        return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "Couldn't find token of allowed chars '%s' or allowed delimiters '%s'.", strempty(allowed_chars), strempty(allowed_delimiters));
         }
 
         t = strndup(*p, l);
@@ -662,7 +665,7 @@ static int varlink_idl_subparse_field_type(
                 if (r < 0)
                         return r;
                 if (!token)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
+                        return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
 
                 field->named_type = TAKE_PTR(token);
                 field->field_type = VARLINK_NAMED_TYPE;
@@ -704,7 +707,7 @@ static int varlink_idl_subparse_struct_or_enum(
         assert(n_fields);
 
         if (depth > DEPTH_MAX)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Maximum nesting depth reached (%u).", *line, *column, DEPTH_MAX);
+                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Maximum nesting depth reached (%u).", *line, *column, DEPTH_MAX);
 
         while (state != STATE_DONE) {
                 _cleanup_free_ char *token = NULL;
@@ -723,9 +726,9 @@ static int varlink_idl_subparse_struct_or_enum(
 
                 case STATE_OPEN:
                         if (!token)
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
+                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
                         if (!streq(token, "("))
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s'.", *line, *column, token);
+                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s'.", *line, *column, token);
 
                         state = STATE_NAME;
                         allowed_delimiters = ")";
@@ -736,7 +739,7 @@ static int varlink_idl_subparse_struct_or_enum(
                         assert(!field_name);
 
                         if (!token)
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
+                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
                         if (streq(token, ")"))
                                 state = STATE_DONE;
                         else {
@@ -752,7 +755,7 @@ static int varlink_idl_subparse_struct_or_enum(
                         assert(field_name);
 
                         if (!token)
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
+                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
 
                         if (streq(token, ":")) {
                                 VarlinkField *field;
@@ -760,7 +763,7 @@ static int varlink_idl_subparse_struct_or_enum(
                                 if ((*symbol)->symbol_type < 0)
                                         (*symbol)->symbol_type = VARLINK_STRUCT_TYPE;
                                 if ((*symbol)->symbol_type == VARLINK_ENUM_TYPE)
-                                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Enum with struct fields, refusing.", *line, *column);
+                                        return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Enum with struct fields, refusing.", *line, *column);
 
                                 r = varlink_symbol_realloc(symbol, *n_fields + 1);
                                 if (r < 0)
@@ -787,7 +790,7 @@ static int varlink_idl_subparse_struct_or_enum(
                                 if ((*symbol)->symbol_type < 0)
                                         (*symbol)->symbol_type = VARLINK_ENUM_TYPE;
                                 if ((*symbol)->symbol_type != VARLINK_ENUM_TYPE)
-                                        return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Struct with enum fields, refusing.", *line, *column);
+                                        return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Struct with enum fields, refusing.", *line, *column);
 
                                 r = varlink_symbol_realloc(symbol, *n_fields + 1);
                                 if (r < 0)
@@ -808,7 +811,7 @@ static int varlink_idl_subparse_struct_or_enum(
                                         state = STATE_DONE;
                                 }
                         } else
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s'.", *line, *column, token);
+                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s'.", *line, *column, token);
 
                         break;
 
@@ -816,7 +819,7 @@ static int varlink_idl_subparse_struct_or_enum(
                         assert(!field_name);
 
                         if (!token)
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
+                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
                         if (streq(token, ",")) {
                                 state = STATE_NAME;
                                 allowed_delimiters = NULL;
@@ -824,7 +827,7 @@ static int varlink_idl_subparse_struct_or_enum(
                         } else if (streq(token, ")"))
                                 state = STATE_DONE;
                         else
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s'.", *line, *column, token);
+                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s'.", *line, *column, token);
                         break;
 
                 default:
@@ -835,7 +838,7 @@ static int varlink_idl_subparse_struct_or_enum(
         /* If we don't know the type of the symbol by now it was an empty () which doesn't allow us to
          * determine if we look at an enum or a struct */
         if ((*symbol)->symbol_type < 0)
-                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Ambiguous empty () enum/struct is not permitted.", *line, *column);
+                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Ambiguous empty () enum/struct is not permitted.", *line, *column);
 
         return 0;
 }
@@ -854,14 +857,14 @@ static int varlink_idl_resolve_symbol_types(VarlinkInterface *interface, Varlink
                         continue;
 
                 if (!field->named_type)
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENETUNREACH), "Named type field lacking a type name.");
+                        return varlink_idl_log(SYNTHETIC_ERRNO(ENETUNREACH), "Named type field lacking a type name.");
 
                 found = varlink_idl_find_symbol(interface, _VARLINK_SYMBOL_TYPE_INVALID, field->named_type);
                 if (!found)
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENETUNREACH), "Failed to find type '%s'.", field->named_type);
+                        return varlink_idl_log(SYNTHETIC_ERRNO(ENETUNREACH), "Failed to find type '%s'.", field->named_type);
 
                 if (!IN_SET(found->symbol_type, VARLINK_STRUCT_TYPE, VARLINK_ENUM_TYPE))
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENETUNREACH), "Symbol '%s' is referenced as type but is not a type.", field->named_type);
+                        return varlink_idl_log(SYNTHETIC_ERRNO(ENETUNREACH), "Symbol '%s' is referenced as type but is not a type.", field->named_type);
 
                 field->symbol = found;
         }
@@ -932,7 +935,7 @@ int varlink_idl_parse(
 
                 case STATE_PRE_INTERFACE:
                         if (!token)
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
+                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
                         if (streq(token, "#")) {
                                 r = varlink_idl_subparse_comment(&text, line, column);
                                 if (r < 0)
@@ -942,7 +945,7 @@ int varlink_idl_parse(
                                 allowed_delimiters = NULL;
                                 allowed_chars = VALID_CHARS_INTERFACE_NAME;
                         } else
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s'.", *line, *column, token);
+                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s'.", *line, *column, token);
                         break;
 
                 case STATE_INTERFACE:
@@ -950,7 +953,7 @@ int varlink_idl_parse(
                         assert(n_symbols == 0);
 
                         if (!token)
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
+                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
 
                         r = varlink_interface_realloc(&interface, n_symbols);
                         if (r < 0)
@@ -982,7 +985,7 @@ int varlink_idl_parse(
                                 state = STATE_ERROR;
                                 allowed_chars = VALID_CHARS_IDENTIFIER;
                         } else
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s'.", *line, *column, token);
+                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s'.", *line, *column, token);
 
                         break;
 
@@ -991,7 +994,7 @@ int varlink_idl_parse(
                         n_fields = 0;
 
                         if (!token)
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
+                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
 
                         r = varlink_symbol_realloc(&symbol, n_fields);
                         if (r < 0)
@@ -1012,10 +1015,10 @@ int varlink_idl_parse(
                         assert(symbol);
 
                         if (!token)
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
+                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
 
                         if (!streq(token, "->"))
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s'.", *line, *column, token);
+                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Unexpected token '%s'.", *line, *column, token);
 
                         r = varlink_idl_subparse_struct_or_enum(&text, line, column, &symbol, &n_fields, VARLINK_OUTPUT, 0);
                         if (r < 0)
@@ -1036,7 +1039,7 @@ int varlink_idl_parse(
                         n_fields = 0;
 
                         if (!token)
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
+                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
 
                         r = varlink_symbol_realloc(&symbol, n_fields);
                         if (r < 0)
@@ -1064,7 +1067,7 @@ int varlink_idl_parse(
                         n_fields = 0;
 
                         if (!token)
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
+                                return varlink_idl_log(SYNTHETIC_ERRNO(EBADMSG), "%u:%u: Premature EOF.", *line, *column);
 
                         r = varlink_symbol_realloc(&symbol, n_fields);
                         if (r < 0)
@@ -1213,48 +1216,48 @@ static int varlink_idl_field_consistent(
         symbol_name = symbol->name ?: "<anonymous>";
 
         if (field->field_type <= 0 || field->field_type >= _VARLINK_FIELD_TYPE_MAX)
-                return log_full_errno(level, SYNTHETIC_ERRNO(EUCLEAN), "Field type for '%s' in symbol '%s' is not valid, refusing.", field->name, symbol_name);
+                return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Field type for '%s' in symbol '%s' is not valid, refusing.", field->name, symbol_name);
 
         if (field->field_type == VARLINK_ENUM_VALUE) {
 
                 if (symbol->symbol_type != VARLINK_ENUM_TYPE)
-                        return log_full_errno(level, SYNTHETIC_ERRNO(EUCLEAN), "Enum field type for '%s' in non-enum symbol '%s', refusing.", field->name, symbol_name);
+                        return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Enum field type for '%s' in non-enum symbol '%s', refusing.", field->name, symbol_name);
 
                 if (field->field_flags != 0)
-                        return log_full_errno(level, SYNTHETIC_ERRNO(EUCLEAN), "Enum field '%s' in symbol '%s' has non-zero flags set, refusing.", field->name, symbol_name);
+                        return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Enum field '%s' in symbol '%s' has non-zero flags set, refusing.", field->name, symbol_name);
         } else {
                 if (symbol->symbol_type == VARLINK_ENUM_TYPE)
-                        return log_full_errno(level, SYNTHETIC_ERRNO(EUCLEAN), "Non-enum field type for '%s' in enum symbol '%s', refusing.", field->name, symbol_name);
+                        return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Non-enum field type for '%s' in enum symbol '%s', refusing.", field->name, symbol_name);
 
                 if (!IN_SET(field->field_flags & ~VARLINK_NULLABLE, 0, VARLINK_ARRAY, VARLINK_MAP))
-                        return log_full_errno(level, SYNTHETIC_ERRNO(EUCLEAN), "Flags of field '%s' in symbol '%s' is invalid, refusing.", field->name, symbol_name);
+                        return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Flags of field '%s' in symbol '%s' is invalid, refusing.", field->name, symbol_name);
         }
 
         if (symbol->symbol_type != VARLINK_METHOD) {
                 if (field->field_direction != VARLINK_REGULAR)
-                        return log_full_errno(level, SYNTHETIC_ERRNO(EUCLEAN), "Direction of '%s' in non-method symbol '%s' not regular, refusing.", field->name, symbol_name);
+                        return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Direction of '%s' in non-method symbol '%s' not regular, refusing.", field->name, symbol_name);
         } else {
                 if (!IN_SET(field->field_direction, VARLINK_INPUT, VARLINK_OUTPUT))
-                        return log_full_errno(level, SYNTHETIC_ERRNO(EUCLEAN), "Direction of '%s' in method symbol '%s' is not input or output, refusing.", field->name, symbol_name);
+                        return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Direction of '%s' in method symbol '%s' is not input or output, refusing.", field->name, symbol_name);
         }
 
         if (field->symbol) {
                 if (!IN_SET(field->field_type, VARLINK_STRUCT, VARLINK_ENUM, VARLINK_NAMED_TYPE))
-                        return log_full_errno(level, SYNTHETIC_ERRNO(EUCLEAN), "Target symbol for field '%s' in symbol '%s' defined for elemental field, refusing.", field->name, symbol_name);
+                        return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Target symbol for field '%s' in symbol '%s' defined for elemental field, refusing.", field->name, symbol_name);
 
                 if (field->field_type == VARLINK_NAMED_TYPE) {
                         const VarlinkSymbol *found;
 
                         if (!field->symbol->name || !field->named_type || !streq(field->symbol->name, field->named_type))
-                                return log_full_errno(level, SYNTHETIC_ERRNO(EUCLEAN), "Resolved symbol name and named type of field '%s' in symbol '%s' do do not match, refusing.", field->name, symbol_name);
+                                return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Resolved symbol name and named type of field '%s' in symbol '%s' do do not match, refusing.", field->name, symbol_name);
 
                         /* If this is a named type, then check if it's properly part of the interface */
                         found = varlink_idl_find_symbol(interface, _VARLINK_SYMBOL_TYPE_INVALID, field->symbol->name);
                         if (!found)
-                                return log_full_errno(level, SYNTHETIC_ERRNO(EUCLEAN), "Resolved symbol of named type of field '%s' in symbol '%s' is not part of the interface, refusing.", field->name, symbol_name);
+                                return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Resolved symbol of named type of field '%s' in symbol '%s' is not part of the interface, refusing.", field->name, symbol_name);
 
                         if (!IN_SET(found->symbol_type, VARLINK_ENUM_TYPE, VARLINK_STRUCT_TYPE))
-                                return log_full_errno(level, SYNTHETIC_ERRNO(EUCLEAN), "Resolved symbol of named type of field '%s' in symbol '%s' is not a type, refusing.", field->name, symbol_name);
+                                return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Resolved symbol of named type of field '%s' in symbol '%s' is not a type, refusing.", field->name, symbol_name);
                 } else {
                         /* If this is an anonymous type, then we recursively check if it's consistent, since
                          * it's not part of the interface, and hence we won't validate it from there. */
@@ -1266,18 +1269,18 @@ static int varlink_idl_field_consistent(
 
         } else {
                 if (IN_SET(field->field_type, VARLINK_STRUCT, VARLINK_ENUM, VARLINK_NAMED_TYPE))
-                        return log_full_errno(level, SYNTHETIC_ERRNO(EUCLEAN), "No target symbol for field '%s' in symbol '%s' defined for elemental field, refusing.", field->name, symbol_name);
+                        return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "No target symbol for field '%s' in symbol '%s' defined for elemental field, refusing.", field->name, symbol_name);
 
                 if (field->named_type)
-                        return log_full_errno(level, SYNTHETIC_ERRNO(EUCLEAN), "Unresolved symbol in field '%s' in symbol '%s', refusing.", field->name, symbol_name);
+                        return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Unresolved symbol in field '%s' in symbol '%s', refusing.", field->name, symbol_name);
         }
 
         if (field->named_type) {
                 if (field->field_type != VARLINK_NAMED_TYPE)
-                        return log_full_errno(level, SYNTHETIC_ERRNO(EUCLEAN), "Named type set for field '%s' in symbol '%s' but not a named type field, refusing.", field->name, symbol_name);
+                        return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Named type set for field '%s' in symbol '%s' but not a named type field, refusing.", field->name, symbol_name);
         } else {
                 if (field->field_type == VARLINK_NAMED_TYPE)
-                        return log_full_errno(level, SYNTHETIC_ERRNO(EUCLEAN), "No named type set for field '%s' in symbol '%s' but field is a named type field, refusing.", field->name, symbol_name);
+                        return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "No named type set for field '%s' in symbol '%s' but field is a named type field, refusing.", field->name, symbol_name);
         }
 
         return 0;
@@ -1304,19 +1307,19 @@ static int varlink_idl_symbol_consistent(
         symbol_name = symbol->name ?: "<anonymous>";
 
         if (symbol->symbol_type < 0 || symbol->symbol_type >= _VARLINK_SYMBOL_TYPE_MAX)
-                return log_full_errno(level, SYNTHETIC_ERRNO(EUCLEAN), "Symbol type for '%s' is not valid, refusing.", symbol_name);
+                return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Symbol type for '%s' is not valid, refusing.", symbol_name);
 
         if (IN_SET(symbol->symbol_type, VARLINK_STRUCT_TYPE, VARLINK_ENUM_TYPE) && varlink_symbol_is_empty(symbol))
-                return log_full_errno(level, SYNTHETIC_ERRNO(EUCLEAN), "Symbol '%s' is empty, refusing.", symbol_name);
+                return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Symbol '%s' is empty, refusing.", symbol_name);
 
         for (const VarlinkField *field = symbol->fields; field->field_type != _VARLINK_FIELD_TYPE_END_MARKER; field++) {
                 Set **name_set = field->field_direction == VARLINK_OUTPUT ? &output_set : &input_set; /* for the method case we need two separate sets, otherwise we use the same */
 
                 if (!varlink_idl_field_name_is_valid(field->name))
-                        return log_full_errno(level, SYNTHETIC_ERRNO(EUCLEAN), "Field name '%s' in symbol '%s' not valid, refusing.", field->name, symbol_name);
+                        return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Field name '%s' in symbol '%s' not valid, refusing.", field->name, symbol_name);
 
                 if (set_contains(*name_set, field->name))
-                        return log_full_errno(level, SYNTHETIC_ERRNO(ENOTUNIQ), "Field '%s' defined twice in symbol '%s', refusing.", field->name, symbol_name);
+                        return varlink_idl_log_full(level, SYNTHETIC_ERRNO(ENOTUNIQ), "Field '%s' defined twice in symbol '%s', refusing.", field->name, symbol_name);
 
                 if (set_ensure_put(name_set, &string_hash_ops, field->name) < 0)
                         return log_oom();
@@ -1336,15 +1339,15 @@ int varlink_idl_consistent(const VarlinkInterface *interface, int level) {
         assert(interface);
 
         if (!varlink_idl_interface_name_is_valid(interface->name))
-                return log_full_errno(level, SYNTHETIC_ERRNO(EUCLEAN), "Interface name '%s' is not valid, refusing.", interface->name);
+                return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Interface name '%s' is not valid, refusing.", interface->name);
 
         for (const VarlinkSymbol *const *symbol = interface->symbols; *symbol; symbol++) {
 
                 if (!varlink_idl_symbol_name_is_valid((*symbol)->name))
-                        return log_full_errno(level, SYNTHETIC_ERRNO(EUCLEAN), "Symbol name '%s' is not valid, refusing.", strempty((*symbol)->name));
+                        return varlink_idl_log_full(level, SYNTHETIC_ERRNO(EUCLEAN), "Symbol name '%s' is not valid, refusing.", strempty((*symbol)->name));
 
                 if (set_contains(name_set, (*symbol)->name))
-                        return log_full_errno(level, SYNTHETIC_ERRNO(ENOTUNIQ), "Symbol '%s' defined twice in interface, refusing.", (*symbol)->name);
+                        return varlink_idl_log_full(level, SYNTHETIC_ERRNO(ENOTUNIQ), "Symbol '%s' defined twice in interface, refusing.", (*symbol)->name);
 
                 if (set_ensure_put(&name_set, &string_hash_ops, (*symbol)->name) < 0)
                         return log_oom();
@@ -1371,31 +1374,31 @@ static int varlink_idl_validate_field_element_type(const VarlinkField *field, Js
 
         case VARLINK_BOOL:
                 if (!json_variant_is_boolean(v))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be a bool, but it is not, refusing.", strna(field->name));
+                        return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be a bool, but it is not, refusing.", strna(field->name));
 
                 break;
 
         case VARLINK_INT:
                 if (!json_variant_is_integer(v) && !json_variant_is_unsigned(v))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be an int, but it is not, refusing.", strna(field->name));
+                        return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be an int, but it is not, refusing.", strna(field->name));
 
                 break;
 
         case VARLINK_FLOAT:
                 if (!json_variant_is_number(v))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be a float, but it is not, refusing.", strna(field->name));
+                        return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be a float, but it is not, refusing.", strna(field->name));
 
                 break;
 
         case VARLINK_STRING:
                 if (!json_variant_is_string(v))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be a string, but it is not, refusing.", strna(field->name));
+                        return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be a string, but it is not, refusing.", strna(field->name));
 
                 break;
 
         case VARLINK_OBJECT:
                 if (!json_variant_is_object(v))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be an object, but it is not, refusing.", strna(field->name));
+                        return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be an object, but it is not, refusing.", strna(field->name));
 
                 break;
 
@@ -1414,13 +1417,13 @@ static int varlink_idl_validate_field(const VarlinkField *field, JsonVariant *v)
         if (!v || json_variant_is_null(v)) {
 
                 if (!FLAGS_SET(field->field_flags, VARLINK_NULLABLE))
-                        return log_debug_errno(SYNTHETIC_ERRNO(ENOANO), "Mandatory field '%s' is null or missing on object, refusing.", strna(field->name));
+                        return varlink_idl_log(SYNTHETIC_ERRNO(ENOANO), "Mandatory field '%s' is null or missing on object, refusing.", strna(field->name));
 
         } else if (FLAGS_SET(field->field_flags, VARLINK_ARRAY)) {
                 JsonVariant *i;
 
                 if (!json_variant_is_array(v))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be an array, but it is not, refusing.", strna(field->name));
+                        return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be an array, but it is not, refusing.", strna(field->name));
 
                 JSON_VARIANT_ARRAY_FOREACH(i, v) {
                         r = varlink_idl_validate_field_element_type(field, i);
@@ -1433,7 +1436,7 @@ static int varlink_idl_validate_field(const VarlinkField *field, JsonVariant *v)
                 JsonVariant *e;
 
                 if (!json_variant_is_object(v))
-                        return log_debug_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be an object, but it is not, refusing.", strna(field->name));
+                        return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Field '%s' should be an object, but it is not, refusing.", strna(field->name));
 
                 JSON_VARIANT_OBJECT_FOREACH(k, e, v) {
                         r = varlink_idl_validate_field_element_type(field, e);
@@ -1458,7 +1461,7 @@ static int varlink_idl_validate_symbol(const VarlinkSymbol *symbol, JsonVariant 
         if (!v) {
                 if (bad_field)
                         *bad_field = NULL;
-                return log_debug_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Null object passed, refusing.");
+                return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Null object passed, refusing.");
         }
 
         switch (symbol->symbol_type) {
@@ -1470,7 +1473,7 @@ static int varlink_idl_validate_symbol(const VarlinkSymbol *symbol, JsonVariant 
                 if (!json_variant_is_string(v)) {
                         if (bad_field)
                                 *bad_field = symbol->name;
-                        return log_debug_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Passed non-string to enum field '%s', refusing.", strna(symbol->name));
+                        return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Passed non-string to enum field '%s', refusing.", strna(symbol->name));
                 }
 
                 assert_se(s = json_variant_string(v));
@@ -1488,7 +1491,7 @@ static int varlink_idl_validate_symbol(const VarlinkSymbol *symbol, JsonVariant 
                 if (!found) {
                         if (bad_field)
                                 *bad_field = s;
-                        return log_debug_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Passed unrecognized string '%s' to enum field '%s', refusing.", s, strna(symbol->name));
+                        return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Passed unrecognized string '%s' to enum field '%s', refusing.", s, strna(symbol->name));
                 }
 
                 break;
@@ -1500,7 +1503,7 @@ static int varlink_idl_validate_symbol(const VarlinkSymbol *symbol, JsonVariant 
                 if (!json_variant_is_object(v)) {
                         if (bad_field)
                                 *bad_field = symbol->name;
-                        return log_debug_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Passed non-object to field '%s', refusing.", strna(symbol->name));
+                        return varlink_idl_log(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Passed non-object to field '%s', refusing.", strna(symbol->name));
                 }
 
                 for (const VarlinkField *field = symbol->fields; field->field_type != _VARLINK_FIELD_TYPE_END_MARKER; field++) {
@@ -1522,7 +1525,7 @@ static int varlink_idl_validate_symbol(const VarlinkSymbol *symbol, JsonVariant 
                         if (!varlink_idl_find_field(symbol, name)) {
                                 if (bad_field)
                                         *bad_field = name;
-                                return log_debug_errno(SYNTHETIC_ERRNO(EBUSY), "Field '%s' not defined for object, refusing.", name);
+                                return varlink_idl_log(SYNTHETIC_ERRNO(EBUSY), "Field '%s' not defined for object, refusing.", name);
                         }
                 }
 
