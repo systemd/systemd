@@ -1014,4 +1014,29 @@ TEST(endswith_strv) {
         assert_se(streq_ptr(endswith_strv("waldo", STRV_MAKE("knurz", "", "waldo")), ""));
 }
 
+TEST(strv_extend_many) {
+        _cleanup_strv_free_ char **l = NULL;
+
+        assert_se(strv_extend_many(&l, NULL) >= 0);
+        assert_se(strv_isempty(l));
+
+        assert_se(strv_extend_many(&l, NULL, NULL, NULL) >= 0);
+        assert_se(strv_isempty(l));
+
+        assert_se(strv_extend_many(&l, "foo") >= 0);
+        assert_se(strv_equal(l, STRV_MAKE("foo")));
+
+        assert_se(strv_extend_many(&l, NULL, "bar", NULL) >= 0);
+        assert_se(strv_equal(l, STRV_MAKE("foo", "bar")));
+
+        assert_se(strv_extend_many(&l, "waldo", "quux") >= 0);
+        assert_se(strv_equal(l, STRV_MAKE("foo", "bar", "waldo", "quux")));
+
+        assert_se(strv_extend_many(&l, "1", "2", "3", "4") >= 0);
+        assert_se(strv_equal(l, STRV_MAKE("foo", "bar", "waldo", "quux", "1", "2", "3", "4")));
+
+        assert_se(strv_extend_many(&l, "yes", NULL, "no") >= 0);
+        assert_se(strv_equal(l, STRV_MAKE("foo", "bar", "waldo", "quux", "1", "2", "3", "4", "yes", "no")));
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
