@@ -115,6 +115,24 @@ static int link_put_dns(Link *link, OrderedSet **s) {
                 }
         }
 
+        if (link->dhcp_lease && link_get_use_dnr(link, NETWORK_CONFIG_SOURCE_DHCP4)) {
+                sd_dns_resolver *resolvers;
+
+                r = sd_dhcp_lease_get_dnr(link->dhcp_lease, &resolvers);
+                if (r >= 0) {
+                        struct in_addr_full **dot_servers;
+                        size_t n = 0;
+                        CLEANUP_ARRAY(dot_servers, n, in_addr_full_array_free);
+
+                        r = sd_dns_resolvers_to_dot_addrs(resolvers, r, &dot_servers, &n);
+                        if (r < 0)
+                                return r;
+                        r = ordered_set_put_dns_servers(s, link->ifindex, dot_servers, n);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
         if (link->dhcp6_lease && link_get_use_dns(link, NETWORK_CONFIG_SOURCE_DHCP6)) {
                 const struct in6_addr *addresses;
 
@@ -531,6 +549,40 @@ static void serialize_addresses(
                 fputc('\n', f);
 }
 
+static void serialize_resolvers(
+                FILE *f,
+                const char *lvalue,
+                bool *space,
+                sd_dhcp_lease *lease,
+                bool conditional) {
+
+        bool _space = false;
+        if (!space)
+                space = &_space;
+
+        if (lvalue)
+                fprintf(f, "%s=", lvalue);
+
+        if (lease && conditional) {
+                sd_dns_resolver *resolvers;
+                _cleanup_strv_free_ char **names = NULL;
+                int r;
+
+                r = sd_dhcp_lease_get_dnr(lease, &resolvers);
+                if (r < 0)
+                        return;
+
+                r = sd_dns_resolvers_to_dot_strv(resolvers, r, &names);
+                if (r > 0)
+                        fputstrv(f, names, NULL, space);
+        }
+
+        if (lvalue)
+                fputc('\n', f);
+
+        return;
+}
+
 static void link_save_domains(Link *link, FILE *f, OrderedSet *static_domains, UseDomains use_domains) {
         bool space = false;
         const char *p;
@@ -665,6 +717,13 @@ static int link_save(Link *link) {
                 else {
                         space = false;
                         link_save_dns(link, f, link->network->dns, link->network->n_dns, &space);
+
+                        /* DNR resolvers are not required to provide Do53 service, however resolved doesn't
+                         * know how to handle such a server so for now Do53 service is required, and
+                         * assumed. */
+                        serialize_resolvers(f, NULL, &space,
+                                            link->dhcp_lease,
+                                            link_get_use_dnr(link, NETWORK_CONFIG_SOURCE_DHCP4));
 
                         serialize_addresses(f, NULL, &space,
                                             NULL,
