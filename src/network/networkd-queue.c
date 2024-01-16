@@ -9,14 +9,28 @@
 
 #define REPLY_CALLBACK_COUNT_THRESHOLD 128
 
+static Request* request_detach_impl(Request *req) {
+        assert(req);
+
+        if (!req->manager)
+                return NULL;
+
+        ordered_set_remove(req->manager->request_queue, req);
+        req->manager = NULL;
+        return req;
+}
+
+void request_detach(Request *req) {
+        request_unref(request_detach_impl(req));
+}
+
 static Request *request_free(Request *req) {
         if (!req)
                 return NULL;
 
         /* To prevent from triggering assertions in the hash and compare functions, remove this request
          * from the set before freeing userdata below. */
-        if (req->manager)
-                ordered_set_remove(req->manager->request_queue, req);
+        request_detach_impl(req);
 
         if (req->free_func)
                 req->free_func(req->userdata);
@@ -31,26 +45,10 @@ static Request *request_free(Request *req) {
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(Request, request, request_free);
 
-void request_detach(Manager *manager, Request *req) {
-        assert(manager);
-
-        if (!req)
-                return;
-
-        req = ordered_set_remove(manager->request_queue, req);
-        if (!req)
-                return;
-
-        req->manager = NULL;
-        request_unref(req);
-}
-
 static void request_destroy_callback(Request *req) {
         assert(req);
 
-        if (req->manager)
-                request_detach(req->manager, req);
-
+        request_detach(req);
         request_unref(req);
 }
 
@@ -60,7 +58,7 @@ static void request_hash_func(const Request *req, struct siphash *state) {
 
         siphash24_compress_typesafe(req->type, state);
 
-        if (req->type != REQUEST_TYPE_NEXTHOP) {
+        if (!IN_SET(req->type, REQUEST_TYPE_NEXTHOP, REQUEST_TYPE_ROUTE)) {
                 siphash24_compress_boolean(req->link, state);
                 if (req->link)
                         siphash24_compress_typesafe(req->link->ifindex, state);
@@ -83,7 +81,7 @@ static int request_compare_func(const struct Request *a, const struct Request *b
         if (r != 0)
                 return r;
 
-        if (a->type != REQUEST_TYPE_NEXTHOP) {
+        if (!IN_SET(a->type, REQUEST_TYPE_NEXTHOP, REQUEST_TYPE_ROUTE)) {
                 r = CMP(!!a->link, !!b->link);
                 if (r != 0)
                         return r;
@@ -231,42 +229,40 @@ int manager_process_requests(Manager *manager) {
         manager->request_queued = false;
 
         ORDERED_SET_FOREACH(req, manager->request_queue) {
-                _cleanup_(link_unrefp) Link *link = link_ref(req->link);
-
-                assert(req->process);
-
                 if (req->waiting_reply)
-                        continue; /* Waiting for netlink reply. */
+                        continue; /* Already processed, and waiting for netlink reply. */
 
                 /* Typically, requests send netlink message asynchronously. If there are many requests
                  * queued, then this event may make reply callback queue in sd-netlink full. */
                 if (netlink_get_reply_callback_count(manager->rtnl) >= REPLY_CALLBACK_COUNT_THRESHOLD ||
                     netlink_get_reply_callback_count(manager->genl) >= REPLY_CALLBACK_COUNT_THRESHOLD ||
                     fw_ctx_get_reply_callback_count(manager->fw_ctx) >= REPLY_CALLBACK_COUNT_THRESHOLD)
-                        return 0;
-
-                r = req->process(req, link, req->userdata);
-                if (r == 0) { /* The request is not ready. */
-                        if (manager->request_queued)
-                                break; /* a new request is queued during processing the request. */
-                        continue;
-                }
-
-                /* If the request sends netlink message, e.g. for Address or so, the Request object is
-                 * referenced by the netlink slot, and will be detached later by its destroy callback.
-                 * Otherwise, e.g. for DHCP client or so, detach the request from queue now. */
-                if (!req->waiting_reply)
-                        request_detach(manager, req);
-
-                if (r < 0 && link) {
-                        link_enter_failed(link);
-                        /* link_enter_failed() may remove multiple requests,
-                         * hence we need to exit from the loop. */
                         break;
+
+                /* Avoid the request and link freed by req->process() and request_detach(). */
+                _unused_ _cleanup_(request_unrefp) Request *req_unref = request_ref(req);
+                _cleanup_(link_unrefp) Link *link = link_ref(req->link);
+
+                assert(req->process);
+                r = req->process(req, link, req->userdata);
+                if (r < 0) {
+                        request_detach(req);
+
+                        if (link) {
+                                link_enter_failed(link);
+                                /* link_enter_failed() may detach multiple requests from the queue.
+                                 * Hence, we need to exit from the loop. */
+                                break;
+                        }
                 }
+                if (r > 0 && !req->waiting_reply)
+                        /* If the request sends netlink message, e.g. for Address or so, the Request object is
+                         * referenced by the netlink slot, and will be detached later by its destroy callback.
+                         * Otherwise, e.g. for DHCP client or so, detach the request from queue now. */
+                        request_detach(req);
 
                 if (manager->request_queued)
-                        break;
+                        break; /* New request is queued. Exit from the loop. */
         }
 
         return 0;

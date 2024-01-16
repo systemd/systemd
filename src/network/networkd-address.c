@@ -1193,7 +1193,7 @@ int address_remove_and_cancel(Address *address, Link *link) {
          * notification about the request, then explicitly remove the address. */
         if (address_get_request(link, address, &req) >= 0) {
                 waiting = req->waiting_reply;
-                request_detach(link->manager, req);
+                request_detach(req);
                 address_cancel_requesting(address);
         }
 
@@ -1216,7 +1216,7 @@ bool link_address_is_dynamic(const Link *link, const Address *address) {
         /* Even when the address is leased from a DHCP server, networkd assign the address
          * without lifetime when KeepConfiguration=dhcp. So, let's check that we have
          * corresponding routes with RTPROT_DHCP. */
-        SET_FOREACH(route, link->routes) {
+        SET_FOREACH(route, link->manager->routes) {
                 if (route->source != NETWORK_CONFIG_SOURCE_FOREIGN)
                         continue;
 
@@ -1225,6 +1225,9 @@ bool link_address_is_dynamic(const Link *link, const Address *address) {
                         continue;
 
                 if (route->protocol != RTPROT_DHCP)
+                        continue;
+
+                if (route->nexthop.ifindex != link->ifindex)
                         continue;
 
                 if (address->family != route->family)

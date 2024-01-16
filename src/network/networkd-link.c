@@ -207,7 +207,6 @@ static Link *link_free(Link *link) {
         link_ntp_settings_clear(link);
         link_dns_settings_clear(link);
 
-        link->routes = set_free(link->routes);
         link->neighbors = set_free(link->neighbors);
         link->addresses = set_free(link->addresses);
         link->qdiscs = set_free(link->qdiscs);
@@ -983,11 +982,18 @@ static int link_drop_requests(Link *link) {
                                         RET_GATHER(ret, nexthop_remove(nexthop, link->manager));
                                 break;
                         }
+                        case REQUEST_TYPE_ROUTE: {
+                                Route *route = ASSERT_PTR(req->userdata);
+
+                                if (route_get(link->manager, route, NULL) < 0)
+                                        RET_GATHER(ret, route_remove(route, link->manager));
+                                break;
+                        }
                         default:
                                 ;
                         }
 
-                request_detach(link->manager, req);
+                request_detach(req);
         }
 
         return ret;
