@@ -347,6 +347,7 @@ static int putgrent_with_members(
                 FILE *group) {
 
         char **a;
+        int r;
 
         assert(c);
         assert(gr);
@@ -365,15 +366,15 @@ static int putgrent_with_members(
                         if (strv_contains(l, *i))
                                 continue;
 
-                        if (strv_extend(&l, *i) < 0)
-                                return -ENOMEM;
+                        r = strv_extend(&l, *i);
+                        if (r < 0)
+                                return r;
 
                         added = true;
                 }
 
                 if (added) {
                         struct group t;
-                        int r;
 
                         strv_uniq(l);
                         strv_sort(l);
@@ -396,6 +397,7 @@ static int putsgent_with_members(
                 FILE *gshadow) {
 
         char **a;
+        int r;
 
         assert(sg);
         assert(gshadow);
@@ -413,15 +415,15 @@ static int putsgent_with_members(
                         if (strv_contains(l, *i))
                                 continue;
 
-                        if (strv_extend(&l, *i) < 0)
-                                return -ENOMEM;
+                        r = strv_extend(&l, *i);
+                        if (r < 0)
+                                return r;
 
                         added = true;
                 }
 
                 if (added) {
                         struct sgrp t;
-                        int r;
 
                         strv_uniq(l);
                         strv_sort(l);
