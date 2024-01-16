@@ -372,7 +372,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .n_ref = 1,
 
                 .required_for_online = -1,
-                .required_operstate_for_online = LINK_OPERSTATE_RANGE_DEFAULT,
+                .required_operstate_for_online = LINK_OPERSTATE_RANGE_INVALID,
                 .activation_policy = _ACTIVATION_POLICY_INVALID,
                 .group = -1,
                 .arp = -1,
@@ -1213,8 +1213,6 @@ int config_parse_required_for_online(
                 void *userdata) {
 
         Network *network = ASSERT_PTR(userdata);
-        LinkOperationalStateRange range;
-        bool required = true;
         int r;
 
         assert(filename);
@@ -1223,11 +1221,11 @@ int config_parse_required_for_online(
 
         if (isempty(rvalue)) {
                 network->required_for_online = -1;
-                network->required_operstate_for_online = LINK_OPERSTATE_RANGE_DEFAULT;
+                network->required_operstate_for_online = LINK_OPERSTATE_RANGE_INVALID;
                 return 0;
         }
 
-        r = parse_operational_state_range(rvalue, &range);
+        r = parse_operational_state_range(rvalue, &network->required_operstate_for_online);
         if (r < 0) {
                 r = parse_boolean(rvalue);
                 if (r < 0) {
@@ -1237,13 +1235,12 @@ int config_parse_required_for_online(
                         return 0;
                 }
 
-                required = r;
-                range = LINK_OPERSTATE_RANGE_DEFAULT;
+                network->required_for_online = r;
+                network->required_operstate_for_online = LINK_OPERSTATE_RANGE_DEFAULT;
+                return 0;
         }
 
-        network->required_for_online = required;
-        network->required_operstate_for_online = range;
-
+        network->required_for_online = true;
         return 0;
 }
 
