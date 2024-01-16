@@ -1,12 +1,12 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 #
 # A S Alam <amanpreet.alam@gmail.com>, 2020, 2021, 2023.
-# A S Alam <aalam@users.noreply.translate.fedoraproject.org>, 2023.
+# A S Alam <aalam@users.noreply.translate.fedoraproject.org>, 2023, 2024.
 msgid ""
 msgstr ""
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2023-11-14 21:25+0000\n"
-"PO-Revision-Date: 2023-12-28 15:36+0000\n"
+"PO-Revision-Date: 2024-01-16 14:35+0000\n"
 "Last-Translator: A S Alam <aalam@users.noreply.translate.fedoraproject.org>\n"
 "Language-Team: Punjabi <https://translate.fedoraproject.org/projects/systemd/"
 "master/pa/>\n"
@@ -15,7 +15,7 @@ msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 5.3\n"
+"X-Generator: Weblate 5.3.1\n"
 
 #: src/core/org.freedesktop.systemd1.policy.in:22
 msgid "Send passphrase back to system"
@@ -155,7 +155,7 @@ msgstr "ਅਫ਼ਸੋਸ, ਰਿਕਵਰੀ ਕੁੰਜੀ ਫੇਰ ਭਰ�
 #: src/home/pam_systemd_home.c:352
 #, c-format
 msgid "Security token of user %s not inserted."
-msgstr ""
+msgstr "%s ਵਰਤੋਂਕਾਰ ਲਈ ਸੁਰੱਖਿਆ ਟੋਕਨ ਨਹੀਂ ਦਿੱਤਾ ਗਿਆ।"
 
 #: src/home/pam_systemd_home.c:353 src/home/pam_systemd_home.c:356
 msgid "Try again with password: "
@@ -834,19 +834,19 @@ msgstr ""
 
 #: src/network/org.freedesktop.network1.policy:165
 msgid "Reload network settings"
-msgstr ""
+msgstr "ਨੈੱਟਵਰਕ ਸੈਟਿੰਗਾਂ ਨੂੰ ਮੁੜ-ਲੋਡ ਕਰੋ"
 
 #: src/network/org.freedesktop.network1.policy:166
 msgid "Authentication is required to reload network settings."
-msgstr ""
+msgstr "ਨੈੱਟਵਰਕ ਸੈਟਿੰਗਾਂ ਨੂੰ ਮੁੜ-ਲੋਡ ਕਰਨ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
 #: src/network/org.freedesktop.network1.policy:176
 msgid "Reconfigure network interface"
-msgstr ""
+msgstr "ਨੈੱਟਵਰਕ ਇੰਟਰਫੇਸ ਦੀ ਮੁੜ-ਸੰਰਚਨਾ ਕਰੋ"
 
 #: src/network/org.freedesktop.network1.policy:177
 msgid "Authentication is required to reconfigure network interface."
-msgstr ""
+msgstr "ਨੈੱਟਵਰਕ ਇੰਟਰਫੇਸ ਦੀ ਮੁੜ-ਸੰਰਚਨਾ ਕਰਨ ਥਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
 #: src/portable/org.freedesktop.portable1.policy:13
 msgid "Inspect a portable service image"
@@ -894,7 +894,7 @@ msgstr ""
 
 #: src/resolve/org.freedesktop.resolve1.policy:133
 msgid "Authentication is required to reset name resolution settings."
-msgstr ""
+msgstr "ਨਾਂ ਹੱਲ ਸੈਟਿੰਗਾਂ ਮੁੜ-ਸੈੱਟ ਕਰਨ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
 #: src/timedate/org.freedesktop.timedate1.policy:22
 msgid "Set system time"
@@ -902,15 +902,15 @@ msgstr "ਸਿਸਟਮ ਸਮਾੰ ਸੈੱਟ ਕਰੋ"
 
 #: src/timedate/org.freedesktop.timedate1.policy:23
 msgid "Authentication is required to set the system time."
-msgstr ""
+msgstr "ਸਿਸਟਮ ਟਾਈਮ ਸੈੱਟ ਕਰਨ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
 #: src/timedate/org.freedesktop.timedate1.policy:33
 msgid "Set system timezone"
-msgstr ""
+msgstr "ਸਿਸਟਮ ਸਮਾਂ-ਖੇਤਰ ਸੈੱਟ ਕਰੋ"
 
 #: src/timedate/org.freedesktop.timedate1.policy:34
 msgid "Authentication is required to set the system timezone."
-msgstr ""
+msgstr "ਸਿਸਟਮ ਸਮਾਂ-ਖੇਤਰ ਸੈੱਟ ਕਰਨ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
 #: src/timedate/org.freedesktop.timedate1.policy:43
 msgid "Set RTC to local timezone or UTC"
@@ -930,19 +930,19 @@ msgstr ""
 
 #: src/core/dbus-unit.c:352
 msgid "Authentication is required to start '$(unit)'."
-msgstr ""
+msgstr "'$(unit)' ਨੂੰ ਸ਼ੁਰੂ ਕਰਨ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
 #: src/core/dbus-unit.c:353
 msgid "Authentication is required to stop '$(unit)'."
-msgstr ""
+msgstr "'$(unit)' ਨੂੰ ਰੋਕਣ ਕਰਨ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
 #: src/core/dbus-unit.c:354
 msgid "Authentication is required to reload '$(unit)'."
-msgstr ""
+msgstr "'$(unit)' ਨੂੰ ਮੁੜ-ਲੋਡ (reload) ਕਰਨ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
 #: src/core/dbus-unit.c:355 src/core/dbus-unit.c:356
 msgid "Authentication is required to restart '$(unit)'."
-msgstr ""
+msgstr "'$(unit)' ਨੂੰ ਮੁੜ-ਸ਼ੁਰੂ (restart) ਕਰਨ ਲਈ ਪਰਮਾਣਕਿਤਾ ਚਾਹੀਦੀ ਹੈ।"
 
 #: src/core/dbus-unit.c:553
 msgid "Authentication is required to send a UNIX signal to the processes of '$(unit)'."
