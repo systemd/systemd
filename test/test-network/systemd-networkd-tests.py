@@ -1687,6 +1687,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         start_networkd()
 
         self.wait_online(['vcan99:carrier', 'vcan98:carrier'])
+        # For can devices, 'carrier' is the default required operational state.
+        self.wait_online(['vcan99', 'vcan98'])
 
         # https://github.com/systemd/systemd/issues/30140
         output = check_output('ip -d link show vcan99')
@@ -1703,6 +1705,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         start_networkd()
 
         self.wait_online(['vxcan99:carrier', 'vxcan-peer:carrier'])
+        # For can devices, 'carrier' is the default required operational state.
+        self.wait_online(['vxcan99', 'vxcan-peer'])
 
     @expectedFailureIfModuleIsNotAvailable('wireguard')
     def test_wireguard(self):
