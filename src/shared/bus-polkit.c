@@ -747,10 +747,9 @@ int varlink_verify_polkit_async(
                 if (r < 0) {
                         /* Reply with a nice error */
                         if (sd_bus_error_has_name(&error, SD_BUS_ERROR_INTERACTIVE_AUTHORIZATION_REQUIRED))
-                                return varlink_error(link, VARLINK_ERROR_INTERACTIVE_AUTHENTICATION_REQUIRED, NULL);
-
-                        if (ERRNO_IS_NEG_PRIVILEGE(r))
-                                return varlink_error(link, VARLINK_ERROR_PERMISSION_DENIED, NULL);
+                                (void) varlink_error(link, VARLINK_ERROR_INTERACTIVE_AUTHENTICATION_REQUIRED, NULL);
+                        else if (ERRNO_IS_NEG_PRIVILEGE(r))
+                                (void) varlink_error(link, VARLINK_ERROR_PERMISSION_DENIED, NULL);
 
                         return r;
                 }
