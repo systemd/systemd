@@ -386,7 +386,7 @@ static int async_polkit_callback(sd_bus_message *reply, void *userdata, sd_bus_e
                 if (q->request)
                         (void) sd_bus_reply_method_errno(q->request, r, NULL);
                 if (q->link)
-                        varlink_error_errno(q->link, r);
+                        (void) varlink_error_errno(q->link, r);
                 async_polkit_query_unref(q);
         }
         return r;
