@@ -101,11 +101,9 @@ void link_foreignize_routes(Link *link);
 void route_cancel_request(Route *route, Link *link);
 int link_request_route(
                 Link *link,
-                Route *route,
-                bool consume_object,
+                const Route *route,
                 unsigned *message_counter,
-                route_netlink_handler_t netlink_handler,
-                Request **ret);
+                route_netlink_handler_t netlink_handler);
 int link_request_static_routes(Link *link, bool only_ipv4);
 
 int manager_rtnl_process_route(sd_netlink *rtnl, sd_netlink_message *message, Manager *m);
