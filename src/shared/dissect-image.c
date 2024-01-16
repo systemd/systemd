@@ -2135,7 +2135,7 @@ int dissected_image_mount(
          *  -EIDRM        → File system is not among allowlisted "common" file systems
          */
 
-        if (!where && (flags & (DISSECT_IMAGE_VALIDATE_OS|DISSECT_IMAGE_VALIDATE_OS_EXT)) != 0)
+        if (!where && FLAGS_SET(flags, DISSECT_IMAGE_VALIDATE_OS|DISSECT_IMAGE_VALIDATE_OS_EXT))
                 return -EOPNOTSUPP; /* for now, not supported */
 
         if (!(m->partitions[PARTITION_ROOT].found ||
@@ -2151,7 +2151,7 @@ int dissected_image_mount(
                 userns_fd = my_userns_fd;
         }
 
-        if ((flags & DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY) == 0) {
+        if (!FLAGS_SET(flags, DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY)) {
 
                 /* First mount the root fs. If there's none we use a tmpfs. */
                 if (m->partitions[PARTITION_ROOT].found) {
@@ -2171,8 +2171,8 @@ int dissected_image_mount(
                         return r;
         }
 
-        if ((flags & DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY) == 0 &&
-            (flags & (DISSECT_IMAGE_VALIDATE_OS|DISSECT_IMAGE_VALIDATE_OS_EXT)) != 0) {
+        if (!FLAGS_SET(flags, DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY) &&
+            FLAGS_SET(flags, DISSECT_IMAGE_VALIDATE_OS|DISSECT_IMAGE_VALIDATE_OS_EXT)) {
                 /* If either one of the validation flags are set, ensure that the image qualifies as
                  * one or the other (or both). */
                 bool ok = false;
@@ -2205,7 +2205,7 @@ int dissected_image_mount(
                         return -ENOMEDIUM;
         }
 
-        if (flags & DISSECT_IMAGE_MOUNT_ROOT_ONLY)
+        if (FLAGS_SET(flags, DISSECT_IMAGE_MOUNT_ROOT_ONLY))
                 return 0;
 
         r = mount_partition(PARTITION_HOME, m->partitions + PARTITION_HOME, where, "/home", uid_shift, uid_range, userns_fd, flags);
