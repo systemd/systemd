@@ -84,3 +84,16 @@ typedef struct LinkOperationalStateRange {
 
 int parse_operational_state_range(const char *str, LinkOperationalStateRange *out);
 int network_link_get_operational_state(int ifindex, LinkOperationalState *ret);
+
+static inline bool operational_state_is_valid(LinkOperationalState s) {
+        return s >= 0 && s < _LINK_OPERSTATE_MAX;
+}
+static inline bool operational_state_range_is_valid(const LinkOperationalStateRange *range) {
+        return range &&
+                operational_state_is_valid(range->min) &&
+                operational_state_is_valid(range->max) &&
+                range->min <= range->max;
+}
+static inline bool operational_state_is_in_range(LinkOperationalState s, const LinkOperationalStateRange *range) {
+        return range && range->min <= s && s <= range->max;
+}
