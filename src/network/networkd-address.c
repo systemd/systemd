@@ -1023,7 +1023,7 @@ int address_remove_and_cancel(Address *address, Link *link) {
          * notification about the request, then explicitly remove the address. */
         if (address_get_request(link, address, &req) >= 0) {
                 waiting = req->waiting_reply;
-                request_detach(link->manager, req);
+                request_detach(req);
                 address_cancel_requesting(address);
         }
 

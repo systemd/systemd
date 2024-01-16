@@ -9,14 +9,28 @@
 
 #define REPLY_CALLBACK_COUNT_THRESHOLD 128
 
+static Request* request_detach_impl(Request *req) {
+        assert(req);
+
+        if (!req->manager)
+                return NULL;
+
+        ordered_set_remove(req->manager->request_queue, req);
+        req->manager = NULL;
+        return req;
+}
+
+void request_detach(Request *req) {
+        request_unref(request_detach_impl(req));
+}
+
 static Request *request_free(Request *req) {
         if (!req)
                 return NULL;
 
         /* To prevent from triggering assertions in the hash and compare functions, remove this request
          * from the set before freeing userdata below. */
-        if (req->manager)
-                ordered_set_remove(req->manager->request_queue, req);
+        request_detach_impl(req);
 
         if (req->free_func)
                 req->free_func(req->userdata);
@@ -31,26 +45,10 @@ static Request *request_free(Request *req) {
 
 DEFINE_TRIVIAL_REF_UNREF_FUNC(Request, request, request_free);
 
-void request_detach(Manager *manager, Request *req) {
-        assert(manager);
-
-        if (!req)
-                return;
-
-        req = ordered_set_remove(manager->request_queue, req);
-        if (!req)
-                return;
-
-        req->manager = NULL;
-        request_unref(req);
-}
-
 static void request_destroy_callback(Request *req) {
         assert(req);
 
-        if (req->manager)
-                request_detach(req->manager, req);
-
+        request_detach(req);
         request_unref(req);
 }
 
@@ -114,7 +112,7 @@ DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
                 Request,
                 request_hash_func,
                 request_compare_func,
-                request_unref);
+                request_detach);
 
 static int request_new(
                 Manager *manager,
@@ -248,7 +246,7 @@ int manager_process_requests(Manager *manager) {
                 assert(req->process);
                 r = req->process(req, link, req->userdata);
                 if (r < 0) {
-                        request_detach(manager, req);
+                        request_detach(req);
 
                         if (link) {
                                 link_enter_failed(link);
@@ -261,7 +259,7 @@ int manager_process_requests(Manager *manager) {
                         /* If the request sends netlink message, e.g. for Address or so, the Request object is
                          * referenced by the netlink slot, and will be detached later by its destroy callback.
                          * Otherwise, e.g. for DHCP client or so, detach the request from queue now. */
-                        request_detach(manager, req);
+                        request_detach(req);
 
                 if (manager->request_queued)
                         break; /* New request is queued. Exit from the loop. */

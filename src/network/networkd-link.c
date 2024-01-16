@@ -986,7 +986,7 @@ static int link_drop_requests(Link *link) {
                                 ;
                         }
 
-                request_detach(link->manager, req);
+                request_detach(req);
         }
 
         return ret;

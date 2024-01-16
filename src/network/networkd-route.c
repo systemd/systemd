@@ -1578,26 +1578,29 @@ int link_request_static_routes(Link *link, bool only_ipv4) {
 }
 
 void route_cancel_request(Route *route, Link *link) {
-        Request req;
+        Request *req;
 
         assert(route);
 
         link = route->link ?: link;
 
         assert(link);
+        assert(link->manager);
 
         if (!route_is_requesting(route))
                 return;
 
-        req = (Request) {
-                .link = link,
-                .type = REQUEST_TYPE_ROUTE,
-                .userdata = route,
-                .hash_func = (hash_func_t) route_hash_func,
-                .compare_func = (compare_func_t) route_compare_func,
-        };
+        req = ordered_set_get(link->manager->request_queue,
+                              &(Request) {
+                                      .link = link,
+                                      .type = REQUEST_TYPE_ROUTE,
+                                      .userdata = route,
+                                      .hash_func = (hash_func_t) route_hash_func,
+                                      .compare_func = (compare_func_t) route_compare_func,
+                              });
 
-        request_detach(link->manager, &req);
+        if (req)
+                request_detach(req);
         route_cancel_requesting(route);
 }
 
