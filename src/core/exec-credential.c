@@ -244,9 +244,8 @@ static char **credential_search_path(const ExecParameters *params, CredentialSea
         }
 
         if (IN_SET(path, CREDENTIAL_SEARCH_PATH_TRUSTED, CREDENTIAL_SEARCH_PATH_ALL)) {
-                if (params->received_credentials_directory)
-                        if (strv_extend(&l, params->received_credentials_directory) < 0)
-                                return NULL;
+                if (strv_extend(&l, params->received_credentials_directory) < 0)
+                        return NULL;
 
                 if (strv_extend_strv(&l, CONF_PATHS_STRV("credstore"), /* filter_duplicates= */ true) < 0)
                         return NULL;
