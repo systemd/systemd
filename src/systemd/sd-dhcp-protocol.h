@@ -171,7 +171,8 @@ enum {
         SD_DHCP_OPTION_PORT_PARAMS                    = 159, /* [RFC7618] */
         /* option code 160 is unassigned [RFC7710][RFC8910] */
         SD_DHCP_OPTION_MUD_URL                        = 161, /* [RFC8520] */
-        /* option codes 162-174 are unassigned [RFC3942] */
+        SD_DHCP_OPTION_V4_DNR                         = 162, /* [RFC9463] */
+        /* option codes 163-174 are unassigned [RFC3942] */
         /* option codes 175-177 are temporary assigned. */
         /* option codes 178-207 are unassigned [RFC3942] */
         SD_DHCP_OPTION_PXELINUX_MAGIC                 = 208, /* [RFC5071] Deprecated */
