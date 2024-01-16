@@ -336,11 +336,32 @@ static int route_get_link(Manager *manager, const Route *route, Link **ret) {
         return route_nexthop_get_link(manager, NULL, &route->nexthop, ret);
 }
 
-int route_dup(const Route *src, Route **ret) {
+static int route_get_request(Link *link, const Route *route, Request **ret) {
+        Request *req;
+
+        assert(link);
+        assert(link->manager);
+        assert(route);
+
+        req = ordered_set_get(link->manager->request_queue,
+                              &(const Request) {
+                                      .link = link,
+                                      .type = REQUEST_TYPE_ROUTE,
+                                      .userdata = (void*) route,
+                                      .hash_func = (hash_func_t) route_hash_func,
+                                      .compare_func = (compare_func_t) route_compare_func,
+                              });
+        if (!req)
+                return -ENOENT;
+
+        if (ret)
+                *ret = req;
+        return 0;
+}
+
+int route_dup(const Route *src, const RouteNextHop *nh, Route **ret) {
         _cleanup_(route_freep) Route *dest = NULL;
         int r;
-
-        /* This does not copy mulipath routes. */
 
         assert(src);
         assert(ret);
@@ -355,9 +376,14 @@ int route_dup(const Route *src, Route **ret) {
         dest->wireguard = NULL;
         dest->section = NULL;
         dest->link = NULL;
+        dest->nexthop = ROUTE_NEXTHOP_NULL;
         dest->nexthops = NULL;
         dest->metric = ROUTE_METRIC_NULL;
         dest->expire = NULL;
+
+        r = route_nexthops_copy(src, nh, dest);
+        if (r < 0)
+                return r;
 
         r = route_metric_copy(&src->metric, &dest->metric);
         if (r < 0)
@@ -476,7 +502,7 @@ static int route_convert(Manager *manager, Link *link, const Route *route, Conve
                         if (r < 0)
                                 return r;
 
-                        r = route_dup(route, &c->routes[0]);
+                        r = route_dup(route, NULL, &c->routes[0]);
                         if (r < 0)
                                 return r;
 
@@ -499,7 +525,7 @@ static int route_convert(Manager *manager, Link *link, const Route *route, Conve
                         if (r < 0)
                                 return r;
 
-                        r = route_dup(route, &c->routes[i]);
+                        r = route_dup(route, NULL, &c->routes[i]);
                         if (r < 0)
                                 return r;
 
@@ -523,7 +549,7 @@ static int route_convert(Manager *manager, Link *link, const Route *route, Conve
         size_t i = 0;
         RouteNextHop *nh;
         ORDERED_SET_FOREACH(nh, route->nexthops) {
-                r = route_dup(route, &c->routes[i]);
+                r = route_dup(route, NULL, &c->routes[i]);
                 if (r < 0)
                         return r;
 
@@ -1129,7 +1155,7 @@ static int route_process_request(Request *req, Link *link, Route *route) {
                         if (route_get(link->manager, converted->links[i] ?: link, converted->routes[i], &existing) < 0) {
                                 _cleanup_(route_freep) Route *tmp = NULL;
 
-                                r = route_dup(converted->routes[i], &tmp);
+                                r = route_dup(converted->routes[i], NULL, &tmp);
                                 if (r < 0)
                                         return log_oom();
 
@@ -1215,7 +1241,7 @@ int link_request_route(
                 if (consume_object)
                         tmp = route;
                 else {
-                        r = route_dup(route, &tmp);
+                        r = route_dup(route, NULL, &tmp);
                         if (r < 0)
                                 return r;
                 }
@@ -1345,29 +1371,17 @@ int link_request_static_routes(Link *link, bool only_ipv4) {
 }
 
 void route_cancel_request(Route *route, Link *link) {
-        Request *req;
-
         assert(route);
 
-        link = route->link ?: link;
-
-        assert(link);
-        assert(link->manager);
+        link = ASSERT_PTR(route->link ?: link);
 
         if (!route_is_requesting(route))
                 return;
 
-        req = ordered_set_get(link->manager->request_queue,
-                              &(Request) {
-                                      .link = link,
-                                      .type = REQUEST_TYPE_ROUTE,
-                                      .userdata = route,
-                                      .hash_func = (hash_func_t) route_hash_func,
-                                      .compare_func = (compare_func_t) route_compare_func,
-                              });
-
-        if (req)
+        Request *req;
+        if (route_get_request(link, route, &req) >= 0)
                 request_detach(req);
+
         route_cancel_requesting(route);
 }
 
