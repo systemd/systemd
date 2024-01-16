@@ -1065,6 +1065,17 @@ static int varlink_parse_message(Varlink *v) {
                         json_variant_sensitive(parameters);
         }
 
+        if (DEBUG_LOGGING) {
+                _cleanup_(erase_and_freep) char *censored_text = NULL;
+
+                /* Suppress sensitive fields in the debug output */
+                r = json_variant_format(v->current, /* flags= */ JSON_FORMAT_CENSOR_SENSITIVE, &censored_text);
+                if (r < 0)
+                        return r;
+
+                varlink_log(v, "Received message: %s", censored_text);
+        }
+
         v->input_buffer_size -= sz;
 
         if (v->input_buffer_size == 0)
