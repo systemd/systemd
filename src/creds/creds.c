@@ -996,8 +996,6 @@ static int vl_method_encrypt(Varlink *link, JsonVariant *parameters, VarlinkMeth
 
         assert(link);
 
-        json_variant_sensitive(parameters);
-
         r = varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
@@ -1079,9 +1077,6 @@ static int vl_method_decrypt(Varlink *link, JsonVariant *parameters, VarlinkMeth
 
         assert(link);
 
-        /* Let's also mark the (theoretically encrypted) input as sensitive, in case the NULL encryption scheme was used. */
-        json_variant_sensitive(parameters);
-
         r = varlink_dispatch(link, parameters, dispatch_table, &p);
         if (r != 0)
                 return r;
@@ -1144,7 +1139,7 @@ static int run(int argc, char *argv[]) {
 
                 /* Invocation as Varlink service */
 
-                r = varlink_server_new(&varlink_server, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA);
+                r = varlink_server_new(&varlink_server, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA|VARLINK_SERVER_INPUT_SENSITIVE);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate Varlink server: %m");
 
