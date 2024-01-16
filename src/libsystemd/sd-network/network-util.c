@@ -90,49 +90,48 @@ static const char *const link_online_state_table[_LINK_ONLINE_STATE_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(link_online_state, LinkOnlineState);
 
-int parse_operational_state_range(const char *str, LinkOperationalStateRange *out) {
-        LinkOperationalStateRange range = { _LINK_OPERSTATE_INVALID, _LINK_OPERSTATE_INVALID };
-        _cleanup_free_ const char *min = NULL;
+int parse_operational_state_range(const char *s, LinkOperationalStateRange *ret) {
+        LinkOperationalStateRange range = LINK_OPERSTATE_RANGE_INVALID;
+        _cleanup_free_ char *buf = NULL;
         const char *p;
 
-        assert(str);
-        assert(out);
+        assert(s);
+        assert(ret);
 
-        p = strchr(str, ':');
+        /* allowed formats: "min", "min:", "min:max", ":max" */
+
+        if (isempty(s) || streq(s, ":"))
+                return -EINVAL;
+
+        p = strchr(s, ':');
+        if (!p || isempty(p + 1))
+                range.max = LINK_OPERSTATE_ROUTABLE;
+        else {
+                range.max = link_operstate_from_string(p + 1);
+                if (range.max < 0)
+                        return -EINVAL;
+        }
+
         if (p) {
-                min = strndup(str, p - str);
+                buf = strndup(s, p - s);
+                if (!buf)
+                        return -ENOMEM;
 
-                if (!isempty(p + 1)) {
-                        range.max = link_operstate_from_string(p + 1);
-                        if (range.max < 0)
-                                return -EINVAL;
-                }
-        } else
-                min = strdup(str);
+                s = buf;
+        }
 
-        if (!min)
-                return -ENOMEM;
-
-        if (!isempty(min)) {
-                range.min = link_operstate_from_string(min);
+        if (isempty(s))
+                range.min = LINK_OPERSTATE_MISSING;
+        else {
+                range.min = link_operstate_from_string(s);
                 if (range.min < 0)
                         return -EINVAL;
         }
 
-        /* Fail on empty strings. */
-        if (range.min == _LINK_OPERSTATE_INVALID && range.max == _LINK_OPERSTATE_INVALID)
+        if (!operational_state_range_is_valid(&range))
                 return -EINVAL;
 
-        if (range.min == _LINK_OPERSTATE_INVALID)
-                range.min = LINK_OPERSTATE_MISSING;
-        if (range.max == _LINK_OPERSTATE_INVALID)
-                range.max = LINK_OPERSTATE_ROUTABLE;
-
-        if (range.min > range.max)
-                return -EINVAL;
-
-        *out = range;
-
+        *ret = range;
         return 0;
 }
 
