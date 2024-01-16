@@ -3,6 +3,8 @@
 #include <sys/xattr.h>
 
 #include "errno-util.h"
+#include "fd-util.h"
+#include "hexdecoct.h"
 #include "home-util.h"
 #include "id128-util.h"
 #include "libcrypt-util.h"
@@ -10,6 +12,7 @@
 #include "recovery-key.h"
 #include "mountpoint-util.h"
 #include "path-util.h"
+#include "sha256.h"
 #include "stat-util.h"
 #include "user-record-util.h"
 #include "user-util.h"
@@ -282,7 +285,7 @@ int user_record_add_binding(
                 gid_t gid) {
 
         _cleanup_(json_variant_unrefp) JsonVariant *new_binding_entry = NULL, *binding = NULL;
-        _cleanup_free_ char *ip = NULL, *hd = NULL, *ip_auto = NULL, *lc = NULL, *lcm = NULL, *fst = NULL;
+        _cleanup_free_ char *blob = NULL, *ip = NULL, *hd = NULL, *ip_auto = NULL, *lc = NULL, *lcm = NULL, *fst = NULL;
         sd_id128_t mid;
         int r;
 
@@ -290,6 +293,10 @@ int user_record_add_binding(
 
         if (!h->json)
                 return -EUNATCH;
+
+        blob = path_join(home_system_blob_dir(), h->user_name);
+        if (!blob)
+                return -ENOMEM;
 
         r = sd_id128_get_machine(&mid);
         if (r < 0)
@@ -331,6 +338,7 @@ int user_record_add_binding(
 
         r = json_build(&new_binding_entry,
                        JSON_BUILD_OBJECT(
+                                       JSON_BUILD_PAIR("blobDirectory", JSON_BUILD_STRING(blob)),
                                        JSON_BUILD_PAIR_CONDITION(!!image_path, "imagePath", JSON_BUILD_STRING(image_path)),
                                        JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(partition_uuid), "partitionUuid", JSON_BUILD_STRING(SD_ID128_TO_UUID_STRING(partition_uuid))),
                                        JSON_BUILD_PAIR_CONDITION(!sd_id128_is_null(luks_uuid), "luksUuid", JSON_BUILD_STRING(SD_ID128_TO_UUID_STRING(luks_uuid))),
@@ -369,6 +377,8 @@ int user_record_add_binding(
         r = json_variant_set_field(&h->json, "binding", binding);
         if (r < 0)
                 return r;
+
+        free_and_replace(h->blob_directory, blob);
 
         if (storage >= 0)
                 h->storage = storage;
@@ -1382,6 +1392,12 @@ int user_record_is_supported(UserRecord *hr, sd_bus_error *error) {
         if (hr->service && !streq(hr->service, "io.systemd.Home"))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Not accepted with service not matching io.systemd.Home.");
 
+        if (hr->blob_directory) {
+                /* This function is always called w/o binding section, so if hr->blob_dir is set then the caller set it themselves */
+                assert((hr->mask & USER_RECORD_BINDING) == 0);
+                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Cannot manage custom blob directories.");
+        }
+
         return 0;
 }
 
@@ -1508,5 +1524,165 @@ int user_record_set_rebalance_weight(UserRecord *h, uint64_t weight) {
 
         h->rebalance_weight = weight;
         h->mask |= USER_RECORD_PER_MACHINE;
+        return 0;
+}
+
+int user_record_ensure_blob_manifest(UserRecord *h, Hashmap *blobs) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        _cleanup_hashmap_free_ Hashmap *manifest = NULL;
+        const char *filename;
+        void *key, *value;
+        int r;
+
+        assert(h);
+        assert(h->json);
+        assert(blobs);
+
+        /* Ensures that blobManifest exists (possibly creating it using the
+         * contents of blobs), and that the set of keys in both hashmaps are
+         * exactly the same */
+
+        if (h->blob_manifest) {
+                /* blobManifest already exists. In this case we verify
+                 * that the sets of keys are equal and that's it */
+
+                HASHMAP_FOREACH_KEY(value, key, h->blob_manifest)
+                        if (!hashmap_contains(blobs, key))
+                                return -EINVAL;
+                HASHMAP_FOREACH_KEY(value, key, blobs)
+                        if (!hashmap_contains(h->blob_manifest, key))
+                                return -EINVAL;
+
+                return 0;
+        }
+
+        /* blobManifest doesn't exist, so we need to create it */
+
+        HASHMAP_FOREACH_KEY(value, filename, blobs) {
+                _cleanup_free_ char *filename_dup = NULL, *hash_str = NULL;
+                _cleanup_free_ uint8_t *hash = NULL;
+                int fd = PTR_TO_FD(value);
+                off_t pos;
+
+                filename_dup = strdup(filename);
+                if (!filename_dup)
+                        return -ENOMEM;
+
+                hash = malloc(SHA256_DIGEST_SIZE);
+                if (!hash)
+                        return -ENOMEM;
+
+                pos = lseek(fd, 0, SEEK_CUR);
+                if (pos < 0)
+                        return -errno;
+
+                r = sha256_fd(fd, hash);
+                if (r < 0)
+                        return r;
+
+                if (lseek(fd, pos, SEEK_SET) < 0)
+                        return -errno;
+
+                r = hashmap_ensure_put(&manifest, &path_hash_ops_free_free, filename_dup, hash);
+                if (r < 0)
+                        return r;
+                TAKE_PTR(filename_dup); /* Ownership transfers to hashmap */
+                TAKE_PTR(hash);
+
+                hash_str = hexmem(hash, SHA256_DIGEST_SIZE);
+                if (!hash_str)
+                        return -ENOMEM;
+
+                r = json_variant_set_field_string(&v, filename, hash_str);
+                if (r < 0)
+                        return r;
+        }
+
+        r = json_variant_set_field(&h->json, "blobManifest", v);
+        if (r < 0)
+                return r;
+
+        h->blob_manifest = TAKE_PTR(manifest);
+        return 0;
+}
+
+int user_record_steal_blob_dir(UserRecord *h, char **ret) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        JsonVariant *per_machine;
+        int r;
+
+        assert(h);
+        assert(h->json);
+        assert(ret);
+
+        /* Returns the value of blobDirectory in the user record, and
+         * removes the field from the record so it doesn't get persisted
+         * anywhere */
+
+         if (!h->blob_directory)
+                return -ENOENT;
+
+        v = json_variant_ref(h->json);
+
+        /* Drop blobDirectory from regular section */
+        r = json_variant_filter(&v, STRV_MAKE("blobDirectory"));
+        if (r < 0)
+                return r;
+
+        /* Drop blobDirectory from perMachine sections that match us. */
+        per_machine = json_variant_by_key(h->json, "perMachine");
+        if (per_machine) {
+                _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
+                JsonVariant *e;
+
+                JSON_VARIANT_ARRAY_FOREACH(e, per_machine) {
+                        _cleanup_(json_variant_unrefp) JsonVariant *f = NULL;
+
+                        if (!json_variant_is_object(e))
+                                return -EINVAL;
+
+                        r = per_machine_match(e, JSON_PERMISSIVE);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                continue;
+
+                        f = json_variant_ref(e);
+
+                        r = json_variant_filter(&f, STRV_MAKE("blobDirectory"));
+                        if (r < 0)
+                                return r;
+
+                        if (per_machine_entry_empty(f))
+                                continue;
+
+                        r = json_variant_append_array(&array, f);
+                        if (r < 0)
+                                return r;
+                }
+
+                if (json_variant_is_blank_array(array))
+                        r = json_variant_filter(&v, STRV_MAKE("perMachine"));
+                else
+                        r = json_variant_set_field(&v, "perMachine", array);
+                if (r < 0)
+                        return r;
+
+                SET_FLAG(h->mask, USER_RECORD_PER_MACHINE, !json_variant_is_blank_array(array));
+        }
+
+        /* Last location blobDirectory can be is in the status section, but
+         * we shouldn't have a status section here. */
+        assert((h->mask & USER_RECORD_STATUS) == 0);
+
+        JSON_VARIANT_REPLACE(h->json, TAKE_PTR(v));
+
+        if (path_startswith(h->blob_directory, home_system_blob_dir())) {
+                /* For some reason the caller specified our own system blob dir?!? */
+                h->blob_directory = mfree(h->blob_directory);
+                return -ENOENT;
+        }
+
+        *ret = TAKE_PTR(h->blob_directory);
         return 0;
 }
