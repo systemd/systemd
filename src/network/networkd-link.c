@@ -70,6 +70,16 @@
 #include "udev-util.h"
 #include "vrf.h"
 
+void link_required_operstate_for_online(Link *link, LinkOperationalStateRange *ret) {
+        assert(link);
+        assert(ret);
+
+        if (link->network && operational_state_range_is_valid(&link->network->required_operstate_for_online))
+                *ret = link->network->required_operstate_for_online;
+        else
+                *ret = LINK_OPERSTATE_RANGE_DEFAULT;
+}
+
 bool link_ipv6_enabled(Link *link) {
         assert(link);
 
@@ -1872,12 +1882,16 @@ void link_update_operstate(Link *link, bool also_update_master) {
         else
                 operstate = LINK_OPERSTATE_ENSLAVED;
 
+        LinkOperationalStateRange req;
+        link_required_operstate_for_online(link, &req);
+
         /* Only determine online state for managed links with RequiredForOnline=yes */
         if (!link->network || !link->network->required_for_online)
                 online_state = _LINK_ONLINE_STATE_INVALID;
-        else if (operstate < link->network->required_operstate_for_online.min ||
-                 operstate > link->network->required_operstate_for_online.max)
+
+        else if (!operational_state_is_in_range(operstate, &req))
                 online_state = LINK_ONLINE_STATE_OFFLINE;
+
         else {
                 AddressFamily required_family = link->network->required_family_for_online;
                 bool needs_ipv4 = required_family & ADDRESS_FAMILY_IPV4;
@@ -1888,14 +1902,14 @@ void link_update_operstate(Link *link, bool also_update_master) {
                  * to offline in the blocks below. */
                 online_state = LINK_ONLINE_STATE_ONLINE;
 
-                if (link->network->required_operstate_for_online.min >= LINK_OPERSTATE_DEGRADED) {
+                if (req.min >= LINK_OPERSTATE_DEGRADED) {
                         if (needs_ipv4 && ipv4_address_state < LINK_ADDRESS_STATE_DEGRADED)
                                 online_state = LINK_ONLINE_STATE_OFFLINE;
                         if (needs_ipv6 && ipv6_address_state < LINK_ADDRESS_STATE_DEGRADED)
                                 online_state = LINK_ONLINE_STATE_OFFLINE;
                 }
 
-                if (link->network->required_operstate_for_online.min >= LINK_OPERSTATE_ROUTABLE) {
+                if (req.min >= LINK_OPERSTATE_ROUTABLE) {
                         if (needs_ipv4 && ipv4_address_state < LINK_ADDRESS_STATE_ROUTABLE)
                                 online_state = LINK_ONLINE_STATE_OFFLINE;
                         if (needs_ipv6 && ipv6_address_state < LINK_ADDRESS_STATE_ROUTABLE)

@@ -252,3 +252,5 @@ int manager_rtnl_process_link(sd_netlink *rtnl, sd_netlink_message *message, Man
 
 int link_flags_to_string_alloc(uint32_t flags, char **ret);
 const char *kernel_operstate_to_string(int t) _const_;
+
+void link_required_operstate_for_online(Link *link, LinkOperationalStateRange *ret);

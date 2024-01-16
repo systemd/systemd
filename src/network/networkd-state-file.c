@@ -630,11 +630,11 @@ static int link_save(Link *link) {
                 fprintf(f, "REQUIRED_FOR_ONLINE=%s\n",
                         yes_no(link->network->required_for_online));
 
-                LinkOperationalStateRange st = link->network->required_operstate_for_online;
-                fprintf(f, "REQUIRED_OPER_STATE_FOR_ONLINE=%s%s%s\n",
-                        strempty(link_operstate_to_string(st.min)),
-                        st.max != LINK_OPERSTATE_RANGE_DEFAULT.max ? ":" : "",
-                        st.max != LINK_OPERSTATE_RANGE_DEFAULT.max ? strempty(link_operstate_to_string(st.max)) : "");
+                LinkOperationalStateRange st;
+                link_required_operstate_for_online(link, &st);
+
+                fprintf(f, "REQUIRED_OPER_STATE_FOR_ONLINE=%s:%s\n",
+                        link_operstate_to_string(st.min), link_operstate_to_string(st.max));
 
                 fprintf(f, "REQUIRED_FAMILY_FOR_ONLINE=%s\n",
                         link_required_address_family_to_string(link->network->required_family_for_online));
