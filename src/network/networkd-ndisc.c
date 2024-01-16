@@ -224,8 +224,7 @@ static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
 
         is_new = route_get(NULL, link, route, NULL) < 0;
 
-        r = link_request_route(link, TAKE_PTR(route), true, &link->ndisc_messages,
-                               ndisc_route_handler, NULL);
+        r = link_request_route(link, route, &link->ndisc_messages, ndisc_route_handler);
         if (r < 0)
                 return r;
         if (r > 0 && is_new)
