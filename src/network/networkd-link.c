@@ -81,6 +81,11 @@ void link_required_operstate_for_online(Link *link, LinkOperationalStateRange *r
         else if (operational_state_range_is_valid(&link->network->required_operstate_for_online))
                 *ret = link->network->required_operstate_for_online;
 
+        else if (link->iftype == ARPHRD_CAN)
+                *ret = (const LinkOperationalStateRange) {
+                        .min = LINK_OPERSTATE_CARRIER,
+                        .max = LINK_OPERSTATE_CARRIER,
+                };
         else
                 *ret = LINK_OPERSTATE_RANGE_DEFAULT;
 }
