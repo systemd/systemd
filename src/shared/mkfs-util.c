@@ -425,7 +425,7 @@ int make_filesystem(
                                 "-T", "default",
                                 node);
 
-                if (root && strv_extend_strv(&argv, STRV_MAKE("-d", root), false) < 0)
+                if (root && strv_extend_many(&argv, "-d", root) < 0)
                         return log_oom();
 
                 if (quiet && strv_extend(&argv, "-q") < 0)
@@ -450,7 +450,7 @@ int make_filesystem(
                 if (!discard && strv_extend(&argv, "--nodiscard") < 0)
                         return log_oom();
 
-                if (root && strv_extend_strv(&argv, STRV_MAKE("-r", root), false) < 0)
+                if (root && strv_extend_many(&argv, "-r", root) < 0)
                         return log_oom();
 
                 if (quiet && strv_extend(&argv, "-q") < 0)
@@ -514,7 +514,7 @@ int make_filesystem(
                         if (!protofile_with_opt)
                                 return -ENOMEM;
 
-                        if (strv_extend_strv(&argv, STRV_MAKE("-p", protofile_with_opt), false) < 0)
+                        if (strv_extend_many(&argv, "-p", protofile_with_opt) < 0)
                                 return log_oom();
                 }
 

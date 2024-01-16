@@ -355,15 +355,11 @@ static int user_config_paths(char*** ret) {
         if (r < 0)
                 return r;
 
-        r = strv_extend(&res, persistent_config);
-        if (r < 0)
-                return r;
-
-        r = strv_extend(&res, runtime_config);
-        if (r < 0)
-                return r;
-
-        r = strv_extend(&res, data_home);
+        r = strv_extend_many(
+                        &res,
+                        persistent_config,
+                        runtime_config,
+                        data_home);
         if (r < 0)
                 return r;
 
@@ -3983,16 +3979,16 @@ static int exclude_default_prefixes(void) {
          * likely over-mounted if the root directory is actually used, and it wouldbe less than ideal to have
          * all kinds of files created/adjusted underneath these mount points. */
 
-        r = strv_extend_strv(
+        r = strv_extend_many(
                         &arg_exclude_prefixes,
-                        STRV_MAKE("/dev",
-                                  "/proc",
-                                  "/run",
-                                  "/sys"),
-                                 true);
+                        "/dev",
+                        "/proc",
+                        "/run",
+                        "/sys");
         if (r < 0)
                 return log_oom();
 
+        strv_uniq(arg_exclude_prefixes);
         return 0;
 }
 
