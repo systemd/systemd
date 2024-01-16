@@ -846,7 +846,7 @@ TEST(tpm2b_public_from_openssl_pkey) {
 
         assert_se(p->parameters.rsaDetail.keyBits == expected_n_len * 8);
 
-        assert_se(p->parameters.rsaDetail.exponent == 0);
+        assert_se(p->parameters.rsaDetail.exponent == 0x10001);
 
         check_tpm2b_public_fingerprint(&public, "d9186d13a7fd5b3644cee05448f49ad3574e82a2942ff93cf89598d36cca78a9");
 }
