@@ -44,6 +44,7 @@ static BusPrintPropertyFlags arg_print_flags = 0;
 static bool arg_full = false;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_legend = true;
+static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static const char *arg_kill_whom = NULL;
 static int arg_signal = SIGTERM;
 static BusTransport arg_transport = BUS_TRANSPORT_LOCAL;
@@ -113,32 +114,25 @@ static OutputFlags get_output_flags(void) {
                 colors_enabled() * OUTPUT_COLOR;
 }
 
-static int show_table(Table *table, const char *word) {
+static int list_table_print(Table *table, const char *type) {
         int r;
 
         assert(table);
-        assert(word);
+        assert(type);
 
-        if (!table_isempty(table) || OUTPUT_MODE_IS_JSON(arg_output)) {
-                r = table_set_sort(table, (size_t) 0);
-                if (r < 0)
-                        return table_log_sort_error(r);
+        r = table_set_sort(table, (size_t) 0);
+        if (r < 0)
+                return table_log_sort_error(r);
 
-                table_set_header(table, arg_legend);
-
-                if (OUTPUT_MODE_IS_JSON(arg_output))
-                        r = table_print_json(table, NULL, output_mode_to_json_format_flags(arg_output) | JSON_FORMAT_COLOR_AUTO);
-                else
-                        r = table_print(table, NULL);
-                if (r < 0)
-                        return table_log_print_error(r);
-        }
+        r = table_print_with_pager(table, arg_json_format_flags, arg_pager_flags, arg_legend);
+        if (r < 0)
+                return r;
 
         if (arg_legend) {
                 if (table_isempty(table))
-                        printf("No %s.\n", word);
+                        printf("No %s.\n", type);
                 else
-                        printf("\n%zu %s listed.\n", table_get_rows(table) - 1, word);
+                        printf("\n%zu %s listed.\n", table_get_rows(table) - 1, type);
         }
 
         return 0;
@@ -283,8 +277,6 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
 
         assert(argv);
 
-        pager_open(arg_pager_flags);
-
         r = bus_call_method(bus, bus_login_mgr, "ListSessionsEx", &error, &reply, NULL);
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD)) {
@@ -314,7 +306,7 @@ static int list_sessions(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        return show_table(table, "sessions");
+        return list_table_print(table, "sessions");
 }
 
 static int list_users(int argc, char *argv[], void *userdata) {
@@ -332,8 +324,6 @@ static int list_users(int argc, char *argv[], void *userdata) {
         int r;
 
         assert(argv);
-
-        pager_open(arg_pager_flags);
 
         r = bus_call_method(bus, bus_login_mgr, "ListUsers", &error, &reply, NULL);
         if (r < 0)
@@ -392,7 +382,7 @@ static int list_users(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        return show_table(table, "users");
+        return list_table_print(table, "users");
 }
 
 static int list_seats(int argc, char *argv[], void *userdata) {
@@ -403,8 +393,6 @@ static int list_seats(int argc, char *argv[], void *userdata) {
         int r;
 
         assert(argv);
-
-        pager_open(arg_pager_flags);
 
         r = bus_call_method(bus, bus_login_mgr, "ListSeats", &error, &reply, NULL);
         if (r < 0)
@@ -438,7 +426,7 @@ static int list_seats(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return bus_log_parse_error(r);
 
-        return show_table(table, "seats");
+        return list_table_print(table, "seats");
 }
 
 static int show_unit_cgroup(
@@ -1551,6 +1539,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_VALUE,
                 ARG_NO_PAGER,
                 ARG_NO_LEGEND,
+                ARG_JSON,
                 ARG_KILL_WHOM,
                 ARG_NO_ASK_PASSWORD,
         };
@@ -1564,6 +1553,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "full",            no_argument,       NULL, 'l'                 },
                 { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
                 { "no-legend",       no_argument,       NULL, ARG_NO_LEGEND       },
+                { "json",            required_argument, NULL, ARG_JSON            },
                 { "kill-whom",       required_argument, NULL, ARG_KILL_WHOM       },
                 { "signal",          required_argument, NULL, 's'                 },
                 { "host",            required_argument, NULL, 'H'                 },
@@ -1579,7 +1569,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hp:P:als:H:M:n:o:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hp:P:als:H:M:n:o:j", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -1633,7 +1623,19 @@ static int parse_argv(int argc, char *argv[]) {
                         if (arg_output < 0)
                                 return log_error_errno(arg_output, "Unknown output '%s'.", optarg);
 
-                        if (OUTPUT_MODE_IS_JSON(arg_output))
+                        break;
+
+                case 'j':
+                        arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
+                        arg_legend = false;
+                        break;
+
+                case ARG_JSON:
+                        r = parse_json_argument(optarg, &arg_json_format_flags);
+                        if (r <= 0)
+                                return r;
+
+                        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
                                 arg_legend = false;
 
                         break;
