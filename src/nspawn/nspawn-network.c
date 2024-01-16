@@ -3,6 +3,7 @@
 #include <net/if.h>
 #include <linux/if.h>
 #include <linux/veth.h>
+#include <linux/nl80211.h>
 #include <sys/file.h>
 
 #include "sd-device.h"
@@ -10,6 +11,7 @@
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "ether-addr-util.h"
 #include "hexdecoct.h"
@@ -504,6 +506,53 @@ int test_network_interfaces_initialized(char **iface_pairs) {
         return 0;
 }
 
+static int move_wlan_interface_one(sd_netlink **genl, int netns_fd, sd_device *dev, const char *name) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        const char *sysname;
+        uint32_t phy_index;
+        int r;
+
+        assert(genl);
+        assert(netns_fd >= 0);
+        assert(dev);
+        assert(name);
+
+        if (!*genl) {
+                r = sd_genl_socket_open(genl);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect to generic netlink: %m");
+        }
+
+        r = sd_device_get_sysname(dev, &sysname);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to get sysname: %m");
+
+        if (!streq(name, sysname))
+                log_device_warning(dev, "Wireless interface cannot be renamed, ignoring: %s", name);
+
+        r = sd_genl_message_new(*genl, NL80211_GENL_NAME, NL80211_CMD_SET_WIPHY_NETNS, &m);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to allocate netlink message: %m");
+
+        r = device_get_sysattr_u32(dev, "phy80211/index", &phy_index);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to get phy index: %m");
+
+        r = sd_netlink_message_append_u32(m, NL80211_ATTR_WIPHY, phy_index);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to append phy index to netlink message: %m");
+
+        r = sd_netlink_message_append_u32(m, NL80211_ATTR_NETNS_FD, netns_fd);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to append namespace fd to netlink message: %m");
+
+        r = sd_netlink_call(*genl, m, 0, NULL);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to move interface to namespace: %m");
+
+        return 0;
+}
+
 static int move_network_interface_one(sd_netlink **rtnl, int netns_fd, sd_device *dev, const char *name) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         const char *sysname;
@@ -550,7 +599,7 @@ static int move_network_interface_one(sd_netlink **rtnl, int netns_fd, sd_device
 }
 
 int move_network_interfaces(int netns_fd, char **iface_pairs) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL, *genl = NULL;
         int r;
 
         if (strv_isempty(iface_pairs))
@@ -565,7 +614,10 @@ int move_network_interfaces(int netns_fd, char **iface_pairs) {
                 if (r < 0)
                         return log_error_errno(r, "Unknown interface name %s: %m", *i);
 
-                r = move_network_interface_one(&rtnl, netns_fd, dev, *b);
+                if (device_is_devtype(dev, "wlan"))
+                        r = move_wlan_interface_one(&genl, netns_fd, dev, *b);
+                else
+                        r = move_network_interface_one(&rtnl, netns_fd, dev, *b);
                 if (r < 0)
                         return r;
         }
