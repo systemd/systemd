@@ -1612,6 +1612,15 @@ static int json_format(FILE *f, JsonVariant *v, JsonFormatFlags flags, const cha
         assert(f);
         assert(v);
 
+        if (FLAGS_SET(flags, JSON_FORMAT_CENSOR_SENSITIVE) && json_variant_is_sensitive(v)) {
+                if (flags & JSON_FORMAT_COLOR)
+                        fputs(ansi_red(), f);
+                fputs("\"<sensitive data>\"", f);
+                if (flags & JSON_FORMAT_COLOR)
+                        fputs(ANSI_NORMAL, f);
+                return 0;
+        }
+
         switch (json_variant_type(v)) {
 
         case JSON_VARIANT_REAL: {
@@ -1817,10 +1826,6 @@ int json_variant_format(JsonVariant *v, JsonFormatFlags flags, char **ret) {
 
         if (flags & JSON_FORMAT_OFF)
                 return -ENOEXEC;
-
-        if ((flags & JSON_FORMAT_REFUSE_SENSITIVE))
-                if (json_variant_is_sensitive_recursive(v))
-                        return -EPERM;
 
         f = memstream_init(&m);
         if (!f)
