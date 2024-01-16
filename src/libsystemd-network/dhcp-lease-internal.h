@@ -55,6 +55,9 @@ struct sd_dhcp_lease {
 
         DHCPServerData servers[_SD_DHCP_LEASE_SERVER_TYPE_MAX];
 
+        sd_dns_resolver *dnr;
+        size_t n_dnr;
+
         struct sd_dhcp_route *static_routes;
         size_t n_static_routes;
         struct sd_dhcp_route *classless_routes;
