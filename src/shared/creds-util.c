@@ -189,15 +189,24 @@ int read_credential_with_decryption(const char *name, void **ret, size_t *ret_si
         if (r < 0)
                 return log_error_errno(r, "Failed to read encrypted credential data: %m");
 
-        r = decrypt_credential_and_warn(
-                        name,
-                        now(CLOCK_REALTIME),
-                        /* tpm2_device= */ NULL,
-                        /* tpm2_signature_path= */ NULL,
-                        getuid(),
-                        &IOVEC_MAKE(data, sz),
-                        CREDENTIAL_ANY_SCOPE,
-                        &ret_iovec);
+        if (geteuid() != 0)
+                r = ipc_decrypt_credential(
+                                name,
+                                now(CLOCK_REALTIME),
+                                getuid(),
+                                &IOVEC_MAKE(data, sz),
+                                CREDENTIAL_ANY_SCOPE,
+                                &ret_iovec);
+        else
+                r = decrypt_credential_and_warn(
+                                name,
+                                now(CLOCK_REALTIME),
+                                /* tpm2_device= */ NULL,
+                                /* tpm2_signature_path= */ NULL,
+                                getuid(),
+                                &IOVEC_MAKE(data, sz),
+                                CREDENTIAL_ANY_SCOPE,
+                                &ret_iovec);
         if (r < 0)
                 return r;
 
