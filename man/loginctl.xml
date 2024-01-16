@@ -50,7 +50,8 @@
       <varlistentry>
         <term><command>list-sessions</command></term>
 
-        <listitem><para>List current sessions.</para></listitem>
+        <listitem><para>List current sessions. The JSON format output can be toggled using <option>--json=</option>
+        or <option>-j</option> option.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -145,8 +146,8 @@
       <varlistentry>
         <term><command>list-users</command></term>
 
-        <listitem><para>List currently logged in users.
-        </para></listitem>
+        <listitem><para>List currently logged in users. The JSON format output can be toggled using
+        <option>--json=</option> or <option>-j</option> option.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -225,8 +226,8 @@
       <varlistentry>
         <term><command>list-seats</command></term>
 
-        <listitem><para>List currently available seats on the local
-        system.</para></listitem>
+        <listitem><para>List currently available seats on the local system. The JSON format output can be
+        toggled using <option>--json=</option> or <option>-j</option> option.</para></listitem>
       </varlistentry>
 
       <varlistentry>
@@ -411,6 +412,8 @@
 
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="no-legend" />
+      <xi:include href="standard-options.xml" xpointer="json" />
+      <xi:include href="standard-options.xml" xpointer="j" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
     </variablelist>
