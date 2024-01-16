@@ -28,7 +28,6 @@
 #include "sparse-endian.h"
 #include "stat-util.h"
 #include "tpm2-util.h"
-#include "virt.h"
 
 #define PUBLIC_KEY_MAX (UINT32_C(1024) * UINT32_C(1024))
 
@@ -1170,7 +1169,7 @@ int decrypt_credential_and_warn(
                 /* Ensure we have space for the full TPM2 header now (still don't know the name, and its size
                  * though, hence still just a lower limit test only) */
                 if (input->iov_len <
-                    ALIGN8(offsetof(struct encrypted_credential_header, iv) + le32toh(h->iv_size)) +
+                    p +
                     ALIGN8(offsetof(struct tpm2_credential_header, policy_hash_and_blob) + le32toh(t->blob_size) + le32toh(t->policy_hash_size)) +
                     ALIGN8(with_tpm2_pk ? offsetof(struct tpm2_public_key_credential_header, data) : 0) +
                     ALIGN8(offsetof(struct metadata_credential_header, name)) +
@@ -1190,8 +1189,7 @@ int decrypt_credential_and_warn(
                                 return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Unexpected public key size.");
 
                         if (input->iov_len <
-                            ALIGN8(offsetof(struct encrypted_credential_header, iv) + le32toh(h->iv_size)) +
-                            ALIGN8(offsetof(struct tpm2_credential_header, policy_hash_and_blob) + le32toh(t->blob_size) + le32toh(t->policy_hash_size)) +
+                            p +
                             ALIGN8(offsetof(struct tpm2_public_key_credential_header, data) + le32toh(z->size)) +
                             ALIGN8(offsetof(struct metadata_credential_header, name)) +
                             le32toh(h->tag_size))
