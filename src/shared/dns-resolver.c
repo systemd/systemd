@@ -6,6 +6,7 @@
 #include "socket-netlink.h"
 #include "string-table.h"
 #include "string-util.h"
+#include "strv.h"
 
 ResolverData *dnr_resolver_data_free_all(ResolverData *first) {
         LIST_FOREACH(resolvers, i, first) {
@@ -152,4 +153,71 @@ int dnr_parse_svc_params(const uint8_t *option, size_t len, ResolverData *resolv
         resolver->port = port;
         free_and_replace(resolver->dohpath, dohpath);
         return transports;
+}
+
+int dns_resolvers_to_dot_addrs(const ResolverData *resolvers, struct in_addr_full ***ret_addrs, size_t *ret_n_addrs) {
+        assert(ret_addrs);
+        assert(ret_n_addrs);
+
+        struct in_addr_full **addrs = NULL;
+        size_t n = 0;
+        CLEANUP_ARRAY(addrs, n, in_addr_full_array_free);
+
+        LIST_FOREACH(resolvers, res, resolvers) {
+                if (!FLAGS_SET(res->transports, SD_DNS_ALPN_DOT))
+                        continue;
+
+                FOREACH_ARRAY(i, res->addrs, res->n_addrs) {
+                        _cleanup_(in_addr_full_freep) struct in_addr_full *addr = NULL;
+                        int r;
+
+                        addr = new0(struct in_addr_full, 1);
+                        if (!addr)
+                                return -ENOMEM;
+                        if (!GREEDY_REALLOC(addrs, n+1))
+                                return -ENOMEM;
+
+                        r = free_and_strdup(&addr->server_name, res->auth_name);
+                        if (r < 0)
+                                return r;
+                        addr->family = res->family;
+                        addr->port = res->port;
+                        addr->address = *i;
+
+                        addrs[n++] = TAKE_PTR(addr);
+                }
+        }
+
+        *ret_addrs = TAKE_PTR(addrs);
+        *ret_n_addrs = n;
+        return n;
+}
+
+int dns_resolvers_to_dot_strv(const ResolverData *resolvers, char ***ret_names) {
+        assert(ret_names);
+        int r;
+
+        _cleanup_strv_free_ char **names = NULL;
+        size_t len = 0;
+
+        struct in_addr_full **addrs = NULL;
+        size_t n = 0;
+        CLEANUP_ARRAY(addrs, n, in_addr_full_array_free);
+
+        r = dns_resolvers_to_dot_addrs(resolvers, &addrs, &n);
+        if (r < 0)
+                return r;
+
+        FOREACH_ARRAY(addr, addrs, n) {
+                const char *name = in_addr_full_to_string(*addr);
+                if (!name)
+                        return -ENOMEM;
+                r = strv_extend_with_size(&names, &len, name);
+                if (r < 0)
+                        return r;
+
+        }
+
+        *ret_names = TAKE_PTR(names);
+        return len;
 }
