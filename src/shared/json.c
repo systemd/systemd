@@ -89,6 +89,9 @@ struct JsonVariant {
         /* Erase from memory when freeing */
         bool sensitive:1;
 
+        /* True if we know that any referenced json object is marked sensitive */
+        bool recursive_sensitive:1;
+
         /* If this is an object the fields are strictly ordered by name */
         bool sorted:1;
 
@@ -1453,6 +1456,33 @@ bool json_variant_is_sensitive(JsonVariant *v) {
         return v->sensitive;
 }
 
+bool json_variant_is_sensitive_recursive(JsonVariant *v) {
+        if (!v)
+                return false;
+        if (json_variant_is_sensitive(v))
+                return true;
+        if (!json_variant_is_regular(v))
+                return false;
+        if (v->recursive_sensitive) /* Already checked this before */
+                return true;
+        if (!IN_SET(v->type, JSON_VARIANT_ARRAY, JSON_VARIANT_OBJECT))
+                return false;
+        if (v->is_reference) {
+                if (!json_variant_is_sensitive_recursive(v->reference))
+                        return false;
+
+                return (v->recursive_sensitive = true);
+        }
+
+        for (size_t i = 0; i < json_variant_elements(v); i++)
+                if (json_variant_is_sensitive_recursive(json_variant_by_index(v, i)))
+                        return (v->recursive_sensitive = true);
+
+        /* Note: we only cache the result here in case true, since we allow all elements down the tree to
+         * have their sensitive flag toggled later on (but never off) */
+        return false;
+}
+
 static void json_variant_propagate_sensitive(JsonVariant *from, JsonVariant *to) {
         if (json_variant_is_sensitive(from))
                 json_variant_sensitive(to);
@@ -1771,25 +1801,6 @@ static int json_format(FILE *f, JsonVariant *v, JsonFormatFlags flags, const cha
         }
 
         return 0;
-}
-
-static bool json_variant_is_sensitive_recursive(JsonVariant *v) {
-        if (!v)
-                return false;
-        if (json_variant_is_sensitive(v))
-                return true;
-        if (!json_variant_is_regular(v))
-                return false;
-        if (!IN_SET(v->type, JSON_VARIANT_ARRAY, JSON_VARIANT_OBJECT))
-                return false;
-        if (v->is_reference)
-                return json_variant_is_sensitive_recursive(v->reference);
-
-        for (size_t i = 0; i < json_variant_elements(v); i++)
-                if (json_variant_is_sensitive_recursive(json_variant_by_index(v, i)))
-                        return true;
-
-        return false;
 }
 
 int json_variant_format(JsonVariant *v, JsonFormatFlags flags, char **ret) {
