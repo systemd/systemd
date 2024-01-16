@@ -280,7 +280,12 @@ static int async_polkit_read_reply(sd_bus_message *reply, AsyncPolkitQuery *q) {
 
                 e = sd_bus_message_get_error(reply);
 
-                if (bus_error_is_unknown_service(e))
+                if (bus_error_is_unknown_service(e) ||
+                    sd_bus_error_has_names(
+                                    e,
+                                    "org.freedesktop.PolicyKit1.Error.Failed",
+                                    "org.freedesktop.PolicyKit1.Error.Cancelled",
+                                    "org.freedesktop.PolicyKit1.Error.NotAuthorized"))
                         /* Treat no PK available as access denied */
                         q->denied_action = TAKE_PTR(a);
                 else {
