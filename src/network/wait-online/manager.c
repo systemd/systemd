@@ -52,7 +52,7 @@ static bool manager_ignore_link(Manager *m, Link *link) {
         return false;
 }
 
-static int manager_link_is_online(Manager *m, Link *l, LinkOperationalStateRange s) {
+static int manager_link_is_online(Manager *m, Link *l, const LinkOperationalStateRange *state_range) {
         AddressFamily required_family;
         bool needs_ipv4;
         bool needs_ipv6;
@@ -91,25 +91,23 @@ static int manager_link_is_online(Manager *m, Link *l, LinkOperationalStateRange
                                             "link is being processed by networkd: setup state is %s.",
                                             l->state);
 
-        if (s.min < 0)
-                s.min = m->required_operstate.min >= 0 ? m->required_operstate.min
-                                                       : l->required_operstate.min;
+        const LinkOperationalStateRange *range;
+        FOREACH_POINTER(range, state_range, &m->required_operstate, &l->required_operstate)
+                if (operational_state_range_is_valid(range))
+                        break;
+        assert(range != POINTER_MAX);
 
-        if (s.max < 0)
-                s.max = m->required_operstate.max >= 0 ? m->required_operstate.max
-                                                       : l->required_operstate.max;
-
-        if (l->operational_state < s.min || l->operational_state > s.max)
+        if (!operational_state_is_in_range(l->operational_state, range))
                 return log_link_debug_errno(l, SYNTHETIC_ERRNO(EADDRNOTAVAIL),
                                             "Operational state '%s' is not in range ['%s':'%s']",
                                             link_operstate_to_string(l->operational_state),
-                                            link_operstate_to_string(s.min), link_operstate_to_string(s.max));
+                                            link_operstate_to_string(range->min), link_operstate_to_string(range->max));
 
         required_family = m->required_family > 0 ? m->required_family : l->required_family;
         needs_ipv4 = required_family & ADDRESS_FAMILY_IPV4;
         needs_ipv6 = required_family & ADDRESS_FAMILY_IPV6;
 
-        if (s.min < LINK_OPERSTATE_ROUTABLE) {
+        if (range->min < LINK_OPERSTATE_ROUTABLE) {
                 if (needs_ipv4 && l->ipv4_address_state < LINK_ADDRESS_STATE_DEGRADED)
                         return log_link_debug_errno(l, SYNTHETIC_ERRNO(EADDRNOTAVAIL),
                                                     "No routable or link-local IPv4 address is configured.");
@@ -155,7 +153,7 @@ bool manager_configured(Manager *m) {
                                 continue;
                         }
 
-                        r = manager_link_is_online(m, l, *range);
+                        r = manager_link_is_online(m, l, range);
                         if (r <= 0 && !m->any)
                                 return false;
                         if (r > 0 && m->any)
@@ -175,9 +173,7 @@ bool manager_configured(Manager *m) {
                         continue;
                 }
 
-                r = manager_link_is_online(m, l,
-                                           (LinkOperationalStateRange) { _LINK_OPERSTATE_INVALID,
-                                                                         _LINK_OPERSTATE_INVALID });
+                r = manager_link_is_online(m, l, /* state_range = */ NULL);
                 if (r < 0 && !m->any) /* Unlike the above loop, unmanaged interfaces are ignored here. */
                         return false;
                 if (r > 0) {
