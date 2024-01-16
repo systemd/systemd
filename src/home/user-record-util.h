@@ -63,3 +63,7 @@ int user_record_is_supported(UserRecord *hr, sd_bus_error *error);
 
 bool user_record_shall_rebalance(UserRecord *h);
 int user_record_set_rebalance_weight(UserRecord *h, uint64_t weight);
+
+int user_record_ensure_blob_manifest(UserRecord *h, Hashmap *blobs);
+
+int user_record_steal_blob_dir(UserRecord *h, char **ret);
