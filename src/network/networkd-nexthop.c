@@ -12,11 +12,54 @@
 #include "networkd-network.h"
 #include "networkd-nexthop.h"
 #include "networkd-queue.h"
+#include "networkd-route.h"
 #include "networkd-route-util.h"
 #include "parse-util.h"
 #include "set.h"
 #include "stdio-util.h"
 #include "string-util.h"
+
+static void nexthop_detach_from_group_members(NextHop *nexthop) {
+        assert(nexthop);
+        assert(nexthop->manager);
+        assert(nexthop->id > 0);
+
+        struct nexthop_grp *nhg;
+        HASHMAP_FOREACH(nhg, nexthop->group) {
+                NextHop *nh;
+
+                if (nexthop_get_by_id(nexthop->manager, nhg->id, &nh) < 0)
+                        continue;
+
+                set_remove(nh->nexthops, UINT32_TO_PTR(nexthop->id));
+        }
+}
+
+static void nexthop_attach_to_group_members(NextHop *nexthop) {
+        int r;
+
+        assert(nexthop);
+        assert(nexthop->manager);
+        assert(nexthop->id > 0);
+
+        struct nexthop_grp *nhg;
+        HASHMAP_FOREACH(nhg, nexthop->group) {
+                NextHop *nh;
+
+                r = nexthop_get_by_id(nexthop->manager, nhg->id, &nh);
+                if (r < 0) {
+                        if (nexthop->manager->manage_foreign_nexthops)
+                                log_debug_errno(r, "Nexthop (id=%"PRIu32") has unknown group member (%"PRIu32"), ignoring.",
+                                                nexthop->id, nhg->id);
+                        continue;
+                }
+
+                r = set_ensure_put(&nh->nexthops, NULL, UINT32_TO_PTR(nexthop->id));
+                if (r < 0)
+                        log_debug_errno(r, "Failed to save nexthop ID (%"PRIu32") to group member (%"PRIu32"), ignoring: %m",
+                                        nexthop->id, nhg->id);
+        }
+}
 
 static NextHop* nexthop_detach_impl(NextHop *nexthop) {
         assert(nexthop);
@@ -31,6 +74,9 @@ static NextHop* nexthop_detach_impl(NextHop *nexthop) {
 
         if (nexthop->manager) {
                 assert(nexthop->id > 0);
+
+                nexthop_detach_from_group_members(nexthop);
+
                 hashmap_remove(nexthop->manager->nexthops_by_id, UINT32_TO_PTR(nexthop->id));
                 nexthop->manager = NULL;
                 return nexthop;
@@ -51,6 +97,8 @@ static NextHop* nexthop_free(NextHop *nexthop) {
 
         config_section_free(nexthop->section);
         hashmap_free_free(nexthop->group);
+        set_free(nexthop->nexthops);
+        set_free(nexthop->routes);
 
         return mfree(nexthop);
 }
@@ -436,6 +484,33 @@ static void log_nexthop_debug(const NextHop *nexthop, const char *str, Manager *
                        yes_no(nexthop->blackhole), strna(group), strna(flags));
 }
 
+static int nexthop_remove_dependents(NextHop *nexthop, Manager *manager) {
+        int r = 0;
+
+        assert(nexthop);
+        assert(manager);
+
+        /* If a nexthop is removed, the kernel silently removes nexthops and routes that depend on the
+         * removed nexthop. Let's remove them for safety (though, they are already removed in the kernel,
+         * hence that should fail), and forget them. */
+
+        void *id;
+        SET_FOREACH(id, nexthop->nexthops) {
+                NextHop *nh;
+
+                if (nexthop_get_by_id(manager, PTR_TO_UINT32(id), &nh) < 0)
+                        continue;
+
+                RET_GATHER(r, nexthop_remove(nh, manager));
+        }
+
+        Route *route;
+        SET_FOREACH(route, nexthop->routes)
+                RET_GATHER(r, route_remove(route, manager));
+
+        return r;
+}
+
 static int nexthop_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, RemoveRequest *rreq) {
         int r;
 
@@ -450,6 +525,8 @@ static int nexthop_remove_handler(sd_netlink *rtnl, sd_netlink_message *m, Remov
                 log_message_full_errno(m,
                                        (r == -ENOENT || !nexthop->manager) ? LOG_DEBUG : LOG_WARNING,
                                        r, "Could not drop nexthop, ignoring");
+
+                (void) nexthop_remove_dependents(nexthop, manager);
 
                 if (nexthop->manager) {
                         /* If the nexthop cannot be removed, then assume the nexthop is already removed. */
@@ -861,15 +938,22 @@ void link_foreignize_nexthops(Link *link) {
         }
 }
 
-static int nexthop_update_group(NextHop *nexthop, const struct nexthop_grp *group, size_t size) {
+static int nexthop_update_group(NextHop *nexthop, sd_netlink_message *message) {
         _cleanup_hashmap_free_free_ Hashmap *h = NULL;
-        size_t n_group;
+        _cleanup_free_ struct nexthop_grp *group = NULL;
+        size_t size = 0, n_group;
         int r;
 
         assert(nexthop);
-        assert(group || size == 0);
+        assert(message);
 
-        if (size == 0 || size % sizeof(struct nexthop_grp) != 0)
+        r = sd_netlink_message_read_data(message, NHA_GROUP, &size, (void**) &group);
+        if (r < 0 && r != -ENODATA)
+                return log_debug_errno(r, "rtnl: could not get NHA_GROUP attribute, ignoring: %m");
+
+        nexthop_detach_from_group_members(nexthop);
+
+        if (size % sizeof(struct nexthop_grp) != 0)
                 return log_debug_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "rtnl: received nexthop message with invalid nexthop group size, ignoring.");
 
@@ -908,12 +992,12 @@ static int nexthop_update_group(NextHop *nexthop, const struct nexthop_grp *grou
 
         hashmap_free_free(nexthop->group);
         nexthop->group = TAKE_PTR(h);
+
+        nexthop_attach_to_group_members(nexthop);
         return 0;
 }
 
 int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, Manager *m) {
-        _cleanup_free_ void *raw_group = NULL;
-        size_t raw_group_size;
         uint16_t type;
         uint32_t id, ifindex;
         NextHop *nexthop = NULL;
@@ -961,6 +1045,7 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
                 if (nexthop) {
                         nexthop_enter_removed(nexthop);
                         log_nexthop_debug(nexthop, "Forgetting removed", m);
+                        (void) nexthop_remove_dependents(nexthop, m);
                         nexthop_detach(nexthop);
                 } else
                         log_nexthop_debug(&(const NextHop) { .id = id }, "Kernel removed unknown", m);
@@ -1001,13 +1086,7 @@ int manager_rtnl_process_nexthop(sd_netlink *rtnl, sd_netlink_message *message, 
         if (r < 0)
                 log_debug_errno(r, "rtnl: could not get nexthop flags, ignoring: %m");
 
-        r = sd_netlink_message_read_data(message, NHA_GROUP, &raw_group_size, &raw_group);
-        if (r == -ENODATA)
-                nexthop->group = hashmap_free_free(nexthop->group);
-        else if (r < 0)
-                log_debug_errno(r, "rtnl: could not get NHA_GROUP attribute, ignoring: %m");
-        else
-                (void) nexthop_update_group(nexthop, raw_group, raw_group_size);
+        (void) nexthop_update_group(nexthop, message);
 
         if (nexthop->family != AF_UNSPEC) {
                 r = netlink_message_read_in_addr_union(message, NHA_GATEWAY, nexthop->family, &nexthop->gw);
