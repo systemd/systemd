@@ -58,6 +58,7 @@ shared_sources = files(
         'dlfcn-util.c',
         'dm-util.c',
         'dns-domain.c',
+        'dns-resolver.c',
         'dropin.c',
         'edit-util.c',
         'efi-api.c',
