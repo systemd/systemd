@@ -2260,6 +2260,9 @@ int dissected_image_mount(
                                 if (r > 0)
                                         esp_path = "/efi";
                         }
+
+                        if (!esp_path)
+                                return -ENOENT; /* none of the possible directory is empty. */
                 }
 
                 /* OK, let's mount the ESP now (possibly creating the dir if missing) */
@@ -2284,6 +2287,8 @@ int dissected_image_mount_and_warn(
         assert(m);
 
         r = dissected_image_mount(m, where, uid_shift, uid_range, userns_fd, flags);
+        if (r == -ENOENT)
+                return log_error_errno(r, "A mount point directory in the image is missing or is not empty.");
         if (r == -ENXIO)
                 return log_error_errno(r, "Not root file system found in image.");
         if (r == -EMEDIUMTYPE)
