@@ -597,7 +597,7 @@ static int lease_parse_dns_name(const uint8_t *optval, size_t optlen, char **ret
                 if (c == 0)
                         /* End label */
                         break;
-                if (c > 63)
+                if (c > DNS_LABEL_MAX)
                         return -EBADMSG;
                 if (c > optlen)
                         return -EMSGSIZE;
