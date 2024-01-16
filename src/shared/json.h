@@ -155,6 +155,7 @@ bool json_variant_equal(JsonVariant *a, JsonVariant *b);
 
 void json_variant_sensitive(JsonVariant *v);
 bool json_variant_is_sensitive(JsonVariant *v);
+bool json_variant_is_sensitive_recursive(JsonVariant *v);
 
 struct json_variant_foreach_state {
         JsonVariant *variant;
@@ -196,7 +197,7 @@ typedef enum JsonFormatFlags {
         JSON_FORMAT_FLUSH            = 1 << 8, /* call fflush() after dumping JSON */
         JSON_FORMAT_EMPTY_ARRAY      = 1 << 9, /* output "[]" for empty input */
         JSON_FORMAT_OFF              = 1 << 10, /* make json_variant_format() fail with -ENOEXEC */
-        JSON_FORMAT_REFUSE_SENSITIVE = 1 << 11, /* return EPERM if any node in the tree is marked as senstitive */
+        JSON_FORMAT_CENSOR_SENSITIVE = 1 << 11, /* Replace all sensitive elements with the string "<sensitive data>" */
 } JsonFormatFlags;
 
 int json_variant_format(JsonVariant *v, JsonFormatFlags flags, char **ret);
