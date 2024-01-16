@@ -57,3 +57,6 @@ struct ResolverData {
 
 ResolverData *dhcp_resolver_data_free_all(ResolverData *first);
 DEFINE_TRIVIAL_CLEANUP_FUNC(ResolverData *, dhcp_resolver_data_free_all);
+
+int dns_resolvers_to_dot_addrs(const ResolverData *resolvers, struct in_addr_full ***ret_addrs, size_t *ret_n_addrs);
+int dns_resolvers_to_dot_strv(const ResolverData *resolvers, char ***ret_names);
