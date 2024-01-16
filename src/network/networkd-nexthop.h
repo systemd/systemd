@@ -26,15 +26,23 @@ typedef struct NextHop {
 
         unsigned n_ref;
 
-        uint8_t protocol;
-        int ifindex;
-        uint32_t id;
-        bool blackhole;
+        /* struct nhmsg */
         int family;
-        union in_addr_union gw;
+        uint8_t protocol;
         uint8_t flags;
-        int onlink; /* Only used in conf parser and nexthop_section_verify(). */
-        Hashmap *group;
+
+        /* attributes */
+        uint32_t id; /* NHA_ID */
+        Hashmap *group; /* NHA_GROUP */
+        bool blackhole; /* NHA_BLACKHOLE */
+        int ifindex; /* NHA_OIF */
+        union in_addr_union gw; /* NHA_GATEWAY */
+
+        /* Only used in conf parser and nexthop_section_verify(). */
+        int onlink;
+
+        /* For managing nexthops that depend on this nexthop. */
+        Set *nexthops;
 } NextHop;
 
 NextHop* nexthop_ref(NextHop *nexthop);
