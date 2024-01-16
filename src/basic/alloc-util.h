@@ -47,7 +47,7 @@ typedef void* (*mfree_func_t)(void *p);
 
 #define newdup(t, p, n) ((t*) memdup_multiply(p, sizeof(t), (n)))
 
-#define newdup_suffix0(t, p, n) ((t*) memdup_suffix0_multiply(p, sizeof(t), (n)))
+#define newdup_suffix0(t, p, n) ((t*) memdup_suffix0_multiply(p, (n), sizeof(t)))
 
 #define malloc0(n) (calloc(1, (n) ?: 1))
 
@@ -137,7 +137,7 @@ _alloc_(2, 3) static inline void *memdup_multiply(const void *p, size_t size, si
 
 /* Note that we can't decorate this function with _alloc_() since the returned memory area is one byte larger
  * than the product of its parameters. */
-static inline void *memdup_suffix0_multiply(const void *p, size_t size, size_t need) {
+static inline void *memdup_suffix0_multiply(const void *p, size_t need, size_t size) {
         if (size_multiply_overflow(size, need))
                 return NULL;
 
