@@ -131,6 +131,64 @@ int deserialize_in6_addrs(struct in6_addr **ret, const char *string) {
         return size;
 }
 
+void serialize_dnr(FILE *f, const ResolverData *resolvers, bool *with_leading_space) {
+        int r;
+
+        bool _space = false;
+        if (!with_leading_space)
+                with_leading_space = &_space;
+
+        LIST_FOREACH(resolvers, i, resolvers) {
+                _cleanup_strv_free_ char **names = NULL;
+                r = dns_resolvers_to_dot_strv(resolvers, &names);
+                if (r > 0)
+                        fputstrv(f, names, NULL, with_leading_space);
+        }
+}
+
+int deserialize_dnr(ResolverData **ret, const char *string) {
+        int r;
+
+        assert(ret);
+        assert(string);
+
+        _cleanup_(dhcp_resolver_data_free_allp) ResolverData *resolvers = NULL;
+        int n = 0;
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+                struct in_addr_full addr;
+
+                r = extract_first_word(&string, &word, NULL, 0);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+                r = in_addr_port_ifindex_name_from_string_auto(word,
+                                &addr.family, &addr.address, &addr.port, &addr.ifindex, &addr.server_name);
+                if (r < 0)
+                        return r;
+
+                _cleanup_(dhcp_resolver_data_free_allp) ResolverData *resolver = new0(ResolverData, 1);
+                if (!resolver)
+                        return -ENOMEM;
+
+                memcpy(&resolver->addrs, &addr.address.in, sizeof(addr.address.in));
+                resolver->n_addrs = 1; //FIXME coalesce these?
+                resolver->port = addr.port;
+                /* resolver->ifindex = 0; */  //FIXME ipv4 only
+                resolver->auth_name = strdup(addr.server_name);
+                if (!resolver->auth_name)
+                        return -ENOMEM;
+                resolver->priority = n+1; //FIXME should be fine if not preserved?
+
+                LIST_APPEND(resolvers, resolvers, TAKE_PTR(resolver));
+                n++;
+        }
+        *ret = TAKE_PTR(resolvers);
+        return n;
+}
+
 void serialize_dhcp_routes(FILE *f, const char *key, sd_dhcp_route **routes, size_t size) {
         assert(f);
         assert(key);
