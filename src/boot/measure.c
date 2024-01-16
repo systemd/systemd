@@ -300,12 +300,11 @@ static int parse_argv(int argc, char *argv[]) {
         if (strv_isempty(arg_phase)) {
                 /* If no phases are specifically selected, pick everything from the beginning of the initrd
                  * to the beginning of shutdown. */
-                if (strv_extend_strv(&arg_phase,
-                                     STRV_MAKE("enter-initrd",
-                                               "enter-initrd:leave-initrd",
-                                               "enter-initrd:leave-initrd:sysinit",
-                                               "enter-initrd:leave-initrd:sysinit:ready"),
-                                     /* filter_duplicates= */ false) < 0)
+                if (strv_extend_many(&arg_phase,
+                                     "enter-initrd",
+                                     "enter-initrd:leave-initrd",
+                                     "enter-initrd:leave-initrd:sysinit",
+                                     "enter-initrd:leave-initrd:sysinit:ready") < 0)
                         return log_oom();
         } else {
                 strv_sort(arg_phase);

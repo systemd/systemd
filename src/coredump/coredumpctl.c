@@ -1242,7 +1242,7 @@ static int run_debug(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return r;
 
-        r = strv_extend_strv(&debugger_call, STRV_MAKE(exe, "-c", path), false);
+        r = strv_extend_many(&debugger_call, exe, "-c", path);
         if (r < 0)
                 return log_oom();
 
@@ -1251,14 +1251,14 @@ static int run_debug(int argc, char **argv, void *userdata) {
                         const char *sysroot_cmd;
                         sysroot_cmd = strjoina("set sysroot ", arg_root);
 
-                        r = strv_extend_strv(&debugger_call, STRV_MAKE("-iex", sysroot_cmd), false);
+                        r = strv_extend_many(&debugger_call, "-iex", sysroot_cmd);
                         if (r < 0)
                                 return log_oom();
                 } else if (streq(arg_debugger, "lldb")) {
                         const char *sysroot_cmd;
                         sysroot_cmd = strjoina("platform select --sysroot ", arg_root, " host");
 
-                        r = strv_extend_strv(&debugger_call, STRV_MAKE("-O", sysroot_cmd), false);
+                        r = strv_extend_many(&debugger_call, "-O", sysroot_cmd);
                         if (r < 0)
                                 return log_oom();
                 }
