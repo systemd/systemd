@@ -415,10 +415,6 @@ int network_load(Manager *manager, OrderedHashmap **networks);
 int network_reload(Manager *manager);
 int network_load_one(Manager *manager, OrderedHashmap **networks, const char *filename);
 int network_verify(Network *network);
-static inline int network_dhcp_use_dnr(Network *network) {
-        assert(network);
-        return network->dhcp_use_dnr < 0 ? network->dhcp_use_dns : network->dhcp_use_dnr;
-}
 
 int manager_build_dhcp_pd_subnet_ids(Manager *manager);
 

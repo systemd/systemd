@@ -1559,7 +1559,7 @@ static int dhcp4_configure(Link *link) {
                                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set request flag for SIP server: %m");
                 }
 
-                if (network_dhcp_use_dnr(link->network)) {
+                if (link_get_use_dnr(link, NETWORK_CONFIG_SOURCE_DHCP4)) {
                         r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_V4_DNR);
                         if (r < 0)
                                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set request flag for DNR: %m");
