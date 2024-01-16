@@ -516,25 +516,25 @@ static int run_virtual_machine(void) {
                         return log_oom();
         }
 
-        r = strv_extend_strv(&cmdline, STRV_MAKE("-cpu", "max"), /* filter_duplicates= */ false);
+        r = strv_extend_many(&cmdline, "-cpu", "max");
         if (r < 0)
                 return log_oom();
 
-        if (arg_qemu_gui) {
-                r = strv_extend_strv(&cmdline, STRV_MAKE("-vga", "virtio"),  /* filter_duplicates= */ false);
-                if (r < 0)
-                        return log_oom();
-        } else {
-                r = strv_extend_strv(&cmdline, STRV_MAKE(
-                        "-nographic",
-                        "-nodefaults",
-                        "-chardev", "stdio,mux=on,id=console,signal=off",
-                        "-serial", "chardev:console",
-                        "-mon", "console"
-                ),  /* filter_duplicates= */ false);
-                if (r < 0)
-                        return log_oom();
-        }
+        if (arg_qemu_gui)
+                r = strv_extend_many(
+                                &cmdline,
+                                "-vga",
+                                "virtio");
+        else
+                r = strv_extend_many(
+                                &cmdline,
+                                "-nographic",
+                                "-nodefaults",
+                                "-chardev", "stdio,mux=on,id=console,signal=off",
+                                "-serial", "chardev:console",
+                                "-mon", "console");
+        if (r < 0)
+                return log_oom();
 
         if (ARCHITECTURE_SUPPORTS_SMBIOS)
                 FOREACH_ARRAY(cred, arg_credentials.credentials, arg_credentials.n_credentials) {
@@ -588,11 +588,11 @@ static int run_virtual_machine(void) {
                 (void) copy_access(source_fd, target_fd);
                 (void) copy_times(source_fd, target_fd, 0);
 
-                r = strv_extend_strv(&cmdline, STRV_MAKE(
-                        "-global", "ICH9-LPC.disable_s3=1",
-                        "-global", "driver=cfi.pflash01,property=secure,value=on",
-                        "-drive"
-                ),  /* filter_duplicates= */ false);
+                r = strv_extend_many(
+                                &cmdline,
+                                "-global", "ICH9-LPC.disable_s3=1",
+                                "-global", "driver=cfi.pflash01,property=secure,value=on",
+                                "-drive");
                 if (r < 0)
                         return log_oom();
 
@@ -609,10 +609,10 @@ static int run_virtual_machine(void) {
         if (r < 0)
                 return log_oom();
 
-        r = strv_extend_strv(&cmdline, STRV_MAKE(
-                "-device", "virtio-scsi-pci,id=scsi",
-                "-device", "scsi-hd,drive=mkosi,bootindex=1"
-        ),  /* filter_duplicates= */ false);
+        r = strv_extend_many(
+                        &cmdline,
+                        "-device", "virtio-scsi-pci,id=scsi",
+                        "-device", "scsi-hd,drive=mkosi,bootindex=1");
         if (r < 0)
                 return log_oom();
 
