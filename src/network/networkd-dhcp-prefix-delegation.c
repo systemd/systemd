@@ -309,8 +309,7 @@ static int dhcp_pd_request_route(Link *link, const struct in6_addr *prefix, usec
         else
                 route_unmark(existing);
 
-        r = link_request_route(link, TAKE_PTR(route), true, &link->dhcp_pd_messages,
-                               dhcp_pd_route_handler, NULL);
+        r = link_request_route(link, route, &link->dhcp_pd_messages, dhcp_pd_route_handler);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request DHCP-PD prefix route: %m");
 
@@ -708,7 +707,7 @@ static int dhcp_request_unreachable_route(
         else
                 route_unmark(existing);
 
-        r = link_request_route(link, TAKE_PTR(route), true, counter, callback, NULL);
+        r = link_request_route(link, route, counter, callback);
         if (r < 0)
                 return log_link_error_errno(link, r, "Failed to request unreachable route for DHCP delegated prefix %s: %m",
                                             IN6_ADDR_PREFIX_TO_STRING(addr, prefixlen));
@@ -806,8 +805,7 @@ static int dhcp4_pd_request_default_gateway_on_6rd_tunnel(Link *link, const stru
         else
                 route_unmark(existing);
 
-        r = link_request_route(link, TAKE_PTR(route), true, &link->dhcp_pd_messages,
-                               dhcp_pd_route_handler, NULL);
+        r = link_request_route(link, route, &link->dhcp_pd_messages, dhcp_pd_route_handler);
         if (r < 0)
                 return log_link_debug_errno(link, r, "Failed to request default gateway for DHCP delegated prefix: %m");
 
