@@ -616,3 +616,8 @@ Tools using the Varlink protocol (such as `varlinkctl`) or sd-bus (such as
 
 * `$SYSTEMD_SSH` – the ssh binary to invoke when the `ssh:` transport is
   used. May be a filename (which is searched for in `$PATH`) or absolute path.
+
+* `$SYSTEMD_VARLINK_LISTEN` – interpreted by some tools that provide a Varlink
+  service. Takes a file system path: if specified the tool will listen on an
+  `AF_UNIX` stream socket on the specified path in addition to whatever else it
+  would listen on.

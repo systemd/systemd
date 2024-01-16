@@ -3477,6 +3477,14 @@ int varlink_server_listen_auto(VarlinkServer *s) {
                 n++;
         }
 
+        /* For debug purposes let's listen on an explicitly specified address */
+        const char *e = secure_getenv("SYSTEMD_VARLINK_LISTEN");
+        if (e) {
+                r = varlink_server_listen_address(s, e, FLAGS_SET(s->flags, VARLINK_SERVER_ROOT_ONLY) ? 0600 : 0666);
+                if (r < 0)
+                        return r;
+        }
+
         return n;
 }
 
@@ -3921,6 +3929,10 @@ int varlink_invocation(VarlinkInvocationFlags flags) {
         socklen_t l = sizeof(b);
 
         /* Returns true if this is a "pure" varlink server invocation, i.e. with one fd passed. */
+
+        const char *e = secure_getenv("SYSTEMD_VARLINK_LISTEN"); /* Permit a manual override for testing purposes */
+        if (e)
+                return true;
 
         r = sd_listen_fds_with_names(/* unset_environment= */ false, &names);
         if (r < 0)
