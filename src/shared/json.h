@@ -155,6 +155,7 @@ bool json_variant_equal(JsonVariant *a, JsonVariant *b);
 
 void json_variant_sensitive(JsonVariant *v);
 bool json_variant_is_sensitive(JsonVariant *v);
+bool json_variant_is_sensitive_recursive(JsonVariant *v);
 
 struct json_variant_foreach_state {
         JsonVariant *variant;
