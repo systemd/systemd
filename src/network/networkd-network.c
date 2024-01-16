@@ -387,6 +387,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_use_sip = true,
                 .dhcp_use_captive_portal = true,
                 .dhcp_use_dns = true,
+                .dhcp_use_dnr = -1,
                 .dhcp_routes_to_dns = true,
                 .dhcp_use_hostname = true,
                 .dhcp_use_routes = true,
