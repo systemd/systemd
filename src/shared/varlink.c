@@ -184,6 +184,7 @@ struct Varlink {
         bool allow_fd_passing_output:1;
 
         bool output_buffer_sensitive:1; /* whether to erase the output buffer after writing it to the socket */
+        bool input_sensitive:1; /* Whether incoming messages might be sensitive */
 
         int af; /* address family if socket; AF_UNSPEC if not socket; negative if not known */
 
@@ -703,7 +704,7 @@ static void varlink_clear(Varlink *v) {
 
         varlink_clear_current(v);
 
-        v->input_buffer = mfree(v->input_buffer);
+        v->input_buffer = v->input_sensitive ? erase_and_free(v->input_buffer) : mfree(v->input_buffer);
         v->output_buffer = v->output_buffer_sensitive ? erase_and_free(v->output_buffer) : mfree(v->output_buffer);
 
         v->input_control_buffer = mfree(v->input_control_buffer);
@@ -1022,7 +1023,8 @@ static int varlink_read(Varlink *v) {
 }
 
 static int varlink_parse_message(Varlink *v) {
-        const char *e, *begin;
+        const char *e;
+        char *begin;
         size_t sz;
         int r;
 
@@ -1047,11 +1049,31 @@ static int varlink_parse_message(Varlink *v) {
         sz = e - begin + 1;
 
         r = json_parse(begin, 0, &v->current, NULL, NULL);
+        if (v->input_sensitive)
+                explicit_bzero_safe(begin, sz);
         if (r < 0) {
                 /* If we encounter a parse failure flush all data. We cannot possibly recover from this,
                  * hence drop all buffered data now. */
                 v->input_buffer_index = v->input_buffer_size = v->input_buffer_unscanned = 0;
                 return varlink_log_errno(v, r, "Failed to parse JSON: %m");
+        }
+
+        if (v->input_sensitive) {
+                /* Mark the parameters subfield as sensitive right-away, if that's requested */
+                JsonVariant *parameters = json_variant_by_key(v->current, "parameters");
+                if (parameters)
+                        json_variant_sensitive(parameters);
+        }
+
+        if (DEBUG_LOGGING) {
+                _cleanup_(erase_and_freep) char *censored_text = NULL;
+
+                /* Suppress sensitive fields in the debug output */
+                r = json_variant_format(v->current, /* flags= */ JSON_FORMAT_CENSOR_SENSITIVE, &censored_text);
+                if (r < 0)
+                        return r;
+
+                varlink_log(v, "Received message: %s", censored_text);
         }
 
         v->input_buffer_size -= sz;
@@ -1849,56 +1871,60 @@ Varlink* varlink_flush_close_unref(Varlink *v) {
 
 static int varlink_format_json(Varlink *v, JsonVariant *m) {
         _cleanup_(erase_and_freep) char *text = NULL;
-        bool sensitive = false;
-        int r;
+        int sz, r;
 
         assert(v);
         assert(m);
 
-        r = json_variant_format(m, JSON_FORMAT_REFUSE_SENSITIVE, &text);
-        if (r == -EPERM) {
-                sensitive = true;
-                r = json_variant_format(m, /* flags= */ 0, &text);
-        }
-        if (r < 0)
-                return r;
-        assert(text[r] == '\0');
+        sz = json_variant_format(m, /* flags= */ 0, &text);
+        if (sz < 0)
+                return sz;
+        assert(text[sz] == '\0');
 
-        if (v->output_buffer_size + r + 1 > VARLINK_BUFFER_MAX)
+        if (v->output_buffer_size + sz + 1 > VARLINK_BUFFER_MAX)
                 return -ENOBUFS;
 
-        varlink_log(v, "Sending message: %s", sensitive ? "<sensitive data>" : text);
+        if (DEBUG_LOGGING) {
+                _cleanup_(erase_and_freep) char *censored_text = NULL;
+
+                /* Suppress sensitive fields in the debug output */
+                r = json_variant_format(m, /* flags= */ JSON_FORMAT_CENSOR_SENSITIVE, &censored_text);
+                if (r < 0)
+                        return r;
+
+                varlink_log(v, "Sending message: %s", censored_text);
+        }
 
         if (v->output_buffer_size == 0) {
 
                 free_and_replace(v->output_buffer, text);
 
-                v->output_buffer_size = r + 1;
+                v->output_buffer_size = sz + 1;
                 v->output_buffer_index = 0;
 
         } else if (v->output_buffer_index == 0) {
 
-                if (!GREEDY_REALLOC(v->output_buffer, v->output_buffer_size + r + 1))
+                if (!GREEDY_REALLOC(v->output_buffer, v->output_buffer_size + sz + 1))
                         return -ENOMEM;
 
-                memcpy(v->output_buffer + v->output_buffer_size, text, r + 1);
-                v->output_buffer_size += r + 1;
+                memcpy(v->output_buffer + v->output_buffer_size, text, sz + 1);
+                v->output_buffer_size += sz + 1;
         } else {
                 char *n;
-                const size_t new_size = v->output_buffer_size + r + 1;
+                const size_t new_size = v->output_buffer_size + sz + 1;
 
                 n = new(char, new_size);
                 if (!n)
                         return -ENOMEM;
 
-                memcpy(mempcpy(n, v->output_buffer + v->output_buffer_index, v->output_buffer_size), text, r + 1);
+                memcpy(mempcpy(n, v->output_buffer + v->output_buffer_index, v->output_buffer_size), text, sz + 1);
 
                 free_and_replace(v->output_buffer, n);
                 v->output_buffer_size = new_size;
                 v->output_buffer_index = 0;
         }
 
-        if (sensitive)
+        if (json_variant_is_sensitive_recursive(m))
                 v->output_buffer_sensitive = true; /* Propagate sensitive flag */
         else
                 text = mfree(text); /* No point in the erase_and_free() destructor declared above */
@@ -3097,6 +3123,13 @@ int varlink_set_allow_fd_passing_output(Varlink *v, bool b) {
         return 0;
 }
 
+int varlink_set_input_sensitive(Varlink *v) {
+        assert_return(v, -EINVAL);
+
+        v->input_sensitive = true;
+        return 0;
+}
+
 int varlink_server_new(VarlinkServer **ret, VarlinkServerFlags flags) {
         _cleanup_(varlink_server_unrefp) VarlinkServer *s = NULL;
         int r;
@@ -3324,6 +3357,9 @@ static int connect_callback(sd_event_source *source, int fd, uint32_t revents, v
                 return 0;
 
         TAKE_FD(cfd);
+
+        if (FLAGS_SET(ss->server->flags, VARLINK_SERVER_INPUT_SENSITIVE))
+                varlink_set_input_sensitive(v);
 
         if (ss->server->connect_callback) {
                 r = ss->server->connect_callback(ss->server, v, ss->server->userdata);
