@@ -871,7 +871,7 @@ def generate_key_cert_pair(
     # supported/expected:
     # https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/windows-secure-boot-key-creation-and-management-guidance?view=windows-11#12-public-key-cryptography
 
-    now = datetime.datetime.now(datetime.UTC)
+    now = datetime.datetime.now(datetime.timezone.utc)
 
     key = rsa.generate_private_key(
         public_exponent=65537,
