@@ -505,29 +505,31 @@ int strv_insert(char ***l, size_t position, char *value) {
         char **c;
         size_t n, m;
 
+        assert(l);
+
         if (!value)
                 return 0;
 
         n = strv_length(*l);
         position = MIN(position, n);
 
-        /* increase and check for overflow */
-        m = n + 2;
-        if (m < n)
+        /* check for overflow and increase*/
+        if (n > SIZE_MAX - 2)
                 return -ENOMEM;
+        m = n + 2;
 
-        c = new(char*, m);
+        c = reallocarray(*l, GREEDY_ALLOC_ROUND_UP(m), sizeof(char*));
         if (!c)
                 return -ENOMEM;
 
-        for (size_t i = 0; i < position; i++)
-                c[i] = (*l)[i];
-        c[position] = value;
-        for (size_t i = position; i < n; i++)
-                c[i+1] = (*l)[i];
-        c[n+1] = NULL;
+        if (n > position)
+                memmove(c + position + 1, c + position, (n - position) * sizeof(char*));
 
-        return free_and_replace(*l, c);
+        c[position] = value;
+        c[n + 1] = NULL;
+
+        *l = c;
+        return 0;
 }
 
 int strv_consume_with_size(char ***l, size_t *n, char *value) {
