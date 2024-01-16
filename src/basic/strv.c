@@ -590,6 +590,66 @@ int strv_extend_with_size(char ***l, size_t *n, const char *value) {
         return strv_consume_with_size(l, n, v);
 }
 
+int strv_extend_many_internal(char ***l, const char *value, ...) {
+        va_list ap;
+        size_t n, m;
+        int r;
+
+        assert(l);
+
+        m = n = strv_length(*l);
+
+        r = 0;
+        va_start(ap, value);
+        for (const char *s = value; s != POINTER_MAX; s = va_arg(ap, const char*)) {
+                if (!s)
+                        continue;
+
+                if (m > SIZE_MAX-1) { /* overflow */
+                        r = -ENOMEM;
+                        break;
+                }
+                m++;
+        }
+        va_end(ap);
+
+        if (r < 0)
+                return r;
+        if (m > SIZE_MAX-1)
+                return -ENOMEM;
+
+        char **c = reallocarray(*l, GREEDY_ALLOC_ROUND_UP(m+1), sizeof(char*));
+        if (!c)
+                return -ENOMEM;
+        *l = c;
+
+        r = 0;
+        size_t i = n;
+        va_start(ap, value);
+        for (const char *s = value; s != POINTER_MAX; s = va_arg(ap, const char*)) {
+                if (!s)
+                        continue;
+
+                c[i] = strdup(s);
+                if (!c[i]) {
+                        r = -ENOMEM;
+                        break;
+                }
+                i++;
+        }
+        va_end(ap);
+
+        if (r < 0) {
+                /* rollback on error */
+                for (size_t j = n; j < i; j++)
+                        c[j] = mfree(c[j]);
+                return r;
+        }
+
+        c[i] = NULL;
+        return 0;
+}
+
 char** strv_uniq(char **l) {
         /* Drops duplicate entries. The first identical string will be
          * kept, the others dropped */
