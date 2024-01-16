@@ -1949,7 +1949,7 @@ int bus_exec_context_set_transient_property(
 
                                 r = strv_extend_strv(&c->supplementary_groups, l, true);
                                 if (r < 0)
-                                        return -ENOMEM;
+                                        return r;
 
                                 joined = strv_join(c->supplementary_groups, " ");
                                 if (!joined)
@@ -3174,7 +3174,7 @@ int bus_exec_context_set_transient_property(
 
                                 r = strv_extend_strv(dirs, l, true);
                                 if (r < 0)
-                                        return -ENOMEM;
+                                        return r;
 
                                 unit_write_settingf(u, flags, name, "%s=%s", name, joined);
                         }
@@ -3201,7 +3201,7 @@ int bus_exec_context_set_transient_property(
                                 _cleanup_free_ char *joined = NULL;
                                 r = strv_extend_strv(&c->exec_search_path, l, true);
                                 if (r < 0)
-                                        return -ENOMEM;
+                                        return r;
                                 joined = strv_join(c->exec_search_path, ":");
                                 if (!joined)
                                         return log_oom();
