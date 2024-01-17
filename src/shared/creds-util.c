@@ -30,6 +30,7 @@
 #include "stat-util.h"
 #include "tpm2-util.h"
 #include "user-util.h"
+#include "varlink.h"
 
 #define PUBLIC_KEY_MAX (UINT32_C(1024) * UINT32_C(1024))
 
@@ -1534,3 +1535,130 @@ int decrypt_credential_and_warn(const char *validate_name, usec_t validate_times
 }
 
 #endif
+
+int ipc_encrypt_credential(const char *name, usec_t timestamp, usec_t not_after, uid_t uid, const struct iovec *input, CredentialFlags flags, struct iovec *ret) {
+        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        int r;
+
+        assert(input && iovec_is_valid(input));
+        assert(ret);
+
+        r = varlink_connect_address(&vl, "/run/systemd/io.systemd.Credentials");
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to io.systemd.Credentials: %m");
+
+        /* Mark anything we get from the service as sensitive, given that it might use a NULL cypher, at least in theory */
+        r = varlink_set_input_sensitive(vl);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable sensitive Varlink input: %m");
+
+        /* Create the input data blob object separately, so that we can mark it as sensitive */
+        _cleanup_(json_variant_unrefp) JsonVariant *jinput = NULL;
+        r = json_build(&jinput, JSON_BUILD_IOVEC_BASE64(input));
+        if (r < 0)
+                return log_error_errno(r, "Failed to create input object: %m");
+
+        json_variant_sensitive(jinput);
+
+        _cleanup_(json_variant_unrefp) JsonVariant *reply = NULL;
+        const char *error_id = NULL;
+        r = varlink_callb(vl,
+                          "io.systemd.Credentials.Encrypt",
+                          &reply,
+                          &error_id,
+                          JSON_BUILD_OBJECT(
+                                          JSON_BUILD_PAIR_CONDITION(name, "name", JSON_BUILD_STRING(name)),
+                                          JSON_BUILD_PAIR("data", JSON_BUILD_VARIANT(jinput)),
+                                          JSON_BUILD_PAIR_CONDITION(timestamp != USEC_INFINITY, "timestamp", JSON_BUILD_UNSIGNED(timestamp)),
+                                          JSON_BUILD_PAIR_CONDITION(not_after != USEC_INFINITY, "notAfter",  JSON_BUILD_UNSIGNED(not_after)),
+                                          JSON_BUILD_PAIR_CONDITION(!FLAGS_SET(flags, CREDENTIAL_ANY_SCOPE), "scope", JSON_BUILD_STRING(uid_is_valid(uid) ? "user" : "system")),
+                                          JSON_BUILD_PAIR_CONDITION(uid_is_valid(uid), "uid", JSON_BUILD_UNSIGNED(uid))));
+        if (r < 0)
+                return log_error_errno(r, "Failed to call Encrypt() varlink call.");
+        if (!isempty(error_id)) {
+                if (streq(error_id, "io.systemd.Credentials.NoSuchUser"))
+                        return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "No such user.");
+
+                return log_error_errno(varlink_error_to_errno(error_id, reply), "Failed to encrypt: %s", error_id);
+        }
+
+        r = json_dispatch(
+                        reply,
+                        (const JsonDispatch[]) {
+                                { "blob", JSON_VARIANT_STRING, json_dispatch_unbase64_iovec, PTR_TO_SIZE(ret), JSON_MANDATORY },
+                                {},
+                        },
+                        JSON_LOG|JSON_ALLOW_EXTENSIONS,
+                        /* userdata= */ NULL);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+int ipc_decrypt_credential(const char *validate_name, usec_t validate_timestamp, uid_t uid, const struct iovec *input, CredentialFlags flags, struct iovec *ret) {
+        _cleanup_(varlink_unrefp) Varlink *vl = NULL;
+        int r;
+
+        assert(input && iovec_is_valid(input));
+        assert(ret);
+
+        r = varlink_connect_address(&vl, "/run/systemd/io.systemd.Credentials");
+        if (r < 0)
+                return log_error_errno(r, "Failed to connect to io.systemd.Credentials: %m");
+
+        r = varlink_set_input_sensitive(vl);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enable sensitive Varlink input: %m");
+
+        /* Create the input data blob object separately, so that we can mark it as sensitive (it's supposed
+         * to be encrypted, but who knows maybe it uses the NULL cypher). */
+        _cleanup_(json_variant_unrefp) JsonVariant *jinput = NULL;
+        r = json_build(&jinput, JSON_BUILD_IOVEC_BASE64(input));
+        if (r < 0)
+                return log_error_errno(r, "Failed to create input object: %m");
+
+        json_variant_sensitive(jinput);
+
+        _cleanup_(json_variant_unrefp) JsonVariant *reply = NULL;
+        const char *error_id = NULL;
+        r = varlink_callb(vl,
+                          "io.systemd.Credentials.Decrypt",
+                          &reply,
+                          &error_id,
+                          JSON_BUILD_OBJECT(
+                                          JSON_BUILD_PAIR_CONDITION(validate_name, "name", JSON_BUILD_STRING(validate_name)),
+                                          JSON_BUILD_PAIR("blob", JSON_BUILD_VARIANT(jinput)),
+                                          JSON_BUILD_PAIR_CONDITION(validate_timestamp != USEC_INFINITY, "timestamp", JSON_BUILD_UNSIGNED(validate_timestamp)),
+                                          JSON_BUILD_PAIR_CONDITION(!FLAGS_SET(flags, CREDENTIAL_ANY_SCOPE), "scope", JSON_BUILD_STRING(uid_is_valid(uid) ? "user" : "system")),
+                                          JSON_BUILD_PAIR_CONDITION(uid_is_valid(uid), "uid", JSON_BUILD_UNSIGNED(uid))));
+        if (r < 0)
+                return log_error_errno(r, "Failed to call Decrypt() varlink call.");
+        if (!isempty(error_id))  {
+                if (streq(error_id, "io.systemd.Credentials.BadFormat"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EBADMSG), "Bad credential format.");
+                if (streq(error_id, "io.systemd.Credentials.NameMismatch"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EREMOTE), "Name in credential doesn't match expectations.");
+                if (streq(error_id, "io.systemd.Credentials.TimeMismatch"))
+                        return log_error_errno(SYNTHETIC_ERRNO(ESTALE), "Outside of credential validity time window.");
+                if (streq(error_id, "io.systemd.Credentials.NoSuchUser"))
+                        return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "No such user.");
+                if (streq(error_id, "io.systemd.Credentials.BadScope"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EMEDIUMTYPE), "Scope mismtach.");
+
+                return log_error_errno(varlink_error_to_errno(error_id, reply), "Failed to decrypt: %s", error_id);
+        }
+
+        r = json_dispatch(
+                        reply,
+                        (const JsonDispatch[]) {
+                                { "data", JSON_VARIANT_STRING, json_dispatch_unbase64_iovec, PTR_TO_SIZE(ret), JSON_MANDATORY },
+                                {},
+                        },
+                        JSON_LOG|JSON_ALLOW_EXTENSIONS,
+                        /* userdata= */ NULL);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
