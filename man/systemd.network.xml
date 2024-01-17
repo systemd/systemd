@@ -1630,6 +1630,18 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>L3MasterDevice=</varname></term>
+        <listitem>
+          <para>A boolean. Specifies whether the rule is to direct lookups to the tables associated with
+          level 3 master devices (also known as Virtual Routing and Forwarding or VRF devices).
+          For further details see <ulink url="https://docs.kernel.org/networking/vrf.html">
+          Virtual Routing and Forwarding (VRF)</ulink>. Defaults to false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>SourcePort=</varname></term>
         <listitem>
           <para>Specifies the source IP port or IP port range match in forwarding information base
@@ -1951,7 +1963,7 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           <command>ip route show table <replaceable>num</replaceable></command>. If unset and
           <varname>Type=</varname> is <literal>local</literal>, <literal>broadcast</literal>,
           <literal>anycast</literal>, or <literal>nat</literal>, then <literal>local</literal> is used.
-          In other cases, defaults to <literal>main</literal>.</para>
+          In other cases, defaults to <literal>main</literal>. Ignored if <varname>L3MasterDevice=</varname> is true.</para>
 
           <xi:include href="version-info.xml" xpointer="v230"/>
         </listitem>

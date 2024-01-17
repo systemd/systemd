@@ -496,6 +496,7 @@ KernelVersion=
 Key=
 Kind=
 L2MissNotification=
+L3MasterDevice=
 L3MissNotification=
 LACPTransmitRate=
 LLDP=
