@@ -258,7 +258,7 @@ cleanup_session() (
 
     systemctl stop getty@tty2.service
 
-    for s in $(loginctl --no-legend list-sessions | grep tty | awk '$3 == "logind-test-user" { print $1 }'); do
+    for s in $(loginctl --no-legend list-sessions | grep -v manager | awk '$3 == "logind-test-user" { print $1 }'); do
         echo "INFO: stopping session $s"
         loginctl terminate-session "$s"
     done
@@ -308,18 +308,18 @@ check_session() (
 
     local seat session leader_pid
 
-    if [[ $(loginctl --no-legend | grep tty | grep -c "logind-test-user") != 1 ]]; then
+    if [[ $(loginctl --no-legend | grep -v manager | grep -c "logind-test-user") != 1 ]]; then
         echo "no session or multiple sessions for logind-test-user." >&2
         return 1
     fi
 
-    seat=$(loginctl --no-legend | grep tty | grep 'logind-test-user *seat' | awk '{ print $4 }')
+    seat=$(loginctl --no-legend | grep -v manager | grep 'logind-test-user *seat' | awk '{ print $4 }')
     if [[ -z "$seat" ]]; then
         echo "no seat found for user logind-test-user" >&2
         return 1
     fi
 
-    session=$(loginctl --no-legend | grep tty | awk '$3 == "logind-test-user" { print $1 }')
+    session=$(loginctl --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $1 }')
     if [[ -z "$session" ]]; then
         echo "no session found for user logind-test-user" >&2
         return 1
@@ -364,7 +364,7 @@ EOF
         check_session && break
     done
     check_session
-    assert_eq "$(loginctl --no-legend | grep tty | awk '$3=="logind-test-user" { print $5 }')" "tty2"
+    assert_eq "$(loginctl --no-legend | grep -v manager | awk '$3=="logind-test-user" { print $7 }')" "tty2"
 }
 
 testcase_sanity_check() {
@@ -382,6 +382,8 @@ testcase_sanity_check() {
     # the seat/session autodetection work-ish
     systemd-run --user --pipe --wait -M "logind-test-user@.host" bash -eux <<\EOF
     loginctl list-sessions
+    loginctl list-sessions -j
+    loginctl list-sessions --json=short
     loginctl session-status
     loginctl show-session
     loginctl show-session -P DelayInhibited
@@ -455,7 +457,7 @@ EOF
     udevadm info "$dev"
 
     # trigger logind and activate session
-    loginctl activate "$(loginctl --no-legend | grep tty | awk '$3 == "logind-test-user" { print $1 }')"
+    loginctl activate "$(loginctl --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $1 }')"
 
     # check ACL
     sleep 1
@@ -496,7 +498,7 @@ testcase_lock_idle_action() {
         return
     fi
 
-    if loginctl --no-legend | grep tty | grep -q logind-test-user; then
+    if loginctl --no-legend | grep -v manager | grep -q logind-test-user; then
         echo >&2 "Session of the 'logind-test-user' is already present."
         exit 1
     fi
@@ -545,7 +547,7 @@ testcase_session_properties() {
     trap cleanup_session RETURN
     create_session
 
-    s=$(loginctl list-sessions --no-legend | grep tty | awk '$3 == "logind-test-user" { print $1 }')
+    s=$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $1 }')
     /usr/lib/systemd/tests/unit-tests/manual/test-session-properties "/org/freedesktop/login1/session/_3${s?}" /dev/tty2
 }
 
@@ -561,17 +563,17 @@ testcase_list_users_sessions_seats() {
     create_session
 
     # Activate the session
-    loginctl activate "$(loginctl --no-legend | grep tty | awk '$3 == "logind-test-user" { print $1 }')"
+    loginctl activate "$(loginctl --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $1 }')"
 
-    session=$(loginctl list-sessions --no-legend | grep tty | awk '$3 == "logind-test-user" { print $1 }')
+    session=$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $1 }')
     : check that we got a valid session id
     busctl get-property org.freedesktop.login1 "/org/freedesktop/login1/session/_3${session?}" org.freedesktop.login1.Session Id
-    assert_eq "$(loginctl list-sessions --no-legend | grep tty | awk '$3 == "logind-test-user" { print $2 }')" "$(id -ru logind-test-user)"
-    seat=$(loginctl list-sessions --no-legend | grep tty | awk '$3 == "logind-test-user" { print $4 }')
-    assert_eq "$(loginctl list-sessions --no-legend | grep tty | awk '$3 == "logind-test-user" { print $5 }')" tty2
-    assert_eq "$(loginctl list-sessions --no-legend | grep tty | awk '$3 == "logind-test-user" { print $6 }')" active
-    assert_eq "$(loginctl list-sessions --no-legend | grep tty | awk '$3 == "logind-test-user" { print $7 }')" no
-    assert_eq "$(loginctl list-sessions --no-legend | grep tty | awk '$3 == "logind-test-user" { print $8 }')" '-'
+    assert_eq "$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $2 }')" "$(id -ru logind-test-user)"
+    seat=$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $4 }')
+    assert_eq "$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $6 }')" user
+    assert_eq "$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $7 }')" tty2
+    assert_eq "$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $8 }')" no
+    assert_eq "$(loginctl list-sessions --no-legend | grep -v manager | awk '$3 == "logind-test-user" { print $9 }')" '-'
 
     loginctl list-seats --no-legend | grep -Fwq "${seat?}"
 
@@ -625,7 +627,7 @@ EOF
     sleep 5
 
     assert_eq "$(journalctl -b -u systemd-logind.service --since="$ts" --grep "Session \"$id\" of user \"logind-test-user\" is idle, stopping." | wc -l)" 1
-    assert_eq "$(loginctl --no-legend | grep tty | grep -c "logind-test-user")" 0
+    assert_eq "$(loginctl --no-legend | grep -v manager | grep -c "logind-test-user")" 0
 }
 
 testcase_ambient_caps() {
