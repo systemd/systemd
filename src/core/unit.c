@@ -6404,7 +6404,7 @@ int activation_details_append_pair(ActivationDetails *details, char ***strv) {
                         return r;
         }
 
-        if (ACTIVATION_DETAILS_VTABLE(details)->append_env) {
+        if (ACTIVATION_DETAILS_VTABLE(details)->append_pair) {
                 r = ACTIVATION_DETAILS_VTABLE(details)->append_pair(details, strv);
                 if (r < 0)
                         return r;
