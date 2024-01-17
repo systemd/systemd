@@ -145,8 +145,10 @@ static inline int __coverity_check_and_return__(int condition) {
 
 #define assert_message_se(expr, message)                                \
         do {                                                            \
+                DISABLE_WARNING_NONNULL_COMPARE;                        \
                 if (_unlikely_(!(expr)))                                \
                         log_assert_failed(message, PROJECT_FILE, __LINE__, __func__); \
+                REENABLE_WARNING;                                       \
         } while (false)
 
 #define assert_log(expr, message) ((_likely_(expr))                     \
@@ -170,16 +172,20 @@ static inline int __coverity_check_and_return__(int condition) {
 
 #define assert_return(expr, r)                                          \
         do {                                                            \
+                DISABLE_WARNING_NONNULL_COMPARE;                        \
                 if (!assert_log(expr, #expr))                           \
                         return (r);                                     \
+                REENABLE_WARNING;                                       \
         } while (false)
 
 #define assert_return_errno(expr, r, err)                               \
         do {                                                            \
+                DISABLE_WARNING_NONNULL_COMPARE;                        \
                 if (!assert_log(expr, #expr)) {                         \
                         errno = err;                                    \
                         return (r);                                     \
                 }                                                       \
+                REENABLE_WARNING;                                       \
         } while (false)
 
 #define return_with_errno(r, err)                     \
