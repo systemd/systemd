@@ -70,7 +70,7 @@ struct HandleActionData {
 };
 
 int handle_action_get_enabled_sleep_actions(HandleActionSleepMask mask, char ***ret);
-HandleAction handle_action_sleep_select(HandleActionSleepMask mask);
+HandleAction handle_action_sleep_select(Manager *m);
 
 int manager_handle_action(
                 Manager *m,

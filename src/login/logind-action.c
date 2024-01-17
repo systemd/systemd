@@ -6,6 +6,7 @@
 
 #include "alloc-util.h"
 #include "bus-error.h"
+#include "bus-unit-util.h"
 #include "bus-util.h"
 #include "conf-parser.h"
 #include "format-util.h"
@@ -166,15 +167,24 @@ int handle_action_get_enabled_sleep_actions(HandleActionSleepMask mask, char ***
         return 0;
 }
 
-HandleAction handle_action_sleep_select(HandleActionSleepMask mask) {
+HandleAction handle_action_sleep_select(Manager *m) {
+        assert(m);
 
         FOREACH_ARRAY(i, sleep_actions, ELEMENTSOF(sleep_actions)) {
-                HandleActionSleepMask a = 1U << *i;
+                HandleActionSleepMask action_mask = 1U << *i;
+                const HandleActionData *a;
+                _cleanup_free_ char *load_state = NULL;
 
-                if (!FLAGS_SET(mask, a))
+                if (!FLAGS_SET(m->handle_action_sleep_mask, action_mask))
                         continue;
 
-                if (handle_action_sleep_supported(*i))
+                a = ASSERT_PTR(handle_action_lookup(*i));
+
+                if (sleep_supported(a->sleep_operation) <= 0)
+                        continue;
+
+                (void) unit_load_state(m->bus, a->target, &load_state);
+                if (streq_ptr(load_state, "loaded"))
                         return *i;
         }
 
@@ -263,7 +273,7 @@ static int handle_action_sleep_execute(
         if (handle == HANDLE_SLEEP) {
                 HandleAction a;
 
-                a = handle_action_sleep_select(m->handle_action_sleep_mask);
+                a = handle_action_sleep_select(m);
                 if (a < 0)
                         return log_warning_errno(SYNTHETIC_ERRNO(EOPNOTSUPP),
                                                  "None of the configured sleep operations are supported, ignoring.");
