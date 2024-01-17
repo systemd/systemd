@@ -37,7 +37,7 @@ static inline void *xmalloc(size_t size) {
 
 _malloc_ _alloc_(1, 2) _returns_nonnull_ _warn_unused_result_
 static inline void *xmalloc_multiply(size_t n, size_t size) {
-        assert_se(!__builtin_mul_overflow(size, n, &size));
+        assert_se(MUL_ASSIGN_SAFE(&size, n));
         return xmalloc(size);
 }
 
