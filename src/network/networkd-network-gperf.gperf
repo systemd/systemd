@@ -180,6 +180,7 @@ RoutingPolicyRule.IPProtocol,                config_parse_routing_policy_rule_ip
 RoutingPolicyRule.SourcePort,                config_parse_routing_policy_rule_port_range,              0,                             0
 RoutingPolicyRule.DestinationPort,           config_parse_routing_policy_rule_port_range,              0,                             0
 RoutingPolicyRule.InvertRule,                config_parse_routing_policy_rule_invert,                  0,                             0
+RoutingPolicyRule.L3MasterDevice,            config_parse_routing_policy_rule_l3mdev,                  0,                             0
 RoutingPolicyRule.Family,                    config_parse_routing_policy_rule_family,                  0,                             0
 RoutingPolicyRule.User,                      config_parse_routing_policy_rule_uid_range,               0,                             0
 RoutingPolicyRule.SuppressInterfaceGroup,    config_parse_routing_policy_rule_suppress_ifgroup,        0,                             0
