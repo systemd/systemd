@@ -1080,7 +1080,7 @@ static int show_statistics(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to query monitoring service /run/systemd/resolve/io.systemd.Resolve.Monitor: %m");
 
-        r = varlink_call(vl, "io.systemd.Resolve.Monitor.DumpStatistics", NULL, &reply, NULL, 0);
+        r = varlink_call(vl, "io.systemd.Resolve.Monitor.DumpStatistics", /* parameters= */ NULL, &reply, /* ret_error_id= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to issue DumpStatistics() varlink call: %m");
 
@@ -1238,7 +1238,7 @@ static int reset_statistics(int argc, char **argv, void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to query monitoring service /run/systemd/resolve/io.systemd.Resolve.Monitor: %m");
 
-        r = varlink_call(vl, "io.systemd.Resolve.Monitor.ResetStatistics", NULL, &reply, NULL, 0);
+        r = varlink_call(vl, "io.systemd.Resolve.Monitor.ResetStatistics", /* parameters= */ NULL, &reply, /* ret_error_id= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to issue ResetStatistics() varlink call: %m");
 
@@ -2972,7 +2972,7 @@ static int verb_show_cache(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to query monitoring service /run/systemd/resolve/io.systemd.Resolve.Monitor: %m");
 
-        r = varlink_call(vl, "io.systemd.Resolve.Monitor.DumpCache", NULL, &reply, NULL, 0);
+        r = varlink_call(vl, "io.systemd.Resolve.Monitor.DumpCache", /* parameters= */ NULL, &reply, /* ret_error_id= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to issue DumpCache() varlink call: %m");
 
@@ -3146,7 +3146,7 @@ static int verb_show_server_state(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to query monitoring service /run/systemd/resolve/io.systemd.Resolve.Monitor: %m");
 
-        r = varlink_call(vl, "io.systemd.Resolve.Monitor.DumpServerState", NULL, &reply, NULL, 0);
+        r = varlink_call(vl, "io.systemd.Resolve.Monitor.DumpServerState", /* parameters= */ NULL, &reply, /* ret_error_id= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to issue DumpServerState() varlink call: %m");
 
