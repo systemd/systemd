@@ -1,0 +1,15 @@
+# SPDX-License-Identifier: LGPL-2.1-or-later
+[Match]
+Name=test1
+
+[Network]
+IPv6AcceptRA=no
+
+[RoutingPolicyRule]
+Priority=1500
+L3mdev=true
+
+[RoutingPolicyRule]
+Priority=2000
+L3mdev=true
+Type=unreachable
