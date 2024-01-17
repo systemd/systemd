@@ -249,7 +249,8 @@ node /org/freedesktop/portable1 {
         <listitem><para>mkdir</para></listitem>
       </itemizedlist>
       Note that an image cannot be attached if a unit that it contains is already present
-      on the system.</para>
+      on the system. Note that this method returns only after all the listed operations are completed,
+      and due to the I/O involved it might take some time.</para>
 
       <para><function>AttachImageWithExtensions()</function> attaches a portable image to the system.
       This method is a superset of <function>AttachImage()</function> with the addition of
@@ -271,7 +272,9 @@ node /org/freedesktop/portable1 {
       <itemizedlist>
         <listitem><para>unlink</para></listitem>
       </itemizedlist>
-      Note that an image cannot be detached if a unit that it contains is running.</para>
+      Note that an image cannot be detached if a unit that it contains is running. Note that this method
+      returns only after all the listed operations are completed, and due to the I/O involved it might take
+      some time.</para>
 
       <para><function>DetachImageWithExtensions()</function> detaches a portable image from the system.
       This method is a superset of <function>DetachImage()</function> with the addition of
