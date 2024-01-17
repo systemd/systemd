@@ -19,6 +19,7 @@ int setup_macvlan(const char *machine_name, pid_t pid, char **iface_pairs);
 int setup_ipvlan(const char *machine_name, pid_t pid, char **iface_pairs);
 
 int move_network_interfaces(int netns_fd, char **iface_pairs);
+int move_back_network_interfaces(int child_netns_fd, char **interface_pairs);
 
 int veth_extra_parse(char ***l, const char *p);
 
