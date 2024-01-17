@@ -1934,7 +1934,7 @@ static int simple_varlink_call(const char *option, const char *method) {
         (void) varlink_set_description(link, "journal");
         (void) varlink_set_relative_timeout(link, USEC_INFINITY);
 
-        r = varlink_call(link, method, NULL, NULL, &error, NULL);
+        r = varlink_call(link, method, /* parameters= */ NULL, /* ret_parameters= */ NULL, &error);
         if (r < 0)
                 return log_error_errno(r, "Failed to execute varlink call: %m");
         if (error)
