@@ -411,8 +411,7 @@ account   sufficient pam_unix.so
 account   required   pam_permit.so
 
 -password sufficient pam_systemd_home.so
-password  sufficient pam_unix.so sha512 shadow try_first_pass use_authtok
-
+password  sufficient pam_unix.so sha512 shadow try_first_pass
 password  required   pam_deny.so
 
 -session  optional   pam_keyinit.so revoke
