@@ -210,12 +210,9 @@ static int verb_info(int argc, char *argv[], void *userdata) {
                 return r;
 
         JsonVariant *reply = NULL;
-        const char *error = NULL;
-        r = varlink_call(vl, "org.varlink.service.GetInfo", NULL, &reply, &error, NULL);
+        r = varlink_call_and_log(vl, "org.varlink.service.GetInfo", /* parameters= */ NULL, &reply);
         if (r < 0)
-                return log_error_errno(r, "Failed to issue GetInfo() call: %m");
-        if (error)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call GetInfo() failed: %s", error);
+                return r;
 
         pager_open(arg_pager_flags);
 
@@ -296,12 +293,13 @@ static int verb_introspect(int argc, char *argv[], void *userdata) {
                 return r;
 
         JsonVariant *reply = NULL;
-        const char *error = NULL;
-        r = varlink_callb(vl, "org.varlink.service.GetInterfaceDescription", &reply, &error, NULL, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("interface", interface)));
+        r = varlink_callb_and_log(
+                        vl,
+                        "org.varlink.service.GetInterfaceDescription",
+                        &reply,
+                        JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("interface", interface)));
         if (r < 0)
-                return log_error_errno(r, "Failed to issue GetInterfaceDescription() call: %m");
-        if (error)
-                return log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call GetInterfaceDescription() failed: %s", error);
+                return r;
 
         pager_open(arg_pager_flags);
 
@@ -432,7 +430,7 @@ static int verb_call(int argc, char *argv[], void *userdata) {
                 JsonVariant *reply = NULL;
                 const char *error = NULL;
 
-                r = varlink_call(vl, method, jp, &reply, &error, NULL);
+                r = varlink_call(vl, method, jp, &reply, &error);
                 if (r < 0)
                         return log_error_errno(r, "Failed to issue %s() call: %m", method);
 

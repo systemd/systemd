@@ -104,9 +104,9 @@ static int check_netns_match(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to network service /run/systemd/netif/io.systemd.Network: %m");
 
-        r = varlink_call(vl, "io.systemd.Network.GetNamespaceId", NULL, &reply, NULL, 0);
+        r = varlink_call_and_log(vl, "io.systemd.Network.GetNamespaceId", /* parameters= */ NULL, &reply);
         if (r < 0)
-                return log_error_errno(r, "Failed to issue GetNamespaceId() varlink call: %m");
+                return r;
 
         static const JsonDispatch dispatch_table[] = {
                 { "NamespaceId", JSON_VARIANT_UNSIGNED, json_dispatch_uint64, 0, JSON_MANDATORY },

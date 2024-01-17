@@ -265,7 +265,7 @@ static void *thread(void *arg) {
         }
         assert_se(x == 6);
 
-        assert_se(varlink_call(c, "io.test.DoSomething", i, &o, &e, NULL) >= 0);
+        assert_se(varlink_call(c, "io.test.DoSomething", i, &o, &e) >= 0);
         assert_se(json_variant_integer(json_variant_by_key(o, "sum")) == 88 + 99);
         assert_se(!e);
 
@@ -281,7 +281,7 @@ static void *thread(void *arg) {
         assert_se(varlink_push_fd(c, fd2) == 1);
         assert_se(varlink_push_fd(c, fd3) == 2);
 
-        assert_se(varlink_callb(c, "io.test.PassFD", &o, &e, NULL, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("fd", JSON_BUILD_STRING("whoop")))) >= 0);
+        assert_se(varlink_callb(c, "io.test.PassFD", &o, &e, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("fd", JSON_BUILD_STRING("whoop")))) >= 0);
 
         int fd4 = varlink_peek_fd(c, 0);
         int fd5 = varlink_peek_fd(c, 1);
@@ -292,7 +292,7 @@ static void *thread(void *arg) {
         test_fd(fd4, "miau", 4);
         test_fd(fd5, "wuff", 4);
 
-        assert_se(varlink_callb(c, "io.test.IDontExist", &o, &e, NULL, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("x", JSON_BUILD_REAL(5.5)))) >= 0);
+        assert_se(varlink_callb(c, "io.test.IDontExist", &o, &e, JSON_BUILD_OBJECT(JSON_BUILD_PAIR("x", JSON_BUILD_REAL(5.5)))) >= 0);
         assert_se(streq_ptr(json_variant_string(json_variant_by_key(o, "method")), "io.test.IDontExist"));
         assert_se(streq(e, VARLINK_ERROR_METHOD_NOT_FOUND));
 
