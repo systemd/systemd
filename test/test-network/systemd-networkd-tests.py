@@ -199,6 +199,14 @@ def expectedFailureIfRoutingPolicyUIDRangeIsNotAvailable():
 
     return f
 
+def expectedFailureIfRoutingPolicyL3MasterDeviceIsNotAvailable():
+    def f(func):
+        rc = call_quiet('ip rule add not from 192.168.100.19 l3mdev')
+        call_quiet('ip rule del not from 192.168.100.19 l3mdev')
+        return func if rc == 0 else unittest.expectedFailure(func)
+
+    return f
+
 def expectedFailureIfNexthopIsNotAvailable():
     def f(func):
         rc = call_quiet('ip nexthop list')
@@ -3105,6 +3113,17 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'not.*?from.*?192.168.100.18')
         self.assertRegex(output, 'tcp')
         self.assertRegex(output, 'lookup 7')
+
+    @expectedFailureIfRoutingPolicyL3MasterDeviceIsNotAvailable()
+    def test_routing_policy_rule_l3mdev(self):
+        copy_network_unit('25-fibrule-l3mdev.network', '11-dummy.netdev')
+        start_networkd()
+        self.wait_online(['test1:degraded'])
+
+        output = check_output('ip rule')
+        print(output)
+        self.assertIn('1500:	from all lookup [l3mdev-table]', output)
+        self.assertIn('2000:	from all lookup [l3mdev-table] unreachable', output)
 
     @expectedFailureIfRoutingPolicyUIDRangeIsNotAvailable()
     def test_routing_policy_rule_uidrange(self):
