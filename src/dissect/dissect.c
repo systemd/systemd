@@ -1273,8 +1273,7 @@ static int mtree_print_item(
 
 static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
         _cleanup_(umount_and_rmdir_and_freep) char *mounted_dir = NULL;
-        _cleanup_(rmdir_and_freep) char *created_dir = NULL;
-        _cleanup_free_ char *temp = NULL;
+        _cleanup_free_ char *t = NULL;
         const char *root;
         int r;
 
@@ -1288,19 +1287,13 @@ static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to detach mount namespace: %m");
 
-                r = tempfn_random_child(NULL, program_invocation_short_name, &temp);
+                r = get_common_dissect_directory(&t);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to generate temporary mount directory: %m");
-
-                r = mkdir_p(temp, 0700);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to create mount point: %m");
-
-                created_dir = TAKE_PTR(temp);
+                        return log_error_errno(r, "Failed generate private mount directory: %m");
 
                 r = dissected_image_mount_and_warn(
                                 m,
-                                created_dir,
+                                t,
                                 /* uid_shift= */ UID_INVALID,
                                 /* uid_range= */ UID_INVALID,
                                 /* userns_fd= */ -EBADF,
@@ -1308,7 +1301,7 @@ static int action_list_or_mtree_or_copy(DissectedImage *m, LoopDevice *d) {
                 if (r < 0)
                         return r;
 
-                mounted_dir = TAKE_PTR(created_dir);
+                mounted_dir = TAKE_PTR(t);
 
                 r = loop_device_flock(d, LOCK_UN);
                 if (r < 0)
