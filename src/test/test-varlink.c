@@ -265,7 +265,7 @@ static void *thread(void *arg) {
         }
         assert_se(x == 6);
 
-        assert_se(varlink_call(c, "io.test.DoSomething", i, &o, &e, NULL) >= 0);
+        assert_se(varlink_call(c, "io.test.DoSomething", i, &o, &e) >= 0);
         assert_se(json_variant_integer(json_variant_by_key(o, "sum")) == 88 + 99);
         assert_se(!e);
 

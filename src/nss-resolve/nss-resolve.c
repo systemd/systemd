@@ -261,7 +261,7 @@ enum nss_status _nss_resolve_gethostbyname4_r(
          * configuration can distinguish such executed but negative replies from complete failure to
          * talk to resolved). */
         const char *error_id;
-        r = varlink_call(link, "io.systemd.Resolve.ResolveHostname", cparams, &rparams, &error_id, NULL);
+        r = varlink_call(link, "io.systemd.Resolve.ResolveHostname", cparams, &rparams, &error_id);
         if (r < 0)
                 goto fail;
         if (!isempty(error_id)) {
@@ -423,7 +423,7 @@ enum nss_status _nss_resolve_gethostbyname3_r(
                 goto fail;
 
         const char *error_id;
-        r = varlink_call(link, "io.systemd.Resolve.ResolveHostname", cparams, &rparams, &error_id, NULL);
+        r = varlink_call(link, "io.systemd.Resolve.ResolveHostname", cparams, &rparams, &error_id);
         if (r < 0)
                 goto fail;
         if (!isempty(error_id)) {
@@ -641,7 +641,7 @@ enum nss_status _nss_resolve_gethostbyaddr2_r(
                 goto fail;
 
         const char* error_id;
-        r = varlink_call(link, "io.systemd.Resolve.ResolveAddress", cparams, &rparams, &error_id, NULL);
+        r = varlink_call(link, "io.systemd.Resolve.ResolveAddress", cparams, &rparams, &error_id);
         if (r < 0)
                 goto fail;
         if (!isempty(error_id)) {
