@@ -88,8 +88,32 @@ int varlink_send(Varlink *v, const char *method, JsonVariant *parameters);
 int varlink_sendb(Varlink *v, const char *method, ...);
 
 /* Send method call and wait for reply */
-int varlink_call(Varlink *v, const char *method, JsonVariant *parameters, JsonVariant **ret_parameters, const char **ret_error_id, VarlinkReplyFlags *ret_flags);
-int varlink_callb(Varlink *v, const char *method, JsonVariant **ret_parameters, const char **ret_error_id, VarlinkReplyFlags *ret_flags, ...);
+int varlink_call_full(Varlink *v, const char *method, JsonVariant *parameters, JsonVariant **ret_parameters, const char **ret_error_id, VarlinkReplyFlags *ret_flags);
+static inline int varlink_call(Varlink *v, const char *method, JsonVariant *parameters, JsonVariant **ret_parameters, const char **ret_error_id) {
+        return varlink_call_full(v, method, parameters, ret_parameters, ret_error_id, NULL);
+}
+int varlink_call_and_log(Varlink *v, const char *method, JsonVariant *parameters, JsonVariant **ret_parameters);
+
+int varlink_callb_ap(Varlink *v, const char *method, JsonVariant **ret_parameters, const char **ret_error_id, VarlinkReplyFlags *ret_flags, va_list ap);
+static inline int varlink_callb_full(Varlink *v, const char *method, JsonVariant **ret_parameters, const char **ret_error_id, VarlinkReplyFlags *ret_flags, ...) {
+        va_list ap;
+        int r;
+
+        va_start(ap, ret_flags);
+        r = varlink_callb_ap(v, method, ret_parameters, ret_error_id, ret_flags, ap);
+        va_end(ap);
+        return r;
+}
+static inline int varlink_callb(Varlink *v, const char *method, JsonVariant **ret_parameters, const char **ret_error_id, ...) {
+        va_list ap;
+        int r;
+
+        va_start(ap, ret_error_id);
+        r = varlink_callb_ap(v, method, ret_parameters, ret_error_id, NULL, ap);
+        va_end(ap);
+        return r;
+}
+int varlink_callb_and_log(Varlink *v, const char *method, JsonVariant **ret_parameters, ...);
 
 /* Send method call and begin collecting all 'more' replies into an array, finishing when a final reply is sent */
 int varlink_collect(Varlink *v, const char *method, JsonVariant *parameters, JsonVariant **ret_parameters, const char **ret_error_id, VarlinkReplyFlags *ret_flags);
@@ -212,6 +236,8 @@ typedef enum VarlinkInvocationFlags {
 } VarlinkInvocationFlags;
 
 int varlink_invocation(VarlinkInvocationFlags flags);
+
+int varlink_error_to_errno(const char *error, JsonVariant *parameters);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_unref);
 DEFINE_TRIVIAL_CLEANUP_FUNC(Varlink *, varlink_close_unref);
