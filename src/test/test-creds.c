@@ -2,6 +2,8 @@
 
 #include "creds-util.h"
 #include "fileio.h"
+#include "format-util.h"
+#include "hexdecoct.h"
 #include "id128-util.h"
 #include "iovec-util.h"
 #include "path-util.h"
@@ -213,7 +215,33 @@ TEST(credential_encrypt_decrypt) {
 
         if (ec)
                 assert_se(setenv("SYSTEMD_CREDENTIAL_SECRET", ec, true) >= 0);
+}
 
+TEST(mime_type_matches) {
+
+        static const sd_id128_t tags[] = {
+                CRED_AES256_GCM_BY_HOST,
+                CRED_AES256_GCM_BY_TPM2_HMAC,
+                CRED_AES256_GCM_BY_TPM2_HMAC_WITH_PK,
+                CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC,
+                CRED_AES256_GCM_BY_HOST_AND_TPM2_HMAC_WITH_PK,
+                CRED_AES256_GCM_BY_NULL,
+        };
+
+        /* Generates the right <match/> expressions for these credentials according to the shared mime-info spec */
+        FOREACH_ARRAY(t, tags, ELEMENTSOF(tags)) {
+                _cleanup_free_ char *encoded = NULL;
+
+                assert_se(base64mem(t, sizeof(sd_id128_t), &encoded) >= 0);
+
+                /* Validate that the size matches expectations for the 4/3 factor size increase (rounding up) */
+                assert_se(strlen(encoded) == DIV_ROUND_UP((128U / 8U), 3U) * 4U);
+
+                /* Cut off rounded string where the ID ends, but now round down to get rid of characters that might contain follow-up data */
+                encoded[128 / 6] = 0;
+
+                printf("<match type=\"string\" value=\"%s\" offset=\"0\"/>\n", encoded);
+        }
 }
 
 DEFINE_TEST_MAIN(LOG_INFO);
