@@ -28,6 +28,10 @@
         _Pragma("GCC diagnostic push");                                 \
         _Pragma("GCC diagnostic ignored \"-Wnonnull\"")
 
+#define DISABLE_WARNING_NONNULL_COMPARE                                 \
+        _Pragma("GCC diagnostic push");                                 \
+        _Pragma("GCC diagnostic ignored \"-Wnonnull-compare\"")
+
 #define DISABLE_WARNING_SHADOW                                          \
         _Pragma("GCC diagnostic push");                                 \
         _Pragma("GCC diagnostic ignored \"-Wshadow\"")
@@ -108,10 +112,22 @@
         _noreturn_ void efi_assert(const char *expr, const char *file, unsigned line, const char *function);
 
         #ifdef NDEBUG
-                #define assert(expr) ({ if (!(expr)) __builtin_unreachable(); })
+                #define assert(expr)                                \
+                        do {                                        \
+                                DISABLE_WARNING_NONNULL_COMPARE;    \
+                                if (!(expr))                        \
+                                        __builtin_unreachable();    \
+                                REENABLE_WARNING;                   \
+                        } while (false)
                 #define assert_not_reached() __builtin_unreachable()
         #else
-                #define assert(expr) ({ _likely_(expr) ? VOID_0 : efi_assert(#expr, __FILE__, __LINE__, __func__); })
+                #define assert(expr)                                                    \
+                        do {                                                            \
+                                DISABLE_WARNING_NONNULL_COMPARE;                        \
+                                if ( _unlikely_(!(expr)))                               \
+                                        efi_assert(#expr, __FILE__, __LINE__, __func__);\
+                                REENABLE_WARNING;                                       \
+                        } while (false)
                 #define assert_not_reached() efi_assert("Code should not be reached", __FILE__, __LINE__, __func__)
         #endif
         #define static_assert _Static_assert
