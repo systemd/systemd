@@ -523,18 +523,6 @@ static int add_partition_xbootldr(DissectedPartition *p) {
 }
 
 #if ENABLE_EFI
-static int slash_efi_in_fstab(void) {
-        static int cache = -1;
-
-        if (cache >= 0)
-                return cache;
-
-        cache = fstab_is_mount_point("/efi");
-        if (cache < 0)
-                return log_error_errno(cache, "Failed to parse fstab: %m");
-        return cache;
-}
-
 static bool slash_boot_exists(void) {
         static int cache = -1;
 
@@ -590,11 +578,16 @@ static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
         }
 
         if (!esp_path) {
-                r = slash_efi_in_fstab();
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        return 0;
+                /* ESP on top of /boot/efi/ is pretty common even if obsolete. It's not supported however do
+                 * nothing if it's listed in fstab. */
+                FOREACH_STRING(dir, "/efi", "/boot/efi") {
+
+                        r = fstab_is_mount_point(dir);
+                        if (r < 0)
+                                return r;
+                        if (r > 0)
+                                return 0;
+                }
 
                 r = path_is_busy("/efi");
                 if (r < 0)
