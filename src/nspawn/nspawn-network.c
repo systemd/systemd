@@ -11,13 +11,16 @@
 
 #include "alloc-util.h"
 #include "ether-addr-util.h"
+#include "fd-util.h"
 #include "hexdecoct.h"
 #include "lock-util.h"
 #include "missing_network.h"
+#include "namespace-util.h"
 #include "netif-naming-scheme.h"
 #include "netlink-util.h"
 #include "nspawn-network.h"
 #include "parse-util.h"
+#include "process-util.h"
 #include "siphash24.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
@@ -540,6 +543,43 @@ int move_network_interfaces(int netns_fd, char **iface_pairs) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to move interface %s to namespace: %m", *i);
         }
+
+        return 0;
+}
+
+int move_back_network_interfaces(int child_netns_fd, char **interface_pairs) {
+        _cleanup_close_ int parent_netns_fd = -EBADF;
+        int r;
+
+        assert(child_netns_fd >= 0);
+
+        if (strv_isempty(interface_pairs))
+                return 0;
+
+        r = namespace_open(getpid_cached(),
+                           /* ret_pidns_fd = */ NULL,
+                           /* ret_mntns_fd = */ NULL,
+                           &parent_netns_fd,
+                           /* ret_userns_fd = */ NULL,
+                           /* ret_root_fd = */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to open parent network namespace: %m");
+
+        r = namespace_enter(/* pidns_fd = */ -EBADF,
+                            /* mntns_fd = */ -EBADF,
+                            child_netns_fd,
+                            /* userns_fd = */ -EBADF,
+                            /* root_fd = */ -EBADF);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enter child network namespace: %m");
+
+        /* Reverse network interfaces pair list so that interfaces get their initial name back.
+         * This is about ensuring interfaces get their old name back when being moved back. */
+        interface_pairs = strv_reverse(interface_pairs);
+
+        r = move_network_interfaces(parent_netns_fd, interface_pairs);
+        if (r < 0)
+                return log_error_errno(r, "Failed to move network interfaces back to parent network namespace: %m");
 
         return 0;
 }
