@@ -131,6 +131,74 @@ int deserialize_in6_addrs(struct in6_addr **ret, const char *string) {
         return size;
 }
 
+int serialize_dnr(FILE *f, const ResolverData *resolvers, bool *with_leading_space) {
+        int r;
+
+        bool _space = false;
+        if (!with_leading_space)
+                with_leading_space = &_space;
+
+        int n = 0;
+        LIST_FOREACH(resolvers, i, resolvers) {
+                _cleanup_strv_free_ char **names = NULL;
+                r = dns_resolvers_to_dot_strv(resolvers, &names);
+                if (r < 0)
+                        return -ENOMEM;
+                if (r > 0)
+                        fputstrv(f, names, NULL, with_leading_space);
+                n += r;
+        }
+        return n;
+}
+
+int deserialize_dnr(ResolverData **ret, const char *string) {
+        int r;
+
+        assert(ret);
+        assert(string);
+
+        _cleanup_(dhcp_resolver_data_free_allp) ResolverData *resolvers = NULL;
+        int n = 0;
+
+        for (;;) {
+                _cleanup_free_ char *word = NULL;
+
+                r = extract_first_word(&string, &word, NULL, 0);
+                if (r < 0)
+                        return r;
+                if (r == 0)
+                        break;
+
+                uint16_t port;
+                _cleanup_free_ union in_addr_union *addr = new(union in_addr_union, 1);
+                _cleanup_free_ char *auth_name = NULL;
+
+                r = in_addr_port_ifindex_name_from_string_auto(word, NULL, addr, &port, NULL, &auth_name);
+                if (r < 0)
+                        return r;
+
+                _cleanup_(dhcp_resolver_data_free_allp) ResolverData *resolver = new(ResolverData, 1);
+                if (!resolver)
+                        return -ENOMEM;
+
+                *resolver = (ResolverData) {
+                        .priority = n+1, /* not serialized, but this will preserve the order */
+                        .auth_name = TAKE_PTR(auth_name),
+                        .addrs = &TAKE_PTR(addr)->in,
+                        .n_addrs = 1, //FIXME coalesce these?
+                        .transports = SD_DNS_ALPN_DOT, //FIXME not serialized, assumed DoT
+                        .port = port,
+                        .dohpath = NULL, //FIXME not serialized
+                        /* list fields are zero-initialized */
+                };
+
+                LIST_APPEND(resolvers, resolvers, TAKE_PTR(resolver));
+                n++;
+        }
+        *ret = TAKE_PTR(resolvers);
+        return n;
+}
+
 void serialize_dhcp_routes(FILE *f, const char *key, sd_dhcp_route **routes, size_t size) {
         assert(f);
         assert(key);
