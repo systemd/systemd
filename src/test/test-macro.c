@@ -159,6 +159,153 @@ TEST(container_of) {
 
 #pragma GCC diagnostic pop
 
+#define TEST_OVERFLOW_MATH_BY_TYPE(type, min, max, lit)                 \
+        ({                                                              \
+                type x;                                                 \
+                                                                        \
+                assert_se(ADD_SAFE(&x, lit(5), lit(10)));               \
+                assert_se(x == lit(15));                                \
+                if (IS_SIGNED_INTEGER_TYPE(type)) {                     \
+                        assert_se(ADD_SAFE(&x, lit(5), lit(-10)));      \
+                        assert_se(x == lit(-5));                        \
+                }                                                       \
+                assert_se(ADD_SAFE(&x, min, lit(0)));                   \
+                assert_se(x == min);                                    \
+                assert_se(ADD_SAFE(&x, max, lit(0)));                   \
+                assert_se(x == max);                                    \
+                if (IS_SIGNED_INTEGER_TYPE(type))                       \
+                        assert_se(!ADD_SAFE(&x, min, lit(-1)));         \
+                assert_se(!ADD_SAFE(&x, max, lit(1)));                  \
+                                                                        \
+                x = lit(5);                                             \
+                assert_se(INC_SAFE(&x, lit(10)));                       \
+                assert_se(x == lit(15));                                \
+                if (IS_SIGNED_INTEGER_TYPE(type)) {                     \
+                        assert_se(INC_SAFE(&x, lit(-20)));              \
+                        assert_se(x == lit(-5));                        \
+                }                                                       \
+                x = min;                                                \
+                assert_se(INC_SAFE(&x, lit(0)));                        \
+                assert_se(x == min);                                    \
+                if (IS_SIGNED_INTEGER_TYPE(type))                       \
+                        assert_se(!INC_SAFE(&x, lit(-1)));              \
+                x = max;                                                \
+                assert_se(INC_SAFE(&x, lit(0)));                        \
+                assert_se(x == max);                                    \
+                assert_se(!INC_SAFE(&x, lit(1)));                       \
+                                                                        \
+                assert_se(SUB_SAFE(&x, lit(10), lit(5)));               \
+                assert_se(x == lit(5));                                 \
+                if (IS_SIGNED_INTEGER_TYPE(type)) {                     \
+                        assert_se(SUB_SAFE(&x, lit(5), lit(10)));       \
+                        assert_se(x == lit(-5));                        \
+                                                                        \
+                        assert_se(SUB_SAFE(&x, lit(5), lit(-10)));      \
+                        assert_se(x == lit(15));                        \
+                } else                                                  \
+                        assert_se(!SUB_SAFE(&x, lit(5), lit(10)));      \
+                assert_se(SUB_SAFE(&x, min, lit(0)));                   \
+                assert_se(x == min);                                    \
+                assert_se(SUB_SAFE(&x, max, lit(0)));                   \
+                assert_se(x == max);                                    \
+                assert_se(!SUB_SAFE(&x, min, lit(1)));                  \
+                if (IS_SIGNED_INTEGER_TYPE(type))                       \
+                        assert_se(!SUB_SAFE(&x, max, lit(-1)));         \
+                                                                        \
+                x = lit(10);                                            \
+                assert_se(DEC_SAFE(&x, lit(5)));                        \
+                assert_se(x == lit(5));                                 \
+                if (IS_SIGNED_INTEGER_TYPE(type)) {                     \
+                        assert_se(DEC_SAFE(&x, lit(10)));               \
+                        assert_se(x == lit(-5));                        \
+                                                                        \
+                        x = lit(5);                                     \
+                        assert_se(DEC_SAFE(&x, lit(-10)));              \
+                        assert_se(x == lit(15));                        \
+                } else                                                  \
+                        assert_se(!DEC_SAFE(&x, lit(10)));              \
+                x = min;                                                \
+                assert_se(DEC_SAFE(&x, lit(0)));                        \
+                assert_se(x == min);                                    \
+                assert_se(!DEC_SAFE(&x, lit(1)));                       \
+                x = max;                                                \
+                assert_se(DEC_SAFE(&x, lit(0)));                        \
+                if (IS_SIGNED_INTEGER_TYPE(type))                       \
+                        assert_se(!DEC_SAFE(&x, lit(-1)));              \
+                                                                        \
+                assert_se(MUL_SAFE(&x, lit(2), lit(4)));                \
+                assert_se(x == lit(8));                                 \
+                if (IS_SIGNED_INTEGER_TYPE(type)) {                     \
+                        assert_se(MUL_SAFE(&x, lit(2), lit(-4)));       \
+                        assert_se(x == lit(-8));                        \
+                }                                                       \
+                assert_se(MUL_SAFE(&x, lit(5), lit(0)));                \
+                assert_se(x == lit(0));                                 \
+                assert_se(MUL_SAFE(&x, min, lit(1)));                   \
+                assert_se(x == min);                                    \
+                if (IS_SIGNED_INTEGER_TYPE(type))                       \
+                        assert_se(!MUL_SAFE(&x, min, lit(2)));          \
+                assert_se(MUL_SAFE(&x, max, lit(1)));                   \
+                assert_se(x == max);                                    \
+                assert_se(!MUL_SAFE(&x, max, lit(2)));                  \
+                                                                        \
+                x = lit(2);                                             \
+                assert_se(MUL_ASSIGN_SAFE(&x, lit(4)));                 \
+                assert_se(x == lit(8));                                 \
+                if (IS_SIGNED_INTEGER_TYPE(type)) {                     \
+                        assert_se(MUL_ASSIGN_SAFE(&x, lit(-1)));        \
+                        assert_se(x == lit(-8));                        \
+                }                                                       \
+                assert_se(MUL_ASSIGN_SAFE(&x, lit(0)));                 \
+                assert_se(x == lit(0));                                 \
+                x = min;                                                \
+                assert_se(MUL_ASSIGN_SAFE(&x, lit(1)));                 \
+                assert_se(x == min);                                    \
+                if IS_SIGNED_INTEGER_TYPE(type)                         \
+                        assert_se(!MUL_ASSIGN_SAFE(&x, lit(2)));        \
+                x = max;                                                \
+                assert_se(MUL_ASSIGN_SAFE(&x, lit(1)));                 \
+                assert_se(x == max);                                    \
+                assert_se(!MUL_ASSIGN_SAFE(&x, lit(2)));                \
+        })
+
+TEST(overflow_safe_math) {
+        int64_t i;
+        uint64_t u, *p;
+
+        /* basic tests */
+        TEST_OVERFLOW_MATH_BY_TYPE(int8_t, INT8_MIN, INT8_MAX, INT8_C);
+        TEST_OVERFLOW_MATH_BY_TYPE(int16_t, INT16_MIN, INT16_MAX, INT16_C);
+        TEST_OVERFLOW_MATH_BY_TYPE(int32_t, INT32_MIN, INT32_MAX, INT32_C);
+        TEST_OVERFLOW_MATH_BY_TYPE(int64_t, INT64_MIN, INT64_MAX, INT64_C);
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wtype-limits" /* Otherwise the compiler complains about comparisons to negative numbers always being false */
+        TEST_OVERFLOW_MATH_BY_TYPE(uint8_t, UINT8_C(0), UINT8_MAX, UINT8_C);
+        TEST_OVERFLOW_MATH_BY_TYPE(uint16_t, UINT16_C(0), UINT16_MAX, UINT16_C);
+        TEST_OVERFLOW_MATH_BY_TYPE(uint32_t, UINT32_C(0), UINT32_MAX, UINT32_C);
+        TEST_OVERFLOW_MATH_BY_TYPE(uint64_t, UINT64_C(0), UINT64_MAX, UINT64_C);
+#pragma GCC diagnostic pop
+
+        /* make sure we handle pointers correctly */
+        p = &u;
+        assert_se(ADD_SAFE(p, 35, 15) && (u == 50));
+        assert_se(SUB_SAFE(p, 35, 15) && (u == 20));
+        assert_se(MUL_SAFE(p, 5, 10) && (u == 50));
+        assert_se(INC_SAFE(p, 10) && (u == 60));
+        assert_se(DEC_SAFE(p, 10) && (u == 50));
+        assert_se(MUL_ASSIGN_SAFE(p, 3) && (u == 150));
+        assert_se(!ADD_SAFE(p, UINT64_MAX, 1));
+        assert_se(!SUB_SAFE(p, 0, 1));
+
+        /* cross-type sanity checks */
+        assert_se(ADD_SAFE(&i, INT32_MAX, 1));
+        assert_se(SUB_SAFE(&i, INT32_MIN, 1));
+        assert_se(!ADD_SAFE(&i, UINT64_MAX, 0));
+        assert_se(ADD_SAFE(&u, INT32_MAX, 1));
+        assert_se(MUL_SAFE(&u, INT32_MAX, 2));
+}
+
 TEST(DIV_ROUND_UP) {
         int div;
 
