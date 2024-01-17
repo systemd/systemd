@@ -11,7 +11,7 @@
 #include "process-util.h"
 #include "strv.h"
 
-static int set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
+int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
         int r;
 
@@ -31,7 +31,7 @@ static int set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
         return sd_netlink_call(*rtnl, message, 0, NULL);
 }
 
-int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name, char* const *alternative_names) {
+int rtnl_set_link_name_full(sd_netlink **rtnl, int ifindex, const char *name, char* const *alternative_names) {
         _cleanup_strv_free_ char **original_altnames = NULL, **new_altnames = NULL;
         bool altname_deleted = false;
         int r;
@@ -61,7 +61,7 @@ int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name, char* c
                         altname_deleted = true;
                 }
 
-                r = set_link_name(rtnl, ifindex, name);
+                r = rtnl_set_link_name(rtnl, ifindex, name);
                 if (r < 0)
                         goto fail;
         }
@@ -376,7 +376,7 @@ int rtnl_resolve_link_alternative_name(sd_netlink **rtnl, const char *name, char
         assert(ifindex > 0);
 
         if (ret) {
-                r = sd_netlink_message_read_string_strdup(message, IFLA_IFNAME, ret);
+                r = sd_netlink_message_read_string_strdup(reply, IFLA_IFNAME, ret);
                 if (r < 0)
                         return r;
         }

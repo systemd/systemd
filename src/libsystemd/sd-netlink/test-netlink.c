@@ -661,8 +661,8 @@ TEST(rtnl_set_link_name) {
         assert_se(strv_contains(alternative_names, "testlongalternativename"));
         assert_se(strv_contains(alternative_names, "test-shortname"));
 
-        assert_se(rtnl_set_link_name(&rtnl, ifindex, "testlongalternativename", NULL) == -EINVAL);
-        assert_se(rtnl_set_link_name(&rtnl, ifindex, "test-shortname", STRV_MAKE("testlongalternativename", "test-shortname", "test-additional-name")) >= 0);
+        assert_se(rtnl_set_link_name_full(&rtnl, ifindex, "testlongalternativename", NULL) == -EINVAL);
+        assert_se(rtnl_set_link_name_full(&rtnl, ifindex, "test-shortname", STRV_MAKE("testlongalternativename", "test-shortname", "test-additional-name")) >= 0);
 
         alternative_names = strv_free(alternative_names);
         assert_se(rtnl_get_link_alternative_names(&rtnl, ifindex, &alternative_names) >= 0);
@@ -677,6 +677,10 @@ TEST(rtnl_set_link_name) {
         assert_se(!strv_contains(alternative_names, "testlongalternativename"));
         assert_se(strv_contains(alternative_names, "test-additional-name"));
         assert_se(!strv_contains(alternative_names, "test-shortname"));
+
+        _cleanup_free_ char *resolved = NULL;
+        assert_se(rtnl_resolve_link_alternative_name(&rtnl, "test-additional-name", &resolved) == ifindex);
+        assert_se(streq_ptr(resolved, "test-shortname"));
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);

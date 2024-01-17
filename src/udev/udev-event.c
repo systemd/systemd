@@ -177,7 +177,7 @@ static int rename_netif(UdevEvent *event) {
                 goto revert;
         }
 
-        r = rtnl_set_link_name(&event->rtnl, ifindex, event->name, event->altnames);
+        r = rtnl_set_link_name_full(&event->rtnl, ifindex, event->name, event->altnames);
         if (r < 0) {
                 if (r == -EBUSY) {
                         log_device_info(event->dev_db_clone,
