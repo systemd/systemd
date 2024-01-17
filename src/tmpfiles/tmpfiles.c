@@ -3568,7 +3568,11 @@ static int parse_line(
         if (r < 0) {
                 if (IN_SET(r, -EINVAL, -EBADSLT))
                         *invalid_config = true;
-                return log_syntax(NULL, LOG_ERR, fname, line, r, "Failed to replace specifiers in '%s': %m", path);
+
+                /* It's totally expected that there's no machine ID when building an image so reduce the
+                 * logging level in that case. */
+                return log_syntax(NULL, ERRNO_IS_MACHINE_ID_UNSET(r) ? LOG_DEBUG : LOG_ERR, fname, line, r,
+                                  "Failed to replace specifiers in '%s': %m", path);
         }
 
         r = patch_var_run(fname, line, &i.path);
