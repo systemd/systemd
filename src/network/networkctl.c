@@ -104,7 +104,7 @@ static int check_netns_match(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to network service /run/systemd/netif/io.systemd.Network: %m");
 
-        r = varlink_call(vl, "io.systemd.Network.GetNamespaceId", NULL, &reply, NULL, 0);
+        r = varlink_call(vl, "io.systemd.Network.GetNamespaceId", /* parameters= */ NULL, &reply, /* ret_error_id= */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to issue GetNamespaceId() varlink call: %m");
 
