@@ -4,17 +4,21 @@
 #include <linux/if.h>
 #include <linux/veth.h>
 #include <sys/file.h>
+#include <sys/mount.h>
 
 #include "sd-device.h"
 #include "sd-id128.h"
 #include "sd-netlink.h"
 
 #include "alloc-util.h"
+#include "device-util.h"
 #include "ether-addr-util.h"
 #include "fd-util.h"
 #include "hexdecoct.h"
 #include "lock-util.h"
 #include "missing_network.h"
+#include "mkdir.h"
+#include "mount-util.h"
 #include "namespace-util.h"
 #include "netif-naming-scheme.h"
 #include "netlink-util.h"
@@ -531,6 +535,22 @@ static int netns_fork_child(int netns_fd, int *ret_original_netns_fd) {
         if (r < 0)
                 return log_error_errno(r, "Failed to enter child network namespace: %m");
 
+        r = umount_recursive("/sys/", /* flags = */ 0);
+        if (r < 0)
+                log_debug_errno(r, "Failed to unmount directories below /sys/, ignoring: %m");
+
+        (void) mkdir_p("/sys/", 0755);
+
+        /* Populate new sysfs instance associated with the client netns, to make sd_device usable. */
+        r = mount_nofollow_verbose(LOG_ERR, "sysfs", "/sys/", "sysfs",
+                                   MS_RDONLY|MS_NOSUID|MS_NOEXEC|MS_NODEV, /* opts = */ NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to mount sysfs on /sys/: %m");
+
+        /* udev_avaliable() might be called previously and the result may be cached.
+         * Now, we (re-)mount sysfs. Hence, we need to reset the cache. */
+        reset_cached_udev_availability();
+
         if (ret_original_netns_fd)
                 *ret_original_netns_fd = TAKE_FD(original_netns_fd);
 
@@ -542,7 +562,7 @@ static int netns_fork(int netns_fd, int *ret_original_netns_fd) {
 
         assert(netns_fd >= 0);
 
-        r = safe_fork("(sd-netns)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_LOG, NULL);
+        r = safe_fork("(sd-netns)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_LOG|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to fork process (sd-netns): %m");
         if (r == 0) {
@@ -558,42 +578,71 @@ static int netns_fork(int netns_fd, int *ret_original_netns_fd) {
         return 1;
 }
 
+static int move_network_interface_one(sd_netlink **rtnl, int netns_fd, sd_device *dev, const char *name) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
+        int r;
+
+        assert(rtnl);
+        assert(netns_fd >= 0);
+        assert(dev);
+        assert(name);
+
+        if (!*rtnl) {
+                r = sd_netlink_open(rtnl);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to connect to rtnetlink: %m");
+        }
+
+        int ifindex;
+        r = sd_device_get_ifindex(dev, &ifindex);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to get ifindex: %m");
+
+        r = sd_rtnl_message_new_link(*rtnl, &m, RTM_SETLINK, ifindex);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to allocate netlink message: %m");
+
+        r = sd_netlink_message_append_u32(m, IFLA_NET_NS_FD, netns_fd);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to append namespace fd to netlink message: %m");
+
+        const char *sysname;
+        r = sd_device_get_sysname(dev, &sysname);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to get sysname: %m");
+
+        if (!streq(name, sysname)) {
+                r = sd_netlink_message_append_string(m, IFLA_IFNAME, name);
+                if (r < 0)
+                        return log_device_error_errno(dev, r, "Failed to add netlink interface name: %m");
+        }
+
+        r = sd_netlink_call(*rtnl, m, 0, NULL);
+        if (r < 0)
+                return log_device_error_errno(dev, r, "Failed to move interface to namespace: %m");
+
+        return 0;
+}
+
 int move_network_interfaces(int netns_fd, char **iface_pairs) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         int r;
 
+        assert(netns_fd >= 0);
+
         if (strv_isempty(iface_pairs))
                 return 0;
 
-        r = sd_netlink_open(&rtnl);
-        if (r < 0)
-                return log_error_errno(r, "Failed to connect to netlink: %m");
+        STRV_FOREACH_PAIR(from, to, iface_pairs) {
+                _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
 
-        STRV_FOREACH_PAIR(i, b, iface_pairs) {
-                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
-                int ifi;
-
-                ifi = rtnl_resolve_interface_or_warn(&rtnl, *i);
-                if (ifi < 0)
-                        return ifi;
-
-                r = sd_rtnl_message_new_link(rtnl, &m, RTM_SETLINK, ifi);
+                r = sd_device_new_from_ifname(&dev, *from);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to allocate netlink message: %m");
+                        return log_error_errno(r, "Unknown interface name %s: %m", *from);
 
-                r = sd_netlink_message_append_u32(m, IFLA_NET_NS_FD, netns_fd);
+                r = move_network_interface_one(&rtnl, netns_fd, dev, *to);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to append namespace fd to netlink message: %m");
-
-                if (!streq(*b, *i)) {
-                        r = sd_netlink_message_append_string(m, IFLA_IFNAME, *b);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to add netlink interface name: %m");
-                }
-
-                r = sd_netlink_call(rtnl, m, 0, NULL);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to move interface %s to namespace: %m", *i);
+                        return r;
         }
 
         return 0;
