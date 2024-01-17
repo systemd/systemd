@@ -322,6 +322,7 @@ if command -v ssh &> /dev/null && command -v sshd &> /dev/null && ! [[ -v ASAN_O
         rm -f /tmp/homed.id_rsa /run/systemd/system/mysshserver.socket /run/systemd/system/mysshserver@.service
         systemctl daemon-reload
         homectl remove homedsshtest ||:
+        mv /etc/pam.d/sshd.save46 mv /etc/pam.d/sshd
     }
 
     trap at_exit EXIT
@@ -343,6 +344,20 @@ if command -v ssh &> /dev/null && command -v sshd &> /dev/null && ! [[ -v ASAN_O
 
     # ssh wants this dir around, but distros cannot agree on a common name for it, let's just create all that are aware of distros use
     mkdir -p /usr/share/empty.sshd /var/empty /var/empty/sshd
+
+    mv /etc/pam.d/sshd /etc/pam.d/sshd.save46
+
+    cat > /etc/pam.d/sshd <<EOF
+auth    sufficient pam_unix.so nullok
+auth    sufficient pam_systemd_home.so
+auth    required   pam_deny.so
+account sufficient pam_systemd_home.so
+account sufficient pam_unix.so
+account required   pam_permit.so
+session optional   pam_systemd_home.so
+session optional   pam_systemd.so
+session required   pam_unix.so
+EOF
 
     cat >> /etc/ssh/sshd_config <<EOF
 AuthorizedKeysCommand /usr/bin/userdbctl ssh-authorized-keys %u
