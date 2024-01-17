@@ -3122,8 +3122,8 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         output = check_output('ip rule')
         print(output)
-        self.assertIn('1500:   from all lookup [l3mdev-table]', output)
-        self.assertIn('2000:   from all lookup [l3mdev-table] unreachable', output)
+        self.assertIn('1500:	from all lookup [l3mdev-table]', output)
+        self.assertIn('2000:	from all lookup [l3mdev-table] unreachable', output)
 
     @expectedFailureIfRoutingPolicyUIDRangeIsNotAvailable()
     def test_routing_policy_rule_uidrange(self):
