@@ -2153,7 +2153,7 @@ int varlink_observeb(Varlink *v, const char *method, ...) {
         return varlink_observe(v, method, parameters);
 }
 
-int varlink_call(
+int varlink_call_full(
                 Varlink *v,
                 const char *method,
                 JsonVariant *parameters,
@@ -2247,27 +2247,24 @@ int varlink_call(
         }
 }
 
-int varlink_callb(
+int varlink_callb_ap(
                 Varlink *v,
                 const char *method,
                 JsonVariant **ret_parameters,
                 const char **ret_error_id,
-                VarlinkReplyFlags *ret_flags, ...) {
+                VarlinkReplyFlags *ret_flags,
+                va_list ap) {
 
         _cleanup_(json_variant_unrefp) JsonVariant *parameters = NULL;
-        va_list ap;
         int r;
 
         assert_return(v, -EINVAL);
 
-        va_start(ap, ret_flags);
         r = json_buildv(&parameters, ap);
-        va_end(ap);
-
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
-        return varlink_call(v, method, parameters, ret_parameters, ret_error_id, ret_flags);
+        return varlink_call_full(v, method, parameters, ret_parameters, ret_error_id, ret_flags);
 }
 
 static void varlink_collect_context_free(VarlinkCollectContext *cc) {
