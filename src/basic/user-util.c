@@ -280,12 +280,6 @@ int get_user_creds(
 
                         if (ret_uid)
                                 *ret_uid = u;
-                        if (ret_gid)
-                                *ret_gid = GID_INVALID;
-                        if (ret_home)
-                                *ret_home = NULL;
-                        if (ret_shell)
-                                *ret_shell = NULL;
 
                         return 0;
                 }
