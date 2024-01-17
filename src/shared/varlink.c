@@ -2065,21 +2065,29 @@ int varlink_call(
 
         switch (v->state) {
 
-        case VARLINK_CALLED:
+        case VARLINK_CALLED: {
                 assert(v->current);
 
                 varlink_set_state(v, VARLINK_IDLE_CLIENT);
                 assert(v->n_pending == 1);
                 v->n_pending--;
 
+                JsonVariant *e = json_variant_by_key(v->current, "error"),
+                        *p = json_variant_by_key(v->current, "parameters");
+
+                /* If caller doesn't ask for the error string, then let's return an error code in case of failure */
+                if (!ret_error_id && e)
+                        return varlink_error_to_errno(json_variant_string(e), p);
+
                 if (ret_parameters)
-                        *ret_parameters = json_variant_by_key(v->current, "parameters");
+                        *ret_parameters = p;
                 if (ret_error_id)
-                        *ret_error_id = json_variant_string(json_variant_by_key(v->current, "error"));
+                        *ret_error_id = e ? json_variant_string(e) : NULL;
                 if (ret_flags)
                         *ret_flags = 0;
 
                 return 1;
+        }
 
         case VARLINK_PENDING_DISCONNECT:
         case VARLINK_DISCONNECTED:
@@ -2195,6 +2203,11 @@ int varlink_collect(
 
                 /* If we get an error from any of the replies, return immediately with just the error_id and flags*/
                 if (context.error_id) {
+
+                        /* If caller doesn't ask for the error string, then let's return an error code in case of failure */
+                        if (!ret_error_id)
+                                return varlink_error_to_errno(context.error_id, context.parameters);
+
                         if (ret_parameters)
                                 *ret_parameters = TAKE_PTR(context.parameters);
                         if (ret_error_id)
@@ -2227,6 +2240,9 @@ int varlink_collect(
         default:
                 assert_not_reached();
         }
+
+        if (!ret_error_id && context.error_id)
+                return varlink_error_to_errno(context.error_id, context.parameters);
 
         if (ret_parameters)
                 *ret_parameters = TAKE_PTR(context.parameters);
