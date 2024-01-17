@@ -1917,7 +1917,7 @@ static int verify(sd_journal *j, bool verbose) {
 
 static int simple_varlink_call(const char *option, const char *method) {
         _cleanup_(varlink_flush_close_unrefp) Varlink *link = NULL;
-        const char *error, *fn;
+        const char *fn;
         int r;
 
         if (arg_machine)
@@ -1934,14 +1934,7 @@ static int simple_varlink_call(const char *option, const char *method) {
         (void) varlink_set_description(link, "journal");
         (void) varlink_set_relative_timeout(link, USEC_INFINITY);
 
-        r = varlink_call(link, method, /* parameters= */ NULL, /* ret_parameters= */ NULL, &error);
-        if (r < 0)
-                return log_error_errno(r, "Failed to execute varlink call: %m");
-        if (error)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOANO),
-                                       "Failed to execute varlink call: %s", error);
-
-        return 0;
+        return varlink_call_and_log(link, method, /* parameters= */ NULL, /* ret_parameters= */ NULL);
 }
 
 static int flush_to_var(void) {

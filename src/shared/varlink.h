@@ -92,6 +92,8 @@ int varlink_call_full(Varlink *v, const char *method, JsonVariant *parameters, J
 static inline int varlink_call(Varlink *v, const char *method, JsonVariant *parameters, JsonVariant **ret_parameters, const char **ret_error_id) {
         return varlink_call_full(v, method, parameters, ret_parameters, ret_error_id, NULL);
 }
+int varlink_call_and_log(Varlink *v, const char *method, JsonVariant *parameters, JsonVariant **ret_parameters);
+
 int varlink_callb_ap(Varlink *v, const char *method, JsonVariant **ret_parameters, const char **ret_error_id, VarlinkReplyFlags *ret_flags, va_list ap);
 static inline int varlink_callb_full(Varlink *v, const char *method, JsonVariant **ret_parameters, const char **ret_error_id, VarlinkReplyFlags *ret_flags, ...) {
         va_list ap;
@@ -111,6 +113,7 @@ static inline int varlink_callb(Varlink *v, const char *method, JsonVariant **re
         va_end(ap);
         return r;
 }
+int varlink_callb_and_log(Varlink *v, const char *method, JsonVariant **ret_parameters, ...);
 
 /* Send method call and begin collecting all 'more' replies into an array, finishing when a final reply is sent */
 int varlink_collect(Varlink *v, const char *method, JsonVariant *parameters, JsonVariant **ret_parameters, const char **ret_error_id, VarlinkReplyFlags *ret_flags);

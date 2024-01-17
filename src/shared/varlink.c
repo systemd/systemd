@@ -2259,12 +2259,61 @@ int varlink_callb_ap(
         int r;
 
         assert_return(v, -EINVAL);
+        assert_return(method, -EINVAL);
 
         r = json_buildv(&parameters, ap);
         if (r < 0)
                 return varlink_log_errno(v, r, "Failed to build json message: %m");
 
         return varlink_call_full(v, method, parameters, ret_parameters, ret_error_id, ret_flags);
+}
+
+int varlink_call_and_log(
+                Varlink *v,
+                const char *method,
+                JsonVariant *parameters,
+                JsonVariant **ret_parameters) {
+
+        JsonVariant *reply = NULL;
+        const char *error_id = NULL;
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(method, -EINVAL);
+
+        r = varlink_call(v, method, parameters, &reply, &error_id);
+        if (r < 0)
+                return log_error_errno(r, "Failed to issue %s() varlink call: %m", method);
+        if (error_id)
+                return log_error_errno(varlink_error_to_errno(error_id, reply),
+                                         "Failed to issue %s() varlink call: %s", method, error_id);
+
+        if (ret_parameters)
+                *ret_parameters = TAKE_PTR(reply);
+
+        return 0;
+}
+
+int varlink_callb_and_log(
+                Varlink *v,
+                const char *method,
+                JsonVariant **ret_parameters,
+                ...) {
+
+        _cleanup_(json_variant_unrefp) JsonVariant *parameters = NULL;
+        va_list ap;
+        int r;
+
+        assert_return(v, -EINVAL);
+        assert_return(method, -EINVAL);
+
+        va_start(ap, ret_parameters);
+        r = json_buildv(&parameters, ap);
+        va_end(ap);
+        if (r < 0)
+                return log_error_errno(r, "Failed to build JSON message: %m");
+
+        return varlink_call_and_log(v, method, parameters, ret_parameters);
 }
 
 static void varlink_collect_context_free(VarlinkCollectContext *cc) {
