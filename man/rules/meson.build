@@ -8,6 +8,7 @@ manpages = [
  ['bootctl', '1', [], 'ENABLE_BOOTLOADER'],
  ['bootup', '7', [], ''],
  ['busctl', '1', [], ''],
+ ['capsule@.service', '5', [], ''],
  ['coredump.conf', '5', ['coredump.conf.d'], 'ENABLE_COREDUMP'],
  ['coredumpctl', '1', [], 'ENABLE_COREDUMP'],
  ['crypttab', '5', [], 'HAVE_LIBCRYPTSETUP'],

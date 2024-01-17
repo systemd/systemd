@@ -28,6 +28,7 @@
 #include "parse-util.h"
 #include "path-util.h"
 #include "pretty-print.h"
+#include "capsule-util.h"
 #include "runtime-scope.h"
 #include "set.h"
 #include "sort-util.h"
@@ -72,6 +73,7 @@ static int json_transform_message(sd_bus_message *m, JsonVariant **ret);
 
 static int acquire_bus(bool set_monitor, sd_bus **ret) {
         _cleanup_(sd_bus_close_unrefp) sd_bus *bus = NULL;
+        _cleanup_close_ int pin_fd = -EBADF;
         int r;
 
         r = sd_bus_new(&bus);
@@ -138,10 +140,13 @@ static int acquire_bus(bool set_monitor, sd_bus **ret) {
                         r = bus_set_address_machine(bus, arg_runtime_scope, arg_host);
                         break;
 
+                case BUS_TRANSPORT_CAPSULE:
+                        r = bus_set_address_capsule_bus(bus, arg_host, &pin_fd);
+                        break;
+
                 default:
                         assert_not_reached();
                 }
-
         if (r < 0)
                 return bus_log_address_error(r, arg_transport);
 
@@ -2376,6 +2381,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "match",                           required_argument, NULL, ARG_MATCH                           },
                 { "host",                            required_argument, NULL, 'H'                                 },
                 { "machine",                         required_argument, NULL, 'M'                                 },
+                { "capsule",                         required_argument, NULL, 'C'                                 },
                 { "size",                            required_argument, NULL, ARG_SIZE                            },
                 { "list",                            no_argument,       NULL, ARG_LIST                            },
                 { "quiet",                           no_argument,       NULL, 'q'                                 },
@@ -2397,7 +2403,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hH:M:qjl", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hH:M:C:J:qjl", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -2479,6 +2485,17 @@ static int parse_argv(int argc, char *argv[]) {
                 case 'M':
                         arg_transport = BUS_TRANSPORT_MACHINE;
                         arg_host = optarg;
+                        break;
+
+                case 'C':
+                        r = capsule_name_is_valid(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Unable to validate capsule name '%s': %m", optarg);
+                        if (r == 0)
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Invalid capsule name: %s", optarg);
+
+                        arg_host = optarg;
+                        arg_transport = BUS_TRANSPORT_CAPSULE;
                         break;
 
                 case 'q':
