@@ -1291,7 +1291,13 @@ node /org/freedesktop/systemd1 {
       and terminate all units that aren't dependencies of it. If <literal>ignore-dependencies</literal>, it
       will start a unit but ignore all its dependencies. If <literal>ignore-requirements</literal>, it will
       start a unit but only ignore the requirement dependencies. It is not recommended to make use of the
-      latter two options. On completion, this method returns the newly created job object.</para>
+      latter two options. On reply, if successful, this method returns the newly created job object
+      which has been enqueued for asynchronous activation. Callers that want to track the outcome of the
+      actual start operation need to monitor the result of this job. This can be achieved in a race-free
+      manner by first subscribing to the <function>JobRemoved()</function> signal, then calling
+      <function>StartUnit()</function> and using the returned job object to filter out unrelated
+      <function>JobRemoved()</function> signals, until the desired one is received, which will then carry
+      the result of the start operation.</para>
 
       <para><function>StartUnitReplace()</function> is similar to <function>StartUnit()</function> but
       replaces a job that is queued for one unit by a job for another unit.</para>
