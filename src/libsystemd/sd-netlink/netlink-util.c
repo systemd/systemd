@@ -376,7 +376,7 @@ int rtnl_resolve_link_alternative_name(sd_netlink **rtnl, const char *name, char
         assert(ifindex > 0);
 
         if (ret) {
-                r = sd_netlink_message_read_string_strdup(message, IFLA_IFNAME, ret);
+                r = sd_netlink_message_read_string_strdup(reply, IFLA_IFNAME, ret);
                 if (r < 0)
                         return r;
         }
