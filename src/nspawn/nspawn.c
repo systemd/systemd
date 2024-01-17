@@ -5377,46 +5377,9 @@ static int run_container(
         fd_kmsg_fifo = safe_close(fd_kmsg_fifo);
 
         if (arg_private_network) {
-                /* Move network interfaces back to the parent network namespace. We use `safe_fork`
-                 * to avoid having to move the parent to the child network namespace. */
-                r = safe_fork(NULL, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_LOG, NULL);
+                r = move_back_network_interfaces(child_netns_fd, arg_network_interfaces);
                 if (r < 0)
                         return r;
-
-                if (r == 0) {
-                        _cleanup_close_ int parent_netns_fd = -EBADF;
-
-                        r = namespace_open(0,
-                                           /* ret_pidns_fd = */ NULL,
-                                           /* ret_mntns_fd = */ NULL,
-                                           &parent_netns_fd,
-                                           /* ret_userns_fd = */ NULL,
-                                           /* ret_root_fd = */ NULL);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to open parent network namespace: %m");
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        r = namespace_enter(/* pidns_fd = */ -EBADF,
-                                            /* mntns_fd = */ -EBADF,
-                                            child_netns_fd,
-                                            /* userns_fd = */ -EBADF,
-                                            /* root_fd = */ -EBADF);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to enter child network namespace: %m");
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        /* Reverse network interfaces pair list so that interfaces get their initial name back.
-                         * This is about ensuring interfaces get their old name back when being moved back. */
-                        arg_network_interfaces = strv_reverse(arg_network_interfaces);
-
-                        r = move_network_interfaces(parent_netns_fd, arg_network_interfaces);
-                        if (r < 0)
-                                log_error_errno(r, "Failed to move network interfaces back to parent network namespace: %m");
-
-                        _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
-                }
         }
 
         r = wait_for_container(TAKE_PID(*pid), &container_status);

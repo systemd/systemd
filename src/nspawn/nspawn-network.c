@@ -11,13 +11,16 @@
 
 #include "alloc-util.h"
 #include "ether-addr-util.h"
+#include "fd-util.h"
 #include "hexdecoct.h"
 #include "lock-util.h"
 #include "missing_network.h"
+#include "namespace-util.h"
 #include "netif-naming-scheme.h"
 #include "netlink-util.h"
 #include "nspawn-network.h"
 #include "parse-util.h"
+#include "process-util.h"
 #include "siphash24.h"
 #include "socket-netlink.h"
 #include "socket-util.h"
@@ -503,6 +506,58 @@ int test_network_interfaces_initialized(char **iface_pairs) {
         return 0;
 }
 
+static int netns_fork_child(int netns_fd, int *ret_original_netns_fd) {
+        _cleanup_close_ int original_netns_fd = -EBADF;
+        int r;
+
+        assert(netns_fd >= 0);
+
+        if (ret_original_netns_fd) {
+                r = namespace_open(0,
+                                   /* ret_pidns_fd = */ NULL,
+                                   /* ret_mntns_fd = */ NULL,
+                                   &original_netns_fd,
+                                   /* ret_userns_fd = */ NULL,
+                                   /* ret_root_fd = */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to open original network namespace: %m");
+        }
+
+        r = namespace_enter(/* pidns_fd = */ -EBADF,
+                            /* mntns_fd = */ -EBADF,
+                            netns_fd,
+                            /* userns_fd = */ -EBADF,
+                            /* root_fd = */ -EBADF);
+        if (r < 0)
+                return log_error_errno(r, "Failed to enter child network namespace: %m");
+
+        if (ret_original_netns_fd)
+                *ret_original_netns_fd = TAKE_FD(original_netns_fd);
+
+        return 0;
+}
+
+static int netns_fork(int netns_fd, int *ret_original_netns_fd) {
+        int r;
+
+        assert(netns_fd >= 0);
+
+        r = safe_fork("(sd-netns)", FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_LOG, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to fork process (sd-netns): %m");
+        if (r == 0) {
+                if (netns_fork_child(netns_fd, ret_original_netns_fd) < 0)
+                        _exit(EXIT_FAILURE);
+
+                return 0;
+        }
+
+        if (ret_original_netns_fd)
+                *ret_original_netns_fd = -EBADF;
+
+        return 1;
+}
+
 int move_network_interfaces(int netns_fd, char **iface_pairs) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
         int r;
@@ -539,6 +594,30 @@ int move_network_interfaces(int netns_fd, char **iface_pairs) {
                 r = sd_netlink_call(rtnl, m, 0, NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to move interface %s to namespace: %m", *i);
+        }
+
+        return 0;
+}
+
+int move_back_network_interfaces(int child_netns_fd, char **interface_pairs) {
+        _cleanup_close_ int parent_netns_fd = -EBADF;
+        int r;
+
+        assert(child_netns_fd >= 0);
+
+        if (strv_isempty(interface_pairs))
+                return 0;
+
+        r = netns_fork(child_netns_fd, &parent_netns_fd);
+        if (r < 0)
+                return r;
+        if (r == 0) {
+                /* Reverse network interfaces pair list so that interfaces get their initial name back.
+                 * This is about ensuring interfaces get their old name back when being moved back. */
+                interface_pairs = strv_reverse(interface_pairs);
+
+                r = move_network_interfaces(parent_netns_fd, interface_pairs);
+                _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
         }
 
         return 0;
