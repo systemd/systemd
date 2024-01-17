@@ -36,6 +36,7 @@ enum action {
         ACTION_TELINIT,
         ACTION_CANCEL_SHUTDOWN,
         ACTION_SHOW_SHUTDOWN,
+        ACTION_SYSTEMCTL_SHOW_SHUTDOWN,
         _ACTION_MAX,
         _ACTION_INVALID = -EINVAL,
 };

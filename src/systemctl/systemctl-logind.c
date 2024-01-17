@@ -404,7 +404,7 @@ int logind_show_shutdown(void) {
         else /* If we don't recognize the action string, we'll show it as-is */
                 pretty_action = action;
 
-        if (arg_action == ACTION_SYSTEMCTL)
+        if (!IN_SET(arg_action, ACTION_HALT, ACTION_POWEROFF, ACTION_REBOOT, ACTION_KEXEC))
                 log_info("%s scheduled for %s, use 'systemctl %s --when=cancel' to cancel.",
                          pretty_action,
                          FORMAT_TIMESTAMP_STYLE(elapse, arg_timestamp_style),
@@ -446,5 +446,31 @@ int help_boot_loader_entry(void) {
 #else
         return log_error_errno(SYNTHETIC_ERRNO(ENOSYS),
                                "Not compiled with logind support, cannot display boot loader entries.");
+#endif
+}
+
+bool logind_has_maintenance_window(void) {
+#if ENABLE_LOGIND
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        _cleanup_free_ char *val = NULL;
+        sd_bus *bus;
+        int r;
+
+        r = acquire_bus(BUS_FULL, &bus);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to connect to bus, ignoring: %m");
+                return false;
+        }
+
+        r = bus_get_property_string(bus, bus_login_mgr, "MaintenanceWindow", &error, &val);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to read MaintenanceWindow property, ignoring: %s",
+                                bus_error_message(&error, r));
+                return false;
+        }
+
+        return !isempty(val);
+#else
+        return false;
 #endif
 }
