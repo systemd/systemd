@@ -18,7 +18,7 @@
 #include "string-util.h"
 #include "strxcpyx.h"
 
-size_t strnpcpy_full(char **dest, size_t size, const char *src, size_t len, bool *ret_truncated) {
+size_t strnpcpy_full(char * restrict *dest, size_t size, const char * restrict src, size_t len, bool *ret_truncated) {
         bool truncated = false;
 
         assert(dest);
@@ -47,14 +47,14 @@ size_t strnpcpy_full(char **dest, size_t size, const char *src, size_t len, bool
         return size;
 }
 
-size_t strpcpy_full(char **dest, size_t size, const char *src, bool *ret_truncated) {
+size_t strpcpy_full(char * restrict *dest, size_t size, const char * restrict src, bool *ret_truncated) {
         assert(dest);
         assert(src);
 
         return strnpcpy_full(dest, size, src, strlen(src), ret_truncated);
 }
 
-size_t strpcpyf_full(char **dest, size_t size, bool *ret_truncated, const char *src, ...) {
+size_t strpcpyf_full(char * restrict *dest, size_t size, bool *ret_truncated, const char * restrict src, ...) {
         bool truncated = false;
         va_list va;
         int i;
@@ -80,7 +80,7 @@ size_t strpcpyf_full(char **dest, size_t size, bool *ret_truncated, const char *
         return size;
 }
 
-size_t strpcpyl_full(char **dest, size_t size, bool *ret_truncated, const char *src, ...) {
+size_t strpcpyl_full(char * restrict *dest, size_t size, bool *ret_truncated, const char * restrict src, ...) {
         bool truncated = false;
         va_list va;
 
@@ -102,24 +102,21 @@ size_t strpcpyl_full(char **dest, size_t size, bool *ret_truncated, const char *
         return size;
 }
 
-size_t strnscpy_full(char *dest, size_t size, const char *src, size_t len, bool *ret_truncated) {
-        char *s;
-
+size_t strnscpy_full(char * restrict dest, size_t size, const char * restrict src, size_t len, bool *ret_truncated) {
         assert(dest);
         assert(src);
 
-        s = dest;
-        return strnpcpy_full(&s, size, src, len, ret_truncated);
+        return strnpcpy_full(&dest, size, src, len, ret_truncated);
 }
 
-size_t strscpy_full(char *dest, size_t size, const char *src, bool *ret_truncated) {
+size_t strscpy_full(char * restrict dest, size_t size, const char * restrict src, bool *ret_truncated) {
         assert(dest);
         assert(src);
 
         return strnscpy_full(dest, size, src, strlen(src), ret_truncated);
 }
 
-size_t strscpyl_full(char *dest, size_t size, bool *ret_truncated, const char *src, ...) {
+size_t strscpyl_full(char * restrict dest, size_t size, bool *ret_truncated, const char * restrict src, ...) {
         bool truncated = false;
         va_list va;
         char *s;
