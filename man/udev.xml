@@ -548,6 +548,10 @@
             <term><varname>LABEL</varname></term>
             <listitem>
               <para>A named label to which a <varname>GOTO</varname> may jump.</para>
+
+              <para><varname>LABEL</varname> assignments take effect regardless
+              of match conditions.  Multiple <varname>LABEL</varname>
+              assignments in a single rule are not supported.</para>
             </listitem>
           </varlistentry>
 
@@ -555,6 +559,9 @@
             <term><varname>GOTO</varname></term>
             <listitem>
               <para>Jumps to the next <varname>LABEL</varname> with a matching name.</para>
+
+              <para>Multiple <varname>GOTO</varname> assignments in a single
+              rule are not supported.</para>
             </listitem>
           </varlistentry>
 
@@ -718,6 +725,62 @@ SUBSYSTEM=="net", OPTIONS="log_level=debug"</programlisting></para>
             </listitem>
           </varlistentry>
         </variablelist>
+
+        <para>The order in which expressions in each rule are processed is
+          defined by their type.  First, <varname>LABEL</varname> assignment is
+          performed, then match expressions are processed in the following order:
+          <varname>ACTION</varname>,
+          <varname>DEVPATH</varname>,
+          <varname>KERNEL</varname>,
+          <varname>SYMLINK</varname>,
+          <varname>NAME</varname>,
+          <varname>ENV</varname>,
+          <varname>CONST</varname>,
+          <varname>TAG</varname>,
+          <varname>SUBSYSTEM</varname>,
+          <varname>DRIVER</varname>,
+          <varname>ATTR</varname>,
+          <varname>SYSCTL</varname>,
+          <varname>KERNELS</varname>,
+          <varname>SUBSYSTEMS</varname>,
+          <varname>DRIVERS</varname>,
+          <varname>ATTRS</varname>,
+          <varname>TAGS</varname>,
+          <varname>TEST</varname>,
+          <varname>PROGRAM</varname>,
+          <varname>IMPORT{file}</varname>,
+          <varname>IMPORT{program}</varname>,
+          <varname>IMPORT{builtin}</varname>,
+          <varname>IMPORT{db}</varname>,
+          <varname>IMPORT{cmdline}</varname>,
+          <varname>IMPORT{parent}</varname>,
+          and <varname>RESULT</varname>.
+          If one of these expressions does not match, other expressions in
+          the rule are not processed.  Finally, assignment expressions
+          are executed in the following order:
+          <varname>OPTIONS string_escape</varname>,
+          <varname>OPTIONS db_persist</varname>,
+          <varname>OPTIONS watch</varname>,
+          <varname>OPTIONS link_priority</varname>,
+          <varname>OPTIONS log_level</varname>,
+          <varname>OWNER</varname>,
+          <varname>GROUP</varname>,
+          <varname>MODE</varname>,
+          <varname>TAG</varname>,
+          <varname>OPTIONS static_node</varname>,
+          <varname>SECLABEL</varname>,
+          <varname>ENV</varname>,
+          <varname>NAME</varname>,
+          <varname>SYMLINK</varname>,
+          <varname>ATTR</varname>,
+          <varname>SYSCTL</varname>,
+          <varname>RUN{builtin}</varname>,
+          <varname>RUN{program}</varname>,
+          and <varname>GOTO</varname>.
+          If the order in which expressions are written in the rule is different
+          from the order of processing listed above, these expressions are
+          reordered.
+        </para>
 
         <para>The <varname>NAME</varname>, <varname>SYMLINK</varname>,
         <varname>PROGRAM</varname>, <varname>OWNER</varname>,
