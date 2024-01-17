@@ -199,6 +199,7 @@ static const NLAPolicy genl_nl80211_policies[] = {
         [NL80211_ATTR_SSID]        = BUILD_POLICY_WITH_SIZE(BINARY, IEEE80211_MAX_SSID_LEN),
         [NL80211_ATTR_STATUS_CODE] = BUILD_POLICY(U16),
         [NL80211_ATTR_4ADDR]       = BUILD_POLICY(U8),
+        [NL80211_ATTR_NETNS_FD]    = BUILD_POLICY(U32),
 };
 
 /***************** genl wireguard type systems *****************/
