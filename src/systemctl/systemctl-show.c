@@ -932,11 +932,7 @@ static int map_listen(sd_bus *bus, const char *member, sd_bus_message *m, sd_bus
 
         while ((r = sd_bus_message_read(m, "(ss)", &type, &path)) > 0) {
 
-                r = strv_extend(p, type);
-                if (r < 0)
-                        return r;
-
-                r = strv_extend(p, path);
+                r = strv_extend_many(p, type, path);
                 if (r < 0)
                         return r;
         }

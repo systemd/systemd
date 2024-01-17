@@ -2811,11 +2811,10 @@ static int compile_symlinks(
          * absolute, when they are processed in namespace.c they will be made relative automatically, i.e.:
          * 'os-release -> .os-release-stage/os-release' is what will be created. */
         if (setup_os_release_symlink) {
-                r = strv_extend(&symlinks, "/run/host/.os-release-stage/os-release");
-                if (r < 0)
-                        return r;
-
-                r = strv_extend(&symlinks, "/run/host/os-release");
+                r = strv_extend_many(
+                                &symlinks,
+                                "/run/host/.os-release-stage/os-release",
+                                "/run/host/os-release");
                 if (r < 0)
                         return r;
         }
