@@ -309,6 +309,10 @@ sensor:modalias:acpi:BOSC0200*:dmi:bvnAmericanMegatrendsInc.:bvrY13D_KB133.103:b
 sensor:modalias:acpi:BOSC0200*:dmi:*:svnHampoo*:pnC3W6_AP108_4GB:*
  ACCEL_MOUNT_MATRIX=-1, 0, 0; 0, 1, 0; 0, 0, 1
 
+# Chuwi Ubook X (CWI535)
+sensor:modalias:acpi:MXC6655*:dmi*:svnCHUWIInnovationAndTechnology*:pnUBookX:*
+ ACCEL_MOUNT_MATRIX=0, 0, -1; 1, 0, 0; 0, 1, 0
+
 #########################################
 # Connect
 #########################################
