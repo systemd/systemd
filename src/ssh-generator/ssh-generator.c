@@ -297,7 +297,7 @@ static int add_export_unix_socket(
                         return 0;
                 }
 
-                return log_debug_errno(errno, "Unable to check if /run/host/unix-export exists: %m");
+                return log_error_errno(errno, "Unable to check if /run/host/unix-export exists: %m");
         }
 
         r = make_sshd_template_unit(
