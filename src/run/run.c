@@ -1826,7 +1826,7 @@ static int start_transient_service(sd_bus *bus) {
                                 const char *swap;
 
                                 if (c.memory_swap_peak != UINT64_MAX)
-                                        swap = strjoina(" (swap: %s)", FORMAT_BYTES(c.memory_swap_peak));
+                                        swap = strjoina(" (swap: ", FORMAT_BYTES(c.memory_swap_peak), ")");
                                 else
                                         swap = "";
 
@@ -1846,9 +1846,9 @@ static int start_transient_service(sd_bus *bus) {
                         const char *io_read = NULL, *io_write = NULL;
 
                         if (!IN_SET(c.io_read_bytes, 0, UINT64_MAX))
-                                io_read = strjoina(" read: %s", FORMAT_BYTES(c.io_read_bytes));
+                                io_read = strjoina(" read: ", FORMAT_BYTES(c.io_read_bytes));
                         if (!IN_SET(c.io_write_bytes, 0, UINT64_MAX))
-                                io_write = strjoina(" written: %s", FORMAT_BYTES(c.io_write_bytes));
+                                io_write = strjoina(" written: ", FORMAT_BYTES(c.io_write_bytes));
 
                         if (io_read || io_write)
                                 log_info("IO bytes%s%s", strempty(io_read), strempty(io_write));
