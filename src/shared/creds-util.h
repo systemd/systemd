@@ -90,3 +90,6 @@ typedef enum CredentialFlags {
 
 int encrypt_credential_and_warn(sd_id128_t with_key, const char *name, usec_t timestamp, usec_t not_after, const char *tpm2_device, uint32_t tpm2_hash_pcr_mask, const char *tpm2_pubkey_path, uint32_t tpm2_pubkey_pcr_mask, uid_t uid, const struct iovec *input, CredentialFlags flags, struct iovec *ret);
 int decrypt_credential_and_warn(const char *validate_name, usec_t validate_timestamp, const char *tpm2_device, const char *tpm2_signature_path, uid_t uid, const struct iovec *input, CredentialFlags flags, struct iovec *ret);
+
+int ipc_encrypt_credential(const char *name, usec_t timestamp, usec_t not_after, uid_t uid, const struct iovec *input, CredentialFlags flags, struct iovec *ret);
+int ipc_decrypt_credential(const char *validate_name, usec_t validate_timestamp, uid_t uid, const struct iovec *input, CredentialFlags flags, struct iovec *ret);
