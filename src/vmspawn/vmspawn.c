@@ -647,6 +647,14 @@ static int run_virtual_machine(void) {
                         return log_error_errno(r, "Failed to call getsockname on vsock: %m");
         }
 
+        if (DEBUG_LOGGING) {
+                _cleanup_free_ char *joined = quote_command_line(cmdline, SHELL_ESCAPE_EMPTY);
+                if (!joined)
+                        return log_oom();
+
+                log_debug("Executing: %s", joined);
+        }
+
         _cleanup_(sd_event_source_unrefp) sd_event_source *notify_event_source = NULL;
         _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         r = sd_event_new(&event);
