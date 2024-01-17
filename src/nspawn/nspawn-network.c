@@ -578,6 +578,37 @@ static int netns_fork_and_wait(int netns_fd, int *ret_original_netns_fd) {
         return 1;
 }
 
+static int needs_rename(sd_netlink **rtnl, sd_device *dev, const char *name) {
+        int r;
+
+        assert(rtnl);
+        assert(dev);
+        assert(name);
+
+        const char *ifname;
+        r = sd_device_get_sysname(dev, &ifname);
+        if (r < 0)
+                return r;
+
+        if (streq(name, ifname))
+                return false;
+
+        int ifindex;
+        r = sd_device_get_ifindex(dev, &ifindex);
+        if (r < 0)
+                return r;
+
+        _cleanup_strv_free_ char **altnames = NULL;
+        r = rtnl_get_link_alternative_names(rtnl, ifindex, &altnames);
+        if (r == -EOPNOTSUPP)
+                return true; /* alternative interface name is not supported, hence the name is not
+                              * assigned to the interface. */
+        if (r < 0)
+                return r;
+
+        return !strv_contains(altnames, name);
+}
+
 static int move_network_interface_one(sd_netlink **rtnl, int netns_fd, sd_device *dev, const char *name) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
         int r;
@@ -606,12 +637,10 @@ static int move_network_interface_one(sd_netlink **rtnl, int netns_fd, sd_device
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to append namespace fd to netlink message: %m");
 
-        const char *sysname;
-        r = sd_device_get_sysname(dev, &sysname);
+        r = needs_rename(rtnl, dev, name);
         if (r < 0)
-                return log_device_error_errno(dev, r, "Failed to get sysname: %m");
-
-        if (!streq(name, sysname)) {
+                return log_device_error_errno(dev, r, "Failed to determine if the interface should be renamed to '%s': %m", name);
+        if (r > 0) {
                 r = sd_netlink_message_append_string(m, IFLA_IFNAME, name);
                 if (r < 0)
                         return log_device_error_errno(dev, r, "Failed to add netlink interface name: %m");
