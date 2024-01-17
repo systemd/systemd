@@ -2139,6 +2139,10 @@ static int collect_callback(
         /* If we hit an error, we will drop all collected replies and just return the error_id and flags in varlink_collect() */
         if (error_id) {
                 context->error_id = error_id;
+
+                json_variant_unref(context->parameters);
+                context->parameters = json_variant_ref(parameters);
+
                 return 0;
         }
 
@@ -2191,6 +2195,8 @@ int varlink_collect(
 
                 /* If we get an error from any of the replies, return immediately with just the error_id and flags*/
                 if (context.error_id) {
+                        if (ret_parameters)
+                                *ret_parameters = TAKE_PTR(context.parameters);
                         if (ret_error_id)
                                 *ret_error_id = TAKE_PTR(context.error_id);
                         if (ret_flags)
