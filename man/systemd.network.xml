@@ -1633,6 +1633,8 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
         <term><varname>L3mdev=</varname></term>
         <listitem>
           <para>A boolean. Specifies whether the rule is to directs lookups to the tables associated with VRF devices. Defaults to false.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
       </varlistentry>
 
