@@ -324,7 +324,7 @@ EOF
 }
 
 nspawn_settings_cleanup() {
-    for dev in sd-host-only sd-shared{1,2} sd-macvlan{1,2} sd-ipvlan{1,2}; do
+    for dev in sd-host-only sd-shared{1,2,3} sd-macvlan{1,2} sd-ipvlan{1,2}; do
         ip link del "$dev" || :
     done
 
@@ -341,10 +341,11 @@ testcase_nspawn_settings() {
     rm -f "/etc/systemd/nspawn/$container.nspawn"
     mkdir -p "$root/tmp" "$root"/opt/{tmp,inaccessible,also-inaccessible}
 
-    for dev in sd-host-only sd-shared{1,2} sd-macvlan{1,2} sd-macvlanloong sd-ipvlan{1,2} sd-ipvlanlooong; do
+    for dev in sd-host-only sd-shared{1,2,3} sd-macvlan{1,2} sd-macvlanloong sd-ipvlan{1,2} sd-ipvlanlooong; do
         ip link add "$dev" type dummy
     done
     udevadm settle
+    ip link property add dev sd-shared3 altname sd-altname3 altname sd-altname-tooooooooooooo-long
     ip link
     trap nspawn_settings_cleanup RETURN
 
@@ -394,7 +395,7 @@ Private=yes
 VirtualEthernet=yes
 VirtualEthernetExtra=my-fancy-veth1
 VirtualEthernetExtra=fancy-veth2:my-fancy-veth2
-Interface=sd-shared1 sd-shared2:sd-shared2
+Interface=sd-shared1 sd-shared2:sd-renamed2 sd-shared3:sd-altname3
 MACVLAN=sd-macvlan1 sd-macvlan2:my-macvlan2 sd-macvlanloong
 IPVLAN=sd-ipvlan1 sd-ipvlan2:my-ipvlan2 sd-ipvlanlooong
 Zone=sd-zone0
@@ -437,7 +438,10 @@ ip link | grep host0@
 ip link | grep my-fancy-veth1@
 ip link | grep my-fancy-veth2@
 ip link | grep sd-shared1
-ip link | grep sd-shared2
+ip link | grep sd-renamed2
+ip link | grep sd-shared3
+ip link | grep sd-altname3
+ip link | grep sd-altname-tooooooooooooo-long
 ip link | grep mv-sd-macvlan1@
 ip link | grep my-macvlan2@
 ip link | grep iv-sd-ipvlan1@
