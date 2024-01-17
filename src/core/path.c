@@ -994,11 +994,7 @@ static int activation_details_path_append_pair(ActivationDetails *details, char 
         if (isempty(p->trigger_path_filename))
                 return 0;
 
-        r = strv_extend(strv, "trigger_path");
-        if (r < 0)
-                return r;
-
-        r = strv_extend(strv, p->trigger_path_filename);
+        r = strv_extend_many(strv, "trigger_path", p->trigger_path_filename);
         if (r < 0)
                 return r;
 
