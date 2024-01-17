@@ -292,6 +292,10 @@ typedef struct UserRecord {
         char *home_directory;
         char *home_directory_auto; /* when none is set explicitly, this is where we place the implicit home directory */
 
+        /* fallback shell and home dir */
+        char *fallback_shell;
+        char *fallback_home_directory;
+
         uid_t uid;
         gid_t gid;
 
@@ -320,6 +324,8 @@ typedef struct UserRecord {
         uint64_t disk_free;
         uint64_t disk_ceiling;
         uint64_t disk_floor;
+
+        bool use_fallback; /* if true → use fallback_shell + fallback_home_directory instead of the regular ones */
 
         char *state;
         char *service;
