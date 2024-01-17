@@ -2130,7 +2130,7 @@ static int method_do_shutdown_or_sleep(
         if (action == HANDLE_SLEEP) {
                 HandleAction selected;
 
-                selected = handle_action_sleep_select(m->handle_action_sleep_mask);
+                selected = handle_action_sleep_select(m);
                 if (selected < 0)
                         return sd_bus_error_set(error, BUS_ERROR_SLEEP_VERB_NOT_SUPPORTED,
                                                 "None of the configured sleep operations are supported");
@@ -2637,7 +2637,7 @@ static int method_can_shutdown_or_sleep(
                 sd_bus_error *error) {
 
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-        bool multiple_sessions, challenge, blocked;
+        bool multiple_sessions, challenge, blocked, check_unit_state = true;
         const HandleActionData *a;
         const char *result = NULL;
         uid_t uid;
@@ -2650,9 +2650,11 @@ static int method_can_shutdown_or_sleep(
         if (action == HANDLE_SLEEP) {
                 HandleAction selected;
 
-                selected = handle_action_sleep_select(m->handle_action_sleep_mask);
+                selected = handle_action_sleep_select(m);
                 if (selected < 0)
                         return sd_bus_reply_method_return(message, "s", "na");
+
+                check_unit_state = false; /* Already handled by handle_action_sleep_select */
 
                 assert_se(a = handle_action_lookup(selected));
 
@@ -2687,7 +2689,7 @@ static int method_can_shutdown_or_sleep(
         multiple_sessions = r > 0;
         blocked = manager_is_inhibited(m, a->inhibit_what, INHIBIT_BLOCK, NULL, false, true, uid, NULL);
 
-        if (a->target) {
+        if (check_unit_state && a->target) {
                 _cleanup_free_ char *load_state = NULL;
 
                 r = unit_load_state(m->bus, a->target, &load_state);
