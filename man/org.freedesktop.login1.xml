@@ -53,6 +53,7 @@ node /org/freedesktop/login1 {
       GetSeat(in  s seat_id,
               out o object_path);
       ListSessions(out a(susso) sessions);
+      ListSessionsEx(out a(sussussbto) sessions);
       ListUsers(out a(uso) users);
       ListSeats(out a(so) seats);
       ListInhibitors(out a(ssssuu) inhibitors);
@@ -315,6 +316,8 @@ node /org/freedesktop/login1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="ListSessions()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="ListSessionsEx()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="ListUsers()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="ListSeats()"/>
@@ -549,8 +552,17 @@ node /org/freedesktop/login1 {
       is any.</para>
 
       <para><function>ListSessions()</function> returns an array of all current sessions. The structures in
-      the array consist of the following fields: session id, user id, user name, seat id, session object
-      path. If a session does not have a seat attached, the seat id field will be an empty string.</para>
+      the array consist of the following fields: <varname>session id</varname>, <varname>user id</varname>,
+      <varname>user name</varname>, <varname>seat id</varname>, and <varname>session object path</varname>.
+      If a session does not have a seat attached, the seat id field will be an empty string.</para>
+
+      <para><function>ListSessionsEx()</function> returns an array of all current sessions with more metadata
+      than <function>ListSessions()</function>. The structures in the array consist of the following fields:
+      <varname>session id</varname>, <varname>user id</varname>, <varname>user name</varname>,
+      <varname>seat id</varname>, <varname>leader pid</varname>, <varname>session class</varname>,
+      <varname>tty name</varname>, <varname>idle hint</varname>, <varname>idle hint monotonic timestamp</varname>,
+      and <varname>session object path</varname>. <varname>tty</varname> and <varname>seat id</varname> fields
+      could be empty, if the session has no associated tty or session has no seat attached, respectively.</para>
 
       <para><function>ListUsers()</function> returns an array of all currently logged in users. The
       structures in the array consist of the following fields: user id, user name, user object path.</para>
@@ -1559,8 +1571,9 @@ node /org/freedesktop/login1/session/1 {
       <para><function>PrepareForShutdownWithMetadata</function> and
       <function>CreateSessionWithPIDFD()</function> were added in version 255.</para>
       <para><function>Sleep()</function>,
-      <function>CanSleep()</function>, and
-      <varname>SleepOperation</varname> were added in version 256.</para>
+      <function>CanSleep()</function>,
+      <varname>SleepOperation</varname>, and
+      <function>ListSessionsEx()</function> were added in version 256.</para>
     </refsect2>
     <refsect2>
       <title>Session Objects</title>

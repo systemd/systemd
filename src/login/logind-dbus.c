@@ -591,6 +591,60 @@ static int method_list_sessions(sd_bus_message *message, void *userdata, sd_bus_
         return sd_bus_send(NULL, reply, NULL);
 }
 
+static int method_list_sessions_ex(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        Manager *m = ASSERT_PTR(userdata);
+        _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
+        int r;
+
+        assert(message);
+
+        r = sd_bus_message_new_method_return(message, &reply);
+        if (r < 0)
+                return r;
+
+        r = sd_bus_message_open_container(reply, 'a', "(sussussbto)");
+        if (r < 0)
+                return r;
+
+        Session *s;
+        HASHMAP_FOREACH(s, m->sessions) {
+                _cleanup_free_ char *path = NULL;
+                dual_timestamp idle_ts;
+                bool idle;
+
+                assert(s->user);
+
+                path = session_bus_path(s);
+                if (!path)
+                        return -ENOMEM;
+
+                r = session_get_idle_hint(s, &idle_ts);
+                if (r < 0)
+                        return r;
+                idle = r > 0;
+
+                r = sd_bus_message_append(reply, "(sussussbto)",
+                                          s->id,
+                                          (uint32_t) s->user->user_record->uid,
+                                          s->user->user_record->user_name,
+                                          s->seat ? s->seat->id : "",
+                                          (uint32_t) s->leader.pid,
+                                          session_class_to_string(s->class),
+                                          s->tty,
+                                          idle,
+                                          idle_ts.monotonic,
+                                          path);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_bus_message_close_container(reply);
+        if (r < 0)
+                return r;
+
+        return sd_bus_send(NULL, reply, NULL);
+}
+
 static int method_list_users(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
         Manager *m = ASSERT_PTR(userdata);
@@ -3635,6 +3689,11 @@ static const sd_bus_vtable manager_vtable[] = {
                                 SD_BUS_NO_ARGS,
                                 SD_BUS_RESULT("a(susso)", sessions),
                                 method_list_sessions,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
+        SD_BUS_METHOD_WITH_ARGS("ListSessionsEx",
+                                SD_BUS_NO_ARGS,
+                                SD_BUS_RESULT("a(sussussbto)", sessions),
+                                method_list_sessions_ex,
                                 SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_ARGS("ListUsers",
                                 SD_BUS_NO_ARGS,
