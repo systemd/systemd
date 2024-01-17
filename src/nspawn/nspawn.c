@@ -5365,7 +5365,7 @@ static int run_container(
         if (arg_private_network) {
                 /* Move network interfaces back to the parent network namespace. We use `safe_fork`
                  * to avoid having to move the parent to the child network namespace. */
-                r = safe_fork(NULL, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_LOG, NULL);
+                r = safe_fork(NULL, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_LOG|FORK_NEW_MOUNTNS|FORK_MOUNTNS_SLAVE, NULL);
                 if (r < 0)
                         return r;
 
