@@ -167,19 +167,13 @@ static char** user_dirs(
                 return NULL;
 
         /* Now merge everything we found. */
-        if (strv_extend(&res, persistent_control) < 0)
-                return NULL;
-
-        if (strv_extend(&res, runtime_control) < 0)
-                return NULL;
-
-        if (strv_extend(&res, transient) < 0)
-                return NULL;
-
-        if (strv_extend(&res, generator_early) < 0)
-                return NULL;
-
-        if (strv_extend(&res, persistent_config) < 0)
+        if (strv_extend_many(
+                            &res,
+                            persistent_control,
+                            runtime_control,
+                            transient,
+                            generator_early,
+                            persistent_config) < 0)
                 return NULL;
 
         if (strv_extend_strv_concat(&res, config_dirs, "/systemd/user") < 0)
@@ -192,16 +186,12 @@ static char** user_dirs(
         if (strv_extend_strv(&res, (char**) user_config_unit_paths, false) < 0)
                 return NULL;
 
-        if (strv_extend(&res, runtime_config) < 0)
-                return NULL;
-
-        if (strv_extend(&res, global_runtime_config) < 0)
-                return NULL;
-
-        if (strv_extend(&res, generator) < 0)
-                return NULL;
-
-        if (strv_extend(&res, data_home) < 0)
+        if (strv_extend_many(
+                            &res,
+                            runtime_config,
+                            global_runtime_config,
+                            generator,
+                            data_home) < 0)
                 return NULL;
 
         if (strv_extend_strv_concat(&res, data_dirs, "/systemd/user") < 0)

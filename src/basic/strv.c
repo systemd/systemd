@@ -505,29 +505,31 @@ int strv_insert(char ***l, size_t position, char *value) {
         char **c;
         size_t n, m;
 
+        assert(l);
+
         if (!value)
                 return 0;
 
         n = strv_length(*l);
         position = MIN(position, n);
 
-        /* increase and check for overflow */
-        m = n + 2;
-        if (m < n)
+        /* check for overflow and increase*/
+        if (n > SIZE_MAX - 2)
                 return -ENOMEM;
+        m = n + 2;
 
-        c = new(char*, m);
+        c = reallocarray(*l, GREEDY_ALLOC_ROUND_UP(m), sizeof(char*));
         if (!c)
                 return -ENOMEM;
 
-        for (size_t i = 0; i < position; i++)
-                c[i] = (*l)[i];
-        c[position] = value;
-        for (size_t i = position; i < n; i++)
-                c[i+1] = (*l)[i];
-        c[n+1] = NULL;
+        if (n > position)
+                memmove(c + position + 1, c + position, (n - position) * sizeof(char*));
 
-        return free_and_replace(*l, c);
+        c[position] = value;
+        c[n + 1] = NULL;
+
+        *l = c;
+        return 0;
 }
 
 int strv_consume_with_size(char ***l, size_t *n, char *value) {
@@ -588,39 +590,63 @@ int strv_extend_with_size(char ***l, size_t *n, const char *value) {
         return strv_consume_with_size(l, n, v);
 }
 
-int strv_extend_front(char ***l, const char *value) {
+int strv_extend_many_internal(char ***l, const char *value, ...) {
+        va_list ap;
         size_t n, m;
-        char *v, **c;
+        int r;
 
         assert(l);
 
-        /* Like strv_extend(), but prepends rather than appends the new entry */
+        m = n = strv_length(*l);
 
-        if (!value)
-                return 0;
+        r = 0;
+        va_start(ap, value);
+        for (const char *s = value; s != POINTER_MAX; s = va_arg(ap, const char*)) {
+                if (!s)
+                        continue;
 
-        n = strv_length(*l);
+                if (m > SIZE_MAX-1) { /* overflow */
+                        r = -ENOMEM;
+                        break;
+                }
+                m++;
+        }
+        va_end(ap);
 
-        /* Increase and overflow check. */
-        m = n + 2;
-        if (m < n)
+        if (r < 0)
+                return r;
+        if (m > SIZE_MAX-1)
                 return -ENOMEM;
 
-        v = strdup(value);
-        if (!v)
+        char **c = reallocarray(*l, GREEDY_ALLOC_ROUND_UP(m+1), sizeof(char*));
+        if (!c)
                 return -ENOMEM;
+        *l = c;
 
-        c = reallocarray(*l, m, sizeof(char*));
-        if (!c) {
-                free(v);
-                return -ENOMEM;
+        r = 0;
+        size_t i = n;
+        va_start(ap, value);
+        for (const char *s = value; s != POINTER_MAX; s = va_arg(ap, const char*)) {
+                if (!s)
+                        continue;
+
+                c[i] = strdup(s);
+                if (!c[i]) {
+                        r = -ENOMEM;
+                        break;
+                }
+                i++;
+        }
+        va_end(ap);
+
+        if (r < 0) {
+                /* rollback on error */
+                for (size_t j = n; j < i; j++)
+                        c[j] = mfree(c[j]);
+                return r;
         }
 
-        memmove(c+1, c, n * sizeof(char*));
-        c[0] = v;
-        c[n+1] = NULL;
-
-        *l = c;
+        c[i] = NULL;
         return 0;
 }
 

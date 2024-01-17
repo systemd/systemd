@@ -978,11 +978,10 @@ static int context_build_arguments(Context *c) {
                         return log_oom();
 
         } else if (c->action == ACTION_INSPECT) {
-                r = strv_extend(&a, c->kernel ?: "[KERNEL_IMAGE]");
-                if (r < 0)
-                        return log_oom();
-
-                r = strv_extend(&a, "[INITRD...]");
+                r = strv_extend_many(
+                                &a,
+                                c->kernel ?: "[KERNEL_IMAGE]",
+                                "[INITRD...]");
                 if (r < 0)
                         return log_oom();
         }

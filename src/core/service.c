@@ -3098,7 +3098,7 @@ int service_deserialize_exec_command(
                 case STATE_EXEC_COMMAND_ARGS:
                         r = strv_extend(&argv, arg);
                         if (r < 0)
-                                return -ENOMEM;
+                                return r;
                         break;
                 default:
                         assert_not_reached();
