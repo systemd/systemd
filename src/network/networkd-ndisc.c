@@ -392,7 +392,7 @@ static int ndisc_router_process_icmp6_ratelimit(Link *link, sd_ndisc_router *rt)
 }
 
 static int ndisc_router_process_retransmission_time(Link *link, sd_ndisc_router *rt) {
-        usec_t retrans_time;
+        usec_t retrans_time, msec;
         int r;
 
         assert(link);
@@ -408,8 +408,9 @@ static int ndisc_router_process_retransmission_time(Link *link, sd_ndisc_router 
                 return 0;
         }
 
-        if (retrans_time <= 0 || retrans_time > UINT32_MAX) {
-                log_link_debug(link, "Failed to get retransmission time from RA - out of range (%"PRIu64"), ignoring", retrans_time);
+        msec = DIV_ROUND_UP(retrans_time, USEC_PER_MSEC);
+        if (msec <= 0 || msec > UINT32_MAX) {
+                log_link_debug(link, "Failed to get retransmission time from RA - out of range (%"PRIu64"), ignoring", msec);
                 return 0;
         }
 
@@ -419,10 +420,10 @@ static int ndisc_router_process_retransmission_time(Link *link, sd_ndisc_router 
                 AF_INET6,
                 link->ifname,
                 "retrans_time_ms",
-                (uint32_t) retrans_time);
+                (uint32_t) msec);
         if (r < 0)
                 log_link_warning_errno(
-                        link, r, "Failed to apply neighbor retransmission time (%"PRIu64"), ignoring: %m", retrans_time);
+                        link, r, "Failed to apply neighbor retransmission time (%"PRIu64"), ignoring: %m", msec);
 
         return 0;
 }
