@@ -199,7 +199,7 @@ def expectedFailureIfRoutingPolicyUIDRangeIsNotAvailable():
 
     return f
 
-def expectedFailureIfRoutingPolicyL3mdevIsNotAvailable():
+def expectedFailureIfRoutingPolicyL3MasterDeviceIsNotAvailable():
     def f(func):
         rc = call_quiet('ip rule add not from 192.168.100.19 l3mdev')
         call_quiet('ip rule del not from 192.168.100.19 l3mdev')
@@ -3114,7 +3114,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'tcp')
         self.assertRegex(output, 'lookup 7')
 
-    @expectedFailureIfRoutingPolicyL3mdevIsNotAvailable()
+    @expectedFailureIfRoutingPolicyL3MasterDeviceIsNotAvailable()
     def test_routing_policy_rule_l3mdev(self):
         copy_network_unit('25-fibrule-l3mdev.network', '11-dummy.netdev')
         start_networkd()

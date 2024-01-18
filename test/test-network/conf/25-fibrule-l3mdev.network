@@ -7,9 +7,9 @@ IPv6AcceptRA=no
 
 [RoutingPolicyRule]
 Priority=1500
-L3mdev=true
+L3MasterDevice=true
 
 [RoutingPolicyRule]
 Priority=2000
-L3mdev=true
+L3MasterDevice=true
 Type=unreachable
