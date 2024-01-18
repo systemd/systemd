@@ -144,6 +144,26 @@ static int link_put_dns(Link *link, OrderedSet **s) {
                 }
         }
 
+        if (link->dhcp6_lease && link_get_use_dnr(link, NETWORK_CONFIG_SOURCE_DHCP6)) {
+                sd_dns_resolver *resolvers;
+
+                r = sd_dhcp6_lease_get_dnr(link->dhcp6_lease, &resolvers);
+                if (r >= 0 ) {
+                        struct in_addr_full **dot_servers;
+                        size_t n = 0;
+                        CLEANUP_ARRAY(dot_servers, n, in_addr_full_array_free);
+
+                        r = sd_dns_resolvers_to_dot_addrs(resolvers, r, &dot_servers, &n);
+                        if (r < 0)
+                                return r;
+
+                        r = ordered_set_put_dns_servers(s, link->ifindex, dot_servers, n);
+                        if (r < 0)
+                                return r;
+                }
+
+        }
+
         if (link_get_use_dns(link, NETWORK_CONFIG_SOURCE_NDISC)) {
                 NDiscRDNSS *a;
 
@@ -554,7 +574,9 @@ static void serialize_resolvers(
                 const char *lvalue,
                 bool *space,
                 sd_dhcp_lease *lease,
-                bool conditional) {
+                bool conditional,
+                sd_dhcp6_lease *lease6,
+                bool conditional6) {
 
         bool _space = false;
         if (!space)
@@ -569,6 +591,20 @@ static void serialize_resolvers(
                 int r;
 
                 r = sd_dhcp_lease_get_dnr(lease, &resolvers);
+                if (r < 0)
+                        return;
+
+                r = sd_dns_resolvers_to_dot_strv(resolvers, r, &names);
+                if (r > 0)
+                        fputstrv(f, names, NULL, space);
+        }
+
+        if (lease6 && conditional6) {
+                sd_dns_resolver *resolvers;
+                _cleanup_strv_free_ char **names = NULL;
+                int r;
+
+                r = sd_dhcp6_lease_get_dnr(lease6, &resolvers);
                 if (r < 0)
                         return;
 
@@ -723,7 +759,9 @@ static int link_save(Link *link) {
                          * assumed. */
                         serialize_resolvers(f, NULL, &space,
                                             link->dhcp_lease,
-                                            link_get_use_dnr(link, NETWORK_CONFIG_SOURCE_DHCP4));
+                                            link_get_use_dnr(link, NETWORK_CONFIG_SOURCE_DHCP4),
+                                            link->dhcp6_lease,
+                                            link_get_use_dnr(link, NETWORK_CONFIG_SOURCE_DHCP6));
 
                         serialize_addresses(f, NULL, &space,
                                             NULL,
