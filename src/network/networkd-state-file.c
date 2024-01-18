@@ -552,7 +552,9 @@ static void serialize_resolvers(
                 const char *lvalue,
                 bool *space,
                 sd_dhcp_lease *lease,
-                bool conditional) {
+                bool conditional,
+                sd_dhcp6_lease *lease6,
+                bool conditional6) {
 
         bool _space = false;
         if (!space)
@@ -567,6 +569,20 @@ static void serialize_resolvers(
                 int r;
 
                 r = sd_dhcp_lease_get_dnr(lease, &resolvers);
+                if (r < 0)
+                        return;
+
+                r = dns_resolvers_to_dot_strv(resolvers, &names);
+                if (r > 0)
+                        fputstrv(f, names, NULL, space);
+        }
+
+        if (lease6 && conditional6) {
+                ResolverData *resolvers;
+                _cleanup_strv_free_ char **names = NULL;
+                int r;
+
+                r = sd_dhcp6_lease_get_dnr(lease6, &resolvers);
                 if (r < 0)
                         return;
 
@@ -723,7 +739,9 @@ static int link_save(Link *link) {
                          * assumed. */
                         serialize_resolvers(f, NULL, &space,
                                             link->dhcp_lease,
-                                            network_dhcp_use_dnr(link->network));
+                                            network_dhcp_use_dnr(link->network),
+                                            link->dhcp6_lease,
+                                            network_dhcp6_use_dnr(link->network));
 
                         serialize_addresses(f, NULL, &space,
                                             NULL,
