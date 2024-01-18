@@ -406,6 +406,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp6_use_address = true,
                 .dhcp6_use_pd_prefix = true,
                 .dhcp6_use_dns = true,
+                .dhcp6_use_dnr = -1,
                 .dhcp6_use_domains = manager->dhcp6_use_domains,
                 .dhcp6_use_hostname = true,
                 .dhcp6_use_ntp = true,
