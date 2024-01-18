@@ -1632,7 +1632,10 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
       <varlistentry>
         <term><varname>L3MasterDevice=</varname></term>
         <listitem>
-          <para>A boolean. Specifies whether the rule is to directs lookups to the tables associated with VRF devices. Defaults to false.</para>
+          <para>A boolean. Specifies whether the rule is to direct lookups to the tables associated with
+          level 3 master devices (also known as Virtual Routing and Forwarding or VRF devices).
+          For further details see <ulink url="https://docs.kernel.org/networking/vrf.html">.
+          Defaults to false.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>
