@@ -732,6 +732,30 @@ def dnr_v4_instance_data(adn, addrs=None, prio=1, alpns=("dot",), dohpath=None):
 
     return pack(data, 2)
 
+def dnr_v6_instance_data(adn, addrs=None, prio=1, alpns=("dot",), dohpath=None):
+    b = bytes()
+    pack = lambda c, w=1: struct.pack('>' + "_BH_I"[w], len(c)) + c
+    pyton = lambda n, w=2: struct.pack('>' + "_BH_I"[w], n)
+    ipv6 = ipaddress.IPv6Address
+    class SvcParam(enum.Enum):
+        ALPN = 1
+        DOHPATH = 7
+
+    data = pyton(prio)
+
+    adn = adn.rstrip('.') + '.'
+    data += pack(b.join(pack(label.encode('ascii')) for label in adn.split('.')), 2)
+
+    if not addrs: # adn-only mode
+        return data
+
+    data += pack(b.join(ipv6(addr).packed for addr in addrs), 2)
+    data += pyton(SvcParam.ALPN.value) + pack(b.join(pack(alpn.encode('ascii')) for alpn in alpns), 2)
+    if dohpath is not None:
+        data += pyton(SvcParam.DOHPATH.value) + pack(dohpath.encode('utf-8'), 2)
+
+    return data
+
 def start_dnsmasq(*additional_options, interface='veth-peer', ra_mode=None, ipv4_range='192.168.5.10,192.168.5.200', ipv4_router='192.168.5.1', ipv6_range='2600::10,2600::20'):
     if ra_mode:
         ra_mode = f',{ra_mode}'
@@ -6894,6 +6918,10 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
                 self.assertIn('0.7.4.2#homer.simpson', output)
             else:
                 self.assertNotIn('8.8.8.8#dns.google', output)
+            if ipv6:
+                self.assertIn('2001:4860:4860::8888#dns.google', output)
+            else:
+                self.assertNotIn('2001:4860:4860::8888#dns.google', output)
 
             check_json(networkctl_json())
 
@@ -6903,10 +6931,14 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.wait_online('veth-peer:carrier')
         dnr_v4 = dnr_v4_instance_data(adn = "dns.google", addrs = ["8.8.8.8", "8.8.4.4"])
         dnr_v4 += dnr_v4_instance_data(adn = "homer.simpson", addrs = ["0.7.4.2"], alpns = ("dot","h2","h3"), dohpath = "/springfield{?dns}")
+        dnr_v6 = dnr_v6_instance_data(adn = "dns.google", addrs = ["2001:4860:4860::8888", "2001:4860:4860::8844"])
         masq = lambda bs: ':'.join(f"{b:02x}" for b in bs)
-        start_dnsmasq(f'--dhcp-option=162,{masq(dnr_v4)}')
+        start_dnsmasq(f'--dhcp-option=162,{masq(dnr_v4)}',
+                      f'--dhcp-option=option6:144,{masq(dnr_v6)}')
 
+        check(self, True, True)
         check(self, True, False)
+        check(self, False, True)
         check(self, False, False)
 
     def test_dhcp_client_use_captive_portal(self):
