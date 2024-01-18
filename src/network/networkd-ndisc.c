@@ -391,6 +391,43 @@ static int ndisc_router_process_icmp6_ratelimit(Link *link, sd_ndisc_router *rt)
         return 0;
 }
 
+static int ndisc_router_process_retransmission_time(Link *link, sd_ndisc_router *rt) {
+        usec_t retrans_time, msec;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(rt);
+
+        if (!link->network->ipv6_accept_ra_use_retransmission_time)
+                return 0;
+
+        r = sd_ndisc_router_get_retransmission_time(rt, &retrans_time);
+        if (r < 0) {
+                log_link_debug_errno(link, r, "Failed to get retransmission time from RA, ignoring: %m");
+                return 0;
+        }
+
+        msec = DIV_ROUND_UP(retrans_time, USEC_PER_MSEC);
+        if (msec <= 0 || msec > UINT32_MAX) {
+                log_link_debug(link, "Failed to get retransmission time from RA - out of range (%"PRIu64"), ignoring", msec);
+                return 0;
+        }
+
+        /* Set the retransmission time for Neigbor Solicitations.
+        * 0 is the unspecified value and must not be set (see RFC4861, 6.3.4) */
+        r = sysctl_write_ip_neighbor_property_uint32(
+                AF_INET6,
+                link->ifname,
+                "retrans_time_ms",
+                (uint32_t) msec);
+        if (r < 0)
+                log_link_warning_errno(
+                        link, r, "Failed to apply neighbor retransmission time (%"PRIu64"), ignoring: %m", msec);
+
+        return 0;
+}
+
 static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *rt) {
         usec_t lifetime_valid_usec, lifetime_preferred_usec;
         _cleanup_set_free_ Set *addresses = NULL;
@@ -1349,6 +1386,10 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
                 return r;
 
         r = ndisc_router_process_icmp6_ratelimit(link, rt);
+        if (r < 0)
+                return r;
+
+        r = ndisc_router_process_retransmission_time(link, rt);
         if (r < 0)
                 return r;
 
