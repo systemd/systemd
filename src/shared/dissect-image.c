@@ -2135,7 +2135,7 @@ int dissected_image_mount(
          *  -EIDRM        → File system is not among allowlisted "common" file systems
          */
 
-        if (!where && (flags & (DISSECT_IMAGE_VALIDATE_OS|DISSECT_IMAGE_VALIDATE_OS_EXT)) != 0)
+        if (!where && FLAGS_SET(flags, DISSECT_IMAGE_VALIDATE_OS|DISSECT_IMAGE_VALIDATE_OS_EXT))
                 return -EOPNOTSUPP; /* for now, not supported */
 
         if (!(m->partitions[PARTITION_ROOT].found ||
@@ -2151,7 +2151,7 @@ int dissected_image_mount(
                 userns_fd = my_userns_fd;
         }
 
-        if ((flags & DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY) == 0) {
+        if (!FLAGS_SET(flags, DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY)) {
 
                 /* First mount the root fs. If there's none we use a tmpfs. */
                 if (m->partitions[PARTITION_ROOT].found) {
@@ -2171,8 +2171,8 @@ int dissected_image_mount(
                         return r;
         }
 
-        if ((flags & DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY) == 0 &&
-            (flags & (DISSECT_IMAGE_VALIDATE_OS|DISSECT_IMAGE_VALIDATE_OS_EXT)) != 0) {
+        if (!FLAGS_SET(flags, DISSECT_IMAGE_MOUNT_NON_ROOT_ONLY) &&
+            FLAGS_SET(flags, DISSECT_IMAGE_VALIDATE_OS|DISSECT_IMAGE_VALIDATE_OS_EXT)) {
                 /* If either one of the validation flags are set, ensure that the image qualifies as
                  * one or the other (or both). */
                 bool ok = false;
@@ -2205,7 +2205,7 @@ int dissected_image_mount(
                         return -ENOMEDIUM;
         }
 
-        if (flags & DISSECT_IMAGE_MOUNT_ROOT_ONLY)
+        if (FLAGS_SET(flags, DISSECT_IMAGE_MOUNT_ROOT_ONLY))
                 return 0;
 
         r = mount_partition(PARTITION_HOME, m->partitions + PARTITION_HOME, where, "/home", uid_shift, uid_range, userns_fd, flags);
@@ -2224,13 +2224,17 @@ int dissected_image_mount(
         if (r < 0)
                 return r;
 
-        int slash_boot_is_available = 0;
-        if (where) {
-                r = slash_boot_is_available = mount_point_is_available(where, "/boot", /* missing_ok = */ true);
-                if (r < 0)
-                        return r;
-        }
-        if (!where || slash_boot_is_available) {
+        bool slash_boot_is_available = true;
+        if (m->partitions[PARTITION_XBOOTLDR].found) {
+
+                if (where) {
+                        r = mount_point_is_available(where, "/boot", /* missing_ok = */ true);
+                        if (r < 0)
+                                return r;
+                        if (r == 0)
+                                return -ENOENT; /* /boot is not empty */
+                }
+
                 r = mount_partition(PARTITION_XBOOTLDR, m->partitions + PARTITION_XBOOTLDR, where, "/boot", uid_shift, uid_range, userns_fd, flags);
                 if (r < 0)
                         return r;
@@ -2241,24 +2245,37 @@ int dissected_image_mount(
                 const char *esp_path = NULL;
 
                 if (where) {
+                        bool missing_ok = false;
+
                         /* Mount the ESP to /boot/ if it exists and is empty and we didn't already mount the
-                         * XBOOTLDR partition into it. Otherwise, use /efi instead, but only if it exists
-                         * and is empty. */
+                         * XBOOTLDR partition into it. Otherwise, try with /efi and /boot/efi (in that
+                         * order). If that fails it's likely none of the previous paths exists. Try again but
+                         * don't make the existence of the directory mandatory this time, the directory (/efi
+                         * by default) will be created when mounting ESP. If that fails again then the
+                         * directories exist but are not empty. */
+again:
+                        FOREACH_STRING(dir, "/boot", "/efi", "/boot/efi") {
 
-                        if (slash_boot_is_available) {
-                                r = mount_point_is_available(where, "/boot", /* missing_ok = */ false);
+                                /* If we already mounted XBOOTLDR in /boot, don't consider /boot/efi. Having
+                                 * ESP nested below XBOOTLDR is not something we want to support. */
+                                if (!slash_boot_is_available &&
+                                    STR_IN_SET(dir, "/boot", "/boot/efi"))
+                                        continue;
+
+                                r = mount_point_is_available(where, dir, missing_ok);
                                 if (r < 0)
                                         return r;
-                                if (r > 0)
-                                        esp_path = "/boot";
+                                if (r > 0) {
+                                        esp_path = dir;
+                                        break;
+                                }
                         }
-
                         if (!esp_path) {
-                                r = mount_point_is_available(where, "/efi", /* missing_ok = */ true);
-                                if (r < 0)
-                                        return r;
-                                if (r > 0)
-                                        esp_path = "/efi";
+                                if (!missing_ok) {
+                                        missing_ok = true;
+                                        goto again;
+                                }
+                                return -ENOENT; /* none of the possible directories is empty. */
                         }
                 }
 
@@ -2284,6 +2301,8 @@ int dissected_image_mount_and_warn(
         assert(m);
 
         r = dissected_image_mount(m, where, uid_shift, uid_range, userns_fd, flags);
+        if (r == -ENOENT)
+                return log_error_errno(r, "A mount point directory in the image is missing or is not empty.");
         if (r == -ENXIO)
                 return log_error_errno(r, "Not root file system found in image.");
         if (r == -EMEDIUMTYPE)
