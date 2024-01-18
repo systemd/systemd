@@ -1930,6 +1930,10 @@ static int simple_varlink_call(const char *option, const char *method) {
                 "/run/systemd/journal/io.systemd.journal";
 
         r = varlink_connect_address(&link, fn);
+        if (r == -ECONNREFUSED && arg_namespace && streq(method, "io.systemd.Journal.Synchronize"))
+                /* If the namespaced sd-journald instance was shut down due to inactivity, it should already
+                 * be synchronized */
+                return 0;
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to %s: %m", fn);
 
