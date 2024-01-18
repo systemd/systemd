@@ -484,23 +484,19 @@ static int routing_policy_rule_set_netlink_message(const RoutingPolicyRule *rule
 
         if (rule->l3mdev > 0) {
                 r = sd_rtnl_message_routing_policy_rule_set_table(m, RT_TABLE_UNSPEC);
-                if (r < 0)
-                        return r;
         } else {
                 if (rule->table < 256) {
                         r = sd_rtnl_message_routing_policy_rule_set_table(m, rule->table);
-                        if (r < 0)
-                                return r;
                 } else {
                         r = sd_rtnl_message_routing_policy_rule_set_table(m, RT_TABLE_UNSPEC);
                         if (r < 0)
                                 return r;
 
                         r = sd_netlink_message_append_u32(m, FRA_TABLE, rule->table);
-                        if (r < 0)
-                                return r;
                 }
         }
+        if (r < 0)
+                return r;
 
         if (rule->fwmark > 0) {
                 r = sd_netlink_message_append_u32(m, FRA_FWMARK, rule->fwmark);
