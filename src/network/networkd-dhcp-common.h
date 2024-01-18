@@ -3,6 +3,8 @@
 
 #include <netinet/in.h>
 
+#include "dns-resolver-internal.h"
+
 #include "conf-parser.h"
 #include "dhcp-duid-internal.h"
 #include "in-addr-util.h"
