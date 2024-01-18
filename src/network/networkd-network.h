@@ -182,6 +182,7 @@ struct Network {
         bool dhcp6_send_hostname;
         bool dhcp6_send_hostname_set;
         int dhcp6_use_dns;
+        int  dhcp6_use_dnr;
         bool dhcp6_use_hostname;
         int dhcp6_use_ntp;
         bool dhcp6_use_captive_portal;

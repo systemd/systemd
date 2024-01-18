@@ -102,6 +102,9 @@ bool link_get_use_dnr(Link *link, NetworkConfigSource proto) {
         case NETWORK_CONFIG_SOURCE_DHCP4:
                 n = link->network->dhcp_use_dnr;
                 break;
+        case NETWORK_CONFIG_SOURCE_DHCP6:
+                n = link->network->dhcp6_use_dnr;
+                break;
         default:
                 assert_not_reached();
         }
