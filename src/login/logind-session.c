@@ -187,6 +187,7 @@ Session* session_free(Session *s) {
         session_reset_leader(s, /* keep_fdstore = */ true);
 
         sd_bus_message_unref(s->create_message);
+        sd_bus_message_unref(s->upgrade_message);
 
         free(s->tty);
         free(s->display);
@@ -1210,6 +1211,20 @@ void session_set_type(Session *s, SessionType t) {
         (void) session_send_changed(s, "Type", NULL);
 }
 
+void session_set_class(Session *s, SessionClass c) {
+        assert(s);
+
+        if (s->class == c)
+                return;
+
+        s->class = c;
+        (void) session_save(s);
+        (void) session_send_changed(s, "Class", NULL);
+
+        /* This class change might mean we need the per-user session manager now. Try to start it */
+        user_start_service_manager(s->user);
+}
+
 int session_set_display(Session *s, const char *display) {
         int r;
 
@@ -1648,6 +1663,7 @@ DEFINE_STRING_TABLE_LOOKUP(session_type, SessionType);
 static const char* const session_class_table[_SESSION_CLASS_MAX] = {
         [SESSION_USER]              = "user",
         [SESSION_USER_EARLY]        = "user-early",
+        [SESSION_USER_INCOMPLETE]   = "user-incomplete",
         [SESSION_GREETER]           = "greeter",
         [SESSION_LOCK_SCREEN]       = "lock-screen",
         [SESSION_BACKGROUND]        = "background",
