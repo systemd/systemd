@@ -1447,6 +1447,7 @@ int portable_attach(
         _cleanup_hashmap_free_ Hashmap *unit_files = NULL;
         _cleanup_(lookup_paths_free) LookupPaths paths = {};
         _cleanup_strv_free_ char **valid_prefixes = NULL;
+        _cleanup_free_ char *extensions_joined = NULL;
         _cleanup_(image_unrefp) Image *image = NULL;
         PortableMetadata *item;
         int r;
@@ -1468,15 +1469,15 @@ int portable_attach(
         if (r < 0)
                 return r;
 
+        extensions_joined = strv_join(extension_image_paths, ", ");
+        if (!extensions_joined)
+                return -ENOMEM;
+
         if (valid_prefixes && !prefix_matches_compatible(matches, valid_prefixes)) {
-                _cleanup_free_ char *matches_joined = NULL, *extensions_joined = NULL, *valid_prefixes_joined = NULL;
+                _cleanup_free_ char *matches_joined = NULL, *valid_prefixes_joined = NULL;
 
                 matches_joined = strv_join(matches, "', '");
                 if (!matches_joined)
-                        return -ENOMEM;
-
-                extensions_joined = strv_join(extension_image_paths, ", ");
-                if (!extensions_joined)
                         return -ENOMEM;
 
                 valid_prefixes_joined = strv_join(valid_prefixes, ", ");
@@ -1494,11 +1495,7 @@ int portable_attach(
                                 valid_prefixes_joined);
         }
 
-        if (hashmap_isempty(unit_files)) {
-                _cleanup_free_ char *extensions_joined = strv_join(extension_image_paths, ", ");
-                if (!extensions_joined)
-                        return -ENOMEM;
-
+        if (hashmap_isempty(unit_files))
                 return sd_bus_error_setf(
                                 error,
                                 SD_BUS_ERROR_INVALID_ARGS,
@@ -1506,7 +1503,6 @@ int portable_attach(
                                 image->path,
                                 isempty(extensions_joined) ? "" : "' or any of its extensions '",
                                 strempty(extensions_joined));
-        }
 
         r = lookup_paths_init(&paths, RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, NULL);
         if (r < 0)
@@ -1537,6 +1533,11 @@ int portable_attach(
         /* We don't care too much for the image symlink, it's just a convenience thing, it's not necessary for proper
          * operation otherwise. */
         (void) install_image_and_extensions_symlinks(image, extension_images, flags, changes, n_changes);
+
+        log_info("Successfully attached '%s%s%s'",
+                 image->path,
+                 isempty(extensions_joined) ? "" : "' and its extension(s) '",
+                 strempty(extensions_joined));
 
         return 0;
 }
@@ -1708,6 +1709,10 @@ int portable_detach(
 
         assert(name_or_path);
 
+        extensions = strv_join(extension_image_paths, ", ");
+        if (!extensions)
+                return -ENOMEM;
+
         r = lookup_paths_init(&paths, RUNTIME_SCOPE_SYSTEM, /* flags= */ 0, NULL);
         if (r < 0)
                 return r;
@@ -1861,13 +1866,14 @@ int portable_detach(
         if (rmdir(where) >= 0)
                 portable_changes_add(changes, n_changes, PORTABLE_UNLINK, where, NULL);
 
+        log_info("Successfully detached '%s%s%s'",
+                 name_or_path,
+                 isempty(extensions) ? "" : "' and its extension(s) '",
+                 strempty(extensions));
+
         return ret;
 
 not_found:
-        extensions = strv_join(extension_image_paths, ", ");
-        if (!extensions)
-                return -ENOMEM;
-
         r = sd_bus_error_setf(error,
                               BUS_ERROR_NO_SUCH_UNIT,
                               "No unit files associated with '%s%s%s' found attached to the system. Image not attached?",
