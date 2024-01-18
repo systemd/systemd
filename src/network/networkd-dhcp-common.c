@@ -95,6 +95,8 @@ void network_adjust_dhcp(Network *network) {
         }
 
         network_adjust_dhcp4(network);
+        if (network->dhcp6_use_dnr < 0)
+                network->dhcp6_use_dnr = network->dhcp6_use_dns;
 }
 
 static bool duid_needs_product_uuid(const DUID *duid) {
