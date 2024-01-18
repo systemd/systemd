@@ -12,16 +12,20 @@
 #include "spawn-polkit-agent.h"
 #include "static-destruct.h"
 
-#define _DEFINE_MAIN_FUNCTION(intro, impl, ret)                         \
+#define NOTIFY_EXIT     1
+
+#define _DEFINE_MAIN_FUNCTION(intro, impl, ret, notify)                 \
         int main(int argc, char *argv[]) {                              \
                 int r;                                                  \
                 assert_se(argc > 0 && !isempty(argv[0]));               \
                 save_argc_argv(argc, argv);                             \
                 intro;                                                  \
                 r = impl;                                               \
-                if (r < 0)                                              \
-                        (void) sd_notifyf(0, "ERRNO=%i", -r);           \
-                (void) sd_notifyf(0, "EXIT_STATUS=%i", ret);            \
+                if (notify) {                                           \
+                        if (r < 0)                                      \
+                                (void) sd_notifyf(0, "ERRNO=%i", -r);   \
+                        (void) sd_notifyf(0, "EXIT_STATUS=%i", ret);    \
+                }                                                       \
                 ask_password_agent_close();                             \
                 polkit_agent_close();                                   \
                 pager_close();                                          \
@@ -32,11 +36,11 @@
 
 /* Negative return values from impl are mapped to EXIT_FAILURE, and
  * everything else means success! */
-#define DEFINE_MAIN_FUNCTION(impl)                                      \
-        _DEFINE_MAIN_FUNCTION(,impl(argc, argv), r < 0 ? EXIT_FAILURE : EXIT_SUCCESS)
+#define DEFINE_MAIN_FUNCTION(impl, notify)                              \
+        _DEFINE_MAIN_FUNCTION(,impl(argc, argv), r < 0 ? EXIT_FAILURE : EXIT_SUCCESS, notify)
 
 /* Zero is mapped to EXIT_SUCCESS, negative values are mapped to EXIT_FAILURE,
  * and positive values are propagated.
  * Note: "true" means failure! */
-#define DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(impl)                \
-        _DEFINE_MAIN_FUNCTION(,impl(argc, argv), r < 0 ? EXIT_FAILURE : r)
+#define DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(impl, notify)        \
+        _DEFINE_MAIN_FUNCTION(,impl(argc, argv), r < 0 ? EXIT_FAILURE : r, notify)
