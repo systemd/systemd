@@ -1922,6 +1922,8 @@ static int simple_varlink_call(const char *option, const char *method) {
 
         if (arg_machine)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "%s is not supported in conjunction with --machine=.", option);
+        if (arg_namespace && !STR_IN_SET(method, "io.systemd.Journal.Rotate", "io.systemd.Journal.Synchronize"))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "%s is not supported in conjunction with --namespace=.", option);
 
         fn = arg_namespace ?
                 strjoina("/run/systemd/journal.", arg_namespace, "/io.systemd.journal") :
