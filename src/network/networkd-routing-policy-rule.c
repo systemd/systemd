@@ -164,7 +164,7 @@ static void routing_policy_rule_hash_func(const RoutingPolicyRule *rule, struct 
                 in_addr_hash_func(&rule->from, rule->family, state);
                 siphash24_compress_typesafe(rule->from_prefixlen, state);
 
-                siphash24_compress_typesafe(rule->l3mdev, state);
+                siphash24_compress_boolean(rule->l3mdev, state);
 
                 in_addr_hash_func(&rule->to, rule->family, state);
                 siphash24_compress_typesafe(rule->to_prefixlen, state);
@@ -482,7 +482,7 @@ static int routing_policy_rule_set_netlink_message(const RoutingPolicyRule *rule
                         return r;
         }
 
-        if (rule->l3mdev > 0) {
+        if (rule->l3mdev) {
                 r = sd_rtnl_message_routing_policy_rule_set_table(m, RT_TABLE_UNSPEC);
         } else {
                 if (rule->table < 256) {
@@ -552,8 +552,8 @@ static int routing_policy_rule_set_netlink_message(const RoutingPolicyRule *rule
                         return r;
         }
 
-        if (rule->l3mdev > 0) {
-                r = sd_netlink_message_append_u8(m, FRA_L3MDEV, rule->l3mdev);
+        if (rule->l3mdev) {
+                r = sd_netlink_message_append_u8(m, FRA_L3MDEV, 1);
                 if (r < 0)
                         return r;
         }
@@ -867,11 +867,11 @@ int link_request_static_routing_policy_rules(Link *link) {
 
 static const RoutingPolicyRule kernel_rules[] = {
         { .family = AF_INET,  .priority_set = true, .priority = 0,     .table = RT_TABLE_LOCAL,   .type = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, },
-        { .family = AF_INET,  .priority_set = true, .priority = 1000,  .table = RT_TABLE_UNSPEC,  .type = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, .l3mdev = 1 },
+        { .family = AF_INET,  .priority_set = true, .priority = 1000,  .table = RT_TABLE_UNSPEC,  .type = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, .l3mdev = true },
         { .family = AF_INET,  .priority_set = true, .priority = 32766, .table = RT_TABLE_MAIN,    .type = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, },
         { .family = AF_INET,  .priority_set = true, .priority = 32767, .table = RT_TABLE_DEFAULT, .type = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, },
         { .family = AF_INET6, .priority_set = true, .priority = 0,     .table = RT_TABLE_LOCAL,   .type = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, },
-        { .family = AF_INET6, .priority_set = true, .priority = 1000,  .table = RT_TABLE_UNSPEC,  .type = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, .l3mdev = 1 },
+        { .family = AF_INET6, .priority_set = true, .priority = 1000,  .table = RT_TABLE_UNSPEC,  .type = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, .l3mdev = true },
         { .family = AF_INET6, .priority_set = true, .priority = 32766, .table = RT_TABLE_MAIN,    .type = FR_ACT_TO_TBL, .uid_range.start = UID_INVALID, .uid_range.end = UID_INVALID, .suppress_prefixlen = -1, .suppress_ifgroup = -1, },
 };
 
@@ -1027,11 +1027,13 @@ int manager_rtnl_process_rule(sd_netlink *rtnl, sd_netlink_message *message, Man
                 return 0;
         }
 
-        r = sd_netlink_message_read_u8(message, FRA_L3MDEV, &tmp->l3mdev);
+        uint8_t l3mdev;
+        r = sd_netlink_message_read_u8(message, FRA_L3MDEV, &l3mdev);
         if (r < 0 && r != -ENODATA) {
                 log_warning_errno(r, "rtnl: could not get FRA_L3MDEV attribute, ignoring: %m");
                 return 0;
         }
+        tmp->l3mdev = l3mdev & 1;
 
         r = sd_netlink_message_read(message, FRA_SPORT_RANGE, sizeof(tmp->sport), &tmp->sport);
         if (r < 0 && r != -ENODATA) {
