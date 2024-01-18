@@ -646,6 +646,12 @@ static int dhcp6_configure(Link *link) {
                         return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to request domains: %m");
         }
 
+        if (link_get_use_dnr(link, NETWORK_CONFIG_SOURCE_DHCP6)) {
+                r = sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_V6_DNR);
+                if (r < 0)
+                        return log_link_debug_errno(link, r, "DHCPv6 CLIENT: Failed to request DNR: %m");
+        }
+
         if (link->network->dhcp6_use_captive_portal > 0) {
                 r = sd_dhcp6_client_set_request_option(client, SD_DHCP6_OPTION_CAPTIVE_PORTAL);
                 if (r < 0)
