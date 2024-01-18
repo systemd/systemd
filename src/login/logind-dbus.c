@@ -1418,28 +1418,25 @@ static int method_terminate_seat(sd_bus_message *message, void *userdata, sd_bus
 }
 
 static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-        _cleanup_free_ char *cc = NULL;
         Manager *m = ASSERT_PTR(userdata);
-        int r, b, interactive;
-        struct passwd *pw;
-        const char *path;
+        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
         uint32_t uid, auth_uid;
+        int r, enable, interactive;
 
         assert(message);
 
-        r = sd_bus_message_read(message, "ubb", &uid, &b, &interactive);
+        r = sd_bus_message_read(message, "ubb", &uid, &enable, &interactive);
         if (r < 0)
                 return r;
 
-        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID |
-                                               SD_BUS_CREDS_OWNER_UID|SD_BUS_CREDS_AUGMENT, &creds);
+        r = sd_bus_query_sender_creds(message,
+                                      SD_BUS_CREDS_EUID|SD_BUS_CREDS_OWNER_UID|SD_BUS_CREDS_AUGMENT,
+                                      &creds);
         if (r < 0)
                 return r;
 
         if (!uid_is_valid(uid)) {
-                /* Note that we get the owner UID of the session or user unit,
-                 * not the actual client UID here! */
+                /* Note that we get the owner UID of the session or user unit, not the actual client UID here! */
                 r = sd_bus_creds_get_owner_uid(creds, &uid);
                 if (r < 0)
                         return r;
@@ -1451,7 +1448,7 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
                 return r;
 
         errno = 0;
-        pw = getpwuid(uid);
+        struct passwd *pw = getpwuid(uid);
         if (!pw)
                 return errno_or_else(ENOENT);
 
@@ -1474,24 +1471,27 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
-        cc = cescape(pw->pw_name);
-        if (!cc)
+        _cleanup_free_ char *escaped = cescape(pw->pw_name);
+        if (!escaped)
                 return -ENOMEM;
 
-        path = strjoina("/var/lib/systemd/linger/", cc);
-        if (b) {
-                User *u;
+        const char *path = strjoina("/var/lib/systemd/linger/", escaped);
+        User *u;
 
+        if (enable) {
                 r = touch(path);
                 if (r < 0)
                         return r;
 
-                if (manager_add_user_by_uid(m, uid, &u) >= 0)
-                        user_start(u);
+                if (manager_add_user_by_uid(m, uid, &u) >= 0) {
+                        r = user_start(u);
+                        if (r < 0) {
+                                user_add_to_gc_queue(u);
+                                return r;
+                        }
+                }
 
         } else {
-                User *u;
-
                 r = unlink(path);
                 if (r < 0 && errno != ENOENT)
                         return -errno;
