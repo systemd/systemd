@@ -274,6 +274,7 @@ DHCPv4.RapidCommit,                          config_parse_tristate,             
 DHCPv6.UseAddress,                           config_parse_bool,                                        0,                             offsetof(Network, dhcp6_use_address)
 DHCPv6.UseDelegatedPrefix,                   config_parse_bool,                                        0,                             offsetof(Network, dhcp6_use_pd_prefix)
 DHCPv6.UseDNS,                               config_parse_tristate,                                    0,                             offsetof(Network, dhcp6_use_dns)
+DHCPv6.UseDNR,                               config_parse_tristate,                                    0,                             offsetof(Network, dhcp6_use_dnr)
 DHCPv6.UseHostname,                          config_parse_bool,                                        0,                             offsetof(Network, dhcp6_use_hostname)
 DHCPv6.UseDomains,                           config_parse_use_domains,                                 0,                             offsetof(Network, dhcp6_use_domains)
 DHCPv6.UseNTP,                               config_parse_tristate,                                    0,                             offsetof(Network, dhcp6_use_ntp)
