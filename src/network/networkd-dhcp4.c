@@ -37,6 +37,9 @@ void network_adjust_dhcp4(Network *network) {
         if (network->dhcp_use_gateway < 0)
                 network->dhcp_use_gateway = network->dhcp_use_routes;
 
+        if (network->dhcp_use_dnr < 0)
+                network->dhcp_use_dnr = network->dhcp_use_dns;
+
         /* RFC7844 section 3.: MAY contain the Client Identifier option
          * Section 3.5: clients MUST use client identifiers based solely on the link-layer address
          * NOTE: Using MAC, as it does not reveal extra information, and some servers might not answer
@@ -1551,6 +1554,13 @@ static int dhcp4_configure(Link *link) {
                         if (r < 0)
                                 return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set request flag for SIP server: %m");
                 }
+
+                if (link->network->dhcp_use_dnr) {
+                        r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_V4_DNR);
+                        if (r < 0)
+                                return log_link_debug_errno(link, r, "DHCPv4 CLIENT: Failed to set request flag for DNR: %m");
+                }
+
                 if (link->network->dhcp_use_captive_portal) {
                         r = sd_dhcp_client_set_request_option(link->dhcp_client, SD_DHCP_OPTION_DHCP_CAPTIVE_PORTAL);
                         if (r < 0)
