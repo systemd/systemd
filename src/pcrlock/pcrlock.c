@@ -2768,8 +2768,8 @@ static int verb_lock_secureboot_policy(int argc, char *argv[], void *userdata) {
                 int synthesize_empty; /* 0 → fail, > 0 → synthesize empty db, < 0 → skip */
         } variables[] = {
                 { EFI_VENDOR_GLOBAL,   "SecureBoot", 0 },
-                { EFI_VENDOR_GLOBAL,   "PK",         0 },
-                { EFI_VENDOR_GLOBAL,   "KEK",        0 },
+                { EFI_VENDOR_GLOBAL,   "PK",         1 },
+                { EFI_VENDOR_GLOBAL,   "KEK",        1 },
                 { EFI_VENDOR_DATABASE, "db",         1 },
                 { EFI_VENDOR_DATABASE, "dbx",        1 },
                 { EFI_VENDOR_DATABASE, "dbt",       -1 },
