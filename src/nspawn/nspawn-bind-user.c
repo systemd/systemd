@@ -286,7 +286,7 @@ int bind_user_prepare(
                 if (!sd)
                         return log_oom();
 
-                cm = reallocarray(*custom_mounts, sizeof(CustomMount), *n_custom_mounts + 1);
+                cm = reallocarray(*custom_mounts, *n_custom_mounts + 1, sizeof(CustomMount));
                 if (!cm)
                         return log_oom();
 

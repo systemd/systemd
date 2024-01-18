@@ -383,10 +383,10 @@ assert_cc(sizeof(dummy_t) == 0);
 /* Iterate through each variadic arg. All must be the same type as 'entry' or must be implicitly
  * convertible. The iteration variable 'entry' must already be defined. */
 #define VA_ARGS_FOREACH(entry, ...)                                     \
-        _VA_ARGS_FOREACH(entry, UNIQ_T(_entries_, UNIQ), UNIQ_T(_current_, UNIQ), ##__VA_ARGS__)
-#define _VA_ARGS_FOREACH(entry, _entries_, _current_, ...)         \
-        for (typeof(entry) _entries_[] = { __VA_ARGS__ }, *_current_ = _entries_; \
-             ((long)(_current_ - _entries_) < (long)ELEMENTSOF(_entries_)) && ({ entry = *_current_; true; }); \
+        _VA_ARGS_FOREACH(entry, UNIQ_T(_entries_, UNIQ), UNIQ_T(_current_, UNIQ), UNIQ_T(_va_sentinel_, UNIQ), ##__VA_ARGS__)
+#define _VA_ARGS_FOREACH(entry, _entries_, _current_, _va_sentinel_, ...)         \
+        for (typeof(entry) _va_sentinel_[1] = {}, _entries_[] = { __VA_ARGS__ __VA_OPT__(,) _va_sentinel_[0] }, *_current_ = _entries_; \
+             ((long)(_current_ - _entries_) < (long)(ELEMENTSOF(_entries_) - 1)) && ({ entry = *_current_; true; }); \
              _current_++)
 
 #include "log.h"
