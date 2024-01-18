@@ -180,4 +180,4 @@ static int run(int argc, char *argv[]) {
         return log_error_errno(r, "Failed to execute process: %m");
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION(run, 0);

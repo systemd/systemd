@@ -1742,4 +1742,4 @@ static int run(int argc, char *argv[]) {
         return loginctl_main(argc, argv, bus);
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION(run, 0);

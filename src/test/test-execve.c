@@ -37,4 +37,4 @@ static int run(int argc, char **argv) {
         return log_error_errno(r, "fexecve_or_execve(%s) failed: %m", args[0]);
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION(run, 0);

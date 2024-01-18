@@ -300,4 +300,4 @@ static int run(int argc, char *argv[]) {
         return export_main(argc, argv);
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION(run, 0);

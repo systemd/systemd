@@ -56,4 +56,4 @@ static int run(int argc, char *argv[]) {
         return 0;
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION(run, NOTIFY_EXIT);

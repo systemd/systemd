@@ -2379,4 +2379,4 @@ static int run(int argc, char *argv[]) {
         return write_files(&c);
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION(run, 0);

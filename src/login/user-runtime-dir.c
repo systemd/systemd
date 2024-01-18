@@ -213,4 +213,4 @@ static int run(int argc, char *argv[]) {
         assert_not_reached();
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION(run, 0);

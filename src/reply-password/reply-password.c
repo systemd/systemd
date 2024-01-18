@@ -77,4 +77,4 @@ static int run(int argc, char *argv[]) {
         return send_on_socket(fd, argv[2], packet, length);
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION(run, 0);

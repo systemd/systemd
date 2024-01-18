@@ -1417,4 +1417,4 @@ static int run(int argc, char *argv[]) {
         return r;
 }
 
-DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run, 0);

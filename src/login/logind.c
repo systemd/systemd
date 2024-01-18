@@ -1260,4 +1260,4 @@ static int run(int argc, char *argv[]) {
         return manager_run(m);
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION(run, NOTIFY_EXIT);

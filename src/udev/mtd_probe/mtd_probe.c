@@ -87,4 +87,4 @@ static int run(int argc, char** argv) {
         return probe_smart_media(mtd_fd, &mtd_info);
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION(run, 0);

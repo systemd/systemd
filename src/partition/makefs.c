@@ -81,4 +81,4 @@ static int run(int argc, char *argv[]) {
                                /* extra_mkfs_options = */ NULL);
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION(run, 0);

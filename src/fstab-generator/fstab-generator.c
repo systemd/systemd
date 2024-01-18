@@ -1678,4 +1678,4 @@ static int run(int argc, char **argv) {
         return run_generator();
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION(run, 0);

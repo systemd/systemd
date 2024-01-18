@@ -1721,4 +1721,4 @@ static int run(int argc, char *argv[]) {
                                "Received unexpected number of file descriptors.");
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION(run, 0);
