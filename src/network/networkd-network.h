@@ -180,6 +180,7 @@ struct Network {
         bool dhcp6_send_hostname_set;
         bool dhcp6_use_dns;
         bool dhcp6_use_dns_set;
+        int  dhcp6_use_dnr;
         bool dhcp6_use_hostname;
         bool dhcp6_use_ntp;
         bool dhcp6_use_ntp_set;
@@ -416,6 +417,10 @@ int network_verify(Network *network);
 static inline int network_dhcp_use_dnr(Network *network) {
         assert(network);
         return network->dhcp_use_dnr < 0 ? network->dhcp_use_dns : network->dhcp_use_dnr;
+}
+static inline int network_dhcp6_use_dnr(Network *network) {
+        assert(network);
+        return network->dhcp6_use_dnr < 0 ? network->dhcp6_use_dns : network->dhcp6_use_dnr;
 }
 
 int manager_build_dhcp_pd_subnet_ids(Manager *manager);
