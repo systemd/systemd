@@ -222,13 +222,49 @@ test -f "${real_ext_dir}/now-is-mutable" || die "now-is-mutable is not stored in
 
 SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
 
-ls -la "${fake_root}/${hierarchy}"
-
 test -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable disappeared from writable storage after unmerge"
 test -f "${real_ext_dir}/now-is-mutable" || die "now-is-mutable disappeared from writable storage after unmerge"
 test -f "${fake_root}${hierarchy}/preexisting-file-in-extension-data" || die "preexisting file from extension data disappeared from hierarchy after unmerge"
 test ! -f "${fake_root}${hierarchy}/preexisting-file-in-extension-image" || die "preexisting file from extension image did not disappear from hierarchy after unmerge"
 test -f "${fake_root}${hierarchy}/preexisting-file-in-hierarchy" || die "preexisting file from base hierarchy data disappeared from hierarchy after unmerge"
+
+
+#
+# /var/lib/extension-data/… is a dangling symlink, assuming immutable mode
+#
+#
+
+
+fake_root=${fake_roots_dir}/dangling
+
+prep_root "${fake_root}" "${hierarchy}"
+gen_os_release "${fake_root}"
+gen_test_ext_image "${fake_root}" "${hierarchy}"
+
+ext_data_path=$(hierarchy_ext_data_path "${fake_root}" "${hierarchy}")
+ln -sfTr "/should/not/exist/" "${ext_data_path}"
+
+prep_ro_hierarchy "${fake_root}" "${hierarchy}"
+
+touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
+
+# run systemd-sysext
+SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" merge
+
+touch "${fake_root}${hierarchy}/should-still-fail" && die "${fake_root}${hierarchy} is not read-only"
+
+test -f "${fake_root}${hierarchy}/preexisting-file-in-extension-image" || die "preexisting file from extension image is missing"
+test -f "${fake_root}${hierarchy}/preexisting-file-in-hierarchy" || die "preexisting file from base hierarchy is missing"
+
+SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" unmerge
+
+test ! -f "${fake_root}${hierarchy}/preexisting-file-in-extension-image" || die "preexisting file from extension image did not disappear from hierarchy after unmerge"
+test -f "${fake_root}${hierarchy}/preexisting-file-in-hierarchy" || die "preexisting file from base hierarchy data disappeared from hierarchy after unmerge"
+
+
+#
+# done
+#
 
 
 touch /testok

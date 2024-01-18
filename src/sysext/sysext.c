@@ -712,7 +712,6 @@ static int merge_hierarchy(
         if (f == NULL)
                 return log_oom();
 
-        /* TODO: fails when arg_root is not / and f is a symlink to absolute path within arg_root */
         r = chase(f, arg_root, CHASE_PREFIX_ROOT, &resolved_upper_dir, NULL);
         if (r == -ENOENT)
                 log_debug_errno(r, "Hierarchy '%s' on host has no directory %s for storing writes, merging as read-only.", hierarchy, f);
