@@ -1922,12 +1922,18 @@ static int simple_varlink_call(const char *option, const char *method) {
 
         if (arg_machine)
                 return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "%s is not supported in conjunction with --machine=.", option);
+        if (arg_namespace && !STR_IN_SET(method, "io.systemd.Journal.Rotate", "io.systemd.Journal.Synchronize"))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "%s is not supported in conjunction with --namespace=.", option);
 
         fn = arg_namespace ?
                 strjoina("/run/systemd/journal.", arg_namespace, "/io.systemd.journal") :
                 "/run/systemd/journal/io.systemd.journal";
 
         r = varlink_connect_address(&link, fn);
+        if (r == -ECONNREFUSED && arg_namespace && streq(method, "io.systemd.Journal.Synchronize"))
+                /* If the namespaced sd-journald instance was shut down due to inactivity, it should already
+                 * be synchronized */
+                return 0;
         if (r < 0)
                 return log_error_errno(r, "Failed to connect to %s: %m", fn);
 
