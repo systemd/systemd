@@ -151,3 +151,20 @@ int event_add_time_change(sd_event *e, sd_event_source **ret, sd_event_io_handle
 
         return 0;
 }
+
+int event_add_child_pidref(
+                sd_event *e,
+                sd_event_source **s,
+                const PidRef *pid,
+                int options,
+                sd_event_child_handler_t callback,
+                void *userdata) {
+
+        if (!pidref_is_set(pid))
+                return -ESRCH;
+
+        if (pid->fd >= 0)
+                return sd_event_add_child_pidfd(e, s, pid->fd, options, callback, userdata);
+
+        return sd_event_add_child(e, s, pid->pid, options, callback, userdata);
+}
