@@ -5,6 +5,7 @@
 #include "alloc-util.h"
 #include "extract-word.h"
 #include "netlink-util.h"
+#include "networkd-manager.h"
 #include "networkd-network.h"
 #include "networkd-nexthop.h"
 #include "networkd-route.h"
@@ -12,6 +13,48 @@
 #include "networkd-route-util.h"
 #include "parse-util.h"
 #include "string-util.h"
+
+void route_detach_from_nexthop(Route *route) {
+        NextHop *nh;
+
+        assert(route);
+        assert(route->manager);
+
+        if (route->nexthop_id == 0)
+                return;
+
+        if (nexthop_get_by_id(route->manager, route->nexthop_id, &nh) < 0)
+                return;
+
+        route_unref(set_remove(nh->routes, route));
+}
+
+void route_attach_to_nexthop(Route *route) {
+        NextHop *nh;
+        int r;
+
+        assert(route);
+        assert(route->manager);
+
+        if (route->nexthop_id == 0)
+                return;
+
+        r = nexthop_get_by_id(route->manager, route->nexthop_id, &nh);
+        if (r < 0) {
+                if (route->manager->manage_foreign_nexthops)
+                        log_debug_errno(r, "Route has unknown nexthop ID (%"PRIu32"), ignoring.",
+                                        route->nexthop_id);
+                return;
+        }
+
+        r = set_ensure_put(&nh->routes, &route_hash_ops_unref, route);
+        if (r < 0)
+                return (void) log_debug_errno(r, "Failed to save route to nexthop, ignoring: %m");
+        if (r == 0)
+                return (void) log_debug("Duplicated route assigned to nexthop, ignoring.");
+
+        route_ref(route);
+}
 
 static void route_nexthop_done(RouteNextHop *nh) {
         assert(nh);
@@ -899,7 +942,7 @@ int config_parse_gateway(
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_(route_free_or_set_invalidp) Route *route = NULL;
+        _cleanup_(route_unref_or_set_invalidp) Route *route = NULL;
         int r;
 
         assert(filename);
@@ -986,7 +1029,7 @@ int config_parse_route_gateway_onlink(
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_(route_free_or_set_invalidp) Route *route = NULL;
+        _cleanup_(route_unref_or_set_invalidp) Route *route = NULL;
         int r;
 
         assert(filename);
@@ -1026,7 +1069,7 @@ int config_parse_route_nexthop(
                 void *userdata) {
 
         Network *network = userdata;
-        _cleanup_(route_free_or_set_invalidp) Route *route = NULL;
+        _cleanup_(route_unref_or_set_invalidp) Route *route = NULL;
         uint32_t id;
         int r;
 
@@ -1079,7 +1122,7 @@ int config_parse_multipath_route(
                 void *userdata) {
 
         _cleanup_(route_nexthop_freep) RouteNextHop *nh = NULL;
-        _cleanup_(route_free_or_set_invalidp) Route *route = NULL;
+        _cleanup_(route_unref_or_set_invalidp) Route *route = NULL;
         _cleanup_free_ char *word = NULL;
         Network *network = userdata;
         const char *p;
