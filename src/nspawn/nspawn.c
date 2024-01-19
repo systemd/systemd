@@ -237,6 +237,7 @@ static bool arg_suppress_sync = false;
 static char *arg_settings_filename = NULL;
 static Architecture arg_architecture = _ARCHITECTURE_INVALID;
 static ImagePolicy *arg_image_policy = NULL;
+static char *arg_background = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_template, freep);
@@ -272,6 +273,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_sysctl, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_bind_user, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_settings_filename, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_background, freep);
 
 static int handle_arg_console(const char *arg) {
         if (streq(arg, "help")) {
@@ -450,6 +452,7 @@ static int help(void) {
                "     --console=MODE         Select how stdin/stdout/stderr and /dev/console are\n"
                "                            set up for the container.\n"
                "  -P --pipe                 Equivalent to --console=pipe\n\n"
+               "     --background=COLOR     Set ANSI color for background\n"
                "%3$sCredentials:%4$s\n"
                "     --set-credential=ID:VALUE\n"
                "                            Pass a credential with literal value to container.\n"
@@ -745,6 +748,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_BIND_USER,
                 ARG_SUPPRESS_SYNC,
                 ARG_IMAGE_POLICY,
+                ARG_BACKGROUND,
         };
 
         static const struct option options[] = {
@@ -819,6 +823,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "bind-user",              required_argument, NULL, ARG_BIND_USER              },
                 { "suppress-sync",          required_argument, NULL, ARG_SUPPRESS_SYNC          },
                 { "image-policy",           required_argument, NULL, ARG_IMAGE_POLICY           },
+                { "background",             required_argument, NULL, ARG_BACKGROUND             },
                 {}
         };
 
@@ -1607,6 +1612,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_IMAGE_POLICY:
                         r = parse_image_policy_argument(optarg, &arg_image_policy);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_BACKGROUND:
+                        r = free_and_strdup_warn(&arg_background, optarg);
                         if (r < 0)
                                 return r;
                         break;
@@ -5342,9 +5353,14 @@ static int run_container(
                                 return log_error_errno(r, "Failed to create PTY forwarder: %m");
 
                         if (arg_console_width != UINT_MAX || arg_console_height != UINT_MAX)
-                                (void) pty_forward_set_width_height(forward,
-                                                                    arg_console_width,
-                                                                    arg_console_height);
+                                (void) pty_forward_set_width_height(
+                                                forward,
+                                                arg_console_width,
+                                                arg_console_height);
+
+                        if (!isempty(arg_background))
+                                (void) pty_forward_set_background_color(forward, arg_background);
+
                         break;
 
                 default:
