@@ -154,11 +154,11 @@ int must_be_root(void);
 
 pid_t clone_with_nested_stack(int (*fn)(void *), int flags, void *userdata);
 
-/* 💣 Note that FORK_NEW_USERNS + FORK_NEW_MOUNTNS should not be called in threaded programs, because they
- * cause us to use raw_clone() which does not synchronize the glibc malloc() locks, and thus will cause
- * deadlocks if the parent uses threads and the child does memory allocations. Hence: if the parent is
- * threaded these flags may not be used. These flags cannot be used if the parent uses threads or the child
- * uses malloc(). 💣 */
+/* 💣 Note that FORK_NEW_USERNS, FORK_NEW_MOUNTNS, or FORK_NEW_NETNS should not be called in threaded
+ * programs, because they cause us to use raw_clone() which does not synchronize the glibc malloc() locks,
+ * and thus will cause deadlocks if the parent uses threads and the child does memory allocations. Hence: if
+ * the parent is threaded these flags may not be used. These flags cannot be used if the parent uses threads
+ * or the child uses malloc(). 💣 */
 typedef enum ForkFlags {
         FORK_RESET_SIGNALS      = 1 <<  0, /* Reset all signal handlers and signal mask */
         FORK_CLOSE_ALL_FDS      = 1 <<  1, /* Close all open file descriptors in the child, except for 0,1,2 */
@@ -179,6 +179,7 @@ typedef enum ForkFlags {
         FORK_CLOEXEC_OFF        = 1 << 16, /* In the child: turn off O_CLOEXEC on all fds in except_fds[] */
         FORK_KEEP_NOTIFY_SOCKET = 1 << 17, /* Unless this specified, $NOTIFY_SOCKET will be unset. */
         FORK_DETACH             = 1 << 18, /* Double fork if needed to ensure PID1/subreaper is parent */
+        FORK_NEW_NETNS          = 1 << 19, /* Run child in its own network namespace                             💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
 } ForkFlags;
 
 int safe_fork_full(
