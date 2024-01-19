@@ -141,9 +141,9 @@ int manager_get_session_from_creds(
         assert(m);
         assert(ret);
 
-        if (SEAT_IS_SELF(name)) /* the caller's own session */
+        if (SESSION_IS_SELF(name)) /* the caller's own session */
                 return get_sender_session(m, message, false, error, ret);
-        if (SEAT_IS_AUTO(name)) /* The caller's own session if they have one, otherwise their user's display session */
+        if (SESSION_IS_AUTO(name)) /* The caller's own session if they have one, otherwise their user's display session */
                 return get_sender_session(m, message, true, error, ret);
 
         session = hashmap_get(m->sessions, name);
