@@ -36,6 +36,7 @@
 #include "vmspawn-settings.h"
 #include "vmspawn-util.h"
 
+static bool arg_quiet = false;
 static PagerFlags arg_pager_flags = 0;
 static char *arg_image = NULL;
 static char *arg_machine = NULL;
@@ -72,6 +73,7 @@ static int help(void) {
                "%5$sSpawn a command or OS in a virtual machine.%6$s\n\n"
                "  -h --help                 Show this help\n"
                "     --version              Print version string\n"
+               "  -q --quiet                Do not show status information\n"
                "     --no-pager             Do not pipe output into a pager\n"
                "\n%3$sImage:%4$s\n"
                "  -i --image=PATH           Root file system disk image (or device node) for\n"
@@ -124,6 +126,7 @@ static int parse_argv(int argc, char *argv[]) {
         static const struct option options[] = {
                 { "help",            no_argument,       NULL, 'h'                 },
                 { "version",         no_argument,       NULL, ARG_VERSION         },
+                { "quiet",           no_argument,       NULL, 'q'                 },
                 { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
                 { "image",           required_argument, NULL, 'i'                 },
                 { "machine",         required_argument, NULL, 'M'                 },
@@ -146,13 +149,17 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         optind = 0;
-        while ((c = getopt_long(argc, argv, "+hi:M", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hi:Mq", options, NULL)) >= 0)
                 switch (c) {
                 case 'h':
                         return help();
 
                 case ARG_VERSION:
                         return version();
+
+                case 'q':
+                        arg_quiet = true;
+                        break;
 
                 case 'i':
                         r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image);
@@ -803,6 +810,11 @@ static int run(int argc, char *argv[]) {
         r = determine_names();
         if (r < 0)
                 return r;
+
+        if (!arg_quiet)
+                log_info("Spawning VM %s on %s.\n"
+                         "Press Ctrl-a q RET to kill VM.",
+                         arg_machine, arg_image);
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
 
