@@ -115,6 +115,8 @@ int local_addresses(
                 r = sd_rtnl_message_addr_get_family(m, &family);
                 if (r < 0)
                         return r;
+                if (!IN_SET(family, AF_INET, AF_INET6))
+                        continue;
                 if (af != AF_UNSPEC && af != family)
                         continue;
 
@@ -215,6 +217,12 @@ int local_gateways(
         size_t n_list = 0;
         int r;
 
+        /* The RTA_VIA attribute is used only for IPv4 routes with an IPv6 gateway. If IPv4 gateways are
+         * requested (af == AF_INET), then we do not return IPv6 gateway addresses. Similary, if IPv6
+         * gateways are requested (af == AF_INET6), then we do not return gateway addresses for IPv4 routes.
+         * So, the RTA_VIA attribute is only parsed when af == AF_UNSPEC. */
+        bool allow_via = af == AF_UNSPEC;
+
         if (context)
                 rtnl = sd_netlink_ref(context);
         else {
@@ -292,6 +300,8 @@ int local_gateways(
                         return r;
                 if (!IN_SET(family, AF_INET, AF_INET6))
                         continue;
+                if (af != AF_UNSPEC && af != family)
+                        continue;
 
                 r = sd_netlink_message_read_u32(m, RTA_OIF, &ifi);
                 if (r < 0 && r != -ENODATA)
@@ -315,6 +325,9 @@ int local_gateways(
                                 continue;
                         }
 
+                        if (!allow_via)
+                                continue;
+
                         if (family != AF_INET)
                                 continue;
 
@@ -322,6 +335,9 @@ int local_gateways(
                         if (r < 0 && r != -ENODATA)
                                 return r;
                         if (r >= 0) {
+                                if (via.family != AF_INET6)
+                                        return -EBADMSG;
+
                                 r = add_local_gateway(&list, &n_list, af, ifi, priority, &via);
                                 if (r < 0)
                                         return r;
@@ -342,6 +358,9 @@ int local_gateways(
 
                         ORDERED_SET_FOREACH(mr, multipath_routes) {
                                 if (ifindex > 0 && mr->ifindex != ifindex)
+                                        continue;
+
+                                if (!allow_via && family != mr->gateway.family)
                                         continue;
 
                                 r = add_local_gateway(&list, &n_list, af, ifi, priority, &mr->gateway);
