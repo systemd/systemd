@@ -54,6 +54,7 @@ static Virtualization detect_vm_cpuid(void) {
                 { "ACRNACRNACRN", VIRTUALIZATION_ACRN      },
                 /* https://www.lockheedmartin.com/en-us/products/Hardened-Security-for-Intel-Processors.html */
                 { "SRESRESRESRE", VIRTUALIZATION_SRE       },
+                { "Apple VZ",     VIRTUALIZATION_APPLE     },
         };
 
         uint32_t eax, ebx, ecx, edx;
