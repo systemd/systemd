@@ -39,7 +39,7 @@ int route_metric_copy(const RouteMetric *src, RouteMetric *dest) {
         } else
                 dest->metrics_set = NULL;
 
-        return free_and_strdup(&dest->tcp_congestion_control_algo, src->tcp_congestion_control_algo);
+        return strdup_or_null(src->tcp_congestion_control_algo, &dest->tcp_congestion_control_algo);
 }
 
 void route_metric_hash_func(const RouteMetric *metric, struct siphash *state) {
