@@ -1355,6 +1355,7 @@ static int build_describe_response(Context *c, bool privileged, JsonVariant **re
         _cleanup_free_ char *hn = NULL, *dhn = NULL, *in = NULL,
                 *chassis = NULL, *vendor = NULL, *model = NULL, *serial = NULL, *firmware_version = NULL,
                 *firmware_vendor = NULL;
+        _cleanup_strv_free_ char **os_release_pairs = NULL, **machine_info_pairs = NULL;
         usec_t firmware_date = USEC_INFINITY, eol = USEC_INFINITY;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         sd_id128_t machine_id, boot_id, product_uuid = SD_ID128_NULL;
@@ -1418,6 +1419,9 @@ static int build_describe_response(Context *c, bool privileged, JsonVariant **re
 
         (void) vsock_get_local_cid(&local_cid);
 
+        (void) load_os_release_pairs(/* root= */ NULL, &os_release_pairs);
+        (void) load_env_file_pairs(/* f=*/ NULL, "/etc/machine-info", &machine_info_pairs);
+
         r = json_build(&v, JSON_BUILD_OBJECT(
                                        JSON_BUILD_PAIR("Hostname", JSON_BUILD_STRING(hn)),
                                        JSON_BUILD_PAIR("StaticHostname", JSON_BUILD_STRING(c->data[PROP_STATIC_HOSTNAME])),
@@ -1435,6 +1439,8 @@ static int build_describe_response(Context *c, bool privileged, JsonVariant **re
                                        JSON_BUILD_PAIR("OperatingSystemCPEName", JSON_BUILD_STRING(c->data[PROP_OS_CPE_NAME])),
                                        JSON_BUILD_PAIR("OperatingSystemHomeURL", JSON_BUILD_STRING(c->data[PROP_OS_HOME_URL])),
                                        JSON_BUILD_PAIR_FINITE_USEC("OperatingSystemSupportEnd", eol),
+                                       JSON_BUILD_PAIR("OperatingSystemReleaseData", JSON_BUILD_STRV_ENV_PAIR(os_release_pairs)),
+                                       JSON_BUILD_PAIR("MachineInformationData", JSON_BUILD_STRV_ENV_PAIR(machine_info_pairs)),
                                        JSON_BUILD_PAIR("HardwareVendor", JSON_BUILD_STRING(vendor ?: c->data[PROP_HARDWARE_VENDOR])),
                                        JSON_BUILD_PAIR("HardwareModel", JSON_BUILD_STRING(model ?: c->data[PROP_HARDWARE_MODEL])),
                                        JSON_BUILD_PAIR("HardwareSerial", JSON_BUILD_STRING(serial)),
