@@ -5943,9 +5943,16 @@ static int run(int argc, char *argv[]) {
         if (arg_console_mode == CONSOLE_PIPE) /* if we pass STDERR on to the container, don't add our own logs into it too */
                 arg_quiet = true;
 
-        if (!arg_quiet)
-                log_info("Spawning container %s on %s.\nPress Ctrl-] three times within 1s to kill container.",
-                         arg_machine, arg_image ?: arg_directory);
+        if (!arg_quiet) {
+                const char *t = arg_image ?: arg_directory;
+                _cleanup_free_ char *u = NULL;
+                (void) terminal_urlify_path(t, t, &u);
+
+                log_info("%s %sSpawning container %s on %s.%s\n"
+                         "%s %sPress %sCtrl-]%s three times within 1s to kill container.%s",
+                         special_glyph(SPECIAL_GLYPH_LIGHT_SHADE), ansi_grey(), arg_machine, u ?: t, ansi_normal(),
+                         special_glyph(SPECIAL_GLYPH_LIGHT_SHADE), ansi_grey(), ansi_highlight(), ansi_grey(), ansi_normal());
+        }
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, SIGWINCH, SIGTERM, SIGINT, SIGRTMIN+18, -1) >= 0);
 
