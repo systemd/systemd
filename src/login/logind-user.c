@@ -532,13 +532,8 @@ int user_stop(User *u, bool force) {
                 return 0;
         }
 
-        LIST_FOREACH(sessions_by_user, s, u->sessions) {
-                int k;
-
-                k = session_stop(s, force);
-                if (k < 0)
-                        r = k;
-        }
+        LIST_FOREACH(sessions_by_user, s, u->sessions)
+                RET_GATHER(r, session_stop(s, force));
 
         user_stop_service(u, force);
 
@@ -550,7 +545,7 @@ int user_stop(User *u, bool force) {
 }
 
 int user_finalize(User *u) {
-        int r = 0, k;
+        int r = 0;
 
         assert(u);
 
@@ -560,11 +555,8 @@ int user_finalize(User *u) {
         if (u->started)
                 log_debug("User %s logged out.", u->user_record->user_name);
 
-        LIST_FOREACH(sessions_by_user, s, u->sessions) {
-                k = session_finalize(s);
-                if (k < 0)
-                        r = k;
-        }
+        LIST_FOREACH(sessions_by_user, s, u->sessions)
+                RET_GATHER(r, session_finalize(s));
 
         /* Clean SysV + POSIX IPC objects, but only if this is not a system user. Background: in many setups cronjobs
          * are run in full PAM and thus logind sessions, even if the code run doesn't belong to actual users but to
@@ -572,11 +564,8 @@ int user_finalize(User *u) {
          * cases, as we shouldn't accidentally remove a system service's IPC objects while it is running, just because
          * a cronjob running as the same user just finished. Hence: exclude system users generally from IPC clean-up,
          * and do it only for normal users. */
-        if (u->manager->remove_ipc && !uid_is_system(u->user_record->uid)) {
-                k = clean_ipc_by_uid(u->user_record->uid);
-                if (k < 0)
-                        r = k;
-        }
+        if (u->manager->remove_ipc && !uid_is_system(u->user_record->uid))
+                RET_GATHER(r, clean_ipc_by_uid(u->user_record->uid));
 
         (void) unlink(u->state_file);
         user_add_to_gc_queue(u);
