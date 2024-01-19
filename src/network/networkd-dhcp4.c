@@ -390,6 +390,10 @@ static int dhcp4_request_route(Route *in, Link *link) {
         if (r < 0)
                 return r;
 
+        r = route_adjust_nexthops(route, link);
+        if (r < 0)
+                return r;
+
         if (route_get(NULL, link, route, &existing) < 0) /* This is a new route. */
                 link->dhcp4_configured = false;
         else
@@ -659,7 +663,7 @@ static int dhcp4_request_semi_static_routes(Link *link) {
                 if (r < 0)
                         return r;
 
-                r = route_dup(rt, &route);
+                r = route_dup(rt, NULL, &route);
                 if (r < 0)
                         return r;
 
