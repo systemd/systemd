@@ -179,7 +179,7 @@ static int route_nexthop_copy(const RouteNextHop *src, RouteNextHop *dest) {
         /* unset pointer copied in the above. */
         dest->ifname = NULL;
 
-        return strdup_or_null(src->ifindex == 0 ? NULL : src->ifname, &dest->ifname);
+        return strdup_or_null(src->ifindex > 0 ? NULL : src->ifname, &dest->ifname);
 }
 
 int route_nexthops_copy(const Route *src, const RouteNextHop *nh, Route *dest) {
