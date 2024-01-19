@@ -1597,7 +1597,7 @@ static int show_logs(const LinkInfo *info) {
         if (arg_lines == 0)
                 return 0;
 
-        r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY);
+        r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY | SD_JOURNAL_READ_TAIL_TIMESTAMP_ONCE);
         if (r < 0)
                 return log_error_errno(r, "Failed to open journal: %m");
 
