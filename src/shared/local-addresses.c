@@ -40,6 +40,17 @@ static int address_compare(const struct local_address *a, const struct local_add
         return memcmp(&a->address, &b->address, FAMILY_ADDRESS_SIZE(a->family));
 }
 
+bool has_local_address(const struct local_address *addresses, size_t n_addresses, const struct local_address *needle) {
+        assert(addresses || n_addresses == 0);
+        assert(needle);
+
+        for (size_t i = 0; i < n_addresses; i++)
+                if (address_compare(addresses + i, needle) == 0)
+                        return true;
+
+        return false;
+}
+
 static void suppress_duplicates(struct local_address *list, size_t *n_list) {
         size_t old_size, new_size;
 
