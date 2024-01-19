@@ -9,6 +9,7 @@ struct local_address {
         int ifindex;
         unsigned char scope;
         uint32_t priority;
+        uint32_t weight;
         int family;
         union in_addr_union address;
 };
