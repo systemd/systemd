@@ -150,7 +150,7 @@ static int help(void) {
                "  -u --umount             Unmount the image from the specified directory\n"
                "  -U                      Shortcut for --umount --rmdir\n"
                "     --attach             Attach the disk image to a loopback block device\n"
-               "     --detach             Detach a loopback block device gain\n"
+               "     --detach             Detach a loopback block device again\n"
                "  -l --list               List all the files and directories of the specified\n"
                "                          OS image\n"
                "     --mtree              Show BSD mtree manifest of OS image\n"
