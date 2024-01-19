@@ -5358,7 +5358,15 @@ static int run_container(
                                                 arg_console_width,
                                                 arg_console_height);
 
-                        if (!isempty(arg_background))
+                        if (!arg_background) {
+                                _cleanup_free_ char *bg = NULL;
+
+                                r = terminal_tint_color(220 /* blue */, &bg);
+                                if (r < 0)
+                                        log_debug_errno(r, "Failed to determine terminal background color, not tinting.");
+                                else
+                                        (void) pty_forward_set_background_color(forward, bg);
+                        } else if (!isempty(arg_background))
                                 (void) pty_forward_set_background_color(forward, arg_background);
 
                         break;
