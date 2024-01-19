@@ -23,6 +23,7 @@ size_t udev_replace_chars(char *str, const char *allow);
 
 int udev_queue_is_empty(void);
 
+void reset_cached_udev_availability(void);
 bool udev_available(void);
 
 int device_get_vendor_string(sd_device *device, const char **ret);

@@ -34,7 +34,7 @@ int bus_container_connect_socket(sd_bus *b) {
                 log_debug("sd-bus: connecting bus%s%s to namespace of PID "PID_FMT"...",
                           b->description ? " " : "", strempty(b->description), b->nspid);
 
-        r = namespace_open(b->nspid, &pidnsfd, &mntnsfd, NULL, &usernsfd, &rootfd);
+        r = namespace_open(b->nspid, &pidnsfd, &mntnsfd, /* ret_netns_fd = */ NULL, &usernsfd, &rootfd);
         if (r < 0)
                 return log_debug_errno(r, "Failed to open namespace of PID "PID_FMT": %m", b->nspid);
 

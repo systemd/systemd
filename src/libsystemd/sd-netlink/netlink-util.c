@@ -20,6 +20,13 @@ static int set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
         assert(name);
 
         /* Assign the requested name. */
+
+        if (!*rtnl) {
+                r = sd_netlink_open(rtnl);
+                if (r < 0)
+                        return r;
+        }
+
         r = sd_rtnl_message_new_link(*rtnl, &message, RTM_SETLINK, ifindex);
         if (r < 0)
                 return r;
@@ -29,6 +36,37 @@ static int set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
                 return r;
 
         return sd_netlink_call(*rtnl, message, 0, NULL);
+}
+
+int rtnl_rename_link(sd_netlink **rtnl, const char *orig_name, const char *new_name) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *our_rtnl = NULL;
+        int r, ifindex;
+
+        assert(orig_name);
+        assert(new_name);
+
+        /* This does not check alternative names. Callers must check the requested name is not used as an
+         * alternative name. */
+
+        if (streq(orig_name, new_name))
+                return 0;
+
+        if (!ifname_valid(new_name))
+                return -EINVAL;
+
+        if (!rtnl)
+                rtnl = &our_rtnl;
+        if (!*rtnl) {
+                r = sd_netlink_open(rtnl);
+                if (r < 0)
+                        return r;
+        }
+
+        ifindex = rtnl_resolve_ifname(rtnl, orig_name);
+        if (ifindex < 0)
+                return ifindex;
+
+        return set_link_name(rtnl, ifindex, new_name);
 }
 
 int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name, char* const *alternative_names) {
