@@ -815,10 +815,15 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 return r;
 
-        if (!arg_quiet)
-                log_info("Spawning VM %s on %s.\n"
-                         "Press Ctrl-a q RET to kill VM.",
-                         arg_machine, arg_image);
+        if (!arg_quiet) {
+                _cleanup_free_ char *u = NULL;
+                (void) terminal_urlify_path(arg_image, arg_image, &u);
+
+                log_info("%s %sSpawning VM %s on %s.%s\n"
+                         "%s %sPress %sCtrl-a c q RET%s to kill VM.%s",
+                         special_glyph(SPECIAL_GLYPH_LIGHT_SHADE), ansi_grey(), arg_machine, u ?: arg_image, ansi_normal(),
+                         special_glyph(SPECIAL_GLYPH_LIGHT_SHADE), ansi_grey(), ansi_highlight(), ansi_grey(), ansi_normal());
+        }
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
 
