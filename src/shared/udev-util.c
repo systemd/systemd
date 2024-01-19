@@ -14,6 +14,7 @@
 #include "id128-util.h"
 #include "log.h"
 #include "macro.h"
+#include "missing_threads.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "signal-util.h"
@@ -363,18 +364,22 @@ int udev_queue_is_empty(void) {
                 (errno == ENOENT ? true : -errno) : false;
 }
 
-bool udev_available(void) {
-        static int cache = -1;
+static int cached_udev_availability = -1;
 
+void reset_cached_udev_availability(void) {
+        cached_udev_availability = -1;
+}
+
+bool udev_available(void) {
         /* The service systemd-udevd is started only when /sys is read write.
          * See systemd-udevd.service: ConditionPathIsReadWrite=/sys
          * Also, our container interface (http://systemd.io/CONTAINER_INTERFACE/) states that /sys must
          * be mounted in read-only mode in containers. */
 
-        if (cache >= 0)
-                return cache;
+        if (cached_udev_availability >= 0)
+                return cached_udev_availability;
 
-        return (cache = (path_is_read_only_fs("/sys/") <= 0));
+        return (cached_udev_availability = (path_is_read_only_fs("/sys/") <= 0));
 }
 
 int device_get_vendor_string(sd_device *device, const char **ret) {
