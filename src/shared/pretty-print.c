@@ -5,6 +5,7 @@
 #include <stdio.h>
 
 #include "alloc-util.h"
+#include "color-util.h"
 #include "conf-files.h"
 #include "constants.h"
 #include "env-util.h"
@@ -440,4 +441,33 @@ int conf_files_cat(const char *root, const char *name, CatFlags flags) {
                 flags |= CAT_FORMAT_HAS_SECTIONS;
 
         return cat_files(path, files, flags);
+}
+
+int terminal_tint_color(double hue, char **ret) {
+        double red, green, blue;
+        int r;
+
+        assert(ret);
+
+        r = get_default_background_color(&red, &green, &blue);
+        if (r < 0)
+                return log_debug_errno(r, "Unable to get terminal background color: %m");
+
+        double s, v;
+        rgb_to_hsv(red, green, blue, /* h= */ NULL, &s, &v);
+
+        if (v > 50) /* If the background is bright, then pull down saturation */
+                s = 25;
+        else        /* otherwise pump it up */
+                s = 75;
+
+        v = MAX(30, v); /* Make sure we don't hide the color in black */
+
+        uint8_t r8, g8, b8;
+        hsv_to_rgb(hue, s, v, &r8, &g8, &b8);
+
+        if (asprintf(ret, "48;2;%u;%u;%u", r8, g8, b8) < 0)
+                return -ENOMEM;
+
+        return 0;
 }
