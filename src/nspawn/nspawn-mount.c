@@ -1388,17 +1388,30 @@ int wipe_fully_visible_fs(int mntns_fd) {
         _cleanup_close_ int orig_mntns_fd = -EBADF;
         int r, rr;
 
-        r = namespace_open(0, NULL, &orig_mntns_fd, NULL, NULL, NULL);
+        r = namespace_open(0,
+                           /* ret_pidns_fd = */ NULL,
+                           &orig_mntns_fd,
+                           /* ret_netns_fd = */ NULL,
+                           /* ret_userns_fd = */ NULL,
+                           /* ret_root_fd = */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to pin originating mount namespace: %m");
 
-        r = namespace_enter(-EBADF, mntns_fd, -EBADF, -EBADF, -EBADF);
+        r = namespace_enter(/* pidns_fd = */ -EBADF,
+                            mntns_fd,
+                            /* netns_fd = */ -EBADF,
+                            /* userns_fd = */ -EBADF,
+                            /* root_fd = */ -EBADF);
         if (r < 0)
                 return log_error_errno(r, "Failed to enter mount namespace: %m");
 
         rr = do_wipe_fully_visible_fs();
 
-        r = namespace_enter(-EBADF, orig_mntns_fd, -EBADF, -EBADF, -EBADF);
+        r = namespace_enter(/* pidns_fd = */ -EBADF,
+                            orig_mntns_fd,
+                            /* netns_fd = */ -EBADF,
+                            /* userns_fd = */ -EBADF,
+                            /* root_fd = */ -EBADF);
         if (r < 0)
                 return log_error_errno(r, "Failed to enter original mount namespace: %m");
 
