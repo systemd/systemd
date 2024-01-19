@@ -22,9 +22,19 @@
 
 typedef struct OvmfConfig {
         char *path;
+        char *format;
         char *vars;
+        char *vars_format;
         bool supports_sb;
 } OvmfConfig;
+
+static inline const char *ovmf_config_format(const OvmfConfig *c) {
+        return ASSERT_PTR(c)->format ?: "raw";
+}
+
+static inline const char *ovmf_config_vars_format(const OvmfConfig *c) {
+        return ASSERT_PTR(c)->vars_format ?: "raw";
+}
 
 OvmfConfig* ovmf_config_free(OvmfConfig *ovmf_config);
 DEFINE_TRIVIAL_CLEANUP_FUNC(OvmfConfig*, ovmf_config_free);
