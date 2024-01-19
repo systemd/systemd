@@ -16,8 +16,8 @@ initrd and initrd-less boots. If an initrd is used, it is a good idea to pass a
 few bits of runtime information from the initrd to systemd in order to avoid
 duplicate work and to provide performance data to the administrator. In this
 page we attempt to roughly describe the interfaces that exist between the
-initrd and systemd. These interfaces are currently used by dracut and the
-ArchLinux initrds.
+initrd and systemd. These interfaces are currently used by mkosi-generated
+initrds, dracut and the ArchLinux initrds.
 
 * The initrd should mount `/run/` as a tmpfs and pass it pre-mounted when
   jumping into the main system when executing systemd. The mount options should
@@ -48,10 +48,6 @@ describing any kind of early boot file system, regardless whether that might be
 implemented as an actual ramdisk, ramfs or tmpfs. We recommend using _initrd_
 in this sense as a term that is unrelated to the actual backing technologies
 used.
-
-Oh, and one last question before closing: instead of implementing these
-features in your own distro's initrd, may I suggest just using Dracut instead?
-It's all already implemented there!
 
 ## Using systemd inside an initrd
 

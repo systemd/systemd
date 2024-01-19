@@ -83,7 +83,7 @@ And now, here's the list of (hopefully) all APIs that we have introduced with sy
 | [hostnamed](https://www.freedesktop.org/software/systemd/man/org.freedesktop.hostname1.html) | D-Bus | yes | yes | GNOME | yes | [Ubuntu](https://launchpad.net/ubuntu/+source/ubuntu-system-service), [Gentoo](http://www.gentoo.org/proj/en/desktop/gnome/openrc-settingsd.xml), [BSD](http://uglyman.kremlin.cc/gitweb/gitweb.cgi?p=systembsd.git;a=summary) | partially |
 | [localed](https://www.freedesktop.org/software/systemd/man/org.freedesktop.locale1.html) | D-Bus | yes | yes | GNOME | yes | [Ubuntu](https://launchpad.net/ubuntu/+source/ubuntu-system-service), [Gentoo](http://www.gentoo.org/proj/en/desktop/gnome/openrc-settingsd.xml), [BSD](http://uglyman.kremlin.cc/gitweb/gitweb.cgi?p=systembsd.git;a=summary) | partially |
 | [timedated](https://www.freedesktop.org/software/systemd/man/org.freedesktop.timedate1.html) | D-Bus | yes | yes | GNOME | yes | [Gentoo](http://www.gentoo.org/proj/en/desktop/gnome/openrc-settingsd.xml), [BSD](http://uglyman.kremlin.cc/gitweb/gitweb.cgi?p=systembsd.git;a=summary) | partially |
-| [initrd interface](INITRD_INTERFACE.md) | Environment, flag files | yes | yes | dracut, ArchLinux | yes | ArchLinux | no |
+| [initrd interface](INITRD_INTERFACE.md) | Environment, flag files | yes | yes | mkosi, dracut, ArchLinux | yes | ArchLinux | no |
 | [Container interface](CONTAINER_INTERFACE.md) | Environment, Mounts | yes | yes | libvirt/LXC | yes | - | no |
 | [Boot Loader interface](BOOT_LOADER_INTERFACE.md) | EFI variables | yes | yes | gummiboot | yes | - | no |
 | [Service bus API](https://www.freedesktop.org/software/systemd/man/org.freedesktop.systemd1.html) | D-Bus | yes | yes | system-config-services | no | - | no |
