@@ -1688,7 +1688,7 @@ static int get_boot_id_for_machine(const char *machine, sd_id128_t *boot_id) {
         if (r < 0)
                 return r;
 
-        r = namespace_open(pid, &pidnsfd, &mntnsfd, NULL, NULL, &rootfd);
+        r = namespace_open(pid, &pidnsfd, &mntnsfd, /* ret_netns_fd = */ NULL, /* ret_userns_fd = */ NULL, &rootfd);
         if (r < 0)
                 return r;
 

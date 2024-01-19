@@ -1211,7 +1211,7 @@ int openpt_allocate_in_namespace(pid_t pid, int flags, char **ret_slave) {
 
         assert(pid > 0);
 
-        r = namespace_open(pid, &pidnsfd, &mntnsfd, NULL, &usernsfd, &rootfd);
+        r = namespace_open(pid, &pidnsfd, &mntnsfd, /* ret_netns_fd = */ NULL, &usernsfd, &rootfd);
         if (r < 0)
                 return r;
 
@@ -1262,7 +1262,7 @@ int open_terminal_in_namespace(pid_t pid, const char *name, int mode) {
         pid_t child;
         int r;
 
-        r = namespace_open(pid, &pidnsfd, &mntnsfd, NULL, &usernsfd, &rootfd);
+        r = namespace_open(pid, &pidnsfd, &mntnsfd, /* ret_netns_fd = */ NULL, &usernsfd, &rootfd);
         if (r < 0)
                 return r;
 
