@@ -1711,6 +1711,21 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
 
         <xi:include href="version-info.xml" xpointer="v242"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><option>--background=<replaceable>COLOR</replaceable></option></term>
+
+        <listitem><para>Change the terminal background color to the specified ANSI color as long as the
+        container runs. The color specified should be an ANSI X3.64 SGR background color, i.e. strings such
+        as <literal>40</literal>, <literal>41</literal>, …, <literal>47</literal>, <literal>48;2;…</literal>,
+        <literal>48;5;…</literal>. See <ulink
+        url="https://en.wikipedia.org/wiki/ANSI_escape_code#SGR_(Select_Graphic_Rendition)_parameters">ANSI
+        Escape Code (Wikipedia)</ulink> for details. Assign an empty string to disable any coloring.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
     </variablelist>
 
     </refsect2>
