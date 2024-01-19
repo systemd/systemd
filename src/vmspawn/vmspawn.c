@@ -691,7 +691,7 @@ static int run_virtual_machine(void) {
                 if (setenv("LANG", "C.UTF-8", 0) < 0)
                         return log_oom();
 
-                execve(qemu_binary, cmdline, environ);
+                execv(qemu_binary, cmdline);
                 log_error_errno(errno, "Failed to execve %s: %m", qemu_binary);
                 _exit(EXIT_FAILURE);
         }
