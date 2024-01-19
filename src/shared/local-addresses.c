@@ -123,7 +123,7 @@ int local_addresses(
                 r = sd_rtnl_message_addr_get_flags(m, &flags);
                 if (r < 0)
                         return r;
-                if (flags & IFA_F_DEPRECATED)
+                if ((flags & (IFA_F_DEPRECATED|IFA_F_TENTATIVE)) != 0)
                         continue;
 
                 if (!GREEDY_REALLOC0(list, n_list+1))

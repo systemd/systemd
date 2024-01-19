@@ -56,7 +56,7 @@ ip addr add 10.2.0.2/24 dev ve-manyips
 for i in {100..120}; do
     ip addr add 10.2.0.$i/24 dev ve-manyips
 done
-ip addr add fd00:dead:beef:cafe::2/64 dev ve-manyips
+ip addr add fd00:dead:beef:cafe::2/64 dev ve-manyips nodad
 ip addr show dev ve-manyips
 touch /initialized
 sleep infinity
@@ -90,7 +90,7 @@ done
 # getaddrinfo() return EAI_NONAME without ever asking nss-mymachines.
 ip addr add 10.1.0.1/24 dev ve-singleip
 ip addr add 10.2.0.1/24 dev ve-manyips
-ip addr add fd00:dead:beef:cafe::1/64 dev ve-manyips
+ip addr add fd00:dead:beef:cafe::1/64 dev ve-manyips nodad
 
 getent hosts -s mymachines
 getent ahosts -s mymachines
