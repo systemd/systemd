@@ -172,8 +172,7 @@ static void ndisc_set_route_priority(Link *link, Route *route) {
         }
 }
 
-static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
-        _cleanup_(route_freep) Route *route = in;
+static int ndisc_request_route(Route *route, Link *link, sd_ndisc_router *rt) {
         struct in6_addr router;
         uint8_t hop_limit = 0;
         uint32_t mtu = 0;
@@ -182,6 +181,7 @@ static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
 
         assert(route);
         assert(link);
+        assert(link->manager);
         assert(link->network);
         assert(rt);
 
@@ -222,10 +222,9 @@ static int ndisc_request_route(Route *in, Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return r;
 
-        is_new = route_get(NULL, link, route, NULL) < 0;
+        is_new = route_get(link->manager, route, NULL) < 0;
 
-        r = link_request_route(link, TAKE_PTR(route), true, &link->ndisc_messages,
-                               ndisc_route_handler, NULL);
+        r = link_request_route(link, route, &link->ndisc_messages, ndisc_route_handler);
         if (r < 0)
                 return r;
         if (r > 0 && is_new)
@@ -317,7 +316,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                 return log_link_warning_errno(link, r, "Failed to get default router preference from RA: %m");
 
         if (link->network->ipv6_accept_ra_use_gateway) {
-                _cleanup_(route_freep) Route *route = NULL;
+                _cleanup_(route_unrefp) Route *route = NULL;
 
                 r = route_new(&route);
                 if (r < 0)
@@ -329,14 +328,14 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                 route->nexthop.gw.in6 = gateway;
                 route->lifetime_usec = lifetime_usec;
 
-                r = ndisc_request_route(TAKE_PTR(route), link, rt);
+                r = ndisc_request_route(route, link, rt);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not request default route: %m");
         }
 
         Route *route_gw;
         HASHMAP_FOREACH(route_gw, link->network->routes_by_section) {
-                _cleanup_(route_freep) Route *route = NULL;
+                _cleanup_(route_unrefp) Route *route = NULL;
 
                 if (!route_gw->gateway_from_dhcp_or_ra)
                         continue;
@@ -353,7 +352,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
                         route->pref = preference;
                 route->lifetime_usec = lifetime_usec;
 
-                r = ndisc_request_route(TAKE_PTR(route), link, rt);
+                r = ndisc_request_route(route, link, rt);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not request gateway: %m");
         }
@@ -463,7 +462,7 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
 }
 
 static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
-        _cleanup_(route_freep) Route *route = NULL;
+        _cleanup_(route_unrefp) Route *route = NULL;
         unsigned prefixlen, preference;
         usec_t lifetime_usec;
         struct in6_addr prefix;
@@ -503,7 +502,7 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         route->pref = preference;
         route->lifetime_usec = lifetime_usec;
 
-        r = ndisc_request_route(TAKE_PTR(route), link, rt);
+        r = ndisc_request_route(route, link, rt);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Could not request prefix route: %m");
 
@@ -565,7 +564,7 @@ static int ndisc_router_process_prefix(Link *link, sd_ndisc_router *rt) {
 }
 
 static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
-        _cleanup_(route_freep) Route *route = NULL;
+        _cleanup_(route_unrefp) Route *route = NULL;
         unsigned preference, prefixlen;
         struct in6_addr gateway, dst;
         usec_t lifetime_usec;
@@ -636,7 +635,7 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
         route->dst_prefixlen = prefixlen;
         route->lifetime_usec = lifetime_usec;
 
-        r = ndisc_request_route(TAKE_PTR(route), link, rt);
+        r = ndisc_request_route(route, link, rt);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Could not request additional route: %m");
 
@@ -1120,6 +1119,7 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
         int r, ret = 0;
 
         assert(link);
+        assert(link->manager);
 
         /* If an address or friends is already assigned, but not valid anymore, then refuse to update it,
          * and let's immediately remove it.
@@ -1127,14 +1127,17 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
          * valid lifetimes to improve the reaction of SLAAC to renumbering events.
          * See draft-ietf-6man-slaac-renum-02, section 4.2. */
 
-        SET_FOREACH(route, link->routes) {
+        SET_FOREACH(route, link->manager->routes) {
                 if (route->source != NETWORK_CONFIG_SOURCE_NDISC)
+                        continue;
+
+                if (route->nexthop.ifindex != link->ifindex)
                         continue;
 
                 if (route->lifetime_usec >= timestamp_usec)
                         continue; /* the route is still valid */
 
-                r = route_remove_and_drop(route);
+                r = route_remove_and_cancel(route, link->manager);
                 if (r < 0)
                         RET_GATHER(ret, log_link_warning_errno(link, r, "Failed to remove outdated SLAAC route, ignoring: %m"));
         }
@@ -1218,8 +1221,11 @@ static int ndisc_setup_expire(Link *link) {
         assert(link);
         assert(link->manager);
 
-        SET_FOREACH(route, link->routes) {
+        SET_FOREACH(route, link->manager->routes) {
                 if (route->source != NETWORK_CONFIG_SOURCE_NDISC)
+                        continue;
+
+                if (route->nexthop.ifindex != link->ifindex)
                         continue;
 
                 if (!route_exists(route))

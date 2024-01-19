@@ -26,6 +26,9 @@ typedef struct RouteNextHop {
 
 #define ROUTE_NEXTHOP_NULL ((const RouteNextHop) {})
 
+void route_detach_from_nexthop(Route *route);
+void route_attach_to_nexthop(Route *route);
+
 RouteNextHop* route_nexthop_free(RouteNextHop *nh);
 DEFINE_TRIVIAL_CLEANUP_FUNC(RouteNextHop*, route_nexthop_free);
 
@@ -38,12 +41,12 @@ int route_nexthops_copy(const Route *src, const RouteNextHop *nh, Route *dest);
 bool route_nexthops_needs_adjust(const Route *route);
 int route_adjust_nexthops(Route *route, Link *link);
 
-int route_nexthop_get_link(Manager *manager, Link *link, const RouteNextHop *nh, Link **ret);
-int route_nexthops_is_ready_to_configure(const Route *route, Link *link);
+int route_nexthop_get_link(Manager *manager, const RouteNextHop *nh, Link **ret);
+int route_nexthops_is_ready_to_configure(const Route *route, Manager *manager);
 
 int route_nexthops_to_string(const Route *route, char **ret);
 
-int route_nexthops_set_netlink_message(Link *link, const Route *route, sd_netlink_message *message);
+int route_nexthops_set_netlink_message(const Route *route, sd_netlink_message *message);
 int route_nexthops_read_netlink_message(Route *route, sd_netlink_message *message);
 
 int route_section_verify_nexthops(Route *route);
