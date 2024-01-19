@@ -3784,7 +3784,12 @@ static int outer_child(
                 return r;
 
         if (arg_userns_mode != USER_NAMESPACE_NO) {
-                r = namespace_open(0, NULL, &mntns_fd, NULL, NULL, NULL);
+                r = namespace_open(0,
+                                   /* ret_pidns_fd = */ NULL,
+                                   &mntns_fd,
+                                   /* ret_netns_fd = */ NULL,
+                                   /* ret_userns_fd = */ NULL,
+                                   /* ret_root_fd = */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to pin outer mount namespace: %m");
 
@@ -4133,7 +4138,11 @@ static int outer_child(
                  * user if user namespaces are turned on. */
 
                 if (arg_network_namespace_path) {
-                        r = namespace_enter(-1, -1, netns_fd, -1, -1);
+                        r = namespace_enter(/* pidns_fd = */ -EBADF,
+                                            /* mntns_fd = */ -EBADF,
+                                            netns_fd,
+                                            /* userns_fd = */ -EBADF,
+                                            /* root_fd = */ -EBADF);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to join network namespace: %m");
                 }
@@ -5081,7 +5090,12 @@ static int run_container(
                 if (child_netns_fd < 0) {
                         /* Make sure we have an open file descriptor to the child's network
                          * namespace so it stays alive even if the child exits. */
-                        r = namespace_open(*pid, NULL, NULL, &child_netns_fd, NULL, NULL);
+                        r = namespace_open(*pid,
+                                           /* ret_pidns_fd = */ NULL,
+                                           /* ret_mntns_fd = */ NULL,
+                                           &child_netns_fd,
+                                           /* ret_userns_fd = */ NULL,
+                                           /* ret_root_fd = */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to open child network namespace: %m");
                 }
@@ -5375,13 +5389,22 @@ static int run_container(
                 if (r == 0) {
                         _cleanup_close_ int parent_netns_fd = -EBADF;
 
-                        r = namespace_open(getpid_cached(), NULL, NULL, &parent_netns_fd, NULL, NULL);
+                        r = namespace_open(0,
+                                           /* ret_pidns_fd = */ NULL,
+                                           /* ret_mntns_fd = */ NULL,
+                                           &parent_netns_fd,
+                                           /* ret_userns_fd = */ NULL,
+                                           /* ret_root_fd = */ NULL);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to open parent network namespace: %m");
                                 _exit(EXIT_FAILURE);
                         }
 
-                        r = namespace_enter(-1, -1, child_netns_fd, -1, -1);
+                        r = namespace_enter(/* pidns_fd = */ -EBADF,
+                                            /* mntns_fd = */ -EBADF,
+                                            child_netns_fd,
+                                            /* userns_fd = */ -EBADF,
+                                            /* root_fd = */ -EBADF);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to enter child network namespace: %m");
                                 _exit(EXIT_FAILURE);

@@ -420,11 +420,11 @@ int netns_get_nsid(int netnsfd, uint32_t *ret) {
         if (netnsfd < 0) {
                 r = namespace_open(
                                 0,
-                                /* pidns_fd= */ NULL,
-                                /* mntns_fd= */ NULL,
+                                /* ret_pidns_fd = */ NULL,
+                                /* ret_mntns_fd = */ NULL,
                                 &_netns_fd,
-                                /* userns_fd= */ NULL,
-                                /* root_fd= */ NULL);
+                                /* ret_userns_fd = */ NULL,
+                                /* ret_root_fd = */ NULL);
                 if (r < 0)
                         return r;
 

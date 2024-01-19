@@ -265,7 +265,12 @@ int machine_id_commit(const char *root) {
         fd = safe_close(fd);
 
         /* Store current mount namespace */
-        r = namespace_open(0, NULL, &initial_mntns_fd, NULL, NULL, NULL);
+        r = namespace_open(0,
+                           /* ret_pidns_fd = */ NULL,
+                           &initial_mntns_fd,
+                           /* ret_netns_fd = */ NULL,
+                           /* ret_userns_fd = */ NULL,
+                           /* ret_root_fd = */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Can't fetch current mount namespace: %m");
 
@@ -284,7 +289,11 @@ int machine_id_commit(const char *root) {
                 return log_error_errno(r, "Cannot write %s. This is mandatory to get a persistent machine ID: %m", etc_machine_id);
 
         /* Return to initial namespace and proceed a lazy tmpfs unmount */
-        r = namespace_enter(-1, initial_mntns_fd, -1, -1, -1);
+        r = namespace_enter(/* pidns_fd = */ -EBADF,
+                            initial_mntns_fd,
+                            /* netns_fd = */ -EBADF,
+                            /* userns_fd = */ -EBADF,
+                            /* root_fd = */ -EBADF);
         if (r < 0)
                 return log_warning_errno(r, "Failed to switch back to initial mount namespace: %m.\nWe'll keep transient %s file until next reboot.", etc_machine_id);
 
