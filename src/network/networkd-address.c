@@ -615,12 +615,12 @@ int address_dup(const Address *src, Address **ret) {
         dest->nft_set_context.n_sets = 0;
 
         if (src->family == AF_INET) {
-                r = free_and_strdup(&dest->label, src->label);
+                r = strdup_or_null(src->label, &dest->label);
                 if (r < 0)
                         return r;
         }
 
-        r = free_and_strdup(&dest->netlabel, src->netlabel);
+        r = strdup_or_null(src->netlabel, &dest->netlabel);
         if (r < 0)
                 return r;
 
