@@ -338,9 +338,10 @@ int local_gateways(
                                 r = add_local_gateway(&list, &n_list, af, ifi, priority, &via);
                                 if (r < 0)
                                         return r;
-
-                                continue;
                         }
+
+                        /* If the route has RTA_OIF, it does not have RTA_MULTIPATH. */
+                        continue;
                 }
 
                 size_t rta_len;
