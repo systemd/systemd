@@ -115,6 +115,8 @@ int local_addresses(
                 r = sd_rtnl_message_addr_get_family(m, &family);
                 if (r < 0)
                         return r;
+                if (!IN_SET(family, AF_INET, AF_INET6))
+                        continue;
                 if (af != AF_UNSPEC && af != family)
                         continue;
 
@@ -292,6 +294,8 @@ int local_gateways(
                         return r;
                 if (!IN_SET(family, AF_INET, AF_INET6))
                         continue;
+                if (af != AF_UNSPEC && af != family)
+                        continue;
 
                 r = sd_netlink_message_read_u32(m, RTA_OIF, &ifi);
                 if (r < 0 && r != -ENODATA)
@@ -314,6 +318,9 @@ int local_gateways(
 
                                 continue;
                         }
+
+                        if (af != AF_UNSPEC)
+                                continue;
 
                         if (family != AF_INET)
                                 continue;
