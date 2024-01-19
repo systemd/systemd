@@ -1,0 +1,71 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-mntfsd.service" conditional='ENABLE_MNTFSD'>
+
+  <refentryinfo>
+    <title>systemd-mntfsd.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-mntfsd.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-mntfsd.service</refname>
+    <refname>systemd-mntfsd</refname>
+    <refpurpose>Disk Image File System Mount Service</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-mntfsd.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-mntfsd</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-mntfsd</command> is a system service that dissects disk images, and returns mount
+    file descriptors for the file systems contained therein to clients, via a Varlink IPC API.</para>
+
+    <para>The disk images provided must contain a raw file system image or must follow the <ulink
+    url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification/">Discoverable
+    Partitions Specitication</ulink>. Before mounting any file systems authenticity of the disk image is
+    established in one of the following ways:</para>
+
+    <orderedlist>
+      <listitem><para>If the disk image is located in a regular file in one of the directories
+      <filename>/var/lib/machines/</filename>, <filename>/var/lib/portables/</filename>,
+      <filename>/var/lib/extensions/</filename>, <filename>/var/lib/confexts/</filename> or their
+      counterparts in the <filename>/etc/</filename>, <filename>/run/</filename>,
+      <filename>/usr/lib/</filename> it is assumed to be trusted.</para></listitem>
+
+      <listitem><para>If the IPC clients is UID 0, the disk image is considered trusted.</para></listitem>
+
+      <listitem><para>If the disk image contains a Verity enabled disk image, along with a signature
+      partition with a key in the kernel keyring the disk image is considered trusted.</para></listitem>
+    </orderedlist>
+
+    <para>This service provides one <ulink url="https://varlink.org/">Varlink</ulink> service:
+    <constant>io.systemd.MountFileSystem</constant> which accepts a file descriptor to a regular file or
+    block device, and returns a number of file descriptors referring to an <function>fsmount()</function>
+    file descriptor the client may then attach to a path of their choice.</para>
+
+    <para>The returned mounts are automatically allowlisted in the per-user-namespace allowlist maintained by
+    <citerefentry><refentrytitle>systemd-nsresourced.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+    <para>The file systems are automatically fsck'ed before mounting.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-nsresourced.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+</refentry>
