@@ -648,6 +648,15 @@ _public_ int sd_bus_creds_get_description(sd_bus_creds *c, const char **ret) {
         return 0;
 }
 
+_public_ int sd_bus_creds_set_euid(sd_bus_creds *c, uid_t *euid) {
+        assert_return(c, -EINVAL);
+        assert_return(euid, -EINVAL);
+
+        c->euid = *euid;
+        c->mask |= SD_BUS_CREDS_EUID;
+        return 0;
+}
+
 static int has_cap(sd_bus_creds *c, size_t offset, int capability) {
         size_t sz;
 
