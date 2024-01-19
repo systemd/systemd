@@ -243,7 +243,12 @@ int userns_acquire(const char *uid_map, const char *gid_map) {
         if (r < 0)
                 return log_error_errno(r, "Failed to write GID map: %m");
 
-        r = namespace_open(pid, NULL, NULL, NULL, &userns_fd, NULL);
+        r = namespace_open(pid,
+                           /* ret_pidns_fd = */ NULL,
+                           /* ret_mntns_fd = */ NULL,
+                           /* ret_netns_fd = */ NULL,
+                           &userns_fd,
+                           /* ret_root_fd = */ NULL);
         if (r < 0)
                 return log_error_errno(r, "Failed to open userns fd: %m");
 
