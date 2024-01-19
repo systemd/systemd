@@ -168,11 +168,11 @@ int local_addresses(
                 n_list++;
         };
 
-        if (ret) {
-                typesafe_qsort(list, n_list, address_compare);
-                suppress_duplicates(list, &n_list);
+        typesafe_qsort(list, n_list, address_compare);
+        suppress_duplicates(list, &n_list);
+
+        if (ret)
                 *ret = TAKE_PTR(list);
-        }
 
         return (int) n_list;
 }
@@ -370,11 +370,11 @@ int local_gateways(
                 }
         }
 
-        if (ret) {
-                typesafe_qsort(list, n_list, address_compare);
-                suppress_duplicates(list, &n_list);
+        typesafe_qsort(list, n_list, address_compare);
+        suppress_duplicates(list, &n_list);
+
+        if (ret)
                 *ret = TAKE_PTR(list);
-        }
 
         return (int) n_list;
 }
@@ -515,11 +515,11 @@ int local_outbounds(
                 }
         }
 
-        if (ret) {
-                typesafe_qsort(list, n_list, address_compare);
-                suppress_duplicates(list, &n_list);
+        typesafe_qsort(list, n_list, address_compare);
+        suppress_duplicates(list, &n_list);
+
+        if (ret)
                 *ret = TAKE_PTR(list);
-        }
 
         return (int) n_list;
 }
