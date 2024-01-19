@@ -49,12 +49,14 @@ static int arg_secure_boot = -1;
 static MachineCredentialContext arg_credentials = {};
 static SettingsMask arg_settings_mask = 0;
 static char **arg_parameters = NULL;
+static char *arg_firmware = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_machine, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_qemu_smp, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_parameters, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_credentials, machine_credential_context_done);
+STATIC_DESTRUCTOR_REGISTER(arg_firmware, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -83,6 +85,7 @@ static int help(void) {
                "     --qemu-gui             Start QEMU in graphical mode\n"
                "     --secure-boot=BOOL     Configure whether to search for firmware which\n"
                "                            supports Secure Boot\n"
+               "     --firmware=PATH|list   Select firmware definition file (or list available)\n"
                "\n%3$sSystem Identity:%4$s\n"
                "  -M --machine=NAME         Set the machine name for the container\n"
                "\n%3$sCredentials:%4$s\n"
@@ -115,6 +118,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SECURE_BOOT,
                 ARG_SET_CREDENTIAL,
                 ARG_LOAD_CREDENTIAL,
+                ARG_FIRMWARE,
         };
 
         static const struct option options[] = {
@@ -132,6 +136,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "secure-boot",     required_argument, NULL, ARG_SECURE_BOOT     },
                 { "set-credential",  required_argument, NULL, ARG_SET_CREDENTIAL  },
                 { "load-credential", required_argument, NULL, ARG_LOAD_CREDENTIAL },
+                { "firmware",        required_argument, NULL, ARG_FIRMWARE        },
                 {}
         };
 
@@ -241,6 +246,31 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_settings_mask |= SETTING_CREDENTIALS;
                         break;
                 }
+
+                case ARG_FIRMWARE:
+                        if (streq(optarg, "list")) {
+                                _cleanup_strv_free_ char **l = NULL;
+
+                                r = list_ovmf_config(&l);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to list firmwares: %m");
+
+                                bool nl = false;
+                                fputstrv(stdout, l, "\n", &nl);
+                                if (nl)
+                                        putchar('\n');
+
+                                return 0;
+                        }
+
+                        if (!isempty(optarg) && !path_is_absolute(optarg) && !startswith(optarg, "./"))
+                                return log_error_errno(SYNTHETIC_ERRNO(errno), "Absolute path or path starting with './' required.");
+
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_firmware);
+                        if (r < 0)
+                                return r;
+
+                        break;
 
                 case '?':
                         return -EINVAL;
@@ -460,7 +490,10 @@ static int run_virtual_machine(void) {
                 use_kvm = r;
         }
 
-        r = find_ovmf_config(arg_secure_boot, &ovmf_config);
+        if (arg_firmware)
+                r = load_ovmf_config(arg_firmware, &ovmf_config);
+        else
+                r = find_ovmf_config(arg_secure_boot, &ovmf_config);
         if (r < 0)
                 return log_error_errno(r, "Failed to find OVMF config: %m");
 
