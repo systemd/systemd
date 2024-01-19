@@ -29,7 +29,9 @@ OvmfConfig* ovmf_config_free(OvmfConfig *config) {
                 return NULL;
 
         free(config->path);
+        free(config->format);
         free(config->vars);
+        free(config->vars_format);
         return mfree(config);
 }
 
@@ -78,7 +80,9 @@ int qemu_check_vsock_support(void) {
 typedef struct FirmwareData {
         char **features;
         char *firmware;
+        char *firmware_format;
         char *vars;
+        char *vars_format;
 } FirmwareData;
 
 static bool firmware_data_supports_sb(const FirmwareData *fwd) {
@@ -91,9 +95,11 @@ static FirmwareData* firmware_data_free(FirmwareData *fwd) {
         if (!fwd)
                 return NULL;
 
-        fwd->features = strv_free(fwd->features);
-        fwd->firmware = mfree(fwd->firmware);
-        fwd->vars = mfree(fwd->vars);
+        strv_free(fwd->features);
+        free(fwd->firmware);
+        free(fwd->firmware_format);
+        free(fwd->vars);
+        free(fwd->vars_format);
 
         return mfree(fwd);
 }
@@ -101,8 +107,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(FirmwareData*, firmware_data_free);
 
 static int firmware_executable(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
         static const JsonDispatch table[] = {
-                { "filename", JSON_VARIANT_STRING, json_dispatch_string, offsetof(FirmwareData, firmware), JSON_MANDATORY },
-                { "format",   JSON_VARIANT_STRING, NULL,                 0,                                JSON_MANDATORY },
+                { "filename", JSON_VARIANT_STRING, json_dispatch_string, offsetof(FirmwareData, firmware),        JSON_MANDATORY },
+                { "format",   JSON_VARIANT_STRING, json_dispatch_string, offsetof(FirmwareData, firmware_format), JSON_MANDATORY },
                 {}
         };
 
@@ -111,8 +117,8 @@ static int firmware_executable(const char *name, JsonVariant *v, JsonDispatchFla
 
 static int firmware_nvram_template(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
         static const JsonDispatch table[] = {
-                { "filename", JSON_VARIANT_STRING, json_dispatch_string, offsetof(FirmwareData, vars), JSON_MANDATORY },
-                { "format",   JSON_VARIANT_STRING, NULL,                 0,                            JSON_MANDATORY },
+                { "filename", JSON_VARIANT_STRING, json_dispatch_string, offsetof(FirmwareData, vars),        JSON_MANDATORY },
+                { "format",   JSON_VARIANT_STRING, json_dispatch_string, offsetof(FirmwareData, vars_format), JSON_MANDATORY },
                 {}
         };
 
@@ -227,7 +233,9 @@ static int ovmf_config_make(FirmwareData *fwd, OvmfConfig **ret) {
 
         *config = (OvmfConfig) {
                 .path = TAKE_PTR(fwd->firmware),
+                .format = TAKE_PTR(fwd->firmware_format),
                 .vars = TAKE_PTR(fwd->vars),
+                .vars_format = TAKE_PTR(fwd->vars_format),
                 .supports_sb = firmware_data_supports_sb(fwd),
         };
 

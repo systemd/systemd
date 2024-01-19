@@ -601,7 +601,7 @@ static int run_virtual_machine(void) {
         if (r < 0)
                 return log_oom();
 
-        r = strv_extendf(&cmdline, "if=pflash,format=raw,readonly=on,file=%s", ovmf_config->path);
+        r = strv_extendf(&cmdline, "if=pflash,format=%s,readonly=on,file=%s", ovmf_config_format(ovmf_config), ovmf_config->path);
         if (r < 0)
                 return log_oom();
 
@@ -639,7 +639,7 @@ static int run_virtual_machine(void) {
                 if (r < 0)
                         return log_oom();
 
-                r = strv_extendf(&cmdline, "file=%s,if=pflash,format=raw", ovmf_vars_to);
+                r = strv_extendf(&cmdline, "file=%s,if=pflash,format=%s", ovmf_vars_to, ovmf_config_format(ovmf_config));
                 if (r < 0)
                         return log_oom();
         }
