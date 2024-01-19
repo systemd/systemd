@@ -14,6 +14,8 @@ struct local_address {
         union in_addr_union address;
 };
 
+bool has_local_address(const struct local_address *addresses, size_t n_addresses, const struct local_address *needle);
+
 int local_addresses(sd_netlink *rtnl, int ifindex, int af, struct local_address **ret);
 
 int local_gateways(sd_netlink *rtnl, int ifindex, int af, struct local_address **ret);
