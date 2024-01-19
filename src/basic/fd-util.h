@@ -52,6 +52,11 @@ static inline void fclosep(FILE **f) {
         safe_fclose(*f);
 }
 
+static inline void* close_fd_ptr(void *p) {
+        safe_close(PTR_TO_FD(p));
+        return NULL;
+}
+
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(FILE*, pclose, NULL);
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(DIR*, closedir, NULL);
 
