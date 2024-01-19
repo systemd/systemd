@@ -3006,7 +3006,7 @@ int unit_enqueue_rewatch_pids(Unit *u) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate event source for tidying watched PIDs: %m");
 
-                r = sd_event_source_set_priority(s, SD_EVENT_PRIORITY_IDLE);
+                r = sd_event_source_set_priority(s, EVENT_PRIORITY_REWATCH_PIDS);
                 if (r < 0)
                         return log_error_errno(r, "Failed to adjust priority of event source for tidying watched PIDs: %m");
 

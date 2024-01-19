@@ -739,7 +739,7 @@ static int bus_on_connection(sd_event_source *s, int fd, uint32_t revents, void 
                 log_debug("Accepting direct incoming connection from " PID_FMT " (%s) [%s]", pid, strna(comm), strna(description));
         }
 
-        r = sd_bus_attach_event(bus, m->event, SD_EVENT_PRIORITY_NORMAL);
+        r = sd_bus_attach_event(bus, m->event, EVENT_PRIORITY_IPC);
         if (r < 0) {
                 log_warning_errno(r, "Failed to attach new connection bus to event loop: %m");
                 return 0;
@@ -847,7 +847,7 @@ int bus_init_api(Manager *m) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to connect to API bus: %m");
 
-                r = sd_bus_attach_event(bus, m->event, SD_EVENT_PRIORITY_NORMAL);
+                r = sd_bus_attach_event(bus, m->event, EVENT_PRIORITY_IPC);
                 if (r < 0)
                         return log_error_errno(r, "Failed to attach API bus to event loop: %m");
 
@@ -904,7 +904,7 @@ int bus_init_system(Manager *m) {
                 if (r < 0)
                         return log_error_errno(r, "Failed to connect to system bus: %m");
 
-                r = sd_bus_attach_event(bus, m->event, SD_EVENT_PRIORITY_NORMAL);
+                r = sd_bus_attach_event(bus, m->event, EVENT_PRIORITY_IPC);
                 if (r < 0)
                         return log_error_errno(r, "Failed to attach system bus to event loop: %m");
 

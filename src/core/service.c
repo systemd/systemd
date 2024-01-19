@@ -286,7 +286,7 @@ static void service_start_watchdog(Service *s) {
 
                 /* Let's process everything else which might be a sign
                  * of living before we consider a service died. */
-                r = sd_event_source_set_priority(s->watchdog_event_source, SD_EVENT_PRIORITY_IDLE);
+                r = sd_event_source_set_priority(s->watchdog_event_source, EVENT_PRIORITY_SERVICE_WATCHDOG);
         }
         if (r < 0)
                 log_unit_warning_errno(UNIT(s), r, "Failed to install watchdog timer: %m");
@@ -1529,7 +1529,7 @@ static int service_allocate_exec_fd_event_source(
 
         /* This is a bit lower priority than SIGCHLD, as that carries a lot more interesting failure information */
 
-        r = sd_event_source_set_priority(source, SD_EVENT_PRIORITY_NORMAL-3);
+        r = sd_event_source_set_priority(source, EVENT_PRIORITY_EXEC_FD);
         if (r < 0)
                 return log_unit_error_errno(UNIT(s), r, "Failed to adjust priority of exec_fd event source: %m");
 
