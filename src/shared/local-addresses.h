@@ -6,9 +6,10 @@
 #include "in-addr-util.h"
 
 struct local_address {
-        int family, ifindex;
+        int ifindex;
         unsigned char scope;
-        uint32_t metric;
+        uint32_t priority;
+        int family;
         union in_addr_union address;
 };
 
