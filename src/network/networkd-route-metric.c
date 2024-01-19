@@ -39,7 +39,7 @@ int route_metric_copy(const RouteMetric *src, RouteMetric *dest) {
         } else
                 dest->metrics_set = NULL;
 
-        return free_and_strdup(&dest->tcp_congestion_control_algo, src->tcp_congestion_control_algo);
+        return strdup_or_null(src->tcp_congestion_control_algo, &dest->tcp_congestion_control_algo);
 }
 
 void route_metric_hash_func(const RouteMetric *metric, struct siphash *state) {
@@ -374,7 +374,7 @@ static int config_parse_route_metric_boolean_impl(
                         void *userdata) {                               \
                                                                         \
                 Network *network = ASSERT_PTR(userdata);                \
-                _cleanup_(route_free_or_set_invalidp) Route *route = NULL; \
+                _cleanup_(route_unref_or_set_invalidp) Route *route = NULL; \
                 uint16_t attr_type = ltype;                             \
                 int r;                                                  \
                                                                         \
@@ -436,7 +436,7 @@ int config_parse_route_metric_tcp_congestion(
                 void *userdata) {
 
         Network *network = ASSERT_PTR(userdata);
-        _cleanup_(route_free_or_set_invalidp) Route *route = NULL;
+        _cleanup_(route_unref_or_set_invalidp) Route *route = NULL;
         int r;
 
         assert(filename);

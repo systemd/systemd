@@ -615,12 +615,12 @@ int address_dup(const Address *src, Address **ret) {
         dest->nft_set_context.n_sets = 0;
 
         if (src->family == AF_INET) {
-                r = free_and_strdup(&dest->label, src->label);
+                r = strdup_or_null(src->label, &dest->label);
                 if (r < 0)
                         return r;
         }
 
-        r = free_and_strdup(&dest->netlabel, src->netlabel);
+        r = strdup_or_null(src->netlabel, &dest->netlabel);
         if (r < 0)
                 return r;
 
@@ -1216,7 +1216,7 @@ bool link_address_is_dynamic(const Link *link, const Address *address) {
         /* Even when the address is leased from a DHCP server, networkd assign the address
          * without lifetime when KeepConfiguration=dhcp. So, let's check that we have
          * corresponding routes with RTPROT_DHCP. */
-        SET_FOREACH(route, link->routes) {
+        SET_FOREACH(route, link->manager->routes) {
                 if (route->source != NETWORK_CONFIG_SOURCE_FOREIGN)
                         continue;
 
@@ -1225,6 +1225,9 @@ bool link_address_is_dynamic(const Link *link, const Address *address) {
                         continue;
 
                 if (route->protocol != RTPROT_DHCP)
+                        continue;
+
+                if (route->nexthop.ifindex != link->ifindex)
                         continue;
 
                 if (address->family != route->family)
