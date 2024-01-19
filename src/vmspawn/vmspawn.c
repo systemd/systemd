@@ -379,14 +379,19 @@ static int vmspawn_dispatch_vsock_connections(sd_event_source *source, int fd, u
         return 0;
 }
 
-static int setup_notify_parent(sd_event *event, int fd, int *exit_status, sd_event_source **notify_event_source) {
+static int setup_notify_parent(sd_event *event, int fd, int *exit_status, sd_event_source **ret_notify_event_source) {
         int r;
 
-        r = sd_event_add_io(event, notify_event_source, fd, EPOLLIN, vmspawn_dispatch_vsock_connections, exit_status);
+        assert(event);
+        assert(fd >= 0);
+        assert(exit_status);
+        assert(ret_notify_event_source);
+
+        r = sd_event_add_io(event, ret_notify_event_source, fd, EPOLLIN, vmspawn_dispatch_vsock_connections, exit_status);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate notify socket event source: %m");
 
-        (void) sd_event_source_set_description(*notify_event_source, "vmspawn-notify-sock");
+        (void) sd_event_source_set_description(*ret_notify_event_source, "vmspawn-notify-sock");
 
         return 0;
 }
