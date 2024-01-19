@@ -229,6 +229,112 @@ static int add_local_gateway(
         return add_local_address_full(list, n_list, ifindex, 0, priority, weight, family, address);
 }
 
+static int parse_nexthop_one(
+                struct local_address **list,
+                size_t *n_list,
+                bool allow_via,
+                int family,
+                uint32_t priority,
+                const struct rtnexthop *rtnh) {
+
+        bool has_gw = false;
+        int r;
+
+        assert(rtnh);
+
+        size_t len = rtnh->rtnh_len - sizeof(struct rtnexthop);
+        for (struct rtattr *attr = RTNH_DATA(rtnh); RTA_OK(attr, len); attr = RTA_NEXT(attr, len))
+
+                switch (attr->rta_type) {
+                case RTA_GATEWAY:
+                        if (has_gw)
+                                return -EBADMSG;
+
+                        has_gw = true;
+
+                        if (attr->rta_len != RTA_LENGTH(FAMILY_ADDRESS_SIZE(family)))
+                                return -EBADMSG;
+
+                        union in_addr_union a;
+                        memcpy(&a, RTA_DATA(attr), FAMILY_ADDRESS_SIZE(family));
+                        r = add_local_gateway(list, n_list, rtnh->rtnh_ifindex, priority, rtnh->rtnh_hops, family, &a);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case RTA_VIA:
+                        if (has_gw)
+                                return -EBADMSG;
+
+                        has_gw = true;
+
+                        if (!allow_via)
+                                continue;
+
+                        if (family != AF_INET)
+                                return -EBADMSG; /* RTA_VIA is only supported for IPv4 routes. */
+
+                        if (attr->rta_len != RTA_LENGTH(sizeof(RouteVia)))
+                                return -EBADMSG;
+
+                        RouteVia *via = RTA_DATA(attr);
+                        if (via->family != AF_INET6)
+                                return -EBADMSG; /* gateway address should be always IPv6. */
+
+                        r = add_local_gateway(list, n_list, rtnh->rtnh_ifindex, priority, rtnh->rtnh_hops, via->family,
+                                              &(union in_addr_union) { .in6 = via->address.in6 });
+                        if (r < 0)
+                                return r;
+
+                        break;
+                }
+
+        return 0;
+}
+
+static int parse_nexthops(
+                struct local_address **list,
+                size_t *n_list,
+                int ifindex,
+                bool allow_via,
+                int family,
+                uint32_t priority,
+                const struct rtnexthop *rtnh,
+                size_t size) {
+
+        int r;
+
+        assert(list);
+        assert(n_list);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(rtnh || size == 0);
+
+        if (size < sizeof(struct rtnexthop))
+                return -EBADMSG;
+
+        for (; size >= sizeof(struct rtnexthop); ) {
+                if (NLMSG_ALIGN(rtnh->rtnh_len) > size)
+                        return -EBADMSG;
+
+                if (rtnh->rtnh_len < sizeof(struct rtnexthop))
+                        return -EBADMSG;
+
+                if (ifindex > 0 && rtnh->rtnh_ifindex != ifindex)
+                        goto next_nexthop;
+
+                r = parse_nexthop_one(list, n_list, allow_via, family, priority, rtnh);
+                if (r < 0)
+                        return r;
+
+        next_nexthop:
+                size -= NLMSG_ALIGN(rtnh->rtnh_len);
+                rtnh = RTNH_NEXT(rtnh);
+        }
+
+        return 0;
+}
+
 int local_gateways(
                 sd_netlink *context,
                 int ifindex,
@@ -373,25 +479,9 @@ int local_gateways(
                 if (r < 0 && r != -ENODATA)
                         return r;
                 if (r >= 0) {
-                        _cleanup_ordered_set_free_free_ OrderedSet *multipath_routes = NULL;
-                        MultipathRoute *mr;
-
-                        r = rtattr_read_nexthop(rta_multipath, rta_len, family, &multipath_routes);
+                        r = parse_nexthops(&list, &n_list, ifindex, allow_via, family, priority, rta_multipath, rta_len);
                         if (r < 0)
                                 return r;
-
-                        ORDERED_SET_FOREACH(mr, multipath_routes) {
-                                if (ifindex > 0 && mr->ifindex != ifindex)
-                                        continue;
-
-                                if (!allow_via && family != mr->gateway.family)
-                                        continue;
-
-                                union in_addr_union a = mr->gateway.address;
-                                r = add_local_gateway(&list, &n_list, ifi, priority, mr->weight, mr->gateway.family, &a);
-                                if (r < 0)
-                                        return r;
-                        }
                 }
         }
 
