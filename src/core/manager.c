@@ -397,7 +397,7 @@ static int manager_setup_time_change(Manager *m) {
                 return log_error_errno(r, "Failed to create time change event source: %m");
 
         /* Schedule this slightly earlier than the .timer event sources */
-        r = sd_event_source_set_priority(m->time_change_event_source, SD_EVENT_PRIORITY_NORMAL-1);
+        r = sd_event_source_set_priority(m->time_change_event_source, EVENT_PRIORITY_TIME_CHANGE);
         if (r < 0)
                 return log_error_errno(r, "Failed to set priority of time change event sources: %m");
 
@@ -464,7 +464,7 @@ static int manager_setup_timezone_change(Manager *m) {
                 return log_error_errno(r, "Failed to create timezone change event source: %m");
 
         /* Schedule this slightly earlier than the .timer event sources */
-        r = sd_event_source_set_priority(new_event, SD_EVENT_PRIORITY_NORMAL-1);
+        r = sd_event_source_set_priority(new_event, EVENT_PRIORITY_TIME_ZONE);
         if (r < 0)
                 return log_error_errno(r, "Failed to set priority of timezone change event sources: %m");
 
@@ -592,7 +592,7 @@ static int manager_setup_signals(Manager *m) {
          * notify processing can still figure out to which process/service a message belongs, before we reap the
          * process. Also, process this before handling cgroup notifications, so that we always collect child exit
          * status information before detecting that there's no process in a cgroup. */
-        r = sd_event_source_set_priority(m->signal_event_source, SD_EVENT_PRIORITY_NORMAL-6);
+        r = sd_event_source_set_priority(m->signal_event_source, EVENT_PRIORITY_SIGNALS);
         if (r < 0)
                 return r;
 
@@ -736,7 +736,7 @@ static int manager_setup_run_queue(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_event_source_set_priority(m->run_queue_event_source, SD_EVENT_PRIORITY_IDLE);
+        r = sd_event_source_set_priority(m->run_queue_event_source, EVENT_PRIORITY_RUN_QUEUE);
         if (r < 0)
                 return r;
 
@@ -759,7 +759,7 @@ static int manager_setup_sigchld_event_source(Manager *m) {
         if (r < 0)
                 return r;
 
-        r = sd_event_source_set_priority(m->sigchld_event_source, SD_EVENT_PRIORITY_NORMAL-7);
+        r = sd_event_source_set_priority(m->sigchld_event_source, EVENT_PRIORITY_SIGCHLD);
         if (r < 0)
                 return r;
 
@@ -1113,7 +1113,7 @@ static int manager_setup_notify(Manager *m) {
 
                 /* Process notification messages a bit earlier than SIGCHLD, so that we can still identify to which
                  * service an exit message belongs. */
-                r = sd_event_source_set_priority(m->notify_event_source, SD_EVENT_PRIORITY_NORMAL-8);
+                r = sd_event_source_set_priority(m->notify_event_source, EVENT_PRIORITY_NOTIFY);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set priority of notify event source: %m");
 
@@ -1187,7 +1187,7 @@ static int manager_setup_cgroups_agent(Manager *m) {
                 /* Process cgroups notifications early. Note that when the agent notification is received
                  * we'll just enqueue the unit in the cgroup empty queue, hence pick a high priority than
                  * that. Also see handling of cgroup inotify for the unified cgroup stuff. */
-                r = sd_event_source_set_priority(m->cgroups_agent_event_source, SD_EVENT_PRIORITY_NORMAL-9);
+                r = sd_event_source_set_priority(m->cgroups_agent_event_source, EVENT_PRIORITY_CGROUP_AGENT);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set priority of cgroups agent event source: %m");
 
@@ -1240,7 +1240,7 @@ static int manager_setup_user_lookup_fd(Manager *m) {
 
                 /* Process even earlier than the notify event source, so that we always know first about valid UID/GID
                  * resolutions */
-                r = sd_event_source_set_priority(m->user_lookup_event_source, SD_EVENT_PRIORITY_NORMAL-11);
+                r = sd_event_source_set_priority(m->user_lookup_event_source, EVENT_PRIORITY_USER_LOOKUP);
                 if (r < 0)
                         return log_error_errno(errno, "Failed to set priority of user lookup event source: %m");
 

@@ -3858,7 +3858,7 @@ static void unit_add_to_cgroup_oom_queue(Unit *u) {
                         return;
                 }
 
-                r = sd_event_source_set_priority(s, SD_EVENT_PRIORITY_NORMAL-8);
+                r = sd_event_source_set_priority(s, EVENT_PRIORITY_CGROUP_OOM);
                 if (r < 0) {
                         log_error_errno(r, "Failed to set priority of cgroup oom event source: %m");
                         return;
@@ -4064,7 +4064,7 @@ int manager_setup_cgroup(Manager *m) {
         /* Schedule cgroup empty checks early, but after having processed service notification messages or
          * SIGCHLD signals, so that a cgroup running empty is always just the last safety net of
          * notification, and we collected the metadata the notification and SIGCHLD stuff offers first. */
-        r = sd_event_source_set_priority(m->cgroup_empty_event_source, SD_EVENT_PRIORITY_NORMAL-5);
+        r = sd_event_source_set_priority(m->cgroup_empty_event_source, EVENT_PRIORITY_CGROUP_EMPTY);
         if (r < 0)
                 return log_error_errno(r, "Failed to set priority of cgroup empty event source: %m");
 
@@ -4093,7 +4093,7 @@ int manager_setup_cgroup(Manager *m) {
                 /* Process cgroup empty notifications early. Note that when this event is dispatched it'll
                  * just add the unit to a cgroup empty queue, hence let's run earlier than that. Also see
                  * handling of cgroup agent notifications, for the classic cgroup hierarchy support. */
-                r = sd_event_source_set_priority(m->cgroup_inotify_event_source, SD_EVENT_PRIORITY_NORMAL-9);
+                r = sd_event_source_set_priority(m->cgroup_inotify_event_source, EVENT_PRIORITY_CGROUP_INOTIFY);
                 if (r < 0)
                         return log_error_errno(r, "Failed to set priority of inotify event source: %m");
 
