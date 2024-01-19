@@ -80,6 +80,9 @@
 /* Erase characters until the end of the line */
 #define ANSI_ERASE_TO_END_OF_LINE "\x1B[K"
 
+/* Erase characters until end of screen */
+#define ANSI_ERASE_TO_END_OF_SCREEN "\x1B[J"
+
 /* Move cursor up one line */
 #define ANSI_REVERSE_LINEFEED "\x1BM"
 
