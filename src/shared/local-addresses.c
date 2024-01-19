@@ -29,6 +29,10 @@ static int address_compare(const struct local_address *a, const struct local_add
         if (r != 0)
                 return r;
 
+        r = CMP(a->weight, b->weight);
+        if (r != 0)
+                return r;
+
         r = CMP(a->ifindex, b->ifindex);
         if (r != 0)
                 return r;
@@ -64,6 +68,7 @@ static int add_local_address_full(
                 int ifindex,
                 unsigned char scope,
                 uint32_t priority,
+                uint32_t weight,
                 int family,
                 const union in_addr_union *address) {
 
@@ -80,6 +85,7 @@ static int add_local_address_full(
                 .ifindex = ifindex,
                 .scope = scope,
                 .priority = priority,
+                .weight = weight,
                 .family = family,
                 .address = *address,
         };
@@ -95,7 +101,7 @@ static int add_local_address(
                 int family,
                 const union in_addr_union *address) {
 
-        return add_local_address_full(list, n_list, ifindex, scope, 0, family, address);
+        return add_local_address_full(list, n_list, ifindex, scope, 0, 0, family, address);
 }
 
 int local_addresses(
@@ -216,10 +222,11 @@ static int add_local_gateway(
                 size_t *n_list,
                 int ifindex,
                 uint32_t priority,
+                uint32_t weight,
                 int family,
                 const union in_addr_union *address) {
 
-        return add_local_address_full(list, n_list, ifindex, 0, priority, family, address);
+        return add_local_address_full(list, n_list, ifindex, 0, priority, weight, family, address);
 }
 
 int local_gateways(
@@ -329,7 +336,7 @@ int local_gateways(
                         if (r < 0 && r != -ENODATA)
                                 return r;
                         if (r >= 0) {
-                                r = add_local_gateway(&list, &n_list, ifi, priority, family, &gateway);
+                                r = add_local_gateway(&list, &n_list, ifi, priority, 0, family, &gateway);
                                 if (r < 0)
                                         return r;
 
@@ -350,7 +357,7 @@ int local_gateways(
                                 if (via.family != AF_INET6)
                                         return -EBADMSG;
 
-                                r = add_local_gateway(&list, &n_list, ifi, priority, via.family,
+                                r = add_local_gateway(&list, &n_list, ifi, priority, 0, via.family,
                                                       &(union in_addr_union) { .in6 = via.address.in6 });
                                 if (r < 0)
                                         return r;
@@ -381,7 +388,7 @@ int local_gateways(
                                         continue;
 
                                 union in_addr_union a = mr->gateway.address;
-                                r = add_local_gateway(&list, &n_list, ifi, priority, mr->gateway.family, &a);
+                                r = add_local_gateway(&list, &n_list, ifi, priority, mr->weight, mr->gateway.family, &a);
                                 if (r < 0)
                                         return r;
                         }
@@ -404,7 +411,7 @@ static int add_local_outbound(
                 int family,
                 const union in_addr_union *address) {
 
-        return add_local_address_full(list, n_list, ifindex, 0, 0, family, address);
+        return add_local_address_full(list, n_list, ifindex, 0, 0, 0, family, address);
 }
 
 int local_outbounds(
