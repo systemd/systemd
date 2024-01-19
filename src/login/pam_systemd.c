@@ -802,13 +802,21 @@ typedef struct SessionContext {
         const char *runtime_max_sec;
 } SessionContext;
 
-static int create_session_message(sd_bus *bus, pam_handle_t *handle, const SessionContext *context, bool avoid_pidfd, sd_bus_message **ret) {
+static int create_session_message(
+                sd_bus *bus,
+                pam_handle_t *handle,
+                const SessionContext *context,
+                bool avoid_pidfd,
+                sd_bus_message **ret) {
+
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        int r, pidfd = -EBADFD;
+        _cleanup_close_ int pidfd = -EBADF;
+        int r;
 
         assert(bus);
         assert(handle);
         assert(context);
+        assert(ret);
 
         if (!avoid_pidfd) {
                 pidfd = pidfd_open(getpid_cached(), 0);
@@ -1066,7 +1074,7 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         r = create_session_message(bus,
                                    handle,
                                    &context,
-                                   false /* avoid_pidfd = */,
+                                   /* avoid_pidfd = */ false,
                                    &m);
         if (r < 0)
                 return pam_bus_log_create_error(handle, r);
