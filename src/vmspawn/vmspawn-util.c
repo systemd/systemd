@@ -40,7 +40,7 @@ int qemu_check_kvm_support(void) {
                 log_debug_errno(errno, "/dev/kvm not found. Not using KVM acceleration.");
                 return false;
         }
-        if (errno == EPERM) {
+        if (ERRNO_IS_PRIVILEGE(errno)) {
                 log_debug_errno(errno, "Permission denied to access /dev/kvm. Not using KVM acceleration.");
                 return false;
         }
@@ -62,11 +62,11 @@ int qemu_check_vsock_support(void) {
         fd = open("/dev/vhost-vsock", O_RDWR|O_CLOEXEC);
         if (fd >= 0)
                 return true;
-        if (errno == ENODEV) {
+        if (ERRNO_IS_DEVICE_ABSENT(errno)) {
                 log_debug_errno(errno, "/dev/vhost-vsock device doesn't exist. Not adding a vsock device to the virtual machine.");
                 return false;
         }
-        if (errno == EPERM) {
+        if (ERRNO_IS_PRIVILEGE(errno)) {
                 log_debug_errno(errno, "Permission denied to access /dev/vhost-vsock. Not adding a vsock device to the virtual machine.");
                 return false;
         }
