@@ -19,6 +19,7 @@ org.freedesktop.home1.Home.UnixRecord
 org.freedesktop.home1.Home.Unlock()
 org.freedesktop.home1.Home.Unregister()
 org.freedesktop.home1.Home.Update()
+org.freedesktop.home1.Home.UpdateEx()
 org.freedesktop.home1.Home.UserName
 org.freedesktop.home1.Home.UserRecord
 org.freedesktop.home1.Manager.AcquireHome()
@@ -27,6 +28,7 @@ org.freedesktop.home1.Manager.AuthenticateHome()
 org.freedesktop.home1.Manager.AutoLogin
 org.freedesktop.home1.Manager.ChangePasswordHome()
 org.freedesktop.home1.Manager.CreateHome()
+org.freedesktop.home1.Manager.CreateHomeEx()
 org.freedesktop.home1.Manager.DeactivateAllHomes()
 org.freedesktop.home1.Manager.DeactivateHome()
 org.freedesktop.home1.Manager.FixateHome()
@@ -47,6 +49,7 @@ org.freedesktop.home1.Manager.ResizeHome()
 org.freedesktop.home1.Manager.UnlockHome()
 org.freedesktop.home1.Manager.UnregisterHome()
 org.freedesktop.home1.Manager.UpdateHome()
+org.freedesktop.home1.Manager.UpdateHomeEx()
 org.freedesktop.hostname1.Chassis
 org.freedesktop.hostname1.DefaultHostname
 org.freedesktop.hostname1.Deployment
