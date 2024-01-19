@@ -10,8 +10,8 @@
 
 static void print_local_addresses(struct local_address *a, unsigned n) {
         for (unsigned i = 0; i < n; i++)
-                log_debug("%s ifindex=%i scope=%u metric=%"PRIu32" address=%s",
-                          af_to_name(a[i].family), a[i].ifindex, a[i].scope, a[i].metric,
+                log_debug("%s ifindex=%i scope=%u priority=%"PRIu32" address=%s",
+                          af_to_name(a[i].family), a[i].ifindex, a[i].scope, a[i].priority,
                           IN_ADDR_TO_STRING(a[i].family, &a[i].address));
 }
 
