@@ -442,6 +442,7 @@ int sd_bus_creds_get_unique_name(sd_bus_creds *c, const char **name);
 int sd_bus_creds_get_well_known_names(sd_bus_creds *c, char ***names);
 int sd_bus_creds_get_description(sd_bus_creds *c, const char **name);
 
+int sd_bus_creds_set_euid(sd_bus_creds *c, uid_t *euid);
 /* Error structures */
 
 #define SD_BUS_ERROR_MAKE_CONST(name, message) ((const sd_bus_error) {(name), (message), 0})

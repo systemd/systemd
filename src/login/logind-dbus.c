@@ -1974,6 +1974,7 @@ static int verify_shutdown_creds(
         bool multiple_sessions, blocked, interactive;
         uid_t uid;
         int r;
+        sd_bus_creds *c;
 
         assert(m);
         assert(a);
@@ -1986,6 +1987,8 @@ static int verify_shutdown_creds(
         r = sd_bus_creds_get_euid(creds, &uid);
         if (r < 0)
                 return r;
+        c = sd_bus_message_get_creds(message);
+        sd_bus_creds_set_euid(c, &uid);
 
         r = have_multiple_sessions(m, uid);
         if (r < 0)
