@@ -2,6 +2,8 @@
 
 #include <linux/loop.h>
 
+#include "sd-messages.h"
+
 #include "bus-common-errors.h"
 #include "bus-error.h"
 #include "bus-locator.h"
@@ -1430,6 +1432,78 @@ static bool prefix_matches_compatible(char **matches, char **valid_prefixes) {
         return true;
 }
 
+static void log_portable_verb(
+                const char *verb,
+                const char *message_id,
+                const char *image_path,
+                OrderedHashmap *extension_images,
+                char **extension_image_paths,
+                PortableFlags flags) {
+
+        _cleanup_free_ char *root_base_name = NULL, *extensions_joined = NULL;
+        _cleanup_strv_free_ char **extension_base_names = NULL;
+        Image *ext;
+        int r;
+
+        assert(verb);
+        assert(message_id);
+        assert(image_path);
+        assert(!extension_images || !extension_image_paths);
+
+        /* Use the same structured metadata as it is attached to units via LogExtraFields=. The main image
+         * is logged as PORTABLE_ROOT= and extensions, if any, as individual PORTABLE_EXTENSION= fields. */
+
+        r = path_extract_filename(image_path, &root_base_name);
+        if (r < 0)
+                log_debug_errno(r, "Failed to extract basename from '%s', ignoring: %m", image_path);
+
+        ORDERED_HASHMAP_FOREACH(ext, extension_images) {
+                _cleanup_free_ char *extension_base_name = NULL;
+
+                r = path_extract_filename(ext->path, &extension_base_name);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to extract basename from '%s', ignoring: %m", ext->path);
+                        continue;
+                }
+
+                r = strv_extendf(&extension_base_names, "PORTABLE_EXTENSION=%s", extension_base_name);
+                if (r < 0)
+                        log_oom_debug();
+
+                if (!strextend_with_separator(&extensions_joined, ", ", ext->path))
+                        log_oom_debug();
+        }
+
+        STRV_FOREACH(e, extension_image_paths) {
+                _cleanup_free_ char *extension_base_name = NULL;
+
+                r = path_extract_filename(*e, &extension_base_name);
+                if (r < 0) {
+                        log_debug_errno(r, "Failed to extract basename from '%s', ignoring: %m", *e);
+                        continue;
+                }
+
+                r = strv_extendf(&extension_base_names, "PORTABLE_EXTENSION=%s", extension_base_name);
+                if (r < 0)
+                        log_oom_debug();
+
+                if (!strextend_with_separator(&extensions_joined, ", ", *e))
+                        log_oom_debug();
+        }
+
+        LOG_CONTEXT_PUSH_STRV(extension_base_names);
+
+        log_struct(LOG_INFO,
+                   LOG_MESSAGE("Successfully %s%s '%s%s%s'",
+                               verb,
+                               FLAGS_SET(flags, PORTABLE_RUNTIME) ? " ephemeral" : "",
+                               image_path,
+                               isempty(extensions_joined) ? "" : "' and its extension(s) '",
+                               strempty(extensions_joined)),
+                   message_id,
+                   "PORTABLE_ROOT=%s", strna(root_base_name));
+}
+
 int portable_attach(
                 sd_bus *bus,
                 const char *name_or_path,
@@ -1537,6 +1611,14 @@ int portable_attach(
         /* We don't care too much for the image symlink, it's just a convenience thing, it's not necessary for proper
          * operation otherwise. */
         (void) install_image_and_extensions_symlinks(image, extension_images, flags, changes, n_changes);
+
+        log_portable_verb(
+                        "attached",
+                        "MESSAGE_ID=" SD_MESSAGE_PORTABLE_ATTACHED_STR,
+                        image->path,
+                        extension_images,
+                        /* extension_image_paths= */ NULL,
+                        flags);
 
         return 0;
 }
@@ -1860,6 +1942,14 @@ int portable_detach(
         /* Try to remove the unit file directory, if we can */
         if (rmdir(where) >= 0)
                 portable_changes_add(changes, n_changes, PORTABLE_UNLINK, where, NULL);
+
+        log_portable_verb(
+                        "detached",
+                        "MESSAGE_ID=" SD_MESSAGE_PORTABLE_DETACHED_STR,
+                        name_or_path,
+                        /* extension_images= */ NULL,
+                        extension_image_paths,
+                        flags);
 
         return ret;
 
