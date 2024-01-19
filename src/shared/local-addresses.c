@@ -58,6 +58,46 @@ static void suppress_duplicates(struct local_address *list, size_t *n_list) {
         *n_list = new_size;
 }
 
+static int add_local_address_full(
+                struct local_address **list,
+                size_t *n_list,
+                int ifindex,
+                unsigned char scope,
+                uint32_t priority,
+                int family,
+                const union in_addr_union *address) {
+
+        assert(list);
+        assert(n_list);
+        assert(ifindex > 0);
+        assert(IN_SET(family, AF_INET, AF_INET6));
+        assert(address);
+
+        if (!GREEDY_REALLOC(*list, *n_list + 1))
+                return -ENOMEM;
+
+        (*list)[(*n_list)++] = (struct local_address) {
+                .ifindex = ifindex,
+                .scope = scope,
+                .priority = priority,
+                .family = family,
+                .address = *address,
+        };
+
+        return 1;
+}
+
+static int add_local_address(
+                struct local_address **list,
+                size_t *n_list,
+                int ifindex,
+                unsigned char scope,
+                int family,
+                const union in_addr_union *address) {
+
+        return add_local_address_full(list, n_list, ifindex, scope, 0, family, address);
+}
+
 int local_addresses(
                 sd_netlink *context,
                 int ifindex,
@@ -91,8 +131,8 @@ int local_addresses(
                 return r;
 
         for (sd_netlink_message *m = reply; m; m = sd_netlink_message_next(m)) {
-                struct local_address *a;
-                unsigned char flags;
+                union in_addr_union a;
+                unsigned char flags, scope;
                 uint16_t type;
                 int ifi, family;
 
@@ -126,33 +166,28 @@ int local_addresses(
                 if ((flags & (IFA_F_DEPRECATED|IFA_F_TENTATIVE)) != 0)
                         continue;
 
-                if (!GREEDY_REALLOC0(list, n_list+1))
-                        return -ENOMEM;
-
-                a = list + n_list;
-
-                r = sd_rtnl_message_addr_get_scope(m, &a->scope);
+                r = sd_rtnl_message_addr_get_scope(m, &scope);
                 if (r < 0)
                         return r;
 
-                if (ifindex == 0 && IN_SET(a->scope, RT_SCOPE_HOST, RT_SCOPE_NOWHERE))
+                if (ifindex == 0 && IN_SET(scope, RT_SCOPE_HOST, RT_SCOPE_NOWHERE))
                         continue;
 
                 switch (family) {
 
                 case AF_INET:
-                        r = sd_netlink_message_read_in_addr(m, IFA_LOCAL, &a->address.in);
+                        r = sd_netlink_message_read_in_addr(m, IFA_LOCAL, &a.in);
                         if (r < 0) {
-                                r = sd_netlink_message_read_in_addr(m, IFA_ADDRESS, &a->address.in);
+                                r = sd_netlink_message_read_in_addr(m, IFA_ADDRESS, &a.in);
                                 if (r < 0)
                                         continue;
                         }
                         break;
 
                 case AF_INET6:
-                        r = sd_netlink_message_read_in6_addr(m, IFA_LOCAL, &a->address.in6);
+                        r = sd_netlink_message_read_in6_addr(m, IFA_LOCAL, &a.in6);
                         if (r < 0) {
-                                r = sd_netlink_message_read_in6_addr(m, IFA_ADDRESS, &a->address.in6);
+                                r = sd_netlink_message_read_in6_addr(m, IFA_ADDRESS, &a.in6);
                                 if (r < 0)
                                         continue;
                         }
@@ -162,10 +197,9 @@ int local_addresses(
                         continue;
                 }
 
-                a->ifindex = ifi;
-                a->family = family;
-
-                n_list++;
+                r = add_local_address(&list, &n_list, ifi, scope, family, &a);
+                if (r < 0)
+                        return r;
         };
 
         typesafe_qsort(list, n_list, address_compare);
@@ -180,29 +214,12 @@ int local_addresses(
 static int add_local_gateway(
                 struct local_address **list,
                 size_t *n_list,
-                int af,
                 int ifindex,
                 uint32_t priority,
-                const RouteVia *via) {
+                int family,
+                const union in_addr_union *address) {
 
-        assert(list);
-        assert(n_list);
-        assert(via);
-
-        if (af != AF_UNSPEC && af != via->family)
-                return 0;
-
-        if (!GREEDY_REALLOC(*list, *n_list + 1))
-                return -ENOMEM;
-
-        (*list)[(*n_list)++] = (struct local_address) {
-                .ifindex = ifindex,
-                .priority = priority,
-                .family = via->family,
-                .address = via->address,
-        };
-
-        return 0;
+        return add_local_address_full(list, n_list, ifindex, 0, priority, family, address);
 }
 
 int local_gateways(
@@ -312,9 +329,7 @@ int local_gateways(
                         if (r < 0 && r != -ENODATA)
                                 return r;
                         if (r >= 0) {
-                                via.family = family;
-                                via.address = gateway;
-                                r = add_local_gateway(&list, &n_list, af, ifi, priority, &via);
+                                r = add_local_gateway(&list, &n_list, ifi, priority, family, &gateway);
                                 if (r < 0)
                                         return r;
 
@@ -335,7 +350,8 @@ int local_gateways(
                                 if (via.family != AF_INET6)
                                         return -EBADMSG;
 
-                                r = add_local_gateway(&list, &n_list, af, ifi, priority, &via);
+                                r = add_local_gateway(&list, &n_list, ifi, priority, via.family,
+                                                      &(union in_addr_union) { .in6 = via.address.in6 });
                                 if (r < 0)
                                         return r;
                         }
@@ -364,7 +380,8 @@ int local_gateways(
                                 if (!allow_via && family != mr->gateway.family)
                                         continue;
 
-                                r = add_local_gateway(&list, &n_list, af, ifi, priority, &mr->gateway);
+                                union in_addr_union a = mr->gateway.address;
+                                r = add_local_gateway(&list, &n_list, ifi, priority, mr->gateway.family, &a);
                                 if (r < 0)
                                         return r;
                         }
@@ -378,6 +395,16 @@ int local_gateways(
                 *ret = TAKE_PTR(list);
 
         return (int) n_list;
+}
+
+static int add_local_outbound(
+                struct local_address **list,
+                size_t *n_list,
+                int ifindex,
+                int family,
+                const union in_addr_union *address) {
+
+        return add_local_address_full(list, n_list, ifindex, 0, 0, family, address);
 }
 
 int local_outbounds(
@@ -486,29 +513,20 @@ int local_outbounds(
                         if (in4_addr_is_null(&sa.in.sin_addr)) /* Auto-binding didn't work. :-( */
                                 continue;
 
-                        if (!GREEDY_REALLOC(list, n_list+1))
-                                return -ENOMEM;
-
-                        list[n_list++] = (struct local_address) {
-                                .family = gateways[i].family,
-                                .ifindex = gateways[i].ifindex,
-                                .address.in = sa.in.sin_addr,
-                        };
-
+                        r = add_local_outbound(&list, &n_list, gateways[i].ifindex, gateways[i].family,
+                                               &(union in_addr_union) { .in = sa.in.sin_addr });
+                        if (r < 0)
+                                return r;
                         break;
 
                 case AF_INET6:
                         if (in6_addr_is_null(&sa.in6.sin6_addr))
                                 continue;
 
-                        if (!GREEDY_REALLOC(list, n_list+1))
-                                return -ENOMEM;
-
-                        list[n_list++] = (struct local_address) {
-                                .family = gateways[i].family,
-                                .ifindex = gateways[i].ifindex,
-                                .address.in6 = sa.in6.sin6_addr,
-                        };
+                        r = add_local_outbound(&list, &n_list, gateways[i].ifindex, gateways[i].family,
+                                               &(union in_addr_union) { .in6 = sa.in6.sin6_addr });
+                        if (r < 0)
+                                return r;
                         break;
 
                 default:
