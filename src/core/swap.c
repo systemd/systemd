@@ -1358,7 +1358,7 @@ static void swap_enumerate(Manager *m) {
                 /* Dispatch this before we dispatch SIGCHLD, so that
                  * we always get the events from /proc/swaps before
                  * the SIGCHLD of /sbin/swapon. */
-                r = sd_event_source_set_priority(m->swap_event_source, SD_EVENT_PRIORITY_NORMAL-10);
+                r = sd_event_source_set_priority(m->swap_event_source, EVENT_PRIORITY_SWAP_TABLE);
                 if (r < 0) {
                         log_error_errno(r, "Failed to change /proc/swaps priority: %m");
                         goto fail;
