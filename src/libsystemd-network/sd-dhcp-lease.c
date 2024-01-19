@@ -16,6 +16,7 @@
 #include "dhcp-lease-internal.h"
 #include "dhcp-option.h"
 #include "dns-domain.h"
+#include "dns-resolver.h"
 #include "env-file.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -23,6 +24,7 @@
 #include "hexdecoct.h"
 #include "hostname-util.h"
 #include "in-addr-util.h"
+#include "list.h"
 #include "network-common.h"
 #include "network-internal.h"
 #include "parse-util.h"
@@ -229,6 +231,16 @@ int sd_dhcp_lease_get_captive_portal(sd_dhcp_lease *lease, const char **ret) {
         return 0;
 }
 
+int sd_dhcp_lease_get_dnr(sd_dhcp_lease *lease, ResolverData **ret_resolvers) {
+        assert_return(ret_resolvers, -EINVAL);
+
+        if (!lease->resolvers)
+                return -ENODATA;
+
+        *ret_resolvers = lease->resolvers;
+        return !!lease->resolvers;
+}
+
 int sd_dhcp_lease_get_router(sd_dhcp_lease *lease, const struct in_addr **addr) {
         assert_return(lease, -EINVAL);
         assert_return(addr, -EINVAL);
@@ -418,6 +430,7 @@ static sd_dhcp_lease *dhcp_lease_free(sd_dhcp_lease *lease) {
         for (sd_dhcp_lease_server_type_t i = 0; i < _SD_DHCP_LEASE_SERVER_TYPE_MAX; i++)
                 free(lease->servers[i].addr);
 
+        dnr_resolver_data_free_all(lease->resolvers);
         free(lease->static_routes);
         free(lease->classless_routes);
         free(lease->vendor_specific);
@@ -557,6 +570,160 @@ static int lease_parse_sip_server(const uint8_t *option, size_t len, struct in_a
         }
 
         return lease_parse_in_addrs(option + 1, len - 1, ret, n_ret);
+}
+
+static int lease_parse_dns_name(const uint8_t *optval, size_t optlen, char **ret) {
+        _cleanup_free_ char *name = NULL;
+        size_t n = 0;
+        int r;
+
+        assert(optval);
+        assert(ret);
+
+        if (optlen <= 1)
+                return -ENODATA;
+
+        for (;;) {
+                const char *label;
+                uint8_t c;
+
+                if (optlen == 0)
+                        break;
+
+                c = *optval;
+                optval++;
+                optlen--;
+
+                if (c == 0)
+                        /* End label */
+                        break;
+                if (c > 63)
+                        return -EBADMSG;
+                if (c > optlen)
+                        return -EMSGSIZE;
+
+                /* Literal label */
+                label = (const char*) optval;
+                optval += c;
+                optlen -= c;
+
+                if (!GREEDY_REALLOC(name, n + (n != 0) + DNS_LABEL_ESCAPED_MAX))
+                        return -ENOMEM;
+
+                if (n != 0)
+                        name[n++] = '.';
+
+                r = dns_label_escape(label, c, name + n, DNS_LABEL_ESCAPED_MAX);
+                if (r < 0)
+                        return r;
+
+                n += r;
+        }
+
+        if (n > 0) {
+                if (!GREEDY_REALLOC(name, n + 1))
+                        return -ENOMEM;
+
+                name[n] = '\0';
+        }
+
+        *ret = TAKE_PTR(name);
+
+        return n;
+}
+
+static int lease_parse_designated_resolvers(const uint8_t *option, size_t len, ResolverData **resolvers) {
+        int r;
+        _cleanup_(dnr_resolver_data_free_allp) ResolverData *res_list = NULL;
+        size_t n_resolvers = 0;
+
+        assert(option);
+        assert(resolvers);
+
+        size_t offset = 0;
+        while (offset < len) {
+                _cleanup_(dnr_resolver_data_free_allp) ResolverData *res = NULL;
+                if (len < 2)
+                        return -EINVAL;
+
+                /* Instance Data length */
+                size_t ilen = unaligned_read_be16(&option[offset]);
+                if (offset + ilen + 2 > len)
+                        return -EINVAL;
+                offset += 2;
+                size_t iend = offset + ilen;
+
+                res = new0(ResolverData, 1);
+                if (!res)
+                        return -ENOMEM;
+
+                res->priority = unaligned_read_be16(&option[offset]);
+                offset += 2;
+
+                /* Authenticated Domain Name */
+                ilen = option[offset++];
+                if (offset + ilen > iend)
+                        return -EINVAL;
+
+                r = lease_parse_dns_name(&option[offset], ilen, &res->auth_name);
+                if (r < 0)
+                        return r;
+                offset += ilen;
+
+                /* IPv4 addrs */
+                ilen = option[offset++];
+                if (offset + ilen > iend)
+                        return -EINVAL;
+
+                /* RFC9463 § 3.1.6: In ADN-only mode, server omits everything after the ADN.
+                 * We don't support these, but they are not invalid. */
+                if (offset + ilen == iend)
+                        continue;
+
+                size_t n_addrs;
+                _cleanup_free_ struct in_addr *addrs = NULL;
+                r = lease_parse_in_addrs(&option[offset], ilen, &addrs, &n_addrs);
+                if (r < 0)
+                        return r;
+                offset += ilen;
+
+                /* RFC9463 § 3.1.8: option MUST include at least one valid IP addr */
+                if (!n_addrs)
+                        return -EINVAL;
+
+                res->addrs = new(union in_addr_union, n_addrs);
+                if (!res->addrs)
+                        return -ENOMEM;
+                for (size_t i = 0; i < n_addrs; i++)
+                        res->addrs[i] = (union in_addr_union) {.in = addrs[i]};
+                res->n_addrs = n_addrs;
+                res->family = AF_INET;
+
+                /* service params */
+                r = dnr_parse_svc_params(&option[offset], iend-offset, res);
+                if (r < 0)
+                        return r;
+                if (r == 0) {
+                        *resolvers = dnr_resolver_data_free_all(*resolvers);
+                        return n_resolvers;
+                }
+                offset += ilen;
+
+                /* Record resolvers in priority order */
+                LIST_FOREACH(resolvers, i, res_list) {
+                        if (res->priority < i->priority) {
+                                LIST_INSERT_BEFORE(resolvers, res_list, i, TAKE_PTR(res));
+                                break;
+                        }
+                }
+                if (res)
+                        LIST_INSERT_AFTER(resolvers, res_list, res_list, TAKE_PTR(res));
+                n_resolvers++;
+        }
+
+        free_and_replace_full(*resolvers, res_list, dnr_resolver_data_free_all);
+
+        return n_resolvers;
 }
 
 static int lease_parse_static_routes(sd_dhcp_lease *lease, const uint8_t *option, size_t len) {
@@ -875,6 +1042,16 @@ int dhcp_lease_parse_options(uint8_t code, uint8_t len, const void *option, void
                 break;
         }
 
+        case SD_DHCP_OPTION_V4_DNR:
+                //FIXME: remove matching entries from DNS so they aren't duplicated?
+                r = lease_parse_designated_resolvers(option, len, &lease->resolvers);
+                if (r < 0) {
+                        log_warning_errno(r, "Failed to parse network-designated resolvers, ignoring: %m");
+                        return 0;
+                }
+
+                break;
+
         case SD_DHCP_OPTION_VENDOR_SPECIFIC:
 
                 if (len <= 0)
@@ -1136,6 +1313,14 @@ int dhcp_lease_save(sd_dhcp_lease *lease, const char *lease_file) {
                 fputc('\n', f);
         }
 
+        ResolverData *resolvers;
+        r = sd_dhcp_lease_get_dnr(lease, &resolvers);
+        if (r > 0) {
+                fputs("DNR=", f);
+                serialize_dnr(f, resolvers, NULL);
+                fputc('\n', f);
+        }
+
         r = sd_dhcp_lease_get_ntp(lease, &addresses);
         if (r > 0) {
                 fputs("NTP=", f);
@@ -1244,6 +1429,7 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                 *next_server = NULL,
                 *broadcast = NULL,
                 *dns = NULL,
+                *dnr = NULL,
                 *ntp = NULL,
                 *sip = NULL,
                 *pop3 = NULL,
@@ -1281,6 +1467,7 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                            "NEXT_SERVER", &next_server,
                            "BROADCAST", &broadcast,
                            "DNS", &dns,
+                           "DNR", &dnr,
                            "NTP", &ntp,
                            "SIP", &sip,
                            "POP3", &pop3,
@@ -1381,6 +1568,12 @@ int dhcp_lease_load(sd_dhcp_lease **ret, const char *lease_file) {
                         log_debug_errno(r, "Failed to deserialize DNS servers %s, ignoring: %m", dns);
                 else
                         lease->servers[SD_DHCP_LEASE_DNS].size = r;
+        }
+
+        if (dnr) {
+                r = deserialize_dnr(&lease->resolvers, dnr);
+                if (r < 0)
+                        log_debug_errno(r, "Failed to deserialize DNR servers %s, ignoring: %m", dnr);
         }
 
         if (ntp) {
