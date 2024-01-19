@@ -228,7 +228,7 @@ int userns_acquire(const char *uid_map, const char *gid_map) {
 
         r = safe_fork("(sd-mkuserns)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG|FORK_NEW_USERNS, &pid);
         if (r < 0)
-                return r;
+                return log_debug_errno(r, "Failed to fork process (sd-mkuserns): %m");
         if (r == 0)
                 /* Child. We do nothing here, just freeze until somebody kills us. */
                 freeze();
@@ -236,12 +236,12 @@ int userns_acquire(const char *uid_map, const char *gid_map) {
         xsprintf(path, "/proc/" PID_FMT "/uid_map", pid);
         r = write_string_file(path, uid_map, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
-                return log_error_errno(r, "Failed to write UID map: %m");
+                return log_debug_errno(r, "Failed to write UID map: %m");
 
         xsprintf(path, "/proc/" PID_FMT "/gid_map", pid);
         r = write_string_file(path, gid_map, WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
-                return log_error_errno(r, "Failed to write GID map: %m");
+                return log_debug_errno(r, "Failed to write GID map: %m");
 
         r = namespace_open(pid,
                            /* ret_pidns_fd = */ NULL,
@@ -250,10 +250,9 @@ int userns_acquire(const char *uid_map, const char *gid_map) {
                            &userns_fd,
                            /* ret_root_fd = */ NULL);
         if (r < 0)
-                return log_error_errno(r, "Failed to open userns fd: %m");
+                return log_debug_errno(r, "Failed to open userns fd: %m");
 
         return TAKE_FD(userns_fd);
-
 }
 
 int in_same_namespace(pid_t pid1, pid_t pid2, NamespaceType type) {
