@@ -616,6 +616,7 @@ static int help(void) {
                "     --pretty            Only set pretty hostname\n"
                "     --json=pretty|short|off\n"
                "                         Generate JSON output\n"
+               "  -j                     Same as --json=pretty on tty, --json=short otherwise\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -658,7 +659,7 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argc >= 0);
         assert(argv);
 
-        while ((c = getopt_long(argc, argv, "hH:M:", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "hH:M:j", options, NULL)) >= 0)
 
                 switch (c) {
 
@@ -699,6 +700,10 @@ static int parse_argv(int argc, char *argv[]) {
                         if (r <= 0)
                                 return r;
 
+                        break;
+
+                case 'j':
+                        arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
                         break;
 
                 case '?':
