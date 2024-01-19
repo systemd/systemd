@@ -25,7 +25,7 @@ static int address_compare(const struct local_address *a, const struct local_add
         if (r != 0)
                 return r;
 
-        r = CMP(a->metric, b->metric);
+        r = CMP(a->priority, b->priority);
         if (r != 0)
                 return r;
 
@@ -180,7 +180,7 @@ static int add_local_gateway(
                 size_t *n_list,
                 int af,
                 int ifindex,
-                uint32_t metric,
+                uint32_t priority,
                 const RouteVia *via) {
 
         assert(list);
@@ -195,7 +195,7 @@ static int add_local_gateway(
 
         (*list)[(*n_list)++] = (struct local_address) {
                 .ifindex = ifindex,
-                .metric = metric,
+                .priority = priority,
                 .family = via->family,
                 .address = via->address,
         };
@@ -249,7 +249,7 @@ int local_gateways(
                 union in_addr_union gateway;
                 uint16_t type;
                 unsigned char dst_len, src_len, table;
-                uint32_t ifi = 0, metric = 0;
+                uint32_t ifi = 0, priority = 0;
                 size_t rta_len;
                 int family;
                 RouteVia via;
@@ -283,7 +283,7 @@ int local_gateways(
                 if (table != RT_TABLE_MAIN)
                         continue;
 
-                r = sd_netlink_message_read_u32(m, RTA_PRIORITY, &metric);
+                r = sd_netlink_message_read_u32(m, RTA_PRIORITY, &priority);
                 if (r < 0 && r != -ENODATA)
                         return r;
 
@@ -308,7 +308,7 @@ int local_gateways(
                         if (r >= 0) {
                                 via.family = family;
                                 via.address = gateway;
-                                r = add_local_gateway(&list, &n_list, af, ifi, metric, &via);
+                                r = add_local_gateway(&list, &n_list, af, ifi, priority, &via);
                                 if (r < 0)
                                         return r;
 
@@ -322,7 +322,7 @@ int local_gateways(
                         if (r < 0 && r != -ENODATA)
                                 return r;
                         if (r >= 0) {
-                                r = add_local_gateway(&list, &n_list, af, ifi, metric, &via);
+                                r = add_local_gateway(&list, &n_list, af, ifi, priority, &via);
                                 if (r < 0)
                                         return r;
 
@@ -344,7 +344,7 @@ int local_gateways(
                                 if (ifindex > 0 && mr->ifindex != ifindex)
                                         continue;
 
-                                r = add_local_gateway(&list, &n_list, af, ifi, metric, &mr->gateway);
+                                r = add_local_gateway(&list, &n_list, af, ifi, priority, &mr->gateway);
                                 if (r < 0)
                                         return r;
                         }
