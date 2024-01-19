@@ -19,18 +19,6 @@ typedef struct RouteVia {
         union in_addr_union address;
 } _packed_ RouteVia;
 
-typedef struct MultipathRoute {
-        RouteVia gateway;
-        uint32_t weight;
-        int ifindex;
-        char *ifname;
-} MultipathRoute;
-
-MultipathRoute *multipath_route_free(MultipathRoute *m);
-DEFINE_TRIVIAL_CLEANUP_FUNC(MultipathRoute*, multipath_route_free);
-
-int multipath_route_dup(const MultipathRoute *m, MultipathRoute **ret);
-
 int rtnl_rename_link(sd_netlink **rtnl, const char *orig_name, const char *new_name);
 int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name, char* const* alternative_names);
 static inline int rtnl_append_link_alternative_names(sd_netlink **rtnl, int ifindex, char* const *alternative_names) {
@@ -106,8 +94,6 @@ int netlink_message_read_in_addr_union(sd_netlink_message *m, unsigned short typ
 
 void rtattr_append_attribute_internal(struct rtattr *rta, unsigned short type, const void *data, size_t data_length);
 int rtattr_append_attribute(struct rtattr **rta, unsigned short type, const void *data, size_t data_length);
-
-int rtattr_read_nexthop(const struct rtnexthop *rtnh, size_t size, int family, OrderedSet **ret);
 
 void netlink_seal_message(sd_netlink *nl, sd_netlink_message *m);
 
