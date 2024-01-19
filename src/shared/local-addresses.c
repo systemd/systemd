@@ -252,15 +252,10 @@ int local_gateways(
                 return r;
 
         for (sd_netlink_message *m = reply; m; m = sd_netlink_message_next(m)) {
-                _cleanup_ordered_set_free_free_ OrderedSet *multipath_routes = NULL;
-                _cleanup_free_ void *rta_multipath = NULL;
-                union in_addr_union gateway;
                 uint16_t type;
                 unsigned char dst_len, src_len, table;
                 uint32_t ifi = 0, priority = 0;
-                size_t rta_len;
                 int family;
-                RouteVia via;
 
                 r = sd_netlink_message_get_errno(m);
                 if (r < 0)
@@ -312,6 +307,7 @@ int local_gateways(
                         if (ifindex > 0 && (int) ifi != ifindex)
                                 continue;
 
+                        union in_addr_union gateway;
                         r = netlink_message_read_in_addr_union(m, RTA_GATEWAY, family, &gateway);
                         if (r < 0 && r != -ENODATA)
                                 return r;
@@ -331,6 +327,7 @@ int local_gateways(
                         if (family != AF_INET)
                                 continue;
 
+                        RouteVia via;
                         r = sd_netlink_message_read(m, RTA_VIA, sizeof(via), &via);
                         if (r < 0 && r != -ENODATA)
                                 return r;
@@ -346,10 +343,13 @@ int local_gateways(
                         }
                 }
 
+                size_t rta_len;
+                _cleanup_free_ void *rta_multipath = NULL;
                 r = sd_netlink_message_read_data(m, RTA_MULTIPATH, &rta_len, &rta_multipath);
                 if (r < 0 && r != -ENODATA)
                         return r;
                 if (r >= 0) {
+                        _cleanup_ordered_set_free_free_ OrderedSet *multipath_routes = NULL;
                         MultipathRoute *mr;
 
                         r = rtattr_read_nexthop(rta_multipath, rta_len, family, &multipath_routes);
