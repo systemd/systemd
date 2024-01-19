@@ -696,6 +696,8 @@ static int run_virtual_machine(void) {
                 _exit(EXIT_FAILURE);
         }
 
+        child_vsock_fd = safe_close(child_vsock_fd);
+
         int exit_status = INT_MAX;
         if (use_vsock) {
                 r = setup_notify_parent(event, vsock_fd, &exit_status, &notify_event_source);
