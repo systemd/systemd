@@ -4214,13 +4214,13 @@ static int uid_shift_pick(uid_t *shift, LockFile *ret_lock_file) {
                         return r;
 
                 /* Make some superficial checks whether the range is currently known in the user database */
-                if (getpwuid(candidate))
+                if (getpwuid_malloc(candidate, /* ret= */ NULL) >= 0)
                         goto next;
-                if (getpwuid(candidate + UINT32_C(0xFFFE)))
+                if (getpwuid_malloc(candidate + UINT32_C(0xFFFE), /* ret= */ NULL) >= 0)
                         goto next;
-                if (getgrgid(candidate))
+                if (getgrgid_malloc(candidate, /* ret= */ NULL) >= 0)
                         goto next;
-                if (getgrgid(candidate + UINT32_C(0xFFFE)))
+                if (getgrgid_malloc(candidate + UINT32_C(0xFFFE), /* ret= */ NULL) >= 0)
                         goto next;
 
                 *ret_lock_file = lf;

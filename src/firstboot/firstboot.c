@@ -1079,12 +1079,11 @@ static int process_root_account(int rfd) {
                 return log_error_errno(k, "Failed to check if directory file descriptor is root: %m");
 
         if (arg_copy_root_shell && k == 0) {
-                struct passwd *p;
+                _cleanup_free_ struct passwd *p = NULL;
 
-                errno = 0;
-                p = getpwnam("root");
-                if (!p)
-                        return log_error_errno(errno_or_else(EIO), "Failed to find passwd entry for root: %m");
+                r = getpwnam_malloc("root", &p);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to find passwd entry for root: %m");
 
                 r = free_and_strdup(&arg_root_shell, p->pw_shell);
                 if (r < 0)

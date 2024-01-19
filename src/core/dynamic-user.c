@@ -293,8 +293,8 @@ static int pick_uid(char **suggested_paths, const char *name, uid_t *ret_uid) {
                 }
 
                 /* Some superficial check whether this UID/GID might already be taken by some static user */
-                if (getpwuid(candidate) ||
-                    getgrgid((gid_t) candidate) ||
+                if (getpwuid_malloc(candidate, /* ret= */ NULL) >= 0 ||
+                    getgrgid_malloc((gid_t) candidate, /* ret= */ NULL) >= 0 ||
                     search_ipc(candidate, (gid_t) candidate) != 0) {
                         (void) unlink(lock_path);
                         continue;
@@ -417,30 +417,26 @@ static int dynamic_user_realize(
                 /* First, let's parse this as numeric UID */
                 r = parse_uid(d->name, &num);
                 if (r < 0) {
-                        struct passwd *p;
-                        struct group *g;
+                        _cleanup_free_ struct passwd *p = NULL;
+                        _cleanup_free_ struct group *g = NULL;
 
                         if (is_user) {
                                 /* OK, this is not a numeric UID. Let's see if there's a user by this name */
-                                p = getpwnam(d->name);
-                                if (p) {
+                                if (getpwnam_malloc(d->name, &p) >= 0) {
                                         num = p->pw_uid;
                                         gid = p->pw_gid;
                                 } else {
                                         /* if the user does not exist but the group with the same name exists, refuse operation */
-                                        g = getgrnam(d->name);
-                                        if (g)
+                                        if (getgrnam_malloc(d->name, /* ret= */ NULL) >= 0)
                                                 return -EILSEQ;
                                 }
                         } else {
                                 /* Let's see if there's a group by this name */
-                                g = getgrnam(d->name);
-                                if (g)
+                                if (getgrnam_malloc(d->name, &g) >= 0)
                                         num = (uid_t) g->gr_gid;
                                 else {
                                         /* if the group does not exist but the user with the same name exists, refuse operation */
-                                        p = getpwnam(d->name);
-                                        if (p)
+                                        if (getpwnam_malloc(d->name, /* ret= */ NULL) >= 0)
                                                 return -EILSEQ;
                                 }
                         }
@@ -482,13 +478,12 @@ static int dynamic_user_realize(
                         uid_lock_fd = new_uid_lock_fd;
                 }
         } else if (is_user && !uid_is_dynamic(num)) {
-                struct passwd *p;
+                _cleanup_free_ struct passwd *p = NULL;
 
                 /* Statically allocated user may have different uid and gid. So, let's obtain the gid. */
-                errno = 0;
-                p = getpwuid(num);
-                if (!p)
-                        return errno_or_else(ESRCH);
+                r = getpwuid_malloc(num, &p);
+                if (r < 0)
+                        return r;
 
                 gid = p->pw_gid;
         }

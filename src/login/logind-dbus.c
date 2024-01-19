@@ -1342,10 +1342,10 @@ static int method_terminate_seat(sd_bus_message *message, void *userdata, sd_bus
 
 static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        _cleanup_free_ struct passwd *pw = NULL;
         _cleanup_free_ char *cc = NULL;
         Manager *m = ASSERT_PTR(userdata);
         int r, b, interactive;
-        struct passwd *pw;
         const char *path;
         uint32_t uid, auth_uid;
 
@@ -1373,10 +1373,9 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
-        errno = 0;
-        pw = getpwuid(uid);
-        if (!pw)
-                return errno_or_else(ENOENT);
+        r = getpwuid_malloc(uid, &pw);
+        if (r < 0)
+                return r;
 
         r = bus_verify_polkit_async_full(
                         message,

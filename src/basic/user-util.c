@@ -431,31 +431,11 @@ char* uid_to_name(uid_t uid) {
                 return strdup(NOBODY_USER_NAME);
 
         if (uid_is_valid(uid)) {
-                long bufsize;
+                _cleanup_free_ struct passwd *pw = NULL;
 
-                bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
-                if (bufsize <= 0)
-                        bufsize = 4096;
-
-                for (;;) {
-                        struct passwd pwbuf, *pw = NULL;
-                        _cleanup_free_ char *buf = NULL;
-
-                        buf = malloc(bufsize);
-                        if (!buf)
-                                return NULL;
-
-                        r = getpwuid_r(uid, &pwbuf, buf, (size_t) bufsize, &pw);
-                        if (r == 0 && pw)
-                                return strdup(pw->pw_name);
-                        if (r != ERANGE)
-                                break;
-
-                        if (bufsize > LONG_MAX/2) /* overflow check */
-                                return NULL;
-
-                        bufsize *= 2;
-                }
+                r = getpwuid_malloc(uid, &pw);
+                if (r >= 0)
+                        return strdup(pw->pw_name);
         }
 
         if (asprintf(&ret, UID_FMT, uid) < 0)
@@ -474,31 +454,11 @@ char* gid_to_name(gid_t gid) {
                 return strdup(NOBODY_GROUP_NAME);
 
         if (gid_is_valid(gid)) {
-                long bufsize;
+                _cleanup_free_ struct group *gr = NULL;
 
-                bufsize = sysconf(_SC_GETGR_R_SIZE_MAX);
-                if (bufsize <= 0)
-                        bufsize = 4096;
-
-                for (;;) {
-                        struct group grbuf, *gr = NULL;
-                        _cleanup_free_ char *buf = NULL;
-
-                        buf = malloc(bufsize);
-                        if (!buf)
-                                return NULL;
-
-                        r = getgrgid_r(gid, &grbuf, buf, (size_t) bufsize, &gr);
-                        if (r == 0 && gr)
-                                return strdup(gr->gr_name);
-                        if (r != ERANGE)
-                                break;
-
-                        if (bufsize > LONG_MAX/2) /* overflow check */
-                                return NULL;
-
-                        bufsize *= 2;
-                }
+                r = getgrgid_malloc(gid, &gr);
+                if (r >= 0)
+                        return strdup(gr->gr_name);
         }
 
         if (asprintf(&ret, GID_FMT, gid) < 0)
@@ -609,9 +569,10 @@ int getgroups_alloc(gid_t** gids) {
 }
 
 int get_home_dir(char **ret) {
-        struct passwd *p;
+        _cleanup_free_ struct passwd *p = NULL;
         const char *e;
         uid_t u;
+        int r;
 
         assert(ret);
 
@@ -626,19 +587,17 @@ int get_home_dir(char **ret) {
                 e = "/root";
                 goto found;
         }
-
         if (u == UID_NOBODY && synthesize_nobody()) {
                 e = "/";
                 goto found;
         }
 
         /* Check the database... */
-        errno = 0;
-        p = getpwuid(u);
-        if (!p)
-                return errno_or_else(ESRCH);
-        e = p->pw_dir;
+        r = getpwuid_malloc(u, &p);
+        if (r < 0)
+                return r;
 
+        e = p->pw_dir;
         if (!path_is_valid(e) || !path_is_absolute(e))
                 return -EINVAL;
 
@@ -647,9 +606,10 @@ int get_home_dir(char **ret) {
 }
 
 int get_shell(char **ret) {
-        struct passwd *p;
+        _cleanup_free_ struct passwd *p = NULL;
         const char *e;
         uid_t u;
+        int r;
 
         assert(ret);
 
@@ -670,12 +630,11 @@ int get_shell(char **ret) {
         }
 
         /* Check the database... */
-        errno = 0;
-        p = getpwuid(u);
-        if (!p)
-                return errno_or_else(ESRCH);
-        e = p->pw_shell;
+        r = getpwuid_malloc(u, &p);
+        if (r < 0)
+                return r;
 
+        e = p->pw_shell;
         if (!path_is_valid(e) || !path_is_absolute(e))
                 return -EINVAL;
 
@@ -1079,4 +1038,181 @@ const char* get_home_root(void) {
                 return e;
 
         return "/home";
+}
+
+static size_t getpw_buffer_size(void) {
+        long bufsize = sysconf(_SC_GETPW_R_SIZE_MAX);
+        return bufsize <= 0 ? 4096U : (size_t) bufsize;
+}
+
+static bool errno_is_user_doesnt_exist(int error) {
+        /* See getpwnam(3) and getgrnam(3): those codes and others can be returned if the user or group are
+         * not found. */
+        return IN_SET(abs(error), ENOENT, ESRCH, EBADF, EPERM);
+}
+
+int getpwnam_malloc(const char *name, struct passwd **ret) {
+        size_t bufsize = getpw_buffer_size();
+        int r;
+
+        /* A wrapper around getpwnam_r() that allocates the necessary buffer on the heap. The caller must
+         * free() the returned sructured! */
+
+        if (isempty(name))
+                return -EINVAL;
+
+        for (;;) {
+                _cleanup_free_ void *buf = NULL;
+
+                buf = malloc(ALIGN(sizeof(struct passwd)) + bufsize);
+                if (!buf)
+                        return -ENOMEM;
+
+                struct passwd *pw = NULL;
+                r = getpwnam_r(name, buf, (char*) buf + ALIGN(sizeof(struct passwd)), (size_t) bufsize, &pw);
+                if (r == 0) {
+                        if (pw) {
+                                if (ret)
+                                        *ret = TAKE_PTR(buf);
+                                return 0;
+                        }
+
+                        return -ESRCH;
+                }
+
+                assert(r > 0);
+
+                /* getpwnam() may fail with ENOENT if /etc/passwd is missing.  For us that is equivalent to
+                 * the name not being defined. */
+                if (errno_is_user_doesnt_exist(r))
+                        return -ESRCH;
+                if (r != ERANGE)
+                        return -r;
+
+                if (bufsize > SIZE_MAX/2 - ALIGN(sizeof(struct passwd)))
+                        return -ENOMEM;
+                bufsize *= 2;
+        }
+}
+
+int getpwuid_malloc(uid_t uid, struct passwd **ret) {
+        size_t bufsize = getpw_buffer_size();
+        int r;
+
+        if (!uid_is_valid(uid))
+                return -EINVAL;
+
+        for (;;) {
+                _cleanup_free_ void *buf = NULL;
+
+                buf = malloc(ALIGN(sizeof(struct passwd)) + bufsize);
+                if (!buf)
+                        return -ENOMEM;
+
+                struct passwd *pw = NULL;
+                r = getpwuid_r(uid, buf, (char*) buf + ALIGN(sizeof(struct passwd)), (size_t) bufsize, &pw);
+                if (r == 0) {
+                        if (pw) {
+                                if (ret)
+                                        *ret = TAKE_PTR(buf);
+                                return 0;
+                        }
+
+                        return -ESRCH;
+                }
+
+                assert(r > 0);
+
+                if (errno_is_user_doesnt_exist(r))
+                        return -ESRCH;
+                if (r != ERANGE)
+                        return -r;
+
+                if (bufsize > SIZE_MAX/2 - ALIGN(sizeof(struct passwd)))
+                        return -ENOMEM;
+                bufsize *= 2;
+        }
+}
+
+static size_t getgr_buffer_size(void) {
+        long bufsize = sysconf(_SC_GETGR_R_SIZE_MAX);
+        return bufsize <= 0 ? 4096U : (size_t) bufsize;
+}
+
+int getgrnam_malloc(const char *name, struct group **ret) {
+        size_t bufsize = getgr_buffer_size();
+        int r;
+
+        if (isempty(name))
+                return -EINVAL;
+
+        for (;;) {
+                _cleanup_free_ void *buf = NULL;
+
+                buf = malloc(ALIGN(sizeof(struct group)) + bufsize);
+                if (!buf)
+                        return -ENOMEM;
+
+                struct group *gr = NULL;
+                r = getgrnam_r(name, buf, (char*) buf + ALIGN(sizeof(struct group)), (size_t) bufsize, &gr);
+                if (r == 0) {
+                        if (gr) {
+                                if (ret)
+                                        *ret = TAKE_PTR(buf);
+                                return 0;
+                        }
+
+                        return -ESRCH;
+                }
+
+                assert(r > 0);
+
+                if (errno_is_user_doesnt_exist(r))
+                        return -ESRCH;
+                if (r != ERANGE)
+                        return -r;
+
+                if (bufsize > SIZE_MAX/2 - ALIGN(sizeof(struct group)))
+                        return -ENOMEM;
+                bufsize *= 2;
+        }
+}
+
+int getgrgid_malloc(gid_t gid, struct group **ret) {
+        size_t bufsize = getgr_buffer_size();
+        int r;
+
+        if (!gid_is_valid(gid))
+                return -EINVAL;
+
+        for (;;) {
+                _cleanup_free_ void *buf = NULL;
+
+                buf = malloc(ALIGN(sizeof(struct group)) + bufsize);
+                if (!buf)
+                        return -ENOMEM;
+
+                struct group *gr = NULL;
+                r = getgrgid_r(gid, buf, (char*) buf + ALIGN(sizeof(struct group)), (size_t) bufsize, &gr);
+                if (r == 0) {
+                        if (gr) {
+                                if (ret)
+                                        *ret = TAKE_PTR(buf);
+                                return 0;
+                        }
+
+                        return -ESRCH;
+                }
+
+                assert(r > 0);
+
+                if (errno_is_user_doesnt_exist(r))
+                        return -ESRCH;
+                if (r != ERANGE)
+                        return -r;
+
+                if (bufsize > SIZE_MAX/2 - ALIGN(sizeof(struct group)))
+                        return -ENOMEM;
+                bufsize *= 2;
+        }
 }

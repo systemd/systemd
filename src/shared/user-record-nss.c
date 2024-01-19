@@ -208,39 +208,17 @@ int nss_user_record_by_name(
                 bool with_shadow,
                 UserRecord **ret) {
 
-        _cleanup_free_ char *buf = NULL, *sbuf = NULL;
-        struct passwd pwd, *result;
+        _cleanup_free_ char *sbuf = NULL;
+        _cleanup_free_ struct passwd *result = NULL;
         bool incomplete = false;
-        size_t buflen = 4096;
         struct spwd spwd, *sresult = NULL;
         int r;
 
         assert(name);
 
-        for (;;) {
-                buf = malloc(buflen);
-                if (!buf)
-                        return -ENOMEM;
-
-                r = getpwnam_r(name, &pwd, buf, buflen, &result);
-                if (r == 0)  {
-                        if (!result)
-                                return -ESRCH;
-
-                        break;
-                }
-
-                if (r < 0)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "getpwnam_r() returned a negative value");
-                if (r != ERANGE)
-                        return -r;
-
-                if (buflen > SIZE_MAX / 2)
-                        return -ERANGE;
-
-                buflen *= 2;
-                buf = mfree(buf);
-        }
+        r = getpwnam_malloc(name, &result);
+        if (r < 0)
+                return r;
 
         if (with_shadow) {
                 r = nss_spwd_for_passwd(result, &spwd, &sbuf);
@@ -266,36 +244,15 @@ int nss_user_record_by_uid(
                 bool with_shadow,
                 UserRecord **ret) {
 
-        _cleanup_free_ char *buf = NULL, *sbuf = NULL;
-        struct passwd pwd, *result;
+        _cleanup_free_ char *sbuf = NULL;
+        _cleanup_free_ struct passwd *result = NULL;
         bool incomplete = false;
-        size_t buflen = 4096;
         struct spwd spwd, *sresult = NULL;
         int r;
 
-        for (;;) {
-                buf = malloc(buflen);
-                if (!buf)
-                        return -ENOMEM;
-
-                r = getpwuid_r(uid, &pwd, buf, buflen, &result);
-                if (r == 0)  {
-                        if (!result)
-                                return -ESRCH;
-
-                        break;
-                }
-                if (r < 0)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "getpwuid_r() returned a negative value");
-                if (r != ERANGE)
-                        return -r;
-
-                if (buflen > SIZE_MAX / 2)
-                        return -ERANGE;
-
-                buflen *= 2;
-                buf = mfree(buf);
-        }
+        r = getpwuid_malloc(uid, &result);
+        if (r < 0)
+                return r;
 
         if (with_shadow)  {
                 r = nss_spwd_for_passwd(result, &spwd, &sbuf);
@@ -422,38 +379,17 @@ int nss_group_record_by_name(
                 bool with_shadow,
                 GroupRecord **ret) {
 
-        _cleanup_free_ char *buf = NULL, *sbuf = NULL;
-        struct group grp, *result;
+        _cleanup_free_ char *sbuf = NULL;
+        _cleanup_free_ struct group *result = NULL;
         bool incomplete = false;
-        size_t buflen = 4096;
         struct sgrp sgrp, *sresult = NULL;
         int r;
 
         assert(name);
 
-        for (;;) {
-                buf = malloc(buflen);
-                if (!buf)
-                        return -ENOMEM;
-
-                r = getgrnam_r(name, &grp, buf, buflen, &result);
-                if (r == 0)  {
-                        if (!result)
-                                return -ESRCH;
-
-                        break;
-                }
-
-                if (r < 0)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "getgrnam_r() returned a negative value");
-                if (r != ERANGE)
-                        return -r;
-                if (buflen > SIZE_MAX / 2)
-                        return -ERANGE;
-
-                buflen *= 2;
-                buf = mfree(buf);
-        }
+        r = getgrnam_malloc(name, &result);
+        if (r < 0)
+                return r;
 
         if (with_shadow) {
                 r = nss_sgrp_for_group(result, &sgrp, &sbuf);
@@ -479,35 +415,15 @@ int nss_group_record_by_gid(
                 bool with_shadow,
                 GroupRecord **ret) {
 
-        _cleanup_free_ char *buf = NULL, *sbuf = NULL;
-        struct group grp, *result;
+        _cleanup_free_ char *sbuf = NULL;
+        _cleanup_free_ struct group *result = NULL;
         bool incomplete = false;
-        size_t buflen = 4096;
         struct sgrp sgrp, *sresult = NULL;
         int r;
 
-        for (;;) {
-                buf = malloc(buflen);
-                if (!buf)
-                        return -ENOMEM;
-
-                r = getgrgid_r(gid, &grp, buf, buflen, &result);
-                if (r == 0)  {
-                        if (!result)
-                                return -ESRCH;
-                        break;
-                }
-
-                if (r < 0)
-                        return log_debug_errno(SYNTHETIC_ERRNO(EIO), "getgrgid_r() returned a negative value");
-                if (r != ERANGE)
-                        return -r;
-                if (buflen > SIZE_MAX / 2)
-                        return -ERANGE;
-
-                buflen *= 2;
-                buf = mfree(buf);
-        }
+        r = getgrgid_malloc(gid, &result);
+        if (r < 0)
+                return r;
 
         if (with_shadow) {
                 r = nss_sgrp_for_group(result, &sgrp, &sbuf);
