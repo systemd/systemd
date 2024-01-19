@@ -585,7 +585,7 @@ int route_nexthops_set_netlink_message(const Route *route, sd_netlink_message *m
         if (route_type_is_reject(route))
                 return 0;
 
-        /* We request IPv6 multipath routes separatedly. Even though, if weight is non-zero, we need to use
+        /* We request IPv6 multipath routes separately. Even though, if weight is non-zero, we need to use
          * RTA_MULTIPATH, as we have no way to specify the weight of the nexthop. */
         if (ordered_set_isempty(route->nexthops) && route->nexthop.weight == 0) {
 
