@@ -297,7 +297,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "same-dir",           no_argument,       NULL, 'd'                    },
                 { "shell",              no_argument,       NULL, 'S'                    },
                 { "ignore-failure",     no_argument,       NULL, ARG_IGNORE_FAILURE     },
-                { "background",         no_argument,       NULL, ARG_BACKGROUND         },
+                { "background",         required_argument, NULL, ARG_BACKGROUND         },
                 {},
         };
 
