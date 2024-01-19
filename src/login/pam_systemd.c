@@ -802,13 +802,21 @@ typedef struct SessionContext {
         const char *runtime_max_sec;
 } SessionContext;
 
-static int create_session_message(sd_bus *bus, pam_handle_t *handle, const SessionContext *context, bool avoid_pidfd, sd_bus_message **ret) {
+static int create_session_message(
+                sd_bus *bus,
+                pam_handle_t *handle,
+                const SessionContext *context,
+                bool avoid_pidfd,
+                sd_bus_message **ret) {
+
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
-        int r, pidfd = -EBADFD;
+        _cleanup_close_ int pidfd = -EBADF;
+        int r;
 
         assert(bus);
         assert(handle);
         assert(context);
+        assert(ret);
 
         if (!avoid_pidfd) {
                 pidfd = pidfd_open(getpid_cached(), 0);
@@ -1066,39 +1074,39 @@ _public_ PAM_EXTERN int pam_sm_open_session(
         r = create_session_message(bus,
                                    handle,
                                    &context,
-                                   false /* avoid_pidfd = */,
+                                   /* avoid_pidfd = */ false,
                                    &m);
         if (r < 0)
                 return pam_bus_log_create_error(handle, r);
 
         r = sd_bus_call(bus, m, LOGIN_SLOW_BUS_CALL_TIMEOUT_USEC, &error, &reply);
+        if (r < 0 && sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD)) {
+                sd_bus_error_free(&error);
+                pam_debug_syslog(handle, debug,
+                                 "CreateSessionWithPIDFD() API is not available, retrying with CreateSession().");
+
+                m = sd_bus_message_unref(m);
+                r = create_session_message(bus,
+                                           handle,
+                                           &context,
+                                           /* avoid_pidfd = */ true,
+                                           &m);
+                if (r < 0)
+                        return pam_bus_log_create_error(handle, r);
+
+                r = sd_bus_call(bus, m, LOGIN_SLOW_BUS_CALL_TIMEOUT_USEC, &error, &reply);
+        }
         if (r < 0) {
                 if (sd_bus_error_has_name(&error, BUS_ERROR_SESSION_BUSY)) {
+                        /* We are already in a session, don't do anything */
                         pam_debug_syslog(handle, debug,
                                          "Not creating session: %s", bus_error_message(&error, r));
-                        /* We are already in a session, don't do anything */
                         goto success;
-                } else if (sd_bus_error_has_name(&error, SD_BUS_ERROR_UNKNOWN_METHOD)) {
-                        pam_debug_syslog(handle, debug,
-                                         "CreateSessionWithPIDFD() API is not available, retrying with CreateSession().");
-
-                        m = sd_bus_message_unref(m);
-                        r = create_session_message(bus,
-                                                   handle,
-                                                   &context,
-                                                   true /* avoid_pidfd = */,
-                                                   &m);
-                        if (r < 0)
-                                return pam_bus_log_create_error(handle, r);
-
-                        sd_bus_error_free(&error);
-                        r = sd_bus_call(bus, m, LOGIN_SLOW_BUS_CALL_TIMEOUT_USEC, &error, &reply);
                 }
-                if (r < 0) {
-                        pam_syslog(handle, LOG_ERR,
-                                   "Failed to create session: %s", bus_error_message(&error, r));
-                        return PAM_SESSION_ERR;
-                }
+
+                pam_syslog(handle, LOG_ERR,
+                           "Failed to create session: %s", bus_error_message(&error, r));
+                return PAM_SESSION_ERR;
         }
 
         r = sd_bus_message_read(reply,
