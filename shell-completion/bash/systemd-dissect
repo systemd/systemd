@@ -37,6 +37,8 @@ _systemd_dissect() {
                      --in-memory'
         [ARG]='-m --mount -M
                -u --umount -U
+               --attach
+               --detach
                -l --list
                --mtree
                --with
@@ -72,7 +74,7 @@ _systemd_dissect() {
 
     if __contains_word "$prev_1" ${OPTS[ARG]}; then
         case $prev_1 in
-            -l|--list|--mtree|-m|--mount|-M|-x|--copy-from|-a|--copy-to|--verity-data|--validate|--with)
+            -l|--list|--mtree|-m|--mount|-M|--attach|--detach|-x|--copy-from|-a|--copy-to|--verity-data|--validate|--with)
                 comps=$(compgen -A file -- "$cur")
                 compopt -o filenames
                 ;;
