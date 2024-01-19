@@ -50,10 +50,8 @@
 
     <para>Note that the changes performed using this tool might require the initrd to be rebuilt to take
     effect during early system boot.  The initrd is not rebuilt automatically by
-    <filename>localectl</filename>, this task has to be performed manually, usually using a tool like
-    <citerefentry
-    project='man-pages'><refentrytitle>dracut</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
-    </para>
+    <filename>localectl</filename>, this task has to be performed manually, usually by reinstalling the
+    distribution's kernel package.</para>
 
     <para>Note that
     <citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry>
@@ -222,7 +220,6 @@
       <member><citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-localed.service</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
       <member><citerefentry><refentrytitle>systemd-firstboot</refentrytitle><manvolnum>1</manvolnum></citerefentry></member>
-      <member><citerefentry project='man-pages'><refentrytitle>dracut</refentrytitle><manvolnum>8</manvolnum></citerefentry></member>
     </simplelist></para>
   </refsect1>
 
