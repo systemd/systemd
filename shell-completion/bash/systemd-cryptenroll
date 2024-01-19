@@ -44,7 +44,7 @@ __get_block_devices() {
     done
 }
 
-_systemd-cryptenroll() {
+_systemd_cryptenroll() {
     local comps
     local cur=${COMP_WORDS[COMP_CWORD]} prev=${COMP_WORDS[COMP_CWORD-1]} words cword
     local -A OPTS=(
@@ -59,11 +59,14 @@ _systemd-cryptenroll() {
                --fido2-with-user-presence
                --fido2-with-user-verification
                --tpm2-device
+               --tpm2-device-key
+               --tpm2-seal-key-handle
                --tpm2-pcrs
                --tpm2-public-key
                --tpm2-public-key-pcrs
                --tpm2-signature
                --tpm2-with-pin
+               --tpm2-pcrlock
                --wipe-slot'
     )
 
@@ -71,7 +74,7 @@ _systemd-cryptenroll() {
 
     if __contains_word "$prev" ${OPTS[ARG]}; then
         case $prev in
-            --unlock-key-file|--tpm2-public-key|--tpm2-signature)
+            --unlock-key-file|--tpm2-device-key|--tpm2-public-key|--tpm2-signature|--tpm2-pcrlock)
                 comps=$(compgen -A file -- "$cur")
                 compopt -o filenames
                 ;;
@@ -111,4 +114,4 @@ _systemd-cryptenroll() {
     return 0
 }
 
-complete -F _systemd-cryptenroll systemd-cryptenroll
+complete -F _systemd_cryptenroll systemd-cryptenroll
