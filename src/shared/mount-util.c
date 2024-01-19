@@ -1100,7 +1100,7 @@ static int mount_in_namespace(
         if (!pidref_is_set(target))
                 return -ESRCH;
 
-        r = namespace_open(target->pid, &pidns_fd, &mntns_fd, NULL, NULL, &root_fd);
+        r = namespace_open(target->pid, &pidns_fd, &mntns_fd, /* ret_netns_fd = */ NULL, /* ret_userns_fd = */ NULL, &root_fd);
         if (r < 0)
                 return log_debug_errno(r, "Failed to retrieve FDs of the target process' namespace: %m");
 

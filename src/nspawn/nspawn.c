@@ -3781,7 +3781,12 @@ static int outer_child(
                 return r;
 
         if (arg_userns_mode != USER_NAMESPACE_NO) {
-                r = namespace_open(0, NULL, &mntns_fd, NULL, NULL, NULL);
+                r = namespace_open(0,
+                                   /* ret_pidns_fd = */ NULL,
+                                   &mntns_fd,
+                                   /* ret_netns_fd = */ NULL,
+                                   /* ret_userns_fd = */ NULL,
+                                   /* ret_root_fd = */ NULL);
                 if (r < 0)
                         return log_error_errno(r, "Failed to pin outer mount namespace: %m");
 
@@ -4130,7 +4135,11 @@ static int outer_child(
                  * user if user namespaces are turned on. */
 
                 if (arg_network_namespace_path) {
-                        r = namespace_enter(-1, -1, netns_fd, -1, -1);
+                        r = namespace_enter(/* pidns_fd = */ -EBADF,
+                                            /* mntns_fd = */ -EBADF,
+                                            netns_fd,
+                                            /* userns_fd = */ -EBADF,
+                                            /* root_fd = */ -EBADF);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to join network namespace: %m");
                 }
@@ -5078,7 +5087,12 @@ static int run_container(
                 if (child_netns_fd < 0) {
                         /* Make sure we have an open file descriptor to the child's network
                          * namespace so it stays alive even if the child exits. */
-                        r = namespace_open(*pid, NULL, NULL, &child_netns_fd, NULL, NULL);
+                        r = namespace_open(*pid,
+                                           /* ret_pidns_fd = */ NULL,
+                                           /* ret_mntns_fd = */ NULL,
+                                           &child_netns_fd,
+                                           /* ret_userns_fd = */ NULL,
+                                           /* ret_root_fd = */ NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to open child network namespace: %m");
                 }
@@ -5363,37 +5377,9 @@ static int run_container(
         fd_kmsg_fifo = safe_close(fd_kmsg_fifo);
 
         if (arg_private_network) {
-                /* Move network interfaces back to the parent network namespace. We use `safe_fork`
-                 * to avoid having to move the parent to the child network namespace. */
-                r = safe_fork(NULL, FORK_RESET_SIGNALS|FORK_DEATHSIG_SIGTERM|FORK_WAIT|FORK_LOG, NULL);
+                r = move_back_network_interfaces(child_netns_fd, arg_network_interfaces);
                 if (r < 0)
                         return r;
-
-                if (r == 0) {
-                        _cleanup_close_ int parent_netns_fd = -EBADF;
-
-                        r = namespace_open(getpid_cached(), NULL, NULL, &parent_netns_fd, NULL, NULL);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to open parent network namespace: %m");
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        r = namespace_enter(-1, -1, child_netns_fd, -1, -1);
-                        if (r < 0) {
-                                log_error_errno(r, "Failed to enter child network namespace: %m");
-                                _exit(EXIT_FAILURE);
-                        }
-
-                        /* Reverse network interfaces pair list so that interfaces get their initial name back.
-                         * This is about ensuring interfaces get their old name back when being moved back. */
-                        arg_network_interfaces = strv_reverse(arg_network_interfaces);
-
-                        r = move_network_interfaces(parent_netns_fd, arg_network_interfaces);
-                        if (r < 0)
-                                log_error_errno(r, "Failed to move network interfaces back to parent network namespace: %m");
-
-                        _exit(r < 0 ? EXIT_FAILURE : EXIT_SUCCESS);
-                }
         }
 
         r = wait_for_container(TAKE_PID(*pid), &container_status);
