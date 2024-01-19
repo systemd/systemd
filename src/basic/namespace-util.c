@@ -255,6 +255,33 @@ int userns_acquire(const char *uid_map, const char *gid_map) {
         return TAKE_FD(userns_fd);
 }
 
+int netns_acquire(void) {
+        _cleanup_(sigkill_waitp) pid_t pid = 0;
+        _cleanup_close_ int netns_fd = -EBADF;
+        int r;
+
+        /* Forks off a process in a new network namespace, acquires a network namespace fd, and then kills
+         * the process again. This way we have a netns fd that is not bound to any process. */
+
+        r = safe_fork("(sd-mknetns)", FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGKILL|FORK_NEW_NETNS, &pid);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to fork process (sd-mknetns): %m");
+        if (r == 0)
+                /* Child. We do nothing here, just freeze until somebody kills us. */
+                freeze();
+
+        r = namespace_open(pid,
+                           /* ret_pidns_fd = */ NULL,
+                           /* ret_mntns_fd = */ NULL,
+                           &netns_fd,
+                           /* ret_userns_fd = */ NULL,
+                           /* ret_root_fd = */ NULL);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to open netns fd: %m");
+
+        return TAKE_FD(netns_fd);
+}
+
 int in_same_namespace(pid_t pid1, pid_t pid2, NamespaceType type) {
         const char *ns_path;
         struct stat ns_st1, ns_st2;
