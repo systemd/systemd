@@ -13,6 +13,7 @@
 #include "copy.h"
 #include "creds-util.h"
 #include "escape.h"
+#include "event-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -391,12 +392,16 @@ static int setup_notify_parent(sd_event *event, int fd, int *exit_status, sd_eve
 }
 
 static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        pid_t pid;
+        PidRef *pidref = userdata;
+        int r;
 
-        pid = PTR_TO_PID(userdata);
-        if (pid > 0) {
-                /* TODO: actually talk to qemu and ask the guest to shutdown here */
-                if (kill(pid, SIGKILL) >= 0) {
+        /* TODO: actually talk to qemu and ask the guest to shutdown here */
+
+        if (pidref) {
+                r = pidref_kill(pidref, SIGKILL);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to kill qemu, terminating: %m");
+                else {
                         log_info("Trying to halt qemu. Send SIGTERM again to trigger vmspawn to immediately terminate.");
                         sd_event_source_set_userdata(s, NULL);
                         return 0;
@@ -663,15 +668,16 @@ static int run_virtual_machine(void) {
 
         (void) sd_event_set_watchdog(event, true);
 
-        pid_t child_pid;
-        r = safe_fork_full(
+        _cleanup_(pidref_done) PidRef child_pidref = PIDREF_NULL;
+
+        r = pidref_safe_fork_full(
                         qemu_binary,
-                        NULL,
+                        /* stdio_fds= */ NULL,
                         &child_vsock_fd, 1, /* pass the vsock fd to qemu */
-                        FORK_CLOEXEC_OFF,
-                        &child_pid);
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_CLOEXEC_OFF|FORK_RLIMIT_NOFILE_SAFE,
+                        &child_pidref);
         if (r < 0)
-                return log_error_errno(r, "Failed to fork off %s: %m", qemu_binary);
+                return r;
         if (r == 0) {
                 /* set TERM and LANG if they are missing */
                 if (setenv("TERM", "vt220", 0) < 0)
@@ -693,13 +699,13 @@ static int run_virtual_machine(void) {
         }
 
         /* shutdown qemu when we are shutdown */
-        (void) sd_event_add_signal(event, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, on_orderly_shutdown, PID_TO_PTR(child_pid));
-        (void) sd_event_add_signal(event, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, on_orderly_shutdown, PID_TO_PTR(child_pid));
+        (void) sd_event_add_signal(event, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, on_orderly_shutdown, &child_pidref);
+        (void) sd_event_add_signal(event, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, on_orderly_shutdown, &child_pidref);
 
         (void) sd_event_add_signal(event, NULL, (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, NULL);
 
         /* Exit when the child exits */
-        (void) sd_event_add_child(event, NULL, child_pid, WEXITED, on_child_exit, NULL);
+        (void) event_add_child_pidref(event, NULL, &child_pidref, WEXITED, on_child_exit, NULL);
 
         r = sd_event_loop(event);
         if (r < 0)
