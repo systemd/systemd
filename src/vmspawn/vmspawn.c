@@ -41,7 +41,7 @@ static PagerFlags arg_pager_flags = 0;
 static char *arg_image = NULL;
 static char *arg_machine = NULL;
 static char *arg_qemu_smp = NULL;
-static uint64_t arg_qemu_mem = 2ULL * 1024ULL * 1024ULL * 1024ULL;
+static uint64_t arg_qemu_mem = UINT64_C(2) * U64_GB;
 static int arg_qemu_kvm = -1;
 static int arg_qemu_vsock = -1;
 static unsigned arg_vsock_cid = VMADDR_CID_ANY;
@@ -523,7 +523,7 @@ static int run_virtual_machine(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to find QEMU binary: %m");
 
-        if (asprintf(&mem, "%.4fM", (double)arg_qemu_mem / (1024.0 * 1024.0)) < 0)
+        if (asprintf(&mem, "%" PRIu64, DIV_ROUND_UP(arg_qemu_mem, U64_MB)) < 0)
                 return log_oom();
 
         cmdline = strv_new(
