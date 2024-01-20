@@ -140,6 +140,7 @@ static const char* const import_compress_type_table[_IMPORT_COMPRESS_TYPE_MAX] =
         [IMPORT_COMPRESS_XZ]           = "xz",
         [IMPORT_COMPRESS_GZIP]         = "gzip",
         [IMPORT_COMPRESS_BZIP2]        = "bzip2",
+        [IMPORT_COMPRESS_ZSTD]         = "zstd",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(import_compress_type, ImportCompressType);
@@ -155,6 +156,8 @@ ImportCompressType tar_filename_to_compression(const char *name) {
                 return IMPORT_COMPRESS_GZIP;
         else if (ENDSWITH_SET(name, ".bz2", ".tbz2"))
                 return IMPORT_COMPRESS_BZIP2;
+        else if (ENDSWITH_SET(name, ".zst", ".tzst"))
+                return IMPORT_COMPRESS_ZSTD;
 
         return IMPORT_COMPRESS_UNCOMPRESSED;
 }
@@ -170,6 +173,8 @@ ImportCompressType raw_filename_to_compression(const char *name) {
                 return IMPORT_COMPRESS_GZIP;
         else if (endswith(name, ".bz2"))
                 return IMPORT_COMPRESS_BZIP2;
+        else if (endswith(name, ".zst"))
+                return IMPORT_COMPRESS_ZSTD;
 
         return IMPORT_COMPRESS_UNCOMPRESSED;
 }
@@ -181,9 +186,11 @@ int tar_strip_suffixes(const char *name, char **ret) {
                 ".tar.gz\0"
                 ".tar.bz2\0"
                 ".tar.xz\0"
+                ".tar.zst\0"
                 ".tgz\0"
                 ".tbz2\0"
                 ".txz\0"
+                ".tzst\0"
         ;
 
         const char *e;
@@ -217,6 +224,7 @@ int raw_strip_suffixes(const char *p, char **ret) {
                 ".xz\0"
                 ".gz\0"
                 ".bz2\0"
+                ".zst\0"
                 ".sysext.raw\0"
                 ".confext.raw\0"
                 ".raw\0"
