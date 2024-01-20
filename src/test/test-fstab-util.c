@@ -116,7 +116,7 @@ TEST(fstab_filter_options) {
         do_fstab_filter_options(" opt ", "opt\0x-opt\0", 0, 0, NULL, NULL, "", NULL);
 
         /* check function with NULL args */
-        do_fstab_filter_options(NULL, "opt\0", 0, 0, NULL, NULL, "", "");
+        do_fstab_filter_options(NULL, "opt\0", 0, 0, NULL, NULL, "", NULL);
         do_fstab_filter_options("", "opt\0", 0, 0, NULL, NULL, "", "");
 
         /* unnecessary comma separators */

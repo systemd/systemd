@@ -148,16 +148,16 @@ int fstab_filter_options(
                 char ***ret_values,
                 char **ret_filtered) {
 
-        const char *namefound = NULL, *x;
-        _cleanup_strv_free_ char **stor = NULL, **values = NULL;
-        _cleanup_free_ char *value = NULL, **filtered = NULL;
+        _cleanup_strv_free_ char **values = NULL;
+        _cleanup_free_ char *value = NULL, *filtered = NULL;
+        const char *namefound = NULL;
         int r;
 
-        assert(names && *names);
+        assert(!isempty(names));
         assert(!(ret_value && ret_values));
 
         if (!opts)
-                goto answer;
+                goto finish;
 
         /* Finds any options matching 'names', and returns:
          * - the last matching option name in ret_namefound,
@@ -169,50 +169,49 @@ int fstab_filter_options(
          *
          * Returns negative on error, true if any matching options were found, false otherwise. */
 
-        if (ret_filtered || ret_value || ret_values) {
+        if (ret_value || ret_values || ret_filtered) {
+                _cleanup_strv_free_ char **opts_split = NULL;
+                _cleanup_free_ char **filtered_strv = NULL; /* strings are owned by 'opts_split' */
+
                 /* For backwards compatibility, we need to pass-through escape characters.
                  * The only ones we "consume" are the ones used as "\," or "\\". */
-                r = strv_split_full(&stor, opts, ",", EXTRACT_UNESCAPE_SEPARATORS | EXTRACT_UNESCAPE_RELAX);
+                r = strv_split_full(&opts_split, opts, ",", EXTRACT_UNESCAPE_SEPARATORS|EXTRACT_UNESCAPE_RELAX);
                 if (r < 0)
                         return r;
 
-                filtered = memdup(stor, sizeof(char*) * (strv_length(stor) + 1));
-                if (!filtered)
-                        return -ENOMEM;
+                STRV_FOREACH(opt, opts_split) {
+                        bool found = false;
+                        const char *x;
 
-                char **t = filtered;
-                for (char **s = t; *s; s++) {
                         NULSTR_FOREACH(name, names) {
-                                x = startswith(*s, name);
+                                x = startswith(*opt, name);
                                 if (!x)
                                         continue;
-                                /* Match name, but when ret_values, only when followed by assignment. */
+
+                                /* If ret_values, only accept settings followed by assignment. */
                                 if (*x == '=' || (!ret_values && *x == '\0')) {
-                                        /* Keep the last occurrence found */
                                         namefound = name;
-                                        goto found;
+                                        found = true;
+                                        break;
                                 }
                         }
 
-                        *t = *s;
-                        t++;
-                        continue;
-                found:
-                        if (ret_value || ret_values) {
-                                assert(IN_SET(*x, '=', '\0'));
-
-                                if (ret_value) {
+                        if (found) {
+                                if (ret_value)
                                         r = free_and_strdup(&value, *x == '=' ? x + 1 : NULL);
-                                        if (r < 0)
-                                                return r;
-                                } else if (*x) {
+                                else if (ret_values)
                                         r = strv_extend(&values, x + 1);
-                                        if (r < 0)
-                                                return r;
-                                }
-                        }
+                                else
+                                        r = 0;
+                        } else
+                                r = strv_push(&filtered_strv, *opt);
+                        if (r < 0)
+                                return r;
                 }
-                *t = NULL;
+
+                filtered = strv_join_full(filtered_strv, ",", NULL, /* escape_separator = */ true);
+                if (!filtered)
+                        return -ENOMEM;
         } else
                 for (const char *word = opts;;) {
                         const char *end = word;
@@ -232,7 +231,7 @@ int fstab_filter_options(
                         }
 
                         NULSTR_FOREACH(name, names) {
-                                x = startswith(word, name);
+                                const char *x = startswith(word, name);
                                 if (!x || x > end)
                                         continue;
 
@@ -249,39 +248,32 @@ int fstab_filter_options(
                         word = end + 1;
                 }
 
-answer:
+finish:
         if (ret_namefound)
-                *ret_namefound = namefound;
-        if (ret_filtered) {
-                char *f;
-
-                f = strv_join_full(filtered, ",", NULL, true);
-                if (!f)
-                        return -ENOMEM;
-
-                *ret_filtered = f;
-        }
+                *ret_namefound = namefound; /* owned by 'names' (passed-in) */
         if (ret_value)
                 *ret_value = TAKE_PTR(value);
         if (ret_values)
                 *ret_values = TAKE_PTR(values);
+        if (ret_filtered)
+                *ret_filtered = TAKE_PTR(filtered);
 
         return !!namefound;
 }
 
-int fstab_find_pri(const char *options, int *ret) {
-        _cleanup_free_ char *opt = NULL;
+int fstab_find_pri(const char *opts, int *ret) {
+        _cleanup_free_ char *v = NULL;
         int r, pri;
 
         assert(ret);
 
-        r = fstab_filter_options(options, "pri\0", NULL, &opt, NULL, NULL);
+        r = fstab_filter_options(opts, "pri\0", NULL, &v, NULL, NULL);
         if (r < 0)
                 return r;
-        if (r == 0 || !opt)
+        if (r == 0 || !v)
                 return 0;
 
-        r = safe_atoi(opt, &pri);
+        r = safe_atoi(v, &pri);
         if (r < 0)
                 return r;
 
