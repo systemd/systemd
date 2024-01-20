@@ -21,6 +21,7 @@
 #include "networkd-route.h"
 #include "networkd-state-file.h"
 #include "networkd-sysctl.h"
+#include "sort-util.h"
 #include "string-table.h"
 #include "string-util.h"
 #include "strv.h"
@@ -1334,6 +1335,132 @@ static int ndisc_router_process_pref64(Link *link, sd_ndisc_router *rt) {
         return 0;
 }
 
+static NDiscDNR* ndisc_dnr_free(NDiscDNR *x) {
+        if (!x)
+                return NULL;
+
+        sd_dns_resolver_done(&x->resolver);
+        return mfree(x);
+}
+
+DEFINE_TRIVIAL_CLEANUP_FUNC(NDiscDNR*, ndisc_dnr_free);
+
+static int ndisc_dnr_compare_func(const NDiscDNR *a, const NDiscDNR *b) {
+        return strcmp_ptr(a->resolver.auth_name, b->resolver.auth_name);
+}
+
+static void ndisc_dnr_hash_func(const NDiscDNR *x, struct siphash *state) {
+        assert(x);
+
+        siphash24_compress_typesafe(x->resolver.priority, state);
+        siphash24_compress_typesafe(x->resolver.transports, state);
+        siphash24_compress_typesafe(x->resolver.port, state);
+
+        siphash24_compress_string(x->resolver.auth_name, state);
+        siphash24_compress_string(x->resolver.dohpath, state);
+
+        siphash24_compress_typesafe(x->resolver.family, state);
+        FOREACH_ARRAY(addr, x->resolver.addrs, x->resolver.n_addrs)
+                siphash24_compress_typesafe(*addr, state);
+}
+
+static int sd_dns_resolver_copy(const sd_dns_resolver *a, sd_dns_resolver *b) {
+        int r;
+
+        assert(a);
+        assert(b);
+
+        *b = (sd_dns_resolver) {
+                .priority = a->priority,
+                .transports = a->transports,
+                .port = a->port,
+                /* .auth_name */
+                .family = a->family,
+                /* .addrs */
+                /* .n_addrs */
+                /* .dohpath */
+        };
+
+        /* auth_name */
+        r = strdup_or_null(a->auth_name, &b->auth_name);
+        if (r < 0)
+                return r;
+
+        /* addrs, n_addrs */
+        b->addrs = newdup(union in_addr_union, a->addrs, a->n_addrs);
+        if (!b->addrs)
+                return r;
+        b->n_addrs = a->n_addrs;
+
+        /* dohpath */
+        r = strdup_or_null(a->dohpath, &b->dohpath);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
+DEFINE_PRIVATE_HASH_OPS_WITH_KEY_DESTRUCTOR(
+                ndisc_dnr_hash_ops,
+                NDiscDNR,
+                ndisc_dnr_hash_func,
+                ndisc_dnr_compare_func,
+                ndisc_dnr_free);
+
+static int ndisc_router_process_encrypted_dns(Link *link, sd_ndisc_router *rt) {
+        int r = 0;
+
+        assert(link);
+        assert(link->network);
+        assert(rt);
+
+        struct in6_addr router;
+        usec_t lifetime_usec;
+        sd_dns_resolver *res = NULL;
+        _cleanup_(sd_dns_resolver_done) sd_dns_resolver new_res = {};
+        _cleanup_(ndisc_dnr_freep) NDiscDNR *new_entry = NULL;
+
+        r = sd_ndisc_router_get_sender_address(rt, &router);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get gateway address from RA: %m");
+
+        r = sd_ndisc_router_encrypted_dns_get_lifetime_timestamp(rt, CLOCK_BOOTTIME, &lifetime_usec);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get lifetime of RA message: %m");
+
+        r = sd_ndisc_router_encrypted_dns_get_resolver(rt, &res);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get encrypted dns resolvers: %m");
+
+        ndisc_dnr_free(set_remove(link->ndisc_dnr, &(NDiscDNR){ .resolver = *res }));
+        if (lifetime_usec == 0)
+                return 0;
+
+        new_entry = new(NDiscDNR, 1);
+        if (!new_entry)
+                return log_oom();
+
+        r = sd_dns_resolver_copy(res, &new_res);
+        if (r < 0)
+                return log_oom();
+
+        *new_entry = (NDiscDNR) {
+                .router = router,
+                .resolver = TAKE_STRUCT(new_res),
+                .lifetime_usec = lifetime_usec,
+        };
+
+        /* Not sorted by priority */
+        r = set_ensure_put(&link->ndisc_dnr, &ndisc_dnr_hash_ops, new_entry);
+        if (r < 0)
+                return log_oom();
+
+        assert(r > 0);
+        TAKE_PTR(new_entry);
+
+        return 0;
+}
+
 static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
         size_t n_captive_portal = 0;
         int r;
@@ -1385,6 +1512,9 @@ static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
                 case SD_NDISC_OPTION_PREF64:
                         r = ndisc_router_process_pref64(link, rt);
                         break;
+                case SD_NDISC_OPTION_ENCRYPTED_DNS:
+                        r = ndisc_router_process_encrypted_dns(link, rt);
+                        break;
                 }
                 if (r < 0 && r != -EBADMSG)
                         return r;
@@ -1397,6 +1527,7 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
         NDiscRDNSS *rdnss;
         NDiscCaptivePortal *cp;
         NDiscPREF64 *p64;
+        NDiscDNR *res;
         Address *address;
         Route *route;
         int r, ret = 0;
@@ -1468,6 +1599,14 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
                 free(set_remove(link->ndisc_pref64, p64));
                 /* The pref64 prefix is not exported through the state file, hence it is not necessary to set
                  * the 'updated' flag. */
+        }
+
+        SET_FOREACH(res, link->ndisc_dnr) {
+                if (res->lifetime_usec > timestamp_usec)
+                        continue; /* The resolver is still valid */
+
+                ndisc_dnr_free(set_remove(link->ndisc_dnr, res));
+                updated = true;
         }
 
         if (updated)
@@ -1824,13 +1963,14 @@ int ndisc_stop(Link *link) {
 void ndisc_flush(Link *link) {
         assert(link);
 
-        /* Remove all addresses, routes, RDNSS, DNSSL, and Captive Portal entries, without exception. */
+        /* Remove all addresses, routes, RDNSS, DNSSL, DNR, and Captive Portal entries, without exception. */
         (void) ndisc_drop_outdated(link, /* timestamp_usec = */ USEC_INFINITY);
 
         link->ndisc_rdnss = set_free(link->ndisc_rdnss);
         link->ndisc_dnssl = set_free(link->ndisc_dnssl);
         link->ndisc_captive_portals = set_free(link->ndisc_captive_portals);
         link->ndisc_pref64 = set_free(link->ndisc_pref64);
+        link->ndisc_dnr = set_free(link->ndisc_dnr);
 }
 
 static const char* const ndisc_start_dhcp6_client_table[_IPV6_ACCEPT_RA_START_DHCP6_CLIENT_MAX] = {
