@@ -1151,6 +1151,19 @@ int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Li
                          * notification, so we need to update the timer here. */
                         existing->lifetime_usec = route->lifetime_usec;
                         (void) route_setup_timer(existing, NULL);
+
+                        /* This may be a bug in the kernel, but the MTU of an IPv6 route can be updated only
+                         * when the route has an expiration timer managed by the kernel (not by us).
+                         * See fib6_add_rt2node() in net/ipv6/ip6_fib.c of the kernel. */
+                        if (existing->family == AF_INET6 &&
+                            existing->expiration_managed_by_kernel) {
+                                r = route_metric_set(&existing->metric, RTAX_MTU, route_metric_get(&route->metric, RTAX_MTU));
+                                if (r < 0) {
+                                        log_oom();
+                                        link_enter_failed(link);
+                                        return 0;
+                                }
+                        }
                 }
 
         } else if (r < 0) {
