@@ -736,7 +736,7 @@ static int link_save(Link *link) {
 
                         serialize_resolvers(f, NULL, &space,
                                             link->dhcp_lease,
-                                            link->network->dhcp_use_dnr,
+                                            network_dhcp_use_dnr(link->network),
                                             link->dhcp6_lease,
                                             network_dhcp6_use_dnr(link->network)); //FIXME also check DNSOverTLS mode?
 
