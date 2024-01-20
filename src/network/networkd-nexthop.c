@@ -12,6 +12,7 @@
 #include "networkd-network.h"
 #include "networkd-nexthop.h"
 #include "networkd-queue.h"
+#include "networkd-route.h"
 #include "networkd-route-util.h"
 #include "parse-util.h"
 #include "set.h"
@@ -97,6 +98,7 @@ static NextHop* nexthop_free(NextHop *nexthop) {
         config_section_free(nexthop->section);
         hashmap_free_free(nexthop->group);
         set_free(nexthop->nexthops);
+        set_free(nexthop->routes);
 
         return mfree(nexthop);
 }
@@ -488,7 +490,7 @@ static int nexthop_remove_dependents(NextHop *nexthop, Manager *manager) {
         assert(nexthop);
         assert(manager);
 
-        /* If a nexthop is removed, the kernel silently removes nexthops that depend on the
+        /* If a nexthop is removed, the kernel silently removes nexthops and routes that depend on the
          * removed nexthop. Let's remove them for safety (though, they are already removed in the kernel,
          * hence that should fail), and forget them. */
 
@@ -501,6 +503,10 @@ static int nexthop_remove_dependents(NextHop *nexthop, Manager *manager) {
 
                 RET_GATHER(r, nexthop_remove(nh, manager));
         }
+
+        Route *route;
+        SET_FOREACH(route, nexthop->routes)
+                RET_GATHER(r, route_remove(route, manager));
 
         return r;
 }
