@@ -53,6 +53,7 @@ struct ResolverData {
         DNSALPNFlags transports;
         uint16_t port;
         char *dohpath;
+        usec_t lifetime_usec; /* ndisc ra lifetime */
         LIST_FIELDS(ResolverData, resolvers);
 };
 
