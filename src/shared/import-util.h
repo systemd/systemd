@@ -19,6 +19,7 @@ typedef enum ImportCompressType {
         IMPORT_COMPRESS_XZ,
         IMPORT_COMPRESS_GZIP,
         IMPORT_COMPRESS_BZIP2,
+        IMPORT_COMPRESS_ZSTD,
         _IMPORT_COMPRESS_TYPE_MAX,
         _IMPORT_COMPRESS_TYPE_INVALID = -EINVAL,
 } ImportCompressType;
