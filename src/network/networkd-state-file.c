@@ -173,6 +173,15 @@ static int link_put_dns(Link *link, OrderedSet **s) {
                 }
         }
 
+        if (network_ndisc_use_dnr(link->network)) {
+                NDiscDNR *a;
+
+                SET_FOREACH(a, link->ndisc_dnr) {
+                        r = ordered_set_put_in6_addrv(s, (struct in6_addr *)a->resolver.addrs,
+                                        a->resolver.n_addrs);
+                }
+        }
+
         return 0;
 }
 
@@ -761,6 +770,12 @@ static int link_save(Link *link) {
                                             network_dhcp_use_dnr(link->network),
                                             link->dhcp6_lease,
                                             network_dhcp6_use_dnr(link->network));
+
+                        if (network_ndisc_use_dnr(link->network)) {
+                                NDiscDNR *dnr;
+                                SET_FOREACH(dnr, link->ndisc_dnr)
+                                        serialize_dnr(f, &dnr->resolver, 1, &space);
+                        }
 
                         serialize_addresses(f, NULL, &space,
                                             NULL,
