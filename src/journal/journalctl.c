@@ -2687,19 +2687,12 @@ static int run(int argc, char *argv[]) {
                         return r;
                 sig = r;
 
-                /* unref signal event sources. */
-                e = sd_event_unref(e);
-
                 r = update_cursor(j);
                 if (r < 0)
                         return r;
 
                 /* re-send the original signal. */
-                assert(SIGNAL_VALID(sig));
-                if (raise(sig) < 0)
-                        log_error("Failed to raise the original signal SIG%s, ignoring: %m", signal_to_string(sig));
-
-                return 0;
+                return sig;
         }
 
         r = show(&c);
@@ -2724,4 +2717,4 @@ static int run(int argc, char *argv[]) {
         return 0;
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_SIGNAL(run);
