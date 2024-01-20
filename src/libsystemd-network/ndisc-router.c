@@ -9,6 +9,7 @@
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "dns-resolver.h"
 #include "hostname-util.h"
 #include "memory-util.h"
 #include "missing_network.h"
@@ -671,6 +672,67 @@ static int get_dnssl_info(sd_ndisc_router *rt, uint8_t **ret) {
         return 0;
 }
 
+//FIXME: put this somewhere shared instead of copy-pasta, maybe refactor dnssl
+static int ndisc_get_dns_name(const uint8_t *optval, size_t optlen, char **ret) {
+        _cleanup_free_ char *name = NULL;
+        size_t n = 0;
+        int r;
+
+        assert(optval);
+        assert(ret);
+
+        if (optlen <= 1)
+                return -ENODATA;
+
+        for (;;) {
+                const char *label;
+                uint8_t c;
+
+                if (optlen == 0)
+                        break;
+
+                c = *optval;
+                optval++;
+                optlen--;
+
+                if (c == 0)
+                        /* End label */
+                        break;
+                if (c > DNS_LABEL_MAX)
+                        return -EBADMSG;
+                if (c > optlen)
+                        return -EMSGSIZE;
+
+                /* Literal label */
+                label = (const char*) optval;
+                optval += c;
+                optlen -= c;
+
+                if (!GREEDY_REALLOC(name, n + (n != 0) + DNS_LABEL_ESCAPED_MAX))
+                        return -ENOMEM;
+
+                if (n != 0)
+                        name[n++] = '.';
+
+                r = dns_label_escape(label, c, name + n, DNS_LABEL_ESCAPED_MAX);
+                if (r < 0)
+                        return r;
+
+                n += r;
+        }
+
+        if (n > 0) {
+                if (!GREEDY_REALLOC(name, n + 1))
+                        return -ENOMEM;
+
+                name[n] = '\0';
+        }
+
+        *ret = TAKE_PTR(name);
+
+        return n;
+}
+
 int sd_ndisc_router_dnssl_get_domains(sd_ndisc_router *rt, char ***ret) {
         _cleanup_strv_free_ char **l = NULL;
         _cleanup_free_ char *e = NULL;
@@ -819,6 +881,82 @@ int sd_ndisc_router_captive_portal_get_uri(sd_ndisc_router *rt, const char **ret
         *ret_size = size;
 
         return 0;
+}
+
+int sd_ndisc_router_edns_get_dnr(sd_ndisc_router *rt, ResolverData **ret) {
+        uint8_t *nd_opt_encrypted_dns = NULL;
+        size_t length;
+        int r;
+
+        assert_return(rt, -EINVAL);
+        assert_return(ret, -EINVAL);
+
+        r = sd_ndisc_router_option_is_type(rt, SD_NDISC_OPTION_ENCRYPTED_DNS);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -EMEDIUMTYPE;
+
+        r = sd_ndisc_router_option_get_raw(rt, (void *)&nd_opt_encrypted_dns, &length);
+        if (r < 0)
+                return r;
+
+        assert(length % 8 == 0);
+        if (length == 0)
+                return -EBADMSG;
+
+        uint8_t *optval = &nd_opt_encrypted_dns[2];
+        size_t optlen = 8 * length - 2; /* units of octets */
+        size_t offset = 0;
+        _cleanup_(dnr_resolver_data_free_allp) ResolverData *res = NULL;
+
+        res->priority = *(uint16_t *) &optval[offset];
+        offset += sizeof(uint16_t);
+        uint32_t lifetime = *(uint32_t *) &optval[offset]; //FIXME use this
+        offset += sizeof(uint32_t);
+
+        if (offset + sizeof(uint16_t) > optlen)
+                return -EBADMSG;
+        size_t ilen = *(uint16_t *) &optval[offset];
+        offset += sizeof(uint16_t);
+        if (offset + ilen > optlen)
+                return -EBADMSG;
+
+        r = ndisc_get_dns_name(&optval[offset], ilen, &res->auth_name);
+        if (r < 0)
+                return r;
+        offset += ilen;
+
+        if (offset == optlen) /* adn-only mode */
+                return 0;
+
+        if (offset + sizeof(uint16_t) > optlen)
+                return -EBADMSG;
+        ilen = *(uint16_t *) &optval[offset];
+        if (offset + ilen > optlen)
+                return -EBADMSG;
+        if (ilen % (sizeof(struct in6_addr)) != 0)
+                return -EBADMSG;
+
+        struct in6_addr *addrs = (struct in6_addr *) &optval[offset];
+        size_t n_addrs = ilen / (sizeof(struct in6_addr *));
+
+        res->addrs = new(union in_addr_union, n_addrs);
+        if (!res->addrs)
+                return -ENOMEM;
+        for (size_t i = 0; i < n_addrs; i++) {
+                union in_addr_union addr = (union in_addr_union) {.in6 = addrs[i]};
+                if (in_addr_is_multicast(AF_INET6, &addr) ||
+                    in_addr_is_localhost(AF_INET, &addr))
+                        return -EBADMSG;
+                res->addrs[i] = addr;
+        }
+        offset += ilen;
+
+        dnr_parse_svc_params(&optval[offset], optlen-offset, res);
+
+        *ret = TAKE_PTR(res);
+        return 1;
 }
 
 static int get_pref64_prefix_info(sd_ndisc_router *rt, struct nd_opt_prefix64_info **ret) {
