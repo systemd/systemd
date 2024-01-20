@@ -7,6 +7,7 @@
 #include <lzma.h>
 #include <sys/types.h>
 #include <zlib.h>
+#include <zstd.h>
 
 #include "macro.h"
 #include "import-util.h"
@@ -20,6 +21,8 @@ typedef struct ImportCompress {
 #if HAVE_BZIP2
                 bz_stream bzip2;
 #endif
+                ZSTD_DStream *zstd_d;
+                ZSTD_CStream *zstd_c;
         };
 } ImportCompress;
 
