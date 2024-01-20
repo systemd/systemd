@@ -1048,6 +1048,50 @@ static int ndisc_router_process_pref64(Link *link, sd_ndisc_router *rt) {
         return 0;
 }
 
+static int ndisc_dnr_compare_func(ResolverData *a, ResolverData *b) {
+        return strcmp_ptr(a->auth_name, b->auth_name);
+}
+
+static int ndisc_router_process_encrypted_dns(Link *link, sd_ndisc_router *rt) {
+        int r = 0;
+
+        assert(link);
+        assert(link->network);
+        assert(rt);
+
+        usec_t lifetime_usec;
+        r = sd_ndisc_router_encrypted_dns_get_lifetime_timestamp(rt, CLOCK_BOOTTIME, &lifetime_usec);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get lifetime of RA message: %m");
+
+        _cleanup_(dnr_resolver_data_free_allp) ResolverData *res = NULL;
+        r = sd_ndisc_router_encrypted_dns_get_dnr(rt, &res);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get encrypted dns resolvers: %m");
+
+        /* Remove adn with 0 lifetime */
+        if (lifetime_usec == 0) {
+                LIST_FOREACH(resolvers, i, link->ndisc_resolvers) {
+                        if (ndisc_dnr_compare_func(i, res) == 0) {
+                                LIST_REMOVE(resolvers, link->ndisc_resolvers, i);
+                        }
+                }
+                return 0;
+        }
+
+        /* Record resolvers in priority order */
+        LIST_FOREACH(resolvers, i, link->ndisc_resolvers) {
+                if (res->priority < i->priority) {
+                        LIST_INSERT_BEFORE(resolvers, link->ndisc_resolvers, i, TAKE_PTR(res));
+                        break;
+                }
+        }
+        if (res)
+                LIST_INSERT_AFTER(resolvers, link->ndisc_resolvers, link->ndisc_resolvers, TAKE_PTR(res));
+
+        return r;
+}
+
 static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
         size_t n_captive_portal = 0;
         int r;
@@ -1098,6 +1142,9 @@ static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
                         break;
                 case SD_NDISC_OPTION_PREF64:
                         r = ndisc_router_process_pref64(link, rt);
+                        break;
+                case SD_NDISC_OPTION_ENCRYPTED_DNS:
+                        r = ndisc_router_process_encrypted_dns(link, rt);
                         break;
                 }
                 if (r < 0 && r != -EBADMSG)
