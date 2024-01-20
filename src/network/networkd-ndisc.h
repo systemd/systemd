@@ -2,6 +2,7 @@
 #pragma once
 
 #include "conf-parser.h"
+#include "dns-resolver-internal.h"
 #include "time-util.h"
 
 typedef struct Address Address;
@@ -48,6 +49,12 @@ typedef struct NDiscPREF64 {
         uint8_t prefix_len;
         struct in6_addr prefix;
 } NDiscPREF64;
+
+typedef struct NDiscDNR {
+        struct in6_addr router;
+        usec_t lifetime_usec;
+        sd_dns_resolver resolver;
+} NDiscDNR;
 
 static inline char* NDISC_DNSSL_DOMAIN(const NDiscDNSSL *n) {
         return ((char*) n) + ALIGN(sizeof(NDiscDNSSL));
