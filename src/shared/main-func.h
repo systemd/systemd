@@ -9,11 +9,12 @@
 #include "hashmap.h"
 #include "pager.h"
 #include "selinux-util.h"
+#include "signal-util.h"
 #include "spawn-ask-password-agent.h"
 #include "spawn-polkit-agent.h"
 #include "static-destruct.h"
 
-#define _DEFINE_MAIN_FUNCTION(intro, impl, result_to_exit_status)       \
+#define _DEFINE_MAIN_FUNCTION(intro, impl, result_to_exit_status, result_to_return_value) \
         int main(int argc, char *argv[]) {                              \
                 int r;                                                  \
                 assert_se(argc > 0 && !isempty(argv[0]));               \
@@ -30,7 +31,7 @@
                 mac_selinux_finish();                                   \
                 static_destruct();                                      \
                 hashmap_trim_pools();                                   \
-                return result_to_exit_status(r);                        \
+                return result_to_return_value(r);                       \
         }
 
 static inline int fail_on_negative(int result) {
@@ -40,7 +41,7 @@ static inline int fail_on_negative(int result) {
 /* Negative return values from impl are mapped to EXIT_FAILURE, and
  * everything else means success! */
 #define DEFINE_MAIN_FUNCTION(impl)                                      \
-        _DEFINE_MAIN_FUNCTION(,impl(argc, argv), fail_on_negative)
+        _DEFINE_MAIN_FUNCTION(,impl(argc, argv), fail_on_negative, fail_on_negative)
 
 static inline int fail_on_nonzero(int result) {
         return result < 0 ? EXIT_FAILURE : result;
@@ -50,4 +51,21 @@ static inline int fail_on_nonzero(int result) {
  * and positive values are propagated.
  * Note: "true" means failure! */
 #define DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(impl)                \
-        _DEFINE_MAIN_FUNCTION(,impl(argc, argv), fail_on_nonzero)
+        _DEFINE_MAIN_FUNCTION(,impl(argc, argv), fail_on_nonzero, fail_on_nonzero)
+
+static inline int raise_or_exit(int ret) {
+        if (ret < 0)
+                return EXIT_FAILURE;
+        if (ret == 0)
+                return EXIT_SUCCESS;
+        if (!SIGNAL_VALID(ret))
+                return EXIT_FAILURE;
+        if (raise(ret) < 0)
+                return EXIT_FAILURE;
+        assert_not_reached();
+}
+
+/* Negative return values from impl are mapped to EXIT_FAILURE, zero is mapped to EXIT_SUCCESS,
+ * and raise if a positive signal is returned from impl. */
+#define DEFINE_MAIN_FUNCTION_WITH_POSITIVE_SIGNAL(impl)                 \
+        _DEFINE_MAIN_FUNCTION(,impl(argc, argv), fail_on_negative, raise_or_exit)
