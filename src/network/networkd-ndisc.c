@@ -1050,6 +1050,31 @@ static int ndisc_router_process_pref64(Link *link, sd_ndisc_router *rt) {
         return 0;
 }
 
+static int ndisc_router_process_encrypted_dns(Link *link, sd_ndisc_router *rt) {
+        int r = 0;
+
+        assert(link);
+        assert(link->network);
+        assert(rt);
+
+        _cleanup_(dnr_resolver_data_free_allp) ResolverData *res = NULL;
+        sd_ndisc_router_edns_get_dnr(rt, &res);
+
+        //FIXME lifetime
+
+        /* Record resolvers in priority order */
+        LIST_FOREACH(resolvers, i, link->ndisc_resolvers) {
+                if (res->priority < i->priority) {
+                        LIST_INSERT_BEFORE(resolvers, link->ndisc_resolvers, i, TAKE_PTR(res));
+                        break;
+                }
+        }
+        if (res)
+                LIST_INSERT_AFTER(resolvers, link->ndisc_resolvers, link->ndisc_resolvers, TAKE_PTR(res));
+
+        return r;
+}
+
 static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
         size_t n_captive_portal = 0;
         int r;
@@ -1100,6 +1125,9 @@ static int ndisc_router_process_options(Link *link, sd_ndisc_router *rt) {
                         break;
                 case SD_NDISC_OPTION_PREF64:
                         r = ndisc_router_process_pref64(link, rt);
+                        break;
+                case SD_NDISC_OPTION_ENCRYPTED_DNS:
+                        r = ndisc_router_process_encrypted_dns(link, rt);
                         break;
                 }
                 if (r < 0 && r != -EBADMSG)
