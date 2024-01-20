@@ -8,6 +8,7 @@
 #include "argv-util.h"
 #include "pager.h"
 #include "selinux-util.h"
+#include "signal-util.h"
 #include "spawn-ask-password-agent.h"
 #include "spawn-polkit-agent.h"
 #include "static-destruct.h"
@@ -40,3 +41,18 @@
  * Note: "true" means failure! */
 #define DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(impl)                \
         _DEFINE_MAIN_FUNCTION(,impl(argc, argv), r < 0 ? EXIT_FAILURE : r)
+
+static inline int raise_or_exit(int ret) {
+        if (ret < 0)
+                return EXIT_FAILURE;
+        if (ret == 0)
+                return EXIT_SUCCESS;
+        if (SIGNAL_VALID(ret))
+                return EXIT_FAILURE;
+        if (raise(ret) < 0)
+                return EXIT_FAILURE;
+        assert_not_reached();
+}
+
+#define DEFINE_MAIN_FUNCTION_WITH_POSITIVE_SIGNAL(impl)                 \
+        _DEFINE_MAIN_FUNCTION(,impl(argc, argv), raise_or_exit(r))
