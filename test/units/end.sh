@@ -4,7 +4,7 @@
 set -eux
 set -o pipefail
 
-(! journalctl -q -o short-monotonic --grep "didn't pass validation" >>/failed)
+(! journalctl -o short-monotonic --grep "didn't pass validation" >>/failed)
 
 systemctl poweroff --no-block
 exit 0
