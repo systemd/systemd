@@ -16,6 +16,8 @@ cleanup_test_user() (
     pkill -KILL -u "$(id -u logind-test-user)"
     userdel -r logind-test-user
 
+    # Here, the redundant '[:]' at the end is for making not the logged self command hit the grep.
+    (! journalctl -q -o short-monotonic --grep 'pam_systemd(.*): Failed to release session[:]' >>/failed)
     return 0
 )
 
