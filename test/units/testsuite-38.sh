@@ -224,20 +224,94 @@ testcase_recursive() {
 
     echo "Test recursive freezing:"
 
-    echo -n "  - freeze: "
+    echo -n "  - freeze/thaw parent: "
+    systemctl freeze "$slice"
+    check_freezer_state "${slice}" "frozen"
+    check_freezer_state "${unit}" "parent-frozen"
+    grep -q "frozen 1" /sys/fs/cgroup/"${slice}"/cgroup.events
+    grep -q "frozen 1" /sys/fs/cgroup/"${slice}"/"${unit}"/cgroup.events
+    systemctl thaw "$slice"
+    check_freezer_state "${slice}" "running"
+    check_freezer_state "${unit}" "running"
+    grep -q "frozen 0" /sys/fs/cgroup/"${slice}"/cgroup.events
+    grep -q "frozen 0" /sys/fs/cgroup/"${slice}"/"${unit}"/cgroup.events
+    echo "[ OK ]"
+
+    echo -n "  - child freeze/thaw during frozen parent: "
+    systemctl freeze "$slice"
+    check_freezer_state "${slice}" "frozen"
+    check_freezer_state "${unit}" "parent-frozen"
+    grep -q "frozen 1" /sys/fs/cgroup/"${slice}"/cgroup.events
+    grep -q "frozen 1" /sys/fs/cgroup/"${slice}"/"${unit}"/cgroup.events
+    systemctl freeze "$unit"
+    check_freezer_state "${slice}" "frozen"
+    check_freezer_state "${unit}" "frozen"
+    grep -q "frozen 1" /sys/fs/cgroup/"${slice}"/cgroup.events
+    grep -q "frozen 1" /sys/fs/cgroup/"${slice}"/"${unit}"/cgroup.events
+    systemctl thaw "$unit"
+    check_freezer_state "${slice}" "frozen"
+    check_freezer_state "${unit}" "parent-frozen"
+    grep -q "frozen 1" /sys/fs/cgroup/"${slice}"/cgroup.events
+    grep -q "frozen 1" /sys/fs/cgroup/"${slice}"/"${unit}"/cgroup.events
+    systemctl thaw "$slice"
+    check_freezer_state "${slice}" "running"
+    check_freezer_state "${unit}" "running"
+    grep -q "frozen 0" /sys/fs/cgroup/"${slice}"/cgroup.events
+    grep -q "frozen 0" /sys/fs/cgroup/"${slice}"/"${unit}"/cgroup.events
+    echo "[ OK ]"
+
+    echo -n "  - pre-frozen child not thawed by parent: "
+    systemctl freeze "$unit"
+    check_freezer_state "${slice}" "running"
+    check_freezer_state "${unit}" "frozen"
+    grep -q "frozen 0" /sys/fs/cgroup/"${slice}"/cgroup.events
+    grep -q "frozen 1" /sys/fs/cgroup/"${slice}"/"${unit}"/cgroup.events
     systemctl freeze "$slice"
     check_freezer_state "${slice}" "frozen"
     check_freezer_state "${unit}" "frozen"
     grep -q "frozen 1" /sys/fs/cgroup/"${slice}"/cgroup.events
     grep -q "frozen 1" /sys/fs/cgroup/"${slice}"/"${unit}"/cgroup.events
+    systemctl thaw "$slice"
+    check_freezer_state "${slice}" "running"
+    check_freezer_state "${unit}" "frozen"
+    grep -q "frozen 0" /sys/fs/cgroup/"${slice}"/cgroup.events
+    grep -q "frozen 1" /sys/fs/cgroup/"${slice}"/"${unit}"/cgroup.events
     echo "[ OK ]"
 
-    echo -n "  - thaw: "
+    echo -n "  - pre-frozen child demoted and thawed by parent: "
+    systemctl freeze "$slice"
+    check_freezer_state "${slice}" "frozen"
+    check_freezer_state "${unit}" "frozen"
+    grep -q "frozen 1" /sys/fs/cgroup/"${slice}"/cgroup.events
+    grep -q "frozen 1" /sys/fs/cgroup/"${slice}"/"${unit}"/cgroup.events
+    systemctl thaw "$unit"
+    check_freezer_state "${slice}" "frozen"
+    check_freezer_state "${unit}" "parent-frozen"
+    grep -q "frozen 1" /sys/fs/cgroup/"${slice}"/cgroup.events
+    grep -q "frozen 1" /sys/fs/cgroup/"${slice}"/"${unit}"/cgroup.events
     systemctl thaw "$slice"
-    check_freezer_state "${unit}" "running"
     check_freezer_state "${slice}" "running"
+    check_freezer_state "${unit}" "running"
     grep -q "frozen 0" /sys/fs/cgroup/"${slice}"/cgroup.events
     grep -q "frozen 0" /sys/fs/cgroup/"${slice}"/"${unit}"/cgroup.events
+    echo "[ OK ]"
+
+    echo -n "  - child promoted and not thawed by parent: "
+    systemctl freeze "$slice"
+    check_freezer_state "${slice}" "frozen"
+    check_freezer_state "${unit}" "parent-frozen"
+    grep -q "frozen 1" /sys/fs/cgroup/"${slice}"/cgroup.events
+    grep -q "frozen 1" /sys/fs/cgroup/"${slice}"/"${unit}"/cgroup.events
+    systemctl freeze "$unit"
+    check_freezer_state "${slice}" "frozen"
+    check_freezer_state "${unit}" "frozen"
+    grep -q "frozen 1" /sys/fs/cgroup/"${slice}"/cgroup.events
+    grep -q "frozen 1" /sys/fs/cgroup/"${slice}"/"${unit}"/cgroup.events
+    systemctl thaw "$slice"
+    check_freezer_state "${slice}" "running"
+    check_freezer_state "${unit}" "frozen"
+    grep -q "frozen 0" /sys/fs/cgroup/"${slice}"/cgroup.events
+    grep -q "frozen 1" /sys/fs/cgroup/"${slice}"/"${unit}"/cgroup.events
     echo "[ OK ]"
 
     systemctl stop "$unit"
