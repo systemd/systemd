@@ -36,12 +36,12 @@ preprocess() {
 
 compare() {
     if ! diff -u "$TESTDIR/etc/passwd" <(preprocess "$1.expected-passwd" "$3"); then
-        echo "**** Unexpected output for $f $2"
+        echo >&2 "**** Unexpected output for $f $2"
         exit 1
     fi
 
     if ! diff -u "$TESTDIR/etc/group" <(preprocess "$1.expected-group" "$3"); then
-        echo "**** Unexpected output for $f $2"
+        echo >&2 "**** Unexpected output for $f $2"
         exit 1
     fi
 }
@@ -168,8 +168,8 @@ for f in $(find "$SOURCE"/unhappy-*.input | sort -V); do
     cp "$f" "$TESTDIR/usr/lib/sysusers.d/test.conf"
     $SYSUSERS --root="$TESTDIR" 2>&1 | tail -n1 | sed -r 's/^[^:]+:[^:]+://' >"$TESTDIR/err"
     if ! diff -u "$TESTDIR/err"  "${f%.*}.expected-err"; then
-        echo "**** Unexpected error output for $f"
-        cat "$TESTDIR/err"
+        echo >&2 "**** Unexpected error output for $f"
+        cat >&2 "$TESTDIR/err"
         exit 1
     fi
 done
