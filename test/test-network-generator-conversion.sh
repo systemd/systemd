@@ -51,13 +51,13 @@ run_network_generator() {
     stderr="$WORK_DIR/stderr"
     if ! "$GENERATOR_BIN" --root "$WORK_DIR" 2>"$stderr"; then
         echo >&2 "Generator failed when parsing $SYSTEMD_PROC_CMDLINE"
-        cat "$stderr"
+        cat >&2 "$stderr"
         return 1
     fi
 
     if [[ -s "$stderr" ]]; then
         echo >&2 "Generator generated unexpected messages on stderr"
-        cat "$stderr"
+        cat >&2 "$stderr"
         return 1
     fi
 
@@ -226,7 +226,7 @@ for f in "$TEST_DATA"/test-*.input; do
     "$GENERATOR_BIN" --root "$out" -- $(cat "$f")
 
     if ! diff -u "$out/run/systemd/network" "${f%.input}.expected"; then
-        echo "**** Unexpected output for $f"
+        echo >&2 "**** Unexpected output for $f"
         exit 1
     fi
 
