@@ -6141,6 +6141,8 @@ void unit_frozen(Unit *u) {
 }
 
 void unit_thawed(Unit *u) {
+        Unit *slice;
+
         assert(u);
 
         u->freezer_state = FREEZER_RUNNING;

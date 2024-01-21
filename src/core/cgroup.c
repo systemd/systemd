@@ -4920,6 +4920,7 @@ static int unit_cgroup_freezer_kernel_state(Unit *u, FreezerState *ret) {
 int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
         _cleanup_free_ char *path = NULL;
         FreezerState target, current = _FREEZER_STATE_INVALID;
+        Unit *slice;
         int r;
 
         assert(u);
@@ -4932,36 +4933,11 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
         if (unit_has_name(u, SPECIAL_ROOT_SLICE) || unit_has_name(u, SPECIAL_INIT_SCOPE))
                 return action == FREEZER_THAW ? 0 : -EPERM;
 
-        if (action == FREEZER_THAW) {
-                Unit *slice = UNIT_GET_SLICE(u);
-
-                if (slice) {
-                        r = unit_cgroup_freezer_action(slice, FREEZER_THAW);
-                        if (r < 0)
-                                return log_unit_error_errno(u, r, "Failed to thaw slice %s of unit: %m", slice->id);
-                }
-        }
-
         r = unit_cgroup_freezer_kernel_state(u, &current);
         if (r < 0)
                 log_unit_debug_errno(u, r, "Failed to obtain cgroup freezer state: %m");
 
         target = (action == FREEZER_THAW) ? FREEZER_RUNNING : FREEZER_FROZEN;
-
-        if (target == current) {
-                u->freezer_state =
-                                  (action == FREEZER_FREEZE) ? FREEZER_FROZEN :
-                        (action == FREEZER_FREEZE_BY_PARENT) ? FREEZER_FROZEN_PARENT :
-                                                               FREEZER_RUNNING;
-                if (current == FREEZER_FROZEN)
-                        return 0;
-
-                /* In some situations, a freeze operation might hang due to the presence
-                 * of kernel threads in a unit's cgroup (e.g. QEMU-KVM). In this case,
-                 * cgroup.events might report that the unit is running even if it is actually
-                 * frozen. So, to make extra sure it is actually running, we'll try to thaw the
-                 * unit again. See 7fcd2697 */
-        }
 
         r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, "cgroup.freeze", &path);
         if (r < 0)
@@ -4969,18 +4945,52 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
 
         log_unit_debug(u, "Performing freeze action on unit: %s", freezer_action_to_string(action));
 
-        r = write_string_file(path, one_zero(action != FREEZER_THAW), WRITE_STRING_FILE_DISABLE_BUFFER);
+        r = write_string_file(path, one_zero(target == FREEZER_FROZEN), WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return r;
 
-        if (target != current) {
+        /*if (target == current) {
                 u->freezer_state =
-                                  (action == FREEZER_FREEZE) ? FREEZER_FREEZING :
-                        (action == FREEZER_FREEZE_BY_PARENT) ? FREEZER_FREEZING_PARENT :
-                                                               FREEZER_THAWING;
-                return 1;
-        } else
+                                  (action == FREEZER_FREEZE) ? FREEZER_FROZEN :
+                        (action == FREEZER_FREEZE_BY_PARENT) ? FREEZER_FROZEN_PARENT :
+                                                               FREEZER_RUNNING;
+                //if (current == FREEZER_FROZEN)
+                //        return 0;
+                // IF FROZEN_PARENT, but we want to FREEZE, then we lose the write here.
+
+                /* In some situations, a freeze operation might hang due to the presence
+                 * of kernel threads in a unit's cgroup (e.g. QEMU-KVM). In this case,
+                 * cgroup.events might report that the unit is running even if it is actually
+                 * frozen. So, to make extra sure it is actually running, we'll try to thaw the
+                 * unit again. See 7fcd2697 *\/
+        }*/
+
+        slice = UNIT_GET_SLICE(u);
+        if (action == FREEZER_THAW && slice && !IN_SET(slice->freezer_state, FREEZER_RUNNING, FREEZER_THAWING)) {
+                if (IN_SET(slice->freezer_state, FREEZER_FREEZING, FREEZER_FREEZING_PARENT) &&
+                    current != FREEZER_FROZEN) {
+                        u->freezer_state = FREEZER_FREEZING_PARENT;
+                        return 1;
+                }
+
+                u->freezer_state = FREEZER_FROZEN_PARENT;
                 return 0;
+        }
+        if (target == current) {
+                if (action != FREEZER_FREEZE_BY_PARENT)
+                        u->freezer_state = current;
+
+                return 0;
+        } else {
+                if (action == FREEZER_FREEZE)
+                        u->freezer_state = FREEZER_FREEZING;
+                else if (action == FREEZER_FREEZE_BY_PARENT)
+                        u->freezer_state = FREEZER_FREEZING_PARENT;
+                else
+                        u->freezer_state = FREEZER_THAWING;
+
+                return 1;
+        }
 }
 
 int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name) {
