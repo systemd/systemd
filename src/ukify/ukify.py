@@ -190,7 +190,7 @@ class Uname:
     @classmethod
     def scrape_x86(cls, filename, opts=None):
         # Based on https://gitlab.archlinux.org/archlinux/mkinitcpio/mkinitcpio/-/blob/master/functions#L136
-        # and https://www.kernel.org/doc/html/latest/x86/boot.html#the-real-mode-kernel-header
+        # and https://docs.kernel.org/arch/x86/boot.html#the-real-mode-kernel-header
         with open(filename, 'rb') as f:
             f.seek(0x202)
             magic = f.read(4)
