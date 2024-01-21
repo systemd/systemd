@@ -6,6 +6,7 @@
 #include "sd-daemon.h"
 
 #include "argv-util.h"
+#include "hashmap.h"
 #include "pager.h"
 #include "selinux-util.h"
 #include "spawn-ask-password-agent.h"
@@ -27,6 +28,7 @@
                 pager_close();                                          \
                 mac_selinux_finish();                                   \
                 static_destruct();                                      \
+                hashmap_trim_pools();                                   \
                 return ret;                                             \
         }
 
