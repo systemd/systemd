@@ -905,32 +905,6 @@ FreezerState unit_freezer_state(Unit *u) {
         return u->freezer_state;
 }
 
-int unit_freezer_state_kernel(Unit *u, FreezerState *ret) {
-        char *values[1] = {};
-        int r;
-
-        assert(u);
-
-        r = cg_get_keyed_attribute(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, "cgroup.events",
-                                   STRV_MAKE("frozen"), values);
-        if (r < 0)
-                return r;
-
-        r = _FREEZER_STATE_INVALID;
-
-        if (values[0])  {
-                if (streq(values[0], "0"))
-                        r = FREEZER_RUNNING;
-                else if (streq(values[0], "1"))
-                        r = FREEZER_FROZEN;
-        }
-
-        free(values[0]);
-        *ret = r;
-
-        return 0;
-}
-
 UnitActiveState unit_active_state(Unit *u) {
         assert(u);
 
@@ -6159,7 +6133,9 @@ bool unit_can_freeze(Unit *u) {
 void unit_frozen(Unit *u) {
         assert(u);
 
-        u->freezer_state = FREEZER_FROZEN;
+        u->freezer_state = u->freezer_state == FREEZER_FREEZING_PARENT
+                           ? FREEZER_FROZEN_PARENT
+                           : FREEZER_FROZEN;
 
         bus_unit_send_pending_freezer_message(u, false);
 }

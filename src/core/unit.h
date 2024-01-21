@@ -912,7 +912,6 @@ bool unit_has_name(const Unit *u, const char *name);
 
 UnitActiveState unit_active_state(Unit *u);
 FreezerState unit_freezer_state(Unit *u);
-int unit_freezer_state_kernel(Unit *u, FreezerState *ret);
 
 const char* unit_sub_state_to_string(Unit *u);
 

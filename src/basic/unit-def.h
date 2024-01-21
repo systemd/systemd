@@ -52,10 +52,12 @@ typedef enum UnitActiveState {
 } UnitActiveState;
 
 typedef enum FreezerState {
-        FREEZER_RUNNING,
         FREEZER_FREEZING,
+        FREEZER_FREEZING_PARENT,
         FREEZER_FROZEN,
+        FREEZER_FROZEN_PARENT,
         FREEZER_THAWING,
+        FREEZER_RUNNING,
         _FREEZER_STATE_MAX,
         _FREEZER_STATE_INVALID = -EINVAL,
 } FreezerState;

@@ -4891,20 +4891,46 @@ void manager_invalidate_startup_units(Manager *m) {
                 unit_invalidate_cgroup(u, CGROUP_MASK_CPU|CGROUP_MASK_IO|CGROUP_MASK_BLKIO|CGROUP_MASK_CPUSET);
 }
 
-int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
-        _cleanup_free_ char *path = NULL;
-        FreezerState target, kernel = _FREEZER_STATE_INVALID;
-        int r, ret;
+static int unit_cgroup_freezer_kernel_state(Unit *u, FreezerState *ret) {
+        char *values[1] = {};
+        int r;
 
         assert(u);
-        assert(IN_SET(action, FREEZER_FREEZE, FREEZER_THAW));
+
+        r = cg_get_keyed_attribute(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, "cgroup.events",
+                                   STRV_MAKE("frozen"), values);
+        if (r < 0)
+                return r;
+
+        r = _FREEZER_STATE_INVALID;
+
+        if (values[0])  {
+                if (streq(values[0], "0"))
+                        r = FREEZER_RUNNING;
+                else if (streq(values[0], "1"))
+                        r = FREEZER_FROZEN;
+        }
+
+        free(values[0]);
+        *ret = r;
+
+        return 0;
+}
+
+int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
+        _cleanup_free_ char *path = NULL;
+        FreezerState target, current = _FREEZER_STATE_INVALID;
+        int r;
+
+        assert(u);
+        assert(IN_SET(action, FREEZER_FREEZE, FREEZER_FREEZE_BY_PARENT, FREEZER_THAW));
 
         if (!cg_freezer_supported())
                 return 0;
 
         /* Ignore all requests to thaw init.scope or -.slice and reject all requests to freeze them */
         if (unit_has_name(u, SPECIAL_ROOT_SLICE) || unit_has_name(u, SPECIAL_INIT_SCOPE))
-                return action == FREEZER_FREEZE ? -EPERM : 0;
+                return action == FREEZER_THAW ? 0 : -EPERM;
 
         if (!u->cgroup_realized)
                 return -EBUSY;
@@ -4919,38 +4945,45 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
                 }
         }
 
-        target = action == FREEZER_FREEZE ? FREEZER_FROZEN : FREEZER_RUNNING;
-
-        r = unit_freezer_state_kernel(u, &kernel);
+        r = unit_cgroup_freezer_kernel_state(u, &current);
         if (r < 0)
                 log_unit_debug_errno(u, r, "Failed to obtain cgroup freezer state: %m");
 
-        if (target == kernel) {
-                u->freezer_state = target;
-                if (action == FREEZER_FREEZE)
+        target = (action == FREEZER_THAW) ? FREEZER_RUNNING : FREEZER_FROZEN;
+
+        if (target == current) {
+                u->freezer_state =
+                                  (action == FREEZER_FREEZE) ? FREEZER_FROZEN :
+                        (action == FREEZER_FREEZE_BY_PARENT) ? FREEZER_FROZEN_PARENT :
+                                                               FREEZER_RUNNING;
+                if (current == FREEZER_FROZEN)
                         return 0;
-                ret = 0;
-        } else
-                ret = 1;
+
+                /* In some situations, a freeze operation might hang due to the presence
+                 * of kernel threads in a unit's cgroup (e.g. QEMU-KVM). In this case,
+                 * cgroup.events might report that the unit is running even if it is actually
+                 * frozen. So, to make extra sure it is actually running, we'll try to thaw the
+                 * unit again. See 7fcd2697 */
+        }
 
         r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, "cgroup.freeze", &path);
         if (r < 0)
                 return r;
 
-        log_unit_debug(u, "%s unit.", action == FREEZER_FREEZE ? "Freezing" : "Thawing");
+        log_unit_debug(u, "Performing freeze action on unit: %s", freezer_action_to_string(action));
 
-        if (target != kernel) {
-                if (action == FREEZER_FREEZE)
-                        u->freezer_state = FREEZER_FREEZING;
-                else
-                        u->freezer_state = FREEZER_THAWING;
-        }
-
-        r = write_string_file(path, one_zero(action == FREEZER_FREEZE), WRITE_STRING_FILE_DISABLE_BUFFER);
+        r = write_string_file(path, one_zero(action != FREEZER_THAW), WRITE_STRING_FILE_DISABLE_BUFFER);
         if (r < 0)
                 return r;
 
-        return ret;
+        if (target != current) {
+                u->freezer_state =
+                                  (action == FREEZER_FREEZE) ? FREEZER_FREEZING :
+                        (action == FREEZER_FREEZE_BY_PARENT) ? FREEZER_FREEZING_PARENT :
+                                                               FREEZER_THAWING;
+                return 1;
+        } else
+                return 0;
 }
 
 int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name) {
@@ -4990,16 +5023,17 @@ static const char* const cgroup_device_policy_table[_CGROUP_DEVICE_POLICY_MAX] =
 DEFINE_STRING_TABLE_LOOKUP(cgroup_device_policy, CGroupDevicePolicy);
 
 static const char* const freezer_action_table[_FREEZER_ACTION_MAX] = {
-        [FREEZER_FREEZE] = "freeze",
-        [FREEZER_THAW] = "thaw",
+        [FREEZER_FREEZE]           = "freeze",
+        [FREEZER_FREEZE_BY_PARENT] = "freeze-by-parent",
+        [FREEZER_THAW]             = "thaw",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(freezer_action, FreezerAction);
 
 static const char* const cgroup_pressure_watch_table[_CGROUP_PRESSURE_WATCH_MAX] = {
-        [CGROUP_PRESSURE_WATCH_OFF] = "off",
+        [CGROUP_PRESSURE_WATCH_OFF]  = "off",
         [CGROUP_PRESSURE_WATCH_AUTO] = "auto",
-        [CGROUP_PRESSURE_WATCH_ON] = "on",
+        [CGROUP_PRESSURE_WATCH_ON]   = "on",
         [CGROUP_PRESSURE_WATCH_SKIP] = "skip",
 };
 
