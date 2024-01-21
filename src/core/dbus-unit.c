@@ -723,7 +723,6 @@ int bus_unit_method_clean(sd_bus_message *message, void *userdata, sd_bus_error 
 
 static int bus_unit_method_freezer_generic(sd_bus_message *message, void *userdata, sd_bus_error *error, FreezerAction action) {
         const char* perm;
-        int (*method)(Unit*);
         Unit *u = ASSERT_PTR(userdata);
         bool reply_no_delay = false;
         int r;
@@ -731,13 +730,7 @@ static int bus_unit_method_freezer_generic(sd_bus_message *message, void *userda
         assert(message);
         assert(IN_SET(action, FREEZER_FREEZE, FREEZER_THAW));
 
-        if (action == FREEZER_FREEZE) {
-                perm = "stop";
-                method = unit_freeze;
-        } else {
-                perm = "start";
-                method = unit_thaw;
-        }
+        perm = action == FREEZER_FREEZE ? "stop" : "start";
 
         r = mac_selinux_unit_access_check(u, message, perm, error);
         if (r < 0)
@@ -754,15 +747,17 @@ static int bus_unit_method_freezer_generic(sd_bus_message *message, void *userda
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = method(u);
+        r = unit_freezer_action(u, action);
         if (r == -EOPNOTSUPP)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Unit '%s' does not support freezing.", u->id);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Unit does not support freeze/thaw.");
         if (r == -EBUSY)
                 return sd_bus_error_set(error, BUS_ERROR_UNIT_BUSY, "Unit has a pending job.");
         if (r == -EHOSTDOWN)
                 return sd_bus_error_set(error, BUS_ERROR_UNIT_INACTIVE, "Unit is inactive.");
         if (r == -EALREADY)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Previously requested freezer operation for unit '%s' is still in progress.", u->id);
+                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Previously requested freezer operation for unit is still in progress.");
+        if (r == -ECHILD)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_FAILED, "Unit is frozen by a parent slice.");
         if (r < 0)
                 return r;
         if (r == 0)
