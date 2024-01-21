@@ -1225,13 +1225,17 @@ _public_ PAM_EXTERN int pam_sm_close_session(
 
         id = pam_getenv(handle, "XDG_SESSION_ID");
         if (id && !existing) {
+                /* Let's release the D-Bus connection once this function exits. This is typically called from
+                 * forked process (sd-pam), and it will exit soon anyway. Moreover, on exit, (sd-pam) sets
+                 * PAM_DATA_SILENT flag, and the destructor will warn that it is called with the flag. */
+                _cleanup_(pam_bus_data_disconnectp) PamBusData *d = NULL;
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
                 _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
 
                 /* Before we go and close the FIFO we need to tell logind that this is a clean session
                  * shutdown, so that it doesn't just go and slaughter us immediately after closing the fd */
 
-                r = pam_acquire_bus_connection(handle, "pam-systemd", &bus, NULL);
+                r = pam_acquire_bus_connection(handle, "pam-systemd", &bus, &d);
                 if (r != PAM_SUCCESS)
                         return r;
 

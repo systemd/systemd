@@ -1216,17 +1216,9 @@ static int setup_pam(
                  * we'd never signal completion. */
                 exec_fd = safe_close(exec_fd);
 
-                /* Drop privileges - we don't need any to pam_close_session and this will make
-                 * PR_SET_PDEATHSIG work in most cases.  If this fails, ignore the error - but expect sd-pam
-                 * threads to fail to exit normally */
-
-                r = fully_set_uid_gid(uid, gid, /* supplementary_gids= */ NULL, /* n_supplementary_gids= */ 0);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to drop privileges in sd-pam: %m");
-
                 (void) ignore_signals(SIGPIPE);
 
-                /* Wait until our parent died. This will only work if the above setresuid() succeeds,
+                /* Wait until our parent died. This will only work if the service process is privileged,
                  * otherwise the kernel will not allow unprivileged parents kill their privileged children
                  * this way. We rely on the control groups kill logic to do the rest for us. */
                 if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)
