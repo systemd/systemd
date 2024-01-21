@@ -53,6 +53,7 @@ typedef enum CGroupDevicePolicy {
 
 typedef enum FreezerAction {
         FREEZER_FREEZE,
+        FREEZER_FREEZE_BY_PARENT,
         FREEZER_THAW,
 
         _FREEZER_ACTION_MAX,

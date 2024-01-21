@@ -117,10 +117,12 @@ static const char* const unit_active_state_table[_UNIT_ACTIVE_STATE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(unit_active_state, UnitActiveState);
 
 static const char* const freezer_state_table[_FREEZER_STATE_MAX] = {
-        [FREEZER_RUNNING]  = "running",
-        [FREEZER_FREEZING] = "freezing",
-        [FREEZER_FROZEN]   = "frozen",
-        [FREEZER_THAWING]  = "thawing",
+        [FREEZER_RUNNING]         = "running",
+        [FREEZER_FREEZING]        = "freezing",
+        [FREEZER_FREEZING_PARENT] = "freezing-parent",
+        [FREEZER_FROZEN]          = "frozen",
+        [FREEZER_FROZEN_PARENT]   = "frozen-parent",
+        [FREEZER_THAWING]         = "thawing",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(freezer_state, FreezerState);
