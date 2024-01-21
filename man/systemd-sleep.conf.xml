@@ -162,7 +162,7 @@
 
         <para>The allowed set of values is determined by the kernel and is shown in the file itself (use
         <command>cat /sys/power/disk</command> to display). See the kernel documentation page
-        <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/pm/sleep-states.html#basic-sysfs-interfaces-for-system-suspend-and-hibernation">
+        <ulink url="https://docs.kernel.org/admin-guide/pm/sleep-states.html#basic-sysfs-interfaces-for-system-suspend-and-hibernation">
           Basic sysfs Interfaces for System Suspend and Hibernation</ulink> for more details.</para>
 
         <para>
@@ -183,7 +183,7 @@
 
         <para>The allowed set of values is determined by the kernel and is shown in the file itself (use
         <command>cat /sys/power/state</command> to display). See <ulink
-        url="https://www.kernel.org/doc/html/latest/admin-guide/pm/sleep-states.html#basic-sysfs-interfaces-for-system-suspend-and-hibernation">
+        url="https://docs.kernel.org/admin-guide/pm/sleep-states.html#basic-sysfs-interfaces-for-system-suspend-and-hibernation">
           Basic sysfs Interfaces for System Suspend and Hibernation</ulink> for more details.</para>
 
         <para>

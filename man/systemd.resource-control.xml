@@ -487,7 +487,7 @@ CPUWeight=20   DisableControllers=cpu              /          \
           cache for swap pages. It takes pages that are in the process of being swapped out and attempts to compress them into a
           dynamically allocated RAM-based memory pool. If the limit specified is hit, no entries from this unit will be
           stored in the pool until existing entries are faulted back or written out to disk. See the kernel's
-          <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/mm/zswap.html">Zswap</ulink> documentation for more details.</para>
+          <ulink url="https://docs.kernel.org/admin-guide/mm/zswap.html">Zswap</ulink> documentation for more details.</para>
 
           <para>Takes a size in bytes. If the value is suffixed with K, M, G or T, the specified size is
           parsed as Kilobytes, Megabytes, Gigabytes, or Terabytes (with the base 1024), respectively. If assigned the
@@ -566,7 +566,7 @@ CPUWeight=20   DisableControllers=cpu              /          \
           number of tasks on the system. If assigned the special value <literal>infinity</literal>, no tasks
           limit is applied. This controls the <literal>pids.max</literal> control group attribute. For
           details about this control group attribute, the
-          <ulink url="https://www.kernel.org/doc/html/latest/admin-guide/cgroup-v2.html#pid">pids controller
+          <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html#pid">pids controller
           </ulink>.
           The effective configuration is reported as <varname>EffectiveTasksMax=</varname>.</para>
 
