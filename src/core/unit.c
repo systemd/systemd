@@ -6127,7 +6127,7 @@ bool unit_can_freeze(Unit *u) {
         if (UNIT_VTABLE(u)->can_freeze)
                 return UNIT_VTABLE(u)->can_freeze(u);
 
-        return UNIT_VTABLE(u)->freeze;
+        return UNIT_VTABLE(u)->freezer_action;
 }
 
 void unit_frozen(Unit *u) {
@@ -6148,15 +6148,15 @@ void unit_thawed(Unit *u) {
         bus_unit_send_pending_freezer_message(u, false);
 }
 
-static int unit_freezer_action(Unit *u, FreezerAction action) {
+int unit_freezer_action(Unit *u, FreezerAction action) {
         UnitActiveState s;
-        int (*method)(Unit*);
+        int (*method)(Unit*, FreezerAction);
         int r;
 
         assert(u);
-        assert(IN_SET(action, FREEZER_FREEZE, FREEZER_THAW));
+        assert(IN_SET(action, FREEZER_FREEZE, FREEZER_FREEZE_BY_PARENT, FREEZER_THAW));
 
-        method = action == FREEZER_FREEZE ? UNIT_VTABLE(u)->freeze : UNIT_VTABLE(u)->thaw;
+        method = UNIT_VTABLE(u)->freezer_action;
         if (!method || !cg_freezer_supported())
                 return -EOPNOTSUPP;
 
@@ -6170,34 +6170,19 @@ static int unit_freezer_action(Unit *u, FreezerAction action) {
         if (s != UNIT_ACTIVE)
                 return -EHOSTDOWN;
 
-        if ((IN_SET(u->freezer_state, FREEZER_FREEZING, FREEZER_THAWING) && action == FREEZER_FREEZE) ||
-            (u->freezer_state == FREEZER_THAWING && action == FREEZER_THAW))
+        if (action != FREEZER_THAW && IN_SET(u->freezer_state, FREEZER_FREEZING,
+                                             FREEZER_FREEZING_PARENT, FREEZER_THAWING))
+                return -EALREADY;
+        if (action == FREEZER_THAW && u->freezer_state == FREEZER_THAWING)
                 return -EALREADY;
 
-        r = method(u);
+        r = method(u, action);
         if (r <= 0)
                 return r;
 
-        assert(IN_SET(u->freezer_state, FREEZER_FREEZING, FREEZER_THAWING));
+        assert(IN_SET(u->freezer_state, FREEZER_FREEZING, FREEZER_FREEZING_PARENT, FREEZER_THAWING));
 
         return 1;
-}
-
-int unit_freeze(Unit *u) {
-        return unit_freezer_action(u, FREEZER_FREEZE);
-}
-
-int unit_thaw(Unit *u) {
-        return unit_freezer_action(u, FREEZER_THAW);
-}
-
-/* Wrappers around low-level cgroup freezer operations common for service and scope units */
-int unit_freeze_vtable_common(Unit *u) {
-        return unit_cgroup_freezer_action(u, FREEZER_FREEZE);
-}
-
-int unit_thaw_vtable_common(Unit *u) {
-        return unit_cgroup_freezer_action(u, FREEZER_THAW);
 }
 
 Condition *unit_find_failed_condition(Unit *u) {

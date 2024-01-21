@@ -4925,15 +4925,12 @@ int unit_cgroup_freezer_action(Unit *u, FreezerAction action) {
         assert(u);
         assert(IN_SET(action, FREEZER_FREEZE, FREEZER_FREEZE_BY_PARENT, FREEZER_THAW));
 
-        if (!cg_freezer_supported())
+        if (!cg_freezer_supported() || !u->cgroup_realized)
                 return 0;
 
         /* Ignore all requests to thaw init.scope or -.slice and reject all requests to freeze them */
         if (unit_has_name(u, SPECIAL_ROOT_SLICE) || unit_has_name(u, SPECIAL_INIT_SCOPE))
                 return action == FREEZER_THAW ? 0 : -EPERM;
-
-        if (!u->cgroup_realized)
-                return -EBUSY;
 
         if (action == FREEZER_THAW) {
                 Unit *slice = UNIT_GET_SLICE(u);

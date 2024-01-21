@@ -643,8 +643,7 @@ typedef struct UnitVTable {
         int (*clean)(Unit *u, ExecCleanMask m);
 
         /* Freeze the unit */
-        int (*freeze)(Unit *u);
-        int (*thaw)(Unit *u);
+        int (*freezer_action)(Unit *u, FreezerAction a);
         bool (*can_freeze)(Unit *u);
 
         /* Return which kind of data can be cleaned */
@@ -1094,14 +1093,9 @@ bool unit_can_stop_refuse_manual(Unit *u);
 bool unit_can_isolate_refuse_manual(Unit *u);
 
 bool unit_can_freeze(Unit *u);
-int unit_freeze(Unit *u);
+int unit_freezer_action(Unit *u, FreezerAction action);
 void unit_frozen(Unit *u);
-
-int unit_thaw(Unit *u);
 void unit_thawed(Unit *u);
-
-int unit_freeze_vtable_common(Unit *u);
-int unit_thaw_vtable_common(Unit *u);
 
 Condition *unit_find_failed_condition(Unit *u);
 
