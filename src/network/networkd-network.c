@@ -476,6 +476,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
 
                 .ndisc = -1,
                 .ndisc_use_dns = true,
+                .ndisc_use_dnr = -1,
                 .ndisc_use_gateway = true,
                 .ndisc_use_captive_portal = true,
                 .ndisc_use_route_prefix = true,
