@@ -3312,6 +3312,16 @@ Token=prefixstable:2002:da8:1::</programlisting></para>
       </varlistentry>
 
       <varlistentry>
+        <term><varname>UseDNR=</varname></term>
+        <listitem>
+          <para> When true, the DNR servers received in the Router Advertisement will be used. Defaults to
+            the value of <option>UseDNS=</option>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><varname>UseDomains=</varname></term>
         <listitem>
           <para>Takes a boolean, or the special value <literal>route</literal>. When true, the domain name
