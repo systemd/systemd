@@ -464,15 +464,3 @@ int import_compress_finish(ImportCompress *c, void **buffer, size_t *buffer_size
 
         return 0;
 }
-
-static const char* const import_compress_type_table[_IMPORT_COMPRESS_TYPE_MAX] = {
-        [IMPORT_COMPRESS_UNKNOWN] = "unknown",
-        [IMPORT_COMPRESS_UNCOMPRESSED] = "uncompressed",
-        [IMPORT_COMPRESS_XZ] = "xz",
-        [IMPORT_COMPRESS_GZIP] = "gzip",
-#if HAVE_BZIP2
-        [IMPORT_COMPRESS_BZIP2] = "bzip2",
-#endif
-};
-
-DEFINE_STRING_TABLE_LOOKUP(import_compress_type, ImportCompressType);
