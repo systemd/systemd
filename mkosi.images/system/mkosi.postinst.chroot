@@ -65,9 +65,15 @@ if [ -n "$IMAGE_VERSION" ] ; then
 fi
 
 if command -v authselect >/dev/null; then
-    authselect select minimal
+    if [ -d /usr/share/authselect/default/local ]; then
+        PROFILE=local
+    elif [ -d /usr/share/authselect/default/minimal ]; then
+        PROFILE=minimal
+    fi
 
-    if authselect list-features minimal | grep -q "with-homed"; then
+    authselect select "$PROFILE"
+
+    if authselect list-features "$PROFILE" | grep -q "with-homed"; then
         authselect enable-feature with-homed
     fi
 fi
