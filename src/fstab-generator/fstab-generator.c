@@ -551,16 +551,16 @@ static int add_mount(
         if (r < 0)
                 return r;
 
-        if (path_equal(where, "/")) {
+        if (PATH_IN_SET(where, "/", "/usr")) {
                 r = mandatory_mount_drop_unapplicable_options(&flags, where, opts, &opts_root_filtered);
                 if (r < 0)
                         return r;
                 opts = opts_root_filtered;
 
                 if (!strv_isempty(wanted_by))
-                        log_debug("Ignoring 'x-systemd.wanted-by=' option for root device.");
+                        log_debug("Ignoring 'x-systemd.wanted-by=' option for root/usr device.");
                 if (!strv_isempty(required_by))
-                        log_debug("Ignoring 'x-systemd.required-by=' option for root device.");
+                        log_debug("Ignoring 'x-systemd.required-by=' option for root/usr device.");
 
                 required_by = strv_free(required_by);
                 wanted_by = strv_free(wanted_by);
