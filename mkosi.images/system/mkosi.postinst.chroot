@@ -65,9 +65,17 @@ if [ -n "$IMAGE_VERSION" ] ; then
 fi
 
 if command -v authselect >/dev/null; then
-    authselect select minimal
+    # authselect 1.5.0 renamed the minimal profile to the local profile without keeping backwards compat so
+    # let's use the new name if it exists.
+    if [ -d /usr/share/authselect/default/local ]; then
+        PROFILE=local
+    else
+        PROFILE=minimal
+    fi
 
-    if authselect list-features minimal | grep -q "with-homed"; then
+    authselect select "$PROFILE"
+
+    if authselect list-features "$PROFILE" | grep -q "with-homed"; then
         authselect enable-feature with-homed
     fi
 fi
