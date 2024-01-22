@@ -1397,6 +1397,9 @@ static int ndisc_router_process_encrypted_dns(Link *link, sd_ndisc_router *rt) {
         assert(link->network);
         assert(rt);
 
+        if (!network_ipv6_accept_ra_use_dnr(link->network))
+                return 0;
+
         usec_t lifetime_usec;
         r = sd_ndisc_router_encrypted_dns_get_lifetime_timestamp(rt, CLOCK_BOOTTIME, &lifetime_usec);
         if (r < 0)
