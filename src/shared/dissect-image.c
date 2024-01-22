@@ -1964,10 +1964,13 @@ static int mount_partition(
 
         if (where) {
                 if (directory) {
-                        /* Automatically create missing mount points inside the image, if necessary. */
-                        r = mkdir_p_root(where, directory, uid_shift, (gid_t) uid_shift, 0755, NULL);
-                        if (r < 0 && r != -EROFS)
-                                return r;
+                        /* Automatically create missing mount points inside the image, if necessary and we're
+                         * allowed to so. */
+                        if (FLAGS_SET(flags, DISSECT_IMAGE_MKDIR_MOUNTPOINTS)) {
+                                r = mkdir_p_root(where, directory, uid_shift, (gid_t) uid_shift, 0755, NULL);
+                                if (r < 0 && r != -EROFS)
+                                        return r;
+                        }
 
                         r = chase(directory, where, CHASE_PREFIX_ROOT, &chased, NULL);
                         if (r < 0)
@@ -3851,7 +3854,8 @@ int mount_image_privately_interactively(
         assert(ret_loop_device);
 
         /* We intend to mount this right-away, hence add the partitions if needed and pin them. */
-        flags |= DISSECT_IMAGE_ADD_PARTITION_DEVICES |
+        flags |= DISSECT_IMAGE_MKDIR_MOUNTPOINTS |
+                DISSECT_IMAGE_ADD_PARTITION_DEVICES |
                 DISSECT_IMAGE_PIN_PARTITION_DEVICES;
 
         r = verity_settings_load(&verity, image, NULL, NULL);

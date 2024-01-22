@@ -71,6 +71,7 @@ static const char *arg_source = NULL;
 static const char *arg_target = NULL;
 static DissectImageFlags arg_flags =
         DISSECT_IMAGE_GENERIC_ROOT |
+        DISSECT_IMAGE_MKDIR_MOUNTPOINTS |
         DISSECT_IMAGE_DISCARD_ON_LOOP |
         DISSECT_IMAGE_RELAX_VAR_CHECK |
         DISSECT_IMAGE_FSCK |
