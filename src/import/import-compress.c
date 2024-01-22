@@ -2,6 +2,7 @@
 
 #include "import-compress.h"
 #include "cpu-set-util.h"
+#include "env-util.h"
 #include "string-table.h"
 
 void import_compress_free(ImportCompress *c) {
@@ -291,19 +292,30 @@ int import_compress_init(ImportCompress *c, ImportCompressType t) {
 #if HAVE_ZSTD
         case IMPORT_COMPRESS_ZSTD: {
                 size_t r2;
+                int level = ZSTD_CLEVEL_DEFAULT;
                 int ncpus;
+                int64_t env;
 
                 assert(c->zstd_c == NULL);
                 c->zstd_c = ZSTD_createCStream();
                 if (c->zstd_c == NULL)
                         return -ENOMEM;
 
+                r = getenv_int64("SYSTEMD_IMPORT_COMPRESS_LEVEL_ZSTD", &env);
+                if (r >= 0 && env != 0 && IN_RANGE(env, ZSTD_minCLevel(), ZSTD_maxCLevel()))
+                        level = (int)env;
+                else if (r >= 0)
+                        log_warning("Invalid value of $SYSTEMD_IMPORT_COMPRESS_LEVEL_ZSTD (%" PRIi64 "), ignoring", env);
+                else if (r != -ENXIO)
+                        log_warning_errno(r, "Failed to parse $SYSTEMD_IMPORT_COMPRESS_LEVEL_ZSTD: %m");
+
                 /* TODO: better default? zstd -3 is really weak */
-                r2 = ZSTD_CCtx_setParameter(c->zstd_c, ZSTD_c_compressionLevel, ZSTD_CLEVEL_DEFAULT);
+                r2 = ZSTD_CCtx_setParameter(c->zstd_c, ZSTD_c_compressionLevel, level);
                 if (ZSTD_isError(r2))
                         return log_error_errno(
                                         SYNTHETIC_ERRNO(EIO),
-                                        "Failed to set zstd compression level: %s",
+                                        "Failed to set zstd compression level to %d: %s",
+                                        level,
                                         ZSTD_getErrorName(r2));
 
                 r2 = ZSTD_CCtx_setParameter(c->zstd_c, ZSTD_c_checksumFlag, 1);
