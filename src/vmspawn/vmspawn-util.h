@@ -22,15 +22,27 @@
 
 typedef struct OvmfConfig {
         char *path;
+        char *format;
         char *vars;
+        char *vars_format;
         bool supports_sb;
 } OvmfConfig;
+
+static inline const char *ovmf_config_format(const OvmfConfig *c) {
+        return ASSERT_PTR(c)->format ?: "raw";
+}
+
+static inline const char *ovmf_config_vars_format(const OvmfConfig *c) {
+        return ASSERT_PTR(c)->vars_format ?: "raw";
+}
 
 OvmfConfig* ovmf_config_free(OvmfConfig *ovmf_config);
 DEFINE_TRIVIAL_CLEANUP_FUNC(OvmfConfig*, ovmf_config_free);
 
 int qemu_check_kvm_support(void);
 int qemu_check_vsock_support(void);
-int find_ovmf_config(int search_sb, OvmfConfig **ret_ovmf_config);
+int list_ovmf_config(char ***ret);
+int load_ovmf_config(const char *path, OvmfConfig **ret);
+int find_ovmf_config(int search_sb, OvmfConfig **ret);
 int find_qemu_binary(char **ret_qemu_binary);
 int vsock_fix_child_cid(unsigned *machine_cid, const char *machine, int *ret_child_sock);

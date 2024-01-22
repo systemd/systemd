@@ -135,7 +135,18 @@
 
         <xi:include href="version-info.xml" xpointer="v255"/></listitem>
       </varlistentry>
-    </variablelist>
+
+      <varlistentry>
+        <term><option>--firmware=</option><replaceable>PATH</replaceable></term>
+
+        <listitem><para>Takes an absolute path, or a relative path beginning with
+        <filename>./</filename>. Specifies a JSON firmware definition file, which allows selecting the
+        firmware to boot in the VM. If not specified a suitable firmware is automatically discovered. If the
+        special string <literal>list</literal> is specified lists all discovered firmwares.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+      </variablelist>
 
     </refsect2><refsect2>
       <title>System Identity Options</title>
