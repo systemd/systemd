@@ -1579,7 +1579,7 @@ static int determine_usr(void) {
  * with /sysroot/etc/fstab available, and then we can write additional units based
  * on that file. */
 static int run_generator(void) {
-        int r = 0;
+        int r;
 
         r = proc_cmdline_parse(parse_proc_cmdline_item, NULL, 0);
         if (r < 0)
