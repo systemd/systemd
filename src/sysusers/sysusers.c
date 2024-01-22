@@ -141,12 +141,6 @@ static void context_done(Context *c) {
         uid_range_free(c->uid_range);
 }
 
-static int errno_is_not_exists(int code) {
-        /* See getpwnam(3) and getgrnam(3): those codes and others can be returned if the user or group are
-         * not found. */
-        return IN_SET(code, 0, ENOENT, ESRCH, EBADF, EPERM);
-}
-
 /* Note: the lifetime of the compound literal is the immediately surrounding block,
  * see C11 §6.5.2.5, and
  * https://stackoverflow.com/questions/34880638/compound-literal-lifetime-and-if-blocks */
@@ -1028,6 +1022,7 @@ static int uid_is_ok(
                 const char *name,
                 bool check_with_gid) {
 
+        int r;
         assert(c);
 
         /* Let's see if we already have assigned the UID a second time */
@@ -1058,24 +1053,21 @@ static int uid_is_ok(
 
         /* Let's also check via NSS, to avoid UID clashes over LDAP and such, just in case */
         if (!arg_root) {
-                struct passwd *p;
-                struct group *g;
+                _cleanup_free_ struct group *g = NULL;
 
-                errno = 0;
-                p = getpwuid(uid);
-                if (p)
+                r = getpwuid_malloc(uid, /* ret= */ NULL);
+                if (r >= 0)
                         return 0;
-                if (!IN_SET(errno, 0, ENOENT))
-                        return -errno;
+                if (r != -ESRCH)
+                        return r;
 
                 if (check_with_gid) {
-                        errno = 0;
-                        g = getgrgid((gid_t) uid);
-                        if (g) {
+                        r = getgrgid_malloc((gid_t) uid, &g);
+                        if (r >= 0) {
                                 if (!streq(g->gr_name, name))
                                         return 0;
-                        } else if (!IN_SET(errno, 0, ENOENT))
-                                return -errno;
+                        } else if (r != -ESRCH)
+                                return r;
                 }
         }
 
@@ -1164,12 +1156,11 @@ static int add_user(Context *c, Item *i) {
         }
 
         if (!arg_root) {
-                struct passwd *p;
+                _cleanup_free_ struct passwd *p = NULL;
 
                 /* Also check NSS */
-                errno = 0;
-                p = getpwnam(i->name);
-                if (p) {
+                r = getpwnam_malloc(i->name, &p);
+                if (r >= 0) {
                         log_debug("User %s already exists.", i->name);
                         i->uid = p->pw_uid;
                         i->uid_set = true;
@@ -1180,8 +1171,8 @@ static int add_user(Context *c, Item *i) {
 
                         return 0;
                 }
-                if (!errno_is_not_exists(errno))
-                        return log_error_errno(errno, "Failed to check if user %s already exists: %m", i->name);
+                if (r != -ESRCH)
+                        return log_error_errno(r, "Failed to check if user %s already exists: %m", i->name);
         }
 
         /* Try to use the suggested numeric UID */
@@ -1270,10 +1261,9 @@ static int gid_is_ok(
                 const char *groupname,
                 bool check_with_uid) {
 
-        struct group *g;
-        struct passwd *p;
         Item *user;
         char *username;
+        int r;
 
         assert(c);
         assert(groupname);
@@ -1298,20 +1288,18 @@ static int gid_is_ok(
         }
 
         if (!arg_root) {
-                errno = 0;
-                g = getgrgid(gid);
-                if (g)
+                r = getgrgid_malloc(gid, /* ret= */ NULL);
+                if (r >= 0)
                         return 0;
-                if (!IN_SET(errno, 0, ENOENT))
-                        return -errno;
+                if (r != -ESRCH)
+                        return r;
 
                 if (check_with_uid) {
-                        errno = 0;
-                        p = getpwuid((uid_t) gid);
-                        if (p)
+                        r = getpwuid_malloc(gid, /* ret= */ NULL);
+                        if (r >= 0)
                                 return 0;
-                        if (!IN_SET(errno, 0, ENOENT))
-                                return -errno;
+                        if (r != -ESRCH)
+                                return r;
                 }
         }
 
@@ -1324,6 +1312,7 @@ static int get_gid_by_name(
                 gid_t *ret_gid) {
 
         void *z;
+        int r;
 
         assert(c);
         assert(ret_gid);
@@ -1337,16 +1326,15 @@ static int get_gid_by_name(
 
         /* Also check NSS */
         if (!arg_root) {
-                struct group *g;
+                _cleanup_free_ struct group *g = NULL;
 
-                errno = 0;
-                g = getgrnam(name);
-                if (g) {
+                r = getgrnam_malloc(name, &g);
+                if (r >= 0) {
                         *ret_gid = g->gr_gid;
                         return 0;
                 }
-                if (!errno_is_not_exists(errno))
-                        return log_error_errno(errno, "Failed to check if group %s already exists: %m", name);
+                if (r != -ESRCH)
+                        return log_error_errno(r, "Failed to check if group %s already exists: %m", name);
         }
 
         return -ENOENT;

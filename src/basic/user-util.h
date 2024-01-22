@@ -158,3 +158,9 @@ static inline bool hashed_password_is_locked_or_invalid(const char *password) {
  * Also see https://github.com/systemd/systemd/pull/24680#pullrequestreview-1439464325.
  */
 #define PASSWORD_UNPROVISIONED "!unprovisioned"
+
+int getpwuid_malloc(uid_t uid, struct passwd **ret);
+int getpwnam_malloc(const char *name, struct passwd **ret);
+
+int getgrnam_malloc(const char *name, struct group **ret);
+int getgrgid_malloc(gid_t gid, struct group **ret);
