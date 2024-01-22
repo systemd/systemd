@@ -894,13 +894,15 @@ int fputstrv(FILE *f, char * const *l, const char *separator, bool *space) {
         bool b = false;
         int r;
 
+        assert(f);
+
         /* Like fputs(), but for strv, and with a less stupid argument order */
 
         if (!space)
                 space = &b;
 
         STRV_FOREACH(s, l) {
-                r = fputs_with_space(f, *s, separator, space);
+                r = fputs_with_separator(f, *s, separator, space);
                 if (r < 0)
                         return r;
         }
