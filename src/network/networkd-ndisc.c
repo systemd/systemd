@@ -1871,6 +1871,9 @@ static int ndisc_router_process_encrypted_dns(Link *link, sd_ndisc_router *rt) {
         sd_dns_resolver *res;
         _cleanup_(ndisc_dnr_freep) NDiscDNR *new_entry = NULL;
 
+        if (!link_get_use_dnr(link, NETWORK_CONFIG_SOURCE_NDISC))
+                return 0;
+
         r = sd_ndisc_router_get_sender_address(rt, &router);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get gateway address from RA: %m");
