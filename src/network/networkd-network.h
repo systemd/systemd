@@ -339,6 +339,7 @@ struct Network {
 
         /* NDisc support */
         int ndisc;
+        int ndisc_use_dnr;
         bool ndisc_use_redirect;
         bool ndisc_use_dns;
         bool ndisc_use_gateway;
@@ -423,6 +424,10 @@ static inline int network_dhcp_use_dnr(Network *network) {
 static inline int network_dhcp6_use_dnr(Network *network) {
         assert(network);
         return network->dhcp6_use_dnr < 0 ? network->dhcp6_use_dns : network->dhcp6_use_dnr;
+}
+static inline int network_ndisc_use_dnr(Network *network) {
+        assert(network);
+        return network->ndisc_use_dnr < 0 ? network->ndisc_use_dns : network->ndisc_use_dnr;
 }
 
 int manager_build_dhcp_pd_subnet_ids(Manager *manager);
