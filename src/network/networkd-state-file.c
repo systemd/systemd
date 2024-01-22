@@ -760,6 +760,9 @@ static int link_save(Link *link) {
                                 SET_FOREACH(dd, link->ndisc_rdnss)
                                         serialize_in6_addrs(f, &dd->address, 1, &space);
                         }
+
+                        if (network_ipv6_accept_ra_use_dnr(link->network))
+                                serialize_dnr(f, link->ndisc_dnr, link->ndisc_n_dnr, &space);
                 }
 
                 fputc('\n', f);
