@@ -25,11 +25,13 @@ void microhttpd_logger(void *arg, const char *fmt, va_list ap) {
         REENABLE_WARNING;
 }
 
-static int mhd_respond_internal(struct MHD_Connection *connection,
-                                enum MHD_RequestTerminationCode code,
-                                const char *buffer,
-                                size_t size,
-                                enum MHD_ResponseMemoryMode mode) {
+int mhd_respond_internal(
+                struct MHD_Connection *connection,
+                enum MHD_RequestTerminationCode code,
+                const char *buffer,
+                size_t size,
+                enum MHD_ResponseMemoryMode mode) {
+
         assert(connection);
 
         _cleanup_(MHD_destroy_responsep) struct MHD_Response *response
@@ -43,29 +45,16 @@ static int mhd_respond_internal(struct MHD_Connection *connection,
         return MHD_queue_response(connection, code, response);
 }
 
-int mhd_respond(struct MHD_Connection *connection,
-                enum MHD_RequestTerminationCode code,
-                const char *message) {
-
-        const char *fmt;
-
-        fmt = strjoina(message, "\n");
-
-        return mhd_respond_internal(connection, code,
-                                    fmt, strlen(message) + 1,
-                                    MHD_RESPMEM_PERSISTENT);
-}
-
 int mhd_respond_oom(struct MHD_Connection *connection) {
-        return mhd_respond(connection, MHD_HTTP_SERVICE_UNAVAILABLE,  "Out of memory.");
+        return mhd_respond(connection, MHD_HTTP_SERVICE_UNAVAILABLE, "Out of memory.");
 }
 
-int mhd_respondf(struct MHD_Connection *connection,
-                 int error,
-                 enum MHD_RequestTerminationCode code,
-                 const char *format, ...) {
+int mhd_respondf_internal(
+                struct MHD_Connection *connection,
+                int error,
+                enum MHD_RequestTerminationCode code,
+                const char *format, ...) {
 
-        const char *fmt;
         char *m;
         int r;
         va_list ap;
@@ -76,11 +65,8 @@ int mhd_respondf(struct MHD_Connection *connection,
         if (error < 0)
                 error = -error;
         errno = -error;
-        fmt = strjoina(format, "\n");
         va_start(ap, format);
-        DISABLE_WARNING_FORMAT_NONLITERAL;
-        r = vasprintf(&m, fmt, ap);
-        REENABLE_WARNING;
+        r = vasprintf(&m, format, ap);
         va_end(ap);
 
         if (r < 0)

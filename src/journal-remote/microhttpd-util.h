@@ -62,16 +62,33 @@ void microhttpd_logger(void *arg, const char *fmt, va_list ap) _printf_(2, 0);
 /* respond_oom() must be usable with return, hence this form. */
 #define respond_oom(connection) log_oom(), mhd_respond_oom(connection)
 
-int mhd_respondf(struct MHD_Connection *connection,
-                 int error,
-                 enum MHD_RequestTerminationCode code,
-                 const char *format, ...) _printf_(4,5);
-
-int mhd_respond(struct MHD_Connection *connection,
+int mhd_respond_internal(
+                struct MHD_Connection *connection,
                 enum MHD_RequestTerminationCode code,
-                const char *message);
+                const char *buffer,
+                size_t size,
+                enum MHD_ResponseMemoryMode mode);
+
+#define mhd_respond(connection, code, message)                  \
+        mhd_respond_internal(                                   \
+             connection, code,                                  \
+             message "\n",                                      \
+             strlen(message) + 1,                               \
+             MHD_RESPMEM_PERSISTENT)
 
 int mhd_respond_oom(struct MHD_Connection *connection);
+
+int mhd_respondf_internal(
+                struct MHD_Connection *connection,
+                int error,
+                enum MHD_RequestTerminationCode code,
+                const char *format, ...) _printf_(4,5);
+
+#define mhd_respondf(connection, error, code, format, ...)      \
+        mhd_respondf_internal(                                  \
+                connection, error, code,                        \
+                format "\n",                                    \
+                ##__VA_ARGS__)
 
 int check_permissions(struct MHD_Connection *connection, int *code, char **hostname);
 
