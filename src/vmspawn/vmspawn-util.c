@@ -29,7 +29,9 @@ OvmfConfig* ovmf_config_free(OvmfConfig *config) {
                 return NULL;
 
         free(config->path);
+        free(config->format);
         free(config->vars);
+        free(config->vars_format);
         return mfree(config);
 }
 
@@ -40,7 +42,7 @@ int qemu_check_kvm_support(void) {
                 log_debug_errno(errno, "/dev/kvm not found. Not using KVM acceleration.");
                 return false;
         }
-        if (errno == EPERM) {
+        if (ERRNO_IS_PRIVILEGE(errno)) {
                 log_debug_errno(errno, "Permission denied to access /dev/kvm. Not using KVM acceleration.");
                 return false;
         }
@@ -62,11 +64,11 @@ int qemu_check_vsock_support(void) {
         fd = open("/dev/vhost-vsock", O_RDWR|O_CLOEXEC);
         if (fd >= 0)
                 return true;
-        if (errno == ENODEV) {
+        if (ERRNO_IS_DEVICE_ABSENT(errno)) {
                 log_debug_errno(errno, "/dev/vhost-vsock device doesn't exist. Not adding a vsock device to the virtual machine.");
                 return false;
         }
-        if (errno == EPERM) {
+        if (ERRNO_IS_PRIVILEGE(errno)) {
                 log_debug_errno(errno, "Permission denied to access /dev/vhost-vsock. Not adding a vsock device to the virtual machine.");
                 return false;
         }
@@ -78,16 +80,26 @@ int qemu_check_vsock_support(void) {
 typedef struct FirmwareData {
         char **features;
         char *firmware;
+        char *firmware_format;
         char *vars;
+        char *vars_format;
 } FirmwareData;
+
+static bool firmware_data_supports_sb(const FirmwareData *fwd) {
+        assert(fwd);
+
+        return strv_contains(fwd->features, "secure-boot");
+}
 
 static FirmwareData* firmware_data_free(FirmwareData *fwd) {
         if (!fwd)
                 return NULL;
 
-        fwd->features = strv_free(fwd->features);
-        fwd->firmware = mfree(fwd->firmware);
-        fwd->vars = mfree(fwd->vars);
+        strv_free(fwd->features);
+        free(fwd->firmware);
+        free(fwd->firmware_format);
+        free(fwd->vars);
+        free(fwd->vars_format);
 
         return mfree(fwd);
 }
@@ -95,8 +107,8 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(FirmwareData*, firmware_data_free);
 
 static int firmware_executable(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
         static const JsonDispatch table[] = {
-                { "filename", JSON_VARIANT_STRING, json_dispatch_string, offsetof(FirmwareData, firmware), JSON_MANDATORY },
-                { "format",   JSON_VARIANT_STRING, NULL,                 0,                                JSON_MANDATORY },
+                { "filename", JSON_VARIANT_STRING, json_dispatch_string, offsetof(FirmwareData, firmware),        JSON_MANDATORY },
+                { "format",   JSON_VARIANT_STRING, json_dispatch_string, offsetof(FirmwareData, firmware_format), JSON_MANDATORY },
                 {}
         };
 
@@ -105,8 +117,8 @@ static int firmware_executable(const char *name, JsonVariant *v, JsonDispatchFla
 
 static int firmware_nvram_template(const char *name, JsonVariant *v, JsonDispatchFlags flags, void *userdata) {
         static const JsonDispatch table[] = {
-                { "filename", JSON_VARIANT_STRING, json_dispatch_string, offsetof(FirmwareData, vars), JSON_MANDATORY },
-                { "format",   JSON_VARIANT_STRING, NULL,                 0,                            JSON_MANDATORY },
+                { "filename", JSON_VARIANT_STRING, json_dispatch_string, offsetof(FirmwareData, vars),        JSON_MANDATORY },
+                { "format",   JSON_VARIANT_STRING, json_dispatch_string, offsetof(FirmwareData, vars_format), JSON_MANDATORY },
                 {}
         };
 
@@ -124,11 +136,135 @@ static int firmware_mapping(const char *name, JsonVariant *v, JsonDispatchFlags 
         return json_dispatch(v, table, flags, userdata);
 }
 
+static int get_firmware_search_dirs(char ***ret) {
+        int r;
+
+        assert(ret);
+
+        /* Search in:
+         * - $XDG_CONFIG_HOME/qemu/firmware
+         * - /etc/qemu/firmware
+         * - /usr/share/qemu/firmware
+         *
+         * Prioritising entries in "more specific" directories */
+
+        _cleanup_free_ char *user_firmware_dir = NULL;
+        r = xdg_user_config_dir(&user_firmware_dir, "/qemu/firmware");
+        if (r < 0)
+                return r;
+
+        _cleanup_strv_free_ char **l = NULL;
+        l = strv_new(user_firmware_dir, "/etc/qemu/firmware", "/usr/share/qemu/firmware");
+        if (!l)
+                return log_oom_debug();
+
+        *ret = TAKE_PTR(l);
+        return 0;
+}
+
+int list_ovmf_config(char ***ret) {
+        _cleanup_strv_free_ char **search_dirs = NULL;
+        int r;
+
+        assert(ret);
+
+        r = get_firmware_search_dirs(&search_dirs);
+        if (r < 0)
+                return r;
+
+        r = conf_files_list_strv(
+                        ret,
+                        ".json",
+                        /* root= */ NULL,
+                        CONF_FILES_FILTER_MASKED|CONF_FILES_REGULAR,
+                        (const char *const*) search_dirs);
+        if (r < 0)
+                return log_debug_errno(r, "Failed to list firmware files: %m");
+
+        return 0;
+}
+
+static int load_firmware_data(const char *path, FirmwareData **ret) {
+        int r;
+
+        assert(path);
+        assert(ret);
+
+        _cleanup_(json_variant_unrefp) JsonVariant *json = NULL;
+        r = json_parse_file(
+                        /* f= */ NULL,
+                        path,
+                        /* flags= */ 0,
+                        &json,
+                        /* ret_line= */ NULL,
+                        /* ret_column= */ NULL);
+        if (r < 0)
+                return r;
+
+        static const JsonDispatch table[] = {
+                { "description",     JSON_VARIANT_STRING, NULL,               0,                                JSON_MANDATORY },
+                { "interface-types", JSON_VARIANT_ARRAY,  NULL,               0,                                JSON_MANDATORY },
+                { "mapping",         JSON_VARIANT_OBJECT, firmware_mapping,   0,                                JSON_MANDATORY },
+                { "targets",         JSON_VARIANT_ARRAY,  NULL,               0,                                JSON_MANDATORY },
+                { "features",        JSON_VARIANT_ARRAY,  json_dispatch_strv, offsetof(FirmwareData, features), JSON_MANDATORY },
+                { "tags",            JSON_VARIANT_ARRAY,  NULL,               0,                                JSON_MANDATORY },
+                {}
+        };
+
+        _cleanup_(firmware_data_freep) FirmwareData *fwd = NULL;
+        fwd = new0(FirmwareData, 1);
+        if (!fwd)
+                return -ENOMEM;
+
+        r = json_dispatch(json, table, JSON_ALLOW_EXTENSIONS, fwd);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(fwd);
+        return 0;
+}
+
+static int ovmf_config_make(FirmwareData *fwd, OvmfConfig **ret) {
+        assert(fwd);
+        assert(ret);
+
+        _cleanup_free_ OvmfConfig *config = NULL;
+        config = new(OvmfConfig, 1);
+        if (!config)
+                return -ENOMEM;
+
+        *config = (OvmfConfig) {
+                .path = TAKE_PTR(fwd->firmware),
+                .format = TAKE_PTR(fwd->firmware_format),
+                .vars = TAKE_PTR(fwd->vars),
+                .vars_format = TAKE_PTR(fwd->vars_format),
+                .supports_sb = firmware_data_supports_sb(fwd),
+        };
+
+        *ret = TAKE_PTR(config);
+        return 0;
+}
+
+int load_ovmf_config(const char *path, OvmfConfig **ret) {
+        _cleanup_(firmware_data_freep) FirmwareData *fwd = NULL;
+        int r;
+
+        assert(path);
+        assert(ret);
+
+        r = load_firmware_data(path, &fwd);
+        if (r < 0)
+                return r;
+
+        return ovmf_config_make(fwd, ret);
+}
+
 int find_ovmf_config(int search_sb, OvmfConfig **ret) {
         _cleanup_(ovmf_config_freep) OvmfConfig *config = NULL;
-        _cleanup_free_ char *user_firmware_dir = NULL;
         _cleanup_strv_free_ char **conf_files = NULL;
         int r;
+
+        assert(ret);
 
         /* Search in:
          * - $XDG_CONFIG_HOME/qemu/firmware
@@ -138,79 +274,35 @@ int find_ovmf_config(int search_sb, OvmfConfig **ret) {
          * Prioritising entries in "more specific" directories
          */
 
-        r = xdg_user_config_dir(&user_firmware_dir, "/qemu/firmware");
+        r = list_ovmf_config(&conf_files);
         if (r < 0)
                 return r;
 
-        r = conf_files_list_strv(&conf_files, ".json", NULL, CONF_FILES_FILTER_MASKED|CONF_FILES_REGULAR,
-                        STRV_MAKE_CONST(user_firmware_dir, "/etc/qemu/firmware", "/usr/share/qemu/firmware"));
-        if (r < 0)
-                return log_debug_errno(r, "Failed to list config files: %m");
-
         STRV_FOREACH(file, conf_files) {
                 _cleanup_(firmware_data_freep) FirmwareData *fwd = NULL;
-                _cleanup_(json_variant_unrefp) JsonVariant *config_json = NULL;
-                _cleanup_free_ char *contents = NULL;
-                size_t contents_sz = 0;
 
-                r = read_full_file(*file, &contents, &contents_sz);
-                if (r == -ENOMEM)
-                        return r;
+                r = load_firmware_data(*file, &fwd);
                 if (r < 0) {
-                        log_debug_errno(r, "Failed to read contents of %s - ignoring: %m", *file);
-                        continue;
-                }
-
-                r = json_parse(contents, 0, &config_json, NULL, NULL);
-                if (r == -ENOMEM)
-                        return r;
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to parse the JSON in %s - ignoring: %m", *file);
-                        continue;
-                }
-
-                static const JsonDispatch table[] = {
-                        { "description",     JSON_VARIANT_STRING, NULL,               0,                                JSON_MANDATORY },
-                        { "interface-types", JSON_VARIANT_ARRAY,  NULL,               0,                                JSON_MANDATORY },
-                        { "mapping",         JSON_VARIANT_OBJECT, firmware_mapping,   0,                                JSON_MANDATORY },
-                        { "targets",         JSON_VARIANT_ARRAY,  NULL,               0,                                JSON_MANDATORY },
-                        { "features",        JSON_VARIANT_ARRAY,  json_dispatch_strv, offsetof(FirmwareData, features), JSON_MANDATORY },
-                        { "tags",            JSON_VARIANT_ARRAY,  NULL,               0,                                JSON_MANDATORY },
-                        {}
-                };
-
-                fwd = new0(FirmwareData, 1);
-                if (!fwd)
-                        return -ENOMEM;
-
-                r = json_dispatch(config_json, table, JSON_ALLOW_EXTENSIONS, fwd);
-                if (r == -ENOMEM)
-                        return r;
-                if (r < 0) {
-                        log_debug_errno(r, "Failed to extract the required fields from the JSON in %s - ignoring: %m", *file);
+                        log_debug_errno(r, "Failed to load JSON file '%s', skipping: %m", *file);
                         continue;
                 }
 
                 if (strv_contains(fwd->features, "enrolled-keys")) {
-                        log_debug("Skipping %s, firmware has enrolled keys which has been known to cause issues", *file);
+                        log_debug("Skipping %s, firmware has enrolled keys which has been known to cause issues.", *file);
                         continue;
                 }
-
-                bool sb_present = strv_contains(fwd->features, "secure-boot");
 
                 /* exclude firmware which doesn't match our Secure Boot requirements */
-                if (search_sb >= 0 && search_sb != sb_present) {
-                        log_debug("Skipping %s, firmware doesn't fit required Secure Boot configuration", *file);
+                if (search_sb >= 0 && !!search_sb != firmware_data_supports_sb(fwd)) {
+                        log_debug("Skipping %s, firmware doesn't fit required Secure Boot configuration.", *file);
                         continue;
                 }
 
-                config = new0(OvmfConfig, 1);
-                if (!config)
-                        return -ENOMEM;
+                r = ovmf_config_make(fwd, &config);
+                if (r < 0)
+                        return r;
 
-                config->path = TAKE_PTR(fwd->firmware);
-                config->vars = TAKE_PTR(fwd->vars);
-                config->supports_sb = sb_present;
+                log_debug("Selected firmware definition %s.", *file);
                 break;
         }
 

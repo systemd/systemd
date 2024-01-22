@@ -13,6 +13,7 @@
 #include "copy.h"
 #include "creds-util.h"
 #include "escape.h"
+#include "event-util.h"
 #include "fileio.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -35,11 +36,12 @@
 #include "vmspawn-settings.h"
 #include "vmspawn-util.h"
 
+static bool arg_quiet = false;
 static PagerFlags arg_pager_flags = 0;
 static char *arg_image = NULL;
 static char *arg_machine = NULL;
 static char *arg_qemu_smp = NULL;
-static uint64_t arg_qemu_mem = 2ULL * 1024ULL * 1024ULL * 1024ULL;
+static uint64_t arg_qemu_mem = UINT64_C(2) * U64_GB;
 static int arg_qemu_kvm = -1;
 static int arg_qemu_vsock = -1;
 static unsigned arg_vsock_cid = VMADDR_CID_ANY;
@@ -48,12 +50,14 @@ static int arg_secure_boot = -1;
 static MachineCredentialContext arg_credentials = {};
 static SettingsMask arg_settings_mask = 0;
 static char **arg_parameters = NULL;
+static char *arg_firmware = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_machine, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_qemu_smp, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_parameters, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_credentials, machine_credential_context_done);
+STATIC_DESTRUCTOR_REGISTER(arg_firmware, freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -69,6 +73,7 @@ static int help(void) {
                "%5$sSpawn a command or OS in a virtual machine.%6$s\n\n"
                "  -h --help                 Show this help\n"
                "     --version              Print version string\n"
+               "  -q --quiet                Do not show status information\n"
                "     --no-pager             Do not pipe output into a pager\n"
                "\n%3$sImage:%4$s\n"
                "  -i --image=PATH           Root file system disk image (or device node) for\n"
@@ -82,6 +87,7 @@ static int help(void) {
                "     --qemu-gui             Start QEMU in graphical mode\n"
                "     --secure-boot=BOOL     Configure whether to search for firmware which\n"
                "                            supports Secure Boot\n"
+               "     --firmware=PATH|list   Select firmware definition file (or list available)\n"
                "\n%3$sSystem Identity:%4$s\n"
                "  -M --machine=NAME         Set the machine name for the container\n"
                "\n%3$sCredentials:%4$s\n"
@@ -114,11 +120,13 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_SECURE_BOOT,
                 ARG_SET_CREDENTIAL,
                 ARG_LOAD_CREDENTIAL,
+                ARG_FIRMWARE,
         };
 
         static const struct option options[] = {
                 { "help",            no_argument,       NULL, 'h'                 },
                 { "version",         no_argument,       NULL, ARG_VERSION         },
+                { "quiet",           no_argument,       NULL, 'q'                 },
                 { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
                 { "image",           required_argument, NULL, 'i'                 },
                 { "machine",         required_argument, NULL, 'M'                 },
@@ -131,6 +139,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "secure-boot",     required_argument, NULL, ARG_SECURE_BOOT     },
                 { "set-credential",  required_argument, NULL, ARG_SET_CREDENTIAL  },
                 { "load-credential", required_argument, NULL, ARG_LOAD_CREDENTIAL },
+                { "firmware",        required_argument, NULL, ARG_FIRMWARE        },
                 {}
         };
 
@@ -140,13 +149,17 @@ static int parse_argv(int argc, char *argv[]) {
         assert(argv);
 
         optind = 0;
-        while ((c = getopt_long(argc, argv, "+hi:M", options, NULL)) >= 0)
+        while ((c = getopt_long(argc, argv, "+hi:Mq", options, NULL)) >= 0)
                 switch (c) {
                 case 'h':
                         return help();
 
                 case ARG_VERSION:
                         return version();
+
+                case 'q':
+                        arg_quiet = true;
+                        break;
 
                 case 'i':
                         r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_image);
@@ -240,6 +253,31 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_settings_mask |= SETTING_CREDENTIALS;
                         break;
                 }
+
+                case ARG_FIRMWARE:
+                        if (streq(optarg, "list")) {
+                                _cleanup_strv_free_ char **l = NULL;
+
+                                r = list_ovmf_config(&l);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to list firmwares: %m");
+
+                                bool nl = false;
+                                fputstrv(stdout, l, "\n", &nl);
+                                if (nl)
+                                        putchar('\n');
+
+                                return 0;
+                        }
+
+                        if (!isempty(optarg) && !path_is_absolute(optarg) && !startswith(optarg, "./"))
+                                return log_error_errno(SYNTHETIC_ERRNO(errno), "Absolute path or path starting with './' required.");
+
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_firmware);
+                        if (r < 0)
+                                return r;
+
+                        break;
 
                 case '?':
                         return -EINVAL;
@@ -378,25 +416,34 @@ static int vmspawn_dispatch_vsock_connections(sd_event_source *source, int fd, u
         return 0;
 }
 
-static int setup_notify_parent(sd_event *event, int fd, int *exit_status, sd_event_source **notify_event_source) {
+static int setup_notify_parent(sd_event *event, int fd, int *exit_status, sd_event_source **ret_notify_event_source) {
         int r;
 
-        r = sd_event_add_io(event, notify_event_source, fd, EPOLLIN, vmspawn_dispatch_vsock_connections, exit_status);
+        assert(event);
+        assert(fd >= 0);
+        assert(exit_status);
+        assert(ret_notify_event_source);
+
+        r = sd_event_add_io(event, ret_notify_event_source, fd, EPOLLIN, vmspawn_dispatch_vsock_connections, exit_status);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate notify socket event source: %m");
 
-        (void) sd_event_source_set_description(*notify_event_source, "vmspawn-notify-sock");
+        (void) sd_event_source_set_description(*ret_notify_event_source, "vmspawn-notify-sock");
 
         return 0;
 }
 
 static int on_orderly_shutdown(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
-        pid_t pid;
+        PidRef *pidref = userdata;
+        int r;
 
-        pid = PTR_TO_PID(userdata);
-        if (pid > 0) {
-                /* TODO: actually talk to qemu and ask the guest to shutdown here */
-                if (kill(pid, SIGKILL) >= 0) {
+        /* TODO: actually talk to qemu and ask the guest to shutdown here */
+
+        if (pidref) {
+                r = pidref_kill(pidref, SIGKILL);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to kill qemu, terminating: %m");
+                else {
                         log_info("Trying to halt qemu. Send SIGTERM again to trigger vmspawn to immediately terminate.");
                         sd_event_source_set_userdata(s, NULL);
                         return 0;
@@ -450,7 +497,10 @@ static int run_virtual_machine(void) {
                 use_kvm = r;
         }
 
-        r = find_ovmf_config(arg_secure_boot, &ovmf_config);
+        if (arg_firmware)
+                r = load_ovmf_config(arg_firmware, &ovmf_config);
+        else
+                r = find_ovmf_config(arg_secure_boot, &ovmf_config);
         if (r < 0)
                 return log_error_errno(r, "Failed to find OVMF config: %m");
 
@@ -473,7 +523,7 @@ static int run_virtual_machine(void) {
         if (r < 0)
                 return log_error_errno(r, "Failed to find QEMU binary: %m");
 
-        if (asprintf(&mem, "%.4fM", (double)arg_qemu_mem / (1024.0 * 1024.0)) < 0)
+        if (asprintf(&mem, "%" PRIu64, DIV_ROUND_UP(arg_qemu_mem, U64_MB)) < 0)
                 return log_oom();
 
         cmdline = strv_new(
@@ -558,7 +608,7 @@ static int run_virtual_machine(void) {
         if (r < 0)
                 return log_oom();
 
-        r = strv_extendf(&cmdline, "if=pflash,format=raw,readonly=on,file=%s", ovmf_config->path);
+        r = strv_extendf(&cmdline, "if=pflash,format=%s,readonly=on,file=%s", ovmf_config_format(ovmf_config), ovmf_config->path);
         if (r < 0)
                 return log_oom();
 
@@ -596,7 +646,7 @@ static int run_virtual_machine(void) {
                 if (r < 0)
                         return log_oom();
 
-                r = strv_extendf(&cmdline, "file=%s,if=pflash,format=raw", ovmf_vars_to);
+                r = strv_extendf(&cmdline, "file=%s,if=pflash,format=%s", ovmf_vars_to, ovmf_config_format(ovmf_config));
                 if (r < 0)
                         return log_oom();
         }
@@ -663,15 +713,16 @@ static int run_virtual_machine(void) {
 
         (void) sd_event_set_watchdog(event, true);
 
-        pid_t child_pid;
-        r = safe_fork_full(
+        _cleanup_(pidref_done) PidRef child_pidref = PIDREF_NULL;
+
+        r = pidref_safe_fork_full(
                         qemu_binary,
-                        NULL,
+                        /* stdio_fds= */ NULL,
                         &child_vsock_fd, 1, /* pass the vsock fd to qemu */
-                        FORK_CLOEXEC_OFF,
-                        &child_pid);
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_LOG|FORK_CLOEXEC_OFF|FORK_RLIMIT_NOFILE_SAFE,
+                        &child_pidref);
         if (r < 0)
-                return log_error_errno(r, "Failed to fork off %s: %m", qemu_binary);
+                return r;
         if (r == 0) {
                 /* set TERM and LANG if they are missing */
                 if (setenv("TERM", "vt220", 0) < 0)
@@ -680,10 +731,13 @@ static int run_virtual_machine(void) {
                 if (setenv("LANG", "C.UTF-8", 0) < 0)
                         return log_oom();
 
-                execve(qemu_binary, cmdline, environ);
+                execv(qemu_binary, cmdline);
                 log_error_errno(errno, "Failed to execve %s: %m", qemu_binary);
                 _exit(EXIT_FAILURE);
         }
+
+        /* Close the vsock fd we passed to qemu in the parent. We don't need it anymore. */
+        child_vsock_fd = safe_close(child_vsock_fd);
 
         int exit_status = INT_MAX;
         if (use_vsock) {
@@ -693,13 +747,13 @@ static int run_virtual_machine(void) {
         }
 
         /* shutdown qemu when we are shutdown */
-        (void) sd_event_add_signal(event, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, on_orderly_shutdown, PID_TO_PTR(child_pid));
-        (void) sd_event_add_signal(event, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, on_orderly_shutdown, PID_TO_PTR(child_pid));
+        (void) sd_event_add_signal(event, NULL, SIGINT | SD_EVENT_SIGNAL_PROCMASK, on_orderly_shutdown, &child_pidref);
+        (void) sd_event_add_signal(event, NULL, SIGTERM | SD_EVENT_SIGNAL_PROCMASK, on_orderly_shutdown, &child_pidref);
 
         (void) sd_event_add_signal(event, NULL, (SIGRTMIN+18) | SD_EVENT_SIGNAL_PROCMASK, sigrtmin18_handler, NULL);
 
         /* Exit when the child exits */
-        (void) sd_event_add_child(event, NULL, child_pid, WEXITED, on_child_exit, NULL);
+        (void) event_add_child_pidref(event, NULL, &child_pidref, WEXITED, on_child_exit, NULL);
 
         r = sd_event_loop(event);
         if (r < 0)
@@ -756,6 +810,16 @@ static int run(int argc, char *argv[]) {
         r = determine_names();
         if (r < 0)
                 return r;
+
+        if (!arg_quiet) {
+                _cleanup_free_ char *u = NULL;
+                (void) terminal_urlify_path(arg_image, arg_image, &u);
+
+                log_info("%s %sSpawning VM %s on %s.%s\n"
+                         "%s %sPress %sCtrl-a x%s to kill VM.%s",
+                         special_glyph(SPECIAL_GLYPH_LIGHT_SHADE), ansi_grey(), arg_machine, u ?: arg_image, ansi_normal(),
+                         special_glyph(SPECIAL_GLYPH_LIGHT_SHADE), ansi_grey(), ansi_highlight(), ansi_grey(), ansi_normal());
+        }
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGCHLD, -1) >= 0);
 
