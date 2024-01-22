@@ -234,6 +234,8 @@ int id128_get_product(sd_id128_t *ret) {
         r = id128_read("/sys/class/dmi/id/product_uuid", ID128_FORMAT_UUID, &uuid);
         if (r == -ENOENT)
                 r = id128_read("/proc/device-tree/vm,uuid", ID128_FORMAT_UUID, &uuid);
+        if (r == -ENOENT)
+                r = id128_read("/sys/hypervisor/uuid", ID128_FORMAT_UUID, &uuid);
         if (r < 0)
                 return r;
 
