@@ -865,6 +865,7 @@ MaxLevelKMsg=
 MaxLevelStore=
 MaxLevelSyslog=
 MaxLevelWall=
+MaxLevelSocket=
 MaxRetentionSec=
 MaxUse=
 MemoryDenyWriteExecute=
