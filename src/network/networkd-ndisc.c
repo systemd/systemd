@@ -1079,6 +1079,8 @@ static int ndisc_router_process_encrypted_dns(Link *link, sd_ndisc_router *rt) {
                 return 0;
         }
 
+        res->lifetime_usec = lifetime_usec;
+
         /* Record resolvers in priority order */
         LIST_FOREACH(resolvers, i, link->ndisc_resolvers) {
                 if (res->priority < i->priority) {
@@ -1225,6 +1227,14 @@ static int ndisc_drop_outdated(Link *link, usec_t timestamp_usec) {
                 free(set_remove(link->ndisc_pref64, p64));
                 /* The pref64 prefix is not exported through the state file, hence it is not necessary to set
                  * the 'updated' flag. */
+        }
+
+        LIST_FOREACH(resolvers, res, link->ndisc_resolvers) {
+                if (res->lifetime_usec >= timestamp_usec)
+                        continue; /* the resolver is still valid */
+
+                dnr_resolver_data_free_all(LIST_REMOVE(resolvers, link->ndisc_resolvers, res));
+                updated = true;
         }
 
         if (updated)
