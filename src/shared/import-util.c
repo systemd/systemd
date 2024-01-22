@@ -134,6 +134,48 @@ static const char* const import_verify_table[_IMPORT_VERIFY_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(import_verify, ImportVerify);
 
+static const char* const import_compress_type_table[_IMPORT_COMPRESS_TYPE_MAX] = {
+        [IMPORT_COMPRESS_UNKNOWN] = "unknown",
+        [IMPORT_COMPRESS_UNCOMPRESSED] = "uncompressed",
+        [IMPORT_COMPRESS_XZ] = "xz",
+        [IMPORT_COMPRESS_GZIP] = "gzip",
+#if HAVE_BZIP2
+        [IMPORT_COMPRESS_BZIP2] = "bzip2",
+#endif
+};
+
+DEFINE_STRING_TABLE_LOOKUP(import_compress_type, ImportCompressType);
+
+ImportCompressType tar_filename_to_compression(const char *name)
+{
+        if (!name)
+                return IMPORT_COMPRESS_UNCOMPRESSED;
+
+        if (endswith(name, ".xz") || endswith(name, ".txz"))
+                return IMPORT_COMPRESS_XZ;
+        else if (endswith(name, ".gz") || endswith(name, ".tgz"))
+                return IMPORT_COMPRESS_GZIP;
+        else if (endswith(name, ".bz2") || endswith(name, ".tbz2"))
+                return IMPORT_COMPRESS_BZIP2;
+        else
+                return IMPORT_COMPRESS_UNCOMPRESSED;
+}
+
+ImportCompressType raw_filename_to_compression(const char *name)
+{
+        if (!name)
+                return IMPORT_COMPRESS_UNCOMPRESSED;
+
+        if (endswith(name, ".xz"))
+                return IMPORT_COMPRESS_XZ;
+        else if (endswith(name, ".gz"))
+                return IMPORT_COMPRESS_GZIP;
+        else if (endswith(name, ".bz2"))
+                return IMPORT_COMPRESS_BZIP2;
+        else
+                return IMPORT_COMPRESS_UNCOMPRESSED;
+}
+
 int tar_strip_suffixes(const char *name, char **ret) {
         const char *e;
         char *s;
