@@ -43,6 +43,21 @@
 
     <para>The following options are understood:</para>
 
+    <variablelist>
+
+      <varlistentry>
+        <term><option>-q</option></term>
+        <term><option>--quiet</option></term>
+
+        <listitem><para>Turns off any status output by the tool
+        itself. When this switch is used, the only output from vmspawn
+        will be the console output of the Virtual Machine OS itself.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+    </variablelist>
+
     <refsect2>
     <title>Image Options</title>
 
