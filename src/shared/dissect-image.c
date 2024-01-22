@@ -2287,6 +2287,8 @@ int dissected_image_mount_and_warn(
         assert(m);
 
         r = dissected_image_mount(m, where, uid_shift, uid_range, userns_fd, flags);
+        if (r == -ENOENT)
+                return log_error_errno(r, "A mount point directory in the image is missing.");
         if (r == -ENOTEMPTY)
                 return log_error_errno(r, "A mount point directory in the image is not empty.");
         if (r == -ENXIO)
