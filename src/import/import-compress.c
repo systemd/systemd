@@ -243,7 +243,7 @@ int import_compress_init(ImportCompress *c, ImportCompressType t) {
         return 0;
 }
 
-static int enlarge_buffer(void **buffer, size_t *buffer_size, size_t *buffer_allocated) {
+static int enlarge_buffer(void **buffer, const size_t *buffer_size, size_t *buffer_allocated) {
         size_t l;
         void *p;
 
