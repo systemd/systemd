@@ -1443,7 +1443,7 @@ static int property_get_effective_limit(
         assert(reply);
         assert(property);
 
-        assert_se((type = cgroup_limit_type_from_string(property)) >= 0);
+        assert_se((type = cgroup_effective_limit_type_from_string(property)) >= 0);
         (void) unit_get_effective_limit(u, type, &value);
         return sd_bus_message_append(reply, "t", value);
 }

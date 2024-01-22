@@ -448,8 +448,8 @@ CGroupIPAccountingMetric cgroup_ip_accounting_metric_from_string(const char *s) 
 const char* cgroup_io_accounting_metric_to_string(CGroupIOAccountingMetric m) _const_;
 CGroupIOAccountingMetric cgroup_io_accounting_metric_from_string(const char *s) _pure_;
 
-const char* cgroup_limit_type_to_string(CGroupLimitType m) _const_;
-CGroupLimitType cgroup_limit_type_from_string(const char *s) _pure_;
+const char* cgroup_effective_limit_type_to_string(CGroupLimitType m) _const_;
+CGroupLimitType cgroup_effective_limit_type_from_string(const char *s) _pure_;
 
 const char* cgroup_memory_accounting_metric_to_string(CGroupMemoryAccountingMetric m) _const_;
 CGroupMemoryAccountingMetric cgroup_memory_accounting_metric_from_string(const char *s) _pure_;
