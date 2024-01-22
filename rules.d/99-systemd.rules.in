@@ -73,7 +73,7 @@ ACTION=="add", SUBSYSTEM=="net", KERNEL!="lo", RUN+="{{LIBEXECDIR}}/systemd-sysc
 # Pull in backlight save/restore for all backlight devices and
 # keyboard backlights
 SUBSYSTEM=="backlight", TAG+="systemd", IMPORT{builtin}="path_id", ENV{SYSTEMD_WANTS}+="systemd-backlight@backlight:$name.service"
-SUBSYSTEM=="leds", KERNEL=="*kbd_backlight", TAG+="systemd", IMPORT{builtin}="path_id", ENV{SYSTEMD_WANTS}+="systemd-backlight@leds:$name.service"
+SUBSYSTEM=="leds", KERNEL=="*kbd_backlight*", TAG+="systemd", IMPORT{builtin}="path_id", ENV{SYSTEMD_WANTS}+="systemd-backlight@leds:$name.service"
 {% endif %}
 
 # Pull in rfkill save/restore for all rfkill devices
