@@ -1016,9 +1016,9 @@ int manager_new(RuntimeScope runtime_scope, ManagerTestRunFlags test_run_flags, 
 
                 m->executor_fd = open(SYSTEMD_EXECUTOR_BINARY_PATH, O_CLOEXEC|O_PATH);
                 if (m->executor_fd < 0)
-                        return log_warning_errno(errno,
-                                                 "Failed to open executor binary '%s': %m",
-                                                 SYSTEMD_EXECUTOR_BINARY_PATH);
+                        return log_emergency_errno(errno,
+                                                   "Failed to open executor binary '%s': %m",
+                                                   SYSTEMD_EXECUTOR_BINARY_PATH);
         } else if (!FLAGS_SET(test_run_flags, MANAGER_TEST_DONT_OPEN_EXECUTOR)) {
                 _cleanup_free_ char *self_exe = NULL, *executor_path = NULL;
                 _cleanup_close_ int self_dir_fd = -EBADF;
