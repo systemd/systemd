@@ -143,7 +143,7 @@ int fflush_sync_and_check(FILE *f);
 int write_timestamp_file_atomic(const char *fn, usec_t n);
 int read_timestamp_file(const char *fn, usec_t *ret);
 
-int fputs_with_space(FILE *f, const char *s, const char *separator, bool *space);
+int fputs_with_separator(FILE *f, const char *s, const char *separator, bool *space);
 
 typedef enum ReadLineFlags {
         READ_LINE_ONLY_NUL  = 1 << 0,
