@@ -5032,10 +5032,10 @@ static const char* const cgroup_memory_accounting_metric_table[_CGROUP_MEMORY_AC
 
 DEFINE_STRING_TABLE_LOOKUP(cgroup_memory_accounting_metric, CGroupMemoryAccountingMetric);
 
-static const char *const cgroup_limit_type_table[_CGROUP_LIMIT_TYPE_MAX] = {
+static const char *const cgroup_effective_limit_type_table[_CGROUP_LIMIT_TYPE_MAX] = {
         [CGROUP_LIMIT_MEMORY_MAX]  = "EffectiveMemoryMax",
         [CGROUP_LIMIT_MEMORY_HIGH] = "EffectiveMemoryHigh",
         [CGROUP_LIMIT_TASKS_MAX]   = "EffectiveTasksMax",
 };
 
-DEFINE_STRING_TABLE_LOOKUP(cgroup_limit_type, CGroupLimitType);
+DEFINE_STRING_TABLE_LOOKUP(cgroup_effective_limit_type, CGroupLimitType);
