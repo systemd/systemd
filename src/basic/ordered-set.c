@@ -91,13 +91,16 @@ void ordered_set_print(FILE *f, const char *field, OrderedSet *s) {
         bool space = false;
         char *p;
 
+        assert(f);
+        assert(field);
+
         if (ordered_set_isempty(s))
                 return;
 
         fputs(field, f);
 
         ORDERED_SET_FOREACH(p, s)
-                fputs_with_space(f, p, NULL, &space);
+                fputs_with_separator(f, p, NULL, &space);
 
         fputc('\n', f);
 }
