@@ -742,6 +742,9 @@ static int link_save(Link *link) {
                                             link->dhcp6_lease,
                                             network_dhcp6_use_dnr(link->network));
 
+                        if (network_ndisc_use_dnr(link->network))
+                                serialize_dnr(f, link->ndisc_dnr, link->ndisc_n_dnr, &space);
+
                         serialize_addresses(f, NULL, &space,
                                             NULL,
                                             link->dhcp_lease,
