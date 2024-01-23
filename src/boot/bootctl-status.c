@@ -326,6 +326,7 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         return r;
 
                 puts(arg_esp_path);
+                return 0;
         }
 
         r = acquire_xbootldr(/* unprivileged_mode= */ -1, &xbootldr_uuid, &xbootldr_devid);
@@ -340,10 +341,8 @@ int verb_status(int argc, char *argv[], void *userdata) {
                         return log_error_errno(SYNTHETIC_ERRNO(EACCES), "Failed to determine XBOOTLDR location: %m");
 
                 puts(path);
-        }
-
-        if (arg_print_esp_path || arg_print_dollar_boot_path)
                 return 0;
+        }
 
         r = 0; /* If we couldn't determine the path, then don't consider that a problem from here on, just
                 * show what we can show */
