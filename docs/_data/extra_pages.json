@@ -1,11 +1,102 @@
 [
-    { "category": "Project", "title": "mkosi Project - Build Bespoke OS Images", "url": "https://mkosi.systemd.io/" },
-    { "category": "Project", "title": "Brand", "url": "https://brand.systemd.io/" },
-    { "category": "Project", "title": "Releases", "url": "https://github.com/systemd/systemd/releases" },
-    { "category": "Project", "title": "GitHub Project Page", "url": "https://github.com/systemd/systemd" },
-    { "category": "Project", "title": "Issues", "url": "https://github.com/systemd/systemd/issues" },
-    { "category": "Project", "title": "Pull Requests", "url": "https://github.com/systemd/systemd/pulls" },
-    { "category": "Project", "title": "Mailing List", "url": "https://lists.freedesktop.org/mailman/listinfo/systemd-devel" },
-    { "category": "Manual Pages", "title": "Index", "url": "https://www.freedesktop.org/software/systemd/man/" },
-    { "category": "Manual Pages", "title": "Directives", "url": "https://www.freedesktop.org/software/systemd/man/systemd.directives.html" }
+  {
+    "category": "Project",
+    "title": "mkosi Project - Build Bespoke OS Images",
+    "url": "https://mkosi.systemd.io/"
+  },
+  {
+    "category": "Project",
+    "title": "Brand",
+    "url": "https://brand.systemd.io/"
+  },
+  {
+    "category": "Project",
+    "title": "Releases",
+    "url": "https://github.com/systemd/systemd/releases"
+  },
+  {
+    "category": "Project",
+    "title": "GitHub Project Page",
+    "url": "https://github.com/systemd/systemd"
+  },
+  {
+    "category": "Project",
+    "title": "Issues",
+    "url": "https://github.com/systemd/systemd/issues"
+  },
+  {
+    "category": "Project",
+    "title": "Pull Requests",
+    "url": "https://github.com/systemd/systemd/pulls"
+  },
+  {
+    "category": "Project",
+    "title": "Mailing List",
+    "url": "https://lists.freedesktop.org/mailman/listinfo/systemd-devel"
+  },
+  {
+    "category": "Manual Pages",
+    "title": "Index",
+    "url": "https://www.freedesktop.org/software/systemd/man/"
+  },
+  {
+    "category": "Manual Pages",
+    "title": "Directives",
+    "url": "https://www.freedesktop.org/software/systemd/man/systemd.directives.html"
+  },
+  {
+    "category": "Publications",
+    "title": "Article in The H",
+    "url": "http://www.h-online.com/open/features/Control-Centre-The-systemd-Linux-init-system-1565543.html"
+  },
+  {
+    "category": "Publications",
+    "title": "Article in The H, Part 2",
+    "url": "http://www.h-online.com/open/features/Booting-up-Tools-and-tips-for-systemd-1570630.html"
+  },
+  {
+    "category": "Publications",
+    "title": "Bê-á-bá do systemd #1 (Brazilian Portuguese)",
+    "url": "https://community.ibm.com/community/user/legacy"
+  },
+  {
+    "category": "Publications",
+    "title": "Bê-á-bá do systemd #2 (Brazilian Portuguese)",
+    "url": "https://community.ibm.com/community/user/legacy"
+  },
+  {
+    "category": "Publications",
+    "title": "Bê-á-bá do systemd #3 (Brazilian Portuguese)",
+    "url": "https://community.ibm.com/community/user/legacy"
+  },
+  {
+    "category": "Publications",
+    "title": "Bê-á-bá do systemd #4 (Brazilian Portuguese)",
+    "url": "https://community.ibm.com/community/user/legacy"
+  },
+  {
+    "category": "Publications",
+    "title": "Bê-á-bá do systemd #5 (Brazilian Portuguese)",
+    "url": "https://community.ibm.com/community/user/legacy"
+  },
+  {
+    "category": "Publications",
+    "title": "Bê-á-bá do systemd #6 (Brazilian Portuguese)",
+    "url": "https://community.ibm.com/community/user/legacy"
+  },
+  {
+    "category": "Publications",
+    "title": "Évolutions techniques de systemd (French)",
+    "url": "https://linuxfr.org/news/evolutions-techniques-de-systemd"
+  },
+  {
+    "category": "Publications",
+    "title": "RHEL7 docs",
+    "url": "https://access.redhat.com/documentation/en-us/red_hat_enterprise_linux/7/html/system_administrators_guide/chap-managing_services_with_systemd"
+  },
+  {
+    "category": "Publications",
+    "title": "SUSE White Paper on systemd",
+    "url": "https://www.suse.com/media/white-paper/systemd_in_suse_linux_enterprise_12_white_paper.pdf"
+  }
 ]
