@@ -36,7 +36,7 @@ static int shutdown_help(void) {
                "  -c             Cancel a pending shutdown\n"
                "     --show      Show pending shutdown\n"
                "\n%sThis is a compatibility interface, please use the more powerful 'systemctl reboot',\n"
-               "'systemctl poweroff', 'systemctl reboot' commands instead.%s\n"
+               "'systemctl poweroff' commands instead.%s\n"
                "\nSee the %s for details.\n",
                program_invocation_short_name,
                ansi_highlight(), ansi_normal(),
