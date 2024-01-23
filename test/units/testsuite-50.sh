@@ -6,6 +6,9 @@
 set -eux
 set -o pipefail
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
 export SYSTEMD_LOG_LEVEL=debug
 
 # shellcheck disable=SC2317
@@ -720,6 +723,36 @@ if command -v mksquashfs >/dev/null 2>&1; then
     systemd-sysext refresh
 
     (! test -f /usr/waldo)
+fi
+
+if test -f /usr/lib/systemd/system/systemd-mntfsd.socket -a /usr/lib/systemd/system/systemd-nsresourced.socket && \
+        command -v command -v mksquashfs >/dev/null 2>&1 && \
+        grep -q bpf /sys/kernel/security/lsm ; then
+
+    systemctl start systemd-mntfsd.socket systemd-nsresourced.socket
+
+    openssl req -config "$OPENSSL_CONFIG" -subj="/CN=waldo" -x509 -sha256 -nodes -days 365 -newkey rsa:4096 -keyout /tmp/test-50-unpriv-privkey.key -out /tmp/test-50-unpriv-cert.crt
+
+    systemd-dissect --mkdir --mount ${image}.raw /tmp/unpriv/mount
+    SYSTEMD_REPART_OVERRIDE_FSTYPE=squashfs systemd-repart -P -s /tmp/unpriv/mount --certificate=/tmp/test-50-unpriv-cert.crt --private-key=/tmp/test-50-unpriv-privkey.key /run/machines/unpriv.raw
+    systemd-dissect --rmdir --umount /tmp/unpriv/mount
+
+    systemd-dissect --image-policy='root=unprotected:=absent+unused' /run/machines/unpriv.raw
+    systemd-dissect --image-policy='root=unprotected:=absent+unused' --mtree /run/machines/unpriv.raw | tee /tmp/unpriv.raw.mtree
+
+    # Run unpriv, should fail due to lack of privs
+    (! runas testuser systemd-dissect /run/machines/unpriv.raw )
+    (! runas testuser systemd-dissect --mtree /run/machines/unpriv.raw )
+
+    # Install key in keychain
+    cp /tmp/test-50-unpriv-cert.crt /run/verity.d
+
+    # Now run unpriv again, shouild be OK now.
+    runas testuser systemd-dissect /run/machines/unpriv.raw
+    runas testuser systemd-dissect --mtree /run/machines/unpriv.raw | tee /tmp/unpriv2.raw.mtree
+
+    # Check that unpriv and priv run yielded same results
+    cmp /tmp/unpriv.raw.mtree /tmp/unpriv2.raw.mtree
 fi
 
 # Sneak in a couple of expected-to-fail invocations to cover
