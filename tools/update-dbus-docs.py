@@ -152,12 +152,17 @@ def check_documented(document, declarations, stats, interface, missing_version):
         stats['total'] += len(items)
 
         for item in items:
-            if klass == 'method':
+            if klass in ('method', 'signal'):
                 elem = 'function'
                 item_repr = f'{item}()'
-            elif klass == 'signal':
-                elem = 'function'
-                item_repr = item
+
+                # Find all functions/signals in <function> elements that are not
+                # suffixed with '()' and fix them
+                for section in sections:
+                    element = section.find(f".//{elem}[. = '{item}']")
+                    if element is not None:
+                        element.text = item_repr
+
             elif klass == 'property':
                 elem = 'varname'
                 item_repr = item
@@ -259,7 +264,7 @@ def subst_output(document, programlisting, stats, missing_version):
                 variablelist = etree.Element("variablelist")
                 variablelist.attrib['class'] = 'dbus-'+decl_type
                 variablelist.attrib['generated'] = 'True'
-                if decl_type == 'method' :
+                if decl_type in ('method', 'signal'):
                     variablelist.attrib['extra-ref'] = declaration + '()'
                 else:
                     variablelist.attrib['extra-ref'] = declaration
