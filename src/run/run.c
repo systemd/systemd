@@ -17,7 +17,6 @@
 #include "bus-unit-util.h"
 #include "bus-wait-for-jobs.h"
 #include "calendarspec.h"
-#include "color-util.h"
 #include "env-util.h"
 #include "escape.h"
 #include "exit-status.h"
@@ -940,34 +939,16 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
                 return log_oom();
 
         if (!arg_background && arg_stdio == ARG_STDIO_PTY) {
-                double red, green, blue;
+                double hue;
 
-                r = get_default_background_color(&red, &green, &blue);
+                if (!arg_exec_user || STR_IN_SET(arg_exec_user, "root", "0"))
+                        hue = 0; /* red */
+                else
+                        hue = 60 /* yellow */;
+
+                r = terminal_tint_color(hue, &arg_background);
                 if (r < 0)
                         log_debug_errno(r, "Unable to get terminal background color, not tinting background: %m");
-                else {
-                        double h, s, v;
-
-                        rgb_to_hsv(red, green, blue, &h, &s, &v);
-
-                        if (!arg_exec_user || STR_IN_SET(arg_exec_user, "root", "0"))
-                                h = 0; /* red */
-                        else
-                                h = 60 /* yellow */;
-
-                        if (v > 50) /* If the background is bright, then pull down saturation */
-                                s = 25;
-                        else        /* otherwise pump it up */
-                                s = 75;
-
-                        v = MAX(30, v); /* Make sure we don't hide the color in black */
-
-                        uint8_t r8, g8, b8;
-                        hsv_to_rgb(h, s, v, &r8, &g8, &b8);
-
-                        if (asprintf(&arg_background, "48;2;%u;%u;%u", r8, g8, b8) < 0)
-                                return log_oom();
-                }
         }
 
         return 1;
