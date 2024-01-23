@@ -3,7 +3,12 @@
 
 (( $+functions[__machinectl_get_images] )) ||
     __machinectl_get_images () {
-        machinectl --no-legend list-images | {while read -r a b; do echo $a; done;}
+        local -a flags
+        if [[ $PREFIX == .* ]]; then flags=( --all ); fi
+        machinectl --no-legend list-images $flags | {while read -r a b; do
+            # escape : and \; do not interpret existing escape sequences
+            printf -- "%s\n" ${a//(#b)(\\|:)/\\$match}
+        done;}
     }
 
 (( $+functions[_machinectl_images] )) ||
@@ -12,9 +17,9 @@
         _machines=("${(fo)$(__machinectl_get_images)}")
         typeset -U _machines
         if [[ -n "$_machines" ]]; then
-            _describe 'machines' _machines
+            _describe 'images' _machines
         else
-            _message 'no machines'
+            _message 'no images'
         fi
     }
 
@@ -42,13 +47,22 @@
         "list-images:Show available container and VM images"
         "image-status:Show image details"
         "show-image:Show properties of image"
+        "edit:Edit settings of one or more VMs/containers"
+        "cat:Show settings of one or more VMs/containers"
         "clone:Clone an image"
         "rename:Rename an image"
         "read-only:Mark or unmark image read-only"
         "remove:Remove an image"
+        "set-limits:Set image or pool size limit (disk quota)"
+        "clean:Remove hidden (or all) images"
 
         "pull-tar:Download a TAR container image"
         "pull-raw:Download a RAW container or VM image"
+        "import-tar:Import a local TAR container image"
+        "import-raw:Import a local RAW container or VM image"
+        "import-fs:Import a local directory container image"
+        "export-tar:Export a TAR container image locally"
+        "export-raw:Export a RAW container or VM image locally"
         "list-transfers:Show list of downloads in progress"
         "cancel-transfer:Cancel a download"
     )
@@ -57,28 +71,98 @@
         _describe -t commands 'machinectl command' _machinectl_cmds || compadd "$@"
     else
         local curcontext="$curcontext"
+        local stop=0
         cmd="${${_machinectl_cmds[(r)$words[1]:*]%%:*}}"
-        if (( $#cmd )); then
-            if (( CURRENT == 2 )); then
-                case $cmd in
-                    list*|cancel-transfer|pull-tar|pull-raw)
-                        msg="no options" ;;
-                    clone)
-                        _machinectl_images ;;
-                    start)
-                        _machinectl_images ;;
-                    *)
-                        _sd_machines
-                esac
-            else
-                case $cmd in
-                    copy-to|copy-from|bind)
-                        _files ;;
-                    *) msg="no options"
-                esac
-            fi
-        else
+        case $cmd in
+        start|enable|disable)
+            _machinectl_images ;;
+
+        status|show|poweroff|reboot|terminate|kill)
+            _sd_machines ;;
+
+        login|shell)
+            if (( CURRENT == 2 )); then _sd_machines
+            else stop=1
+            fi ;;
+
+        copy-to|bind)
+            if (( CURRENT == 2 )); then _sd_machines
+            elif (( CURRENT == 3 )); then _files
+            elif (( CURRENT == 4 )); then _message "path on container"
+            else stop=1
+            fi ;;
+
+        copy-from)
+            if (( CURRENT == 2 )); then _sd_machines
+            elif (( CURRENT == 3 )); then _message "path on container"
+            elif (( CURRENT == 4 )); then _files
+            else stop=1
+            fi ;;
+
+        image-status|show-image|remove)
+            _machinectl_images ;;
+
+        edit|cat)
+            if (( CURRENT == 2 )); then _machinectl_images
+            else stop=1
+            fi ;;
+
+        clone|rename)
+            if (( CURRENT == 2 )); then _machinectl_images
+            elif (( CURRENT == 3 )); then _message "target image"
+            else stop=1
+            fi ;;
+
+        read-only)
+            if (( CURRENT == 2 )); then _machinectl_images
+            elif (( CURRENT == 3 )); then _values 'read-only flag' 'true' 'false'
+            else stop=1
+            fi ;;
+
+        set-limit)
+            if (( CURRENT == 2 )); then _machinectl_images
+            elif (( CURRENT == 3 )); then _message "size limit"
+            else stop=1
+            fi ;;
+
+        pull-tar|pull-raw)
+            if (( CURRENT == 2 )); then _message "${cmd#pull-} file URL"
+            elif (( CURRENT == 3 )); then _message "target image"
+            else stop=1
+            fi ;;
+
+        import-tar)
+            if (( CURRENT == 2 )); then _files -g "*.(tar(|.(gz|bz2|xz|zst))|tgz|tbz2|txz|tzst)(.)"
+            elif (( CURRENT == 3 )); then _message "target image"
+            else stop=1
+            fi ;;
+        import-raw)
+            if (( CURRENT == 2 )); then _files -g "*(.)"
+            elif (( CURRENT == 3 )); then _message "target image"
+            else stop=1
+            fi ;;
+        import-fs)
+            if (( CURRENT == 2 )); then _files -/
+            elif (( CURRENT == 3 )); then _message "target image"
+            else stop=1
+            fi ;;
+
+        export-tar|export-raw)
+            if (( CURRENT == 2 )); then _machinectl_images
+            elif (( CURRENT == 3 )); then _files
+            else stop=1
+            fi ;;
+
+        list*|clean|cancel-transfer)
+            stop=1 ;;
+
+        '')
+            stop=1 ;;
+        esac
+
+        if (( stop )); then
             _message "no more options"
+            return 1
         fi
     fi
 }
