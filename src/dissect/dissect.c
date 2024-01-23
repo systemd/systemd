@@ -829,7 +829,7 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
                 pager_open(arg_pager_flags);
 
         if (arg_json_format_flags & JSON_FORMAT_OFF) {
-                printf("      Name: %s%s%s\n",
+                printf(" File Name: %s%s%s\n",
                        ansi_highlight(), bn, ansi_normal());
 
                 printf("      Size: %s\n",
@@ -859,6 +859,9 @@ static int action_dissect(DissectedImage *m, LoopDevice *d) {
         else if (r < 0)
                 return log_error_errno(r, "Failed to acquire image metadata: %m");
         else if (arg_json_format_flags & JSON_FORMAT_OFF) {
+
+                if (m->image_name && !streq_ptr(m->image_name, bn))
+                        printf("Image Name: %s\n", m->image_name);
 
                 if (!sd_id128_is_null(m->image_uuid))
                         printf("Image UUID: %s\n", SD_ID128_TO_UUID_STRING(m->image_uuid));
