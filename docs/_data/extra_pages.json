@@ -163,5 +163,125 @@
     "category": "Videos for Users and Administrators",
     "title": "Presentation about systemd at OSworld 2014 (systemd cheat-sheet) (Polish)",
     "url": "https://www.youtube.com/watch?v=tU3HJVUPMyw"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#01: Verifying Bootup",
+    "url": "https://0pointer.de/blog/projects/systemd-for-admins-1.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#02: Which Service Owns Which Processes?",
+    "url": "https://0pointer.de/blog/projects/systemd-for-admins-2.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#03: How Do I Convert A SysV Init Script Into A systemd Service File?",
+    "url": "https://0pointer.de/blog/projects/systemd-for-admins-3.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#04: Killing Services",
+    "url": "https://0pointer.de/blog/projects/systemd-for-admins-4.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#05: The Three Levels of \"Off\"",
+    "url": "https://0pointer.de/blog/projects/three-levels-of-off"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#06: Changing Roots",
+    "url": "https://0pointer.de/blog/projects/changing-roots.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#07: The Blame Game",
+    "url": "https://0pointer.de/blog/projects/blame-game.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#08: The New Configuration Files",
+    "url": "https://0pointer.de/blog/projects/the-new-configuration-files"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#09: On /etc/sysconfig and /etc/default",
+    "url": "https://0pointer.de/blog/projects/on-etc-sysinit.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#10: Instantiated Services",
+    "url": "https://0pointer.de/blog/projects/instances.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#11: Converting inetd Services",
+    "url": "https://0pointer.de/blog/projects/inetd.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#12: Securing Your Services",
+    "url": "https://0pointer.de/blog/projects/security.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#13: Log and Service Status",
+    "url": "https://0pointer.de/blog/projects/systemctl-journal.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#14: The Self-Explanatory Boot",
+    "url": "https://0pointer.de/blog/projects/self-documented-boot.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#15: Watchdogs",
+    "url": "https://0pointer.de/blog/projects/watchdog.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#16: Gettys on Serial Consoles (and Elsewhere)",
+    "url": "https://0pointer.de/blog/projects/serial-console.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#17: Using the Journal",
+    "url": "https://0pointer.de/blog/projects/journalctl.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#18: Managing Resources",
+    "url": "https://0pointer.de/blog/projects/resources.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#19: Detecting Virtualization",
+    "url": "https://0pointer.de/blog/projects/detect-virt.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#20: Socket Activated Internet Services and OS Containers",
+    "url": "https://0pointer.de/blog/projects/socket-activated-containers.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "#21: Container Integration",
+    "url": "https://0pointer.net/blog/systemd-for-administrators-part-xxi.html"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "A Russian translation",
+    "url": "https://wiki.opennet.ru/Systemd_%D0%B4%D0%BB%D1%8F_%D0%B0%D0%B4%D0%BC%D0%B8%D0%BD%D0%B8%D1%81%D1%82%D1%80%D0%B0%D1%82%D0%BE%D1%80%D0%BE%D0%B2"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "A more complete Russian translation (PDF)",
+    "url": "http://www2.kangran.su/~nnz/pub/s4a/s4a_latest.pdf"
+  },
+  {
+    "category": "The systemd for Administrators Blog Series",
+    "title": "A Vietnamese translation",
+    "url": "https://archlinuxvn.org/doc/systemd/#lp"
   }
 ]
