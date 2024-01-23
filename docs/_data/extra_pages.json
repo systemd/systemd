@@ -298,5 +298,100 @@
     "category": "The systemd for Developers Series",
     "title": "#3: Logging to the Journal",
     "url": "https://0pointer.de/blog/projects/journal-submit.html"
+  },
+  {
+    "category": "Related Packages",
+    "title": "Go Bindings for the Journal API, socket activation and DBUS",
+    "url": "https://github.com/coreos/go-systemd"
+  },
+  {
+    "category": "Related Packages",
+    "title": "PHP Bindings for the Journal APIs",
+    "url": "https://github.com/systemd/php-systemd"
+  },
+  {
+    "category": "Related Packages",
+    "title": "Lua Bindinds for systemd APIs",
+    "url": "https://github.com/daurnimator/lua-systemd"
+  },
+  {
+    "category": "Related Packages",
+    "title": "Node.JS bindings for the Journal APIs",
+    "url": "https://www.fourkitchens.com/blog/2012/09/25/nodejs-extension-systemd"
+  },
+  {
+    "category": "Related Packages",
+    "title": "Node.JS support for systemd Socket Activation",
+    "url": "https://www.npmjs.com/package/systemd"
+  },
+  {
+    "category": "Related Packages",
+    "title": "Node.JS wrapper for sd_notify",
+    "url": "https://www.npmjs.com/package/sd-notify"
+  },
+  {
+    "category": "Related Packages",
+    "title": "Node.JS wrapper for sd_notify (repo)",
+    "url": "https://github.com/systemd/node-sd-notify"
+  },
+  {
+    "category": "Related Packages",
+    "title": "Experimental Qt bindings",
+    "url": "https://github.com/ilpianista/libsystemd-qt"
+  },
+  {
+    "category": "Related Packages",
+    "title": "Haskell socket activation",
+    "url": "https://hackage.haskell.org/package/socket-activation"
+  },
+  {
+    "category": "Related Packages",
+    "title": "Haskell Journal API",
+    "url": "https://hackage.haskell.org/package/libsystemd-journal"
+  },
+  {
+    "category": "Related Packages",
+    "title": "Ruby bindings for the Journal APIs",
+    "url": "https://github.com/ledbettj/systemd-journal"
+  },
+  {
+    "category": "Related Packages",
+    "title": "Ruby bindings for the systemd D-Bus APIs",
+    "url": "https://github.com/nathwill/ruby-dbus-systemd"
+  },
+  {
+    "category": "Related Packages",
+    "title": "Erlang bindings for the Journal APIs",
+    "url": "https://github.com/systemd/ejournald"
+  },
+  {
+    "category": "Related Packages",
+    "title": "Erlang journald backend for Lager",
+    "url": "https://github.com/travelping/lager_journald_backend"
+  },
+  {
+    "category": "Related Packages",
+    "title": "Perl bindings for the Journal APIs",
+    "url": "https://metacpan.org/release/LKUNDRAK/Log-Journald-0.10"
+  },
+  {
+    "category": "Related Packages",
+    "title": "GLib bindings",
+    "url": "https://github.com/tcbrindle/systemd-glib"
+  },
+  {
+    "category": "Related Packages",
+    "title": "python-systemd",
+    "url": "https://www.freedesktop.org/software/systemd/python-systemd/index.html"
+  },
+  {
+    "category": "Related Packages",
+    "title": "pystemd",
+    "url": "https://github.com/systemd/pystemd"
+  },
+  {
+    "category": "Related Packages",
+    "title": "C++ bindings for sd-bus",
+    "url": "https://github.com/Kistler-Group/sdbus-cpp/"
   }
 ]
