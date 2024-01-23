@@ -3089,7 +3089,7 @@ int varlink_push_fd(Varlink *v, int fd) {
         return i;
 }
 
-int varlink_dup_fd(Varlink *v, int fd) {
+int varlink_push_dup_fd(Varlink *v, int fd) {
         _cleanup_close_ int dp = -1;
         int r;
 
@@ -3135,6 +3135,16 @@ int varlink_peek_fd(Varlink *v, size_t i) {
                 return -ENXIO;
 
         return v->input_fds[i];
+}
+
+int varlink_peek_dup_fd(Varlink *v, size_t i) {
+        int fd;
+
+        fd = varlink_peek_fd(v, i);
+        if (fd < 0)
+                return fd;
+
+        return RET_NERRNO(fcntl(fd, F_DUPFD_CLOEXEC, 3));
 }
 
 int varlink_take_fd(Varlink *v, size_t i) {
