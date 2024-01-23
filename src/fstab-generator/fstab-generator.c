@@ -191,6 +191,8 @@ static int mount_array_add_swap(bool for_initrd, const char *str) {
 static int write_options(FILE *f, const char *options) {
         _cleanup_free_ char *o = NULL;
 
+        assert(f);
+
         if (isempty(options))
                 return 0;
 
@@ -207,6 +209,9 @@ static int write_options(FILE *f, const char *options) {
 
 static int write_what(FILE *f, const char *what) {
         _cleanup_free_ char *w = NULL;
+
+        assert(f);
+        assert(what);
 
         w = specifier_escape(what);
         if (!w)
