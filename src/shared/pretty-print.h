@@ -47,3 +47,5 @@ static inline const char *green_check_mark_internal(char buffer[static GREEN_CHE
 #define GREEN_CHECK_MARK() green_check_mark_internal((char[GREEN_CHECK_MARK_MAX]) {})
 
 #define COLOR_MARK_BOOL(b) ((b) ? GREEN_CHECK_MARK() : RED_CROSS_MARK())
+
+int terminal_tint_color(double hue, char **ret);
