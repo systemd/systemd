@@ -617,20 +617,6 @@ node /org/freedesktop/systemd1 {
 
     <!--method GetDynamicUsers is not documented!-->
 
-    <!--signal UnitNew is not documented!-->
-
-    <!--signal UnitRemoved is not documented!-->
-
-    <!--signal JobNew is not documented!-->
-
-    <!--signal JobRemoved is not documented!-->
-
-    <!--signal StartupFinished is not documented!-->
-
-    <!--signal UnitFilesChanged is not documented!-->
-
-    <!--signal Reloading is not documented!-->
-
     <!--property SecurityStartTimestampMonotonic is not documented!-->
 
     <!--property SecurityFinishTimestamp is not documented!-->
@@ -997,19 +983,19 @@ node /org/freedesktop/systemd1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="StartAuxiliaryScope()"/>
 
-    <variablelist class="dbus-signal" generated="True" extra-ref="UnitNew"/>
+    <variablelist class="dbus-signal" generated="True" extra-ref="UnitNew()"/>
 
-    <variablelist class="dbus-signal" generated="True" extra-ref="UnitRemoved"/>
+    <variablelist class="dbus-signal" generated="True" extra-ref="UnitRemoved()"/>
 
-    <variablelist class="dbus-signal" generated="True" extra-ref="JobNew"/>
+    <variablelist class="dbus-signal" generated="True" extra-ref="JobNew()"/>
 
-    <variablelist class="dbus-signal" generated="True" extra-ref="JobRemoved"/>
+    <variablelist class="dbus-signal" generated="True" extra-ref="JobRemoved()"/>
 
-    <variablelist class="dbus-signal" generated="True" extra-ref="StartupFinished"/>
+    <variablelist class="dbus-signal" generated="True" extra-ref="StartupFinished()"/>
 
-    <variablelist class="dbus-signal" generated="True" extra-ref="UnitFilesChanged"/>
+    <variablelist class="dbus-signal" generated="True" extra-ref="UnitFilesChanged()"/>
 
-    <variablelist class="dbus-signal" generated="True" extra-ref="Reloading"/>
+    <variablelist class="dbus-signal" generated="True" extra-ref="Reloading()"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Version"/>
 
@@ -1878,7 +1864,7 @@ node /org/freedesktop/systemd1 {
       enablement state (<function>EnableUnitFiles()</function>, <function>DisableUnitFiles()</function>,
       <function>EnableUnitFilesWithFlags()</function>, <function>DisableUnitFilesWithFlags()</function>,
       <function>ReenableUnitFiles()</function>, <function>LinkUnitFiles()</function>,
-      <function>PresetUnitFiles</function>, <function>MaskUnitFiles</function>, and similar) require
+      <function>PresetUnitFiles()</function>, <function>MaskUnitFiles()</function>, and similar) require
       <interfacename>org.freedesktop.systemd1.manage-unit-files</interfacename>. Operations which modify the
       exported environment (<function>SetEnvironment()</function>, <function>UnsetEnvironment()</function>,
       <function>UnsetAndSetEnvironment()</function>) require
@@ -11563,7 +11549,7 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
 
     <variablelist class="dbus-method" generated="True" extra-ref="AttachProcesses()"/>
 
-    <variablelist class="dbus-signal" generated="True" extra-ref="RequestStop"/>
+    <variablelist class="dbus-signal" generated="True" extra-ref="RequestStop()"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Controller"/>
 
@@ -11786,7 +11772,7 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
     <refsect2>
       <title>Signals</title>
 
-      <para><function>RequestStop</function> is sent to the peer that is configured in the
+      <para><function>RequestStop()</function> is sent to the peer that is configured in the
       <varname>Controller</varname> property when systemd is requested to terminate the scope unit. A program
       registering a scope can use this to cleanly shut down the processes it added to the scope instead of
       letting systemd do it with the usual <constant>SIGTERM</constant> logic.</para>
@@ -11798,7 +11784,7 @@ node /org/freedesktop/systemd1/unit/session_2d1_2escope {
       <para>All properties correspond directly with the matching properties of service units.</para>
 
       <para><varname>Controller</varname> contains the bus name (unique or well-known) that is notified when
-      the scope unit is to be shut down via a <function>RequestStop</function> signal (see below). This is
+      the scope unit is to be shut down via a <function>RequestStop()</function> signal (see below). This is
       set when the scope is created. If not set, the scope's processes will terminated with
       <constant>SIGTERM</constant> directly.</para>
     </refsect2>

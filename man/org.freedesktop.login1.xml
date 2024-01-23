@@ -428,23 +428,23 @@ node /org/freedesktop/login1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="SetWallMessage()"/>
 
-    <variablelist class="dbus-signal" generated="True" extra-ref="SessionNew"/>
+    <variablelist class="dbus-signal" generated="True" extra-ref="SessionNew()"/>
 
-    <variablelist class="dbus-signal" generated="True" extra-ref="SessionRemoved"/>
+    <variablelist class="dbus-signal" generated="True" extra-ref="SessionRemoved()"/>
 
-    <variablelist class="dbus-signal" generated="True" extra-ref="UserNew"/>
+    <variablelist class="dbus-signal" generated="True" extra-ref="UserNew()"/>
 
-    <variablelist class="dbus-signal" generated="True" extra-ref="UserRemoved"/>
+    <variablelist class="dbus-signal" generated="True" extra-ref="UserRemoved()"/>
 
-    <variablelist class="dbus-signal" generated="True" extra-ref="SeatNew"/>
+    <variablelist class="dbus-signal" generated="True" extra-ref="SeatNew()"/>
 
-    <variablelist class="dbus-signal" generated="True" extra-ref="SeatRemoved"/>
+    <variablelist class="dbus-signal" generated="True" extra-ref="SeatRemoved()"/>
 
-    <variablelist class="dbus-signal" generated="True" extra-ref="PrepareForShutdown"/>
+    <variablelist class="dbus-signal" generated="True" extra-ref="PrepareForShutdown()"/>
 
-    <variablelist class="dbus-signal" generated="True" extra-ref="PrepareForShutdownWithMetadata"/>
+    <variablelist class="dbus-signal" generated="True" extra-ref="PrepareForShutdownWithMetadata()"/>
 
-    <variablelist class="dbus-signal" generated="True" extra-ref="PrepareForSleep"/>
+    <variablelist class="dbus-signal" generated="True" extra-ref="PrepareForSleep()"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="EnableWallMessages"/>
 
@@ -726,14 +726,14 @@ node /org/freedesktop/login1 {
       <para>Whenever the inhibition state or idle hint changes, <function>PropertyChanged</function>
       signals are sent out to which clients can subscribe.</para>
 
-      <para>The <function>SessionNew</function>, <function>SessionRemoved</function>,
-      <function>UserNew</function>, <function>UserRemoved</function>, <function>SeatNew</function>, and
-      <function>SeatRemoved</function> signals are sent each time a session is created or removed, a user
+      <para>The <function>SessionNew()</function>, <function>SessionRemoved()</function>,
+      <function>UserNew()</function>, <function>UserRemoved()</function>, <function>SeatNew()</function>, and
+      <function>SeatRemoved()</function> signals are sent each time a session is created or removed, a user
       logs in or out, or a seat is added or removed. They each contain the ID of the object plus the object
       path.</para>
 
-      <para>The <function>PrepareForShutdown</function>,
-      <function>PrepareForShutdownWithMetadata</function>, and <function>PrepareForSleep</function>
+      <para>The <function>PrepareForShutdown()</function>,
+      <function>PrepareForShutdownWithMetadata()</function>, and <function>PrepareForSleep()</function>
       signals are sent right before (with the argument <literal>true</literal>) or after (with the argument
       <literal>false</literal>) the system goes down for reboot/poweroff and suspend/hibernate,
       respectively. This may be used by applications to save data on disk, release memory, or do other jobs
@@ -745,7 +745,7 @@ node /org/freedesktop/login1 {
       pair metadata fields. Currently it sends a <varname>type</varname> string which defines the type of
       shutdown. The type can be one of <literal>power-off</literal>, <literal>reboot</literal>,
       <literal>halt</literal>, <literal>kexec</literal> or <literal>soft-reboot</literal>. This signal is
-      sent first, followed by <function>PrepareForShutdown</function> (for backward compatibility).</para>
+      sent first, followed by <function>PrepareForShutdown()</function> (for backward compatibility).</para>
     </refsect2>
 
     <refsect2>
@@ -788,8 +788,8 @@ node /org/freedesktop/login1 {
       for more information.</para>
 
       <para>The <varname>PreparingForShutdown</varname> and <varname>PreparingForSleep</varname> boolean
-      properties are true during the interval between the two <function>PrepareForShutdown</function> and
-      <function>PrepareForSleep</function> signals respectively. Note that these properties do not
+      properties are true during the interval between the two <function>PrepareForShutdown()</function> and
+      <function>PrepareForSleep()</function> signals respectively. Note that these properties do not
       send out <function>PropertyChanged</function> signals.</para>
 
       <para>The <varname>RebootParameter</varname> property shows the value set with the
@@ -800,9 +800,9 @@ node /org/freedesktop/login1 {
 
       <para><varname>RebootToFirmwareSetup</varname>, <varname>RebootToBootLoaderMenu</varname>, and
       <varname>RebootToBootLoaderEntry</varname> are true when the resprective post-reboot operation was
-      selected with <function>SetRebootToFirmwareSetup</function>,
-      <function>SetRebootToBootLoaderMenu</function>, or
-      <function>SetRebootToBootLoaderEntry</function>.</para>
+      selected with <function>SetRebootToFirmwareSetup()</function>,
+      <function>SetRebootToBootLoaderMenu()</function>, or
+      <function>SetRebootToBootLoaderEntry()</function>.</para>
 
       <para>The <varname>WallMessage</varname> and <varname>EnableWallMessages</varname> properties reflect the
       shutdown reason and wall message enablement switch which can be set with the
@@ -847,15 +847,15 @@ node /org/freedesktop/login1 {
       the inhibits of the auto-selected sleep operation. <function>SetRebootParameter()</function> requires
       <interfacename>org.freedesktop.login1.set-reboot-parameter</interfacename>.</para>
 
-      <para><function>SetRebootToFirmwareSetup</function> requires
+      <para><function>SetRebootToFirmwareSetup()</function> requires
       <interfacename>org.freedesktop.login1.set-reboot-to-firmware-setup</interfacename>.
-      <function>SetRebootToBootLoaderMenu</function> requires
+      <function>SetRebootToBootLoaderMenu()</function> requires
       <interfacename>org.freedesktop.login1.set-reboot-to-boot-loader-menu</interfacename>.
-      <function>SetRebootToBootLoaderEntry</function> requires
+      <function>SetRebootToBootLoaderEntry()</function> requires
       <interfacename>org.freedesktop.login1.set-reboot-to-boot-loader-entry</interfacename>.
       </para>
 
-      <para><function>ScheduleShutdown</function> and <function>CancelScheduledShutdown</function> require
+      <para><function>ScheduleShutdown()</function> and <function>CancelScheduledShutdown()</function> require
       the same privileges (listed above) as the immediate poweroff/reboot/halt operations.</para>
 
       <para><function>Inhibit()</function> is protected via one of
@@ -1255,13 +1255,13 @@ node /org/freedesktop/login1/session/1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="SetBrightness()"/>
 
-    <variablelist class="dbus-signal" generated="True" extra-ref="PauseDevice"/>
+    <variablelist class="dbus-signal" generated="True" extra-ref="PauseDevice()"/>
 
-    <variablelist class="dbus-signal" generated="True" extra-ref="ResumeDevice"/>
+    <variablelist class="dbus-signal" generated="True" extra-ref="ResumeDevice()"/>
 
-    <variablelist class="dbus-signal" generated="True" extra-ref="Lock"/>
+    <variablelist class="dbus-signal" generated="True" extra-ref="Lock()"/>
 
-    <variablelist class="dbus-signal" generated="True" extra-ref="Unlock"/>
+    <variablelist class="dbus-signal" generated="True" extra-ref="Unlock()"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="Id"/>
 
@@ -1393,28 +1393,28 @@ node /org/freedesktop/login1/session/1 {
     <refsect2>
       <title>Signals</title>
 
-      <para>The active session controller exclusively gets <function>PauseDevice</function> and
-      <function>ResumeDevice</function> events for any device it requested via
+      <para>The active session controller exclusively gets <function>PauseDevice()</function> and
+      <function>ResumeDevice()</function> events for any device it requested via
       <function>TakeDevice()</function>. They notify the controller whenever a device is paused or resumed. A
-      device is never resumed if its session is inactive. Also note that <function>PauseDevice</function>
+      device is never resumed if its session is inactive. Also note that <function>PauseDevice()</function>
       signals are sent before the <function>PropertyChanged</function> signal for the
-      <function>Active</function> state. The inverse is true for <function>ResumeDevice</function>. A device
+      <function>Active</function> state. The inverse is true for <function>ResumeDevice()</function>. A device
       may remain paused for unknown reasons even though the <interfacename>Session</interfacename> is active.
       </para>
 
-      <para>A <function>PauseDevice</function> signal carries the major and minor numbers and a string describing the
+      <para>A <function>PauseDevice()</function> signal carries the major and minor numbers and a string describing the
       type as arguments. <function>force</function> means the device was already paused by
       <filename>systemd-logind</filename> and the signal is only an asynchronous
       notification. <function>pause</function> means <filename>systemd-logind</filename> grants you a limited amount of time to pause the device. You must respond to this via
       <function>PauseDeviceComplete()</function>. This synchronous pausing mechanism is used for
       backwards-compatibility to VTs and <filename>systemd-logind</filename> is free to not make use of
-      it. It is also free to send a forced <function>PauseDevice</function> if you don't respond in a timely
+      it. It is also free to send a forced <function>PauseDevice()</function> if you don't respond in a timely
       manner (or for any other reason). <function>gone</function> means the device was unplugged from the
       system and you will no longer get any notifications about it. There is no need to call
       <function>ReleaseDevice()</function>. You may call <function>TakeDevice()</function> again if a new
       device is assigned the major+minor combination.</para>
 
-      <para><function>ResumeDevice</function> is sent whenever a session is active and a device is
+      <para><function>ResumeDevice()</function> is sent whenever a session is active and a device is
       resumed. It carries the major/minor numbers as arguments and provides a new open file descriptor. You should
       switch to the new descriptor and close the old one. They are not guaranteed to have the same underlying
       open file descriptor in the kernel (except for a limited set of device types).</para>
@@ -1422,7 +1422,7 @@ node /org/freedesktop/login1/session/1 {
       <para>Whenever <function>Active</function> or the idle state changes,
       <function>PropertyChanged</function> signals are sent out to which clients can subscribe.</para>
 
-      <para><function>Lock</function>/<function>Unlock</function> is sent when the session is asked to be
+      <para><function>Lock()</function>/<function>Unlock()</function> is sent when the session is asked to be
       screen-locked/unlocked. A session manager of the session should listen to this signal and act
       accordingly. This signal is sent out as a result of the <function>Lock()</function> and
       <function>Unlock()</function> methods, respectively.</para>
@@ -1568,7 +1568,7 @@ node /org/freedesktop/login1/session/1 {
       <varname>HandleSuspendKeyLongPress</varname>, and
       <varname>HandleHibernateKeyLongPress</varname> were added in version 251.</para>
       <para><varname>StopIdleSessionUSec</varname> was added in version 252.</para>
-      <para><function>PrepareForShutdownWithMetadata</function> and
+      <para><function>PrepareForShutdownWithMetadata()</function> and
       <function>CreateSessionWithPIDFD()</function> were added in version 255.</para>
       <para><function>Sleep()</function>,
       <function>CanSleep()</function>,
