@@ -98,5 +98,70 @@
     "category": "Publications",
     "title": "SUSE White Paper on systemd",
     "url": "https://www.suse.com/media/white-paper/systemd_in_suse_linux_enterprise_12_white_paper.pdf"
+  },
+  {
+    "category": "Videos for Users and Administrators",
+    "title": "Presentation about kdbus at linux.conf.au 2014",
+    "url": "https://mirror.linux.org.au/pub/linux.conf.au/2014/Friday/104-D-Bus_in_the_kernel_-_Lennart_Poettering.mp4"
+  },
+  {
+    "category": "Videos for Users and Administrators",
+    "title": "Presentation about systemd at the Red Hat Summit 2013",
+    "url": "https://access.redhat.com/videos/403833"
+  },
+  {
+    "category": "Videos for Users and Administrators",
+    "title": "Presentation about the journal at Devconf 2013",
+    "url": "https://www.youtube.com/watch?v=i4CACB7paLc"
+  },
+  {
+    "category": "Videos for Users and Administrators",
+    "title": "Presentation about recent developments at Devconf 2013",
+    "url": "https://www.youtube.com/watch?v=_rrpjYD373A"
+  },
+  {
+    "category": "Videos for Users and Administrators",
+    "title": "Presentation about systemd at FOSDEM 2013",
+    "url": "https://ftp.fau.de/fosdem/2013/maintracks/Janson/systemd,_Two_Years_Later.webm"
+  },
+  {
+    "category": "Videos for Users and Administrators",
+    "title": "Presentation about systemd at FOSDEM 2013 (Slides)",
+    "url": "https://0pointer.de/public/systemd-fosdem2013.pdf"
+  },
+  {
+    "category": "Videos for Users and Administrators",
+    "title": "Presentation about systemd at FOSS.in 2012",
+    "url": "https://www.youtube.com/watch?v=_2aa34Uzr3c"
+  },
+  {
+    "category": "Videos for Users and Administrators",
+    "title": "Presentation about systemd at OSEC Barcamp 2012",
+    "url": "https://www.youtube.com/watch?v=9UnEV9SPuw8"
+  },
+  {
+    "category": "Videos for Users and Administrators",
+    "title": "Presentation about systemd at FOSDEM 2011",
+    "url": "https://www.youtube.com/watch?v=TyMLi8QF6sw"
+  },
+  {
+    "category": "Videos for Users and Administrators",
+    "title": "Presentation about systemd at linux.conf.au 2011",
+    "url": "http://linuxconfau.blip.tv/file/4696791/"
+  },
+  {
+    "category": "Videos for Users and Administrators",
+    "title": "Presentation about systemd at linux.conf.au 2011 (Slides)",
+    "url": "https://0pointer.de/public/systemd-lca2011.pdf"
+  },
+  {
+    "category": "Videos for Users and Administrators",
+    "title": "Interview about systemd at golem.de (German)",
+    "url": "https://video.golem.de/oss/4823/interview-mit-lennart-poettering-entwickler-systemd.html"
+  },
+  {
+    "category": "Videos for Users and Administrators",
+    "title": "Presentation about systemd at OSworld 2014 (systemd cheat-sheet) (Polish)",
+    "url": "https://www.youtube.com/watch?v=tU3HJVUPMyw"
   }
 ]
