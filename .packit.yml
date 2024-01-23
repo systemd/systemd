@@ -16,6 +16,13 @@ upstream_tag_template: "v{version}"
 srpm_build_deps: []
 
 actions:
+  get-current-version:
+    # Show the closest matching tag for the checked out revision, otherwise
+    # Packit tries to get the latest tag by creation date, which doesn't work
+    # well in the systemd-stable repo. We also need to sanitize it manually
+    # since "upstream_tag_template" defined above doesn't apply here.
+    - "bash -ec 'git describe --tags --abbrev=0 | cut -b 2-'"
+
   post-upstream-clone:
     # Use the Fedora Rawhide specfile
     - "git clone https://src.fedoraproject.org/rpms/systemd .packit_rpm --depth=1"
