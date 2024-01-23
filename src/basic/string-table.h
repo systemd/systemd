@@ -115,3 +115,17 @@ ssize_t string_table_lookup(const char * const *table, size_t len, const char *k
                 }                                                       \
                 funlockfile(stdout);                                    \
         } while (false)
+
+#define DUMP_STRING_TABLE2(name,type,min,max)                           \
+        do {                                                            \
+                flockfile(stdout);                                      \
+                for (type _k = (min); _k < (max); _k++) {               \
+                        const char *_t;                                 \
+                        _t = name##_to_string(_k);                      \
+                        if (!_t)                                        \
+                                continue;                               \
+                        fputs_unlocked(_t, stdout);                     \
+                        fputc_unlocked('\n', stdout);                   \
+                }                                                       \
+                funlockfile(stdout);                                    \
+        } while (false)
