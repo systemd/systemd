@@ -18,6 +18,3 @@ ListenStream=/run/systemd/io.systemd.Credentials
 FileDescriptorName=varlink
 SocketMode=0666
 Accept=yes
-
-[Install]
-WantedBy=sockets.target
