@@ -2302,24 +2302,31 @@ static int context_load_partition_table(Context *context) {
                 uint32_t ssz;
                 struct stat st;
 
-                r = context_open_and_lock_backing_fd(context->node, arg_dry_run ? LOCK_SH : LOCK_EX,
-                                                     &context->backing_fd);
+                r = context_open_and_lock_backing_fd(
+                                context->node,
+                                arg_dry_run ? LOCK_SH : LOCK_EX,
+                                &context->backing_fd);
                 if (r < 0)
                         return r;
 
                 if (fstat(context->backing_fd, &st) < 0)
                         return log_error_errno(r, "Failed to stat %s: %m", context->node);
 
-                /* Auto-detect sector size if not specified. */
-                r = probe_sector_size_prefer_ioctl(context->backing_fd, &ssz);
-                if (r < 0)
-                        return log_error_errno(r, "Failed to probe sector size of '%s': %m", context->node);
+                if (IN_SET(arg_empty, EMPTY_REQUIRE, EMPTY_FORCE, EMPTY_CREATE) && S_ISREG(st.st_mode))
+                        /* Don't probe sector size from partition table if we are supposed to strat from an empty disk */
+                        fs_secsz = ssz = 512;
+                else {
+                        /* Auto-detect sector size if not specified. */
+                        r = probe_sector_size_prefer_ioctl(context->backing_fd, &ssz);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to probe sector size of '%s': %m", context->node);
 
-                /* If we found the sector size and we're operating on a block device, use it as the file
-                 * system sector size as well, as we know its the sector size of the actual block device and
-                 * not just the offset at which we found the GPT header. */
-                if (r > 0 && S_ISBLK(st.st_mode))
-                        fs_secsz = ssz;
+                        /* If we found the sector size and we're operating on a block device, use it as the file
+                         * system sector size as well, as we know its the sector size of the actual block device and
+                         * not just the offset at which we found the GPT header. */
+                        if (r > 0 && S_ISBLK(st.st_mode))
+                                fs_secsz = ssz;
+                }
 
                 r = fdisk_save_user_sector_size(c, /* phy= */ 0, ssz);
         }
