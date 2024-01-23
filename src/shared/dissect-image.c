@@ -2794,7 +2794,9 @@ static int verity_partition(
                  * https://gitlab.com/cryptsetup/cryptsetup/-/merge_requests/96 */
                 if (r == -EINVAL && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
                         break;
-                if (r == -ENODEV) /* Volume is being opened but not ready, crypt_init_by_name would fail, try to open again */
+                /* Volume is being opened but not ready, crypt_init_by_name would fail, try to open again if
+                 * sharing is enabled. */
+                if (r == -ENODEV && FLAGS_SET(flags, DISSECT_IMAGE_VERITY_SHARE))
                         goto try_again;
                 if (!IN_SET(r,
                             -EEXIST, /* Volume has already been opened and ready to be used. */
@@ -2940,7 +2942,9 @@ int dissected_image_decrypt(
 
                 k = partition_verity_of(i);
                 if (k >= 0) {
-                        r = verity_partition(i, p, m->partitions + k, verity, flags | DISSECT_IMAGE_VERITY_SHARE, d);
+                        flags |= getenv_bool("SYSTEMD_VERITY_SHARING") != 0 ? DISSECT_IMAGE_VERITY_SHARE : 0;
+
+                        r = verity_partition(i, p, m->partitions + k, verity, flags, d);
                         if (r < 0)
                                 return r;
                 }
