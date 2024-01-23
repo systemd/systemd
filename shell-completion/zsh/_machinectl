@@ -3,7 +3,12 @@
 
 (( $+functions[__machinectl_get_images] )) ||
     __machinectl_get_images () {
-        machinectl --no-legend list-images | {while read -r a b; do echo $a; done;}
+        local -a flags
+        if [[ $PREFIX == .* ]]; then flags=( --all ); fi
+        machinectl --no-legend list-images $flags | {while read -r a b; do
+            # escape : and \; do not interpret existing escape sequences
+            printf -- "%s\n" ${a//(#b)(\\|:)/\\$match}
+        done;}
     }
 
 (( $+functions[_machinectl_images] )) ||
