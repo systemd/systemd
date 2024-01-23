@@ -283,5 +283,20 @@
     "category": "The systemd for Administrators Blog Series",
     "title": "A Vietnamese translation",
     "url": "https://archlinuxvn.org/doc/systemd/#lp"
+  },
+  {
+    "category": "The systemd for Developers Series",
+    "title": "#1: Socket Activation",
+    "url": "https://0pointer.de/blog/projects/socket-activation.html"
+  },
+  {
+    "category": "The systemd for Developers Series",
+    "title": "#2: Socket Activation (Part 2)",
+    "url": "https://0pointer.de/blog/projects/socket-activation2.html"
+  },
+  {
+    "category": "The systemd for Developers Series",
+    "title": "#3: Logging to the Journal",
+    "url": "https://0pointer.de/blog/projects/journal-submit.html"
   }
 ]
