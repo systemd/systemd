@@ -184,8 +184,6 @@ node /org/freedesktop/machine1 {
 
     <!--method UnregisterMachine is not documented!-->
 
-    <!--method CopyToMachineWithFlags is not documented!-->
-
     <!--method OpenMachineRootDirectory is not documented!-->
 
     <!--method GetMachineUIDShift is not documented!-->
@@ -284,9 +282,9 @@ node /org/freedesktop/machine1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="MapToMachineGroup()"/>
 
-    <variablelist class="dbus-signal" generated="True" extra-ref="MachineNew"/>
+    <variablelist class="dbus-signal" generated="True" extra-ref="MachineNew()"/>
 
-    <variablelist class="dbus-signal" generated="True" extra-ref="MachineRemoved"/>
+    <variablelist class="dbus-signal" generated="True" extra-ref="MachineRemoved()"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="PoolPath"/>
 
@@ -411,7 +409,7 @@ node /org/freedesktop/machine1 {
       host as arguments.
       <function>CopyToMachine()</function> does the opposite and copies files from a source
       directory on the host into a destination directory in the container.
-      <function>CopyFromMachineWithFlags()</function> and <function>CopyToMachineWithFlags</function> do the same but take an additional flags argument.</para>
+      <function>CopyFromMachineWithFlags()</function> and <function>CopyToMachineWithFlags()</function> do the same but take an additional flags argument.</para>
 
       <para><function>RemoveImage()</function> removes the image with the specified name.</para>
 
@@ -434,7 +432,7 @@ node /org/freedesktop/machine1 {
     <refsect2>
       <title>Signals</title>
 
-      <para><function>MachineNew</function> and <function>MachineRemoved</function> are sent whenever a new
+      <para><function>MachineNew()</function> and <function>MachineRemoved()</function> are sent whenever a new
       machine is registered or removed. These signals carry the machine name and the object path to the corresponding
       <interfacename>org.freedesktop.machine1.Machine</interfacename> interface (see below).</para>
     </refsect2>
