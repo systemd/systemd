@@ -196,7 +196,8 @@ EFI_STATUS tpm_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t 
         /* If EFI_SUCCESS is returned, will initialize ret_measured to true if we actually measured
          * something, or false if measurement was turned off. */
 
-        if (pcrindex == UINT32_MAX) { /* PCR disabled? */
+        /* PCR disabled or measurement cannot be done? */
+        if (pcrindex == UINT32_MAX || !tpm_present()) {
                 if (ret_measured)
                         *ret_measured = false;
 
@@ -212,14 +213,6 @@ EFI_STATUS tpm_log_event(uint32_t pcrindex, EFI_PHYSICAL_ADDRESS buffer, size_t 
                 tpm1 = tcg1_interface_check();
                 if (tpm1)
                         err = tpm1_measure_to_pcr_and_event_log(tpm1, pcrindex, buffer, buffer_size, description);
-                else {
-                        /* No active TPM found, so don't return an error */
-
-                        if (ret_measured)
-                                *ret_measured = false;
-
-                        return EFI_SUCCESS;
-                }
         }
 
         if (err == EFI_SUCCESS && ret_measured)
