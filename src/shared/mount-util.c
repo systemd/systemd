@@ -453,6 +453,16 @@ int bind_remount_one_with_mountinfo(
         return 0;
 }
 
+int bind_remount_one(const char *path, unsigned long new_flags, unsigned long flags_mask) {
+        _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
+
+        proc_self_mountinfo = fopen("/proc/self/mountinfo", "re");
+        if (!proc_self_mountinfo)
+                return log_debug_errno(errno, "Failed to open /proc/self/mountinfo: %m");
+
+        return bind_remount_one_with_mountinfo(path, new_flags, flags_mask, proc_self_mountinfo);
+}
+
 static int mount_switch_root_pivot(int fd_newroot, const char *path) {
         assert(fd_newroot >= 0);
         assert(path);
