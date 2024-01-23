@@ -213,6 +213,25 @@ TEST(bind_remount_one) {
                 _exit(EXIT_SUCCESS);
         }
 
+        assert_se(wait_for_terminate_and_check("test-remount-one-with-mountinfo", pid, WAIT_LOG) == EXIT_SUCCESS);
+
+        pid = fork();
+        assert_se(pid >= 0);
+
+        if (pid == 0) {
+                /* child */
+
+                assert_se(detach_mount_namespace() >= 0);
+
+                assert_se(bind_remount_one("/run", MS_RDONLY, MS_RDONLY) >= 0);
+                assert_se(bind_remount_one("/run", MS_NOEXEC, MS_RDONLY|MS_NOEXEC) >= 0);
+                assert_se(bind_remount_one("/proc/idontexist", MS_RDONLY, MS_RDONLY) == -ENOENT);
+                assert_se(bind_remount_one("/proc/self", MS_RDONLY, MS_RDONLY) == -EINVAL);
+                assert_se(bind_remount_one("/", MS_RDONLY, MS_RDONLY) >= 0);
+
+                _exit(EXIT_SUCCESS);
+        }
+
         assert_se(wait_for_terminate_and_check("test-remount-one", pid, WAIT_LOG) == EXIT_SUCCESS);
 }
 
