@@ -156,11 +156,11 @@ PidRef *pidref_free(PidRef *pidref) {
         return mfree(pidref);
 }
 
-int pidref_dup(const PidRef *pidref, PidRef **ret) {
+int pidref_copy(const PidRef *pidref, PidRef *dest) {
         _cleanup_close_ int dup_fd = -EBADF;
         pid_t dup_pid = 0;
 
-        assert(ret);
+        assert(dest);
 
         /* Allocates a new PidRef on the heap, making it a copy of the specified pidref. This does not try to
          * acquire a pidfd if we don't have one yet!
@@ -183,14 +183,28 @@ int pidref_dup(const PidRef *pidref, PidRef **ret) {
                         dup_pid = pidref->pid;
         }
 
+        *dest = (PidRef) {
+                .fd = TAKE_FD(dup_fd),
+                .pid = dup_pid,
+        };
+
+        return 0;
+}
+
+int pidref_dup(const PidRef *pidref, PidRef **ret) {
+        int r;
+
+        assert(ret);
+
         PidRef *dup_pidref = new(PidRef, 1);
         if (!dup_pidref)
                 return -ENOMEM;
 
-        *dup_pidref = (PidRef) {
-                .fd = TAKE_FD(dup_fd),
-                .pid = dup_pid,
-        };
+        *dup_pidref = PIDREF_NULL;
+
+        r = pidref_copy(pidref, dup_pidref);
+        if (r < 0)
+                return r;
 
         *ret = TAKE_PTR(dup_pidref);
         return 0;

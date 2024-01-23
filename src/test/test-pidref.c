@@ -86,6 +86,27 @@ TEST(pidref_is_self) {
         assert_se(!pidref_is_self(&PIDREF_MAKE_FROM_PID(getpid_cached()+1)));
 }
 
+TEST(pidref_copy) {
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        int r;
+
+        assert_se(pidref_copy(NULL, &pidref) >= 0);
+        assert_se(!pidref_is_set(&pidref));
+
+        assert_se(pidref_copy(&PIDREF_NULL, &pidref) >= 0);
+        assert_se(!pidref_is_set(&pidref));
+
+        assert_se(pidref_copy(&PIDREF_MAKE_FROM_PID(getpid_cached()), &pidref) >= 0);
+        assert_se(pidref_is_self(&pidref));
+        pidref_done(&pidref);
+
+        r = pidref_copy(&PIDREF_MAKE_FROM_PID(1), &pidref);
+        if (r == -ESRCH)
+                return (void) log_tests_skipped_errno(r, "PID1 does not exist");
+        assert_se(r >= 0);
+        assert_se(pidref_equal(&pidref, &PIDREF_MAKE_FROM_PID(1)));
+}
+
 TEST(pidref_dup) {
         _cleanup_(pidref_freep) PidRef *pidref = NULL;
         int r;
