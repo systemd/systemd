@@ -53,7 +53,9 @@ typedef enum CGroupDevicePolicy {
 
 typedef enum FreezerAction {
         FREEZER_FREEZE,
+        FREEZER_FREEZE_BY_PARENT,
         FREEZER_THAW,
+        FREEZER_THAW_BY_PARENT,
 
         _FREEZER_ACTION_MAX,
         _FREEZER_ACTION_INVALID = -EINVAL,
@@ -432,9 +434,6 @@ bool unit_cgroup_delegate(Unit *u);
 
 int unit_get_cpuset(Unit *u, CPUSet *cpus, const char *name);
 int unit_cgroup_freezer_action(Unit *u, FreezerAction action);
-
-const char* freezer_action_to_string(FreezerAction a) _const_;
-FreezerAction freezer_action_from_string(const char *s) _pure_;
 
 const char* cgroup_pressure_watch_to_string(CGroupPressureWatch a) _const_;
 CGroupPressureWatch cgroup_pressure_watch_from_string(const char *s) _pure_;
