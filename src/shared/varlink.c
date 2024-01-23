@@ -3732,7 +3732,7 @@ int varlink_server_detach_event(VarlinkServer *s) {
         LIST_FOREACH(sockets, ss, s->sockets)
                 ss->event_source = sd_event_source_disable_unref(ss->event_source);
 
-        sd_event_unref(s->event);
+        s->event = sd_event_unref(s->event);
         return 0;
 }
 
