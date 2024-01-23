@@ -166,10 +166,7 @@ TEST(parse_domain) {
         domain = mfree(domain);
 
         data = (uint8_t []) { 4, 't', 'e', 's', 't' };
-        assert_se(dhcp6_option_parse_domainname(data, 5, &domain) >= 0);
-        assert_se(domain);
-        assert_se(streq(domain, "test"));
-        domain = mfree(domain);
+        assert_se(dhcp6_option_parse_domainname(data, 5, &domain) < 0);
 
         data = (uint8_t []) { 0 };
         assert_se(dhcp6_option_parse_domainname(data, 1, &domain) < 0);
