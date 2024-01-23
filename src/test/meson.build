@@ -135,6 +135,7 @@ simple_tests += files(
         'test-path-lookup.c',
         'test-path-util.c',
         'test-percent-util.c',
+        'test-pidref.c',
         'test-pretty-print.c',
         'test-prioq.c',
         'test-proc-cmdline.c',
