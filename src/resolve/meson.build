@@ -117,6 +117,13 @@ if conf.get('ENABLE_DNS_OVER_TLS') == 1
         endif
 endif
 
+if conf.get('ENABLE_DNS_OVER_HTTPS') == 1
+        systemd_resolved_sources += files(
+                'resolved-dnshttps-openssl.c',
+        )
+        systemd_resolved_dependencies += libllhttp
+endif
+
 link_with = [
         libbasic_gcrypt,
         libshared,

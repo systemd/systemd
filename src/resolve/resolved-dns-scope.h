@@ -34,6 +34,7 @@ struct DnsScope {
         /* Copied at scope creation time from the link/manager */
         DnssecMode dnssec_mode;
         DnsOverTlsMode dns_over_tls_mode;
+        DnsOverHttpsMode dns_over_https_mode;
 
         Link *link;
 
