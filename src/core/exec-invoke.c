@@ -1123,7 +1123,7 @@ static int setup_pam(
         sigset_t old_ss;
         int pam_code = PAM_SUCCESS, r;
         bool close_session = false;
-        pid_t pam_pid = 0, parent_pid;
+        pid_t parent_pid;
         int flags = 0;
 
         assert(name);
@@ -1198,7 +1198,7 @@ static int setup_pam(
 
         parent_pid = getpid_cached();
 
-        r = safe_fork("(sd-pam)", 0, &pam_pid);
+        r = safe_fork("(sd-pam)", 0, NULL);
         if (r < 0)
                 goto fail;
         if (r == 0) {
