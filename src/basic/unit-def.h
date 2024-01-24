@@ -54,7 +54,9 @@ typedef enum UnitActiveState {
 typedef enum FreezerState {
         FREEZER_RUNNING,
         FREEZER_FREEZING,
+        FREEZER_PARENT_FREEZING,
         FREEZER_FROZEN,
+        FREEZER_PARENT_FROZEN,
         FREEZER_THAWING,
         _FREEZER_STATE_MAX,
         _FREEZER_STATE_INVALID = -EINVAL,
@@ -297,6 +299,7 @@ UnitActiveState unit_active_state_from_string(const char *s) _pure_;
 
 const char *freezer_state_to_string(FreezerState i) _const_;
 FreezerState freezer_state_from_string(const char *s) _pure_;
+FreezerState freezer_state_finish(FreezerState i) _const_;
 
 const char *unit_marker_to_string(UnitMarker m) _const_;
 UnitMarker unit_marker_from_string(const char *s) _pure_;
