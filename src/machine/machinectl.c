@@ -82,6 +82,7 @@ static bool arg_now = false;
 static bool arg_force = false;
 static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
 static char *arg_format = NULL;
+static ImportCompressLevel arg_compress_level = IMPORT_COMPRESS_LEVEL_UNKNOWN;
 static const char *arg_uid = NULL;
 static char **arg_setenv = NULL;
 static unsigned arg_max_addresses = 1;
@@ -2175,10 +2176,11 @@ static int export_tar(int argc, char *argv[], void *userdata) {
 
         r = sd_bus_message_append(
                         m,
-                        "shs",
+                        "shsi",
                         local,
                         fd >= 0 ? fd : STDOUT_FILENO,
-                        arg_format);
+                        arg_format,
+                        (int32_t)arg_compress_level);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -2218,10 +2220,11 @@ static int export_raw(int argc, char *argv[], void *userdata) {
 
         r = sd_bus_message_append(
                         m,
-                        "shs",
+                        "shsi",
                         local,
                         fd >= 0 ? fd : STDOUT_FILENO,
-                        arg_format);
+                        arg_format,
+                        (int32_t)arg_compress_level);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -2873,7 +2876,7 @@ static int parse_argv(int argc, char *argv[]) {
                         arg_force = true;
                         break;
 
-                case ARG_FORMAT:
+                case ARG_FORMAT: {
                         if (streq(optarg, "help")) {
                                 DUMP_STRING_TABLE_FROM(
                                                 import_compress_type,
@@ -2883,8 +2886,29 @@ static int parse_argv(int argc, char *argv[]) {
                                 return 0;
                         }
 
-                        arg_format = strdup(optarg);
+                        _cleanup_free_ char *opt_format = NULL, *opt_level = NULL;
+
+                        r = split_pair(optarg, ":", &opt_format, &opt_level);
+                        if (r != 0 && r != -EINVAL) {
+                                return r;
+                        }
+
+                        if (opt_format) {
+                                arg_format = TAKE_PTR(opt_format);
+                        } else {
+                                arg_format = strdup(optarg);
+                        }
+
+                        if (opt_level) {
+                                int32_t tmp_level;
+                                r = safe_atoi32(opt_level, &tmp_level);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse --format= setting: %s", optarg);
+                                arg_compress_level = tmp_level;
+                        }
+
                         break;
+                }
 
                 case ARG_UID:
                         arg_uid = optarg;

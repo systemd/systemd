@@ -15,4 +15,4 @@ TarExport* tar_export_unref(TarExport *export);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(TarExport*, tar_export_unref);
 
-int tar_export_start(TarExport *export, const char *path, int fd, ImportCompressType compress);
+int tar_export_start(TarExport *export, const char *path, int fd, ImportCompressType compress, ImportCompressLevel level);

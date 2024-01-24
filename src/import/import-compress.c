@@ -253,7 +253,7 @@ int import_uncompress(ImportCompress *c, const void *data, size_t size, ImportCo
         return 1;
 }
 
-int import_compress_init(ImportCompress *c, ImportCompressType t) {
+int import_compress_init(ImportCompress *c, ImportCompressType t, ImportCompressLevel l) {
         int r;
 
         assert(c);
@@ -263,7 +263,16 @@ int import_compress_init(ImportCompress *c, ImportCompressType t) {
         case IMPORT_COMPRESS_XZ: {
                 lzma_ret xzr;
 
-                xzr = lzma_easy_encoder(&c->xz, LZMA_PRESET_DEFAULT, LZMA_CHECK_CRC64);
+                /* "0" and "9" are from liblzma documentation; not defined as constants anywhere */
+                if (l != IMPORT_COMPRESS_LEVEL_UNKNOWN && !IN_RANGE(l, 0, 9)) {
+                        log_warning("Invalid xz compression level, ignoring: %d", l);
+                        l = IMPORT_COMPRESS_LEVEL_UNKNOWN;
+                }
+
+                xzr = lzma_easy_encoder(
+                                &c->xz,
+                                l != IMPORT_COMPRESS_LEVEL_UNKNOWN ? (uint32_t)l : LZMA_PRESET_DEFAULT,
+                                LZMA_CHECK_CRC64);
                 if (xzr != LZMA_OK)
                         return -EIO;
 
@@ -272,7 +281,18 @@ int import_compress_init(ImportCompress *c, ImportCompressType t) {
         }
 
         case IMPORT_COMPRESS_GZIP:
-                r = deflateInit2(&c->gzip, Z_DEFAULT_COMPRESSION, Z_DEFLATED, 15 + 16, 8, Z_DEFAULT_STRATEGY);
+                if (l != IMPORT_COMPRESS_LEVEL_UNKNOWN && !IN_RANGE(l, Z_BEST_SPEED, Z_BEST_COMPRESSION)) {
+                        log_warning("Invalid gzip compression level, ignoring: %d", l);
+                        l = IMPORT_COMPRESS_LEVEL_UNKNOWN;
+                }
+
+                r = deflateInit2(
+                                &c->gzip,
+                                l != IMPORT_COMPRESS_LEVEL_UNKNOWN ? l : Z_DEFAULT_COMPRESSION,
+                                Z_DEFLATED,
+                                15 + 16,
+                                8,
+                                Z_DEFAULT_STRATEGY);
                 if (r != Z_OK)
                         return -EIO;
 
@@ -281,7 +301,17 @@ int import_compress_init(ImportCompress *c, ImportCompressType t) {
 
 #if HAVE_BZIP2
         case IMPORT_COMPRESS_BZIP2:
-                r = BZ2_bzCompressInit(&c->bzip2, 9, 0, 0);
+                /* "1" and "9" are from bzip2 documentation; not defined as constants anywhere */
+                if (l != IMPORT_COMPRESS_LEVEL_UNKNOWN && !IN_RANGE(l, 1, 9)) {
+                        log_warning("Invalid bzip2 compression level, ignoring: %d", l);
+                        l = IMPORT_COMPRESS_LEVEL_UNKNOWN;
+                }
+
+                r = BZ2_bzCompressInit(
+                                &c->bzip2,
+                                l != IMPORT_COMPRESS_LEVEL_UNKNOWN ? l : 9,
+                                0,
+                                0);
                 if (r != BZ_OK)
                         return -EIO;
 
@@ -294,20 +324,16 @@ int import_compress_init(ImportCompress *c, ImportCompressType t) {
                 size_t r2;
                 int level = ZSTD_CLEVEL_DEFAULT;
                 int ncpus;
-                int64_t env;
 
                 assert(c->zstd_c == NULL);
                 c->zstd_c = ZSTD_createCStream();
                 if (c->zstd_c == NULL)
                         return -ENOMEM;
 
-                r = getenv_int64("SYSTEMD_IMPORT_COMPRESS_LEVEL_ZSTD", &env);
-                if (r >= 0 && env != 0 && IN_RANGE(env, ZSTD_minCLevel(), ZSTD_maxCLevel()))
-                        level = (int)env;
-                else if (r >= 0)
-                        log_warning("Invalid value of $SYSTEMD_IMPORT_COMPRESS_LEVEL_ZSTD (%" PRIi64 "), ignoring", env);
-                else if (r != -ENXIO)
-                        log_warning_errno(r, "Failed to parse $SYSTEMD_IMPORT_COMPRESS_LEVEL_ZSTD: %m");
+                if (l != IMPORT_COMPRESS_LEVEL_UNKNOWN && IN_RANGE(l, ZSTD_minCLevel(), ZSTD_maxCLevel()))
+                        level = l;
+                else if (l != IMPORT_COMPRESS_LEVEL_UNKNOWN)
+                        log_warning("Invalid zstd compression level (%d), ignoring", l);
 
                 /* TODO: better default? zstd -3 is really weak */
                 r2 = ZSTD_CCtx_setParameter(c->zstd_c, ZSTD_c_compressionLevel, level);

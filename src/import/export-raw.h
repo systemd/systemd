@@ -15,4 +15,4 @@ RawExport* raw_export_unref(RawExport *export);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(RawExport*, raw_export_unref);
 
-int raw_export_start(RawExport *export, const char *path, int fd, ImportCompressType compress);
+int raw_export_start(RawExport *export, const char *path, int fd, ImportCompressType compress, ImportCompressLevel level);

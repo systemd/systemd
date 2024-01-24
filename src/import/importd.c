@@ -66,6 +66,7 @@ struct Transfer {
         bool read_only;
 
         char *format;
+        ImportCompressLevel level;
 
         pid_t pid;
 
@@ -384,11 +385,14 @@ static int transfer_start(Transfer *t) {
                         NULL, /* if so: the actual URL */
                         NULL, /* maybe --format= */
                         NULL, /* if so: the actual format */
+                        NULL, /* maybe --level= */
+                        NULL, /* if so: the level */
                         NULL, /* remote */
                         NULL, /* local */
                         NULL
                 };
                 unsigned k = 0;
+                _cleanup_free_ char *tmp_level = NULL;
 
                 /* Child */
 
@@ -462,6 +466,13 @@ static int transfer_start(Transfer *t) {
                 if (t->format) {
                         cmd[k++] = "--format";
                         cmd[k++] = t->format;
+                }
+
+                if (t->level != IMPORT_COMPRESS_LEVEL_UNKNOWN) {
+                        cmd[k++] = "--level";
+                        if (asprintf(&tmp_level, "%d", t->level) < 0)
+                                return log_oom();
+                        cmd[k++] = tmp_level;
                 }
 
                 if (!IN_SET(t->type, TRANSFER_EXPORT_TAR, TRANSFER_EXPORT_RAW)) {
@@ -829,6 +840,7 @@ static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         _cleanup_(transfer_unrefp) Transfer *t = NULL;
         int fd, r;
         const char *local, *object, *format;
+        int32_t level;
         Manager *m = ASSERT_PTR(userdata);
         TransferType type;
         struct stat st;
@@ -847,7 +859,7 @@ static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = sd_bus_message_read(msg, "shs", &local, &fd, &format);
+        r = sd_bus_message_read(msg, "shsi", &local, &fd, &format, &level);
         if (r < 0)
                 return r;
 
@@ -875,6 +887,7 @@ static int method_export_tar_or_raw(sd_bus_message *msg, void *userdata, sd_bus_
                 if (!t->format)
                         return -ENOMEM;
         }
+        t->level = level;
 
         t->local = strdup(local);
         if (!t->local)
@@ -1227,20 +1240,22 @@ static const sd_bus_vtable manager_vtable[] = {
                                  method_import_fs,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("ExportTar",
-                                 "shs",
+                                 "shsi",
                                  SD_BUS_PARAM(local_name)
                                  SD_BUS_PARAM(fd)
-                                 SD_BUS_PARAM(format),
+                                 SD_BUS_PARAM(format)
+                                 SD_BUS_PARAM(level),
                                  "uo",
                                  SD_BUS_PARAM(transfer_id)
                                  SD_BUS_PARAM(transfer_path),
                                  method_export_tar_or_raw,
                                  SD_BUS_VTABLE_UNPRIVILEGED),
         SD_BUS_METHOD_WITH_NAMES("ExportRaw",
-                                 "shs",
+                                 "shsi",
                                  SD_BUS_PARAM(local_name)
                                  SD_BUS_PARAM(fd)
-                                 SD_BUS_PARAM(format),
+                                 SD_BUS_PARAM(format)
+                                 SD_BUS_PARAM(level),
                                  "uo",
                                  SD_BUS_PARAM(transfer_id)
                                  SD_BUS_PARAM(transfer_path),

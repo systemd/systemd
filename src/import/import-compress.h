@@ -34,6 +34,6 @@ int import_uncompress_detect(ImportCompress *c, const void *data, size_t size);
 void import_uncompress_force_off(ImportCompress *c);
 int import_uncompress(ImportCompress *c, const void *data, size_t size, ImportCompressCallback callback, void *userdata);
 
-int import_compress_init(ImportCompress *c, ImportCompressType t);
+int import_compress_init(ImportCompress *c, ImportCompressType t, ImportCompressLevel l);
 int import_compress(ImportCompress *c, const void *data, size_t size, void **buffer, size_t *buffer_size, size_t *buffer_allocated);
 int import_compress_finish(ImportCompress *c, void **buffer, size_t *buffer_size, size_t *buffer_allocated);

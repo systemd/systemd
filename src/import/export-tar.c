@@ -249,7 +249,7 @@ static int tar_export_on_defer(sd_event_source *s, void *userdata) {
         return tar_export_process(i);
 }
 
-int tar_export_start(TarExport *e, const char *path, int fd, ImportCompressType compress) {
+int tar_export_start(TarExport *e, const char *path, int fd, ImportCompressType compress, ImportCompressLevel level) {
         _cleanup_close_ int sfd = -EBADF;
         int r;
 
@@ -300,7 +300,7 @@ int tar_export_start(TarExport *e, const char *path, int fd, ImportCompressType 
                 }
         }
 
-        r = import_compress_init(&e->compress, compress);
+        r = import_compress_init(&e->compress, compress, level);
         if (r < 0)
                 return r;
 

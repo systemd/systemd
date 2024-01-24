@@ -24,6 +24,13 @@ typedef enum ImportCompressType {
         _IMPORT_COMPRESS_TYPE_INVALID = -EINVAL,
 } ImportCompressType;
 
+typedef enum ImportCompressLevel {
+        IMPORT_COMPRESS_LEVEL_UNKNOWN = 0,
+
+        /* We are not using this anywhere, but it makes the enum a signed integer type */
+        _IMPORT_COMPRESS_LEVEL_INVALID = INT_MIN,
+} ImportCompressLevel;
+
 int import_url_last_component(const char *url, char **ret);
 
 int import_url_change_suffix(const char *url, size_t n_drop_components, const char *suffix, char **ret);
