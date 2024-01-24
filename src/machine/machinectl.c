@@ -81,7 +81,7 @@ static OutputMode arg_output = OUTPUT_SHORT;
 static bool arg_now = false;
 static bool arg_force = false;
 static ImportVerify arg_verify = IMPORT_VERIFY_SIGNATURE;
-static const char* arg_format = NULL;
+static ImportCompressType arg_format = IMPORT_COMPRESS_UNKNOWN;
 static const char *arg_uid = NULL;
 static char **arg_setenv = NULL;
 static unsigned arg_max_addresses = 1;
@@ -2141,21 +2141,6 @@ static int import_fs(int argc, char *argv[], void *userdata) {
         return transfer_image_common(bus, m);
 }
 
-static void determine_compression_from_filename(const char *p) {
-        if (arg_format)
-                return;
-
-        if (!p)
-                return;
-
-        if (endswith(p, ".xz"))
-                arg_format = "xz";
-        else if (endswith(p, ".gz"))
-                arg_format = "gzip";
-        else if (endswith(p, ".bz2"))
-                arg_format = "bzip2";
-}
-
 static int export_tar(int argc, char *argv[], void *userdata) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_close_ int fd = -EBADF;
@@ -2173,7 +2158,8 @@ static int export_tar(int argc, char *argv[], void *userdata) {
         path = empty_or_dash_to_null(path);
 
         if (path) {
-                determine_compression_from_filename(path);
+                if (arg_format == IMPORT_COMPRESS_UNKNOWN)
+                        arg_format = tar_filename_to_compression(path);
 
                 fd = open(path, O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC|O_NOCTTY, 0666);
                 if (fd < 0)
@@ -2189,7 +2175,7 @@ static int export_tar(int argc, char *argv[], void *userdata) {
                         "shs",
                         local,
                         fd >= 0 ? fd : STDOUT_FILENO,
-                        arg_format);
+                        arg_format != IMPORT_COMPRESS_UNKNOWN ? import_compress_type_to_string(arg_format) : NULL);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -2213,7 +2199,8 @@ static int export_raw(int argc, char *argv[], void *userdata) {
         path = empty_or_dash_to_null(path);
 
         if (path) {
-                determine_compression_from_filename(path);
+                if (arg_format == IMPORT_COMPRESS_UNKNOWN)
+                        arg_format = raw_filename_to_compression(path);
 
                 fd = open(path, O_WRONLY|O_CREAT|O_TRUNC|O_CLOEXEC|O_NOCTTY, 0666);
                 if (fd < 0)
@@ -2229,7 +2216,7 @@ static int export_raw(int argc, char *argv[], void *userdata) {
                         "shs",
                         local,
                         fd >= 0 ? fd : STDOUT_FILENO,
-                        arg_format);
+                        arg_format != IMPORT_COMPRESS_UNKNOWN ? import_compress_type_to_string(arg_format) : NULL);
         if (r < 0)
                 return bus_log_create_error(r);
 
@@ -2882,11 +2869,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_FORMAT:
-                        if (!STR_IN_SET(optarg, "uncompressed", "xz", "gzip", "bzip2"))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                                       "Unknown format: %s", optarg);
+                        if (streq(optarg, "help")) {
+                                DUMP_STRING_TABLE2(import_compress_type, ImportCompressType, IMPORT_COMPRESS_UNCOMPRESSED, _IMPORT_COMPRESS_TYPE_MAX);
+                                return 0;
+                        }
 
-                        arg_format = optarg;
+                        r = import_compress_type_from_string(optarg);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to parse --format= setting: %s", optarg);
+                        arg_format = r;
                         break;
 
                 case ARG_UID:
