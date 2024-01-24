@@ -1956,6 +1956,10 @@ int unit_start(Unit *u, ActivationDetails *details) {
                 return unit_start(following, details);
         }
 
+        /* Check to make sure the unit isn't frozen */
+        if (u->freezer_state != FREEZER_RUNNING)
+                return -EDEADLK;
+
         /* Check our ability to start early so that failure conditions don't cause us to enter a busy loop. */
         if (UNIT_VTABLE(u)->can_start) {
                 r = UNIT_VTABLE(u)->can_start(u);
@@ -1972,7 +1976,6 @@ int unit_start(Unit *u, ActivationDetails *details) {
          * waits for a holdoff timer to elapse before it will start again. */
 
         unit_add_to_dbus_queue(u);
-        unit_cgroup_freezer_action(u, FREEZER_THAW);
 
         if (!u->activation_details) /* Older details object wins */
                 u->activation_details = activation_details_ref(details);
@@ -2007,6 +2010,7 @@ bool unit_can_isolate(Unit *u) {
  *         -EBADR:    This unit type does not support stopping.
  *         -EALREADY: Unit is already stopped.
  *         -EAGAIN:   An operation is already in progress. Retry later.
+ *         -EDEADLK:  Unit is frozen
  */
 int unit_stop(Unit *u) {
         UnitActiveState state;
@@ -2024,11 +2028,14 @@ int unit_stop(Unit *u) {
                 return unit_stop(following);
         }
 
+        /* Check to make sure the unit isn't frozen */
+        if (u->freezer_state != FREEZER_RUNNING)
+                return -EDEADLK;
+
         if (!UNIT_VTABLE(u)->stop)
                 return -EBADR;
 
         unit_add_to_dbus_queue(u);
-        unit_cgroup_freezer_action(u, FREEZER_THAW);
 
         return UNIT_VTABLE(u)->stop(u);
 }
@@ -2053,6 +2060,7 @@ bool unit_can_stop(Unit *u) {
  *         -EBADR:    This unit type does not support reloading.
  *         -ENOEXEC:  Unit is not started.
  *         -EAGAIN:   An operation is already in progress. Retry later.
+ *         -EDEADLK:  Unit is frozen.
  */
 int unit_reload(Unit *u) {
         UnitActiveState state;
@@ -2079,6 +2087,10 @@ int unit_reload(Unit *u) {
                 return unit_reload(following);
         }
 
+        /* Check to make sure the unit isn't frozen */
+        if (u->freezer_state != FREEZER_RUNNING)
+                return -EDEADLK;
+
         unit_add_to_dbus_queue(u);
 
         if (!UNIT_VTABLE(u)->reload) {
@@ -2086,8 +2098,6 @@ int unit_reload(Unit *u) {
                 unit_notify(u, unit_active_state(u), unit_active_state(u), /* reload_success = */ true);
                 return 0;
         }
-
-        unit_cgroup_freezer_action(u, FREEZER_THAW);
 
         return UNIT_VTABLE(u)->reload(u);
 }
