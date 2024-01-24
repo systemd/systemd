@@ -108,12 +108,7 @@ static void socket_init(Unit *u) {
 
 static void socket_unwatch_control_pid(Socket *s) {
         assert(s);
-
-        if (!pidref_is_set(&s->control_pid))
-                return;
-
-        unit_unwatch_pidref(UNIT(s), &s->control_pid);
-        pidref_done(&s->control_pid);
+        unit_unwatch_pidref_done(UNIT(s), &s->control_pid);
 }
 
 static void socket_cleanup_fd_list(SocketPort *p) {

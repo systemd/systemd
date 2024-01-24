@@ -2934,6 +2934,16 @@ void unit_unwatch_all_pids(Unit *u) {
         u->pids = set_free(u->pids);
 }
 
+void unit_unwatch_pidref_done(Unit *u, PidRef *pidref) {
+        assert(u);
+
+        if (!pidref_is_set(pidref))
+                return;
+
+        unit_unwatch_pidref(u, pidref);
+        pidref_done(pidref);
+}
+
 static void unit_tidy_watch_pids(Unit *u) {
         PidRef *except1, *except2, *e;
 

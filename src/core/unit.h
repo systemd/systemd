@@ -936,6 +936,7 @@ int unit_watch_pid(Unit *u, pid_t pid, bool exclusive);
 void unit_unwatch_pidref(Unit *u, const PidRef *pid);
 void unit_unwatch_pid(Unit *u, pid_t pid);
 void unit_unwatch_all_pids(Unit *u);
+void unit_unwatch_pidref_done(Unit *u, PidRef *pidref);
 
 int unit_enqueue_rewatch_pids(Unit *u);
 void unit_dequeue_rewatch_pids(Unit *u);
