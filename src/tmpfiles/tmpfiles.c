@@ -2580,6 +2580,9 @@ static int rm_if_wrong_type_safe(
         assert(!follow_links || parent_st);
         assert((flags & ~AT_SYMLINK_NOFOLLOW) == 0);
 
+        if (mode == 0)
+                return 0;
+
         if (!filename_is_valid(name))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "\"%s\" is not a valid filename.", name);
 
@@ -2656,7 +2659,7 @@ static int mkdir_parents_rm_if_wrong_type(mode_t child_mode, const char *path) {
 
         if (!is_path(path))
                 /* rm_if_wrong_type_safe already logs errors. */
-                return child_mode != 0 ? rm_if_wrong_type_safe(child_mode, AT_FDCWD, NULL, path, AT_SYMLINK_NOFOLLOW) : 0;
+                return rm_if_wrong_type_safe(child_mode, AT_FDCWD, NULL, path, AT_SYMLINK_NOFOLLOW);
 
         if (child_mode != 0 && endswith(path, "/"))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
@@ -2686,7 +2689,7 @@ static int mkdir_parents_rm_if_wrong_type(mode_t child_mode, const char *path) {
 
                 /* Is this the last component? If so, then check the type */
                 if (*e == 0)
-                        return child_mode != 0 ? rm_if_wrong_type_safe(child_mode, parent_fd, &parent_st, t, AT_SYMLINK_NOFOLLOW) : 0;
+                        return rm_if_wrong_type_safe(child_mode, parent_fd, &parent_st, t, AT_SYMLINK_NOFOLLOW);
 
                 r = rm_if_wrong_type_safe(S_IFDIR, parent_fd, &parent_st, t, 0);
                 /* Remove dangling symlinks. */
