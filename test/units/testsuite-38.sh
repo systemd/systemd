@@ -142,31 +142,6 @@ testcase_dbus_api() {
     echo
 }
 
-testcase_jobs() {
-    local pid_before=
-    local pid_after=
-    echo "Test that it is possible to apply jobs on frozen units:"
-
-    systemctl start "${unit}"
-    dbus_freeze "${unit}"
-    check_freezer_state "${unit}" "frozen"
-
-    echo -n "  - restart: "
-    pid_before=$(systemctl show -p MainPID "${unit}" --value)
-    systemctl restart "${unit}"
-    pid_after=$(systemctl show -p MainPID "${unit}" --value)
-    [ "$pid_before" != "$pid_after" ] && echo "[ OK ]"
-
-    dbus_freeze "${unit}"
-    check_freezer_state "${unit}" "frozen"
-
-    echo -n "  - stop: "
-    timeout 5s systemctl stop "${unit}"
-    echo "[ OK ]"
-
-    echo
-}
-
 testcase_systemctl() {
     echo "Test that systemctl freeze/thaw verbs:"
 
@@ -240,6 +215,11 @@ testcase_recursive() {
     grep -q "frozen 0" /sys/fs/cgroup/"${slice}"/"${unit}"/cgroup.events
     echo "[ OK ]"
 
+    echo -n "  - can't stop a frozen unit: "
+    (! systemctl -q stop "$unit" )
+    echo "[ OK ]"
+    systemctl thaw "$unit"
+
     systemctl stop "$unit"
     systemctl stop "$slice"
 
@@ -287,6 +267,7 @@ testcase_preserve_state() {
     check_freezer_state "${unit}" "frozen"
     echo "[ OK ]"
 
+    systemctl thaw "$unit"
     systemctl stop "$unit"
     systemctl stop "$slice"
 

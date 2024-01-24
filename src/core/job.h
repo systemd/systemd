@@ -96,6 +96,7 @@ enum JobResult {
         JOB_UNSUPPORTED,         /* Couldn't start a unit, because the unit type is not supported on the system */
         JOB_COLLECTED,           /* Job was garbage collected, since nothing needed it anymore */
         JOB_ONCE,                /* Unit was started before, and hence can't be started again */
+        JOB_FROZEN,              /* Unit is currently frozen, so we can't safely operate on it */
         _JOB_RESULT_MAX,
         _JOB_RESULT_INVALID = -EINVAL,
 };
