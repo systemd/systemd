@@ -41,6 +41,9 @@ actions:
     - 'sed -i "/^CONFIGURE_OPTS=(/a--werror" .packit_rpm/systemd.spec'
     # Ignore unpackaged standalone binaries
     - "sed -i 's/assert False,.*/pass/' .packit_rpm/split-files.py"
+    # Temporarily add libarchive-devel build dep until the change propagates to
+    # Rawhide's specfile
+    - "sed -ri '0,/^BuildRequires: .+$/s//&\\nBuildRequires: libarchive-devel/' .packit_rpm/systemd.spec"
 
 jobs:
 - job: copr_build
