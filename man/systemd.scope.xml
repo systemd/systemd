@@ -105,7 +105,13 @@
     of scope units are the following:</para>
 
     <variablelist class='unit-directives'>
-      <xi:include href="systemd.service.xml" xpointer="oom-policy" />
+      <varlistentry id='oom-policy'>
+        <term><varname>OOMPolicy=</varname></term>
+        <listitem>
+          <xi:include href="systemd.service.xml" xpointer="xpointer(//varlistentry[@id='oom-policy']/listitem/para[position() &lt; last()])" />
+          <xi:include href="version-info.xml" xpointer="v253"/>
+        </listitem>
+      </varlistentry>
 
       <varlistentry>
         <term><varname>RuntimeMaxSec=</varname></term>
