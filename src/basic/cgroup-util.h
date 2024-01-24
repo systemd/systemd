@@ -67,10 +67,13 @@ typedef enum CGroupMask {
         /* All real cgroup v2 controllers */
         CGROUP_MASK_V2 = CGROUP_MASK_CPU|CGROUP_MASK_CPUSET|CGROUP_MASK_IO|CGROUP_MASK_MEMORY|CGROUP_MASK_PIDS,
 
+        /* All controllers we want to delegate in case of Delegate=yes. Which are prety much the v2 controllers only, as delegation on v1 is not safe, and bpf stuff isn't a real controller */
+        CGROUP_MASK_DELEGATE = CGROUP_MASK_V2,
+
         /* All cgroup v2 BPF pseudo-controllers */
         CGROUP_MASK_BPF = CGROUP_MASK_BPF_FIREWALL|CGROUP_MASK_BPF_DEVICES|CGROUP_MASK_BPF_FOREIGN|CGROUP_MASK_BPF_SOCKET_BIND|CGROUP_MASK_BPF_RESTRICT_NETWORK_INTERFACES,
 
-        _CGROUP_MASK_ALL = CGROUP_CONTROLLER_TO_MASK(_CGROUP_CONTROLLER_MAX) - 1
+        _CGROUP_MASK_ALL = CGROUP_CONTROLLER_TO_MASK(_CGROUP_CONTROLLER_MAX) - 1,
 } CGroupMask;
 
 static inline CGroupMask CGROUP_MASK_EXTEND_JOINED(CGroupMask mask) {
