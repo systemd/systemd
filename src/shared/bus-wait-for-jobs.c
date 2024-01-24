@@ -248,6 +248,8 @@ static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const cha
                         log_error("Queued job for %s was garbage collected.", d->name);
                 else if (streq(d->result, "once"))
                         log_error("Unit %s was started already once and can't be started again.", d->name);
+                else if (streq(d->result, "frozen"))
+                        log_error("Cannot perform operation on frozen unit %s.", d->name);
                 else if (endswith(d->name, ".service")) {
                         /* Job result is unknown. For services, let's also try Result property. */
                         _cleanup_free_ char *result = NULL;
@@ -276,6 +278,8 @@ static int check_wait_response(BusWaitForJobs *d, WaitJobsFlags flags, const cha
                 return -EOPNOTSUPP;
         else if (streq(d->result, "once"))
                 return -ESTALE;
+        else if (streq(d->result, "frozen"))
+                return -EDEADLK;
 
         return log_debug_errno(SYNTHETIC_ERRNO(ENOMEDIUM),
                                "Unexpected job result '%s' for unit '%s', assuming server side newer than us.",
