@@ -1142,7 +1142,6 @@ static int setup_pam(
         pam_handle_t *handle = NULL;
         int pam_code = PAM_SUCCESS, r;
         bool close_session = false;
-        pid_t parent_pid;
         int flags = 0;
 
         assert(name);
@@ -1155,6 +1154,11 @@ static int setup_pam(
          * session again. The parent process will exec() the actual
          * daemon. We do things this way to ensure that the main PID
          * of the daemon is the one we initially fork()ed. */
+
+        _cleanup_(pidref_done) PidRef parent_pid = PIDREF_NULL;
+        r = pidref_set_self(&parent_pid);
+        if (r < 0)
+                goto fail;
 
         r = barrier_create(&barrier);
         if (r < 0)
@@ -1211,8 +1215,6 @@ static int setup_pam(
                 goto fail;
         }
 
-        parent_pid = getpid_cached();
-
         r = safe_fork("(sd-pam)", FORK_DEATHSIG_SIGTERM, NULL);
         if (r < 0)
                 goto fail;
@@ -1250,7 +1252,7 @@ static int setup_pam(
                 (void) barrier_place(&barrier);
 
                 /* Check if our parent process might already have died? */
-                if (getppid() == parent_pid) {
+                if (getppid() == parent_pid.pid) {
                         sigset_t ss;
                         int sig;
 
@@ -1262,7 +1264,7 @@ static int setup_pam(
                 }
 
                 /* If our parent died we'll end the session */
-                if (getppid() != parent_pid) {
+                if (getppid() != parent_pid.pid) {
                         pam_code = pam_close_session_and_delete_credentials(handle, flags);
                         if (pam_code != PAM_SUCCESS)
                                 goto child_finish;
