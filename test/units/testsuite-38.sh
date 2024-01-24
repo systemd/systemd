@@ -314,6 +314,11 @@ testcase_recursive() {
     grep -q "frozen 1" /sys/fs/cgroup/"${slice}"/"${unit}"/cgroup.events
     echo "[ OK ]"
 
+    echo -n "  - can't stop a frozen unit: "
+    (! systemctl -q stop "$unit" )
+    echo "[ OK ]"
+    systemctl thaw "$unit"
+
     systemctl stop "$unit"
     systemctl stop "$slice"
 
