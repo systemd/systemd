@@ -54,6 +54,9 @@
       <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--copy-to</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg> <arg choice="opt"><replaceable>SOURCE</replaceable></arg> <arg choice="plain"><replaceable>PATH</replaceable></arg>
     </cmdsynopsis>
     <cmdsynopsis>
+      <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--make-archive</arg> <arg choice="plain"><replaceable>IMAGE</replaceable></arg> <arg choice="opt"><replaceable>TARGET</replaceable></arg>
+    </cmdsynopsis>
+    <cmdsynopsis>
       <command>systemd-dissect</command> <arg choice="opt" rep="repeat">OPTIONS</arg> <arg>--discover</arg>
     </cmdsynopsis>
     <cmdsynopsis>
@@ -306,6 +309,21 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--make-archive</option></term>
+
+        <listitem><para>Generates an archive file from the specified disk image. Expects two arguments: the
+        path to the disk image and optionally the output archive file path. If the latter is omitted the
+        archive is written to standard output. The archive file format is determined automatically from the
+        specified output archive file name, e.g. any path suffixed with <literal>.tar.xz</literal> will
+        result in an xz compressed UNIX tarball (if the path is omitted an uncompressed UNIX tarball is
+        created). See
+        <citerefentry><refentrytitle>libarchive</refentrytitle><manvolnum>3</manvolnum></citerefentry> for a
+        list of supported archive formats and compression schemes.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--discover</option></term>
 
         <listitem><para>Show a list of DDIs in well-known directories. This will show machine, portable
@@ -535,9 +553,17 @@
     <title>Examples</title>
 
     <example>
-      <title>Generate a tarball from an OS disk image</title>
+      <title>Generate a tarball from an OS disk image (<option>--with</option>)</title>
 
       <programlisting># systemd-dissect --with foo.raw tar cz . >foo.tar.gz</programlisting>
+    </example>
+
+    <para>or alternatively just:</para>
+
+    <example>
+      <title>Generate a tarball from an OS disk image (<option>--make-archive</option>)</title>
+
+      <programlisting># systemd-dissect --make-archive foo.raw foo.tar.gz</programlisting>
     </example>
   </refsect1>
 
