@@ -219,7 +219,6 @@ static int fscrypt_setup(
                 _cleanup_free_ char *value = NULL;
                 size_t salt_size, encrypted_size;
                 const char *nr, *e;
-                char **list;
                 int n;
 
                 /* Check if this xattr has the format 'trusted.fscrypt_slot<nr>' where '<nr>' is a 32-bit unsigned integer */
@@ -248,21 +247,19 @@ static int fscrypt_setup(
                         return log_error_errno(r, "Failed to decode encrypted key of %s: %m", xa);
 
                 r = -ENOANO;
-                FOREACH_POINTER(list, cache->pkcs11_passwords, cache->fido2_passwords, password) {
+                char **list;
+                FOREACH_ARGUMENT(list, cache->pkcs11_passwords, cache->fido2_passwords, password) {
                         r = fscrypt_slot_try_many(
                                         list,
                                         salt, salt_size,
                                         encrypted, encrypted_size,
                                         setup->fscrypt_key_descriptor,
                                         ret_volume_key, ret_volume_key_size);
-                        if (r != -ENOANO)
-                                break;
-                }
-                if (r < 0) {
+                        if (r >= 0)
+                                return 0;
                         if (r != -ENOANO)
                                 return r;
-                } else
-                        return 0;
+                }
         }
 
         return log_error_errno(SYNTHETIC_ERRNO(ENOKEY), "Failed to set up home directory with provided passwords.");
