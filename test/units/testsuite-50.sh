@@ -54,6 +54,17 @@ read -r SHA256SUM2 _ < <(systemd-dissect --read-only --with "${image}.raw" sha25
 test "$SHA256SUM2" != ""
 test "$SHA256SUM1" = "$SHA256SUM2"
 
+if systemctl --version | grep -qF -- "+LIBARCHIVE" ; then
+    # Make sure tarballs are reproducible
+    read -r SHA256SUM1 _ < <(systemd-dissect --make-archive "${image}.raw" | sha256sum)
+    test "$SHA256SUM1" != ""
+    read -r SHA256SUM2 _ < <(systemd-dissect --make-archive "${image}.raw" | sha256sum)
+    test "$SHA256SUM2" != ""
+    test "$SHA256SUM1" = "$SHA256SUM2"
+    # Also check that a file we expect to be there is there
+    systemd-dissect --make-archive "${image}.raw" | tar t | grep etc/os-release
+fi
+
 mv "${image}.verity" "${image}.fooverity"
 mv "${image}.roothash" "${image}.foohash"
 systemd-dissect --json=short "${image}.raw" --root-hash="${roothash}" --verity-data="${image}.fooverity" | grep -q -F '{"rw":"ro","designator":"root","partition_uuid":null,"partition_label":null,"fstype":"squashfs","architecture":null,"verity":"external"'
