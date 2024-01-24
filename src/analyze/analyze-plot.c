@@ -168,7 +168,7 @@ static void plot_tooltip(const UnitTimes *ut) {
         svg("%s:\n", ut->name);
 
         UnitDependency i;
-        VA_ARGS_FOREACH(i, UNIT_AFTER, UNIT_BEFORE, UNIT_REQUIRES, UNIT_REQUISITE, UNIT_WANTS, UNIT_CONFLICTS, UNIT_UPHOLDS)
+        FOREACH_ARGUMENT(i, UNIT_AFTER, UNIT_BEFORE, UNIT_REQUIRES, UNIT_REQUISITE, UNIT_WANTS, UNIT_CONFLICTS, UNIT_UPHOLDS)
                 if (!strv_isempty(ut->deps[i])) {
                         svg("\n%s:\n", unit_dependency_to_string(i));
                         STRV_FOREACH(s, ut->deps[i])

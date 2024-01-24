@@ -27,7 +27,7 @@
         ({                                                              \
                 typeof(type) UNIQ_T(_mask, uniq) = (type)0;             \
                 int UNIQ_T(_i, uniq);                                   \
-                VA_ARGS_FOREACH(UNIQ_T(_i, uniq), ##__VA_ARGS__)        \
+                FOREACH_ARGUMENT(UNIQ_T(_i, uniq), ##__VA_ARGS__)       \
                         UNIQ_T(_mask, uniq) |= INDEX_TO_MASK(type, UNIQ_T(_i, uniq)); \
                 UNIQ_T(_mask, uniq);                                    \
         })
