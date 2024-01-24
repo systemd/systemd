@@ -35,7 +35,10 @@
     packages) or <filename>/usr/local/lib/</filename> (local installs). Files in <filename>/etc/</filename>
     are reserved for the local administrator, who may use this logic to override the configuration files
     installed by vendor packages. It is recommended to prefix all filenames with a two-digit number and a
-    dash, to simplify the ordering of the files.</para>
+    dash, to simplify the ordering of the files. It is recommended to use the range 10-40 for configuration
+    files in <filename>/usr/</filename> and the range 60-90 for configuration files in
+    <filename>/etc/</filename> and <filename>/run/</filename>, to make sure that local and transient
+    configuration files will always take priority over configuration files shipped by the OS vendor.</para>
 
     <para>If the administrator wants to disable a configuration file supplied by the vendor, the recommended
     way is to place a symlink to <filename>/dev/null</filename> in the configuration directory in
@@ -68,9 +71,12 @@
     who may use this logic to override the configuration files installed by vendor packages. Drop-ins have to
     be used to override package drop-ins, since the main configuration file has lower precedence. It is
     recommended to prefix all filenames in those subdirectories with a two-digit number and a dash, to
-    simplify the ordering of the files. This also defined a concept of drop-in priority to allow
-    distributions to ship drop-ins within a specific range lower than the range used by users. This should
-    lower the risk of package drop-ins overriding accidentally drop-ins defined by users.</para>
+    simplify the ordering of the files. This also defines a concept of drop-in priorities to allow
+    OS vendors to ship drop-ins within a specific range lower than the range used by users. This should
+    lower the risk of package drop-ins overriding accidentally drop-ins defined by users. It is recommended
+    to use the range 10-40 for drop-ins in <filename>/usr/</filename> and the range 60-90 for drop-ins in
+    <filename>/etc/</filename> and <filename>/run/</filename>, to make sure that local and transient drop-ins
+    take priority over drop-ins shipped by the OS vendor.</para>
 
     <para>To disable a configuration file supplied by the vendor, the recommended way is to place a symlink
     to <filename>/dev/null</filename> in the configuration directory in <filename>/etc/</filename>, with the
