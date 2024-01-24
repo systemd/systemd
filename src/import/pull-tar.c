@@ -581,7 +581,6 @@ int tar_pull_start(
                 ImportVerify verify,
                 const char *checksum) {
 
-        PullJob *j;
         int r;
 
         assert(i);
@@ -656,7 +655,8 @@ int tar_pull_start(
                         return r;
         }
 
-        FOREACH_POINTER(j,
+        PullJob *j;
+        VA_ARGS_FOREACH(j,
                         i->tar_job,
                         i->checksum_job,
                         i->signature_job,
