@@ -788,11 +788,11 @@ bool valid_user_group_name(const char *u, ValidUserFlags flags) {
                 sz = sysconf(_SC_LOGIN_NAME_MAX);
                 assert_se(sz > 0);
 
-                if (l > (size_t) sz)
+                if (l > (size_t) sz) /* glibc: 256 */
                         return false;
-                if (l > NAME_MAX) /* must fit in a filename */
+                if (l > NAME_MAX) /* must fit in a filename: 255 */
                         return false;
-                if (l > UT_NAMESIZE - 1)
+                if (l > UT_NAMESIZE - 1) /* must fit in utmp: 31 */
                         return false;
         }
 
