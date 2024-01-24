@@ -3948,28 +3948,25 @@ void unit_notify_cgroup_oom(Unit *u, bool managed_oom) {
                 UNIT_VTABLE(u)->notify_cgroup_oom(u, managed_oom);
 }
 
-static Set *unit_pid_set(pid_t main_pid, pid_t control_pid) {
-        _cleanup_set_free_ Set *pid_set = NULL;
+static int unit_pid_set(Unit *u, Set **pid_set) {
         int r;
 
-        pid_set = set_new(NULL);
-        if (!pid_set)
-                return NULL;
+        assert(u);
+        assert(pid_set);
+
+        set_clear(*pid_set); /* This updates input. */
 
         /* Exclude the main/control pids from being killed via the cgroup */
-        if (main_pid > 0) {
-                r = set_put(pid_set, PID_TO_PTR(main_pid));
-                if (r < 0)
-                        return NULL;
-        }
 
-        if (control_pid > 0) {
-                r = set_put(pid_set, PID_TO_PTR(control_pid));
-                if (r < 0)
-                        return NULL;
-        }
+        PidRef *pid;
+        FOREACH_POINTER(pid, unit_main_pid(u), unit_control_pid(u))
+                if (pidref_is_set(pid)) {
+                        r = set_ensure_put(pid_set, NULL, PID_TO_PTR(pid->pid));
+                        if (r < 0)
+                                return r;
+                }
 
-        return TAKE_PTR(pid_set);
+        return 0;
 }
 
 static int kill_common_log(const PidRef *pid, int signo, void *userdata) {
@@ -4105,8 +4102,8 @@ int unit_kill(
                 _cleanup_set_free_ Set *pid_set = NULL;
 
                 /* Exclude the main/control pids from being killed via the cgroup */
-                pid_set = unit_pid_set(main_pid ? main_pid->pid : 0, control_pid ? control_pid->pid : 0);
-                if (!pid_set)
+                r = unit_pid_set(u, &pid_set);
+                if (r < 0)
                         return log_oom();
 
                 r = cg_kill_recursive(u->cgroup_path, signo, 0, pid_set, kill_common_log, u);
@@ -4819,9 +4816,9 @@ int unit_kill_context(Unit *u, KillOperation k) {
                 _cleanup_set_free_ Set *pid_set = NULL;
 
                 /* Exclude the main/control pids from being killed via the cgroup */
-                pid_set = unit_pid_set(main_pid ? main_pid->pid : 0, control_pid ? control_pid->pid : 0);
-                if (!pid_set)
-                        return -ENOMEM;
+                r = unit_pid_set(u, &pid_set);
+                if (r < 0)
+                        return r;
 
                 r = cg_kill_recursive(
                                 u->cgroup_path,
@@ -4847,11 +4844,9 @@ int unit_kill_context(Unit *u, KillOperation k) {
                                 wait_for_exit = true;
 
                         if (send_sighup) {
-                                set_free(pid_set);
-
-                                pid_set = unit_pid_set(main_pid ? main_pid->pid : 0, control_pid ? control_pid->pid : 0);
-                                if (!pid_set)
-                                        return -ENOMEM;
+                                r = unit_pid_set(u, &pid_set);
+                                if (r < 0)
+                                        return r;
 
                                 (void) cg_kill_recursive(
                                                 u->cgroup_path,
