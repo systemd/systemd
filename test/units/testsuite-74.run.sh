@@ -80,11 +80,16 @@ systemd-run --wait --pipe --user --machine=testuser@ \
             bash -xec '[[ "$(id -nu)" == testuser && "$(id -ng)" == testuser ]]'
 systemd-run --wait --pipe --user --machine=testuser@ \
             bash -xec '[[ "$PWD" == /home/testuser && -n "$INVOCATION_ID" ]]'
-systemd-run --wait --pipe --user --machine=testuser@ \
-            --property=LimitCORE=1M:2M \
-            --property=LimitCORE=16M:32M \
-            --property=PrivateTmp=yes \
-            bash -xec '[[ "$(ulimit -c -S)" -eq 16384 && "$(ulimit -c -H)" -eq 32768 && ! -e /tmp/public-marker ]]'
+
+# PrivateTmp=yes implies PrivateUsers=yes for user manager, so skip this if we
+# don't have unprivileged user namespaces.
+if [[ "$(sysctl -ne kernel.apparmor_restrict_unprivileged_userns)" -ne 1 ]]; then
+    systemd-run --wait --pipe --user --machine=testuser@ \
+                --property=LimitCORE=1M:2M \
+                --property=LimitCORE=16M:32M \
+                --property=PrivateTmp=yes \
+                bash -xec '[[ "$(ulimit -c -S)" -eq 16384 && "$(ulimit -c -H)" -eq 32768 && ! -e /tmp/public-marker ]]'
+fi
 
 : "Transient scope (system daemon)"
 systemd-run --scope \
