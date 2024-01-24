@@ -3757,6 +3757,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         Service *s = SERVICE(u);
         ServiceResult f;
         ExitClean clean_mode;
+        int r;
 
         assert(s);
         assert(pid >= 0);
@@ -4008,7 +4009,6 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                                 if (s->pid_file) {
                                         bool has_start_post;
-                                        int r;
 
                                         /* Let's try to load the pid file here if we can.
                                          * The PID file might actually be created by a START_POST
@@ -4035,8 +4035,6 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 }
 
                                 if (s->pid_file) {
-                                        int r;
-
                                         r = service_load_pid_file(s, true);
                                         if (r < 0) {
                                                 r = service_demand_pid_file(s);
