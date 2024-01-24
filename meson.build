@@ -1413,6 +1413,11 @@ elif compression == 'xz' and not libxz.found()
 endif
 conf.set('DEFAULT_COMPRESSION', 'COMPRESSION_@0@'.format(compression.to_upper()))
 
+libarchive = dependency('libarchive',
+                        version : '>= 3.0',
+                        required : get_option('libarchive'))
+conf.set10('HAVE_LIBARCHIVE', libarchive.found())
+
 libxkbcommon = dependency('xkbcommon',
                           version : '>= 0.3.0',
                           required : get_option('xkbcommon'))

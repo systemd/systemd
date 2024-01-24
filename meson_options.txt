@@ -451,6 +451,8 @@ option('glib', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'd
        description : 'libglib support (for tests only)')
 option('dbus', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'libdbus support (for tests only)')
+option('libarchive', type : 'feature',
+       description : 'libarchive support')
 
 option('bootloader', type : 'feature', deprecated : { 'true' : 'enabled', 'false' : 'disabled' },
        description : 'sd-boot/stub and userspace tools')
