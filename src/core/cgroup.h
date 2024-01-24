@@ -375,9 +375,9 @@ void manager_shutdown_cgroup(Manager *m, bool delete);
 unsigned manager_dispatch_cgroup_realize_queue(Manager *m);
 
 Unit *manager_get_unit_by_cgroup(Manager *m, const char *cgroup);
-Unit *manager_get_unit_by_pidref_cgroup(Manager *m, PidRef *pid);
-Unit *manager_get_unit_by_pidref_watching(Manager *m, PidRef *pid);
-Unit* manager_get_unit_by_pidref(Manager *m, PidRef *pid);
+Unit *manager_get_unit_by_pidref_cgroup(Manager *m, const PidRef *pid);
+Unit *manager_get_unit_by_pidref_watching(Manager *m, const PidRef *pid);
+Unit* manager_get_unit_by_pidref(Manager *m, const PidRef *pid);
 Unit* manager_get_unit_by_pid(Manager *m, pid_t pid);
 
 uint64_t unit_get_ancestor_memory_min(Unit *u);

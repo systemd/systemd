@@ -931,9 +931,9 @@ void unit_notify_cgroup_oom(Unit *u, bool managed_oom);
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success);
 
-int unit_watch_pidref(Unit *u, PidRef *pid, bool exclusive);
+int unit_watch_pidref(Unit *u, const PidRef *pid, bool exclusive);
 int unit_watch_pid(Unit *u, pid_t pid, bool exclusive);
-void unit_unwatch_pidref(Unit *u, PidRef *pid);
+void unit_unwatch_pidref(Unit *u, const PidRef *pid);
 void unit_unwatch_pid(Unit *u, pid_t pid);
 void unit_unwatch_all_pids(Unit *u);
 
@@ -1055,7 +1055,7 @@ int unit_warn_leftover_processes(Unit *u, cg_kill_log_func_t log_func);
 
 bool unit_needs_console(Unit *u);
 
-int unit_pid_attachable(Unit *unit, PidRef *pid, sd_bus_error *error);
+int unit_pid_attachable(Unit *unit, const PidRef *pid, sd_bus_error *error);
 
 static inline bool unit_has_job_type(Unit *u, JobType type) {
         return u && u->job && u->job->type == type;

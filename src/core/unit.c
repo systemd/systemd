@@ -2788,7 +2788,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         }
 }
 
-int unit_watch_pidref(Unit *u, PidRef *pid, bool exclusive) {
+int unit_watch_pidref(Unit *u, const PidRef *pid, bool exclusive) {
         _cleanup_(pidref_freep) PidRef *pid_dup = NULL;
         int r;
 
@@ -2872,7 +2872,7 @@ int unit_watch_pid(Unit *u, pid_t pid, bool exclusive) {
         return unit_watch_pidref(u, &pidref, exclusive);
 }
 
-void unit_unwatch_pidref(Unit *u, PidRef *pid) {
+void unit_unwatch_pidref(Unit *u, const PidRef *pid) {
         assert(u);
         assert(pidref_is_set(pid));
 
@@ -5910,7 +5910,7 @@ bool unit_needs_console(Unit *u) {
         return exec_context_may_touch_console(ec);
 }
 
-int unit_pid_attachable(Unit *u, PidRef *pid, sd_bus_error *error) {
+int unit_pid_attachable(Unit *u, const PidRef *pid, sd_bus_error *error) {
         int r;
 
         assert(u);
