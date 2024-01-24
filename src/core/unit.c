@@ -3959,7 +3959,7 @@ static int unit_pid_set(Unit *u, Set **pid_set) {
         /* Exclude the main/control pids from being killed via the cgroup */
 
         PidRef *pid;
-        FOREACH_POINTER(pid, unit_main_pid(u), unit_control_pid(u))
+        VA_ARGS_FOREACH(pid, unit_main_pid(u), unit_control_pid(u))
                 if (pidref_is_set(pid)) {
                         r = set_ensure_put(pid_set, NULL, PID_TO_PTR(pid->pid));
                         if (r < 0)
