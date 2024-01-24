@@ -553,7 +553,7 @@ int user_finalize(User *u) {
          * done. This is called as a result of an earlier user_done() when all jobs are completed. */
 
         if (u->started)
-                log_debug("User %s logged out.", u->user_record->user_name);
+                log_debug("User %s exited.", u->user_record->user_name);
 
         LIST_FOREACH(sessions_by_user, s, u->sessions)
                 RET_GATHER(r, session_finalize(s));
