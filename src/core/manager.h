@@ -550,7 +550,7 @@ int manager_propagate_reload(Manager *m, Unit *unit, JobMode mode, sd_bus_error 
 
 void manager_clear_jobs(Manager *m);
 
-void manager_unwatch_pidref(Manager *m, PidRef *pid);
+void manager_unwatch_pidref(Manager *m, const PidRef *pid);
 
 unsigned manager_dispatch_load_queue(Manager *m);
 

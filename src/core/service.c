@@ -2121,13 +2121,7 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
         (void) unit_enqueue_rewatch_pids(UNIT(s));
 
         kill_operation = state_to_kill_operation(s, state);
-        r = unit_kill_context(
-                        UNIT(s),
-                        &s->kill_context,
-                        kill_operation,
-                        &s->main_pid,
-                        &s->control_pid,
-                        s->main_pid_alien);
+        r = unit_kill_context(UNIT(s), kill_operation);
         if (r < 0) {
                 log_unit_warning_errno(UNIT(s), r, "Failed to kill processes: %m");
                 goto fail;
@@ -3707,6 +3701,7 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         Service *s = SERVICE(u);
         ServiceResult f;
         ExitClean clean_mode;
+        int r;
 
         assert(s);
         assert(pid >= 0);
@@ -3958,7 +3953,6 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
 
                                 if (s->pid_file) {
                                         bool has_start_post;
-                                        int r;
 
                                         /* Let's try to load the pid file here if we can.
                                          * The PID file might actually be created by a START_POST
@@ -3985,8 +3979,6 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                                 }
 
                                 if (s->pid_file) {
-                                        int r;
-
                                         r = service_load_pid_file(s, true);
                                         if (r < 0) {
                                                 r = service_demand_pid_file(s);
@@ -4786,8 +4778,13 @@ static void service_reset_failed(Unit *u) {
         s->flush_n_restarts = false;
 }
 
-static PidRef* service_main_pid(Unit *u) {
-        return &ASSERT_PTR(SERVICE(u))->main_pid;
+static PidRef* service_main_pid(Unit *u, bool *ret_is_alien) {
+        Service *s = ASSERT_PTR(SERVICE(u));
+
+        if (ret_is_alien)
+                *ret_is_alien = s->main_pid_alien;
+
+        return &s->main_pid;
 }
 
 static PidRef* service_control_pid(Unit *u) {

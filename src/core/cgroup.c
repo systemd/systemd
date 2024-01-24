@@ -4202,7 +4202,7 @@ Unit* manager_get_unit_by_cgroup(Manager *m, const char *cgroup) {
         }
 }
 
-Unit *manager_get_unit_by_pidref_cgroup(Manager *m, PidRef *pid) {
+Unit *manager_get_unit_by_pidref_cgroup(Manager *m, const PidRef *pid) {
         _cleanup_free_ char *cgroup = NULL;
 
         assert(m);
@@ -4213,7 +4213,7 @@ Unit *manager_get_unit_by_pidref_cgroup(Manager *m, PidRef *pid) {
         return manager_get_unit_by_cgroup(m, cgroup);
 }
 
-Unit *manager_get_unit_by_pidref_watching(Manager *m, PidRef *pid) {
+Unit *manager_get_unit_by_pidref_watching(Manager *m, const PidRef *pid) {
         Unit *u, **array;
 
         assert(m);
@@ -4232,7 +4232,7 @@ Unit *manager_get_unit_by_pidref_watching(Manager *m, PidRef *pid) {
         return NULL;
 }
 
-Unit *manager_get_unit_by_pidref(Manager *m, PidRef *pid) {
+Unit *manager_get_unit_by_pidref(Manager *m, const PidRef *pid) {
         Unit *u;
 
         assert(m);

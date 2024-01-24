@@ -2788,7 +2788,7 @@ void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_su
         }
 }
 
-int unit_watch_pidref(Unit *u, PidRef *pid, bool exclusive) {
+int unit_watch_pidref(Unit *u, const PidRef *pid, bool exclusive) {
         _cleanup_(pidref_freep) PidRef *pid_dup = NULL;
         int r;
 
@@ -2872,7 +2872,7 @@ int unit_watch_pid(Unit *u, pid_t pid, bool exclusive) {
         return unit_watch_pidref(u, &pidref, exclusive);
 }
 
-void unit_unwatch_pidref(Unit *u, PidRef *pid) {
+void unit_unwatch_pidref(Unit *u, const PidRef *pid) {
         assert(u);
         assert(pidref_is_set(pid));
 
@@ -3948,28 +3948,25 @@ void unit_notify_cgroup_oom(Unit *u, bool managed_oom) {
                 UNIT_VTABLE(u)->notify_cgroup_oom(u, managed_oom);
 }
 
-static Set *unit_pid_set(pid_t main_pid, pid_t control_pid) {
-        _cleanup_set_free_ Set *pid_set = NULL;
+static int unit_pid_set(Unit *u, Set **pid_set) {
         int r;
 
-        pid_set = set_new(NULL);
-        if (!pid_set)
-                return NULL;
+        assert(u);
+        assert(pid_set);
+
+        set_clear(*pid_set); /* This updates input. */
 
         /* Exclude the main/control pids from being killed via the cgroup */
-        if (main_pid > 0) {
-                r = set_put(pid_set, PID_TO_PTR(main_pid));
-                if (r < 0)
-                        return NULL;
-        }
 
-        if (control_pid > 0) {
-                r = set_put(pid_set, PID_TO_PTR(control_pid));
-                if (r < 0)
-                        return NULL;
-        }
+        PidRef *pid;
+        FOREACH_POINTER(pid, unit_main_pid(u), unit_control_pid(u))
+                if (pidref_is_set(pid)) {
+                        r = set_ensure_put(pid_set, NULL, PID_TO_PTR(pid->pid));
+                        if (r < 0)
+                                return r;
+                }
 
-        return TAKE_PTR(pid_set);
+        return 0;
 }
 
 static int kill_common_log(const PidRef *pid, int signo, void *userdata) {
@@ -4105,8 +4102,8 @@ int unit_kill(
                 _cleanup_set_free_ Set *pid_set = NULL;
 
                 /* Exclude the main/control pids from being killed via the cgroup */
-                pid_set = unit_pid_set(main_pid ? main_pid->pid : 0, control_pid ? control_pid->pid : 0);
-                if (!pid_set)
+                r = unit_pid_set(u, &pid_set);
+                if (r < 0)
                         return log_oom();
 
                 r = cg_kill_recursive(u->cgroup_path, signo, 0, pid_set, kill_common_log, u);
@@ -4749,26 +4746,19 @@ static int operation_to_signal(
         }
 }
 
-int unit_kill_context(
-                Unit *u,
-                KillContext *c,
-                KillOperation k,
-                PidRef* main_pid,
-                PidRef* control_pid,
-                bool main_pid_alien) {
-
+int unit_kill_context(Unit *u, KillOperation k) {
         bool wait_for_exit = false, send_sighup;
         cg_kill_log_func_t log_func = NULL;
         int sig, r;
 
         assert(u);
-        assert(c);
 
         /* Kill the processes belonging to this unit, in preparation for shutting the unit down.  Returns > 0
          * if we killed something worth waiting for, 0 otherwise. Do not confuse with unit_kill_common()
          * which is used for user-requested killing of unit processes. */
 
-        if (c->kill_mode == KILL_NONE)
+        KillContext *c = unit_get_kill_context(u);
+        if (!c || c->kill_mode == KILL_NONE)
                 return 0;
 
         bool noteworthy;
@@ -4781,6 +4771,8 @@ int unit_kill_context(
                 IN_SET(k, KILL_TERMINATE, KILL_TERMINATE_AND_LOG) &&
                 sig != SIGHUP;
 
+        bool is_alien;
+        PidRef *main_pid = unit_main_pid_full(u, &is_alien);
         if (pidref_is_set(main_pid)) {
                 if (log_func)
                         log_func(main_pid, sig, u);
@@ -4792,7 +4784,7 @@ int unit_kill_context(
 
                         log_unit_warning_errno(u, r, "Failed to kill main process " PID_FMT " (%s), ignoring: %m", main_pid->pid, strna(comm));
                 } else {
-                        if (!main_pid_alien)
+                        if (!is_alien)
                                 wait_for_exit = true;
 
                         if (r != -ESRCH && send_sighup)
@@ -4800,6 +4792,7 @@ int unit_kill_context(
                 }
         }
 
+        PidRef *control_pid = unit_control_pid(u);
         if (pidref_is_set(control_pid)) {
                 if (log_func)
                         log_func(control_pid, sig, u);
@@ -4823,9 +4816,9 @@ int unit_kill_context(
                 _cleanup_set_free_ Set *pid_set = NULL;
 
                 /* Exclude the main/control pids from being killed via the cgroup */
-                pid_set = unit_pid_set(main_pid ? main_pid->pid : 0, control_pid ? control_pid->pid : 0);
-                if (!pid_set)
-                        return -ENOMEM;
+                r = unit_pid_set(u, &pid_set);
+                if (r < 0)
+                        return r;
 
                 r = cg_kill_recursive(
                                 u->cgroup_path,
@@ -4851,11 +4844,9 @@ int unit_kill_context(
                                 wait_for_exit = true;
 
                         if (send_sighup) {
-                                set_free(pid_set);
-
-                                pid_set = unit_pid_set(main_pid ? main_pid->pid : 0, control_pid ? control_pid->pid : 0);
-                                if (!pid_set)
-                                        return -ENOMEM;
+                                r = unit_pid_set(u, &pid_set);
+                                if (r < 0)
+                                        return r;
 
                                 (void) cg_kill_recursive(
                                                 u->cgroup_path,
@@ -5112,12 +5103,14 @@ PidRef* unit_control_pid(Unit *u) {
         return NULL;
 }
 
-PidRef* unit_main_pid(Unit *u) {
+PidRef* unit_main_pid_full(Unit *u, bool *ret_is_alien) {
         assert(u);
 
         if (UNIT_VTABLE(u)->main_pid)
-                return UNIT_VTABLE(u)->main_pid(u);
+                return UNIT_VTABLE(u)->main_pid(u, ret_is_alien);
 
+        if (ret_is_alien)
+                *ret_is_alien = false;
         return NULL;
 }
 
@@ -5910,7 +5903,7 @@ bool unit_needs_console(Unit *u) {
         return exec_context_may_touch_console(ec);
 }
 
-int unit_pid_attachable(Unit *u, PidRef *pid, sd_bus_error *error) {
+int unit_pid_attachable(Unit *u, const PidRef *pid, sd_bus_error *error) {
         int r;
 
         assert(u);

@@ -732,7 +732,7 @@ typedef struct UnitVTable {
         usec_t (*get_timeout_start_usec)(Unit *u);
 
         /* Returns the main PID if there is any defined, or 0. */
-        PidRef* (*main_pid)(Unit *u);
+        PidRef* (*main_pid)(Unit *u, bool *ret_is_alien);
 
         /* Returns the control PID if there is any defined, or 0. */
         PidRef* (*control_pid)(Unit *u);
@@ -931,9 +931,9 @@ void unit_notify_cgroup_oom(Unit *u, bool managed_oom);
 
 void unit_notify(Unit *u, UnitActiveState os, UnitActiveState ns, bool reload_success);
 
-int unit_watch_pidref(Unit *u, PidRef *pid, bool exclusive);
+int unit_watch_pidref(Unit *u, const PidRef *pid, bool exclusive);
 int unit_watch_pid(Unit *u, pid_t pid, bool exclusive);
-void unit_unwatch_pidref(Unit *u, PidRef *pid);
+void unit_unwatch_pidref(Unit *u, const PidRef *pid);
 void unit_unwatch_pid(Unit *u, pid_t pid);
 void unit_unwatch_all_pids(Unit *u);
 
@@ -1006,7 +1006,7 @@ char* unit_concat_strv(char **l, UnitWriteFlags flags);
 int unit_write_setting(Unit *u, UnitWriteFlags flags, const char *name, const char *data);
 int unit_write_settingf(Unit *u, UnitWriteFlags mode, const char *name, const char *format, ...) _printf_(4,5);
 
-int unit_kill_context(Unit *u, KillContext *c, KillOperation k, PidRef *main_pid, PidRef *control_pid, bool main_pid_alien);
+int unit_kill_context(Unit *u, KillOperation k);
 
 int unit_make_transient(Unit *u);
 
@@ -1021,7 +1021,10 @@ bool unit_is_upheld_by_active(Unit *u, Unit **ret_culprit);
 bool unit_is_bound_by_inactive(Unit *u, Unit **ret_culprit);
 
 PidRef* unit_control_pid(Unit *u);
-PidRef* unit_main_pid(Unit *u);
+PidRef* unit_main_pid_full(Unit *u, bool *ret_is_alien);
+static inline PidRef* unit_main_pid(Unit *u) {
+        return unit_main_pid_full(u, NULL);
+}
 
 void unit_warn_if_dir_nonempty(Unit *u, const char* where);
 int unit_fail_if_noncanonical(Unit *u, const char* where);
@@ -1055,7 +1058,7 @@ int unit_warn_leftover_processes(Unit *u, cg_kill_log_func_t log_func);
 
 bool unit_needs_console(Unit *u);
 
-int unit_pid_attachable(Unit *unit, PidRef *pid, sd_bus_error *error);
+int unit_pid_attachable(Unit *unit, const PidRef *pid, sd_bus_error *error);
 
 static inline bool unit_has_job_type(Unit *u, JobType type) {
         return u && u->job && u->job->type == type;

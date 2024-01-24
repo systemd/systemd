@@ -2405,7 +2405,7 @@ void manager_clear_jobs(Manager *m) {
                 job_finish_and_invalidate(j, JOB_CANCELED, false, false);
 }
 
-void manager_unwatch_pidref(Manager *m, PidRef *pid) {
+void manager_unwatch_pidref(Manager *m, const PidRef *pid) {
         assert(m);
 
         for (;;) {
