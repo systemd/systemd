@@ -266,12 +266,6 @@ static inline int __coverity_check_and_return__(int condition) {
 /* Pointers range from NULL to POINTER_MAX */
 #define POINTER_MAX ((void*) UINTPTR_MAX)
 
-/* Iterates through a specified list of pointers. Accepts NULL pointers, but uses POINTER_MAX as internal marker for EOL. */
-#define FOREACH_POINTER(p, x, ...)                                                       \
-        for (typeof(p) *_l = (typeof(p)[]) { ({ p = x; }), ##__VA_ARGS__, POINTER_MAX }; \
-             p != (typeof(p)) POINTER_MAX;                                               \
-             p = *(++_l))
-
 #define _FOREACH_ARRAY(i, array, num, m, end)                           \
         for (typeof(array[0]) *i = (array), *end = ({                   \
                                 typeof(num) m = (num);                  \
