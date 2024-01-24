@@ -105,7 +105,46 @@
     of scope units are the following:</para>
 
     <variablelist class='unit-directives'>
-      <xi:include href="systemd.service.xml" xpointer="oom-policy" />
+      <varlistentry id='oom-policy'>
+        <term><varname>OOMPolicy=</varname></term>
+
+        <listitem><para>Configure the out-of-memory (OOM) killing policy for the kernel and the userspace OOM
+        killer
+        <citerefentry><refentrytitle>systemd-oomd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        On Linux, when memory becomes scarce to the point that the kernel has trouble allocating memory for
+        itself, it might decide to kill a running process in order to free up memory and reduce memory
+        pressure. Note that <filename>systemd-oomd.service</filename> is a more flexible solution that aims
+        to prevent out-of-memory situations for the userspace too, not just the kernel, by attempting to
+        terminate services earlier, before the kernel would have to act.</para>
+
+        <para>This setting takes one of <constant>continue</constant>, <constant>stop</constant> or
+        <constant>kill</constant>. If set to <constant>continue</constant> and a process in the unit is
+        killed by the OOM killer, this is logged but the unit continues running. If set to
+        <constant>stop</constant> the event is logged but the unit is terminated cleanly by the service
+        manager. If set to <constant>kill</constant> and one of the unit's processes is killed by the OOM
+        killer the kernel is instructed to kill all remaining processes of the unit too, by setting the
+        <filename>memory.oom.group</filename> attribute to <constant>1</constant>; also see kernel
+        page <ulink url="https://docs.kernel.org/admin-guide/cgroup-v2.html">Control Group v2</ulink>.
+        </para>
+
+        <para>Defaults to the setting <varname>DefaultOOMPolicy=</varname> in
+        <citerefentry><refentrytitle>systemd-system.conf</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+        is set to, except for units where <varname>Delegate=</varname> is turned on, where it defaults to
+        <constant>continue</constant>.</para>
+
+        <para>Use the <varname>OOMScoreAdjust=</varname> setting to configure whether processes of the unit
+        shall be considered preferred or less preferred candidates for process termination by the Linux OOM
+        killer logic. See
+        <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
+        details.</para>
+
+        <para>This setting also applies to
+        <citerefentry><refentrytitle>systemd-oomd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>.
+        Similarly to the kernel OOM kills performed by the kernel, this setting determines the state of the
+        unit after <command>systemd-oomd</command> kills a cgroup associated with it.</para>
+
+        <xi:include href="version-info.xml" xpointer="v253"/></listitem>
+      </varlistentry>
 
       <varlistentry>
         <term><varname>RuntimeMaxSec=</varname></term>
