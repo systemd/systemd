@@ -317,13 +317,9 @@ static void scope_enter_signal(Scope *s, ScopeState state, ScopeResult f) {
         else {
                 r = unit_kill_context(
                                 UNIT(s),
-                                &s->kill_context,
                                 state != SCOPE_STOP_SIGTERM ? KILL_KILL :
                                 s->was_abandoned            ? KILL_TERMINATE_AND_LOG :
-                                                              KILL_TERMINATE,
-                                /* main_pid= */ NULL,
-                                /* control_pid= */ NULL,
-                                /* main_pid_alien= */ false);
+                                                              KILL_TERMINATE);
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to kill processes: %m");
                         goto fail;
