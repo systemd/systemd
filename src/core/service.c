@@ -4786,8 +4786,13 @@ static void service_reset_failed(Unit *u) {
         s->flush_n_restarts = false;
 }
 
-static PidRef* service_main_pid(Unit *u) {
-        return &ASSERT_PTR(SERVICE(u))->main_pid;
+static PidRef* service_main_pid(Unit *u, bool *ret_is_alien) {
+        Service *s = ASSERT_PTR(SERVICE(u));
+
+        if (ret_is_alien)
+                *ret_is_alien = s->main_pid_alien;
+
+        return &s->main_pid;
 }
 
 static PidRef* service_control_pid(Unit *u) {

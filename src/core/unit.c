@@ -5112,12 +5112,14 @@ PidRef* unit_control_pid(Unit *u) {
         return NULL;
 }
 
-PidRef* unit_main_pid(Unit *u) {
+PidRef* unit_main_pid_full(Unit *u, bool *ret_is_alien) {
         assert(u);
 
         if (UNIT_VTABLE(u)->main_pid)
-                return UNIT_VTABLE(u)->main_pid(u);
+                return UNIT_VTABLE(u)->main_pid(u, ret_is_alien);
 
+        if (ret_is_alien)
+                *ret_is_alien = false;
         return NULL;
 }
 

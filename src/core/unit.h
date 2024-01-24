@@ -732,7 +732,7 @@ typedef struct UnitVTable {
         usec_t (*get_timeout_start_usec)(Unit *u);
 
         /* Returns the main PID if there is any defined, or 0. */
-        PidRef* (*main_pid)(Unit *u);
+        PidRef* (*main_pid)(Unit *u, bool *ret_is_alien);
 
         /* Returns the control PID if there is any defined, or 0. */
         PidRef* (*control_pid)(Unit *u);
@@ -1021,7 +1021,10 @@ bool unit_is_upheld_by_active(Unit *u, Unit **ret_culprit);
 bool unit_is_bound_by_inactive(Unit *u, Unit **ret_culprit);
 
 PidRef* unit_control_pid(Unit *u);
-PidRef* unit_main_pid(Unit *u);
+PidRef* unit_main_pid_full(Unit *u, bool *ret_is_alien);
+static inline PidRef* unit_main_pid(Unit *u) {
+        return unit_main_pid_full(u, NULL);
+}
 
 void unit_warn_if_dir_nonempty(Unit *u, const char* where);
 int unit_fail_if_noncanonical(Unit *u, const char* where);
