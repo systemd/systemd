@@ -9,7 +9,10 @@
 #include "conf-files.h"
 #include "constants.h"
 #include "dirent-util.h"
+#include "errno-util.h"
 #include "fd-util.h"
+#include "fileio.h"
+#include "glyph-util.h"
 #include "hashmap.h"
 #include "log.h"
 #include "macro.h"
@@ -371,4 +374,98 @@ int conf_files_list_dropins(
                 return r;
 
         return conf_files_list_strv(ret, ".conf", root, 0, (const char* const*) dropin_dirs);
+}
+
+/**
+ * Open and read a config file.
+ *
+ * The <fn> argument may be:
+ * - '-', meaning stdin.
+ * - a file name without a path. In this case <config_dirs> are searched.
+ * - a path, either relative or absolute. In this case <fn> is opened directly.
+ *
+ * This method is only suitable for configuration files which have a flat layout without dropins.
+ */
+int conf_file_read(
+                const char *root,
+                const char **config_dirs,
+                const char *fn,
+                parse_line_t parse_line,
+                void *userdata,
+                bool ignore_enoent,
+                bool *invalid_config) {
+
+        _cleanup_fclose_ FILE *_f = NULL;
+        _cleanup_free_ char *_fn = NULL;
+        unsigned v = 0;
+        FILE *f;
+        int r = 0;
+
+        assert(fn);
+
+        if (streq(fn, "-")) {
+                f = stdin;
+                fn = "<stdin>";
+
+                log_debug("Reading config from stdin%s", special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+
+        } else if (is_path(fn)) {
+                r = path_make_absolute_cwd(fn, &_fn);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to make path absolute: %m");
+                fn = _fn;
+
+                f = _f = fopen(fn, "re");
+                if (!_f)
+                        r = -errno;
+                else
+                        log_debug("Reading config file \"%s\"%s", fn, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+
+        } else {
+                r = search_and_fopen(fn, "re", root, config_dirs, &_f, &_fn);
+                if (r >= 0) {
+                        f = _f;
+                        fn = _fn;
+                        log_debug("Reading config file \"%s\"%s", fn, special_glyph(SPECIAL_GLYPH_ELLIPSIS));
+                }
+        }
+
+        if (r == -ENOENT && ignore_enoent) {
+                log_debug_errno(r, "Failed to open \"%s\", ignoring: %m", fn);
+                return 0; /* No error, but nothing happened. */
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read '%s': %m", fn);
+
+        r = 1;  /* We entered the part where we may modify state. */
+
+        for (;;) {
+                _cleanup_free_ char *line = NULL;
+                bool invalid_line = false;
+                int k;
+
+                k = read_stripped_line(f, LONG_LINE_MAX, &line);
+                if (k < 0)
+                        return log_error_errno(k, "Failed to read '%s': %m", fn);
+                if (k == 0)
+                        break;
+
+                v++;
+
+                if (IN_SET(line[0], 0, '#'))
+                        continue;
+
+                k = parse_line(userdata, fn, v, line, invalid_config ? &invalid_line : NULL);
+                if (k < 0 && invalid_line)
+                        /* Allow reporting with a special code if the caller requested this. */
+                        *invalid_config = true;
+                else
+                        /* The first error, if any, becomes our return value. */
+                        RET_GATHER(r, k);
+        }
+
+        if (ferror(f))
+                RET_GATHER(r, log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to read from file %s.", fn));
+
+        return r;
 }

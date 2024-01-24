@@ -8,26 +8,27 @@ set -o pipefail
 
 export SYSTEMD_LOG_LEVEL=debug
 
-systemd-tmpfiles --create - <<EOF
+c='
 d /tmp/somedir
 f /tmp/somedir/somefile - - - - baz
-EOF
+'
 
+systemd-tmpfiles --create - <<<"$c"
 test -f /tmp/somedir/somefile
 grep -q baz /tmp/somedir/somefile
 
-systemd-tmpfiles --purge - <<EOF
-d /tmp/somedir
-f /tmp/somedir/somefile - - - - baz
-EOF
+systemd-tmpfiles --purge --dry-run - <<<"$c"
+test -f /tmp/somedir/somefile
+grep -q baz /tmp/somedir/somefile
 
+systemd-tmpfiles --purge - <<<"$c"
 test ! -f /tmp/somedir/somefile
 test ! -d /tmp/somedir/
 
-systemd-tmpfiles --create --purge - <<EOF
-d /tmp/somedir
-f /tmp/somedir/somefile - - - - baz
-EOF
+systemd-tmpfiles --create --purge --dry-run - <<<"$c"
+test ! -f /tmp/somedir/somefile
+test ! -d /tmp/somedir/
 
+systemd-tmpfiles --create --purge - <<<"$c"
 test -f /tmp/somedir/somefile
 grep -q baz /tmp/somedir/somefile
