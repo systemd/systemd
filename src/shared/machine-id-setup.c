@@ -78,7 +78,7 @@ static int generate_machine_id(const char *root, sd_id128_t *ret) {
                                 return 0;
                         }
 
-                } else if (IN_SET(detect_vm(), VIRTUALIZATION_KVM, VIRTUALIZATION_AMAZON, VIRTUALIZATION_QEMU)) {
+                } else if (IN_SET(detect_vm(), VIRTUALIZATION_KVM, VIRTUALIZATION_AMAZON, VIRTUALIZATION_QEMU, VIRTUALIZATION_XEN)) {
 
                         /* If we are not running in a container, see if we are running in a VM that provides
                          * a system UUID via the SMBIOS/DMI interfaces.  Such environments include QEMU/KVM

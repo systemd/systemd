@@ -101,7 +101,8 @@
     to use the D-Bus machine ID from <filename>/var/lib/dbus/machine-id</filename>, the
     value of the kernel command line option <varname>container_uuid</varname>, the KVM DMI
     <filename>product_uuid</filename> or the devicetree <filename>vm,uuid</filename>
-    (on KVM systems), and finally a randomly generated UUID.</para>
+    (on KVM systems), the Xen hypervisor <filename>uuid</filename>, and finally a randomly
+    generated UUID.</para>
 
     <para>After the machine ID is established,
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>
