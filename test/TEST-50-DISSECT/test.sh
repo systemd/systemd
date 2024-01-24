@@ -21,12 +21,19 @@ test_append_files() {
     generate_module_dependencies
     inst_binary wc
     inst_binary sha256sum
+    inst_binary tar
     if command -v openssl >/dev/null 2>&1; then
         inst_binary openssl
     fi
     inst_binary mksquashfs
     inst_binary unsquashfs
     install_verity_minimal
+    local la
+    la="$(systemd-path system-library-arch)/libarchive.so.13"
+    if test -f "$la" ; then
+        inst_library "$la"
+        inst_libs "$la"
+    fi
 }
 
 do_test "$@"
