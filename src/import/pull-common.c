@@ -550,7 +550,6 @@ int pull_verify(ImportVerify verify,
                 log_debug("Main download is a checksum file, can't validate its checksum with itself, skipping.");
                 verify_job = main_job;
         } else {
-                PullJob *j;
                 assert(main_job->calc_checksum);
                 assert(main_job->checksum);
                 assert(checksum_job);
@@ -560,7 +559,8 @@ int pull_verify(ImportVerify verify,
                         return log_error_errno(SYNTHETIC_ERRNO(EBADMSG),
                                                "Checksum is empty, cannot verify.");
 
-                FOREACH_POINTER(j, main_job, settings_job, roothash_job, roothash_signature_job, verity_job) {
+                PullJob *j;
+                FOREACH_ARGUMENT(j, main_job, settings_job, roothash_job, roothash_signature_job, verity_job) {
                         r = verify_one(checksum_job, j);
                         if (r < 0)
                                 return r;

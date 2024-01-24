@@ -446,14 +446,15 @@ bool fstype_needs_quota(const char *fstype) {
 }
 
 bool fstype_is_api_vfs(const char *fstype) {
-        const FilesystemSet *fs;
+        assert(fstype);
 
-        FOREACH_POINTER(fs,
-                filesystem_sets + FILESYSTEM_SET_BASIC_API,
-                filesystem_sets + FILESYSTEM_SET_AUXILIARY_API,
-                filesystem_sets + FILESYSTEM_SET_PRIVILEGED_API,
-                filesystem_sets + FILESYSTEM_SET_TEMPORARY)
-            if (nulstr_contains(fs->value, fstype))
+        const FilesystemSet *fs;
+        FOREACH_ARGUMENT(fs,
+                         filesystem_sets + FILESYSTEM_SET_BASIC_API,
+                         filesystem_sets + FILESYSTEM_SET_AUXILIARY_API,
+                         filesystem_sets + FILESYSTEM_SET_PRIVILEGED_API,
+                         filesystem_sets + FILESYSTEM_SET_TEMPORARY)
+                if (nulstr_contains(fs->value, fstype))
                     return true;
 
         /* Filesystems not present in the internal database */

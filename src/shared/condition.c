@@ -141,7 +141,6 @@ static int condition_test_kernel_command_line(Condition *c, char **env) {
 }
 
 static int condition_test_credential(Condition *c, char **env) {
-        int (*gd)(const char **ret);
         int r;
 
         assert(c);
@@ -155,7 +154,8 @@ static int condition_test_credential(Condition *c, char **env) {
         if (!credential_name_valid(c->parameter)) /* credentials with invalid names do not exist */
                 return false;
 
-        FOREACH_POINTER(gd, get_credentials_dir, get_encrypted_credentials_dir) {
+        int (*gd)(const char **ret);
+        FOREACH_ARGUMENT(gd, get_credentials_dir, get_encrypted_credentials_dir) {
                 _cleanup_free_ char *j = NULL;
                 const char *cd;
 

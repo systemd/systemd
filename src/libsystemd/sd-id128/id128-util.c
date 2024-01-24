@@ -12,6 +12,7 @@
 #include "sha256.h"
 #include "stdio-util.h"
 #include "string-util.h"
+#include "strv.h"
 #include "sync-util.h"
 #include "virt.h"
 
@@ -231,11 +232,15 @@ int id128_get_product(sd_id128_t *ret) {
                     * of the host */
                 return -ENOENT;
 
-        r = id128_read("/sys/class/dmi/id/product_uuid", ID128_FORMAT_UUID, &uuid);
-        if (r == -ENOENT)
-                r = id128_read("/proc/device-tree/vm,uuid", ID128_FORMAT_UUID, &uuid);
-        if (r == -ENOENT)
-                r = id128_read("/sys/hypervisor/uuid", ID128_FORMAT_UUID, &uuid);
+        FOREACH_STRING(i,
+                       "/sys/class/dmi/id/product_uuid", /* KVM */
+                       "/proc/device-tree/vm,uuid",      /* Device tree */
+                       "/sys/hypervisor/uuid") {         /* Xen */
+
+                r = id128_read(i, ID128_FORMAT_UUID, &uuid);
+                if (r != -ENOENT)
+                        break;
+        }
         if (r < 0)
                 return r;
 

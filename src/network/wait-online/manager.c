@@ -92,7 +92,7 @@ static int manager_link_is_online(Manager *m, Link *l, const LinkOperationalStat
                                             l->state);
 
         const LinkOperationalStateRange *range;
-        FOREACH_POINTER(range, state_range, &m->required_operstate, &l->required_operstate)
+        FOREACH_ARGUMENT(range, state_range, &m->required_operstate, &l->required_operstate)
                 if (operational_state_range_is_valid(range))
                         break;
         assert(range != POINTER_MAX);
