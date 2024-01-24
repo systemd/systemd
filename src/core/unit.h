@@ -1006,7 +1006,7 @@ char* unit_concat_strv(char **l, UnitWriteFlags flags);
 int unit_write_setting(Unit *u, UnitWriteFlags flags, const char *name, const char *data);
 int unit_write_settingf(Unit *u, UnitWriteFlags mode, const char *name, const char *format, ...) _printf_(4,5);
 
-int unit_kill_context(Unit *u, KillContext *c, KillOperation k, PidRef *main_pid, PidRef *control_pid, bool main_pid_alien);
+int unit_kill_context(Unit *u, KillOperation k);
 
 int unit_make_transient(Unit *u);
 

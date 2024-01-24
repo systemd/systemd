@@ -2070,13 +2070,7 @@ static void socket_enter_signal(Socket *s, SocketState state, SocketResult f) {
         if (s->result == SOCKET_SUCCESS)
                 s->result = f;
 
-        r = unit_kill_context(
-                        UNIT(s),
-                        &s->kill_context,
-                        state_to_kill_operation(s, state),
-                        /* main_pid= */ NULL,
-                        &s->control_pid,
-                        /* main_pid_alien= */ false);
+        r = unit_kill_context(UNIT(s), state_to_kill_operation(s, state));
         if (r < 0) {
                 log_unit_warning_errno(UNIT(s), r, "Failed to kill processes: %m");
                 goto fail;

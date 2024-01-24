@@ -4749,26 +4749,19 @@ static int operation_to_signal(
         }
 }
 
-int unit_kill_context(
-                Unit *u,
-                KillContext *c,
-                KillOperation k,
-                PidRef* main_pid,
-                PidRef* control_pid,
-                bool main_pid_alien) {
-
+int unit_kill_context(Unit *u, KillOperation k) {
         bool wait_for_exit = false, send_sighup;
         cg_kill_log_func_t log_func = NULL;
         int sig, r;
 
         assert(u);
-        assert(c);
 
         /* Kill the processes belonging to this unit, in preparation for shutting the unit down.  Returns > 0
          * if we killed something worth waiting for, 0 otherwise. Do not confuse with unit_kill_common()
          * which is used for user-requested killing of unit processes. */
 
-        if (c->kill_mode == KILL_NONE)
+        KillContext *c = unit_get_kill_context(u);
+        if (!c || c->kill_mode == KILL_NONE)
                 return 0;
 
         bool noteworthy;
@@ -4781,6 +4774,8 @@ int unit_kill_context(
                 IN_SET(k, KILL_TERMINATE, KILL_TERMINATE_AND_LOG) &&
                 sig != SIGHUP;
 
+        bool is_alien;
+        PidRef *main_pid = unit_main_pid_full(u, &is_alien);
         if (pidref_is_set(main_pid)) {
                 if (log_func)
                         log_func(main_pid, sig, u);
@@ -4792,7 +4787,7 @@ int unit_kill_context(
 
                         log_unit_warning_errno(u, r, "Failed to kill main process " PID_FMT " (%s), ignoring: %m", main_pid->pid, strna(comm));
                 } else {
-                        if (!main_pid_alien)
+                        if (!is_alien)
                                 wait_for_exit = true;
 
                         if (r != -ESRCH && send_sighup)
@@ -4800,6 +4795,7 @@ int unit_kill_context(
                 }
         }
 
+        PidRef *control_pid = unit_control_pid(u);
         if (pidref_is_set(control_pid)) {
                 if (log_func)
                         log_func(control_pid, sig, u);

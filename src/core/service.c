@@ -2121,13 +2121,7 @@ static void service_enter_signal(Service *s, ServiceState state, ServiceResult f
         (void) unit_enqueue_rewatch_pids(UNIT(s));
 
         kill_operation = state_to_kill_operation(s, state);
-        r = unit_kill_context(
-                        UNIT(s),
-                        &s->kill_context,
-                        kill_operation,
-                        &s->main_pid,
-                        &s->control_pid,
-                        s->main_pid_alien);
+        r = unit_kill_context(UNIT(s), kill_operation);
         if (r < 0) {
                 log_unit_warning_errno(UNIT(s), r, "Failed to kill processes: %m");
                 goto fail;
