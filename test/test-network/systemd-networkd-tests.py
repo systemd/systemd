@@ -6562,6 +6562,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
             print(output)
             if ipv4:
                 self.assertIn('8.8.8.8#dns.google', output)
+                self.assertIn('0.7.4.2#homer.simpson', output)
             else:
                 self.assertNotIn('8.8.8.8#dns.google', output)
             if ipv6:
@@ -6576,6 +6577,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         start_networkd()
         self.wait_online('veth-peer:carrier')
         dnr_v4 = dnr_v4_instance_data(adn = "dns.google", addrs = ["8.8.8.8", "8.8.4.4"])
+        dnr_v4 += dnr_v4_instance_data(adn = "homer.simpson", addrs = ["0.7.4.2"], alpns = ("dot","h2","h3"), dohpath = "/springfield{?dns}")
         dnr_v6 = dnr_v6_instance_data(adn = "dns.google", addrs = ["2001:4860:4860::8888", "2001:4860:4860::8844"])
         masq = lambda bs: ':'.join(f"{b:02x}" for b in bs)
         start_dnsmasq(f'--dhcp-option=162,{masq(dnr_v4)}',
