@@ -152,12 +152,7 @@ static void swap_init(Unit *u) {
 
 static void swap_unwatch_control_pid(Swap *s) {
         assert(s);
-
-        if (!pidref_is_set(&s->control_pid))
-                return;
-
-        unit_unwatch_pidref(UNIT(s), &s->control_pid);
-        pidref_done(&s->control_pid);
+        unit_unwatch_pidref_done(UNIT(s), &s->control_pid);
 }
 
 static void swap_done(Unit *u) {
