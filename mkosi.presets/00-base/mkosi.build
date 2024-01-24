@@ -161,6 +161,7 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
         -D initrd=true
         -D fexecve=true
         -D default-keymap="$DEFAULT_KEYMAP"
+        -D libarchive=enabled
     )
 
     # On debian-like systems the library directory is not /usr/lib64 but /usr/lib/<arch-triplet>/.

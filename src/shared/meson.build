@@ -101,6 +101,7 @@ shared_sources = files(
         'keyring-util.c',
         'killall.c',
         'label-util.c',
+        'libarchive-util.c',
         'libcrypt-util.c',
         'libfido2-util.c',
         'libmount-util.c',

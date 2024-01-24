@@ -7,6 +7,7 @@
 #include "cryptsetup-util.h"
 #include "elf-util.h"
 #include "idn-util.h"
+#include "libarchive-util.h"
 #include "libfido2-util.h"
 #include "macro.h"
 #include "main-func.h"
@@ -68,6 +69,10 @@ static int run(int argc, char **argv) {
 
 #if HAVE_P11KIT
         assert_se(dlopen_p11kit() >= 0);
+#endif
+
+#if HAVE_LIBARCHIVE
+        assert_se(dlopen_libarchive() >= 0);
 #endif
 
         return 0;

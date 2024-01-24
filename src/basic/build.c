@@ -238,6 +238,12 @@ const char* const systemd_features =
         " -SYSVINIT"
 #endif
 
+#if HAVE_LIBARCHIVE
+        " +LIBARCHIVE"
+#else
+        " -LIBARCHIVE"
+#endif
+
         " default-hierarchy=" DEFAULT_HIERARCHY_NAME
         ;
 
