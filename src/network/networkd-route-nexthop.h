@@ -26,6 +26,9 @@ typedef struct RouteNextHop {
 
 #define ROUTE_NEXTHOP_NULL ((const RouteNextHop) {})
 
+void route_detach_from_nexthop(Route *route);
+void route_attach_to_nexthop(Route *route);
+
 RouteNextHop* route_nexthop_free(RouteNextHop *nh);
 DEFINE_TRIVIAL_CLEANUP_FUNC(RouteNextHop*, route_nexthop_free);
 
