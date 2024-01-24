@@ -4032,7 +4032,7 @@ int config_parse_delegate(
 
         } else if (r > 0) {
                 c->delegate = true;
-                c->delegate_controllers = _CGROUP_MASK_ALL;
+                c->delegate_controllers = CGROUP_MASK_DELEGATE;
         } else {
                 c->delegate = false;
                 c->delegate_controllers = 0;
