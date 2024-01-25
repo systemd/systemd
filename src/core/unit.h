@@ -925,7 +925,7 @@ int unit_start(Unit *u, ActivationDetails *details);
 int unit_stop(Unit *u);
 int unit_reload(Unit *u);
 
-int unit_kill(Unit *u, KillWho w, int signo, int code, int value, sd_bus_error *error);
+int unit_kill(Unit *u, KillWho w, int signo, int code, int value, sd_bus_error *ret_error);
 
 void unit_notify_cgroup_oom(Unit *u, bool managed_oom);
 
