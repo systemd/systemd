@@ -2934,6 +2934,16 @@ void unit_unwatch_all_pids(Unit *u) {
         u->pids = set_free(u->pids);
 }
 
+void unit_unwatch_pidref_done(Unit *u, PidRef *pidref) {
+        assert(u);
+
+        if (!pidref_is_set(pidref))
+                return;
+
+        unit_unwatch_pidref(u, pidref);
+        pidref_done(pidref);
+}
+
 static void unit_tidy_watch_pids(Unit *u) {
         PidRef *except1, *except2, *e;
 
@@ -4000,6 +4010,48 @@ static int kill_or_sigqueue(PidRef* pidref, int signo, int code, int value) {
         }
 }
 
+static int unit_kill_one(
+                Unit *u,
+                PidRef *pidref,
+                int signo,
+                int code,
+                int value,
+                sd_bus_error *error,
+                const char *type) {
+
+        int r;
+
+        assert(u);
+        assert(type);
+
+        if (!pidref_is_set(pidref))
+                return 0;
+
+        _cleanup_free_ char *comm = NULL;
+        (void) pidref_get_comm(pidref, &comm);
+
+        r = kill_or_sigqueue(pidref, signo, code, value);
+        if (r == -ESRCH)
+                return 0;
+        if (r < 0) {
+                /* Report this failure both to the logs and to the client */
+                if (!sd_bus_error_is_set(error))
+                        sd_bus_error_set_errnof(
+                                        error, r,
+                                        "Failed to send signal SIG%s to %s process " PID_FMT " (%s): %m",
+                                        signal_to_string(signo), type, pidref->pid, strna(comm));
+
+                return log_unit_warning_errno(
+                                u, r,
+                                "Failed to send signal SIG%s to %s process " PID_FMT " (%s) on client request: %m",
+                                signal_to_string(signo), type, pidref->pid, strna(comm));
+        }
+
+        log_unit_info(u, "Sent signal SIG%s to %s process " PID_FMT " (%s) on client request.",
+                      signal_to_string(signo), type, pidref->pid, strna(comm));
+        return 1; /* killed */
+}
+
 int unit_kill(
                 Unit *u,
                 KillWho who,
@@ -4042,57 +4094,16 @@ int unit_kill(
                         return sd_bus_error_set_const(error, BUS_ERROR_NO_SUCH_PROCESS, "No control process to kill");
         }
 
-        if (pidref_is_set(control_pid) &&
-            IN_SET(who, KILL_CONTROL, KILL_CONTROL_FAIL, KILL_ALL, KILL_ALL_FAIL)) {
-                _cleanup_free_ char *comm = NULL;
-                (void) pidref_get_comm(control_pid, &comm);
-
-                r = kill_or_sigqueue(control_pid, signo, code, value);
-                if (r < 0) {
-                        ret = r;
-
-                        /* Report this failure both to the logs and to the client */
-                        sd_bus_error_set_errnof(
-                                        error, r,
-                                        "Failed to send signal SIG%s to control process " PID_FMT " (%s): %m",
-                                        signal_to_string(signo), control_pid->pid, strna(comm));
-                        log_unit_warning_errno(
-                                        u, r,
-                                        "Failed to send signal SIG%s to control process " PID_FMT " (%s) on client request: %m",
-                                        signal_to_string(signo), control_pid->pid, strna(comm));
-                } else {
-                        log_unit_info(u, "Sent signal SIG%s to control process " PID_FMT " (%s) on client request.",
-                                      signal_to_string(signo), control_pid->pid, strna(comm));
-                        killed = true;
-                }
+        if (IN_SET(who, KILL_CONTROL, KILL_CONTROL_FAIL, KILL_ALL, KILL_ALL_FAIL)) {
+                r = unit_kill_one(u, control_pid, signo, code, value, error, "control");
+                RET_GATHER(ret, r);
+                killed = killed || r > 0;
         }
 
-        if (pidref_is_set(main_pid) &&
-            IN_SET(who, KILL_MAIN, KILL_MAIN_FAIL, KILL_ALL, KILL_ALL_FAIL)) {
-                _cleanup_free_ char *comm = NULL;
-                (void) pidref_get_comm(main_pid, &comm);
-
-                r = kill_or_sigqueue(main_pid, signo, code, value);
-                if (r < 0) {
-                        if (ret == 0) {
-                                ret = r;
-
-                                sd_bus_error_set_errnof(
-                                                error, r,
-                                                "Failed to send signal SIG%s to main process " PID_FMT " (%s): %m",
-                                                signal_to_string(signo), main_pid->pid, strna(comm));
-                        }
-
-                        log_unit_warning_errno(
-                                        u, r,
-                                        "Failed to send signal SIG%s to main process " PID_FMT " (%s) on client request: %m",
-                                        signal_to_string(signo), main_pid->pid, strna(comm));
-
-                } else {
-                        log_unit_info(u, "Sent signal SIG%s to main process " PID_FMT " (%s) on client request.",
-                                      signal_to_string(signo), main_pid->pid, strna(comm));
-                        killed = true;
-                }
+        if (IN_SET(who, KILL_MAIN, KILL_MAIN_FAIL, KILL_ALL, KILL_ALL_FAIL)) {
+                r = unit_kill_one(u, main_pid, signo, code, value, error, "main");
+                RET_GATHER(ret, r);
+                killed = killed || r > 0;
         }
 
         /* Note: if we shall enqueue rather than kill we won't do this via the cgroup mechanism, since it
@@ -4107,29 +4118,29 @@ int unit_kill(
                         return log_oom();
 
                 r = cg_kill_recursive(u->cgroup_path, signo, 0, pid_set, kill_common_log, u);
-                if (r < 0) {
-                        if (!IN_SET(r, -ESRCH, -ENOENT)) {
-                                if (ret == 0) {
-                                        ret = r;
+                if (r < 0 && !IN_SET(r, -ESRCH, -ENOENT)) {
+                        RET_GATHER(ret, r);
 
-                                        sd_bus_error_set_errnof(
-                                                        error, r,
-                                                        "Failed to send signal SIG%s to auxiliary processes: %m",
-                                                        signal_to_string(signo));
-                                }
-
-                                log_unit_warning_errno(
-                                                u, r,
-                                                "Failed to send signal SIG%s to auxiliary processes on client request: %m",
+                        if (!sd_bus_error_is_set(error))
+                                sd_bus_error_set_errnof(
+                                                error, r,
+                                                "Failed to send signal SIG%s to auxiliary processes: %m",
                                                 signal_to_string(signo));
-                        }
-                } else
-                        killed = true;
+
+                        log_unit_warning_errno(
+                                        u, r,
+                                        "Failed to send signal SIG%s to auxiliary processes on client request: %m",
+                                        signal_to_string(signo));
+                }
+
+                killed = killed || r >= 0;
         }
 
         /* If the "fail" versions of the operation are requested, then complain if the set of processes we killed is empty */
-        if (ret == 0 && !killed && IN_SET(who, KILL_ALL_FAIL, KILL_CONTROL_FAIL, KILL_MAIN_FAIL))
+        if (ret >= 0 && !killed && IN_SET(who, KILL_ALL_FAIL, KILL_CONTROL_FAIL, KILL_MAIN_FAIL)) {
+                assert(!sd_bus_error_is_set(error))
                 return sd_bus_error_set_const(error, BUS_ERROR_NO_SUCH_PROCESS, "No matching processes to kill");
+        }
 
         return ret;
 }
@@ -4746,6 +4757,42 @@ static int operation_to_signal(
         }
 }
 
+static int unit_kill_context_one(
+                Unit *u,
+                const PidRef *pidref,
+                bool is_alien,
+                int sig,
+                bool send_sighup,
+                cg_kill_log_func_t log_func,
+                const char *type) {
+
+        int r;
+
+        assert(u);
+        assert(type);
+
+        if (!pidref_is_set(pidref))
+                return 0;
+
+        if (log_func)
+                log_func(pidref, sig, u);
+
+        r = pidref_kill_and_sigcont(pidref, sig);
+        if (r == -ESRCH)
+                return 0;
+        if (r < 0) {
+                _cleanup_free_ char *comm = NULL;
+
+                (void) pidref_get_comm(pidref, &comm);
+                return log_unit_warning_errno(u, r, "Failed to kill %s process " PID_FMT " (%s), ignoring: %m", type, pidref->pid, strna(comm));
+        }
+
+        if (send_sighup)
+                (void) pidref_kill(pidref, SIGHUP);
+
+        return !is_alien;
+}
+
 int unit_kill_context(Unit *u, KillOperation k) {
         bool wait_for_exit = false, send_sighup;
         cg_kill_log_func_t log_func = NULL;
@@ -4773,43 +4820,11 @@ int unit_kill_context(Unit *u, KillOperation k) {
 
         bool is_alien;
         PidRef *main_pid = unit_main_pid_full(u, &is_alien);
-        if (pidref_is_set(main_pid)) {
-                if (log_func)
-                        log_func(main_pid, sig, u);
+        r = unit_kill_context_one(u, main_pid, is_alien, sig, send_sighup, log_func, "main");
+        wait_for_exit = wait_for_exit || r > 0;
 
-                r = pidref_kill_and_sigcont(main_pid, sig);
-                if (r < 0 && r != -ESRCH) {
-                        _cleanup_free_ char *comm = NULL;
-                        (void) pidref_get_comm(main_pid, &comm);
-
-                        log_unit_warning_errno(u, r, "Failed to kill main process " PID_FMT " (%s), ignoring: %m", main_pid->pid, strna(comm));
-                } else {
-                        if (!is_alien)
-                                wait_for_exit = true;
-
-                        if (r != -ESRCH && send_sighup)
-                                (void) pidref_kill(main_pid, SIGHUP);
-                }
-        }
-
-        PidRef *control_pid = unit_control_pid(u);
-        if (pidref_is_set(control_pid)) {
-                if (log_func)
-                        log_func(control_pid, sig, u);
-
-                r = pidref_kill_and_sigcont(control_pid, sig);
-                if (r < 0 && r != -ESRCH) {
-                        _cleanup_free_ char *comm = NULL;
-                        (void) pidref_get_comm(control_pid, &comm);
-
-                        log_unit_warning_errno(u, r, "Failed to kill control process " PID_FMT " (%s), ignoring: %m", control_pid->pid, strna(comm));
-                } else {
-                        wait_for_exit = true;
-
-                        if (r != -ESRCH && send_sighup)
-                                (void) pidref_kill(control_pid, SIGHUP);
-                }
-        }
+        r = unit_kill_context_one(u, unit_control_pid(u), false, sig, send_sighup, log_func, "control");
+        wait_for_exit = wait_for_exit || r > 0;
 
         if (u->cgroup_path &&
             (c->kill_mode == KILL_CONTROL_GROUP || (c->kill_mode == KILL_MIXED && k == KILL_KILL))) {
