@@ -116,25 +116,25 @@ User *user_free(User *u) {
                 session_free(u->sessions);
 
         if (u->service)
-                hashmap_remove_value(u->manager->user_units, u->service, u);
+                (void) hashmap_remove_value(u->manager->user_units, u->service, u);
 
         if (u->runtime_dir_service)
-                hashmap_remove_value(u->manager->user_units, u->runtime_dir_service, u);
+                (void) hashmap_remove_value(u->manager->user_units, u->runtime_dir_service, u);
 
         if (u->slice)
-                hashmap_remove_value(u->manager->user_units, u->slice, u);
+                (void) hashmap_remove_value(u->manager->user_units, u->slice, u);
 
-        hashmap_remove_value(u->manager->users, UID_TO_PTR(u->user_record->uid), u);
+        (void) hashmap_remove_value(u->manager->users, UID_TO_PTR(u->user_record->uid), u);
 
         sd_event_source_unref(u->timer_event_source);
 
-        u->service_job = mfree(u->service_job);
+        free(u->service_job);
 
-        u->service = mfree(u->service);
-        u->runtime_dir_service = mfree(u->runtime_dir_service);
-        u->slice = mfree(u->slice);
-        u->runtime_path = mfree(u->runtime_path);
-        u->state_file = mfree(u->state_file);
+        free(u->service);
+        free(u->runtime_dir_service);
+        free(u->slice);
+        free(u->runtime_path);
+        free(u->state_file);
 
         user_record_unref(u->user_record);
 
