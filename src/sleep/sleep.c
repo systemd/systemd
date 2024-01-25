@@ -645,7 +645,9 @@ static int run(int argc, char *argv[]) {
 
         }
 
-        return r;
+        if (r < 0)
+                return log_error_errno(r, "Failed to execute operation: %m");
+        return 0;
 }
 
 DEFINE_MAIN_FUNCTION(run);
