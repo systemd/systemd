@@ -44,23 +44,8 @@ EOF
 fi
 
 if [ ! -f "$BUILDDIR"/build.ninja ]; then
-    [[ -d /etc/rc.d/init.d ]] && sysvinit_path="/etc/rc.d/init.d" || sysvinit_path="/etc/init.d"
-
-    if [ "$ID" = "centos" ] && [ "$VERSION" = "8" ]; then
-        UKIFY="disabled"
-    else
-        UKIFY="enabled"
-    fi
-
-    # On Debian 'loadkeys us' fails
-    if [ "$ID" = "debian" ] || [ "$ID_LIKE" = "debian" ]; then
-        DEFAULT_KEYMAP=""
-    else
-        DEFAULT_KEYMAP="us"
-    fi
-
     CONFIGURE_OPTS=(
-        -D sysvinit-path="$sysvinit_path"
+        -D sysvinit-path="$([[ -d /etc/rc.d/init.d ]] && echo /etc/rc.d/init.d || echo /etc/init.d)"
         -D man=disabled
         -D translations=false
         -D version-tag="${VERSION_TAG}"
@@ -79,8 +64,6 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
         -D tpm=true
         -D environment-d=true
         -D binfmt=true
-        -D repart=enabled
-        -D sysupdate=enabled
         -D coredump=true
         -D pstore=true
         -D oomd=true
@@ -91,14 +74,10 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
         -D portabled=true
         -D sysext=true
         -D userdb=true
-        -D homed=enabled
         -D networkd=true
         -D timedated=true
         -D timesyncd=true
-        -D remote=enabled
         -D nss-myhostname=true
-        -D nss-mymachines=enabled
-        -D nss-resolve=enabled
         -D nss-systemd=true
         -D firstboot=true
         -D randomseed=true
@@ -107,52 +86,26 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
         -D quotacheck=true
         -D sysusers=true
         -D tmpfiles=true
-        -D importd=enabled
         -D hwdb=true
         -D rfkill=true
         -D xdg-autostart=true
         -D translations=true
-        -D polkit=enabled
-        -D acl=enabled
-        -D audit=enabled
-        -D blkid=enabled
-        -D fdisk=enabled
-        -D kmod=enabled
-        -D pam=enabled
-        -D pwquality=enabled
-        -D microhttpd=enabled
-        -D libcryptsetup=enabled
-        -D libcurl=enabled
         -D idn=true
-        -D libidn2=enabled
-        -D qrencode=enabled
-        -D gcrypt=enabled
-        -D gnutls=enabled
-        -D openssl=enabled
         -D cryptolib=openssl
-        -D p11kit=enabled
-        -D libfido2=enabled
-        -D tpm2=enabled
-        -D elfutils=enabled
-        -D zstd=enabled
-        -D xkbcommon=enabled
-        -D pcre2=enabled
-        -D glib=enabled
-        -D dbus=enabled
-        -D bootloader=enabled
         -D kernel-install=true
         -D analyze=true
-        -D bpf-framework=enabled
-        -D ukify="$UKIFY"
-        -D seccomp=enabled
-        -D selinux=auto
-        -D apparmor=auto
+        -D ukify="$([[ "$ID" = "centos" ]] && [[ "$VERSION" = "8" ]] && echo disabled || echo enabled)"
+        -D selinux="$([[ "$ID" =~ centos|fedora|opensuse ]] && echo enabled || echo disabled)"
+        -D apparmor="$([[ "$ID" =~ ubuntu|debian ]] && echo enabled || echo disabled)"
         -D smack=true
         -D ima=true
         -D first-boot-full-preset=true
         -D initrd=true
         -D fexecve=true
-        -D default-keymap="$DEFAULT_KEYMAP"
+        -D default-keymap="$([[ "$ID" =~ debian|ubuntu ]] && echo "" || echo "us")"
+        -D xenctrl="$([[ "$ID" =~ debian|ubuntu|fedora|opensuse ]] && echo enabled || echo disabled)"
+        -D libiptc="$([[ "$ID" =~ debian|ubuntu ]] && echo enabled || echo disabled)"
+        -D libcryptsetup-plugins="$([[ "$ID" = "centos" ]] && [[ "$VERSION" = "8" ]] && echo disabled || echo enabled)"
     )
 
     # On debian-like systems the library directory is not /usr/lib64 but /usr/lib/<arch-triplet>/.
@@ -170,26 +123,26 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
     # between the files that we and Fedora's setup package install.
     if grep -q '^ID=fedora' /usr/lib/os-release; then
         CONFIGURE_OPTS+=(
-            -Dadm-gid=4
-            -Daudio-gid=63
-            -Dcdrom-gid=11
-            -Ddialout-gid=18
-            -Ddisk-gid=6
-            -Dinput-gid=104
-            -Dkmem-gid=9
-            -Dkvm-gid=36
-            -Dlp-gid=7
-            -Drender-gid=105
-            -Dsgx-gid=106
-            -Dtape-gid=33
-            -Dtty-gid=5
-            -Dusers-gid=100
-            -Dutmp-gid=22
-            -Dvideo-gid=39
-            -Dwheel-gid=10
-            -Dsystemd-journal-gid=190
-            -Dsystemd-network-uid=192
-            -Dsystemd-resolve-uid=193
+            -D adm-gid=4
+            -D audio-gid=63
+            -D cdrom-gid=11
+            -D dialout-gid=18
+            -D disk-gid=6
+            -D input-gid=104
+            -D kmem-gid=9
+            -D kvm-gid=36
+            -D lp-gid=7
+            -D render-gid=105
+            -D sgx-gid=106
+            -D tape-gid=33
+            -D tty-gid=5
+            -D users-gid=100
+            -D utmp-gid=22
+            -D video-gid=39
+            -D wheel-gid=10
+            -D systemd-journal-gid=190
+            -D systemd-network-uid=192
+            -D systemd-resolve-uid=193
         )
     fi
 
@@ -199,7 +152,7 @@ if [ ! -f "$BUILDDIR"/build.ninja ]; then
         )
     fi
 
-    ( set -x; meson setup "$BUILDDIR" "$SRCDIR" "${CONFIGURE_OPTS[@]}" )
+    ( set -x; meson setup "$BUILDDIR" "$SRCDIR" --auto-features=enabled "${CONFIGURE_OPTS[@]}" )
 fi
 
 ( set -x; ninja -C "$BUILDDIR" "$@" )
