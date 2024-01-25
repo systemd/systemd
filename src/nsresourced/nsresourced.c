@@ -14,7 +14,6 @@ static int run(int argc, char *argv[]) {
         int r;
 
         log_setup();
-        log_set_max_level(LOG_DEBUG);
 
         umask(0022);
 
