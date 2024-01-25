@@ -453,7 +453,8 @@ struct ExecParameters {
 
         char **files_env;
         int user_lookup_fd;
-        int bpf_outer_map_fd;
+
+        int bpf_restrict_fs_map_fd;
 
         /* Used for logging in the executor functions */
         char *unit_id;
@@ -461,16 +462,16 @@ struct ExecParameters {
         char invocation_id_string[SD_ID128_STRING_MAX];
 };
 
-#define EXEC_PARAMETERS_INIT(_flags)        \
-        (ExecParameters) {                  \
-                .flags = (_flags),          \
-                .stdin_fd         = -EBADF, \
-                .stdout_fd        = -EBADF, \
-                .stderr_fd        = -EBADF, \
-                .exec_fd          = -EBADF, \
-                .bpf_outer_map_fd = -EBADF, \
-                .user_lookup_fd   = -EBADF, \
-        };
+#define EXEC_PARAMETERS_INIT(_flags)              \
+        (ExecParameters) {                        \
+                .flags = (_flags),                \
+                .stdin_fd               = -EBADF, \
+                .stdout_fd              = -EBADF, \
+                .stderr_fd              = -EBADF, \
+                .exec_fd                = -EBADF, \
+                .bpf_restrict_fs_map_fd = -EBADF, \
+                .user_lookup_fd         = -EBADF, \
+        }
 
 #include "unit.h"
 #include "dynamic-user.h"

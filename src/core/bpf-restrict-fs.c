@@ -92,7 +92,7 @@ static int prepare_restrict_fs_bpf(struct restrict_fs_bpf **ret_obj) {
         return 0;
 }
 
-bool lsm_bpf_supported(bool initialize) {
+bool bpf_restrict_fs_supported(bool initialize) {
         _cleanup_(restrict_fs_bpf_freep) struct restrict_fs_bpf *obj = NULL;
         static int supported = -1;
         int r;
@@ -129,7 +129,7 @@ bool lsm_bpf_supported(bool initialize) {
         return (supported = true);
 }
 
-int lsm_bpf_setup(Manager *m) {
+int bpf_restrict_fs_setup(Manager *m) {
         _cleanup_(restrict_fs_bpf_freep) struct restrict_fs_bpf *obj = NULL;
         _cleanup_(bpf_link_freep) struct bpf_link *link = NULL;
         int r;
@@ -154,7 +154,7 @@ int lsm_bpf_setup(Manager *m) {
         return 0;
 }
 
-int lsm_bpf_restrict_filesystems(const Set *filesystems, uint64_t cgroup_id, int outer_map_fd, bool allow_list) {
+int bpf_restrict_fs_update(const Set *filesystems, uint64_t cgroup_id, int outer_map_fd, bool allow_list) {
         uint32_t dummy_value = 1, zero = 0;
         const char *fs;
         const statfs_f_type_t *magic;
@@ -209,12 +209,12 @@ int lsm_bpf_restrict_filesystems(const Set *filesystems, uint64_t cgroup_id, int
         return 0;
 }
 
-int lsm_bpf_cleanup(const Unit *u) {
+int bpf_restrict_fs_cleanup(const Unit *u) {
         assert(u);
         assert(u->manager);
 
         /* If we never successfully detected support, there is nothing to clean up. */
-        if (!lsm_bpf_supported(/* initialize = */ false))
+        if (!bpf_restrict_fs_supported(/* initialize = */ false))
                 return 0;
 
         if (!u->manager->restrict_fs)
@@ -233,7 +233,7 @@ int lsm_bpf_cleanup(const Unit *u) {
         return 0;
 }
 
-int lsm_bpf_map_restrict_fs_fd(Unit *unit) {
+int bpf_restrict_fs_map_fd(Unit *unit) {
         assert(unit);
         assert(unit->manager);
 
@@ -243,36 +243,36 @@ int lsm_bpf_map_restrict_fs_fd(Unit *unit) {
         return sym_bpf_map__fd(unit->manager->restrict_fs->maps.cgroup_hash);
 }
 
-void lsm_bpf_destroy(struct restrict_fs_bpf *prog) {
+void bpf_restrict_fs_destroy(struct restrict_fs_bpf *prog) {
         restrict_fs_bpf__destroy(prog);
 }
 #else /* ! BPF_FRAMEWORK */
-bool lsm_bpf_supported(bool initialize) {
+bool bpf_restrict_fs_supported(bool initialize) {
         return false;
 }
 
-int lsm_bpf_setup(Manager *m) {
+int bpf_restrict_fs_setup(Manager *m) {
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "bpf-restrict-fs: Failed to set up LSM BPF: %m");
 }
 
-int lsm_bpf_restrict_filesystems(const Set *filesystems, uint64_t cgroup_id, int outer_map_fd, const bool allow_list) {
+int bpf_restrict_fs_restrict_filesystems(const Set *filesystems, uint64_t cgroup_id, int outer_map_fd, const bool allow_list) {
         return log_debug_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "bpf-restrict-fs: Failed to restrict filesystems using LSM BPF: %m");
 }
 
-int lsm_bpf_cleanup(const Unit *u) {
+int bpf_restrict_fs_cleanup(const Unit *u) {
         return 0;
 }
 
-int lsm_bpf_map_restrict_fs_fd(Unit *unit) {
+int bpf_restrict_fs_map_restrict_fs_fd(Unit *unit) {
         return -ENOMEDIUM;
 }
 
-void lsm_bpf_destroy(struct restrict_fs_bpf *prog) {
+void bpf_restrict_fs_destroy(struct restrict_fs_bpf *prog) {
         return;
 }
 #endif
 
-int lsm_bpf_parse_filesystem(
+int bpf_restrict_fs_parse_filesystem(
                 const char *name,
                 Set **filesystems,
                 FilesystemParseFlags flags,
@@ -299,7 +299,7 @@ int lsm_bpf_parse_filesystem(
                          * (i.e. take away the FILESYSTEM_PARSE_LOG flag) since any issues in the group table
                          * are our own problem, not a problem in user configuration data and we shouldn't
                          * pretend otherwise by complaining about them. */
-                        r = lsm_bpf_parse_filesystem(i, filesystems, flags &~ FILESYSTEM_PARSE_LOG, unit, filename, line);
+                        r = bpf_restrict_fs_parse_filesystem(i, filesystems, flags &~ FILESYSTEM_PARSE_LOG, unit, filename, line);
                         if (r < 0)
                                 return r;
                 }
