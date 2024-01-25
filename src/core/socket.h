@@ -101,16 +101,19 @@ struct Socket {
         SocketState state, deserialized_state;
 
         sd_event_source *timer_event_source;
+        sd_event_source *kill_pam_timer_event_source;
 
         ExecCommand* control_command;
         SocketExecCommand control_command_id;
         PidRef control_pid;
+        PidRef control_pam_pid;
 
         mode_t directory_mode;
         mode_t socket_mode;
 
         SocketResult result;
         SocketResult clean_result;
+        SocketResult pending_result;
 
         char **symlinks;
 

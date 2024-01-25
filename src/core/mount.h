@@ -67,6 +67,7 @@ struct Mount {
         MountResult result;
         MountResult reload_result;
         MountResult clean_result;
+        MountResult pending_result;
 
         mode_t directory_mode;
 
@@ -85,8 +86,10 @@ struct Mount {
         ExecCommand* control_command;
         MountExecCommand control_command_id;
         PidRef control_pid;
+        PidRef control_pam_pid;
 
         sd_event_source *timer_event_source;
+        sd_event_source *kill_pam_timer_event_source;
 
         unsigned n_retry_umount;
 };

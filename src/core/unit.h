@@ -737,6 +737,10 @@ typedef struct UnitVTable {
         /* Returns the control PID if there is any defined, or NULL. */
         PidRef* (*control_pid)(Unit *u);
 
+        /* Returns the PAM PID if there is any defined, or NULL. */
+        PidRef* (*main_pam_pid)(Unit *u);
+        PidRef* (*control_pam_pid)(Unit *u);
+
         /* Returns true if the unit currently needs access to the console */
         bool (*needs_console)(Unit *u);
 
@@ -925,6 +929,7 @@ int unit_start(Unit *u, ActivationDetails *details);
 int unit_stop(Unit *u);
 int unit_reload(Unit *u);
 
+int unit_kill_pam_and_warn(Unit *u, const PidRef *pidref, int signo, const char *type);
 int unit_kill(Unit *u, KillWho w, int signo, int code, int value, sd_bus_error *ret_error);
 
 void unit_notify_cgroup_oom(Unit *u, bool managed_oom);
@@ -940,6 +945,8 @@ void unit_unwatch_pidref_done(Unit *u, PidRef *pidref);
 
 int unit_enqueue_rewatch_pids(Unit *u);
 void unit_dequeue_rewatch_pids(Unit *u);
+
+int unit_watch_pam_pidref(Unit *u, const PidRef *parent_pidref, const PidRef *pam_pidref);
 
 int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name);
 int unit_watch_bus_name(Unit *u, const char *name);
@@ -1026,6 +1033,8 @@ PidRef* unit_main_pid_full(Unit *u, bool *ret_is_alien);
 static inline PidRef* unit_main_pid(Unit *u) {
         return unit_main_pid_full(u, NULL);
 }
+PidRef* unit_main_pam_pid(Unit *u);
+PidRef* unit_control_pam_pid(Unit *u);
 
 void unit_warn_if_dir_nonempty(Unit *u, const char* where);
 int unit_fail_if_noncanonical(Unit *u, const char* where);
