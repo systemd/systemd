@@ -5355,12 +5355,12 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
 
         p->fallback_smack_process_label = u->manager->defaults.smack_process_label;
 
-        if (u->manager->restrict_fs && p->bpf_outer_map_fd < 0) {
-                int fd = lsm_bpf_map_restrict_fs_fd(u);
+        if (u->manager->restrict_fs && p->bpf_restrict_fs_map_fd < 0) {
+                int fd = bpf_restrict_fs_map_fd(u);
                 if (fd < 0)
                         return fd;
 
-                p->bpf_outer_map_fd = fd;
+                p->bpf_restrict_fs_map_fd = fd;
         }
 
         p->user_lookup_fd = u->manager->user_lookup_fds[1];

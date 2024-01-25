@@ -1898,7 +1898,7 @@ int bus_exec_context_set_transient_property(
                                 c->restrict_filesystems_allow_list = allow_list;
 
                         STRV_FOREACH(s, l) {
-                                r = lsm_bpf_parse_filesystem(
+                                r = bpf_restrict_fs_parse_filesystem(
                                               *s,
                                               &c->restrict_filesystems,
                                               FILESYSTEM_PARSE_LOG|

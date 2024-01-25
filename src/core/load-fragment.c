@@ -3697,7 +3697,7 @@ int config_parse_restrict_filesystems(
                         break;
                 }
 
-                r = lsm_bpf_parse_filesystem(
+                r = bpf_restrict_fs_parse_filesystem(
                               word,
                               &c->restrict_filesystems,
                               FILESYSTEM_PARSE_LOG|

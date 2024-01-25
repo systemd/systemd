@@ -1365,7 +1365,7 @@ static int exec_parameters_serialize(const ExecParameters *p, const ExecContext 
                 return r;
 
         if (c && exec_context_restrict_filesystems_set(c)) {
-                r = serialize_fd(f, fds, "exec-parameters-bpf-outer-map-fd", p->bpf_outer_map_fd);
+                r = serialize_fd(f, fds, "exec-parameters-bpf-outer-map-fd", p->bpf_restrict_fs_map_fd);
                 if (r < 0)
                         return r;
         }
@@ -1618,7 +1618,7 @@ static int exec_parameters_deserialize(ExecParameters *p, FILE *f, FDSet *fds) {
                         if (fd < 0)
                                 continue;
 
-                        p->bpf_outer_map_fd = fd;
+                        p->bpf_restrict_fs_map_fd = fd;
                 } else if ((val = startswith(l, "exec-parameters-notify-socket="))) {
                         r = free_and_strdup(&p->notify_socket, val);
                         if (r < 0)
