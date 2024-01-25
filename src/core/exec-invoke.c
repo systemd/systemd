@@ -1099,7 +1099,6 @@ static int setup_pam(
         _cleanup_(barrier_destroy) Barrier barrier = BARRIER_NULL;
         _cleanup_strv_free_ char **e = NULL;
         pam_handle_t *handle = NULL;
-        sigset_t old_ss;
         int pam_code = PAM_SUCCESS, r;
         bool close_session = false;
         pid_t parent_pid;
@@ -1171,17 +1170,15 @@ static int setup_pam(
                 goto fail;
         }
 
-        /* Block SIGTERM, so that we know that it won't get lost in the child */
-
-        assert_se(sigprocmask_many(SIG_BLOCK, &old_ss, SIGTERM) >= 0);
-
         parent_pid = getpid_cached();
 
-        r = safe_fork("(sd-pam)", 0, NULL);
+        r = safe_fork("(sd-pam)", FORK_DEATHSIG_SIGTERM, NULL);
         if (r < 0)
                 goto fail;
         if (r == 0) {
                 int ret = EXIT_PAM;
+
+                assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM) >= 0);
 
                 /* The child's job is to reset the PAM session on termination */
                 barrier_set_role(&barrier, BARRIER_CHILD);
@@ -1204,12 +1201,6 @@ static int setup_pam(
                         log_warning_errno(r, "Failed to drop privileges in sd-pam: %m");
 
                 (void) ignore_signals(SIGPIPE);
-
-                /* Wait until our parent died. This will only work if the above setresuid() succeeds,
-                 * otherwise the kernel will not allow unprivileged parents kill their privileged children
-                 * this way. We rely on the control groups kill logic to do the rest for us. */
-                if (prctl(PR_SET_PDEATHSIG, SIGTERM) < 0)
-                        goto child_finish;
 
                 /* Tell the parent that our setup is done. This is especially important regarding dropping
                  * privileges. Otherwise, unit setup might race against our setresuid(2) call.
@@ -1250,9 +1241,6 @@ static int setup_pam(
         /* If the child was forked off successfully it will do all the cleanups, so forget about the handle
          * here. */
         handle = NULL;
-
-        /* Unblock SIGTERM again in the parent */
-        assert_se(sigprocmask(SIG_SETMASK, &old_ss, NULL) >= 0);
 
         /* We close the log explicitly here, since the PAM modules might have opened it, but we don't want
          * this fd around. */
