@@ -3,6 +3,8 @@
 #include <getopt.h>
 
 #include "ask-password-api.h"
+#include "blockdev-util.h"
+#include "btrfs-util.h"
 #include "build.h"
 #include "cryptenroll-fido2.h"
 #include "cryptenroll-list.h"
@@ -13,6 +15,7 @@
 #include "cryptenroll-wipe.h"
 #include "cryptenroll.h"
 #include "cryptsetup-util.h"
+#include "device-util.h"
 #include "env-util.h"
 #include "escape.h"
 #include "fileio.h"
@@ -162,6 +165,38 @@ static int help(void) {
                ansi_highlight(),
                ansi_normal());
 
+        return 0;
+}
+
+static int resolve_auto_node(char **ret) {
+        _cleanup_free_ char *uuid = NULL, *devname = NULL;
+        char sysfs_path[SYS_BLOCK_PATH_MAX("/dm/uuid")];
+        dev_t devnum;
+        int r;
+
+        r = get_block_device("/var", &devnum);
+        if (r == -EUCLEAN)
+                return btrfs_log_dev_root(LOG_ERR, SYNTHETIC_ERRNO(ENOTBLK), "/var");
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return -ENOTBLK;
+
+        /* Check if it's a dm-crypt device, and return a recognizable error if not */
+        xsprintf_sys_block_path(sysfs_path, "/dm/uuid", devnum);
+        r = read_one_line_file(sysfs_path, &uuid);
+        if (r == -ENOENT)
+                return -EMEDIUMTYPE;
+        if (r < 0)
+                return r;
+        if (!startswith(uuid, "CRYPT-"))
+                return -EMEDIUMTYPE;
+
+        r = devname_from_devnum(S_IFBLK, devnum, &devname);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(devname);
         return 0;
 }
 
@@ -515,9 +550,13 @@ static int parse_argv(int argc, char *argv[]) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Too many arguments, refusing.");
 
-        r = parse_path_argument(argv[optind], false, &arg_node);
-        if (r < 0)
-                return r;
+        if (streq(argv[optind], "auto")) {
+                arg_node = mfree(arg_node);
+        } else {
+                r = parse_path_argument(argv[optind], false, &arg_node);
+                if (r < 0)
+                        return r;
+        }
 
         if (arg_enroll_type == ENROLL_FIDO2) {
 
@@ -628,6 +667,7 @@ static int prepare_luks(
                 void **ret_volume_key,
                 size_t *ret_volume_key_size) {
 
+        _cleanup_free_ char *auto_node = NULL;
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) void *vk = NULL;
         size_t vks;
@@ -636,7 +676,15 @@ static int prepare_luks(
         assert(ret_cd);
         assert(!ret_volume_key == !ret_volume_key_size);
 
-        r = crypt_init(&cd, arg_node);
+        if (!arg_node) {
+                r = resolve_auto_node(&auto_node);
+                if (r == -EMEDIUMTYPE)
+                        return log_error_errno(r, "Block device backing /var isn't a LUKS2 device. Please specify a device node manually");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to automatically resolve device node: %m");
+        }
+
+        r = crypt_init(&cd, arg_node ?: auto_node);
         if (r < 0)
                 return log_error_errno(r, "Failed to allocate libcryptsetup context: %m");
 
@@ -671,11 +719,11 @@ static int prepare_luks(
                 break;
 
         case UNLOCK_FIDO2:
-                r = load_volume_key_fido2(cd, arg_node, arg_unlock_fido2_device, vk, &vks);
+                r = load_volume_key_fido2(cd, arg_node ?: auto_node, arg_unlock_fido2_device, vk, &vks);
                 break;
 
         case UNLOCK_PASSWORD:
-                r = load_volume_key_password(cd, arg_node, vk, &vks);
+                r = load_volume_key_password(cd, arg_node ?: auto_node, vk, &vks);
                 break;
 
         default:
