@@ -171,8 +171,8 @@
           <term><option>-M</option></term>
           <term><option>--machine=</option></term>
 
-          <listitem><para>Sets the machine name for this container. This
-          name may be used to identify this container during its runtime
+          <listitem><para>Sets the machine name for this virtual machine. This
+          name may be used to identify this virtual machine during its runtime
           (for example in tools like
           <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
           and similar).</para>
@@ -189,7 +189,7 @@
           <term><option>--load-credential=</option><replaceable>ID</replaceable>:<replaceable>PATH</replaceable></term>
           <term><option>--set-credential=</option><replaceable>ID</replaceable>:<replaceable>VALUE</replaceable></term>
 
-          <listitem><para>Pass a credential to the container. These two options correspond to the
+          <listitem><para>Pass a credential to the virtual machine. These two options correspond to the
           <varname>LoadCredential=</varname> and <varname>SetCredential=</varname> settings in unit files. See
           <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry> for
           details about these concepts, as well as the syntax of the option's arguments.</para>
