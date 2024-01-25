@@ -3451,7 +3451,7 @@ void unit_prune_cgroup(Unit *u) {
                 (void) unit_get_memory_accounting(u, metric, /* ret = */ NULL);
 
 #if BPF_FRAMEWORK
-        (void) lsm_bpf_cleanup(u); /* Remove cgroup from the global LSM BPF map */
+        (void) bpf_restrict_fs_cleanup(u); /* Remove cgroup from the global LSM BPF map */
 #endif
 
         unit_modify_nft_set(u, /* add = */ false);
