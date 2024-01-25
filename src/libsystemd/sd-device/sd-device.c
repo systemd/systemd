@@ -2598,7 +2598,7 @@ _public_ int sd_device_trigger_with_uuid(
 _public_ int sd_device_open(sd_device *device, int flags) {
         _cleanup_close_ int fd = -EBADF, fd2 = -EBADF;
         const char *devname;
-        uint64_t q, diskseq = 0;
+        uint64_t q, diskseq;
         struct stat st;
         dev_t devnum;
         int r;
@@ -2655,9 +2655,7 @@ _public_ int sd_device_open(sd_device *device, int flags) {
         if (fd2 < 0)
                 return fd2;
 
-        if (diskseq == 0)
-                return TAKE_FD(fd2);
-
+        /* If diskseq isn't supported it should remain unsupported.  */
         r = fd_get_diskseq(fd2, &q);
         if (r < 0)
                 return r;
