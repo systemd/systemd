@@ -1429,6 +1429,50 @@ _public_ int sd_device_get_seqnum(sd_device *device, uint64_t *ret) {
         return 0;
 }
 
+int device_get_diskseq(sd_device *device, int fd, bool verify, uint64_t *ret) {
+        const char *s;
+        bool ignore;
+        int r;
+
+        assert(device);
+        assert(fd >= 0);
+
+        /* Accessing the property will likely initialize the device if it's not done. Otherwise we'll ignore
+         * diskseq. */
+        r = sd_device_get_property_value(device, "ID_IGNORE_DISKSEQ", &s);
+        if (r < 0) {
+                if (r != -ENOENT)
+                        return r;
+
+                /* ENOENT means one of the two following cases: a) the device is still not initialized or b)
+                 * the property is not defined. Unlike the latter, the former will ignore diskseq. */
+                ignore = !device->is_initialized;
+
+        } else {
+                r = parse_boolean(s);
+                if (r < 0)
+                        return r;
+
+                ignore = r;
+        }
+
+        uint64_t diskseq = 0;
+        if (!ignore) {
+                r = fd_get_diskseq(fd, &diskseq);
+                if (r < 0)
+                        return r;
+
+                /* Verify that the value returned by the device still matches the one stored in the
+                 * db. */
+                if (verify && diskseq != device->diskseq)
+                        return -ENXIO;
+        }
+        if (ret)
+                *ret = diskseq;
+
+        return 0;
+}
+
 _public_ int sd_device_get_diskseq(sd_device *device, uint64_t *ret) {
         int r;
 
@@ -2598,7 +2642,6 @@ _public_ int sd_device_trigger_with_uuid(
 _public_ int sd_device_open(sd_device *device, int flags) {
         _cleanup_close_ int fd = -EBADF, fd2 = -EBADF;
         const char *devname;
-        uint64_t q, diskseq = 0;
         struct stat st;
         dev_t devnum;
         int r;
@@ -2635,35 +2678,14 @@ _public_ int sd_device_open(sd_device *device, int flags) {
         if (FLAGS_SET(flags, O_PATH))
                 return TAKE_FD(fd);
 
-        /* If the device is not initialized, then we cannot determine if we should check diskseq through
-         * ID_IGNORE_DISKSEQ property. Let's skip to check diskseq in that case. */
-        r = sd_device_get_is_initialized(device);
-        if (r < 0)
-                return r;
-        if (r > 0) {
-                r = device_get_property_bool(device, "ID_IGNORE_DISKSEQ");
-                if (r < 0 && r != -ENOENT)
-                        return r;
-                if (r <= 0) {
-                        r = sd_device_get_diskseq(device, &diskseq);
-                        if (r < 0 && r != -ENOENT)
-                                return r;
-                }
-        }
-
         fd2 = fd_reopen(fd, flags);
         if (fd2 < 0)
                 return fd2;
 
-        if (diskseq == 0)
-                return TAKE_FD(fd2);
-
-        r = fd_get_diskseq(fd2, &q);
+        /* Verify that the device we just opened is the one we think it is. */
+        r = device_get_diskseq(device, fd2, /* verify= */ true, NULL);
         if (r < 0)
                 return r;
-
-        if (q != diskseq)
-                return -ENXIO;
 
         return TAKE_FD(fd2);
 }
