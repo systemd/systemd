@@ -51,6 +51,13 @@
 #include "varlink-io.systemd.sysext.h"
 #include "verbs.h"
 
+typedef enum MutableMode {
+        MUTABLE_YES,
+        MUTABLE_NO,
+        MUTABLE_AUTO,
+        MUTABLE_IMPORT,
+} MutableMode;
+
 static char **arg_hierarchies = NULL; /* "/usr" + "/opt" by default for sysext and /etc by default for confext */
 static char *arg_root = NULL;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
@@ -61,6 +68,7 @@ static bool arg_no_reload = false;
 static int arg_noexec = -1;
 static ImagePolicy *arg_image_policy = NULL;
 static bool arg_varlink = false;
+static MutableMode arg_mutable = MUTABLE_AUTO;
 
 /* Is set to IMAGE_CONFEXT when systemd is called with the confext functionality instead of the default */
 static ImageClass arg_image_class = IMAGE_SYSEXT;
@@ -748,9 +756,27 @@ static int resolve_upper_dir(const char *hierarchy, char **ret_resolved_upper_di
         assert(hierarchy);
         assert(ret_resolved_upper_dir);
 
+        if (arg_mutable == MUTABLE_NO) {
+                log_debug("Mutability for hierarchy '%s' is disabled, not resolving upper dir.", hierarchy);
+                *ret_resolved_upper_dir = NULL;
+                return 0;
+        }
+
         upper_dir = determine_mutable_layer_path_for_hierarchy(hierarchy);
         if (!upper_dir)
                 return log_oom();
+
+        if (arg_mutable == MUTABLE_YES) {
+                _cleanup_free_ char *path = NULL;
+
+                path = path_join(arg_root, upper_dir);
+                if (!path)
+                        return log_oom();
+
+                r = mkdir_p(path, 0700);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create a directory '%s': %m", path);
+        }
 
         r = chase(upper_dir, arg_root, CHASE_PREFIX_ROOT, &resolved_path, NULL);
         if (r < 0 && r != -ENOENT)
@@ -830,6 +856,13 @@ static int determine_top_lower_dirs(struct overlayfs_paths *op, const char *meta
         if (r < 0)
                 return r;
 
+        /* If importing writable layer and it actually exists, add it just below the meta path */
+        if (arg_mutable == MUTABLE_IMPORT && op->resolved_upper_dir) {
+                r = append_layer(op, op->resolved_upper_dir);
+                if (r < 0)
+                        return r;
+        }
+
         return 0;
 }
 
@@ -889,6 +922,11 @@ static int hierarchy_as_lower_dir(struct overlayfs_paths *op) {
         if (r > 0) {
                 log_debug("Host hierarchy '%s' is empty, will not be used as lower dir.", op->resolved_hierarchy);
                 return 1;
+        }
+
+        if (arg_mutable == MUTABLE_IMPORT) {
+                log_debug("Mutability for host hierarchy '%s' is disabled, so it will be a lowerdir", op->resolved_hierarchy);
+                return 0;
         }
 
         if (!op->resolved_upper_dir) {
@@ -962,6 +1000,11 @@ static int determine_upper_dir(struct overlayfs_paths *op) {
         assert(op);
         assert(!op->ofs_upper_dir);
 
+        if (arg_mutable == MUTABLE_IMPORT) {
+                log_debug("Mutability is disabled, there will be no upperdir for host hierarchy '%s'", op->hierarchy);
+                return 0;
+        }
+
         if (!op->resolved_upper_dir) {
                 log_debug("No upperdir found for host hierarchy '%s'", op->hierarchy);
                 return 0;
@@ -990,6 +1033,9 @@ static int determine_work_dir(struct overlayfs_paths *op) {
         assert(!op->ofs_work_dir);
 
         if (!op->ofs_upper_dir)
+                return 0;
+
+        if (arg_mutable == MUTABLE_IMPORT)
                 return 0;
 
         r = work_dir_for_hierarchy(op->hierarchy, op->ofs_upper_dir, &work_dir);
@@ -2011,6 +2057,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_IMAGE_POLICY,
                 ARG_NOEXEC,
                 ARG_NO_RELOAD,
+                ARG_MUTABLE,
         };
 
         static const struct option options[] = {
@@ -2024,6 +2071,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "image-policy", required_argument, NULL, ARG_IMAGE_POLICY },
                 { "noexec",       required_argument, NULL, ARG_NOEXEC       },
                 { "no-reload",    no_argument,       NULL, ARG_NO_RELOAD    },
+                { "mutable",      required_argument, NULL, ARG_MUTABLE      },
                 {}
         };
 
@@ -2085,6 +2133,19 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_RELOAD:
                         arg_no_reload = true;
+                        break;
+
+                case ARG_MUTABLE:
+                        if (streq(optarg, "auto"))
+                                arg_mutable = MUTABLE_AUTO;
+                        else if (streq(optarg, "import"))
+                                arg_mutable = MUTABLE_IMPORT;
+                        else {
+                                r = parse_boolean(optarg);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse argument to --mutable: %s", optarg);
+                                arg_mutable = r ? MUTABLE_YES : MUTABLE_NO;
+                        }
                         break;
 
                 case '?':
