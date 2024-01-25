@@ -18,6 +18,7 @@
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "data-fd-util.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "devnum-util.h"
 #include "dissect-image.h"
@@ -55,21 +56,6 @@ static int loop_is_bound(int fd) {
         }
 
         return true; /* bound! */
-}
-
-static int get_current_uevent_seqnum(uint64_t *ret) {
-        _cleanup_free_ char *p = NULL;
-        int r;
-
-        r = read_full_virtual_file("/sys/kernel/uevent_seqnum", &p, NULL);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to read current uevent sequence number: %m");
-
-        r = safe_atou64(strstrip(p), ret);
-        if (r < 0)
-                return log_debug_errno(r, "Failed to parse current uevent sequence number: %s", p);
-
-        return 0;
 }
 
 static int open_lock_fd(int primary_fd, int operation) {
@@ -266,8 +252,7 @@ static int loop_configure(
         _cleanup_(cleanup_clear_loop_close) int loop_with_fd = -EBADF; /* This must be declared before lock_fd. */
         _cleanup_close_ int fd = -EBADF, lock_fd = -EBADF;
         _cleanup_free_ char *node = NULL;
-        uint64_t diskseq = 0, seqnum = UINT64_MAX;
-        usec_t timestamp = USEC_INFINITY;
+        uint64_t diskseq;
         dev_t devno;
         int r;
 
@@ -327,17 +312,6 @@ static int loop_configure(
                                               "Removed partitions on the loopback block device.");
 
         if (!loop_configure_broken) {
-                /* Acquire uevent seqnum immediately before attaching the loopback device. This allows
-                 * callers to ignore all uevents with a seqnum before this one, if they need to associate
-                 * uevent with this attachment. Doing so isn't race-free though, as uevents that happen in
-                 * the window between this reading of the seqnum, and the LOOP_CONFIGURE call might still be
-                 * mistaken as originating from our attachment, even though might be caused by an earlier
-                 * use. But doing this at least shortens the race window a bit. */
-                r = get_current_uevent_seqnum(&seqnum);
-                if (r < 0)
-                        return log_device_debug_errno(dev, r, "Failed to get the current uevent seqnum: %m");
-
-                timestamp = now(CLOCK_MONOTONIC);
 
                 if (ioctl(fd, LOOP_CONFIGURE, c) < 0) {
                         /* Do fallback only if LOOP_CONFIGURE is not supported, propagate all other
@@ -370,12 +344,6 @@ static int loop_configure(
         }
 
         if (loop_configure_broken) {
-                /* Let's read the seqnum again, to shorten the window. */
-                r = get_current_uevent_seqnum(&seqnum);
-                if (r < 0)
-                        return log_device_debug_errno(dev, r, "Failed to get the current uevent seqnum: %m");
-
-                timestamp = now(CLOCK_MONOTONIC);
 
                 if (ioctl(fd, LOOP_SET_FD, c->fd) < 0)
                         return log_device_debug_errno(dev, errno, "ioctl(LOOP_SET_FD) failed: %m");
@@ -387,9 +355,10 @@ static int loop_configure(
                         return r;
         }
 
-        r = fd_get_diskseq(loop_with_fd, &diskseq);
-        if (r < 0 && r != -EOPNOTSUPP)
-                return log_device_debug_errno(dev, r, "Failed to get diskseq: %m");
+        /* Don't verify since the current diskseq value doesn't match the value stored in the db anymore. */
+        r = device_get_diskseq(dev, loop_with_fd, /* verify= */ false, &diskseq);
+        if (r < 0)
+                return r;
 
         switch (lock_op & ~LOCK_NB) {
         case LOCK_EX: /* Already in effect */
@@ -423,8 +392,6 @@ static int loop_configure(
                 .devno = devno,
                 .dev = TAKE_PTR(dev),
                 .diskseq = diskseq,
-                .uevent_seqnum_not_before = seqnum,
-                .timestamp_not_before = timestamp,
                 .sector_size = c->block_size,
                 .device_size = device_size,
                 .created = true,
@@ -903,7 +870,7 @@ int loop_device_open(
         dev_t devnum, backing_devno = 0;
         struct loop_info64 info;
         ino_t backing_inode = 0;
-        uint64_t diskseq = 0;
+        uint64_t diskseq;
         LoopDevice *d;
         const char *s;
         int r, nr = -1;
@@ -943,8 +910,8 @@ int loop_device_open(
                 backing_inode = info.lo_inode;
         }
 
-        r = fd_get_diskseq(fd, &diskseq);
-        if (r < 0 && r != -EOPNOTSUPP)
+        r = device_get_diskseq(dev, fd, /* verify= */ false, &diskseq);
+        if (r < 0)
                 return r;
 
         uint32_t sector_size;
@@ -986,8 +953,6 @@ int loop_device_open(
                 .relinquished = true, /* It's not ours, don't try to destroy it when this object is freed */
                 .devno = devnum,
                 .diskseq = diskseq,
-                .uevent_seqnum_not_before = UINT64_MAX,
-                .timestamp_not_before = USEC_INFINITY,
                 .sector_size = sector_size,
                 .device_size = device_size,
                 .created = false,
