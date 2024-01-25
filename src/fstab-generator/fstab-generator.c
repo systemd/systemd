@@ -476,17 +476,13 @@ static int mandatory_mount_drop_unapplicable_options(
 
         assert(flags);
         assert(where);
-        assert(options);
         assert(ret_options);
 
         if (!(*flags & (MOUNT_NOAUTO|MOUNT_NOFAIL|MOUNT_AUTOMOUNT))) {
-                _cleanup_free_ char *opts = NULL;
+                r = strdup_or_null(options, ret_options);
+                if (r < 0)
+                        return r;
 
-                opts = strdup(options);
-                if (!opts)
-                        return -ENOMEM;
-
-                *ret_options = TAKE_PTR(opts);
                 return 0;
         }
 
@@ -522,7 +518,6 @@ static int add_mount(
 
         assert(what);
         assert(where);
-        assert(opts);
         assert(target_unit);
         assert(source);
 
@@ -835,6 +830,9 @@ static int add_sysusr_sysroot_usr_bind_mount(const char *source) {
 static MountPointFlags fstab_options_to_flags(const char *options, bool is_swap) {
         MountPointFlags flags = 0;
 
+        if (isempty(options))
+                return 0;
+
         if (fstab_test_option(options, "x-systemd.makefs\0"))
                 flags |= MOUNT_MAKEFS;
         if (fstab_test_option(options, "x-systemd.growfs\0"))
@@ -910,7 +908,6 @@ static int parse_fstab_one(
 
         assert(what_original);
         assert(fstype);
-        assert(options);
 
         if (prefix_sysroot && !mount_in_initrd(where_original, options, accept_root))
                 return 0;
