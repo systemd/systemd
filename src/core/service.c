@@ -152,22 +152,12 @@ static void service_init(Unit *u) {
 
 static void service_unwatch_control_pid(Service *s) {
         assert(s);
-
-        if (!pidref_is_set(&s->control_pid))
-                return;
-
-        unit_unwatch_pidref(UNIT(s), &s->control_pid);
-        pidref_done(&s->control_pid);
+        unit_unwatch_pidref_done(UNIT(s), &s->control_pid);
 }
 
 static void service_unwatch_main_pid(Service *s) {
         assert(s);
-
-        if (!pidref_is_set(&s->main_pid))
-                return;
-
-        unit_unwatch_pidref(UNIT(s), &s->main_pid);
-        pidref_done(&s->main_pid);
+        unit_unwatch_pidref_done(UNIT(s), &s->main_pid);
 }
 
 static void service_unwatch_pid_file(Service *s) {
