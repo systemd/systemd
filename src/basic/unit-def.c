@@ -117,13 +117,29 @@ static const char* const unit_active_state_table[_UNIT_ACTIVE_STATE_MAX] = {
 DEFINE_STRING_TABLE_LOOKUP(unit_active_state, UnitActiveState);
 
 static const char* const freezer_state_table[_FREEZER_STATE_MAX] = {
-        [FREEZER_RUNNING]  = "running",
-        [FREEZER_FREEZING] = "freezing",
-        [FREEZER_FROZEN]   = "frozen",
-        [FREEZER_THAWING]  = "thawing",
+        [FREEZER_RUNNING]         = "running",
+        [FREEZER_FREEZING]        = "freezing",
+        [FREEZER_PARENT_FREEZING] = "parent-freezing",
+        [FREEZER_FROZEN]          = "frozen",
+        [FREEZER_PARENT_FROZEN]   = "parent-frozen",
+        [FREEZER_THAWING]         = "thawing",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(freezer_state, FreezerState);
+
+static const FreezerState freezer_state_finish_table[_FREEZER_STATE_MAX] = {
+        [FREEZER_RUNNING]         = FREEZER_RUNNING,
+        [FREEZER_FREEZING]        = FREEZER_FROZEN,
+        [FREEZER_PARENT_FREEZING] = FREEZER_PARENT_FROZEN,
+        [FREEZER_FROZEN]          = FREEZER_FROZEN,
+        [FREEZER_PARENT_FROZEN]   = FREEZER_PARENT_FROZEN,
+        [FREEZER_THAWING]         = FREEZER_RUNNING,
+};
+
+FreezerState freezer_state_finish(FreezerState state) {
+        assert(state >= 0);
+        return freezer_state_finish_table[state];
+}
 
 static const char* const unit_marker_table[_UNIT_MARKER_MAX] = {
         [UNIT_MARKER_NEEDS_RELOAD]  = "needs-reload",

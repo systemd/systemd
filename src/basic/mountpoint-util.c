@@ -535,6 +535,25 @@ bool fstype_can_uid_gid(const char *fstype) {
                           "vfat");
 }
 
+bool fstype_can_freeze_thaw(const char *fstype) {
+        /* All file systems that support the FIFREEZE/FITHAW ioctls. Unfourtunately, the kernel
+         * doesn't have a way of checking this, so we maintain a curated list below... */
+
+         return STR_IN_SET(fstype,
+                           "bcachefs",
+                           "btrfs",
+                           "cifs",
+                           "ext2",
+                           "ext3",
+                           "ext4",
+                           "f2fs",
+                           "gfs2",
+                           "jfs",
+                           "nilfs2",
+                           "reiserfs",
+                           "xfs");
+}
+
 int dev_is_devtmpfs(void) {
         _cleanup_fclose_ FILE *proc_self_mountinfo = NULL;
         int mount_id, r;
