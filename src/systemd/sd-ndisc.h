@@ -43,7 +43,8 @@ enum {
         SD_NDISC_OPTION_FLAGS_EXTENSION    = 26,
         SD_NDISC_OPTION_DNSSL              = 31,
         SD_NDISC_OPTION_CAPTIVE_PORTAL     = 37,
-        SD_NDISC_OPTION_PREF64             = 38
+        SD_NDISC_OPTION_PREF64             = 38,
+        SD_NDISC_OPTION_ENCRYPTED_DNS      = 144
 };
 
 /* Route preference, RFC 4191, Section 2.1 */
@@ -55,6 +56,7 @@ enum {
 
 typedef struct sd_ndisc sd_ndisc;
 typedef struct sd_ndisc_router sd_ndisc_router;
+typedef struct ResolverData ResolverData;
 
 __extension__ typedef enum sd_ndisc_event_t {
         SD_NDISC_EVENT_TIMEOUT,
@@ -134,6 +136,11 @@ int sd_ndisc_router_dnssl_get_lifetime_timestamp(sd_ndisc_router *rt, clockid_t 
 
 /* Specific option access: SD_NDISC_OPTION_CAPTIVE_PORTAL */
 int sd_ndisc_router_captive_portal_get_uri(sd_ndisc_router *rt, const char **ret, size_t *ret_size);
+
+/* Specifi option access: SD_NDISC_OPTION_EENCRYPTED_DNS */
+int sd_ndisc_router_encrypted_dns_get_dnr(sd_ndisc_router *rt, ResolverData **ret);
+int sd_ndisc_router_encrypted_dns_get_lifetime(sd_ndisc_router *rt, uint64_t *ret);
+int sd_ndisc_router_encrypted_dns_get_lifetime_timestamp(sd_ndisc_router *rt, clockid_t clock, uint64_t *ret);
 
 /* Specific option access: SD_NDISC_OPTION_PREF64 */
 int sd_ndisc_router_prefix64_get_prefix(sd_ndisc_router *rt, struct in6_addr *ret);
