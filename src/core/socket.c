@@ -3064,15 +3064,11 @@ fail:
         return 0;
 }
 
-static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
-        Socket *s = SOCKET(u);
+static SocketResult socket_set_result_on_sigchld(Socket *s, pid_t pid, int code, int status) {
         SocketResult f;
 
         assert(s);
-        assert(pid >= 0);
-
-        if (pid != s->control_pid.pid)
-                return;
+        assert(s->control_pid.pid == pid);
 
         pidref_done(&s->control_pid);
 
@@ -3095,7 +3091,7 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         }
 
         unit_log_process_exit(
-                        u,
+                        UNIT(s),
                         "Control process",
                         socket_exec_command_to_string(s->control_command_id),
                         f == SOCKET_SUCCESS,
@@ -3104,68 +3100,86 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         if (s->result == SOCKET_SUCCESS)
                 s->result = f;
 
+        return f;
+}
+
+static void socket_set_state_on_sigchld(Socket *s, SocketResult f) {
+        assert(s);
+
         if (s->control_command &&
             s->control_command->command_next &&
             f == SOCKET_SUCCESS) {
 
-                log_unit_debug(u, "Running next command for state %s", socket_state_to_string(s->state));
-                socket_run_next(s);
-        } else {
-                s->control_command = NULL;
-                s->control_command_id = _SOCKET_EXEC_COMMAND_INVALID;
-
-                /* No further commands for this step, so let's figure
-                 * out what to do next */
-
-                log_unit_debug(u, "Got final SIGCHLD for state %s", socket_state_to_string(s->state));
-
-                switch (s->state) {
-
-                case SOCKET_START_PRE:
-                        if (f == SOCKET_SUCCESS)
-                                socket_enter_start_chown(s);
-                        else
-                                socket_enter_signal(s, SOCKET_FINAL_SIGTERM, f);
-                        break;
-
-                case SOCKET_START_CHOWN:
-                        if (f == SOCKET_SUCCESS)
-                                socket_enter_start_post(s);
-                        else
-                                socket_enter_stop_pre(s, f);
-                        break;
-
-                case SOCKET_START_POST:
-                        if (f == SOCKET_SUCCESS)
-                                socket_enter_listening(s);
-                        else
-                                socket_enter_stop_pre(s, f);
-                        break;
-
-                case SOCKET_STOP_PRE:
-                case SOCKET_STOP_PRE_SIGTERM:
-                case SOCKET_STOP_PRE_SIGKILL:
-                        socket_enter_stop_post(s, f);
-                        break;
-
-                case SOCKET_STOP_POST:
-                case SOCKET_FINAL_SIGTERM:
-                case SOCKET_FINAL_SIGKILL:
-                        socket_enter_dead(s, f);
-                        break;
-
-                case SOCKET_CLEANING:
-
-                        if (s->clean_result == SOCKET_SUCCESS)
-                                s->clean_result = f;
-
-                        socket_enter_dead(s, SOCKET_SUCCESS);
-                        break;
-
-                default:
-                        assert_not_reached();
-                }
+                log_unit_debug(UNIT(s), "Running next command for state %s", socket_state_to_string(s->state));
+                return socket_run_next(s);
         }
+
+        s->control_command = NULL;
+        s->control_command_id = _SOCKET_EXEC_COMMAND_INVALID;
+
+        /* No further commands for this step, so let's figure out what to do next. */
+
+        log_unit_debug(UNIT(s), "Got final SIGCHLD for state %s", socket_state_to_string(s->state));
+
+        switch (s->state) {
+
+        case SOCKET_START_PRE:
+                if (f == SOCKET_SUCCESS)
+                        socket_enter_start_chown(s);
+                else
+                        socket_enter_signal(s, SOCKET_FINAL_SIGTERM, f);
+                break;
+
+        case SOCKET_START_CHOWN:
+                if (f == SOCKET_SUCCESS)
+                        socket_enter_start_post(s);
+                else
+                        socket_enter_stop_pre(s, f);
+                break;
+
+        case SOCKET_START_POST:
+                if (f == SOCKET_SUCCESS)
+                        socket_enter_listening(s);
+                else
+                        socket_enter_stop_pre(s, f);
+                break;
+
+        case SOCKET_STOP_PRE:
+        case SOCKET_STOP_PRE_SIGTERM:
+        case SOCKET_STOP_PRE_SIGKILL:
+                socket_enter_stop_post(s, f);
+                break;
+
+        case SOCKET_STOP_POST:
+        case SOCKET_FINAL_SIGTERM:
+        case SOCKET_FINAL_SIGKILL:
+                socket_enter_dead(s, f);
+                break;
+
+        case SOCKET_CLEANING:
+                if (s->clean_result == SOCKET_SUCCESS)
+                        s->clean_result = f;
+
+                socket_enter_dead(s, SOCKET_SUCCESS);
+                break;
+
+        default:
+                assert_not_reached();
+        }
+}
+
+static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
+        Socket *s = SOCKET(u);
+        SocketResult f;
+
+        assert(s);
+        assert(pid >= 0);
+
+        if (pid != s->control_pid.pid)
+                return;
+
+        f = socket_set_result_on_sigchld(s, pid, code, status);
+        socket_set_state_on_sigchld(s, f);
 
         /* Notify clients about changed exit status */
         unit_add_to_dbus_queue(u);
