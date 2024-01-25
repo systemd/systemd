@@ -997,19 +997,15 @@ static int swap_deserialize_item(Unit *u, const char *key, const char *value, FD
         return 0;
 }
 
-static void swap_sigchld_event(Unit *u, pid_t pid, int code, int status) {
-        Swap *s = SWAP(u);
+static SwapResult swap_set_result_on_sigchld(Swap *s, pid_t pid, int code, int status) {
         SwapResult f;
 
         assert(s);
-        assert(pid >= 0);
-
-        if (pid != s->control_pid.pid)
-                return;
+        assert(s->control_pid.pid == pid);
 
         /* Let's scan /proc/swaps before we process SIGCHLD. For the reasoning see the similar code in
          * mount.c */
-        (void) swap_process_proc_swaps(u->manager);
+        (void) swap_process_proc_swaps(UNIT(s)->manager);
 
         pidref_done(&s->control_pid);
 
@@ -1035,11 +1031,17 @@ static void swap_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         }
 
         unit_log_process_exit(
-                        u,
+                        UNIT(s),
                         "Swap process",
                         swap_exec_command_to_string(s->control_command_id),
                         f == SWAP_SUCCESS,
                         code, status);
+
+        return f;
+}
+
+static void swap_set_state_on_sigchld(Swap *s, SwapResult f) {
+        assert(s);
 
         switch (s->state) {
 
@@ -1069,6 +1071,20 @@ static void swap_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         default:
                 assert_not_reached();
         }
+}
+
+static void swap_sigchld_event(Unit *u, pid_t pid, int code, int status) {
+        Swap *s = SWAP(u);
+        SwapResult f;
+
+        assert(s);
+        assert(pid >= 0);
+
+        if (pid != s->control_pid.pid)
+                return;
+
+        f = swap_set_result_on_sigchld(s, pid, code, status);
+        swap_set_state_on_sigchld(s, f);
 
         /* Notify clients about changed exit status */
         unit_add_to_dbus_queue(u);
