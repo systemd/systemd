@@ -7,6 +7,7 @@
 #include "sd-id128.h"
 
 #include "alloc-util.h"
+#include "bus-internal.h"
 #include "fd-util.h"
 #include "fs-util.h"
 #include "mkdir.h"
@@ -27,8 +28,11 @@ static int method_foobar(sd_bus_message *m, void *userdata, sd_bus_error *ret_er
 
 static int method_exit(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
         log_info("Got Exit() call");
-        assert_se(sd_event_exit(sd_bus_get_event(sd_bus_message_get_bus(m)), 1) >= 0);
-        return sd_bus_reply_method_return(m, NULL);
+
+        assert_se(sd_bus_reply_method_return(m, NULL) >= 0);
+        /* Simulate D-Bus going away to test the bus_exit_now() path with exit_on_disconnect set */
+        bus_enter_closing(sd_bus_message_get_bus(m));
+        return 0;
 }
 
 static const sd_bus_vtable vtable[] = {
@@ -100,6 +104,7 @@ static void* thread_server(void *p) {
                 log_debug("Accepted server connection");
 
                 assert_se(sd_bus_new(&bus) >= 0);
+                assert_se(sd_bus_set_exit_on_disconnect(bus, true) >= 0);
                 assert_se(sd_bus_set_description(bus, "server") >= 0);
                 assert_se(sd_bus_set_fd(bus, bus_fd, bus_fd) >= 0);
                 assert_se(sd_bus_set_server(bus, true, id) >= 0);

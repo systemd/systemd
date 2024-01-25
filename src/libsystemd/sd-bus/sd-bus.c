@@ -3087,7 +3087,7 @@ null_message:
         return r;
 }
 
-static int bus_exit_now(sd_bus *bus) {
+static int bus_exit_now(sd_bus *bus, sd_event *event) {
         assert(bus);
 
         /* Exit due to close, if this is requested. If this is bus object is attached to an event source, invokes
@@ -3104,8 +3104,11 @@ static int bus_exit_now(sd_bus *bus) {
 
         log_debug("Bus connection disconnected, exiting.");
 
-        if (bus->event)
-                return sd_event_exit(bus->event, EXIT_FAILURE);
+        if (!event)
+                event = bus->event;
+
+        if (event)
+                return sd_event_exit(event, EXIT_FAILURE);
         else
                 exit(EXIT_FAILURE);
 
@@ -3167,6 +3170,7 @@ static int process_closing_reply_callback(sd_bus *bus, struct reply_callback *c)
 
 static int process_closing(sd_bus *bus, sd_bus_message **ret) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
+        _cleanup_(sd_event_unrefp) sd_event *event = NULL;
         struct reply_callback *c;
         int r;
 
@@ -3201,6 +3205,10 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
         if (r < 0)
                 return r;
 
+        /* sd_bus_close() will deref the event and set bus->event to NULL. But in bus_exit_now() we use
+         * bus->event to decide whether to return from the event loop or exit(), but given it's always NULL
+         * at that point, it always exit(). Ref it here and pass it through further down to avoid that. */
+        event = sd_event_ref(bus->event);
         sd_bus_close(bus);
 
         bus->current_message = m;
@@ -3216,7 +3224,7 @@ static int process_closing(sd_bus *bus, sd_bus_message **ret) {
 
         /* Nothing else to do, exit now, if the condition holds */
         bus->exit_triggered = true;
-        (void) bus_exit_now(bus);
+        (void) bus_exit_now(bus, event);
 
         if (ret)
                 *ret = TAKE_PTR(m);
@@ -4312,7 +4320,7 @@ _public_ int sd_bus_set_exit_on_disconnect(sd_bus *bus, int b) {
         bus->exit_on_disconnect = b;
 
         /* If the exit condition was triggered already, exit immediately. */
-        return bus_exit_now(bus);
+        return bus_exit_now(bus, /* event= */ NULL);
 }
 
 _public_ int sd_bus_get_exit_on_disconnect(sd_bus *bus) {
