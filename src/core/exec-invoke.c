@@ -22,7 +22,7 @@
 #include "argv-util.h"
 #include "barrier.h"
 #include "bpf-dlopen.h"
-#include "bpf-lsm.h"
+#include "bpf-restrict-fs.h"
 #include "btrfs-util.h"
 #include "capability-util.h"
 #include "cgroup-setup.h"

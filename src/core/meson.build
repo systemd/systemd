@@ -7,7 +7,7 @@ libcore_sources = files(
         'bpf-devices.c',
         'bpf-firewall.c',
         'bpf-foreign.c',
-        'bpf-lsm.c',
+        'bpf-restrict-fs.c',
         'bpf-socket-bind.c',
         'cgroup.c',
         'core-varlink.c',

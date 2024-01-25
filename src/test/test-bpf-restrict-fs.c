@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "bpf-lsm.h"
+#include "bpf-restrict-fs.h"
 #include "load-fragment.h"
 #include "manager.h"
 #include "process-util.h"

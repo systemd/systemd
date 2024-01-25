@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 
-#include "bpf-lsm.h"
+#include "bpf-restrict-fs.h"
 #include "cgroup-util.h"
 #include "cpu-set-util.h"
 #include "firewall-util.h"
