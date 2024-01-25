@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include "fd-util.h"
-#include "restrict-ifaces.h"
+#include "bpf-restrict-ifaces.h"
 #include "netlink-util.h"
 
 #if BPF_FRAMEWORK
@@ -72,7 +72,7 @@ static int prepare_restrict_ifaces_bpf(
         return 0;
 }
 
-int restrict_network_interfaces_supported(void) {
+int bpf_restrict_ifaces_supported(void) {
         _cleanup_(restrict_ifaces_bpf_freep) struct restrict_ifaces_bpf *obj = NULL;
         static int supported = -1;
         int r;
@@ -97,7 +97,7 @@ int restrict_network_interfaces_supported(void) {
         return (supported = bpf_can_link_program(obj->progs.sd_restrictif_i));
 }
 
-static int restrict_network_interfaces_install_impl(Unit *u) {
+static int restrict_ifaces_install_impl(Unit *u) {
         _cleanup_(bpf_link_freep) struct bpf_link *egress_link = NULL, *ingress_link = NULL;
         _cleanup_(restrict_ifaces_bpf_freep) struct restrict_ifaces_bpf *obj = NULL;
         _cleanup_free_ char *cgroup_path = NULL;
@@ -143,13 +143,15 @@ static int restrict_network_interfaces_install_impl(Unit *u) {
         return 0;
 }
 
-int restrict_network_interfaces_install(Unit *u) {
-        int r = restrict_network_interfaces_install_impl(u);
+int bpf_restrict_ifaces_install(Unit *u) {
+        int r;
+
+        r = restrict_ifaces_install_impl(u);
         fdset_close(u->initial_restric_ifaces_link_fds);
         return r;
 }
 
-int serialize_restrict_network_interfaces(Unit *u, FILE *f, FDSet *fds) {
+int bpf_restrict_ifaces_serialize(Unit *u, FILE *f, FDSet *fds) {
         int r;
 
         assert(u);
@@ -161,7 +163,7 @@ int serialize_restrict_network_interfaces(Unit *u, FILE *f, FDSet *fds) {
         return bpf_serialize_link(f, fds, "restrict-ifaces-bpf-fd", u->restrict_ifaces_egress_bpf_link);
 }
 
-int restrict_network_interfaces_add_initial_link_fd(Unit *u, int fd) {
+int bpf_restrict_ifaces_add_initial_link_fd(Unit *u, int fd) {
         int r;
 
         assert(u);
@@ -181,20 +183,20 @@ int restrict_network_interfaces_add_initial_link_fd(Unit *u, int fd) {
 }
 
 #else /* ! BPF_FRAMEWORK */
-int restrict_network_interfaces_supported(void) {
+int bpf_restrict_ifaces_supported(void) {
         return 0;
 }
 
-int restrict_network_interfaces_install(Unit *u) {
+int bpf_restrict_ifaces_install(Unit *u) {
         return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EOPNOTSUPP),
                         "restrict-interfaces: Failed to install; BPF programs built from source code are not supported: %m");
 }
 
-int serialize_restrict_network_interfaces(Unit *u, FILE *f, FDSet *fds) {
+int bpf_restrict_ifaces_serialize(Unit *u, FILE *f, FDSet *fds) {
         return 0;
 }
 
-int restrict_network_interfaces_add_initial_link_fd(Unit *u, int fd) {
+int bpf_restrict_ifaces_add_initial_link_fd(Unit *u, int fd) {
         return 0;
 }
 #endif

@@ -22,7 +22,7 @@
 #include "argv-util.h"
 #include "barrier.h"
 #include "bpf-dlopen.h"
-#include "bpf-lsm.h"
+#include "bpf-restrict-fs.h"
 #include "btrfs-util.h"
 #include "capability-util.h"
 #include "cgroup-setup.h"
@@ -1704,7 +1704,7 @@ static int apply_restrict_filesystems(const ExecContext *c, const ExecParameters
         if (!exec_context_restrict_filesystems_set(c))
                 return 0;
 
-        if (p->bpf_outer_map_fd < 0) {
+        if (p->bpf_restrict_fs_map_fd < 0) {
                 /* LSM BPF is unsupported or lsm_bpf_setup failed */
                 log_exec_debug(c, p, "LSM BPF not supported, skipping RestrictFileSystems=");
                 return 0;
@@ -1715,7 +1715,7 @@ static int apply_restrict_filesystems(const ExecContext *c, const ExecParameters
         if (r < 0)
                 return r;
 
-        return lsm_bpf_restrict_filesystems(c->restrict_filesystems, p->cgroup_id, p->bpf_outer_map_fd, c->restrict_filesystems_allow_list);
+        return bpf_restrict_fs_update(c->restrict_filesystems, p->cgroup_id, p->bpf_restrict_fs_map_fd, c->restrict_filesystems_allow_list);
 }
 #endif
 
@@ -4139,7 +4139,7 @@ int exec_invoke(
         }
 
 #if HAVE_LIBBPF
-        r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, &params->bpf_outer_map_fd);
+        r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, &params->bpf_restrict_fs_map_fd);
         if (r < 0) {
                 *exit_status = EXIT_FDS;
                 return log_exec_error_errno(context, params, r, "Failed to collect shifted fd: %m");

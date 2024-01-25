@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
+#include "bpf-restrict-ifaces.h"
 #include "bpf-socket-bind.h"
 #include "bus-util.h"
 #include "dbus.h"
@@ -7,7 +8,6 @@
 #include "fileio.h"
 #include "format-util.h"
 #include "parse-util.h"
-#include "restrict-ifaces.h"
 #include "serialize.h"
 #include "string-table.h"
 #include "unit-serialize.h"
@@ -191,7 +191,7 @@ int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         (void) serialize_cgroup_mask(f, "cgroup-enabled-mask", u->cgroup_enabled_mask);
         (void) serialize_cgroup_mask(f, "cgroup-invalidated-mask", u->cgroup_invalidated_mask);
 
-        (void) bpf_serialize_socket_bind(u, f, fds);
+        (void) bpf_socket_bind_serialize(u, f, fds);
 
         (void) bpf_program_serialize_attachment(f, fds, "ip-bpf-ingress-installed", u->ip_bpf_ingress_installed);
         (void) bpf_program_serialize_attachment(f, fds, "ip-bpf-egress-installed", u->ip_bpf_egress_installed);
@@ -199,7 +199,7 @@ int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         (void) bpf_program_serialize_attachment_set(f, fds, "ip-bpf-custom-ingress-installed", u->ip_bpf_custom_ingress_installed);
         (void) bpf_program_serialize_attachment_set(f, fds, "ip-bpf-custom-egress-installed", u->ip_bpf_custom_egress_installed);
 
-        (void) serialize_restrict_network_interfaces(u, f, fds);
+        (void) bpf_restrict_ifaces_serialize(u, f, fds);
 
         if (uid_is_valid(u->ref_uid))
                 (void) serialize_item_format(f, "ref-uid", UID_FMT, u->ref_uid);
@@ -445,7 +445,7 @@ int unit_deserialize_state(Unit *u, FILE *f, FDSet *fds) {
 
                         fd = deserialize_fd(fds, v);
                         if (fd >= 0)
-                                (void) restrict_network_interfaces_add_initial_link_fd(u, fd);
+                                (void) bpf_restrict_ifaces_add_initial_link_fd(u, fd);
 
                         continue;
 

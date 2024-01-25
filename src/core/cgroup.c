@@ -10,6 +10,7 @@
 #include "bpf-devices.h"
 #include "bpf-firewall.h"
 #include "bpf-foreign.h"
+#include "bpf-restrict-ifaces.h"
 #include "bpf-socket-bind.h"
 #include "btrfs-util.h"
 #include "bus-error.h"
@@ -32,7 +33,6 @@
 #include "percent-util.h"
 #include "process-util.h"
 #include "procfs-util.h"
-#include "restrict-ifaces.h"
 #include "set.h"
 #include "special.h"
 #include "stdio-util.h"
@@ -1849,7 +1849,7 @@ static void cgroup_apply_socket_bind(Unit *u) {
 static void cgroup_apply_restrict_network_interfaces(Unit *u) {
         assert(u);
 
-        (void) restrict_network_interfaces_install(u);
+        (void) bpf_restrict_ifaces_install(u);
 }
 
 static int cgroup_apply_devices(Unit *u) {
@@ -3451,7 +3451,7 @@ void unit_prune_cgroup(Unit *u) {
                 (void) unit_get_memory_accounting(u, metric, /* ret = */ NULL);
 
 #if BPF_FRAMEWORK
-        (void) lsm_bpf_cleanup(u); /* Remove cgroup from the global LSM BPF map */
+        (void) bpf_restrict_fs_cleanup(u); /* Remove cgroup from the global LSM BPF map */
 #endif
 
         unit_modify_nft_set(u, /* add = */ false);
@@ -3987,7 +3987,7 @@ static int cg_bpf_mask_supported(CGroupMask *ret) {
                 mask |= CGROUP_MASK_BPF_SOCKET_BIND;
 
         /* BPF-based cgroup_skb/{egress|ingress} hooks */
-        r = restrict_network_interfaces_supported();
+        r = bpf_restrict_ifaces_supported();
         if (r < 0)
                 return r;
         if (r > 0)
