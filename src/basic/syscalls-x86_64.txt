@@ -188,12 +188,16 @@ lgetxattr	192
 link	86
 linkat	265
 listen	50
+listmount	458
 listxattr	194
 llistxattr	195
 lookup_dcookie	212
 lremovexattr	198
 lseek	8
 lsetxattr	189
+lsm_get_self_attr	459
+lsm_list_modules	461
+lsm_set_self_attr	460
 lstat	6
 lstat64
 madvise	28
@@ -449,6 +453,7 @@ stat	4
 stat64
 statfs	137
 statfs64
+statmount	457
 statx	332
 stime
 subpage_prot

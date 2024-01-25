@@ -188,12 +188,16 @@ lgetxattr	4228
 link	4009
 linkat	4296
 listen	4174
+listmount	4458
 listxattr	4230
 llistxattr	4231
 lookup_dcookie	4247
 lremovexattr	4234
 lseek	4019
 lsetxattr	4225
+lsm_get_self_attr	4459
+lsm_list_modules	4461
+lsm_set_self_attr	4460
 lstat	4107
 lstat64	4214
 madvise	4218
@@ -449,6 +453,7 @@ stat	4106
 stat64	4213
 statfs	4099
 statfs64	4255
+statmount	4457
 statx	4366
 stime	4025
 subpage_prot
