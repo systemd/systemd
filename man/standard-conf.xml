@@ -50,14 +50,19 @@
     <title>Configuration Directories and Precedence</title>
 
     <para>The default configuration is set during compilation, so configuration is only needed when it is
-    necessary to deviate from those defaults. The main configuration file is either in
-    <filename>/usr/lib/systemd/</filename> or <filename>/etc/systemd/</filename> and contains commented out
-    entries showing the defaults as a guide to the administrator. Local overrides can be created by creating
-    drop-ins, as described below. The main configuration file can also be edited for this purpose (or a copy
-    in <filename>/etc/</filename> if it's shipped in <filename>/usr/</filename>) however using drop-ins for
-    local configuration is recommended over modifications to the main configuration file.</para>
+    necessary to deviate from those defaults. The main configuration file is loaded from one of the
+    listed directories in order of priority, only the first file found is used:
+    <filename>/etc/systemd/</filename>,
+    <filename>/run/systemd/</filename>,
+    <filename>/usr/local/lib/systemd/</filename>,
+    <filename>/usr/lib/systemd/</filename>.
+    The vendor version of the file contains commented out entries showing the defaults as a guide to the
+    administrator. Local overrides can also be created by creating drop-ins, as described below. The main
+    configuration file can also be edited for this purpose (or a copy in <filename>/etc/</filename> if it's
+    shipped under <filename>/usr/</filename>), however using drop-ins for local configuration is recommended
+    over modifications to the main configuration file.</para>
 
-    <para>In addition to the "main" configuration file, drop-in configuration snippets are read from
+    <para>In addition to the main configuration file, drop-in configuration snippets are read from
     <filename>/usr/lib/systemd/*.conf.d/</filename>, <filename>/usr/local/lib/systemd/*.conf.d/</filename>,
     and <filename>/etc/systemd/*.conf.d/</filename>. Those drop-ins have higher precedence and override the
     main configuration file. Files in the <filename>*.conf.d/</filename> configuration subdirectories are

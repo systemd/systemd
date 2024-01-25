@@ -598,8 +598,8 @@ static int config_parse_many_files(
         return 0;
 }
 
-/* Parse one main config file located in /etc/$pkgdir and its drop-ins, which is what all systemd daemons
- * do. */
+/* Parse one main config file located in one of the config paths, and its drop-ins.
+ * This is what all systemd daemons are supposed to do. */
 int config_parse_config_file(
                 const char *conf_file,
                 const char *sections,
@@ -608,41 +608,35 @@ int config_parse_config_file(
                 ConfigParseFlags flags,
                 void *userdata) {
 
-        _cleanup_strv_free_ char **dropins = NULL, **dropin_dirs = NULL;
+        _cleanup_strv_free_ char **configs = NULL, **dropin_dirs = NULL, **dropins = NULL;
         char **conf_paths = CONF_PATHS_STRV("");
         int r;
 
         assert(conf_file);
 
-        /* build the dropin dir list */
-        dropin_dirs = new0(char*, strv_length(conf_paths) + 1);
-        if (!dropin_dirs) {
+        /* Build the list of main config files */
+        r = strv_extend_strv_concat(&configs, conf_paths, conf_file);
+        if (r < 0) {
                 if (flags & CONFIG_PARSE_WARN)
-                        return log_oom();
-                return -ENOMEM;
+                        log_oom();
+                return r;
         }
 
-        size_t i = 0;
-        STRV_FOREACH(p, conf_paths) {
-                char *d;
-
-                d = strjoin(*p, conf_file, ".d");
-                if (!d) {
-                        if (flags & CONFIG_PARSE_WARN)
-                                log_oom();
-                        return -ENOMEM;
-                }
-
-                dropin_dirs[i++] = d;
+        /* Build the dropin dir list */
+        const char *conf_file_d = strjoina(conf_file, ".d");
+        r = strv_extend_strv_concat(&dropin_dirs, conf_paths, conf_file_d);
+        if (r < 0) {
+                if (flags & CONFIG_PARSE_WARN)
+                        log_oom();
+                return r;
         }
 
+        /* Find dropins */
         r = conf_files_list_strv(&dropins, ".conf", NULL, 0, (const char**) dropin_dirs);
         if (r < 0)
                 return r;
 
-        const char *sysconf_file = strjoina(SYSCONF_DIR, "/", conf_file);
-
-        return config_parse_many_files(STRV_MAKE_CONST(sysconf_file), dropins,
+        return config_parse_many_files((const char* const*) configs, dropins,
                                        sections, lookup, table, flags, userdata, NULL);
 }
 
