@@ -199,9 +199,7 @@ shared_sources = files(
 )
 
 if get_option('tests') != 'false'
-        shared_sources += files(
-                'tests.c',
-        )
+        shared_sources += files('tests.c')
 endif
 
 generate_syscall_list = find_program('generate-syscall-list.py')
@@ -215,9 +213,7 @@ syscall_list_h = custom_target(
         capture : true)
 
 if conf.get('HAVE_ACL') == 1
-        shared_sources += files(
-                'devnode-acl.c',
-        )
+        shared_sources += files('devnode-acl.c')
 endif
 
 if conf.get('ENABLE_UTMP') == 1
@@ -234,9 +230,7 @@ if conf.get('HAVE_LIBIPTC') == 1
 endif
 
 if conf.get('HAVE_LIBBPF') == 1
-        shared_sources += files(
-                'bpf-link.c',
-        )
+        shared_sources += files('bpf-link.c')
 endif
 
 if conf.get('HAVE_KMOD') == 1
@@ -244,9 +238,7 @@ if conf.get('HAVE_KMOD') == 1
 endif
 
 if conf.get('HAVE_PAM') == 1
-        shared_sources += files(
-                'pam-util.c',
-        )
+        shared_sources += files('pam-util.c')
 endif
 
 if conf.get('ENABLE_NSCD') == 1
@@ -366,9 +358,7 @@ libshared = shared_library(
         install : true,
         install_dir : pkglibdir)
 
-shared_fdisk_sources = files(
-        'fdisk-util.c',
-)
+shared_fdisk_sources = files('fdisk-util.c')
 
 libshared_fdisk = static_library(
         'shared-fdisk',
