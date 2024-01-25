@@ -1,0 +1,15 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+mkosi-install \
+    systemd \
+    udev \
+    systemd-experimental \
+    systemd-boot \
+    systemd-container \
+    systemd-homed \
+    systemd-network \
+    systemd-portable \
+    systemd-sysvcompat \
+    systemd-testsuite
