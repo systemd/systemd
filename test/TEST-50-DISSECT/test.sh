@@ -21,6 +21,7 @@ test_append_files() {
     generate_module_dependencies
     inst_binary wc
     inst_binary sha256sum
+    inst_binary tar
     if command -v openssl >/dev/null 2>&1; then
         inst_binary openssl
     fi
