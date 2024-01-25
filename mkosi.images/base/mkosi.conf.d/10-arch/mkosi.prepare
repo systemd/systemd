@@ -1,0 +1,10 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+if [ ! -d pkg/ ] or [ "$1" = "final" ]; then
+    exit 0
+fi
+
+. pkg/PKGBUILD
+mkosi-install "${makedepends[@]}"
