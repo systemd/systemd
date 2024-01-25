@@ -1,0 +1,56 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -ex
+
+if [ ! -d rpm/ ]; then
+    exit 0
+fi
+
+RELEASE="$(date '+%Y%m%d%H%M%S')"
+
+# The openSUSE filelists hardcode the manpage compression extension. This causes rpmbuild errors since we
+# disable manpage compression as the files cannot be found. Fix the issue by removing the compression
+# extension.
+sed -i 's/\.gz$//' rpm/files.*
+
+build() {
+    # TODO: Replace meson_build and meson_install overrides with "--undefine __meson_verbose" once
+    # https://github.com/mesonbuild/meson/pull/12835 is available.
+    rpmbuild \
+        -bb \
+        --build-in-place \
+        --with upstream \
+        "$([ "$WITH_TESTS" = "0" ] && echo --nocheck)" \
+        --define "_topdir /var/tmp" \
+        --define "_sourcedir rpm" \
+        --define "_rpmdir $PACKAGEDIR" \
+        ${BUILDDIR:+--define} \
+        ${BUILDDIR:+"_vpath_builddir $BUILDDIR"} \
+        --define "_build_name_fmt %%{NAME}-%%{VERSION}-%%{RELEASE}.%%{ARCH}.rpm" \
+        --define "_binary_payload w.ufdio" \
+        --define "debug_package %{nil}" \
+        --define "vendor openSUSE" \
+        --define "version $(cat meson.version)" \
+        --define "release $RELEASE" \
+        --define "__check_files sh -c '%{_rpmconfigdir}/check-files %{buildroot} | tee /tmp/unpackaged-files'" \
+        --define "meson_build %{shrink:%{__meson} compile -C %{_vpath_builddir} -j %{_smp_build_ncpus} %{nil}}" \
+        --define "meson_install %{shrink:DESTDIR=%{buildroot} %{__meson} install -C %{_vpath_builddir} --quiet --no-rebuild %{nil}}" \
+        --define "__os_install_post /usr/lib/rpm/brp-suse %{nil}" \
+        --define "__elf_exclude_path ^/usr/lib/systemd/tests/unit-tests/.*$" \
+        --define "__script_requires %{nil}" \
+        "$@" \
+        rpm/systemd.spec
+}
+
+if ! build; then
+    if [ ! -s /tmp/unpackaged-files ]; then
+        exit 1
+    fi
+
+    # rpm will append to any existing systemd.lang so delete it explicitly so we don't get duplicate file
+    # warnings.
+    rm -f systemd.lang
+
+    cat /tmp/unpackaged-files >>rpm/files.systemd
+    build --noprep --nocheck
+fi
