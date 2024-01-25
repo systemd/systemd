@@ -188,12 +188,16 @@ lgetxattr	6184
 link	6084
 linkat	6259
 listen	6049
+listmount	6458
 listxattr	6186
 llistxattr	6187
 lookup_dcookie	6206
 lremovexattr	6190
 lseek	6008
 lsetxattr	6181
+lsm_get_self_attr	6459
+lsm_list_modules	6461
+lsm_set_self_attr	6460
 lstat	6006
 lstat64
 madvise	6027
@@ -449,6 +453,7 @@ stat	6004
 stat64
 statfs	6134
 statfs64	6217
+statmount	6457
 statx	6330
 stime
 subpage_prot
