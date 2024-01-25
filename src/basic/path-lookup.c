@@ -91,6 +91,33 @@ int xdg_user_data_dir(char **ret, const char *suffix) {
         return 1;
 }
 
+int runtime_directory(char **ret, const char *suffix) {
+        int r;
+        _cleanup_free_ char *d = NULL;
+
+        assert(ret);
+        assert(suffix);
+
+        const char *e = getenv("RUNTIME_DIRECTORY");
+        if (e)
+                d = strdup(e);
+        else if (getuid() == 0)
+                d = strdup("/run");
+        else {
+                r = xdg_user_runtime_dir(&d, "");
+                if (r < 0)
+                        return r;
+        }
+        if (!d)
+                return -ENOMEM;
+
+        if (!path_extend(&d, suffix))
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(d);
+        return 0;
+}
+
 static const char* const user_data_unit_paths[] = {
         "/usr/local/lib/systemd/user",
         "/usr/local/share/systemd/user",
