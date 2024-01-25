@@ -365,7 +365,6 @@ static int luks_setup(
         _cleanup_(erase_and_freep) void *vk = NULL;
         sd_id128_t p;
         size_t vks;
-        char **list;
         int r;
 
         assert(h);
@@ -419,11 +418,13 @@ static int luks_setup(
                 return log_oom();
 
         r = -ENOKEY;
-        FOREACH_POINTER(list,
-                        cache ? cache->keyring_passswords : NULL,
-                        cache ? cache->pkcs11_passwords : NULL,
-                        cache ? cache->fido2_passwords : NULL,
-                        passwords) {
+        char **list;
+        FOREACH_ARGUMENT(list,
+                         cache ? cache->keyring_passswords : NULL,
+                         cache ? cache->pkcs11_passwords : NULL,
+                         cache ? cache->fido2_passwords : NULL,
+                         passwords) {
+
                 r = luks_try_passwords(h, cd, list, vk, &vks, ret_key_serial ? &key_serial : NULL);
                 if (r != -ENOKEY)
                         break;
@@ -519,7 +520,6 @@ static int luks_open(
 
         _cleanup_(erase_and_freep) void *vk = NULL;
         sd_id128_t p;
-        char **list;
         size_t vks;
         int r;
 
@@ -560,11 +560,13 @@ static int luks_open(
                 return log_oom();
 
         r = -ENOKEY;
-        FOREACH_POINTER(list,
-                        cache ? cache->keyring_passswords : NULL,
-                        cache ? cache->pkcs11_passwords : NULL,
-                        cache ? cache->fido2_passwords : NULL,
-                        h->password) {
+        char **list;
+        FOREACH_ARGUMENT(list,
+                         cache ? cache->keyring_passswords : NULL,
+                         cache ? cache->pkcs11_passwords : NULL,
+                         cache ? cache->fido2_passwords : NULL,
+                         h->password) {
+
                 r = luks_try_passwords(h, setup->crypt_device, list, vk, &vks, NULL);
                 if (r != -ENOKEY)
                         break;
@@ -3583,7 +3585,6 @@ int home_passwd_luks(
         _cleanup_(erase_and_freep) void *volume_key = NULL;
         struct crypt_pbkdf_type good_pbkdf, minimal_pbkdf;
         const char *type;
-        char **list;
         int r;
 
         assert(h);
@@ -3613,11 +3614,12 @@ int home_passwd_luks(
                 return log_oom();
 
         r = -ENOKEY;
-        FOREACH_POINTER(list,
-                        cache ? cache->keyring_passswords : NULL,
-                        cache ? cache->pkcs11_passwords : NULL,
-                        cache ? cache->fido2_passwords : NULL,
-                        h->password) {
+        char **list;
+        FOREACH_ARGUMENT(list,
+                         cache ? cache->keyring_passswords : NULL,
+                         cache ? cache->pkcs11_passwords : NULL,
+                         cache ? cache->fido2_passwords : NULL,
+                         h->password) {
 
                 r = luks_try_passwords(h, setup->crypt_device, list, volume_key, &volume_key_size, NULL);
                 if (r != -ENOKEY)
@@ -3736,7 +3738,6 @@ static int luks_try_resume(
 }
 
 int home_unlock_luks(UserRecord *h, HomeSetup *setup, const PasswordCache *cache) {
-        char **list;
         int r;
 
         assert(h);
@@ -3750,10 +3751,12 @@ int home_unlock_luks(UserRecord *h, HomeSetup *setup, const PasswordCache *cache
         log_info("Discovered used LUKS device %s.", setup->dm_node);
 
         r = -ENOKEY;
-        FOREACH_POINTER(list,
-                        cache ? cache->pkcs11_passwords : NULL,
-                        cache ? cache->fido2_passwords : NULL,
-                        h->password) {
+        char **list;
+        FOREACH_ARGUMENT(list,
+                         cache ? cache->pkcs11_passwords : NULL,
+                         cache ? cache->fido2_passwords : NULL,
+                         h->password) {
+
                 r = luks_try_resume(setup->crypt_device, setup->dm_name, list);
                 if (r != -ENOKEY)
                         break;
