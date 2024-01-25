@@ -1542,15 +1542,11 @@ static bool mount_may_gc(Unit *u) {
         return true;
 }
 
-static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
-        Mount *m = MOUNT(u);
+static MountResult mount_set_result_on_sigchld(Mount *m, pid_t pid, int code, int status) {
         MountResult f;
 
         assert(m);
-        assert(pid >= 0);
-
-        if (pid != m->control_pid.pid)
-                return;
+        assert(m->control_pid.pid == pid);
 
         /* So here's the thing, we really want to know before /usr/bin/mount or /usr/bin/umount exit whether
          * they established/remove a mount. This is important when mounting, but even more so when unmounting
@@ -1566,7 +1562,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
          * race, let's explicitly scan /proc/self/mountinfo before we start processing /usr/bin/(u)mount
          * dying. It's ugly, but it makes our ordering systematic again, and makes sure we always see
          * /proc/self/mountinfo changes before our mount/umount exits. */
-        (void) mount_process_proc_self_mountinfo(u->manager);
+        (void) mount_process_proc_self_mountinfo(UNIT(m)->manager);
 
         pidref_done(&m->control_pid);
 
@@ -1594,11 +1590,17 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         }
 
         unit_log_process_exit(
-                        u,
+                        UNIT(m),
                         "Mount process",
                         mount_exec_command_to_string(m->control_command_id),
                         f == MOUNT_SUCCESS,
                         code, status);
+
+        return f;
+}
+
+static void mount_set_state_on_sigchld(Mount *m, MountResult f) {
+        assert(m);
 
         /* Note that due to the io event priority logic, we can be sure the new mountinfo is loaded
          * before we process the SIGCHLD for the mount command. */
@@ -1636,11 +1638,11 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                          * but we will stop as soon as any one umount times out. */
 
                         if (m->n_retry_umount < RETRY_UMOUNT_MAX) {
-                                log_unit_debug(u, "Mount still present, trying again.");
+                                log_unit_debug(UNIT(m), "Mount still present, trying again.");
                                 m->n_retry_umount++;
                                 mount_enter_unmounting(m);
                         } else {
-                                log_unit_warning(u, "Mount still present after %u attempts to unmount, giving up.", m->n_retry_umount);
+                                log_unit_warning(UNIT(m), "Mount still present after %u attempts to unmount, giving up.", m->n_retry_umount);
                                 mount_enter_mounted(m, f);
                         }
                 } else
@@ -1663,6 +1665,20 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         default:
                 assert_not_reached();
         }
+}
+
+static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
+        Mount *m = MOUNT(u);
+        MountResult f;
+
+        assert(m);
+        assert(pid >= 0);
+
+        if (pid != m->control_pid.pid)
+                return;
+
+        f = mount_set_result_on_sigchld(m, pid, code, status);
+        mount_set_state_on_sigchld(m, f);
 
         /* Notify clients about changed exit status */
         unit_add_to_dbus_queue(u);
