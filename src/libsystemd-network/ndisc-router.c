@@ -870,7 +870,7 @@ int sd_ndisc_router_encrypted_dns_get_dnr(sd_ndisc_router *rt, ResolverData **re
         _cleanup_(dnr_resolver_data_free_allp) ResolverData *res = new0(ResolverData, 1);
         if (!res)
                 return -ENOMEM;
-        res->priority = be16toh(optval[offset]);
+        res->priority = unaligned_read_be16(&optval[offset]);
         offset += sizeof(uint16_t);
         offset += sizeof(uint32_t); /* Lifetime field. Accessed with *lifetime_timestamp functions. */
 
@@ -878,7 +878,7 @@ int sd_ndisc_router_encrypted_dns_get_dnr(sd_ndisc_router *rt, ResolverData **re
                 return -EBADMSG;
 
         /* adn field (length + dns-name) */
-        size_t ilen = be16toh(optval[offset]);
+        size_t ilen = unaligned_read_be16(&optval[offset]);
         offset += sizeof(uint16_t);
         if (offset + ilen > optlen)
                 return -EBADMSG;
