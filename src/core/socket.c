@@ -20,6 +20,7 @@
 #include "dbus-socket.h"
 #include "dbus-unit.h"
 #include "errno-list.h"
+#include "event-util.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -99,6 +100,7 @@ static void socket_init(Unit *u) {
 
         s->control_pid = PIDREF_NULL;
         s->control_command_id = _SOCKET_EXEC_COMMAND_INVALID;
+        s->control_pam_pid = PIDREF_NULL;
 
         s->trigger_limit = RATELIMIT_OFF;
 
@@ -109,6 +111,7 @@ static void socket_init(Unit *u) {
 static void socket_unwatch_control_pid(Socket *s) {
         assert(s);
         unit_unwatch_pidref_done(UNIT(s), &s->control_pid);
+        unit_unwatch_pidref_done(UNIT(s), &s->control_pam_pid);
 }
 
 static void socket_cleanup_fd_list(SocketPort *p) {
@@ -174,6 +177,7 @@ static void socket_done(Unit *u) {
         s->fdname = mfree(s->fdname);
 
         s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
+        s->kill_pam_timer_event_source = sd_event_source_disable_unref(s->kill_pam_timer_event_source);
 }
 
 static int socket_arm_timer(Socket *s, bool relative, usec_t usec) {
@@ -2459,6 +2463,7 @@ static int socket_start(Unit *u) {
                 return r;
 
         s->result = SOCKET_SUCCESS;
+        s->pending_result = SOCKET_SUCCESS;
         exec_command_reset_status_list_array(s->exec_command, _SOCKET_EXEC_COMMAND_MAX);
 
         u->reset_accounting = true;
@@ -3071,15 +3076,11 @@ fail:
         return 0;
 }
 
-static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
-        Socket *s = SOCKET(u);
+static SocketResult socket_set_result_on_sigchld(Socket *s, pid_t pid, int code, int status) {
         SocketResult f;
 
         assert(s);
-        assert(pid >= 0);
-
-        if (pid != s->control_pid.pid)
-                return;
+        assert(s->control_pid.pid == pid);
 
         pidref_done(&s->control_pid);
 
@@ -3102,7 +3103,7 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         }
 
         unit_log_process_exit(
-                        u,
+                        UNIT(s),
                         "Control process",
                         socket_exec_command_to_string(s->control_command_id),
                         f == SOCKET_SUCCESS,
@@ -3111,68 +3112,155 @@ static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         if (s->result == SOCKET_SUCCESS)
                 s->result = f;
 
+        return f;
+}
+
+static void socket_set_state_on_sigchld(Socket *s, SocketResult f) {
+        assert(s);
+
         if (s->control_command &&
             s->control_command->command_next &&
             f == SOCKET_SUCCESS) {
 
-                log_unit_debug(u, "Running next command for state %s", socket_state_to_string(s->state));
-                socket_run_next(s);
-        } else {
-                s->control_command = NULL;
-                s->control_command_id = _SOCKET_EXEC_COMMAND_INVALID;
-
-                /* No further commands for this step, so let's figure
-                 * out what to do next */
-
-                log_unit_debug(u, "Got final SIGCHLD for state %s", socket_state_to_string(s->state));
-
-                switch (s->state) {
-
-                case SOCKET_START_PRE:
-                        if (f == SOCKET_SUCCESS)
-                                socket_enter_start_chown(s);
-                        else
-                                socket_enter_signal(s, SOCKET_FINAL_SIGTERM, f);
-                        break;
-
-                case SOCKET_START_CHOWN:
-                        if (f == SOCKET_SUCCESS)
-                                socket_enter_start_post(s);
-                        else
-                                socket_enter_stop_pre(s, f);
-                        break;
-
-                case SOCKET_START_POST:
-                        if (f == SOCKET_SUCCESS)
-                                socket_enter_listening(s);
-                        else
-                                socket_enter_stop_pre(s, f);
-                        break;
-
-                case SOCKET_STOP_PRE:
-                case SOCKET_STOP_PRE_SIGTERM:
-                case SOCKET_STOP_PRE_SIGKILL:
-                        socket_enter_stop_post(s, f);
-                        break;
-
-                case SOCKET_STOP_POST:
-                case SOCKET_FINAL_SIGTERM:
-                case SOCKET_FINAL_SIGKILL:
-                        socket_enter_dead(s, f);
-                        break;
-
-                case SOCKET_CLEANING:
-
-                        if (s->clean_result == SOCKET_SUCCESS)
-                                s->clean_result = f;
-
-                        socket_enter_dead(s, SOCKET_SUCCESS);
-                        break;
-
-                default:
-                        assert_not_reached();
-                }
+                log_unit_debug(UNIT(s), "Running next command for state %s", socket_state_to_string(s->state));
+                return socket_run_next(s);
         }
+
+        s->control_command = NULL;
+        s->control_command_id = _SOCKET_EXEC_COMMAND_INVALID;
+
+        /* No further commands for this step, so let's figure out what to do next. */
+
+        log_unit_debug(UNIT(s), "Got final SIGCHLD for state %s", socket_state_to_string(s->state));
+
+        switch (s->state) {
+
+        case SOCKET_START_PRE:
+                if (f == SOCKET_SUCCESS)
+                        socket_enter_start_chown(s);
+                else
+                        socket_enter_signal(s, SOCKET_FINAL_SIGTERM, f);
+                break;
+
+        case SOCKET_START_CHOWN:
+                if (f == SOCKET_SUCCESS)
+                        socket_enter_start_post(s);
+                else
+                        socket_enter_stop_pre(s, f);
+                break;
+
+        case SOCKET_START_POST:
+                if (f == SOCKET_SUCCESS)
+                        socket_enter_listening(s);
+                else
+                        socket_enter_stop_pre(s, f);
+                break;
+
+        case SOCKET_STOP_PRE:
+        case SOCKET_STOP_PRE_SIGTERM:
+        case SOCKET_STOP_PRE_SIGKILL:
+                socket_enter_stop_post(s, f);
+                break;
+
+        case SOCKET_STOP_POST:
+        case SOCKET_FINAL_SIGTERM:
+        case SOCKET_FINAL_SIGKILL:
+                socket_enter_dead(s, f);
+                break;
+
+        case SOCKET_CLEANING:
+                if (s->clean_result == SOCKET_SUCCESS)
+                        s->clean_result = f;
+
+                socket_enter_dead(s, SOCKET_SUCCESS);
+                break;
+
+        default:
+                assert_not_reached();
+        }
+}
+
+static int socket_dispatch_kill_pam(sd_event_source *source, usec_t usec, void *userdata) {
+        Socket *s = ASSERT_PTR(userdata);
+
+        if (unit_kill_pam_and_warn(UNIT(s), &s->control_pam_pid, SIGKILL, "control") > 0)
+                return 0;
+
+        /* Failed to kill the pam process. Forget the PAM process, and process the pending tasks. */
+        pidref_done(&s->control_pam_pid);
+
+        if (pidref_is_set(&s->control_pid))
+                return 0; /* New process is already started? Let's ignore the previous result. */
+
+        socket_set_state_on_sigchld(s, s->pending_result);
+        unit_add_to_dbus_queue(UNIT(s));
+        return 0;
+}
+
+static int socket_kill_pam(Socket *s) {
+        int r;
+
+        assert(s);
+
+        r = unit_kill_pam_and_warn(UNIT(s), &s->control_pam_pid, SIGTERM, "control");
+        if (r <= 0)
+                return r;
+
+        r = event_reset_time_relative(
+                        UNIT(s)->manager->event,
+                        &s->kill_pam_timer_event_source,
+                        CLOCK_MONOTONIC,
+                        s->timeout_usec,
+                        /* accuracy = */ 0,
+                        socket_dispatch_kill_pam,
+                        s,
+                        /* priority = */ 0,
+                        "socket-kill-control-pam-timer",
+                        /* force_reset = */ true);
+        if (r < 0)
+                return r; /* FIXME: on failure, we may wait sigchld for the PAM process forever. */
+
+        return 0;
+}
+
+static void socket_sigchld_event(Unit *u, pid_t pid, int code, int status) {
+        Socket *s = SOCKET(u);
+        SocketResult f;
+
+        assert(s);
+        assert(pid >= 0);
+
+        if (pid == s->control_pid.pid) {
+                f = socket_set_result_on_sigchld(s, pid, code, status);
+
+                if (socket_kill_pam(s) > 0) {
+                        s->pending_result = f;
+                        return;
+                }
+
+        } else if (pid == s->control_pam_pid.pid) {
+
+                (void) event_source_disable(s->kill_pam_timer_event_source);
+                pidref_done(&s->control_pam_pid);
+
+                unit_log_process_exit(
+                                u,
+                                "Socket PAM process",
+                                "PAM",
+                                /* success = */ true,
+                                code, status);
+
+                if (pidref_is_set(&s->control_pid))
+                        return; /* New process is already started?? Or, the PAM process is killed earlier??
+                                   Let's ignore the result. */
+
+                /* We ignore the result of the PAM process. Propagate the result of the control process. */
+                f = s->pending_result;
+
+        } else
+                return;
+
+        socket_set_state_on_sigchld(s, f);
 
         /* Notify clients about changed exit status */
         unit_add_to_dbus_queue(u);
@@ -3300,6 +3388,7 @@ static void socket_reset_failed(Unit *u) {
 
         s->result = SOCKET_SUCCESS;
         s->clean_result = SOCKET_SUCCESS;
+        s->pending_result = SOCKET_SUCCESS;
 }
 
 void socket_connection_unref(Socket *s) {
@@ -3384,6 +3473,10 @@ char *socket_fdname(Socket *s) {
 
 static PidRef *socket_control_pid(Unit *u) {
         return &ASSERT_PTR(SOCKET(u))->control_pid;
+}
+
+static PidRef *socket_control_pam_pid(Unit *u) {
+        return &ASSERT_PTR(SOCKET(u))->control_pam_pid;
 }
 
 static int socket_clean(Unit *u, ExecCleanMask mask) {
@@ -3561,6 +3654,7 @@ const UnitVTable socket_vtable = {
         .reset_failed = socket_reset_failed,
 
         .control_pid = socket_control_pid,
+        .control_pam_pid = socket_control_pam_pid,
 
         .bus_set_property = bus_socket_set_property,
         .bus_commit_properties = bus_socket_commit_properties,

@@ -777,6 +777,10 @@ _public_ PAM_EXTERN int pam_sm_close_session(
                 int sm_flags,
                 int argc, const char **argv) {
 
+        /* Let's release the D-Bus connection once this function exits. This is typically called from
+         * forked process (sd-pam), and it will exit soon anyway. Moreover, on exit, (sd-pam) sets
+         * PAM_DATA_SILENT flag, and the destructor will warn that it is called with the flag. */
+        _cleanup_(pam_bus_data_disconnectp) PamBusData *d = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL;
         _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
@@ -807,7 +811,7 @@ _public_ PAM_EXTERN int pam_sm_close_session(
         if (r != PAM_SUCCESS)
                 return r;
 
-        r = pam_acquire_bus_connection(handle, "pam-systemd-home", &bus, NULL);
+        r = pam_acquire_bus_connection(handle, "pam-systemd-home", &bus, &d);
         if (r != PAM_SUCCESS)
                 return r;
 
