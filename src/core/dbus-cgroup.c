@@ -542,7 +542,7 @@ static int bus_cgroup_set_transient_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->delegate = b;
-                        c->delegate_controllers = b ? _CGROUP_MASK_ALL : 0;
+                        c->delegate_controllers = b ? CGROUP_MASK_DELEGATE : 0;
 
                         unit_write_settingf(u, flags, name, "Delegate=%s", yes_no(b));
                 }
