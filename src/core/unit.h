@@ -731,10 +731,10 @@ typedef struct UnitVTable {
         /* Returns the start timeout of a unit */
         usec_t (*get_timeout_start_usec)(Unit *u);
 
-        /* Returns the main PID if there is any defined, or 0. */
+        /* Returns the main PID if there is any defined, or NULL. */
         PidRef* (*main_pid)(Unit *u, bool *ret_is_alien);
 
-        /* Returns the control PID if there is any defined, or 0. */
+        /* Returns the control PID if there is any defined, or NULL. */
         PidRef* (*control_pid)(Unit *u);
 
         /* Returns true if the unit currently needs access to the console */
