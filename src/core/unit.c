@@ -4108,29 +4108,29 @@ int unit_kill(
                         return log_oom();
 
                 r = cg_kill_recursive(u->cgroup_path, signo, 0, pid_set, kill_common_log, u);
-                if (r < 0) {
-                        if (!IN_SET(r, -ESRCH, -ENOENT)) {
-                                if (ret == 0) {
-                                        ret = r;
+                if (r < 0 && !IN_SET(r, -ESRCH, -ENOENT)) {
+                        RET_GATHER(ret, r);
 
-                                        sd_bus_error_set_errnof(
-                                                        error, r,
-                                                        "Failed to send signal SIG%s to auxiliary processes: %m",
-                                                        signal_to_string(signo));
-                                }
-
-                                log_unit_warning_errno(
-                                                u, r,
-                                                "Failed to send signal SIG%s to auxiliary processes on client request: %m",
+                        if (!sd_bus_error_is_set(error))
+                                sd_bus_error_set_errnof(
+                                                error, r,
+                                                "Failed to send signal SIG%s to auxiliary processes: %m",
                                                 signal_to_string(signo));
-                        }
-                } else
-                        killed = true;
+
+                        log_unit_warning_errno(
+                                        u, r,
+                                        "Failed to send signal SIG%s to auxiliary processes on client request: %m",
+                                        signal_to_string(signo));
+                }
+
+                killed = killed || r >= 0;
         }
 
         /* If the "fail" versions of the operation are requested, then complain if the set of processes we killed is empty */
-        if (ret == 0 && !killed && IN_SET(who, KILL_ALL_FAIL, KILL_CONTROL_FAIL, KILL_MAIN_FAIL))
+        if (ret >= 0 && !killed && IN_SET(who, KILL_ALL_FAIL, KILL_CONTROL_FAIL, KILL_MAIN_FAIL)) {
+                assert(!sd_bus_error_is_set(error));
                 return sd_bus_error_set_const(error, BUS_ERROR_NO_SUCH_PROCESS, "No matching processes to kill");
+        }
 
         return ret;
 }
