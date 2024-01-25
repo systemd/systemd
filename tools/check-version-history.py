@@ -58,6 +58,7 @@ def find_undocumented_commands(pages, ignorelist):
         filename = os.path.basename(page)
 
         pagetree = tree.parse(page)
+        pagetree.xinclude()
         if pagetree.getroot().tag != "refentry":
             continue
 
