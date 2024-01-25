@@ -176,7 +176,7 @@ int unit_serialize_state(Unit *u, FILE *f, FDSet *fds, bool switching_root) {
         (void) serialize_cgroup_mask(f, "cgroup-enabled-mask", u->cgroup_enabled_mask);
         (void) serialize_cgroup_mask(f, "cgroup-invalidated-mask", u->cgroup_invalidated_mask);
 
-        (void) bpf_serialize_socket_bind(u, f, fds);
+        (void) bpf_socket_bind_serialize(u, f, fds);
 
         (void) bpf_program_serialize_attachment(f, fds, "ip-bpf-ingress-installed", u->ip_bpf_ingress_installed);
         (void) bpf_program_serialize_attachment(f, fds, "ip-bpf-egress-installed", u->ip_bpf_egress_installed);
