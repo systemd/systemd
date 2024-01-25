@@ -745,8 +745,8 @@ static const uint8_t msg_reply[] = {
         0x00, SD_DHCP6_OPTION_DOMAIN, 0x00, 0x0b,
         0x03, 'l', 'a', 'b', 0x05, 'i', 'n', 't', 'r', 'a', 0x00,
         /* Client FQDN */
-        0x00, SD_DHCP6_OPTION_CLIENT_FQDN, 0x00, 0x12,
-        0x01, 0x06, 'c', 'l', 'i', 'e', 'n', 't', 0x03, 'l', 'a', 'b', 0x05, 'i', 'n', 't', 'r', 'a',
+        0x00, SD_DHCP6_OPTION_CLIENT_FQDN, 0x00, 0x13,
+        0x01, 0x06, 'c', 'l', 'i', 'e', 'n', 't', 0x03, 'l', 'a', 'b', 0x05, 'i', 'n', 't', 'r', 'a', 0x00,
         /* Vendor specific options */
         0x00, SD_DHCP6_OPTION_VENDOR_OPTS, 0x00, 0x09,
         0x00, 0x00, 0x00, 0x20, 0x00, 0xf7, 0x00, 0x01, VENDOR_SUBOPTION_BYTES,
@@ -827,8 +827,8 @@ static const uint8_t msg_advertise[] = {
         0x00, SD_DHCP6_OPTION_DOMAIN, 0x00, 0x0b,
         0x03, 'l', 'a', 'b', 0x05, 'i', 'n', 't', 'r', 'a', 0x00,
         /* Client FQDN */
-        0x00, SD_DHCP6_OPTION_CLIENT_FQDN, 0x00, 0x12,
-        0x01, 0x06, 'c', 'l', 'i', 'e', 'n', 't', 0x03, 'l', 'a', 'b', 0x05, 'i', 'n', 't', 'r', 'a',
+        0x00, SD_DHCP6_OPTION_CLIENT_FQDN, 0x00, 0x13,
+        0x01, 0x06, 'c', 'l', 'i', 'e', 'n', 't', 0x03, 'l', 'a', 'b', 0x05, 'i', 'n', 't', 'r', 'a', 0x00,
         /* Vendor specific options */
         0x00, SD_DHCP6_OPTION_VENDOR_OPTS, 0x00, 0x09,
         0x00, 0x00, 0x00, 0x20, 0x00, 0xf7, 0x00, 0x01, VENDOR_SUBOPTION_BYTES,
