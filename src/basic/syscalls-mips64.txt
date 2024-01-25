@@ -188,12 +188,16 @@ lgetxattr	5184
 link	5084
 linkat	5255
 listen	5049
+listmount	5458
 listxattr	5186
 llistxattr	5187
 lookup_dcookie	5206
 lremovexattr	5190
 lseek	5008
 lsetxattr	5181
+lsm_get_self_attr	5459
+lsm_list_modules	5461
+lsm_set_self_attr	5460
 lstat	5006
 lstat64
 madvise	5027
@@ -449,6 +453,7 @@ stat	5004
 stat64
 statfs	5134
 statfs64
+statmount	5457
 statx	5326
 stime
 subpage_prot
