@@ -20,6 +20,7 @@
 #include "devnum-util.h"
 #include "env-util.h"
 #include "escape.h"
+#include "event-util.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "fileio.h"
@@ -135,6 +136,8 @@ static void service_init(Unit *u) {
         s->main_pid = PIDREF_NULL;
         s->control_pid = PIDREF_NULL;
         s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
+        s->main_pam_pid = PIDREF_NULL;
+        s->control_pam_pid = PIDREF_NULL;
 
         s->exec_context.keyring_mode = MANAGER_IS_SYSTEM(u->manager) ?
                 EXEC_KEYRING_PRIVATE : EXEC_KEYRING_INHERIT;
@@ -153,11 +156,18 @@ static void service_init(Unit *u) {
 static void service_unwatch_control_pid(Service *s) {
         assert(s);
         unit_unwatch_pidref_done(UNIT(s), &s->control_pid);
+        unit_unwatch_pidref_done(UNIT(s), &s->control_pam_pid);
+}
+
+static void service_unwatch_main_pid_full(Service *s, bool unwatch_pam) {
+        assert(s);
+        unit_unwatch_pidref_done(UNIT(s), &s->main_pid);
+        if (unwatch_pam)
+                unit_unwatch_pidref_done(UNIT(s), &s->main_pam_pid);
 }
 
 static void service_unwatch_main_pid(Service *s) {
-        assert(s);
-        unit_unwatch_pidref_done(UNIT(s), &s->main_pid);
+        service_unwatch_main_pid_full(s, /* unwatch_pam = */ true);
 }
 
 static void service_unwatch_pid_file(Service *s) {
@@ -192,7 +202,7 @@ static int service_set_main_pidref(Service *s, PidRef *pidref) {
         }
 
         if (!pidref_equal(&s->main_pid, pidref)) {
-                service_unwatch_main_pid(s);
+                service_unwatch_main_pid_full(s, /* unwatch_pam = */ false);
                 exec_status_start(&s->main_exec_status, pidref->pid);
         }
 
@@ -466,6 +476,8 @@ static void service_done(Unit *u) {
         service_stop_watchdog(s);
 
         s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
+        s->kill_main_pam_timer_event_source = sd_event_source_disable_unref(s->kill_main_pam_timer_event_source);
+        s->kill_control_pam_timer_event_source = sd_event_source_disable_unref(s->kill_control_pam_timer_event_source);
         s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
 
         s->bus_name_pid_lookup_slot = sd_bus_slot_unref(s->bus_name_pid_lookup_slot);
@@ -1146,7 +1158,7 @@ static int service_load_pid_file(Service *s, bool may_warn) {
         if (s->main_pid_known) {
                 log_unit_debug(UNIT(s), "Main PID changing: "PID_FMT" -> "PID_FMT, s->main_pid.pid, pidref.pid);
 
-                service_unwatch_main_pid(s);
+                service_unwatch_main_pid_full(s, /* unwatch_pam = */ false);
                 s->main_pid_known = false;
         } else
                 log_unit_debug(UNIT(s), "Main PID loaded: "PID_FMT, pidref.pid);
@@ -1823,6 +1835,9 @@ static int main_pid_good(Service *s) {
 
         /* Returns 0 if the pid is dead, > 0 if it is good, < 0 if we don't know */
 
+        if (pidref_is_set(&s->main_pam_pid))
+                return true;
+
         /* If we know the pid file, then let's just check if it is still valid */
         if (s->main_pid_known) {
 
@@ -1846,7 +1861,7 @@ static int control_pid_good(Service *s) {
          * make this function as similar as possible to main_pid_good() and cgroup_good(), we pretend that < 0 also
          * means: we can't figure it out. */
 
-        return pidref_is_set(&s->control_pid);
+        return pidref_is_set(&s->control_pid) || pidref_is_set(&s->control_pam_pid);
 }
 
 static int cgroup_good(Service *s) {
@@ -2719,6 +2734,8 @@ static int service_start(Unit *u) {
 
         s->result = SERVICE_SUCCESS;
         s->reload_result = SERVICE_SUCCESS;
+        s->pending_main_result = SERVICE_SUCCESS;
+        s->pending_control_result = SERVICE_SUCCESS;
         s->main_pid_known = false;
         s->main_pid_alien = false;
         s->forbid_restart = false;
@@ -3772,7 +3789,6 @@ static void service_set_state_on_main_sigchld(Service *s, ServiceResult f) {
             f == SERVICE_SUCCESS) {
 
                 /* There is another command to execute, so let's do that. */
-
                 log_unit_debug(UNIT(s), "Running next main command for state %s.", service_state_to_string(s->state));
                 return service_run_next_main(s);
         }
@@ -4070,6 +4086,95 @@ static void service_rewatch_pids_on_sigchld(Service *s) {
         (void) unit_enqueue_rewatch_pids(UNIT(s));
 }
 
+static int service_dispatch_kill_main_pam(sd_event_source *source, usec_t usec, void *userdata) {
+        Service *s = ASSERT_PTR(userdata);
+
+        if (unit_kill_pam_and_warn(UNIT(s), &s->main_pam_pid, SIGKILL, "main") > 0)
+                return 0;
+
+        /* Failed to kill the pam process. Forget the PAM process, and process the pending tasks. */
+        pidref_done(&s->main_pam_pid);
+
+        if (pidref_is_set(&s->main_pid))
+                return 0; /* New process is already started? Let's ignore the previous result. */
+
+        service_set_state_on_main_sigchld(s, s->pending_main_result);
+        unit_add_to_dbus_queue(UNIT(s));
+        service_rewatch_pids_on_sigchld(s);
+        return 0;
+}
+
+static int service_dispatch_kill_control_pam(sd_event_source *source, usec_t usec, void *userdata) {
+        Service *s = ASSERT_PTR(userdata);
+
+        if (unit_kill_pam_and_warn(UNIT(s), &s->control_pam_pid, SIGKILL, "control") > 0)
+                return 0;
+
+        /* Failed to kill the pam process. Forget the PAM process, and process the pending tasks. */
+        pidref_done(&s->control_pam_pid);
+
+        if (pidref_is_set(&s->control_pid))
+                return 0; /* New process is already started? Let's ignore the previous result. */
+
+        service_set_state_on_control_sigchld(s, s->pending_control_result);
+        unit_add_to_dbus_queue(UNIT(s));
+        service_rewatch_pids_on_sigchld(s);
+        return 0;
+}
+
+static int service_kill_pam(
+                Service *s,
+                PidRef *pidref,
+                const char *type,
+                sd_event_source **timer_event_source,
+                sd_event_time_handler_t handler,
+                const char *description) {
+
+        int r;
+
+        assert(s);
+        assert(type);
+        assert(timer_event_source);
+        assert(handler);
+        assert(description);
+
+        r = unit_kill_pam_and_warn(UNIT(s), pidref, SIGTERM, type);
+        if (r <= 0)
+                return r;
+
+        r = event_reset_time_relative(
+                        UNIT(s)->manager->event,
+                        timer_event_source,
+                        CLOCK_MONOTONIC,
+                        s->timeout_stop_usec,
+                        /* accuracy = */ 0,
+                        handler,
+                        s,
+                        /* priority = */ 0,
+                        description,
+                        /* force_reset = */ true);
+        if (r < 0)
+                return r; /* FIXME: on failure, we may wait sigchld for the PAM process forever. */
+
+        return 0;
+}
+
+static int service_kill_main_pam(Service *s) {
+        assert(s);
+        return service_kill_pam(s, &s->main_pam_pid, "main",
+                                &s->kill_main_pam_timer_event_source,
+                                service_dispatch_kill_main_pam,
+                                "service-kill-main-pam-timer");
+}
+
+static int service_kill_control_pam(Service *s) {
+        assert(s);
+        return service_kill_pam(s, &s->control_pam_pid, "control",
+                                &s->kill_control_pam_timer_event_source,
+                                service_dispatch_kill_control_pam,
+                                "service-kill-control-pam-timer");
+}
+
 static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         bool notify_dbus = true;
         Service *s = SERVICE(u);
@@ -4083,6 +4188,12 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 if (f < 0)
                         return;
 
+                /* If we have PAM process, then kill it and wait for it finished. */
+                if (service_kill_main_pam(s) > 0) {
+                        s->pending_main_result = f;
+                        return;
+                }
+
                 service_set_state_on_main_sigchld(s, f);
 
         } else if (s->control_pid.pid == pid) {
@@ -4090,7 +4201,51 @@ static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                 if (f < 0)
                         return;
 
+                /* If we have PAM process, then kill it and wait for it finished. */
+                if (service_kill_control_pam(s) > 0) {
+                        s->pending_control_result = f;
+                        return;
+                }
+
                 service_set_state_on_control_sigchld(s, f);
+
+        } else if (s->main_pam_pid.pid == pid) {
+
+                (void) event_source_disable(s->kill_main_pam_timer_event_source);
+                pidref_done(&s->main_pam_pid);
+
+                unit_log_process_exit(
+                                u,
+                                "Main PAM process",
+                                "PAM",
+                                /* success = */ true,
+                                code, status);
+
+                if (pidref_is_set(&s->main_pid))
+                        return; /* New process is already started?? Or, the PAM process is killed earlier??
+                                   Let's ignore the result. */
+
+                /* We ignore the result of the PAM process. Propagate the result of the main process. */
+                service_set_state_on_main_sigchld(s, s->pending_main_result);
+
+        } else if (s->control_pam_pid.pid == pid) {
+
+                (void) event_source_disable(s->kill_control_pam_timer_event_source);
+                pidref_done(&s->control_pam_pid);
+
+                unit_log_process_exit(
+                                u,
+                                "Control PAM process",
+                                "PAM",
+                                /* success = */ true,
+                                code, status);
+
+                if (pidref_is_set(&s->control_pid))
+                        return; /* New process is already started?? Or, the PAM process is killed earlier??
+                                   Let's ignore the result. */
+
+                /* We ignore the result of the PAM process. Propagate the result of the control process. */
+                service_set_state_on_control_sigchld(s, s->pending_control_result);
 
         } else /* Neither control nor main PID? If so, don't notify about anything. */
                 notify_dbus = false;
@@ -4810,6 +4965,8 @@ static void service_reset_failed(Unit *u) {
         s->result = SERVICE_SUCCESS;
         s->reload_result = SERVICE_SUCCESS;
         s->clean_result = SERVICE_SUCCESS;
+        s->pending_main_result = SERVICE_SUCCESS;
+        s->pending_control_result = SERVICE_SUCCESS;
         s->n_restarts = 0;
         s->flush_n_restarts = false;
 }
@@ -4825,6 +4982,14 @@ static PidRef* service_main_pid(Unit *u, bool *ret_is_alien) {
 
 static PidRef* service_control_pid(Unit *u) {
         return &ASSERT_PTR(SERVICE(u))->control_pid;
+}
+
+static PidRef* service_main_pam_pid(Unit *u) {
+        return &ASSERT_PTR(SERVICE(u))->main_pam_pid;
+}
+
+static PidRef* service_control_pam_pid(Unit *u) {
+        return &ASSERT_PTR(SERVICE(u))->control_pam_pid;
 }
 
 static bool service_needs_console(Unit *u) {
@@ -5216,6 +5381,8 @@ const UnitVTable service_vtable = {
 
         .main_pid = service_main_pid,
         .control_pid = service_control_pid,
+        .main_pam_pid = service_main_pam_pid,
+        .control_pam_pid = service_control_pam_pid,
 
         .bus_name_owner_change = service_bus_name_owner_change,
 

@@ -61,6 +61,7 @@ struct Swap {
 
         SwapResult result;
         SwapResult clean_result;
+        SwapResult pending_result;
 
         usec_t timeout_usec;
 
@@ -76,8 +77,10 @@ struct Swap {
         ExecCommand* control_command;
         SwapExecCommand control_command_id;
         PidRef control_pid;
+        PidRef control_pam_pid;
 
         sd_event_source *timer_event_source;
+        sd_event_source *kill_pam_timer_event_source;
 
         /* In order to be able to distinguish dependencies on
         different device nodes we might end up creating multiple
