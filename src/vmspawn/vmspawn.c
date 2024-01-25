@@ -474,7 +474,6 @@ static int cmdline_add_vsock(char ***cmdline, int vsock_fd) {
         assert(addr_len >= sizeof addr.vm);
         assert(addr.vm.svm_family == AF_VSOCK);
 
-        log_info("Using vsock-stream:%u:%u", (unsigned) VMADDR_CID_HOST, addr.vm.svm_port);
         r = strv_extendf(cmdline, "type=11,value=io.systemd.credential:vmm.notify_socket=vsock-stream:%u:%u", (unsigned) VMADDR_CID_HOST, addr.vm.svm_port);
         if (r < 0)
                 return r;
