@@ -1,0 +1,36 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -e
+
+if [ ! -d deb/ ]; then
+    exit 0
+fi
+
+# We transplant the debian/ folder from the debian package sources into the upstream sources.
+mount --mkdir --bind "$SRCDIR"/deb/debian "$SRCDIR"/debian
+
+# We hide the patches/ directory by mounting an empty directory on top so they don't get applied.
+TMP=$(mktemp -d)
+mount --bind "$TMP" "$SRCDIR"/debian/patches
+
+# We can't specify the build directory so we use a bind mount to make sure the build artifacts get cached.
+mount --mkdir --bind "$BUILDDIR" "$SRCDIR"/obj-x86_64-linux-gnu
+
+# Hiding the patches means the fsckd files won't be installed so remove those from the .install file.
+sed '/fsckd/d' -i debian/systemd.install
+
+# Add a new changelog entry to update the version. We use a fixed date since a dynamic one causes a full
+# rebuild every time.
+cat > debian/changelog.new <<EOF
+systemd ($(tools/meson-vcs-tag.sh . "$VERSION_TAG" | sed 's/\^/./g').0) UNRELEASED; urgency=low
+
+  * Automatic build from mkosi
+
+ -- systemd test <systemd-devel@lists.freedesktop.org>  Mon, 29 Jan 2024 10:46:19 +0000
+
+EOF
+cat debian/changelog >> debian/changelog.new
+mv debian/changelog.new debian/changelog
+
+dpkg-buildpackage -nc -uc -us -b
+mv ../*.deb "$PACKAGEDIR"
