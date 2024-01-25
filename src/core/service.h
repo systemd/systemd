@@ -168,7 +168,7 @@ struct Service {
         /* Runtime data of the execution context */
         ExecRuntime *exec_runtime;
 
-        PidRef main_pid, control_pid;
+        PidRef main_pid, main_pam_pid, control_pid, control_pam_pid;
 
         /* if we are a socket activated service instance, store information of the connection/peer/socket */
         int socket_fd;
@@ -185,6 +185,8 @@ struct Service {
         ServiceResult result;
         ServiceResult reload_result;
         ServiceResult clean_result;
+        ServiceResult pending_main_result;
+        ServiceResult pending_control_result;
 
         bool main_pid_known:1;
         bool main_pid_alien:1;
@@ -200,6 +202,9 @@ struct Service {
         int status_errno;
 
         sd_event_source *timer_event_source;
+        sd_event_source *kill_main_pam_timer_event_source;
+        sd_event_source *kill_control_pam_timer_event_source;
+
         PathSpec *pid_file_pathspec;
 
         NotifyAccess notify_access;

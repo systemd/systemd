@@ -11,6 +11,7 @@
 #include "dbus-mount.h"
 #include "dbus-unit.h"
 #include "device.h"
+#include "event-util.h"
 #include "exit-status.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -54,6 +55,7 @@ static const UnitActiveState state_translation_table[_MOUNT_STATE_MAX] = {
 };
 
 static int mount_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata);
+static int mount_dispatch_kill_pam_timer(sd_event_source *source, usec_t usec, void *userdata);
 static int mount_dispatch_io(sd_event_source *source, int fd, uint32_t revents, void *userdata);
 static void mount_enter_dead(Mount *m, MountResult f);
 static void mount_enter_mounted(Mount *m, MountResult f);
@@ -206,6 +208,7 @@ static void mount_init(Unit *u) {
 
         m->control_pid = PIDREF_NULL;
         m->control_command_id = _MOUNT_EXEC_COMMAND_INVALID;
+        m->control_pam_pid = PIDREF_NULL;
 
         u->ignore_on_isolate = true;
 }
@@ -216,9 +219,26 @@ static int mount_arm_timer(Mount *m, bool relative, usec_t usec) {
         return unit_arm_timer(UNIT(m), &m->timer_event_source, relative, usec, mount_dispatch_timer);
 }
 
+static int mount_arm_kill_pam_timer(Mount *m) {
+        assert(m);
+
+        return event_reset_time_relative(
+                        UNIT(m)->manager->event,
+                        &m->kill_pam_timer_event_source,
+                        CLOCK_MONOTONIC,
+                        m->timeout_usec,
+                        /* accuracy = */ 0,
+                        mount_dispatch_kill_pam_timer,
+                        m,
+                        /* priority = */ 0,
+                        "mount-kill-control-pam-timer",
+                        /* force_reset = */ true);
+}
+
 static void mount_unwatch_control_pid(Mount *m) {
         assert(m);
         unit_unwatch_pidref_done(UNIT(m), &m->control_pid);
+        unit_unwatch_pidref_done(UNIT(m), &m->control_pam_pid);
 }
 
 static void mount_parameters_done(MountParameters *p) {
@@ -246,6 +266,7 @@ static void mount_done(Unit *u) {
         mount_unwatch_control_pid(m);
 
         m->timer_event_source = sd_event_source_disable_unref(m->timer_event_source);
+        m->kill_pam_timer_event_source = sd_event_source_disable_unref(m->kill_pam_timer_event_source);
 }
 
 static int update_parameters_proc_self_mountinfo(
@@ -815,6 +836,21 @@ static int mount_coldplug(Unit *u) {
                         return r;
         }
 
+        if (pidref_is_set(&m->control_pam_pid) &&
+            pidref_is_unwaited(&m->control_pam_pid) > 0 &&
+            MOUNT_STATE_WITH_PROCESS(m->deserialized_state)) {
+
+                r = unit_watch_pidref(UNIT(m), &m->control_pam_pid, /* exclusive= */ false);
+                if (r < 0)
+                        return r;
+
+                if (!pidref_is_set(&m->control_pid)) {
+                        r = mount_arm_kill_pam_timer(m);
+                        if (r < 0)
+                                return r;
+                }
+        }
+
         if (!IN_SET(m->deserialized_state, MOUNT_DEAD, MOUNT_FAILED))
                 (void) unit_setup_exec_runtime(u);
 
@@ -1336,6 +1372,7 @@ static void mount_cycle_clear(Mount *m) {
 
         m->result = MOUNT_SUCCESS;
         m->reload_result = MOUNT_SUCCESS;
+        m->pending_result = MOUNT_SUCCESS;
         exec_command_reset_status_array(m->exec_command, _MOUNT_EXEC_COMMAND_MAX);
         UNIT(m)->reset_accounting = true;
 }
@@ -1446,8 +1483,10 @@ static int mount_serialize(Unit *u, FILE *f, FDSet *fds) {
         (void) serialize_item(f, "state", mount_state_to_string(m->state));
         (void) serialize_item(f, "result", mount_result_to_string(m->result));
         (void) serialize_item(f, "reload-result", mount_result_to_string(m->reload_result));
+        (void) serialize_item(f, "pending-result", mount_result_to_string(m->pending_result));
         (void) serialize_item_format(f, "n-retry-umount", "%u", m->n_retry_umount);
         (void) serialize_pidref(f, fds, "control-pid", &m->control_pid);
+        (void) serialize_pidref(f, fds, "control-pam-pid", &m->control_pam_pid);
 
         if (m->control_command_id >= 0)
                 (void) serialize_item(f, "control-command", mount_exec_command_to_string(m->control_command_id));
@@ -1492,6 +1531,15 @@ static int mount_deserialize_item(Unit *u, const char *key, const char *value, F
                 else if (f != MOUNT_SUCCESS)
                         m->reload_result = f;
 
+        } else if (streq(key, "pending-result")) {
+                MountResult f;
+
+                f = mount_result_from_string(value);
+                if (f < 0)
+                        log_unit_debug_errno(u, f, "Failed to parse pending-result value: %s", value);
+                else if (f != MOUNT_SUCCESS)
+                        m->pending_result = f;
+
         } else if (streq(key, "n-retry-umount")) {
 
                 r = safe_atou(value, &m->n_retry_umount);
@@ -1502,6 +1550,11 @@ static int mount_deserialize_item(Unit *u, const char *key, const char *value, F
 
                 pidref_done(&m->control_pid);
                 (void) deserialize_pidref(fds, value, &m->control_pid);
+
+        } else if (streq(key, "control-pam-pid")) {
+
+                pidref_done(&m->control_pam_pid);
+                (void) deserialize_pidref(fds, value, &m->control_pam_pid);
 
         } else if (streq(key, "control-command")) {
                 MountExecCommand id;
@@ -1667,6 +1720,39 @@ static void mount_set_state_on_sigchld(Mount *m, MountResult f) {
         }
 }
 
+static int mount_dispatch_kill_pam_timer(sd_event_source *source, usec_t usec, void *userdata) {
+        Mount *m = ASSERT_PTR(userdata);
+
+        if (unit_kill_pam_and_warn(UNIT(m), &m->control_pam_pid, SIGKILL, "control") > 0)
+                return 0;
+
+        /* Failed to kill the pam process. Forget the PAM process, and process the pending tasks. */
+        pidref_done(&m->control_pam_pid);
+
+        if (pidref_is_set(&m->control_pid))
+                return 0; /* New process is already started? Let's ignore the previous result. */
+
+        mount_set_state_on_sigchld(m, m->pending_result);
+        unit_add_to_dbus_queue(UNIT(m));
+        return 0;
+}
+
+static int mount_kill_pam(Mount *m) {
+        int r;
+
+        assert(m);
+
+        r = unit_kill_pam_and_warn(UNIT(m), &m->control_pam_pid, SIGTERM, "control");
+        if (r <= 0)
+                return r;
+
+        r = mount_arm_kill_pam_timer(m);
+        if (r < 0)
+                return r; /* FIXME: on failure, we may wait sigchld for the PAM process forever. */
+
+        return 0;
+}
+
 static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         Mount *m = MOUNT(u);
         MountResult f;
@@ -1674,10 +1760,36 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         assert(m);
         assert(pid >= 0);
 
-        if (pid != m->control_pid.pid)
+        if (pid == m->control_pid.pid) {
+                f = mount_set_result_on_sigchld(m, pid, code, status);
+
+                if (mount_kill_pam(m) > 0) {
+                        m->pending_result = f;
+                        return;
+                }
+
+        } else if (pid == m->control_pam_pid.pid) {
+
+                (void) event_source_disable(m->kill_pam_timer_event_source);
+                pidref_done(&m->control_pam_pid);
+
+                unit_log_process_exit(
+                                u,
+                                "Mount PAM process",
+                                "PAM",
+                                /* success = */ true,
+                                code, status);
+
+                if (pidref_is_set(&m->control_pid))
+                        return; /* New process is already started?? Or, the PAM process is killed earlier??
+                                   Let's ignore the result. */
+
+                /* We ignore the result of the PAM process. Propagate the result of the control process. */
+                f = m->pending_result;
+
+        } else
                 return;
 
-        f = mount_set_result_on_sigchld(m, pid, code, status);
         mount_set_state_on_sigchld(m, f);
 
         /* Notify clients about changed exit status */
@@ -2308,10 +2420,15 @@ static void mount_reset_failed(Unit *u) {
         m->result = MOUNT_SUCCESS;
         m->reload_result = MOUNT_SUCCESS;
         m->clean_result = MOUNT_SUCCESS;
+        m->pending_result = MOUNT_SUCCESS;
 }
 
 static PidRef* mount_control_pid(Unit *u) {
         return &ASSERT_PTR(MOUNT(u))->control_pid;
+}
+
+static PidRef* mount_control_pam_pid(Unit *u) {
+        return &ASSERT_PTR(MOUNT(u))->control_pam_pid;
 }
 
 static int mount_clean(Unit *u, ExecCleanMask mask) {
@@ -2512,6 +2629,7 @@ const UnitVTable mount_vtable = {
         .reset_failed = mount_reset_failed,
 
         .control_pid = mount_control_pid,
+        .control_pam_pid = mount_control_pam_pid,
 
         .bus_set_property = bus_mount_set_property,
         .bus_commit_properties = bus_mount_commit_properties,
