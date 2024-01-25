@@ -1098,6 +1098,26 @@ static int null_conv(
         return PAM_CONV_ERR;
 }
 
+static int pam_close_session_and_delete_credentials(pam_handle_t *handle, int flags) {
+        int r;
+
+        assert(handle);
+
+        r = pam_close_session(handle, flags);
+        if (r != PAM_SUCCESS) {
+                log_debug("pam_close_session() failed: %s", pam_strerror(handle, r));
+                return r;
+        }
+
+        r = pam_setcred(handle, PAM_DELETE_CRED | flags);
+        if (r != PAM_SUCCESS) {
+                log_debug("pam_setcred(PAM_DELETE_CRED) failed: %s", pam_strerror(handle, r));
+                return r;
+        }
+
+        return PAM_SUCCESS;
+}
+
 #endif
 
 static int setup_pam(
@@ -1250,13 +1270,9 @@ static int setup_pam(
                         assert(sig == SIGTERM);
                 }
 
-                pam_code = pam_setcred(handle, PAM_DELETE_CRED | flags);
-                if (pam_code != PAM_SUCCESS)
-                        goto child_finish;
-
                 /* If our parent died we'll end the session */
                 if (getppid() != parent_pid) {
-                        pam_code = pam_close_session(handle, flags);
+                        pam_code = pam_close_session_and_delete_credentials(handle, flags);
                         if (pam_code != PAM_SUCCESS)
                                 goto child_finish;
                 }
@@ -1299,7 +1315,7 @@ fail:
 
         if (handle) {
                 if (close_session)
-                        pam_code = pam_close_session(handle, flags);
+                        pam_code = pam_close_session_and_delete_credentials(handle, flags);
 
                 (void) pam_end(handle, pam_code | flags);
         }
