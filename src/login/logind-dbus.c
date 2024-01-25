@@ -3918,11 +3918,9 @@ static int session_jobs_reply(Session *s, uint32_t jid, const char *unit, const 
 }
 
 int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        const char *path, *result, *unit;
         Manager *m = ASSERT_PTR(userdata);
-        Session *session;
+        const char *path, *result, *unit;
         uint32_t id;
-        User *user;
         int r;
 
         assert(message);
@@ -3945,6 +3943,9 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
                 return 0;
         }
 
+        Session *session;
+        User *user;
+
         session = hashmap_get(m->session_units, unit);
         if (session) {
                 if (streq_ptr(path, session->scope_job)) {
@@ -3960,11 +3961,13 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
 
         user = hashmap_get(m->user_units, unit);
         if (user) {
-                if (streq_ptr(path, user->service_job)) {
+                /* If the user is stopping, we're tracking stop jobs here. So don't send reply. */
+                if (!user->stopping && streq_ptr(path, user->service_job)) {
                         user->service_job = mfree(user->service_job);
 
                         LIST_FOREACH(sessions_by_user, s, user->sessions)
-                                (void) session_jobs_reply(s, id, unit, NULL /* don't propagate user service failures to the client */);
+                                /* Don't propagate user service failures to the client */
+                                (void) session_jobs_reply(s, id, unit, /* error = */ NULL);
 
                         user_save(user);
                 }
