@@ -1,9 +1,11 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
 #include <errno.h>
+#include <linux/fs.h>
 #include <signal.h>
 #include <stdio.h>
 #include <sys/epoll.h>
+#include <sys/ioctl.h>
 
 #include "sd-messages.h"
 
@@ -12,6 +14,7 @@
 #include "dbus-unit.h"
 #include "device.h"
 #include "exit-status.h"
+#include "fd-util.h"
 #include "format-util.h"
 #include "fs-util.h"
 #include "fstab-util.h"
@@ -2452,6 +2455,58 @@ static const char* const mount_result_table[_MOUNT_RESULT_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(mount_result, MountResult);
 
+static bool mount_can_freeze(Unit *u) {
+        Mount *m = MOUNT(u);
+        const char *fstype;
+
+        assert(u);
+        assert(m);
+
+        fstype = mount_get_fstype(m);
+        if (!fstype)
+                return false;
+
+        return fstype_can_freeze_thaw(fstype);
+}
+
+static int mount_freezer_action(Unit *u, FreezerAction action) {
+        _cleanup_close_ int fd = -EBADF;
+        Mount *m = MOUNT(u);
+        FreezerState next, target;
+        int r;
+
+        assert(u);
+        assert(m);
+        assert(IN_SET(action, FREEZER_FREEZE, FREEZER_PARENT_FREEZE,
+                              FREEZER_THAW, FREEZER_PARENT_THAW));
+
+        unit_next_freezer_state(u, action, &next, &target);
+        next = freezer_state_finish(next); /* We're completely sync */
+
+        log_unit_debug(u, "Mount freezer state was %s, now %s.",
+                       freezer_state_to_string(u->freezer_state),
+                       freezer_state_to_string(next));
+
+        fd = open(m->where, O_RDONLY|O_NOCTTY);
+        if (fd < 0)
+                return -errno;
+
+        if (target == FREEZER_FROZEN) {
+                r = RET_NERRNO(ioctl(fd, FIFREEZE, 0));
+                if (r == -EBUSY) /* Already frozen by us */
+                        return 0;
+        } else {
+                r = RET_NERRNO(ioctl(fd, FITHAW, 0));
+                if (r == -EINVAL) /* Not frozen by us */
+                        return 0;
+        }
+        if (r < 0)
+                return r;
+
+        u->freezer_state = next;
+        return 0;
+}
+
 const UnitVTable mount_vtable = {
         .object_size = sizeof(Mount),
         .exec_context_offset = offsetof(Mount, exec_context),
@@ -2484,6 +2539,9 @@ const UnitVTable mount_vtable = {
 
         .clean = mount_clean,
         .can_clean = mount_can_clean,
+
+        .freezer_action = mount_freezer_action,
+        .can_freeze = mount_can_freeze,
 
         .serialize = mount_serialize,
         .deserialize_item = mount_deserialize_item,
