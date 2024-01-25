@@ -126,6 +126,9 @@ All tools:
 * `$SYSTEMD_NETLINK_DEFAULT_TIMEOUT` — specifies the default timeout of waiting
   replies for netlink messages from the kernel. Defaults to 25 seconds.
 
+* `$SYSTEMD_VERITY_SHARING=0` — if set, sharing dm-verity devices by
+  using a stable `<ROOTHASH>-verity` device mapper name will be disabled.
+
 `systemctl`:
 
 * `$SYSTEMCTL_FORCE_BUS=1` — if set, do not connect to PID 1's private D-Bus
