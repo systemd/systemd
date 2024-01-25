@@ -3685,374 +3685,420 @@ static void service_notify_cgroup_oom_event(Unit *u, bool managed_oom) {
         }
 }
 
-static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
-        bool notify_dbus = true;
-        Service *s = SERVICE(u);
-        ServiceResult f;
+static ServiceResult service_sigchld_event_to_result(Service *s, pid_t pid, int code, int status) {
         ExitClean clean_mode;
-        int r;
 
         assert(s);
-        assert(pid >= 0);
 
-        /* Oneshot services and non-SERVICE_EXEC_START commands should not be
-         * considered daemons as they are typically not long running. */
-        if (s->type == SERVICE_ONESHOT || (s->control_pid.pid == pid && s->control_command_id != SERVICE_EXEC_START))
+        /* Oneshot services and non-SERVICE_EXEC_START commands should not be considered daemons as they are
+         * typically not long running. */
+        if (s->type == SERVICE_ONESHOT ||
+            (s->control_pid.pid == pid && s->control_command_id != SERVICE_EXEC_START))
                 clean_mode = EXIT_CLEAN_COMMAND;
         else
                 clean_mode = EXIT_CLEAN_DAEMON;
 
         if (is_clean_exit(code, status, clean_mode, &s->success_status))
-                f = SERVICE_SUCCESS;
-        else if (code == CLD_EXITED)
-                f = SERVICE_FAILURE_EXIT_CODE;
-        else if (code == CLD_KILLED)
-                f = SERVICE_FAILURE_SIGNAL;
-        else if (code == CLD_DUMPED)
-                f = SERVICE_FAILURE_CORE_DUMP;
-        else
+                return SERVICE_SUCCESS;
+
+        switch (code) {
+        case CLD_EXITED:
+                return SERVICE_FAILURE_EXIT_CODE;
+        case CLD_KILLED:
+                return SERVICE_FAILURE_SIGNAL;
+        case CLD_DUMPED:
+                return SERVICE_FAILURE_CORE_DUMP;
+        default:
                 assert_not_reached();
+        }
+}
+
+static ServiceResult service_set_result_on_main_sigchld(Service *s, pid_t pid, int code, int status) {
+        assert(s);
+        assert(s->main_pid.pid == pid);
+
+        ServiceResult f = service_sigchld_event_to_result(s, pid, code, status);
+
+        /* Clean up the exec_fd event source. We want to do this here, not later in service_set_state(),
+         * because service_enter_stop_post() calls service_spawn(). The source owns its end of the pipe,
+         * so this will close that too. */
+        s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
+
+        /* Forking services may occasionally move to a new PID. As long as they update the PID file before
+         * exiting the old PID, they're fine. */
+        if (service_load_pid_file(s, /* may_warn = */ false) > 0)
+                return _SERVICE_RESULT_INVALID; /* still running */
+
+        pidref_done(&s->main_pid);
+        exec_status_exit(&s->main_exec_status, &s->exec_context, pid, code, status);
+
+        if (s->main_command) {
+                /* If this is not a forking service than the main process got started and hence we copy the
+                 * exit status so that it is recorded both as main and as control process exit status. */
+
+                s->main_command->exec_status = s->main_exec_status;
+
+                if (s->main_command->flags & EXEC_COMMAND_IGNORE_FAILURE)
+                        f = SERVICE_SUCCESS;
+
+        } else if (s->exec_command[SERVICE_EXEC_START]) {
+                /* If this is a forked process, then we should ignore the return value if this was configured
+                 * for the starter process */
+
+                if (s->exec_command[SERVICE_EXEC_START]->flags & EXEC_COMMAND_IGNORE_FAILURE)
+                        f = SERVICE_SUCCESS;
+        }
+
+        unit_log_process_exit(
+                        UNIT(s),
+                        "Main process",
+                        service_exec_command_to_string(SERVICE_EXEC_START),
+                        f == SERVICE_SUCCESS,
+                        code, status);
+
+        if (s->result == SERVICE_SUCCESS)
+                s->result = f;
+
+        return f;
+}
+
+static void service_set_state_on_main_sigchld(Service *s, ServiceResult f) {
+        assert(s);
+
+        if (s->main_command &&
+            s->main_command->command_next &&
+            s->type == SERVICE_ONESHOT &&
+            f == SERVICE_SUCCESS) {
+
+                /* There is another command to execute, so let's do that. */
+
+                log_unit_debug(UNIT(s), "Running next main command for state %s.", service_state_to_string(s->state));
+                return service_run_next_main(s);
+        }
+
+        s->main_command = NULL;
+
+        /* Services with ExitType=cgroup do not act on main PID exiting, unless the cgroup is already empty. */
+        if (s->exit_type == SERVICE_EXIT_MAIN || cgroup_good(s) <= 0)
+
+                /* The service exited, so the service is officially gone. */
+                switch (s->state) {
+
+                case SERVICE_START_POST:
+                case SERVICE_RELOAD:
+                case SERVICE_RELOAD_SIGNAL:
+                case SERVICE_RELOAD_NOTIFY:
+                        /* If neither main nor control processes are running then the current state can never
+                         * exit cleanly, hence immediately terminate the service. */
+                        if (control_pid_good(s) <= 0)
+                                service_enter_stop(s, f);
+
+                        /* Otherwise need to wait until the operation is done. */
+                        break;
+
+                case SERVICE_STOP:
+                        /* Need to wait until the operation is done. */
+                        break;
+
+                case SERVICE_START:
+                        if (s->type == SERVICE_ONESHOT) {
+                                /* This was our main goal, so let's go on. */
+                                if (f == SERVICE_SUCCESS)
+                                        service_enter_start_post(s);
+                                else
+                                        service_enter_signal(s, SERVICE_STOP_SIGTERM, f);
+                                break;
+                        } else if (IN_SET(s->type, SERVICE_NOTIFY, SERVICE_NOTIFY_RELOAD)) {
+                                /* Only enter running through a notification, so that the SERVICE_START state
+                                 * signifies that no ready notification has been received. */
+                                if (f != SERVICE_SUCCESS)
+                                        service_enter_signal(s, SERVICE_STOP_SIGTERM, f);
+                                else if (!s->remain_after_exit || service_get_notify_access(s) == NOTIFY_MAIN)
+                                        /* The service has never been and will never be active. */
+                                        service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_PROTOCOL);
+                                break;
+                        }
+
+                        _fallthrough_;
+                case SERVICE_RUNNING:
+                        service_enter_running(s, f);
+                        break;
+
+                case SERVICE_STOP_WATCHDOG:
+                case SERVICE_STOP_SIGTERM:
+                case SERVICE_STOP_SIGKILL:
+
+                        if (control_pid_good(s) <= 0)
+                                service_enter_stop_post(s, f);
+
+                        /* If there is still a control process, wait for that first. */
+                        break;
+
+                case SERVICE_STOP_POST:
+
+                        if (control_pid_good(s) <= 0)
+                                service_enter_signal(s, SERVICE_FINAL_SIGTERM, f);
+
+                        break;
+
+                case SERVICE_FINAL_WATCHDOG:
+                case SERVICE_FINAL_SIGTERM:
+                case SERVICE_FINAL_SIGKILL:
+
+                        if (control_pid_good(s) <= 0)
+                                service_enter_dead(s, f, /* allow_restart= */ true);
+                        break;
+
+                default:
+                        assert_not_reached();
+                }
+
+        else if (s->exit_type == SERVICE_EXIT_CGROUP && s->state == SERVICE_START)
+                /* If a main process exits very quickly, this function might be executed
+                 * before service_dispatch_exec_io(). Since this function disabled IO events
+                 * to monitor the main process above, we need to update the state here too.
+                 * Let's consider the process is successfully launched and exited. */
+                service_enter_start_post(s);
+}
+
+static ServiceResult service_set_result_on_control_sigchld(Service *s, pid_t pid, int code, int status) {
+        assert(s);
+        assert(s->control_pid.pid == pid);
+
+        ServiceResult f = service_sigchld_event_to_result(s, pid, code, status);
+
+        pidref_done(&s->control_pid);
+
+        if (s->control_command) {
+                exec_status_exit(&s->control_command->exec_status, &s->exec_context, pid, code, status);
+
+                if (s->control_command->flags & EXEC_COMMAND_IGNORE_FAILURE)
+                        f = SERVICE_SUCCESS;
+        }
+
+        /* ExecCondition= calls that exit with (0, 254] should invoke skip-like behavior instead of failing. */
+        const char *kind;
+        bool success;
+        if (s->state == SERVICE_CONDITION) {
+                if (f == SERVICE_FAILURE_EXIT_CODE && status < 255) {
+                        UNIT(s)->condition_result = false;
+                        f = SERVICE_SKIP_CONDITION;
+                        success = true;
+                } else if (f == SERVICE_SUCCESS) {
+                        UNIT(s)->condition_result = true;
+                        success = true;
+                } else
+                        success = false;
+
+                kind = "Condition check process";
+        } else {
+                kind = "Control process";
+                success = f == SERVICE_SUCCESS;
+        }
+
+        unit_log_process_exit(
+                        UNIT(s),
+                        kind,
+                        service_exec_command_to_string(s->control_command_id),
+                        success,
+                        code, status);
+
+        if (s->state != SERVICE_RELOAD && s->result == SERVICE_SUCCESS)
+                s->result = f;
+
+        return f;
+}
+
+static void service_set_state_on_control_sigchld(Service *s, ServiceResult f) {
+        int r;
+
+        assert(s);
+
+        if (s->control_command &&
+            s->control_command->command_next &&
+            f == SERVICE_SUCCESS) {
+
+                /* There is another command to * execute, so let's do that. */
+
+                log_unit_debug(UNIT(s), "Running next control command for state %s.", service_state_to_string(s->state));
+                return service_run_next_control(s);
+        }
+
+        /* No further commands for this step, so let's figure out what to do next */
+        s->control_command = NULL;
+        s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
+
+        log_unit_debug(UNIT(s), "Got final SIGCHLD for state %s.", service_state_to_string(s->state));
+
+        switch (s->state) {
+
+        case SERVICE_CONDITION:
+                if (f == SERVICE_SUCCESS)
+                        service_enter_start_pre(s);
+                else
+                        service_enter_signal(s, SERVICE_STOP_SIGTERM, f);
+                break;
+
+        case SERVICE_START_PRE:
+                if (f == SERVICE_SUCCESS)
+                        service_enter_start(s);
+                else
+                        service_enter_signal(s, SERVICE_STOP_SIGTERM, f);
+                break;
+
+        case SERVICE_START:
+                if (s->type != SERVICE_FORKING)
+                        /* Maybe spurious event due to a reload that changed the type? */
+                        break;
+
+                if (f != SERVICE_SUCCESS) {
+                        service_enter_signal(s, SERVICE_STOP_SIGTERM, f);
+                        break;
+                }
+
+                if (s->pid_file) {
+                        bool has_start_post;
+
+                        /* Let's try to load the pid file here if we can. The PID file might actually be
+                         * created by a START_POST script. In that case don't worry if the loading fails. */
+
+                        has_start_post = s->exec_command[SERVICE_EXEC_START_POST];
+                        r = service_load_pid_file(s, !has_start_post);
+                        if (!has_start_post && r < 0) {
+                                r = service_demand_pid_file(s);
+                                if (r < 0 || cgroup_good(s) == 0)
+                                        service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_PROTOCOL);
+                                break;
+                        }
+                } else
+                        service_search_main_pid(s);
+
+                service_enter_start_post(s);
+                break;
+
+        case SERVICE_START_POST:
+                if (f != SERVICE_SUCCESS) {
+                        service_enter_signal(s, SERVICE_STOP_SIGTERM, f);
+                        break;
+                }
+
+                if (s->pid_file) {
+                        r = service_load_pid_file(s, /* may_warn = */ true);
+                        if (r < 0) {
+                                r = service_demand_pid_file(s);
+                                if (r < 0 || cgroup_good(s) == 0)
+                                        service_enter_stop(s, SERVICE_FAILURE_PROTOCOL);
+                                break;
+                        }
+                } else
+                        service_search_main_pid(s);
+
+                service_enter_running(s, SERVICE_SUCCESS);
+                break;
+
+        case SERVICE_RELOAD:
+        case SERVICE_RELOAD_SIGNAL:
+        case SERVICE_RELOAD_NOTIFY:
+                if (f == SERVICE_SUCCESS)
+                        if (service_load_pid_file(s, /* may_warn = */ true) < 0)
+                                service_search_main_pid(s);
+
+                s->reload_result = f;
+
+                /* If the last notification we received from the service process indicates we are still
+                 * reloading, then don't leave reloading state just yet, just transition into
+                 * SERVICE_RELOAD_NOTIFY, to wait for the READY=1 coming, too. */
+                if (s->notify_state == NOTIFY_RELOADING)
+                        service_set_state(s, SERVICE_RELOAD_NOTIFY);
+                else
+                        service_enter_running(s, SERVICE_SUCCESS);
+                break;
+
+        case SERVICE_STOP:
+                service_enter_signal(s, SERVICE_STOP_SIGTERM, f);
+                break;
+
+        case SERVICE_STOP_WATCHDOG:
+        case SERVICE_STOP_SIGTERM:
+        case SERVICE_STOP_SIGKILL:
+                if (main_pid_good(s) <= 0)
+                        service_enter_stop_post(s, f);
+
+                /* If there is still a service process around, wait until that one quit, too */
+                break;
+
+        case SERVICE_STOP_POST:
+                if (main_pid_good(s) <= 0)
+                        service_enter_signal(s, SERVICE_FINAL_SIGTERM, f);
+                break;
+
+        case SERVICE_FINAL_WATCHDOG:
+        case SERVICE_FINAL_SIGTERM:
+        case SERVICE_FINAL_SIGKILL:
+                if (main_pid_good(s) <= 0)
+                        service_enter_dead(s, f, /* allow_restart= */ true);
+                break;
+
+        case SERVICE_CLEANING:
+
+                if (s->clean_result == SERVICE_SUCCESS)
+                        s->clean_result = f;
+
+                service_enter_dead(s, SERVICE_SUCCESS, /* allow_restart= */ false);
+                break;
+
+        default:
+                assert_not_reached();
+        }
+}
+
+static void service_rewatch_pids_on_sigchld(Service *s) {
+        assert(s);
+
+        /* We watch the main/control process otherwise we can't retrieve the unit they belong to with
+         * cgroupv1. But if they are not our direct child, we won't get a SIGCHLD for them. Therefore we need
+         * to look for others to watch so we can detect when the cgroup becomes empty. Note that the control
+         * process is always our child so it's pointless to watch all other processes. */
+
+        if (control_pid_good(s))
+                return;
+
+        if (s->main_pid_known && !s->main_pid_alien)
+                return;
+
+        (void) unit_enqueue_rewatch_pids(UNIT(s));
+}
+
+static void service_sigchld_event(Unit *u, pid_t pid, int code, int status) {
+        bool notify_dbus = true;
+        Service *s = SERVICE(u);
+        ServiceResult f;
+
+        assert(s);
+        assert(pid >= 0);
 
         if (s->main_pid.pid == pid) {
-                /* Clean up the exec_fd event source. We want to do this here, not later in
-                 * service_set_state(), because service_enter_stop_post() calls service_spawn().
-                 * The source owns its end of the pipe, so this will close that too. */
-                s->exec_fd_event_source = sd_event_source_disable_unref(s->exec_fd_event_source);
-
-                /* Forking services may occasionally move to a new PID.
-                 * As long as they update the PID file before exiting the old
-                 * PID, they're fine. */
-                if (service_load_pid_file(s, false) > 0)
+                f = service_set_result_on_main_sigchld(s, pid, code, status);
+                if (f < 0)
                         return;
 
-                pidref_done(&s->main_pid);
-                exec_status_exit(&s->main_exec_status, &s->exec_context, pid, code, status);
-
-                if (s->main_command) {
-                        /* If this is not a forking service than the
-                         * main process got started and hence we copy
-                         * the exit status so that it is recorded both
-                         * as main and as control process exit
-                         * status */
-
-                        s->main_command->exec_status = s->main_exec_status;
-
-                        if (s->main_command->flags & EXEC_COMMAND_IGNORE_FAILURE)
-                                f = SERVICE_SUCCESS;
-                } else if (s->exec_command[SERVICE_EXEC_START]) {
-
-                        /* If this is a forked process, then we should
-                         * ignore the return value if this was
-                         * configured for the starter process */
-
-                        if (s->exec_command[SERVICE_EXEC_START]->flags & EXEC_COMMAND_IGNORE_FAILURE)
-                                f = SERVICE_SUCCESS;
-                }
-
-                unit_log_process_exit(
-                                u,
-                                "Main process",
-                                service_exec_command_to_string(SERVICE_EXEC_START),
-                                f == SERVICE_SUCCESS,
-                                code, status);
-
-                if (s->result == SERVICE_SUCCESS)
-                        s->result = f;
-
-                if (s->main_command &&
-                    s->main_command->command_next &&
-                    s->type == SERVICE_ONESHOT &&
-                    f == SERVICE_SUCCESS) {
-
-                        /* There is another command to execute, so let's do that. */
-
-                        log_unit_debug(u, "Running next main command for state %s.", service_state_to_string(s->state));
-                        service_run_next_main(s);
-
-                } else {
-                        s->main_command = NULL;
-
-                        /* Services with ExitType=cgroup do not act on main PID exiting, unless the cgroup is
-                         * already empty */
-                        if (s->exit_type == SERVICE_EXIT_MAIN || cgroup_good(s) <= 0) {
-                                /* The service exited, so the service is officially gone. */
-                                switch (s->state) {
-
-                                case SERVICE_START_POST:
-                                case SERVICE_RELOAD:
-                                case SERVICE_RELOAD_SIGNAL:
-                                case SERVICE_RELOAD_NOTIFY:
-                                        /* If neither main nor control processes are running then the current
-                                         * state can never exit cleanly, hence immediately terminate the
-                                         * service. */
-                                        if (control_pid_good(s) <= 0)
-                                                service_enter_stop(s, f);
-
-                                        /* Otherwise need to wait until the operation is done. */
-                                        break;
-
-                                case SERVICE_STOP:
-                                        /* Need to wait until the operation is done. */
-                                        break;
-
-                                case SERVICE_START:
-                                        if (s->type == SERVICE_ONESHOT) {
-                                                /* This was our main goal, so let's go on */
-                                                if (f == SERVICE_SUCCESS)
-                                                        service_enter_start_post(s);
-                                                else
-                                                        service_enter_signal(s, SERVICE_STOP_SIGTERM, f);
-                                                break;
-                                        } else if (IN_SET(s->type, SERVICE_NOTIFY, SERVICE_NOTIFY_RELOAD)) {
-                                                /* Only enter running through a notification, so that the
-                                                 * SERVICE_START state signifies that no ready notification
-                                                 * has been received */
-                                                if (f != SERVICE_SUCCESS)
-                                                        service_enter_signal(s, SERVICE_STOP_SIGTERM, f);
-                                                else if (!s->remain_after_exit || service_get_notify_access(s) == NOTIFY_MAIN)
-                                                        /* The service has never been and will never be active */
-                                                        service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_PROTOCOL);
-                                                break;
-                                        }
-
-                                        _fallthrough_;
-                                case SERVICE_RUNNING:
-                                        service_enter_running(s, f);
-                                        break;
-
-                                case SERVICE_STOP_WATCHDOG:
-                                case SERVICE_STOP_SIGTERM:
-                                case SERVICE_STOP_SIGKILL:
-
-                                        if (control_pid_good(s) <= 0)
-                                                service_enter_stop_post(s, f);
-
-                                        /* If there is still a control process, wait for that first */
-                                        break;
-
-                                case SERVICE_STOP_POST:
-
-                                        if (control_pid_good(s) <= 0)
-                                                service_enter_signal(s, SERVICE_FINAL_SIGTERM, f);
-
-                                        break;
-
-                                case SERVICE_FINAL_WATCHDOG:
-                                case SERVICE_FINAL_SIGTERM:
-                                case SERVICE_FINAL_SIGKILL:
-
-                                        if (control_pid_good(s) <= 0)
-                                                service_enter_dead(s, f, true);
-                                        break;
-
-                                default:
-                                        assert_not_reached();
-                                }
-                        } else if (s->exit_type == SERVICE_EXIT_CGROUP && s->state == SERVICE_START)
-                                /* If a main process exits very quickly, this function might be executed
-                                 * before service_dispatch_exec_io(). Since this function disabled IO events
-                                 * to monitor the main process above, we need to update the state here too.
-                                 * Let's consider the process is successfully launched and exited. */
-                                service_enter_start_post(s);
-                }
+                service_set_state_on_main_sigchld(s, f);
 
         } else if (s->control_pid.pid == pid) {
-                const char *kind;
-                bool success;
+                f = service_set_result_on_control_sigchld(s, pid, code, status);
+                if (f < 0)
+                        return;
 
-                pidref_done(&s->control_pid);
+                service_set_state_on_control_sigchld(s, f);
 
-                if (s->control_command) {
-                        exec_status_exit(&s->control_command->exec_status, &s->exec_context, pid, code, status);
-
-                        if (s->control_command->flags & EXEC_COMMAND_IGNORE_FAILURE)
-                                f = SERVICE_SUCCESS;
-                }
-
-                /* ExecCondition= calls that exit with (0, 254] should invoke skip-like behavior instead of failing */
-                if (s->state == SERVICE_CONDITION) {
-                        if (f == SERVICE_FAILURE_EXIT_CODE && status < 255) {
-                                UNIT(s)->condition_result = false;
-                                f = SERVICE_SKIP_CONDITION;
-                                success = true;
-                        } else if (f == SERVICE_SUCCESS) {
-                                UNIT(s)->condition_result = true;
-                                success = true;
-                        } else
-                                success = false;
-
-                        kind = "Condition check process";
-                } else {
-                        kind = "Control process";
-                        success = f == SERVICE_SUCCESS;
-                }
-
-                unit_log_process_exit(
-                                u,
-                                kind,
-                                service_exec_command_to_string(s->control_command_id),
-                                success,
-                                code, status);
-
-                if (s->state != SERVICE_RELOAD && s->result == SERVICE_SUCCESS)
-                        s->result = f;
-
-                if (s->control_command &&
-                    s->control_command->command_next &&
-                    f == SERVICE_SUCCESS) {
-
-                        /* There is another command to * execute, so let's do that. */
-
-                        log_unit_debug(u, "Running next control command for state %s.", service_state_to_string(s->state));
-                        service_run_next_control(s);
-
-                } else {
-                        /* No further commands for this step, so let's figure out what to do next */
-
-                        s->control_command = NULL;
-                        s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
-
-                        log_unit_debug(u, "Got final SIGCHLD for state %s.", service_state_to_string(s->state));
-
-                        switch (s->state) {
-
-                        case SERVICE_CONDITION:
-                                if (f == SERVICE_SUCCESS)
-                                        service_enter_start_pre(s);
-                                else
-                                        service_enter_signal(s, SERVICE_STOP_SIGTERM, f);
-                                break;
-
-                        case SERVICE_START_PRE:
-                                if (f == SERVICE_SUCCESS)
-                                        service_enter_start(s);
-                                else
-                                        service_enter_signal(s, SERVICE_STOP_SIGTERM, f);
-                                break;
-
-                        case SERVICE_START:
-                                if (s->type != SERVICE_FORKING)
-                                        /* Maybe spurious event due to a reload that changed the type? */
-                                        break;
-
-                                if (f != SERVICE_SUCCESS) {
-                                        service_enter_signal(s, SERVICE_STOP_SIGTERM, f);
-                                        break;
-                                }
-
-                                if (s->pid_file) {
-                                        bool has_start_post;
-
-                                        /* Let's try to load the pid file here if we can.
-                                         * The PID file might actually be created by a START_POST
-                                         * script. In that case don't worry if the loading fails. */
-
-                                        has_start_post = s->exec_command[SERVICE_EXEC_START_POST];
-                                        r = service_load_pid_file(s, !has_start_post);
-                                        if (!has_start_post && r < 0) {
-                                                r = service_demand_pid_file(s);
-                                                if (r < 0 || cgroup_good(s) == 0)
-                                                        service_enter_signal(s, SERVICE_STOP_SIGTERM, SERVICE_FAILURE_PROTOCOL);
-                                                break;
-                                        }
-                                } else
-                                        service_search_main_pid(s);
-
-                                service_enter_start_post(s);
-                                break;
-
-                        case SERVICE_START_POST:
-                                if (f != SERVICE_SUCCESS) {
-                                        service_enter_signal(s, SERVICE_STOP_SIGTERM, f);
-                                        break;
-                                }
-
-                                if (s->pid_file) {
-                                        r = service_load_pid_file(s, true);
-                                        if (r < 0) {
-                                                r = service_demand_pid_file(s);
-                                                if (r < 0 || cgroup_good(s) == 0)
-                                                        service_enter_stop(s, SERVICE_FAILURE_PROTOCOL);
-                                                break;
-                                        }
-                                } else
-                                        service_search_main_pid(s);
-
-                                service_enter_running(s, SERVICE_SUCCESS);
-                                break;
-
-                        case SERVICE_RELOAD:
-                        case SERVICE_RELOAD_SIGNAL:
-                        case SERVICE_RELOAD_NOTIFY:
-                                if (f == SERVICE_SUCCESS)
-                                        if (service_load_pid_file(s, true) < 0)
-                                                service_search_main_pid(s);
-
-                                s->reload_result = f;
-
-                                /* If the last notification we received from the service process indicates
-                                 * we are still reloading, then don't leave reloading state just yet, just
-                                 * transition into SERVICE_RELOAD_NOTIFY, to wait for the READY=1 coming,
-                                 * too. */
-                                if (s->notify_state == NOTIFY_RELOADING)
-                                        service_set_state(s, SERVICE_RELOAD_NOTIFY);
-                                else
-                                        service_enter_running(s, SERVICE_SUCCESS);
-                                break;
-
-                        case SERVICE_STOP:
-                                service_enter_signal(s, SERVICE_STOP_SIGTERM, f);
-                                break;
-
-                        case SERVICE_STOP_WATCHDOG:
-                        case SERVICE_STOP_SIGTERM:
-                        case SERVICE_STOP_SIGKILL:
-                                if (main_pid_good(s) <= 0)
-                                        service_enter_stop_post(s, f);
-
-                                /* If there is still a service process around, wait until
-                                 * that one quit, too */
-                                break;
-
-                        case SERVICE_STOP_POST:
-                                if (main_pid_good(s) <= 0)
-                                        service_enter_signal(s, SERVICE_FINAL_SIGTERM, f);
-                                break;
-
-                        case SERVICE_FINAL_WATCHDOG:
-                        case SERVICE_FINAL_SIGTERM:
-                        case SERVICE_FINAL_SIGKILL:
-                                if (main_pid_good(s) <= 0)
-                                        service_enter_dead(s, f, true);
-                                break;
-
-                        case SERVICE_CLEANING:
-
-                                if (s->clean_result == SERVICE_SUCCESS)
-                                        s->clean_result = f;
-
-                                service_enter_dead(s, SERVICE_SUCCESS, false);
-                                break;
-
-                        default:
-                                assert_not_reached();
-                        }
-                }
-        } else /* Neither control nor main PID? If so, don't notify about anything */
+        } else /* Neither control nor main PID? If so, don't notify about anything. */
                 notify_dbus = false;
 
-        /* Notify clients about changed exit status */
+        /* Notify clients about changed exit status. */
         if (notify_dbus)
                 unit_add_to_dbus_queue(u);
 
-        /* We watch the main/control process otherwise we can't retrieve the unit they
-         * belong to with cgroupv1. But if they are not our direct child, we won't get a
-         * SIGCHLD for them. Therefore we need to look for others to watch so we can
-         * detect when the cgroup becomes empty. Note that the control process is always
-         * our child so it's pointless to watch all other processes. */
-        if (!control_pid_good(s))
-                if (!s->main_pid_known || s->main_pid_alien)
-                        (void) unit_enqueue_rewatch_pids(u);
+        service_rewatch_pids_on_sigchld(s);
 }
 
 static int service_dispatch_timer(sd_event_source *source, usec_t usec, void *userdata) {
