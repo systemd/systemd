@@ -256,8 +256,7 @@ static int dhcp4_remove_address_and_routes(Link *link, bool only_marked) {
                 if (only_marked && !route_is_marked(route))
                         continue;
 
-                RET_GATHER(ret, route_remove(route));
-                route_cancel_request(route, link);
+                RET_GATHER(ret, route_remove_and_cancel(route, link->manager));
         }
 
         SET_FOREACH(address, link->addresses) {
@@ -411,7 +410,7 @@ static bool link_prefixroute(Link *link) {
 }
 
 static int dhcp4_request_prefix_route(Link *link) {
-        _cleanup_(route_freep) Route *route = NULL;
+        _cleanup_(route_unrefp) Route *route = NULL;
         int r;
 
         assert(link);
@@ -439,7 +438,7 @@ static int dhcp4_request_prefix_route(Link *link) {
 }
 
 static int dhcp4_request_route_to_gateway(Link *link, const struct in_addr *gw) {
-        _cleanup_(route_freep) Route *route = NULL;
+        _cleanup_(route_unrefp) Route *route = NULL;
         struct in_addr address;
         int r;
 
@@ -557,7 +556,7 @@ static int dhcp4_request_classless_static_or_static_routes(Link *link) {
                 return r;
 
         FOREACH_ARRAY(e, routes, n_routes) {
-                _cleanup_(route_freep) Route *route = NULL;
+                _cleanup_(route_unrefp) Route *route = NULL;
                 struct in_addr gw;
 
                 r = route_new(&route);
@@ -585,7 +584,7 @@ static int dhcp4_request_classless_static_or_static_routes(Link *link) {
 }
 
 static int dhcp4_request_default_gateway(Link *link) {
-        _cleanup_(route_freep) Route *route = NULL;
+        _cleanup_(route_unrefp) Route *route = NULL;
         struct in_addr address, router;
         int r;
 
@@ -640,7 +639,7 @@ static int dhcp4_request_semi_static_routes(Link *link) {
         assert(link->network);
 
         HASHMAP_FOREACH(rt, link->network->routes_by_section) {
-                _cleanup_(route_freep) Route *route = NULL;
+                _cleanup_(route_unrefp) Route *route = NULL;
                 struct in_addr gw;
 
                 if (!rt->gateway_from_dhcp_or_ra)
@@ -691,7 +690,7 @@ static int dhcp4_request_routes_to_servers(
         assert(servers || n_servers == 0);
 
         FOREACH_ARRAY(dst, servers, n_servers) {
-                _cleanup_(route_freep) Route *route = NULL;
+                _cleanup_(route_unrefp) Route *route = NULL;
                 struct in_addr gw;
 
                 if (in4_addr_is_null(dst))

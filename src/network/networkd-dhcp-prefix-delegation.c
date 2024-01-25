@@ -176,8 +176,7 @@ int dhcp_pd_remove(Link *link, bool only_marked) {
 
                         link_remove_dhcp_pd_subnet_prefix(link, &route->dst.in6);
 
-                        RET_GATHER(ret, route_remove(route));
-                        route_cancel_request(route, link);
+                        RET_GATHER(ret, route_remove_and_cancel(route, link->manager));
                 }
         } else {
                 Address *address;
@@ -283,7 +282,7 @@ static int dhcp_pd_route_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
 }
 
 static int dhcp_pd_request_route(Link *link, const struct in6_addr *prefix, usec_t lifetime_usec) {
-        _cleanup_(route_freep) Route *route = NULL;
+        _cleanup_(route_unrefp) Route *route = NULL;
         Route *existing;
         int r;
 
@@ -612,9 +611,7 @@ void dhcp_pd_prefix_lost(Link *uplink) {
                                           .address = route->dst }))
                         continue;
 
-                (void) route_remove(route);
-
-                route_cancel_request(route, uplink);
+                (void) route_remove_and_cancel(route, uplink->manager);
         }
 
         set_clear(uplink->dhcp_pd_prefixes);
@@ -673,7 +670,7 @@ static int dhcp_request_unreachable_route(
                 route_netlink_handler_t callback,
                 bool *configured) {
 
-        _cleanup_(route_freep) Route *route = NULL;
+        _cleanup_(route_unrefp) Route *route = NULL;
         Route *existing;
         int r;
 
@@ -784,7 +781,7 @@ static int dhcp_pd_prefix_add(Link *link, const struct in6_addr *prefix, uint8_t
 }
 
 static int dhcp4_pd_request_default_gateway_on_6rd_tunnel(Link *link, const struct in_addr *br_address, usec_t lifetime_usec) {
-        _cleanup_(route_freep) Route *route = NULL;
+        _cleanup_(route_unrefp) Route *route = NULL;
         Route *existing;
         int r;
 

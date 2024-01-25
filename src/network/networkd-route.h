@@ -35,6 +35,8 @@ struct Route {
         NetworkConfigState state;
         union in_addr_union provider; /* DHCP server or router address */
 
+        unsigned n_ref;
+
         /* rtmsg header */
         int family;
         unsigned char dst_prefixlen;
@@ -79,17 +81,19 @@ struct Route {
 };
 
 extern const struct hash_ops route_hash_ops;
+extern const struct hash_ops route_hash_ops_unref;
 
-Route* route_free(Route *route);
-DEFINE_SECTION_CLEANUP_FUNCTIONS(Route, route_free);
+Route* route_ref(Route *route);
+Route* route_unref(Route *route);
+DEFINE_SECTION_CLEANUP_FUNCTIONS(Route, route_unref);
 
 int route_new(Route **ret);
 int route_new_static(Network *network, const char *filename, unsigned section_line, Route **ret);
 int route_dup(const Route *src, const RouteNextHop *nh, Route **ret);
 
 int route_configure_handler_internal(sd_netlink *rtnl, sd_netlink_message *m, Link *link, Route *route, const char *error_msg);
-int route_remove(Route *route);
-int route_remove_and_drop(Route *route);
+int route_remove(Route *route, Manager *manager);
+int route_remove_and_cancel(Route *route, Manager *manager);
 
 int route_get(Manager *manager, const Route *route, Route **ret);
 
@@ -102,7 +106,6 @@ static inline int link_drop_foreign_routes(Link *link) {
 }
 int link_foreignize_routes(Link *link);
 
-void route_cancel_request(Route *route, Link *link);
 int link_request_route(
                 Link *link,
                 const Route *route,
