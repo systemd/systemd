@@ -89,13 +89,14 @@ static int help(void) {
                "                            supports Secure Boot\n"
                "     --firmware=PATH|list   Select firmware definition file (or list available)\n"
                "\n%3$sSystem Identity:%4$s\n"
-               "  -M --machine=NAME         Set the machine name for the container\n"
+               "  -M --machine=NAME         Set the machine name for the virtual machine\n"
                "\n%3$sCredentials:%4$s\n"
                "     --set-credential=ID:VALUE\n"
-               "                            Pass a credential with literal value to container.\n"
+               "                            Pass a credential with literal value to the\n"
+               "                            virtual machine\n"
                "     --load-credential=ID:PATH\n"
-               "                            Load credential to pass to container from file or\n"
-               "                            AF_UNIX stream socket.\n"
+               "                            Load credential to pass to the virtual machine from\n"
+               "                            file or AF_UNIX stream socket.\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
