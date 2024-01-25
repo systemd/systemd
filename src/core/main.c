@@ -736,7 +736,7 @@ static int parse_config_file(void) {
         };
 
         if (arg_runtime_scope == RUNTIME_SCOPE_SYSTEM)
-                (void) config_parse_config_file("system.conf",
+                (void) config_parse_config_file("systemd/system.conf",
                                                 "Manager\0",
                                                 config_item_table_lookup, items,
                                                 CONFIG_PARSE_WARN,

@@ -93,24 +93,13 @@ int config_parse(
                 void *userdata,
                 struct stat *ret_stat);     /* possibly NULL */
 
-int config_parse_config_file_full(
-                const char *conf_file,
-                const char *pkgdir,
+int config_parse_config_file(
+                const char *conf_file,      /* a path like "systemd/frobnicator.conf" */
                 const char *sections,       /* nulstr */
                 ConfigItemLookup lookup,
                 const void *table,
                 ConfigParseFlags flags,
                 void *userdata);
-
-static inline int config_parse_config_file(
-                const char *conf_file,
-                const char *sections,       /* nulstr */
-                ConfigItemLookup lookup,
-                const void *table,
-                ConfigParseFlags flags,
-                void *userdata) {
-        return config_parse_config_file_full(conf_file, "systemd", sections, lookup, table, flags, userdata);
-}
 
 int config_parse_many(
                 const char* const* conf_files,  /* possibly empty */

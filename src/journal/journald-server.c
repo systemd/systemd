@@ -1884,12 +1884,14 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 }
 
 static int server_parse_config_file(Server *s) {
-        const char *conf_file = "journald.conf";
+        const char *conf_file;
 
         assert(s);
 
         if (s->namespace)
-                conf_file = strjoina("journald@", s->namespace, ".conf");
+                conf_file = strjoina("systemd/journald@", s->namespace, ".conf");
+        else
+                conf_file = "systemd/journald.conf";
 
         return config_parse_config_file(conf_file, "Journal\0",
                                         config_item_perf_lookup, journald_gperf_lookup,

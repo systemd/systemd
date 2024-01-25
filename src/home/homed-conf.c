@@ -9,7 +9,7 @@ int manager_parse_config_file(Manager *m) {
 
         assert(m);
 
-        return config_parse_config_file("homed.conf", "Home\0",
+        return config_parse_config_file("systemd/homed.conf", "Home\0",
                                         config_item_perf_lookup, homed_gperf_lookup,
                                         CONFIG_PARSE_WARN, m);
 }
