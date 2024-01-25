@@ -832,7 +832,7 @@ static int ndisc_get_dns_name(const uint8_t *optval, size_t optlen, char **ret) 
         assert(ret);
 
         r = dns_name_from_wire_format(&optval, &optlen, &name);
-        if (r < 0)
+        if (r < 0 || !name /* for gcc. This always implies r < 0. */)
                 return r;
         if (r == 0 || optlen != 0)
                 return -EBADMSG;
