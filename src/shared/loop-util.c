@@ -18,6 +18,7 @@
 #include "alloc-util.h"
 #include "blockdev-util.h"
 #include "data-fd-util.h"
+#include "device-private.h"
 #include "device-util.h"
 #include "devnum-util.h"
 #include "dissect-image.h"
@@ -352,7 +353,8 @@ static int loop_configure(
                         return r;
         }
 
-        r = fd_get_diskseq(loop_with_fd, &diskseq);
+        /* Don't verify since the current diskseq value doesn't match the value stored in the db anymore. */
+        r = device_get_diskseq(dev, loop_with_fd, &diskseq);
         if (r < 0)
                 return log_device_debug_errno(dev, r, "Failed to get diskseq: %m");
 
@@ -906,7 +908,7 @@ int loop_device_open(
                 backing_inode = info.lo_inode;
         }
 
-        r = fd_get_diskseq(fd, &diskseq);
+        r = device_get_diskseq(dev, fd, &diskseq);
         if (r < 0)
                 return r;
 
