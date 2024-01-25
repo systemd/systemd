@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: LGPL-2.1-or-later */
 
-#include "bpf-lsm.h"
+#include "bpf-restrict-fs.h"
 #include "load-fragment.h"
 #include "manager.h"
 #include "process-util.h"
@@ -75,7 +75,7 @@ int main(int argc, char *argv[]) {
         if (!can_memlock())
                 return log_tests_skipped("Can't use mlock()");
 
-        if (!lsm_bpf_supported(/* initialize = */ true))
+        if (!bpf_restrict_fs_supported(/* initialize = */ true))
                 return log_tests_skipped("LSM BPF hooks are not supported");
 
         r = enter_cgroup_subroot(NULL);

@@ -478,7 +478,7 @@ executables += [
                 'sources' : files('test-bpf-foreign-programs.c'),
         },
         core_test_template + {
-                'sources' : files('test-bpf-lsm.c'),
+                'sources' : files('test-bpf-restrict-fs.c'),
                 'dependencies' : common_test_dependencies,
         },
         core_test_template + {

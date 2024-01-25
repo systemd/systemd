@@ -132,6 +132,11 @@ Deprecations and removals:
 
 Features:
 
+* rewrite bpf-devices in libbpf/C code, rather than home-grown BPF assembly, to
+  match bpf-restrict-fs, bpf-restrict-ifaces, bpf-socket-bind
+
+* ditto: rewrite bpf-firewall in libbpf/C code
+
 * extend the smbios11 logic for passing credentials so that instead of passing
   the credential data literally it can also just reference an AF_VSOCK CID/port
   to read them from. This way the data doesn't remain in the SMBIOS blob during

@@ -16,8 +16,8 @@
 #include "all-units.h"
 #include "alloc-util.h"
 #include "bpf-firewall.h"
-#include "bpf-lsm.h"
 #include "bpf-program.h"
+#include "bpf-restrict-fs.h"
 #include "bpf-socket-bind.h"
 #include "bus-error.h"
 #include "bus-internal.h"
@@ -3697,7 +3697,7 @@ int config_parse_restrict_filesystems(
                         break;
                 }
 
-                r = lsm_bpf_parse_filesystem(
+                r = bpf_restrict_fs_parse_filesystem(
                               word,
                               &c->restrict_filesystems,
                               FILESYSTEM_PARSE_LOG|
