@@ -4768,7 +4768,7 @@ static int unit_kill_context_one(
 
         r = pidref_kill_and_sigcont(pidref, sig);
         if (r == -ESRCH)
-                return !is_alien;
+                return 0;
         if (r < 0) {
                 _cleanup_free_ char *comm = NULL;
 
