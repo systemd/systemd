@@ -145,7 +145,7 @@ int parse_sleep_config(SleepConfig **ret) {
                 {}
         };
 
-        (void) config_parse_config_file("sleep.conf", "Sleep\0",
+        (void) config_parse_config_file("systemd/sleep.conf", "Sleep\0",
                                         config_item_table_lookup, items,
                                         CONFIG_PARSE_WARN, NULL);
 

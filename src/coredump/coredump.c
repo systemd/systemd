@@ -179,7 +179,7 @@ static int parse_config(void) {
         int r;
 
         r = config_parse_config_file(
-                        "coredump.conf",
+                        "systemd/coredump.conf",
                         "Coredump\0",
                         config_item_table_lookup,
                         items,

@@ -14,7 +14,7 @@ int manager_parse_config_file(Manager *m) {
 
         assert(m);
 
-        r = config_parse_config_file("networkd.conf",
+        r = config_parse_config_file("systemd/networkd.conf",
                                      "Network\0"
                                      "DHCPv4\0"
                                      "DHCPv6\0"

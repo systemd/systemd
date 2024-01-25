@@ -31,7 +31,7 @@ static int parse_config(void) {
                 {}
         };
 
-        return config_parse_config_file("oomd.conf", "OOM\0",
+        return config_parse_config_file("systemd/oomd.conf", "OOM\0",
                                         config_item_table_lookup, items,
                                         CONFIG_PARSE_WARN, NULL);
 }

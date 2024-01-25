@@ -102,7 +102,7 @@ int manager_parse_config_file(Manager *m) {
 
         assert(m);
 
-        r = config_parse_config_file("timesyncd.conf", "Time\0",
+        r = config_parse_config_file("systemd/timesyncd.conf", "Time\0",
                                      config_item_perf_lookup, timesyncd_gperf_lookup,
                                      CONFIG_PARSE_WARN, m);
         if (r < 0)
