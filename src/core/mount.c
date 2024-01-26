@@ -1957,9 +1957,27 @@ static int mount_load_proc_self_mountinfo(Manager *m, bool set_flags) {
         return 0;
 }
 
+static int mount_enumerate_late(sd_event_source *s, void *userdata) {
+        Manager *m = ASSERT_PTR(userdata);
+        int r;
+
+        /* Do not delay manager instance start with long mountinfo parsing */
+        if (!m->ready_sent)
+                return 0;
+
+        r = mount_load_proc_self_mountinfo(m, /* set_flags = */ false);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load mountinfo: %m");
+        r = sd_event_source_set_enabled(s, SD_EVENT_OFF);
+        if (r < 0)
+                return log_error_errno(r, "Failed to disable late event source: %m");
+        return r;
+}
+
 static void mount_shutdown(Manager *m) {
         assert(m);
 
+        m->mount_enumerate_source = sd_event_source_disable_unref(m->mount_enumerate_source);
         m->mount_event_source = sd_event_source_disable_unref(m->mount_event_source);
 
         mnt_unref_monitor(m->mount_monitor);
@@ -2045,7 +2063,9 @@ static void mount_enumerate(Manager *m) {
         mnt_init_debug(0);
 
         if (!m->mount_monitor) {
+                usec_t mount_rate_limit_interval = 1 * USEC_PER_SEC;
                 unsigned mount_rate_limit_burst = 5;
+                const char *e;
                 int fd;
 
                 m->mount_monitor = mnt_new_monitor();
@@ -2086,14 +2106,22 @@ static void mount_enumerate(Manager *m) {
                 }
 
                 /* Let users override the default (5 in 1s), as it stalls the boot sequence on busy systems. */
-                const char *e = secure_getenv("SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_BURST");
+                e = secure_getenv("SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_BURST");
                 if (e) {
                         r = safe_atou(e, &mount_rate_limit_burst);
                         if (r < 0)
                                 log_debug("Invalid value in $SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_BURST, ignoring: %s", e);
                 }
 
-                r = sd_event_source_set_ratelimit(m->mount_event_source, 1 * USEC_PER_SEC, mount_rate_limit_burst);
+                e = secure_getenv("SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_INTERVAL");
+                if (e) {
+                        r = parse_sec(e, &mount_rate_limit_interval);
+                        if (r < 0)
+                                log_debug("Invalid value in $SYSTEMD_DEFAULT_MOUNT_RATE_LIMIT_INTERVAL, ignoring: %s", e);
+                }
+
+
+                r = sd_event_source_set_ratelimit(m->mount_event_source, mount_rate_limit_interval, mount_rate_limit_burst);
                 if (r < 0) {
                         log_error_errno(r, "Failed to enable rate limit for mount events: %m");
                         goto fail;
@@ -2106,11 +2134,40 @@ static void mount_enumerate(Manager *m) {
                 }
 
                 (void) sd_event_source_set_description(m->mount_event_source, "mount-monitor-dispatch");
+
+                if (!MANAGER_IS_SYSTEM(m)) {
+                        /* Keep parsing of large mountinfos out of the way of user managers. We postpone
+                         * mounts enumeration after the manager is ready (see user_manager_send_ready()).
+                         * An arrival of a mountinfo event during start could trigger full mountinfo parsing
+                         * too. As a secondary measure, apply ratelimit preemptively. If we manage to
+                         * initialize manager under mount_rate_limit_interval, we're gold. If we are not, the
+                         * ratelimit yields and that resolves events that would block the initialization.
+                         * (Additionally, if the initialization naturally takes longer than
+                         * mount_rate_limit_interval, we can spend yet more time on full parsing.) */
+                        r = sd_event_source_enter_ratelimit(m->mount_event_source);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to enter rate limit for mount events: %m");
+                        }
+
+                        r = sd_event_add_post(m->event, &m->mount_enumerate_source, mount_enumerate_late, m);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to add late mount enumerate source: %m");
+                                goto fail;
+                        }
+
+                        r = sd_event_source_set_priority(m->mount_enumerate_source, SD_EVENT_PRIORITY_IDLE);
+                        if (r < 0) {
+                                log_error_errno(r, "Failed to adjust mount enumerate priority: %m");
+                                goto fail;
+                        }
+                }
         }
 
-        r = mount_load_proc_self_mountinfo(m, false);
-        if (r < 0)
-                goto fail;
+        if (MANAGER_IS_SYSTEM(m)) {
+                r = mount_load_proc_self_mountinfo(m, /* set_flags = */ false);
+                if (r < 0)
+                        goto fail;
+        }
 
         return;
 

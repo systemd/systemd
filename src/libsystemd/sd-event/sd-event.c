@@ -3343,7 +3343,7 @@ _public_ void *sd_event_source_set_userdata(sd_event_source *s, void *userdata) 
         return ret;
 }
 
-static int event_source_enter_ratelimited(sd_event_source *s) {
+static int event_source_enter_ratelimited(sd_event_source *s, bool exceeded) {
         int r;
 
         assert(s);
@@ -3353,6 +3353,10 @@ static int event_source_enter_ratelimited(sd_event_source *s) {
 
         if (s->ratelimited)
                 return 0; /* Already ratelimited, this is a NOP hence */
+
+        if (!exceeded) {
+                s->rate_limit.begin = now(CLOCK_MONOTONIC);
+        }
 
         /* Make sure we can install a CLOCK_MONOTONIC event further down. */
         r = setup_clock_data(s->event, &s->event->monotonic, CLOCK_MONOTONIC);
@@ -3379,7 +3383,8 @@ static int event_source_enter_ratelimited(sd_event_source *s) {
 
         event_source_pp_prioq_reshuffle(s);
 
-        log_debug("Event source %p (%s) entered rate limit state.", s, strna(s->description));
+        if (exceeded)
+                log_debug("Event source %p (%s) entered rate limit state.", s, strna(s->description));
         return 0;
 
 fail:
@@ -4135,7 +4140,7 @@ static int source_dispatch(sd_event_source *s) {
         /* Check if we hit the ratelimit for this event source, and if so, let's disable it. */
         assert(!s->ratelimited);
         if (!ratelimit_below(&s->rate_limit)) {
-                r = event_source_enter_ratelimited(s);
+                r = event_source_enter_ratelimited(s, /* exceeded = */ true);
                 if (r < 0)
                         return r;
 
@@ -5212,6 +5217,27 @@ _public_ int sd_event_source_leave_ratelimit(sd_event_source *s) {
                 return r;
 
         return 1; /* tell caller that we indeed just left the ratelimit state */
+}
+
+_public_ int sd_event_source_enter_ratelimit(sd_event_source *s) {
+        int r;
+
+        assert_return(s, -EINVAL);
+
+        if (!EVENT_SOURCE_CAN_RATE_LIMIT(s->type))
+                return -EINVAL;
+
+        if (!ratelimit_configured(&s->rate_limit))
+                return 0;
+
+        if (s->ratelimited)
+                return 0;
+
+        r = event_source_enter_ratelimited(s, /* exceeded = */ false);
+        if (r < 0)
+                return r;
+
+        return 1; /* tell caller that we indeed just entered the ratelimit state */
 }
 
 _public_ int sd_event_set_signal_exit(sd_event *e, int b) {
