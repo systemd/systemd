@@ -122,7 +122,7 @@ class Device:
         print(f'check_add {self.devpath}')
 
         devnode = self.get_devnode()
-        st = devnode.stat(follow_symlinks=False)
+        st = devnode.lstat()
         assert stat.S_ISCHR(st.st_mode) or stat.S_ISBLK(st.st_mode)
         self.check_permissions(st)
         self.check_major_minor(st)
