@@ -23,6 +23,7 @@
 #include "math-util.h"
 #include "memory-util.h"
 #include "memstream-util.h"
+#include "path-util.h"
 #include "set.h"
 #include "string-table.h"
 #include "string-util.h"
@@ -5065,6 +5066,32 @@ int json_dispatch_in_addr(const char *name, JsonVariant *variant, JsonDispatchFl
                 return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is array of unexpected size.", strna(name));
 
         memcpy(address, iov.iov_base, iov.iov_len);
+        return 0;
+}
+
+int json_dispatch_path(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        char **s = userdata;
+        const char *n;
+        int r;
+
+        if (json_variant_is_null(variant)) {
+                *s = mfree(*s);
+                return 0;
+        }
+
+        if (!json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+        n = json_variant_string(variant);
+        if (!path_is_normalized(n))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a normalized file system path.", strna(name));
+        if (!path_is_absolute(n))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an absolute file system path.", strna(name));
+
+        r = free_and_strdup(s, n);
+        if (r < 0)
+                return json_log(variant, flags, r, "Failed to allocate string: %m");
+
         return 0;
 }
 

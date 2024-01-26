@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 systemd_cryptenroll_sources = files(
+        'cryptenroll-custom.c',
         'cryptenroll-list.c',
         'cryptenroll-password.c',
         'cryptenroll-recovery.c',
@@ -34,3 +35,6 @@ executables += [
                 ],
         },
 ]
+
+install_data('io.systemd.cryptenroll.policy',
+             install_dir : polkitpolicydir)
