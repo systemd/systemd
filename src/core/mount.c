@@ -2136,6 +2136,19 @@ static void mount_enumerate(Manager *m) {
                 (void) sd_event_source_set_description(m->mount_event_source, "mount-monitor-dispatch");
 
                 if (!MANAGER_IS_SYSTEM(m)) {
+                        /* Keep parsing of large mountinfos out of the way of user managers. We postpone
+                         * mounts enumeration after the manager is ready (see user_manager_send_ready()).
+                         * An arrival of a mountinfo event during start could trigger full mountinfo parsing
+                         * too. As a secondary measure, apply ratelimit preemptively. If we manage to
+                         * initialize manager under mount_rate_limit_interval, we're gold. If we are not, the
+                         * ratelimit yields and that resolves events that would block the initialization.
+                         * (Additionally, if the initialization naturally takes longer than
+                         * mount_rate_limit_interval, we can spend yet more time on full parsing.) */
+                        r = sd_event_source_enter_ratelimit(m->mount_event_source);
+                        if (r < 0) {
+                                log_debug_errno(r, "Failed to enter rate limit for mount events: %m");
+                        }
+
                         r = sd_event_add_post(m->event, &m->mount_enumerate_source, mount_enumerate_late, m);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to add late mount enumerate source: %m");
