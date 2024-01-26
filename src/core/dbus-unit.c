@@ -7,6 +7,7 @@
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
 #include "bus-polkit.h"
+#include "bus-util.h"
 #include "cgroup-util.h"
 #include "condition.h"
 #include "dbus-job.h"
@@ -1485,7 +1486,7 @@ int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd
         if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(u)))
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Unit is not active, refusing.");
 
-        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID|SD_BUS_CREDS_PID, &creds);
+        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID|SD_BUS_CREDS_PID|SD_BUS_CREDS_PIDFD, &creds);
         if (r < 0)
                 return r;
 
@@ -1496,7 +1497,6 @@ int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd
                 _cleanup_(pidref_freep) PidRef *pidref = NULL;
                 uid_t process_uid, sender_uid;
                 uint32_t upid;
-                pid_t pid;
 
                 r = sd_bus_message_read(message, "u", &upid);
                 if (r < 0)
@@ -1505,13 +1505,15 @@ int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd
                         break;
 
                 if (upid == 0) {
-                        r = sd_bus_creds_get_pid(creds, &pid);
+                        _cleanup_(pidref_done) PidRef p = PIDREF_NULL;
+                        r = bus_creds_get_pidref(creds, &p);
                         if (r < 0)
                                 return r;
-                } else
-                        pid = (uid_t) upid;
 
-                r = pidref_new_from_pid(pid, &pidref);
+                        r = pidref_dup(&p, &pidref);
+                } else
+                        r = pidref_new_from_pid(upid, &pidref);
+
                 if (r < 0)
                         return r;
 
@@ -1537,9 +1539,9 @@ int bus_unit_method_attach_processes(sd_bus_message *message, void *userdata, sd
                                 return sd_bus_error_set_errnof(error, r, "Failed to retrieve process UID: %m");
 
                         if (process_uid != sender_uid)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Process " PID_FMT " not owned by client's UID. Refusing.", pid);
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Process " PID_FMT " not owned by client's UID. Refusing.", pidref->pid);
                         if (process_uid != u->ref_uid)
-                                return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Process " PID_FMT " not owned by target unit's UID. Refusing.", pid);
+                                return sd_bus_error_setf(error, SD_BUS_ERROR_ACCESS_DENIED, "Process " PID_FMT " not owned by target unit's UID. Refusing.", pidref->pid);
                 }
 
                 r = set_ensure_consume(&pids, &pidref_hash_ops_free, TAKE_PTR(pidref));
