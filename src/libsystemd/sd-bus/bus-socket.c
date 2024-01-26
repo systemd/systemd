@@ -643,14 +643,20 @@ static void bus_get_peercred(sd_bus *b) {
         /* Get the SELinux context of the peer */
         r = getpeersec(b->input_fd, &b->label);
         if (r < 0 && !IN_SET(r, -EOPNOTSUPP, -ENOPROTOOPT))
-                log_debug_errno(r, "Failed to determine peer security context: %m");
+                log_debug_errno(r, "Failed to determine peer security context, ignoring: %m");
 
         /* Get the list of auxiliary groups of the peer */
         r = getpeergroups(b->input_fd, &b->groups);
         if (r >= 0)
                 b->n_groups = (size_t) r;
         else if (!IN_SET(r, -EOPNOTSUPP, -ENOPROTOOPT))
-                log_debug_errno(r, "Failed to determine peer's group list: %m");
+                log_debug_errno(r, "Failed to determine peer's group list, ignoring: %m");
+
+        r = getpeerpidfd(b->input_fd);
+        if (r < 0)
+                log_debug_errno(r, "Failed to determin peer pidfd, ignoring: %m");
+        else
+                close_and_replace(b->pidfd, r);
 
         /* Let's query the peers socket address, it might carry information such as the peer's comm or
          * description string */
