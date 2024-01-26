@@ -389,6 +389,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp_use_sip = true,
                 .dhcp_use_captive_portal = true,
                 .dhcp_use_dns = true,
+                .dhcp_use_dnr = -1,
                 .dhcp_routes_to_dns = true,
                 .dhcp_use_hostname = true,
                 .dhcp_use_routes = true,
@@ -406,6 +407,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
                 .dhcp6_use_address = true,
                 .dhcp6_use_pd_prefix = true,
                 .dhcp6_use_dns = true,
+                .dhcp6_use_dnr = -1,
                 .dhcp6_use_hostname = true,
                 .dhcp6_use_ntp = true,
                 .dhcp6_use_captive_portal = true,
@@ -476,6 +478,7 @@ int network_load_one(Manager *manager, OrderedHashmap **networks, const char *fi
 
                 .ipv6_accept_ra = -1,
                 .ipv6_accept_ra_use_dns = true,
+                .ipv6_accept_ra_use_dnr = -1,
                 .ipv6_accept_ra_use_gateway = true,
                 .ipv6_accept_ra_use_captive_portal = true,
                 .ipv6_accept_ra_use_route_prefix = true,
