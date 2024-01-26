@@ -411,7 +411,8 @@ Port=tcp:60
 Port=udp:60:61
 EOF
     cat >"$root/entrypoint.sh" <<\EOF
-#!/bin/bash -ex
+#!/bin/bash
+set -ex
 
 [[ "$1" == "foo bar" ]]
 [[ "$2" == "bar baz" ]]
