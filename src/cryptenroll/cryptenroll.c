@@ -1,4 +1,8 @@
-/* SPDX-License-Identifier: LGPL-2.1-or-later */
+/* SPDX-License-Identifier: LGPL-2.1-or-later
+ *
+ * Copyright © 2024 GNOME Foundation Inc
+ *      Original Author: Adrian Vovk
+ */
 
 #include <getopt.h>
 
@@ -6,6 +10,7 @@
 #include "blockdev-util.h"
 #include "btrfs-util.h"
 #include "build.h"
+#include "cryptenroll-custom.h"
 #include "cryptenroll-fido2.h"
 #include "cryptenroll-list.h"
 #include "cryptenroll-password.h"
@@ -14,7 +19,6 @@
 #include "cryptenroll-tpm2.h"
 #include "cryptenroll-wipe.h"
 #include "cryptenroll.h"
-#include "cryptsetup-util.h"
 #include "device-util.h"
 #include "env-util.h"
 #include "escape.h"
@@ -31,6 +35,7 @@
 #include "strv.h"
 #include "terminal-util.h"
 #include "tpm2-pcr.h"
+#include "varlink-io.systemd.CryptEnroll.h"
 
 static EnrollType arg_enroll_type = _ENROLL_TYPE_INVALID;
 static char *arg_unlock_keyfile = NULL;
@@ -624,6 +629,39 @@ static int check_for_homed(struct crypt_device *cd) {
         return 0;
 }
 
+static int open_luks(const char *node, struct crypt_device **ret) {
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_free_ char *auto_node = NULL;
+        int r;
+
+        assert(ret);
+
+        if (!node) {
+                r = resolve_auto_node(&auto_node);
+                if (r == -EMEDIUMTYPE)
+                        return log_error_errno(r, "Block device backing /var isn't a LUKS2 device. Please specify a device node manually");
+                if (r < 0)
+                        return log_error_errno(r, "Failed to automatically resolve device node: %m");
+        }
+
+        r = crypt_init(&cd, node ?: auto_node);
+        if (r < 0)
+                return log_error_errno(r, "Failed to allocated libcryptsetup context: %m");
+
+        cryptsetup_enable_logging(cd);
+
+        r = crypt_load(cd, CRYPT_LUKS2, NULL);
+        if (r < 0)
+                return log_error_errno(r, "Failed to load LUKS2 superblock: %m");
+
+        r = check_for_homed(cd);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(cd);
+        return 0;
+}
+
 static int load_volume_key_keyfile(
                 struct crypt_device *cd,
                 void *ret_vk,
@@ -662,46 +700,17 @@ static int load_volume_key_keyfile(
         return r;
 }
 
-static int prepare_luks(
-                struct crypt_device **ret_cd,
-                void **ret_volume_key,
-                size_t *ret_volume_key_size) {
-
-        _cleanup_free_ char *auto_node = NULL;
-        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+static int interactive_unlock(struct crypt_device *cd, void **ret_vk, size_t *ret_vks) {
         _cleanup_(erase_and_freep) void *vk = NULL;
+        const char *node;
         size_t vks;
         int r;
 
-        assert(ret_cd);
-        assert(!ret_volume_key == !ret_volume_key_size);
+        assert(cd);
+        assert(ret_vk);
+        assert(ret_vks);
 
-        if (!arg_node) {
-                r = resolve_auto_node(&auto_node);
-                if (r == -EMEDIUMTYPE)
-                        return log_error_errno(r, "Block device backing /var isn't a LUKS2 device. Please specify a device node manually");
-                if (r < 0)
-                        return log_error_errno(r, "Failed to automatically resolve device node: %m");
-        }
-
-        r = crypt_init(&cd, arg_node ?: auto_node);
-        if (r < 0)
-                return log_error_errno(r, "Failed to allocate libcryptsetup context: %m");
-
-        cryptsetup_enable_logging(cd);
-
-        r = crypt_load(cd, CRYPT_LUKS2, NULL);
-        if (r < 0)
-                return log_error_errno(r, "Failed to load LUKS2 superblock: %m");
-
-        r = check_for_homed(cd);
-        if (r < 0)
-                return r;
-
-        if (!ret_volume_key) {
-                *ret_cd = TAKE_PTR(cd);
-                return 0;
-        }
+        assert_se(node = crypt_get_device_name(cd));
 
         r = crypt_get_volume_key_size(cd);
         if (r <= 0)
@@ -719,11 +728,11 @@ static int prepare_luks(
                 break;
 
         case UNLOCK_FIDO2:
-                r = load_volume_key_fido2(cd, arg_node ?: auto_node, arg_unlock_fido2_device, vk, &vks);
+                r = load_volume_key_fido2(cd, node, arg_unlock_fido2_device, vk, &vks);
                 break;
 
         case UNLOCK_PASSWORD:
-                r = load_volume_key_password(cd, arg_node ?: auto_node, vk, &vks);
+                r = load_volume_key_password(cd, node, vk, &vks);
                 break;
 
         default:
@@ -733,35 +742,132 @@ static int prepare_luks(
         if (r < 0)
                 return r;
 
-        *ret_cd = TAKE_PTR(cd);
-        *ret_volume_key = TAKE_PTR(vk);
-        *ret_volume_key_size = vks;
-
+        *ret_vk = TAKE_PTR(vk);
+        *ret_vks = vks;
         return 0;
 }
 
-static int run(int argc, char *argv[]) {
+typedef struct SetupParameters {
+        char *node;
+
+        /* Unlock methods */
+        const char *password;
+        struct iovec key;
+        const char *fido2_device;
+} SetupParameters;
+
+static void setup_parameters_done(SetupParameters *p) {
+        assert(p);
+        p->node = mfree(p->node);
+        iovec_done_erase(&p->key);
+}
+
+int vl_luks_setup(Varlink *link, JsonVariant *params, struct crypt_device **ret_cd, void **ret_vk, size_t *ret_vks) {
+        static const JsonDispatch dispatch_table[] = {
+                { "node",           JSON_VARIANT_STRING, json_dispatch_path,           offsetof(SetupParameters, node),         0 },
+                { "unlockPassword", JSON_VARIANT_STRING, json_dispatch_const_string,   offsetof(SetupParameters, password),     0 },
+                { "unlockKey",      JSON_VARIANT_STRING, json_dispatch_unbase64_iovec, offsetof(SetupParameters, key),          0 },
+                { "unlockFido2",    JSON_VARIANT_STRING, json_dispatch_const_string,   offsetof(SetupParameters, fido2_device), 0 },
+        };
+        _cleanup_(setup_parameters_done) SetupParameters p = {};
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(erase_and_freep) void *vk = NULL;
+        const char *bad_field = NULL, *node;
+        size_t vks;
+        int r;
+
+        assert(link);
+        assert(params);
+        assert(ret_cd);
+        assert(ret_vk);
+        assert(ret_vks);
+
+        r = json_dispatch_full(params, dispatch_table, /* bad= */ NULL, JSON_ALLOW_EXTENSIONS|JSON_LOG, &p, &bad_field);
+        if (r < 0) {
+                if (bad_field)
+                        return varlink_error_invalid_parameter_name(link, bad_field);
+                return r;
+        }
+
+        r = open_luks(p.node, &cd);
+        if (r < 0)
+                return varlink_error(link, "io.systemd.CryptEnroll.NoDevice", NULL);
+
+        assert_se(node = crypt_get_device_name(cd));
+
+        r = crypt_get_volume_key_size(cd);
+        if (r <= 0)
+                return varlink_error(link, "io.systemd.CryptEnroll.NoDevice", NULL);
+        vks = (size_t) r;
+
+        vk = malloc(vks);
+        if (!vk)
+                return varlink_error_errno(link, log_oom());
+
+        if (p.key.iov_base) {
+                if (p.password || p.fido2_device)
+                        return varlink_error_invalid_parameter_name(link, "unlockKey");
+
+                r = crypt_volume_key_get(
+                                cd,
+                                CRYPT_ANY_SLOT,
+                                vk,
+                                &vks,
+                                p.key.iov_base,
+                                p.key.iov_len);
+        } else if (p.password) {
+                if (p.fido2_device)
+                        return varlink_error_invalid_parameter_name(link, "unlockPassword");
+
+                r = crypt_volume_key_get(
+                                cd,
+                                CRYPT_ANY_SLOT,
+                                vk,
+                                &vks,
+                                p.password,
+                                strlen(p.password));
+        } else if (p.fido2_device) {
+                if (p.password)
+                        return varlink_error_invalid_parameter_name(link, "unlockFido2");
+
+                if (streq(p.fido2_device, "auto"))
+                        p.fido2_device = NULL;
+                else if (!path_is_normalized(p.fido2_device) || !path_is_absolute(p.fido2_device))
+                        return varlink_error_invalid_parameter_name(link, "unlockFido2");
+
+                r = load_volume_key_fido2(cd, node, p.fido2_device, vk, &vks);
+        } else {
+                /* Fallback to interactive ask for password */
+                r = load_volume_key_password(cd, node, vk, &vks);
+        }
+        if (r < 0)
+                return varlink_error(link, "io.systemd.CryptEnroll.BadKey", NULL);
+
+        *ret_cd = TAKE_PTR(cd);
+        *ret_vk = TAKE_PTR(vk);
+        *ret_vks = vks;
+        return 0;
+}
+
+static int enroll_main(int argc, char *argv[]) {
         _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
         _cleanup_(erase_and_freep) void *vk = NULL;
         size_t vks;
         int slot, r;
 
-        log_show_color(true);
-        log_parse_environment();
-        log_open();
-
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
 
-        cryptsetup_enable_logging(NULL);
-
-        if (arg_enroll_type < 0)
-                r = prepare_luks(&cd, NULL, NULL); /* No need to unlock device if we don't need the volume key because we don't need to enroll anything */
-        else
-                r = prepare_luks(&cd, &vk, &vks);
+        r = open_luks(arg_node, &cd);
         if (r < 0)
                 return r;
+
+        if (arg_enroll_type >= 0) { /* Only try to unlock the disk if we've actually got something to enroll */
+                r = interactive_unlock(cd, &vk, &vks);
+                if (r < 0)
+                        return r;
+        }
 
         switch (arg_enroll_type) {
 
@@ -805,6 +911,52 @@ static int run(int argc, char *argv[]) {
                 return r;
 
         return 0;
+}
+
+static int run(int argc, char *argv[]) {
+        int r;
+
+        log_setup();
+        cryptsetup_enable_logging(NULL);
+
+        r = varlink_invocation(VARLINK_ALLOW_ACCEPT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
+        if (r > 0) {
+                _cleanup_(varlink_server_unrefp) VarlinkServer *varlink_server = NULL;
+                _cleanup_(hashmap_freep) Hashmap *polkit_registry = NULL;
+
+                /* Invocation as Varlink service */
+
+                r = varlink_server_new(&varlink_server, VARLINK_SERVER_ACCOUNT_UID|VARLINK_SERVER_INHERIT_USERDATA|VARLINK_SERVER_INPUT_SENSITIVE);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+                r = varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_CryptEnroll);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add Varlink interface: %m");
+
+                r = varlink_server_bind_method_many(
+                                varlink_server,
+                                "io.systemd.CryptEnroll.EnrollCustom", vl_method_enroll_custom,
+                                "io.systemd.CryptEnroll.EnrollPassword", vl_method_enroll_password,
+                                "io.systemd.CryptEnroll.EnrollRecoveryKey", vl_method_enroll_recovery,
+                                "io.systemd.CryptEnroll.EnrollPKCS11", vl_method_enroll_pkcs11,
+                                "io.systemd.CryptEnroll.EnrollFIDO2", vl_method_enroll_fido2,
+                                "io.systemd.CryptEnroll.EnrollTPM2", vl_method_enroll_tpm2,
+                                "io.systemd.CryptEnroll.Wipe", vl_method_wipe);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to bind Varlink methods: %m");
+
+                varlink_server_set_userdata(varlink_server, &polkit_registry);
+
+                r = varlink_server_loop_auto(varlink_server);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to run Varlink event loop: %m");
+                return 0;
+        }
+
+        return enroll_main(argc, argv);
 }
 
 DEFINE_MAIN_FUNCTION(run);

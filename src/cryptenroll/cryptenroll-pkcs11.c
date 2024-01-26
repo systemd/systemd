@@ -1,6 +1,13 @@
-/* SPDX-License-Identifier: LGPL-2.1-or-later */
+/* SPDX-License-Identifier: LGPL-2.1-or-later
+ *
+ * Copyright © 2024 GNOME Foundation Inc
+ *      Original Author: Adrian Vovk
+ */
 
+#include "bus-polkit.h"
 #include "cryptenroll-pkcs11.h"
+#include "cryptenroll-wipe.h"
+#include "cryptenroll.h"
 #include "hexdecoct.h"
 #include "json.h"
 #include "memory-util.h"
@@ -107,4 +114,41 @@ int enroll_pkcs11(
 
         log_info("New PKCS#11 token enrolled as key slot %i.", keyslot);
         return keyslot;
+}
+
+int vl_method_enroll_pkcs11(Varlink *link, JsonVariant *params, VarlinkMethodFlags flags, void *userdata) {
+        static const JsonDispatch dispatch_table[] = {
+                VARLINK_DISPATCH_UNLOCK_FIELDS,
+                VARLINK_DISPATCH_WIPE_FIELDS,
+                VARLINK_DISPATCH_POLKIT_FIELD,
+                {}
+        };
+        Hashmap **polkit_registry = ASSERT_PTR(userdata);
+        _cleanup_(crypt_freep) struct crypt_device *cd = NULL;
+        _cleanup_(erase_and_freep) void *vk = NULL;
+        size_t vks;
+        int r;
+
+        r = varlink_dispatch(link, params, dispatch_table, NULL);
+        if (r != 0)
+                return r;
+
+        r = varlink_verify_polkit_async(
+                        link,
+                        /* bus= */ NULL,
+                        "io.systemd.cryptenroll.enroll",
+                        /* details= */ NULL,
+                        /* good_user= */ UID_INVALID,
+                        polkit_registry);
+        if (r <= 0)
+                return r;
+
+        r = vl_luks_setup(link, params, &cd, &vk, &vks);
+        if (r != 0)
+                return r;
+
+        return varlink_errorb(
+                        link,
+                        VARLINK_ERROR_METHOD_NOT_IMPLEMENTED,
+                        JSON_BUILD_OBJECT(JSON_BUILD_PAIR("method", "io.systemd.CryptEnroll.EnrollPKCS11")));
 }

@@ -285,6 +285,15 @@ units = [
           'symlinks' : ['sockets.target.wants/'],
         },
         { 'file' : 'systemd-creds@.service' },
+        {
+          'file' : 'systemd-cryptenroll.socket',
+          'conditions' : ['HAVE_LIBCRYPTSETUP'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        {
+          'file' : 'systemd-cryptenroll@.service',
+          'conditions' : ['HAVE_LIBCRYPTSETUP'],
+        },
         { 'file' : 'systemd-exit.service' },
         {
           'file' : 'systemd-firstboot.service',
