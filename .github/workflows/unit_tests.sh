@@ -73,7 +73,8 @@ for phase in "${PHASES[@]}"; do
             MESON_ARGS+=(--fatal-meson-warnings)
             run_meson -Dnobody-group=nogroup --werror -Dtests=unsafe -Dslow-tests=true -Dfuzz-tests=true "${MESON_ARGS[@]}" build
             ninja -C build -v
-            meson test -C build --print-errorlogs
+            # Ensure setting a timezone (like the reproducible build tests do) does not break time/date unit tests
+            TZ=GMT+12 meson test -C build --print-errorlogs
             ;;
         RUN_ASAN_UBSAN|RUN_GCC_ASAN_UBSAN|RUN_CLANG_ASAN_UBSAN|RUN_CLANG_ASAN_UBSAN_NO_DEPS)
             MESON_ARGS=(--optimization=1)
