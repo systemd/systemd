@@ -537,7 +537,7 @@ static void link_save_domains(Link *link, FILE *f, OrderedSet *static_domains, D
         assert(f);
 
         ORDERED_SET_FOREACH(p, static_domains)
-                fputs_with_space(f, p, NULL, &space);
+                fputs_with_separator(f, p, NULL, &space);
 
         if (use_domains == DHCP_USE_DOMAINS_NO)
                 return;
@@ -547,7 +547,7 @@ static void link_save_domains(Link *link, FILE *f, OrderedSet *static_domains, D
                 char **domains;
 
                 if (sd_dhcp_lease_get_domainname(link->dhcp_lease, &domainname) >= 0)
-                        fputs_with_space(f, domainname, NULL, &space);
+                        fputs_with_separator(f, domainname, NULL, &space);
                 if (sd_dhcp_lease_get_search_domains(link->dhcp_lease, &domains) >= 0)
                         fputstrv(f, domains, NULL, &space);
         }
@@ -563,7 +563,7 @@ static void link_save_domains(Link *link, FILE *f, OrderedSet *static_domains, D
                 NDiscDNSSL *dd;
 
                 SET_FOREACH(dd, link->ndisc_dnssl)
-                        fputs_with_space(f, NDISC_DNSSL_DOMAIN(dd), NULL, &space);
+                        fputs_with_separator(f, NDISC_DNSSL_DOMAIN(dd), NULL, &space);
         }
 }
 
@@ -652,7 +652,7 @@ static int link_save(Link *link) {
                         if (!escaped)
                                 return -ENOMEM;
 
-                        fputs_with_space(f, escaped, ":", &space);
+                        fputs_with_separator(f, escaped, ":", &space);
                 }
                 fputs("\"\n", f);
 
@@ -782,7 +782,7 @@ static int link_save(Link *link) {
                         fputs("DNSSEC_NTA=", f);
                         space = false;
                         SET_FOREACH(n, nta_anchors)
-                                fputs_with_space(f, n, NULL, &space);
+                                fputs_with_separator(f, n, NULL, &space);
                         fputc('\n', f);
                 }
         }
