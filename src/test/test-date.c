@@ -62,6 +62,9 @@ static void test_one_noutc(const char *p) {
 }
 
 int main(int argc, char *argv[]) {
+        /* Tests have hard-coded results that do not expect a specific timezone to be set by the caller */
+        assert_se(unsetenv("TZ") >= 0);
+
         test_setup_logging(LOG_DEBUG);
 
         test_one("17:41");
