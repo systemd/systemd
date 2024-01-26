@@ -374,7 +374,6 @@ Features:
   - actually wait for POLLIN on pidref's pidfd in service logic
   - exec_spawn() + safe_fork()
   - openpt_allocate_in_namespace()
-  - sd_bus_creds
   - unit_attach_pid_to_cgroup_via_bus()
   - cg_attach() – requires new kernel feature
 
