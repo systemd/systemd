@@ -132,6 +132,11 @@ Deprecations and removals:
 
 Features:
 
+* Get rid of the symlinks in /run/systemd/units/* and exclusively use cgroupfs
+  xattrs to convey info about invocation ids, logging settings and so on.
+  support for cgroupfs xattrs in the "trusted." namespace was added in linux
+  3.7, i.e. which we don't pretend to support anymore.
+
 * rewrite bpf-devices in libbpf/C code, rather than home-grown BPF assembly, to
   match bpf-restrict-fs, bpf-restrict-ifaces, bpf-socket-bind
 
