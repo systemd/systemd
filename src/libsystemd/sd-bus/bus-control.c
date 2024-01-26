@@ -14,6 +14,7 @@
 #include "bus-internal.h"
 #include "bus-message.h"
 #include "capability-util.h"
+#include "fd-util.h"
 #include "process-util.h"
 #include "stdio-util.h"
 #include "string-util.h"
@@ -430,7 +431,6 @@ _public_ int sd_bus_get_name_creds(
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply_unique = NULL, *reply = NULL;
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *c = NULL;
         const char *unique;
-        pid_t pid = 0;
         int r;
 
         assert_return(bus, -EINVAL);
@@ -484,7 +484,8 @@ _public_ int sd_bus_get_name_creds(
 
         if (mask != 0) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                bool need_pid, need_uid, need_selinux, need_separate_calls;
+                bool need_pid, need_uid, need_selinux, need_separate_calls, need_pidfd, need_augment;
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
                 c = bus_creds_new();
                 if (!c)
@@ -498,20 +499,24 @@ _public_ int sd_bus_get_name_creds(
                         c->mask |= SD_BUS_CREDS_UNIQUE_NAME;
                 }
 
-                need_pid = (mask & SD_BUS_CREDS_PID) ||
-                        ((mask & SD_BUS_CREDS_AUGMENT) &&
-                         (mask & (SD_BUS_CREDS_UID|SD_BUS_CREDS_SUID|SD_BUS_CREDS_FSUID|
-                                  SD_BUS_CREDS_GID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_SGID|SD_BUS_CREDS_FSGID|
-                                  SD_BUS_CREDS_SUPPLEMENTARY_GIDS|
-                                  SD_BUS_CREDS_COMM|SD_BUS_CREDS_EXE|SD_BUS_CREDS_CMDLINE|
-                                  SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID|
-                                  SD_BUS_CREDS_EFFECTIVE_CAPS|SD_BUS_CREDS_PERMITTED_CAPS|SD_BUS_CREDS_INHERITABLE_CAPS|SD_BUS_CREDS_BOUNDING_CAPS|
-                                  SD_BUS_CREDS_SELINUX_CONTEXT|
-                                  SD_BUS_CREDS_AUDIT_SESSION_ID|SD_BUS_CREDS_AUDIT_LOGIN_UID)));
+                need_augment =
+                        (mask & SD_BUS_CREDS_AUGMENT) &&
+                        (mask & (SD_BUS_CREDS_UID|SD_BUS_CREDS_SUID|SD_BUS_CREDS_FSUID|
+                                 SD_BUS_CREDS_GID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_SGID|SD_BUS_CREDS_FSGID|
+                                 SD_BUS_CREDS_SUPPLEMENTARY_GIDS|
+                                 SD_BUS_CREDS_COMM|SD_BUS_CREDS_EXE|SD_BUS_CREDS_CMDLINE|
+                                 SD_BUS_CREDS_CGROUP|SD_BUS_CREDS_UNIT|SD_BUS_CREDS_USER_UNIT|SD_BUS_CREDS_SLICE|SD_BUS_CREDS_SESSION|SD_BUS_CREDS_OWNER_UID|
+                                 SD_BUS_CREDS_EFFECTIVE_CAPS|SD_BUS_CREDS_PERMITTED_CAPS|SD_BUS_CREDS_INHERITABLE_CAPS|SD_BUS_CREDS_BOUNDING_CAPS|
+                                 SD_BUS_CREDS_SELINUX_CONTEXT|
+                                 SD_BUS_CREDS_AUDIT_SESSION_ID|SD_BUS_CREDS_AUDIT_LOGIN_UID|
+                                 SD_BUS_CREDS_PIDFD));
+
+                need_pid = (mask & SD_BUS_CREDS_PID) || need_augment;
                 need_uid = mask & SD_BUS_CREDS_EUID;
                 need_selinux = mask & SD_BUS_CREDS_SELINUX_CONTEXT;
+                need_pidfd = (mask & SD_BUS_CREDS_PIDFD) || need_augment;
 
-                if (need_pid + need_uid + need_selinux > 1) {
+                if (need_pid + need_uid + need_selinux + need_pidfd > 1) {
 
                         /* If we need more than one of the credentials, then use GetConnectionCredentials() */
 
@@ -572,7 +577,9 @@ _public_ int sd_bus_get_name_creds(
                                                 if (r < 0)
                                                         return r;
 
-                                                pid = p;
+                                                if (!pidref_is_set(&pidref))
+                                                        pidref = PIDREF_MAKE_FROM_PID(p);
+
                                                 if (mask & SD_BUS_CREDS_PID) {
                                                         c->pid = p;
                                                         c->mask |= SD_BUS_CREDS_PID;
@@ -599,6 +606,26 @@ _public_ int sd_bus_get_name_creds(
                                                 r = sd_bus_message_exit_container(reply);
                                                 if (r < 0)
                                                         return r;
+                                        } else if (need_pidfd && streq(m, "ProcessFD")) {
+                                                int fd;
+
+                                                r = sd_bus_message_read(reply, "v", "h", &fd);
+                                                if (r < 0)
+                                                        return r;
+
+                                                pidref_done(&pidref);
+                                                r = pidref_set_pidfd(&pidref, fd);
+                                                if (r < 0)
+                                                        return r;
+
+                                                if (mask & SD_BUS_CREDS_PIDFD) {
+                                                        fd = fcntl(fd, F_DUPFD_CLOEXEC, 3);
+                                                        if (fd < 0)
+                                                                return -errno;
+
+                                                        close_and_replace(c->pidfd, fd);
+                                                        c->mask |= SD_BUS_CREDS_PIDFD;
+                                                }
                                         } else {
                                                 r = sd_bus_message_skip(reply, "v");
                                                 if (r < 0)
@@ -614,7 +641,7 @@ _public_ int sd_bus_get_name_creds(
                                 if (r < 0)
                                         return r;
 
-                                if (need_pid && pid == 0)
+                                if (need_pid && !pidref_is_set(&pidref))
                                         return -EPROTO;
                         }
 
@@ -642,7 +669,9 @@ _public_ int sd_bus_get_name_creds(
                                 if (r < 0)
                                         return r;
 
-                                pid = u;
+                                if (!pidref_is_set(&pidref))
+                                        pidref = PIDREF_MAKE_FROM_PID(u);
+
                                 if (mask & SD_BUS_CREDS_PID) {
                                         c->pid = u;
                                         c->mask |= SD_BUS_CREDS_PID;
@@ -710,9 +739,11 @@ _public_ int sd_bus_get_name_creds(
                         }
                 }
 
-                r = bus_creds_add_more(c, mask, pid, 0);
-                if (r < 0 && r != -ESRCH) /* Return the error, but ignore ESRCH which just means the process is already gone */
-                        return r;
+                if (pidref_is_set(&pidref)) {
+                        r = bus_creds_add_more(c, mask, &pidref, 0);
+                        if (r < 0 && r != -ESRCH) /* Return the error, but ignore ESRCH which just means the process is already gone */
+                                return r;
+                }
         }
 
         if (creds)
@@ -765,8 +796,8 @@ not_found:
 
 _public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **ret) {
         _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *c = NULL;
-        bool do_label, do_groups, do_sockaddr_peer;
-        pid_t pid = 0;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+        bool do_label, do_groups, do_sockaddr_peer, do_pidfd;
         int r;
 
         assert_return(bus, -EINVAL);
@@ -786,9 +817,10 @@ _public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **r
         do_sockaddr_peer = bus->sockaddr_size_peer >= offsetof(struct sockaddr_un, sun_path) + 1 &&
                 bus->sockaddr_peer.sa.sa_family == AF_UNIX &&
                 bus->sockaddr_peer.un.sun_path[0] == 0;
+        do_pidfd = bus->pidfd >= 0 && (mask & SD_BUS_CREDS_PIDFD);
 
         /* Avoid allocating anything if we have no chance of returning useful data */
-        if (!bus->ucred_valid && !do_label && !do_groups && !do_sockaddr_peer)
+        if (!bus->ucred_valid && !do_label && !do_groups && !do_sockaddr_peer && !do_pidfd)
                 return -ENODATA;
 
         c = bus_creds_new();
@@ -797,8 +829,10 @@ _public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **r
 
         if (bus->ucred_valid) {
                 if (pid_is_valid(bus->ucred.pid)) {
-                        pid = c->pid = bus->ucred.pid;
+                        c->pid = bus->ucred.pid;
                         c->mask |= SD_BUS_CREDS_PID & mask;
+
+                        pidref = PIDREF_MAKE_FROM_PID(c->pid);
                 }
 
                 if (uid_is_valid(bus->ucred.uid)) {
@@ -859,7 +893,20 @@ _public_ int sd_bus_get_owner_creds(sd_bus *bus, uint64_t mask, sd_bus_creds **r
                 }
         }
 
-        r = bus_creds_add_more(c, mask, pid, 0);
+        if (do_pidfd) {
+                c->pidfd = fcntl(bus->pidfd, F_DUPFD_CLOEXEC, 3);
+                if (c->pidfd < 0)
+                        return -errno;
+
+                pidref_done(&pidref);
+                r = pidref_set_pidfd(&pidref, bus->pidfd);
+                if (r < 0)
+                        return r;
+
+                c->mask |= SD_BUS_CREDS_PIDFD;
+        }
+
+        r = bus_creds_add_more(c, mask, &pidref, 0);
         if (r < 0 && r != -ESRCH) /* If the process vanished, then don't complain, just return what we got */
                 return r;
 
