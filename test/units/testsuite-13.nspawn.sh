@@ -414,6 +414,8 @@ EOF
 #!/bin/bash
 set -ex
 
+env
+
 [[ "$1" == "foo bar" ]]
 [[ "$2" == "bar baz" ]]
 
@@ -421,7 +423,7 @@ set -ex
 [[ "$FOO" == bar ]]
 [[ "$BAZ" == "hello world" ]]
 [[ "$PWD" == /tmp ]]
-[[ "$(</etc/machine-id)" == f28f129b51874b1280a89421ec4b4ad4 ]]
+[[ "$container_uuid" == f28f129b-5187-4b12-80a8-9421ec4b4ad4 ]]
 [[ "$(ulimit -S -n)" -eq 1024 ]]
 [[ "$(ulimit -H -n)" -eq 2048 ]]
 [[ "$(ulimit -S -r)" -eq 8 ]]
