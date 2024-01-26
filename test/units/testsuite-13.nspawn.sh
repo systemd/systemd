@@ -332,7 +332,7 @@ nspawn_settings_cleanup() {
 }
 
 testcase_nspawn_settings() {
-    local root container dev private_users wlan_names='' wlan_checks=''
+    local root container dev private_users wlan_names
 
     mkdir -p /run/systemd/nspawn
     root="$(mktemp -d /var/lib/machines/testsuite-13.nspawn-settings.XXX)"
@@ -343,8 +343,7 @@ testcase_nspawn_settings() {
 
     # add virtual wlan interfaces
     if modprobe mac80211_hwsim radios=2; then
-        wlan_names='wlan0 wlan1:wl-renamed1'
-        wlan_checks='ip link | grep wlan0\nip link | grep wl-renamed1'
+        wlan_names="wlan0 wlan1:wl-renamed1"
     fi
 
     for dev in sd-host-only sd-shared{1,2,3} sd-macvlan{1,2} sd-macvlanloong sd-ipvlan{1,2} sd-ipvlanlooong; do
@@ -401,7 +400,7 @@ Private=yes
 VirtualEthernet=yes
 VirtualEthernetExtra=my-fancy-veth1
 VirtualEthernetExtra=fancy-veth2:my-fancy-veth2
-Interface=sd-shared1 sd-shared2:sd-renamed2 sd-shared3:sd-altname3 ${wlan_names}
+Interface=sd-shared1 sd-shared2:sd-renamed2 sd-shared3:sd-altname3 ${wlan_names:-}
 MACVLAN=sd-macvlan1 sd-macvlan2:my-macvlan2 sd-macvlanloong
 IPVLAN=sd-ipvlan1 sd-ipvlan2:my-ipvlan2 sd-ipvlanlooong
 Zone=sd-zone0
@@ -411,7 +410,10 @@ Port=tcp:60
 Port=udp:60:61
 EOF
     cat >"$root/entrypoint.sh" <<\EOF
-#!/bin/bash -ex
+#!/bin/bash
+set -ex
+
+env
 
 [[ "$1" == "foo bar" ]]
 [[ "$2" == "bar baz" ]]
@@ -420,7 +422,7 @@ EOF
 [[ "$FOO" == bar ]]
 [[ "$BAZ" == "hello world" ]]
 [[ "$PWD" == /tmp ]]
-[[ "$(</etc/machine-id)" == f28f129b51874b1280a89421ec4b4ad4 ]]
+[[ "$container_uuid" == f28f129b-5187-4b12-80a8-9421ec4b4ad4 ]]
 [[ "$(ulimit -S -n)" -eq 1024 ]]
 [[ "$(ulimit -H -n)" -eq 2048 ]]
 [[ "$(ulimit -S -r)" -eq 8 ]]
@@ -453,7 +455,12 @@ ip link | grep my-macvlan2@
 ip link | grep iv-sd-ipvlan1@
 ip link | grep my-ipvlan2@
 EOF
-    echo -e "$wlan_checks" >>"$root/entrypoint.sh"
+    if [[ -n "${wlan_names:-}" ]]; then
+        cat >>"$root/entrypoint.sh" <<\EOF
+ip link | grep wlan0
+ip link | grep wl-renamed1
+EOF
+    fi
 
     timeout 30 systemd-nspawn --directory="$root"
 
