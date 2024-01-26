@@ -3,6 +3,7 @@
 #include "alloc-util.h"
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
+#include "bus-util.h"
 #include "dbus-cgroup.h"
 #include "dbus-kill.h"
 #include "dbus-manager.h"
@@ -84,7 +85,7 @@ static int bus_scope_set_transient_property(
                 return bus_set_transient_oom_policy(u, name, &s->oom_policy, message, flags, error);
 
         if (streq(name, "PIDs")) {
-                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+                _cleanup_(pidref_done) PidRef sender_pidref = PIDREF_NULL;
                 unsigned n = 0;
 
                 r = sd_bus_message_enter_container(message, 'a', "u");
@@ -94,7 +95,7 @@ static int bus_scope_set_transient_property(
                 for (;;) {
                         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
                         uint32_t upid;
-                        pid_t pid;
+                        PidRef *p;
 
                         r = sd_bus_message_read(message, "u", &upid);
                         if (r < 0)
@@ -103,28 +104,27 @@ static int bus_scope_set_transient_property(
                                 break;
 
                         if (upid == 0) {
-                                if (!creds) {
-                                        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
+                                if (!pidref_is_set(&sender_pidref)) {
+                                        r = bus_query_sender_pidref(message, &sender_pidref);
                                         if (r < 0)
                                                 return r;
                                 }
 
-                                r = sd_bus_creds_get_pid(creds, &pid);
+                                p = &sender_pidref;
+                        } else {
+                                r = pidref_set_pid(&pidref, upid);
                                 if (r < 0)
                                         return r;
-                        } else
-                                pid = (uid_t) upid;
 
-                        r = pidref_set_pid(&pidref, pid);
-                        if (r < 0)
-                                return r;
+                                p = &pidref;
+                        }
 
-                        r = unit_pid_attachable(u, &pidref, error);
+                        r = unit_pid_attachable(u, p, error);
                         if (r < 0)
                                 return r;
 
                         if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                                r = unit_watch_pidref(u, &pidref, /* exclusive= */ false);
+                                r = unit_watch_pidref(u, p, /* exclusive= */ false);
                                 if (r < 0 && r != -EEXIST)
                                         return r;
                         }
