@@ -13,6 +13,7 @@ Documentation=man:systemd-pcrlock(8)
 DefaultDependencies=no
 Conflicts=shutdown.target
 Before=sysinit.target shutdown.target systemd-pcrlock-make-policy.service
+After=systemd-remount-fs.service var.mount
 ConditionPathExists=!/etc/initrd-release
 ConditionSecurity=measured-uki
 
