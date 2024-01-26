@@ -2945,17 +2945,26 @@ void unit_unwatch_pidref_done(Unit *u, PidRef *pidref) {
 }
 
 static void unit_tidy_watch_pids(Unit *u) {
-        PidRef *except1, *except2, *e;
-
         assert(u);
 
         /* Cleans dead PIDs from our list */
 
-        except1 = unit_main_pid(u);
-        except2 = unit_control_pid(u);
+        PidRef *except[4] = {
+                unit_main_pid(u),
+                unit_main_pam_pid(u),
+                unit_control_pid(u),
+                unit_control_pam_pid(u),
+        };
 
+        PidRef *e;
         SET_FOREACH(e, u->pids) {
-                if (pidref_equal(except1, e) || pidref_equal(except2, e))
+                bool found = false;
+                FOREACH_ARRAY(p, except, ELEMENTSOF(except))
+                        if (pidref_equal(*p, e)) {
+                                found = true;
+                                break;
+                        }
+                if (found)
                         continue;
 
                 if (pidref_is_unwaited(e) <= 0)
@@ -3030,6 +3039,75 @@ void unit_dequeue_rewatch_pids(Unit *u) {
                 log_warning_errno(r, "Failed to disable event source for tidying watched PIDs, ignoring: %m");
 
         u->rewatch_pids_event_source = sd_event_source_disable_unref(u->rewatch_pids_event_source);
+}
+
+static int unit_watch_pam_pid_one(Unit *u, const PidRef *parent_pidref, const PidRef *pam_pidref, bool is_main) {
+        PidRef *pam_pid;
+        const char *type;
+        int r;
+
+        assert(u);
+        assert(pidref_is_set(parent_pidref));
+        assert(pidref_is_set(pam_pidref));
+
+        if (is_main) {
+                if (!pidref_equal(parent_pidref, unit_main_pid(u)))
+                        return 0;
+
+                pam_pid = unit_main_pam_pid(u);
+                type = "main";
+
+        } else {
+                if (!pidref_equal(parent_pidref, unit_control_pid(u)))
+                        return 0;
+
+                pam_pid = unit_control_pam_pid(u);
+                type = "control";
+        }
+
+        if (!pam_pid)
+                return 0; /* The unit type does not support PAM??. */
+
+        if (pidref_equal(pam_pid, pam_pidref))
+                return 0; /* The received PID is the same as we already know. */
+
+        if (pidref_is_set(pam_pid)) {
+                (void) unit_kill_pam_and_warn(u, pam_pid, SIGTERM, type);
+                (void) unit_unwatch_pidref(u, pam_pid);
+        }
+
+        r = pidref_copy(pam_pidref, pam_pid);
+        if (r < 0)
+                return log_unit_warning_errno(u, r, "Failed to copy PAM pid ("PID_FMT") for pid ("PID_FMT"): %m",
+                                              pam_pidref->pid, parent_pidref->pid);
+
+        log_unit_debug(u, "Received PAM pid ("PID_FMT") for %s process ("PID_FMT")",
+                       pam_pidref->pid, type, parent_pidref->pid);
+        return 0;
+}
+
+int unit_watch_pam_pidref(Unit *u, const PidRef *parent_pidref, const PidRef *pam_pidref) {
+        int r;
+
+        assert(u);
+        assert(pidref_is_set(parent_pidref));
+        assert(pidref_is_set(pam_pidref));
+
+        /* To make SIGCHLD from the PAM process handled. */
+        r = unit_watch_pidref(u, pam_pidref, /* exclusive = */ false);
+        if (r < 0)
+                return log_unit_warning_errno(u, r, "Failed to watch PAM process ("PID_FMT") for pid ("PID_FMT"): %m",
+                                              pam_pidref->pid, parent_pidref->pid);
+
+        r = unit_watch_pam_pid_one(u, parent_pidref, pam_pidref, /* is_main = */ false);
+        if (r < 0)
+                return r;
+
+        r = unit_watch_pam_pid_one(u, parent_pidref, pam_pidref, /* is_main = */ true);
+        if (r < 0)
+                return r;
+
+        return 0;
 }
 
 bool unit_job_is_applicable(Unit *u, JobType j) {
@@ -3969,7 +4047,7 @@ static int unit_pid_set(Unit *u, Set **pid_set) {
         /* Exclude the main/control pids from being killed via the cgroup */
 
         PidRef *pid;
-        FOREACH_ARGUMENT(pid, unit_main_pid(u), unit_control_pid(u))
+        FOREACH_ARGUMENT(pid, unit_main_pid(u), unit_main_pam_pid(u), unit_control_pid(u), unit_control_pam_pid(u))
                 if (pidref_is_set(pid)) {
                         r = set_ensure_put(pid_set, NULL, PID_TO_PTR(pid->pid));
                         if (r < 0)
@@ -3977,6 +4055,27 @@ static int unit_pid_set(Unit *u, Set **pid_set) {
                 }
 
         return 0;
+}
+
+int unit_kill_pam_and_warn(Unit *u, const PidRef *pidref, int signo, const char *type) {
+        int r;
+
+        assert(u);
+        assert(SIGNAL_VALID(signo));
+
+        if (!pidref_is_set(pidref))
+                return 0;
+
+        r = pidref_kill_and_sigcont(pidref, signo);
+        if (r == -ESRCH)
+                return 0;
+        if (r < 0)
+                return log_unit_warning_errno(u, r,
+                                              "Failed to send SIG%s to%s%s PAM process ("PID_FMT"), ignoring: %m",
+                                              signal_to_string(signo),
+                                              isempty(type) ? "" : " ", strempty(type),
+                                              pidref->pid);
+        return 1; /* killed */
 }
 
 static int kill_common_log(const PidRef *pid, int signo, void *userdata) {
@@ -4060,7 +4159,7 @@ int unit_kill(
                 int value,
                 sd_bus_error *ret_error) {
 
-        PidRef *main_pid, *control_pid;
+        PidRef *main_pid, *main_pam_pid, *control_pid, *control_pam_pid;
         bool killed = false;
         int ret = 0, r;
 
@@ -4075,7 +4174,9 @@ int unit_kill(
         assert(IN_SET(code, SI_USER, SI_QUEUE));
 
         main_pid = unit_main_pid(u);
+        main_pam_pid = unit_main_pam_pid(u);
         control_pid = unit_control_pid(u);
+        control_pam_pid = unit_control_pam_pid(u);
 
         if (!UNIT_HAS_CGROUP_CONTEXT(u) && !main_pid && !control_pid)
                 return sd_bus_error_setf(ret_error, SD_BUS_ERROR_NOT_SUPPORTED, "Unit type does not support process killing.");
@@ -4083,14 +4184,14 @@ int unit_kill(
         if (IN_SET(who, KILL_MAIN, KILL_MAIN_FAIL)) {
                 if (!main_pid)
                         return sd_bus_error_setf(ret_error, BUS_ERROR_NO_SUCH_PROCESS, "%s units have no main processes", unit_type_to_string(u->type));
-                if (!pidref_is_set(main_pid))
+                if (!pidref_is_set(main_pid) && !pidref_is_set(main_pam_pid))
                         return sd_bus_error_set_const(ret_error, BUS_ERROR_NO_SUCH_PROCESS, "No main process to kill");
         }
 
         if (IN_SET(who, KILL_CONTROL, KILL_CONTROL_FAIL)) {
                 if (!control_pid)
                         return sd_bus_error_setf(ret_error, BUS_ERROR_NO_SUCH_PROCESS, "%s units have no control processes", unit_type_to_string(u->type));
-                if (!pidref_is_set(control_pid))
+                if (!pidref_is_set(control_pid) && !pidref_is_set(control_pam_pid))
                         return sd_bus_error_set_const(ret_error, BUS_ERROR_NO_SUCH_PROCESS, "No control process to kill");
         }
 
@@ -4098,12 +4199,22 @@ int unit_kill(
                 r = unit_kill_one(u, control_pid, "control", signo, code, value, ret_error);
                 RET_GATHER(ret, r);
                 killed = killed || r > 0;
+                if (r <= 0) {
+                        r = unit_kill_one(u, control_pam_pid, "control PAM", signo, code, value, ret >= 0 ? ret_error : NULL);
+                        RET_GATHER(ret, r);
+                        killed = killed || r > 0;
+                }
         }
 
         if (IN_SET(who, KILL_MAIN, KILL_MAIN_FAIL, KILL_ALL, KILL_ALL_FAIL)) {
                 r = unit_kill_one(u, main_pid, "main", signo, code, value, ret >= 0 ? ret_error : NULL);
                 RET_GATHER(ret, r);
                 killed = killed || r > 0;
+                if (r <= 0) {
+                        r = unit_kill_one(u, main_pam_pid, "main PAM", signo, code, value, ret >= 0 ? ret_error : NULL);
+                        RET_GATHER(ret, r);
+                        killed = killed || r > 0;
+                }
         }
 
         /* Note: if we shall enqueue rather than kill we won't do this via the cgroup mechanism, since it
@@ -4822,9 +4933,17 @@ int unit_kill_context(Unit *u, KillOperation k) {
         PidRef *main_pid = unit_main_pid_full(u, &is_alien);
         r = unit_kill_context_one(u, main_pid, "main", is_alien, sig, send_sighup, log_func);
         wait_for_exit = wait_for_exit || r > 0;
+        if (r <= 0) {
+                r = unit_kill_context_one(u, unit_main_pam_pid(u), "main PAM", /* is_alien = */ false, sig, send_sighup, log_func);
+                wait_for_exit = wait_for_exit || r > 0;
+        }
 
         r = unit_kill_context_one(u, unit_control_pid(u), "control", /* is_alien = */ false, sig, send_sighup, log_func);
         wait_for_exit = wait_for_exit || r > 0;
+        if (r <= 0) {
+                r = unit_kill_context_one(u, unit_control_pam_pid(u), "control PAM", /* is_alien = */ false, sig, send_sighup, log_func);
+                wait_for_exit = wait_for_exit || r > 0;
+        }
 
         if (u->cgroup_path &&
             (c->kill_mode == KILL_CONTROL_GROUP || (c->kill_mode == KILL_MIXED && k == KILL_KILL))) {
@@ -5129,6 +5248,24 @@ PidRef* unit_main_pid_full(Unit *u, bool *ret_is_alien) {
         return NULL;
 }
 
+PidRef* unit_main_pam_pid(Unit *u) {
+        assert(u);
+
+        if (UNIT_VTABLE(u)->main_pam_pid)
+                return UNIT_VTABLE(u)->main_pam_pid(u);
+
+        return NULL;
+}
+
+PidRef* unit_control_pam_pid(Unit *u) {
+        assert(u);
+
+        if (UNIT_VTABLE(u)->control_pam_pid)
+                return UNIT_VTABLE(u)->control_pam_pid(u);
+
+        return NULL;
+}
+
 static void unit_modify_user_nft_set(Unit *u, bool add, NFTSetSource source, uint32_t element) {
         int r;
 
@@ -5379,6 +5516,7 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
         }
 
         p->user_lookup_fd = u->manager->user_lookup_fds[1];
+        p->notify_pam_pid_fd = u->manager->notify_pam_pid_fds[1];
 
         p->cgroup_id = u->cgroup_id;
         p->invocation_id = u->invocation_id;

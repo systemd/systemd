@@ -11,6 +11,7 @@
 #include "dbus-mount.h"
 #include "dbus-unit.h"
 #include "device.h"
+#include "event-util.h"
 #include "exit-status.h"
 #include "format-util.h"
 #include "fs-util.h"
@@ -206,6 +207,7 @@ static void mount_init(Unit *u) {
 
         m->control_pid = PIDREF_NULL;
         m->control_command_id = _MOUNT_EXEC_COMMAND_INVALID;
+        m->control_pam_pid = PIDREF_NULL;
 
         u->ignore_on_isolate = true;
 }
@@ -219,6 +221,7 @@ static int mount_arm_timer(Mount *m, bool relative, usec_t usec) {
 static void mount_unwatch_control_pid(Mount *m) {
         assert(m);
         unit_unwatch_pidref_done(UNIT(m), &m->control_pid);
+        unit_unwatch_pidref_done(UNIT(m), &m->control_pam_pid);
 }
 
 static void mount_parameters_done(MountParameters *p) {
@@ -246,6 +249,7 @@ static void mount_done(Unit *u) {
         mount_unwatch_control_pid(m);
 
         m->timer_event_source = sd_event_source_disable_unref(m->timer_event_source);
+        m->kill_pam_timer_event_source = sd_event_source_disable_unref(m->kill_pam_timer_event_source);
 }
 
 static int update_parameters_proc_self_mountinfo(
@@ -1336,6 +1340,7 @@ static void mount_cycle_clear(Mount *m) {
 
         m->result = MOUNT_SUCCESS;
         m->reload_result = MOUNT_SUCCESS;
+        m->pending_result = MOUNT_SUCCESS;
         exec_command_reset_status_array(m->exec_command, _MOUNT_EXEC_COMMAND_MAX);
         UNIT(m)->reset_accounting = true;
 }
@@ -1542,15 +1547,11 @@ static bool mount_may_gc(Unit *u) {
         return true;
 }
 
-static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
-        Mount *m = MOUNT(u);
+static MountResult mount_set_result_on_sigchld(Mount *m, pid_t pid, int code, int status) {
         MountResult f;
 
         assert(m);
-        assert(pid >= 0);
-
-        if (pid != m->control_pid.pid)
-                return;
+        assert(m->control_pid.pid == pid);
 
         /* So here's the thing, we really want to know before /usr/bin/mount or /usr/bin/umount exit whether
          * they established/remove a mount. This is important when mounting, but even more so when unmounting
@@ -1566,7 +1567,7 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
          * race, let's explicitly scan /proc/self/mountinfo before we start processing /usr/bin/(u)mount
          * dying. It's ugly, but it makes our ordering systematic again, and makes sure we always see
          * /proc/self/mountinfo changes before our mount/umount exits. */
-        (void) mount_process_proc_self_mountinfo(u->manager);
+        (void) mount_process_proc_self_mountinfo(UNIT(m)->manager);
 
         pidref_done(&m->control_pid);
 
@@ -1594,11 +1595,17 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         }
 
         unit_log_process_exit(
-                        u,
+                        UNIT(m),
                         "Mount process",
                         mount_exec_command_to_string(m->control_command_id),
                         f == MOUNT_SUCCESS,
                         code, status);
+
+        return f;
+}
+
+static void mount_set_state_on_sigchld(Mount *m, MountResult f) {
+        assert(m);
 
         /* Note that due to the io event priority logic, we can be sure the new mountinfo is loaded
          * before we process the SIGCHLD for the mount command. */
@@ -1636,11 +1643,11 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
                          * but we will stop as soon as any one umount times out. */
 
                         if (m->n_retry_umount < RETRY_UMOUNT_MAX) {
-                                log_unit_debug(u, "Mount still present, trying again.");
+                                log_unit_debug(UNIT(m), "Mount still present, trying again.");
                                 m->n_retry_umount++;
                                 mount_enter_unmounting(m);
                         } else {
-                                log_unit_warning(u, "Mount still present after %u attempts to unmount, giving up.", m->n_retry_umount);
+                                log_unit_warning(UNIT(m), "Mount still present after %u attempts to unmount, giving up.", m->n_retry_umount);
                                 mount_enter_mounted(m, f);
                         }
                 } else
@@ -1663,6 +1670,89 @@ static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         default:
                 assert_not_reached();
         }
+}
+
+static int mount_dispatch_kill_pam(sd_event_source *source, usec_t usec, void *userdata) {
+        Mount *m = ASSERT_PTR(userdata);
+
+        if (unit_kill_pam_and_warn(UNIT(m), &m->control_pam_pid, SIGKILL, "control") > 0)
+                return 0;
+
+        /* Failed to kill the pam process. Forget the PAM process, and process the pending tasks. */
+        pidref_done(&m->control_pam_pid);
+
+        if (pidref_is_set(&m->control_pid))
+                return 0; /* New process is already started? Let's ignore the previous result. */
+
+        mount_set_state_on_sigchld(m, m->pending_result);
+        unit_add_to_dbus_queue(UNIT(m));
+        return 0;
+}
+
+static int mount_kill_pam(Mount *m) {
+        int r;
+
+        assert(m);
+
+        r = unit_kill_pam_and_warn(UNIT(m), &m->control_pam_pid, SIGTERM, "control");
+        if (r <= 0)
+                return r;
+
+        r = event_reset_time_relative(
+                        UNIT(m)->manager->event,
+                        &m->kill_pam_timer_event_source,
+                        CLOCK_MONOTONIC,
+                        m->timeout_usec,
+                        /* accuracy = */ 0,
+                        mount_dispatch_kill_pam,
+                        m,
+                        /* priority = */ 0,
+                        "mount-kill-control-pam-timer",
+                        /* force_reset = */ true);
+        if (r < 0)
+                return r; /* FIXME: on failure, we may wait sigchld for the PAM process forever. */
+
+        return 0;
+}
+
+static void mount_sigchld_event(Unit *u, pid_t pid, int code, int status) {
+        Mount *m = MOUNT(u);
+        MountResult f;
+
+        assert(m);
+        assert(pid >= 0);
+
+        if (pid == m->control_pid.pid) {
+                f = mount_set_result_on_sigchld(m, pid, code, status);
+
+                if (mount_kill_pam(m) > 0) {
+                        m->pending_result = f;
+                        return;
+                }
+
+        } else if (pid == m->control_pam_pid.pid) {
+
+                (void) event_source_disable(m->kill_pam_timer_event_source);
+                pidref_done(&m->control_pam_pid);
+
+                unit_log_process_exit(
+                                u,
+                                "Mount PAM process",
+                                "PAM",
+                                /* success = */ true,
+                                code, status);
+
+                if (pidref_is_set(&m->control_pid))
+                        return; /* New process is already started?? Or, the PAM process is killed earlier??
+                                   Let's ignore the result. */
+
+                /* We ignore the result of the PAM process. Propagate the result of the control process. */
+                f = m->pending_result;
+
+        } else
+                return;
+
+        mount_set_state_on_sigchld(m, f);
 
         /* Notify clients about changed exit status */
         unit_add_to_dbus_queue(u);
@@ -2292,10 +2382,15 @@ static void mount_reset_failed(Unit *u) {
         m->result = MOUNT_SUCCESS;
         m->reload_result = MOUNT_SUCCESS;
         m->clean_result = MOUNT_SUCCESS;
+        m->pending_result = MOUNT_SUCCESS;
 }
 
 static PidRef* mount_control_pid(Unit *u) {
         return &ASSERT_PTR(MOUNT(u))->control_pid;
+}
+
+static PidRef* mount_control_pam_pid(Unit *u) {
+        return &ASSERT_PTR(MOUNT(u))->control_pam_pid;
 }
 
 static int mount_clean(Unit *u, ExecCleanMask mask) {
@@ -2496,6 +2591,7 @@ const UnitVTable mount_vtable = {
         .reset_failed = mount_reset_failed,
 
         .control_pid = mount_control_pid,
+        .control_pam_pid = mount_control_pam_pid,
 
         .bus_set_property = bus_mount_set_property,
         .bus_commit_properties = bus_mount_commit_properties,

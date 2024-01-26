@@ -266,6 +266,9 @@ struct Manager {
         int notify_fd;
         sd_event_source *notify_event_source;
 
+        int notify_pam_pid_fds[2];
+        sd_event_source *notify_pam_pid_event_source;
+
         int cgroups_agent_fd;
         sd_event_source *cgroups_agent_event_source;
 

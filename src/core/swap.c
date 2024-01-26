@@ -13,6 +13,7 @@
 #include "device-util.h"
 #include "device.h"
 #include "escape.h"
+#include "event-util.h"
 #include "exit-status.h"
 #include "fd-util.h"
 #include "format-util.h"
@@ -146,6 +147,7 @@ static void swap_init(Unit *u) {
 
         s->control_pid = PIDREF_NULL;
         s->control_command_id = _SWAP_EXEC_COMMAND_INVALID;
+        s->control_pam_pid = PIDREF_NULL;
 
         u->ignore_on_isolate = true;
 }
@@ -153,6 +155,7 @@ static void swap_init(Unit *u) {
 static void swap_unwatch_control_pid(Swap *s) {
         assert(s);
         unit_unwatch_pidref_done(UNIT(s), &s->control_pid);
+        unit_unwatch_pidref_done(UNIT(s), &s->control_pam_pid);
 }
 
 static void swap_done(Unit *u) {
@@ -174,6 +177,7 @@ static void swap_done(Unit *u) {
         swap_unwatch_control_pid(s);
 
         s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
+        s->kill_pam_timer_event_source = sd_event_source_disable_unref(s->kill_pam_timer_event_source);
 }
 
 static int swap_arm_timer(Swap *s, bool relative, usec_t usec) {
@@ -858,6 +862,7 @@ static void swap_cycle_clear(Swap *s) {
         assert(s);
 
         s->result = SWAP_SUCCESS;
+        s->pending_result = SWAP_SUCCESS;
         exec_command_reset_status_array(s->exec_command, _SWAP_EXEC_COMMAND_MAX);
         UNIT(s)->reset_accounting = true;
 }
@@ -997,19 +1002,15 @@ static int swap_deserialize_item(Unit *u, const char *key, const char *value, FD
         return 0;
 }
 
-static void swap_sigchld_event(Unit *u, pid_t pid, int code, int status) {
-        Swap *s = SWAP(u);
+static SwapResult swap_set_result_on_sigchld(Swap *s, pid_t pid, int code, int status) {
         SwapResult f;
 
         assert(s);
-        assert(pid >= 0);
-
-        if (pid != s->control_pid.pid)
-                return;
+        assert(s->control_pid.pid == pid);
 
         /* Let's scan /proc/swaps before we process SIGCHLD. For the reasoning see the similar code in
          * mount.c */
-        (void) swap_process_proc_swaps(u->manager);
+        (void) swap_process_proc_swaps(UNIT(s)->manager);
 
         pidref_done(&s->control_pid);
 
@@ -1035,11 +1036,17 @@ static void swap_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         }
 
         unit_log_process_exit(
-                        u,
+                        UNIT(s),
                         "Swap process",
                         swap_exec_command_to_string(s->control_command_id),
                         f == SWAP_SUCCESS,
                         code, status);
+
+        return f;
+}
+
+static void swap_set_state_on_sigchld(Swap *s, SwapResult f) {
+        assert(s);
 
         switch (s->state) {
 
@@ -1069,6 +1076,89 @@ static void swap_sigchld_event(Unit *u, pid_t pid, int code, int status) {
         default:
                 assert_not_reached();
         }
+}
+
+static int swap_dispatch_kill_pam(sd_event_source *source, usec_t usec, void *userdata) {
+        Swap *s = ASSERT_PTR(userdata);
+
+        if (unit_kill_pam_and_warn(UNIT(s), &s->control_pam_pid, SIGKILL, "control") > 0)
+                return 0;
+
+        /* Failed to kill the pam process. Forget the PAM process, and process the pending tasks. */
+        pidref_done(&s->control_pam_pid);
+
+        if (pidref_is_set(&s->control_pid))
+                return 0; /* New process is already started? Let's ignore the previous result. */
+
+        swap_set_state_on_sigchld(s, s->pending_result);
+        unit_add_to_dbus_queue(UNIT(s));
+        return 0;
+}
+
+static int swap_kill_pam(Swap *s) {
+        int r;
+
+        assert(s);
+
+        r = unit_kill_pam_and_warn(UNIT(s), &s->control_pam_pid, SIGTERM, "control");
+        if (r <= 0)
+                return r;
+
+        r = event_reset_time_relative(
+                        UNIT(s)->manager->event,
+                        &s->kill_pam_timer_event_source,
+                        CLOCK_MONOTONIC,
+                        s->timeout_usec,
+                        /* accuracy = */ 0,
+                        swap_dispatch_kill_pam,
+                        s,
+                        /* priority = */ 0,
+                        "swap-kill-control-pam-timer",
+                        /* force_reset = */ true);
+        if (r < 0)
+                return r; /* FIXME: on failure, we may wait sigchld for the PAM process forever. */
+
+        return 0;
+}
+
+static void swap_sigchld_event(Unit *u, pid_t pid, int code, int status) {
+        Swap *s = SWAP(u);
+        SwapResult f;
+
+        assert(s);
+        assert(pid >= 0);
+
+        if (pid == s->control_pid.pid) {
+                f = swap_set_result_on_sigchld(s, pid, code, status);
+
+                if (swap_kill_pam(s) > 0) {
+                        s->pending_result = f;
+                        return;
+                }
+
+        } else if (pid == s->control_pam_pid.pid) {
+
+                (void) event_source_disable(s->kill_pam_timer_event_source);
+                pidref_done(&s->control_pam_pid);
+
+                unit_log_process_exit(
+                                u,
+                                "Swap PAM process",
+                                "PAM",
+                                /* success = */ true,
+                                code, status);
+
+                if (pidref_is_set(&s->control_pid))
+                        return; /* New process is already started?? Or, the PAM process is killed earlier??
+                                   Let's ignore the result. */
+
+                /* We ignore the result of the PAM process. Propagate the result of the control process. */
+                f = s->pending_result;
+
+        } else
+                return;
+
+        swap_set_state_on_sigchld(s, f);
 
         /* Notify clients about changed exit status */
         unit_add_to_dbus_queue(u);
@@ -1439,6 +1529,7 @@ static void swap_reset_failed(Unit *u) {
 
         s->result = SWAP_SUCCESS;
         s->clean_result = SWAP_SUCCESS;
+        s->pending_result = SWAP_SUCCESS;
 }
 
 static int swap_get_timeout(Unit *u, usec_t *timeout) {
@@ -1479,6 +1570,10 @@ static bool swap_supported(void) {
 
 static PidRef* swap_control_pid(Unit *u) {
         return &ASSERT_PTR(SWAP(u))->control_pid;
+}
+
+static PidRef* swap_control_pam_pid(Unit *u) {
+        return &ASSERT_PTR(SWAP(u))->control_pam_pid;
 }
 
 static int swap_clean(Unit *u, ExecCleanMask mask) {
@@ -1635,6 +1730,7 @@ const UnitVTable swap_vtable = {
         .reset_failed = swap_reset_failed,
 
         .control_pid = swap_control_pid,
+        .control_pam_pid = swap_control_pam_pid,
 
         .bus_set_property = bus_swap_set_property,
         .bus_commit_properties = bus_swap_commit_properties,
