@@ -483,8 +483,8 @@ _public_ int sd_bus_get_name_creds(
         }
 
         if (mask != 0) {
+                bool need_pid, need_uid, need_gids, need_selinux, need_separate_calls, need_pidfd, need_augment;
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
-                bool need_pid, need_uid, need_selinux, need_separate_calls, need_pidfd, need_augment;
                 _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
                 c = bus_creds_new();
@@ -513,10 +513,11 @@ _public_ int sd_bus_get_name_creds(
 
                 need_pid = (mask & SD_BUS_CREDS_PID) || need_augment;
                 need_uid = mask & SD_BUS_CREDS_EUID;
+                need_gids = mask & SD_BUS_CREDS_SUPPLEMENTARY_GIDS;
                 need_selinux = mask & SD_BUS_CREDS_SELINUX_CONTEXT;
                 need_pidfd = (mask & SD_BUS_CREDS_PIDFD) || need_augment;
 
-                if (need_pid + need_uid + need_selinux + need_pidfd > 1) {
+                if (need_pid + need_uid + need_selinux + need_pidfd + need_gids > 1) {
 
                         /* If we need more than one of the credentials, then use GetConnectionCredentials() */
 
@@ -626,6 +627,49 @@ _public_ int sd_bus_get_name_creds(
                                                         close_and_replace(c->pidfd, fd);
                                                         c->mask |= SD_BUS_CREDS_PIDFD;
                                                 }
+                                        } else if (need_gids && streq(m, "UnixGroupIDs")) {
+
+                                                /* Note that D-Bus actualy only gives us a combined list of
+                                                 * primary gid and supplementary gids. And we don't know
+                                                 * which one the primary one is. We'll take the whole shebang
+                                                 * hence and use it as the supplementary group list, and not
+                                                 * initialize the primary gid field. This is slightly
+                                                 * incorrect of course, but only slightly, as in effect if
+                                                 * the primary gid is also listed in the supplementary gid
+                                                 * it has zero effect. */
+
+                                                r = sd_bus_message_enter_container(reply, 'v', "au");
+                                                if (r < 0)
+                                                        return r;
+
+                                                r = sd_bus_message_enter_container(reply, 'a', "u");
+                                                if (r < 0)
+                                                        return r;
+
+                                                for (;;) {
+                                                        uint32_t u;
+
+                                                        r = sd_bus_message_read(reply, "u", &u);
+                                                        if (r < 0)
+                                                                return r;
+                                                        if (r == 0)
+                                                                break;
+
+                                                        if (!GREEDY_REALLOC(c->supplementary_gids, c->n_supplementary_gids+1))
+                                                                return -ENOMEM;
+
+                                                        c->supplementary_gids[c->n_supplementary_gids++] = (gid_t) u;
+                                                }
+
+                                                r = sd_bus_message_exit_container(reply);
+                                                if (r < 0)
+                                                        return r;
+
+                                                r = sd_bus_message_exit_container(reply);
+                                                if (r < 0)
+                                                        return r;
+
+                                                c->mask |= SD_BUS_CREDS_SUPPLEMENTARY_GIDS;
                                         } else {
                                                 r = sd_bus_message_skip(reply, "v");
                                                 if (r < 0)
