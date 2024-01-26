@@ -17,6 +17,7 @@
 
   <refnamediv>
     <refname>sd_bus_creds_new_from_pid</refname>
+    <refname>sd_bus_creds_new_from_pidfd</refname>
     <refname>sd_bus_creds_get_mask</refname>
     <refname>sd_bus_creds_get_augmented_mask</refname>
     <refname>sd_bus_creds_ref</refname>
@@ -33,6 +34,13 @@
       <funcprototype>
         <funcdef>int <function>sd_bus_creds_new_from_pid</function></funcdef>
         <paramdef>pid_t <parameter>pid</parameter></paramdef>
+        <paramdef>uint64_t <parameter>creds_mask</parameter></paramdef>
+        <paramdef>sd_bus_creds **<parameter>ret</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_new_from_pidfd</function></funcdef>
+        <paramdef>int <parameter>pidfd</parameter></paramdef>
         <paramdef>uint64_t <parameter>creds_mask</parameter></paramdef>
         <paramdef>sd_bus_creds **<parameter>ret</parameter></paramdef>
       </funcprototype>
@@ -98,6 +106,7 @@
       <constant>SD_BUS_CREDS_UNIQUE_NAME</constant>,
       <constant>SD_BUS_CREDS_WELL_KNOWN_NAMES</constant>,
       <constant>SD_BUS_CREDS_DESCRIPTION</constant>,
+      <constant>SD_BUS_CREDS_PIDFD</constant>,
       <constant>SD_BUS_CREDS_AUGMENT</constant>,
       <constant>_SD_BUS_CREDS_ALL</constant>
     </para>
@@ -116,91 +125,65 @@
     and
     <citerefentry><refentrytitle>sd_bus_message_get_creds</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 
-    <para>The information that will be stored is determined by
-    <parameter>creds_mask</parameter>. It may contain a subset of ORed
-    constants <constant>SD_BUS_CREDS_PID</constant>,
-    <constant>SD_BUS_CREDS_PPID</constant>,
-    <constant>SD_BUS_CREDS_TID</constant>,
-    <constant>SD_BUS_CREDS_UID</constant>,
-    <constant>SD_BUS_CREDS_EUID</constant>,
-    <constant>SD_BUS_CREDS_SUID</constant>,
-    <constant>SD_BUS_CREDS_FSUID</constant>,
-    <constant>SD_BUS_CREDS_GID</constant>,
-    <constant>SD_BUS_CREDS_EGID</constant>,
-    <constant>SD_BUS_CREDS_SGID</constant>,
-    <constant>SD_BUS_CREDS_FSGID</constant>,
-    <constant>SD_BUS_CREDS_SUPPLEMENTARY_GIDS</constant>,
-    <constant>SD_BUS_CREDS_COMM</constant>,
-    <constant>SD_BUS_CREDS_TID_COMM</constant>,
-    <constant>SD_BUS_CREDS_EXE</constant>,
-    <constant>SD_BUS_CREDS_CMDLINE</constant>,
-    <constant>SD_BUS_CREDS_CGROUP</constant>,
-    <constant>SD_BUS_CREDS_UNIT</constant>,
-    <constant>SD_BUS_CREDS_SLICE</constant>,
-    <constant>SD_BUS_CREDS_USER_UNIT</constant>,
-    <constant>SD_BUS_CREDS_USER_SLICE</constant>,
-    <constant>SD_BUS_CREDS_SESSION</constant>,
-    <constant>SD_BUS_CREDS_OWNER_UID</constant>,
-    <constant>SD_BUS_CREDS_EFFECTIVE_CAPS</constant>,
-    <constant>SD_BUS_CREDS_PERMITTED_CAPS</constant>,
-    <constant>SD_BUS_CREDS_INHERITABLE_CAPS</constant>,
-    <constant>SD_BUS_CREDS_BOUNDING_CAPS</constant>,
-    <constant>SD_BUS_CREDS_SELINUX_CONTEXT</constant>,
-    <constant>SD_BUS_CREDS_AUDIT_SESSION_ID</constant>,
-    <constant>SD_BUS_CREDS_AUDIT_LOGIN_UID</constant>,
-    <constant>SD_BUS_CREDS_TTY</constant>,
-    <constant>SD_BUS_CREDS_UNIQUE_NAME</constant>,
-    <constant>SD_BUS_CREDS_WELL_KNOWN_NAMES</constant>, and
-    <constant>SD_BUS_CREDS_DESCRIPTION</constant>. Use the special
-    value <constant>_SD_BUS_CREDS_ALL</constant> to request all
-    supported fields. The <constant>SD_BUS_CREDS_AUGMENT</constant>
-    constant may not be ORed into the mask for invocations of
-    <function>sd_bus_creds_new_from_pid()</function>.</para>
+    <para><function>sd_bus_creds_new_from_pidfd()</function> is identical to
+    <function>sd_bus_creds_new_from_pid()</function>, but takes a PID file descriptor rather than a numeric
+    PID as reference to the process. See <citerefentry
+    project='man-pages'><refentrytitle>pidfd_open</refentrytitle><manvolnum>2</manvolnum></citerefentry>.</para>
+
+    <para>The information that will be stored is determined by <parameter>creds_mask</parameter>. It may
+    contain a subset of ORed constants <constant>SD_BUS_CREDS_PID</constant>,
+    <constant>SD_BUS_CREDS_PPID</constant>, <constant>SD_BUS_CREDS_TID</constant>,
+    <constant>SD_BUS_CREDS_UID</constant>, <constant>SD_BUS_CREDS_EUID</constant>,
+    <constant>SD_BUS_CREDS_SUID</constant>, <constant>SD_BUS_CREDS_FSUID</constant>,
+    <constant>SD_BUS_CREDS_GID</constant>, <constant>SD_BUS_CREDS_EGID</constant>,
+    <constant>SD_BUS_CREDS_SGID</constant>, <constant>SD_BUS_CREDS_FSGID</constant>,
+    <constant>SD_BUS_CREDS_SUPPLEMENTARY_GIDS</constant>, <constant>SD_BUS_CREDS_COMM</constant>,
+    <constant>SD_BUS_CREDS_TID_COMM</constant>, <constant>SD_BUS_CREDS_EXE</constant>,
+    <constant>SD_BUS_CREDS_CMDLINE</constant>, <constant>SD_BUS_CREDS_CGROUP</constant>,
+    <constant>SD_BUS_CREDS_UNIT</constant>, <constant>SD_BUS_CREDS_SLICE</constant>,
+    <constant>SD_BUS_CREDS_USER_UNIT</constant>, <constant>SD_BUS_CREDS_USER_SLICE</constant>,
+    <constant>SD_BUS_CREDS_SESSION</constant>, <constant>SD_BUS_CREDS_OWNER_UID</constant>,
+    <constant>SD_BUS_CREDS_EFFECTIVE_CAPS</constant>, <constant>SD_BUS_CREDS_PERMITTED_CAPS</constant>,
+    <constant>SD_BUS_CREDS_INHERITABLE_CAPS</constant>, <constant>SD_BUS_CREDS_BOUNDING_CAPS</constant>,
+    <constant>SD_BUS_CREDS_SELINUX_CONTEXT</constant>, <constant>SD_BUS_CREDS_AUDIT_SESSION_ID</constant>,
+    <constant>SD_BUS_CREDS_AUDIT_LOGIN_UID</constant>, <constant>SD_BUS_CREDS_TTY</constant>,
+    <constant>SD_BUS_CREDS_UNIQUE_NAME</constant>, <constant>SD_BUS_CREDS_WELL_KNOWN_NAMES</constant>,
+    <constant>SD_BUS_CREDS_DESCRIPTION</constant>, and <constant>SD_BUS_CREDS_PIDFD</constant>. Use the
+    special value <constant>_SD_BUS_CREDS_ALL</constant> to request all supported fields. The
+    <constant>SD_BUS_CREDS_AUGMENT</constant> constant may not be ORed into the mask for invocations of
+    <function>sd_bus_creds_new_from_pid()</function> or
+    <function>sd_bus_creds_new_from_pidfd()</function>.</para>
 
     <para>Fields can be retrieved from the credentials object using
     <citerefentry><refentrytitle>sd_bus_creds_get_pid</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     and other functions which correspond directly to the constants
     listed above.</para>
 
-    <para>A mask of fields which were actually successfully retrieved
-    can be retrieved with
-    <function>sd_bus_creds_get_mask()</function>. If the credentials
-    object was created with
-    <function>sd_bus_creds_new_from_pid()</function>, this will be a
-    subset of fields requested in <parameter>creds_mask</parameter>.
+    <para>A mask of fields which were actually successfully retrieved can be retrieved with
+    <function>sd_bus_creds_get_mask()</function>. If the credentials object was created with
+    <function>sd_bus_creds_new_from_pid()</function> or <function>sd_bus_creds_new_from_pidfd()</function>,
+    this will be a subset of fields requested in <parameter>creds_mask</parameter>.
     </para>
 
-    <para>Similar to <function>sd_bus_creds_get_mask()</function>, the
-    function <function>sd_bus_creds_get_augmented_mask()</function>
-    returns a bitmask of field constants. The mask indicates which
-    credential fields have been retrieved in a non-atomic fashion. For
-    credential objects created via
-    <function>sd_bus_creds_new_from_pid()</function>, this mask will be
-    identical to the mask returned by
-    <function>sd_bus_creds_get_mask()</function>. However, for
-    credential objects retrieved via
-    <function>sd_bus_get_name_creds()</function>, this mask will be set
-    for the credential fields that could not be determined atomically
-    at peer connection time, and which were later added by reading
-    augmenting credential data from
-    <filename>/proc/</filename>. Similarly, for credential objects
-    retrieved via <function>sd_bus_get_owner_creds()</function>, the
-    mask is set for the fields that could not be determined atomically
-    at bus creation time, but have been augmented. Similarly, for
-    credential objects retrieved via
-    <function>sd_bus_message_get_creds()</function>, the mask is set
-    for the fields that could not be determined atomically at message
-    sending time, but have been augmented. The mask returned by
-    <function>sd_bus_creds_get_augmented_mask()</function> is always a
-    subset of (or identical to) the mask returned by
-    <function>sd_bus_creds_get_mask()</function> for the same
-    object. The latter call hence returns all credential fields
-    available in the credential object, the former then marks the
-    subset of those that have been augmented. Note that augmented
-    fields are unsuitable for authorization decisions, as they may be
-    retrieved at different times, thus being subject to races. Hence,
-    augmented fields should be used exclusively for informational
-    purposes.
+    <para>Similar to <function>sd_bus_creds_get_mask()</function>, the function
+    <function>sd_bus_creds_get_augmented_mask()</function> returns a bitmask of field constants. The mask
+    indicates which credential fields have been retrieved in a non-atomic fashion. For credential objects
+    created via <function>sd_bus_creds_new_from_pid()</function> or
+    <function>sd_bus_creds_new_from_pidfd()</function>, this mask will be identical to the mask returned by
+    <function>sd_bus_creds_get_mask()</function>. However, for credential objects retrieved via
+    <function>sd_bus_get_name_creds()</function>, this mask will be set for the credential fields that could
+    not be determined atomically at peer connection time, and which were later added by reading augmenting
+    credential data from <filename>/proc/</filename>. Similarly, for credential objects retrieved via
+    <function>sd_bus_get_owner_creds()</function>, the mask is set for the fields that could not be
+    determined atomically at bus creation time, but have been augmented. Similarly, for credential objects
+    retrieved via <function>sd_bus_message_get_creds()</function>, the mask is set for the fields that could
+    not be determined atomically at message sending time, but have been augmented. The mask returned by
+    <function>sd_bus_creds_get_augmented_mask()</function> is always a subset of (or identical to) the mask
+    returned by <function>sd_bus_creds_get_mask()</function> for the same object. The latter call hence
+    returns all credential fields available in the credential object, the former then marks the subset of
+    those that have been augmented. Note that augmented fields are unsuitable for authorization decisions, as
+    they may be retrieved at different times, thus being subject to races. Hence, augmented fields should be
+    used exclusively for informational purposes.
     </para>
 
     <para><function>sd_bus_creds_ref()</function> creates a new
@@ -234,9 +217,9 @@
   <refsect1>
     <title>Return Value</title>
 
-    <para>On success, <function>sd_bus_creds_new_from_pid()</function>
-    returns 0 or a positive integer. On failure, it returns a negative
-    errno-style error code.</para>
+    <para>On success, <function>sd_bus_creds_new_from_pid()</function> and
+    <function>sd_bus_creds_new_from_pidfd()</function> return 0 or a positive integer. On failure, they return
+    a negative errno-style error code.</para>
 
     <para><function>sd_bus_creds_get_mask()</function> returns the
     mask of successfully acquired fields.</para>
@@ -256,9 +239,9 @@
   <refsect1>
     <title>Reference ownership</title>
 
-    <para>Function <function>sd_bus_creds_new_from_pid()</function>
-    creates a new object and the caller owns the sole reference. When
-    not needed anymore, this reference should be destroyed with
+    <para>The functions <function>sd_bus_creds_new_from_pid()</function> and
+    <function>sd_bus_creds_new_from_pidfd()</function> create a new object and the caller owns the sole
+    reference. When not needed anymore, this reference should be destroyed with
     <citerefentry><refentrytitle>sd_bus_creds_unref</refentrytitle><manvolnum>3</manvolnum></citerefentry>.
     </para>
 
@@ -307,6 +290,7 @@
     <function>sd_bus_creds_unref()</function> were added in version 209.</para>
     <para><function>sd_bus_creds_get_augmented_mask()</function> was added in version 223.</para>
     <para><function>sd_bus_creds_unrefp()</function> was added in version 229.</para>
+    <para><function>sd_bus_creds_new_from_pidfd()</function> was added in version 256.</para>
   </refsect1>
 
   <refsect1>
