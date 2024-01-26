@@ -4,6 +4,7 @@
 
 #include "bus-dump.h"
 #include "cgroup-util.h"
+#include "errno-util.h"
 #include "tests.h"
 
 int main(int argc, char *argv[]) {
@@ -24,8 +25,27 @@ int main(int argc, char *argv[]) {
         creds = sd_bus_creds_unref(creds);
 
         r = sd_bus_creds_new_from_pid(&creds, 1, _SD_BUS_CREDS_ALL);
-        if (r != -EACCES) {
+        if (!ERRNO_IS_NEG_PRIVILEGE(r)) {
                 assert_se(r >= 0);
+                putchar('\n');
+                bus_creds_dump(creds, NULL, true);
+        }
+
+        creds = sd_bus_creds_unref(creds);
+
+        _cleanup_(sd_bus_unrefp) sd_bus *bus = NULL;
+        r = sd_bus_default_system(&bus);
+        if (r < 0)
+                log_warning_errno(r, "Unable to connect to system bus, skipping rest of test.");
+        else {
+                const char *unique;
+
+                assert_se(sd_bus_get_unique_name(bus, &unique) >= 0);
+
+                r = sd_bus_get_name_creds(bus, unique, _SD_BUS_CREDS_ALL, &creds);
+                log_full_errno(r < 0 ? LOG_ERR : LOG_DEBUG, r, "sd_bus_get_name_creds: %m");
+                assert_se(r >= 0);
+
                 putchar('\n');
                 bus_creds_dump(creds, NULL, true);
         }
