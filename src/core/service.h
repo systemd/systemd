@@ -168,6 +168,8 @@ struct Service {
         /* Runtime data of the execution context */
         ExecRuntime *exec_runtime;
 
+        CGroupRuntime *cgroup_runtime;
+
         PidRef main_pid, control_pid;
 
         /* if we are a socket activated service instance, store information of the connection/peer/socket */
