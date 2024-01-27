@@ -59,6 +59,8 @@ static void scope_done(Unit *u) {
 
         s->user = mfree(s->user);
         s->group = mfree(s->group);
+
+        cgroup_runtime_free(s->cgroup_runtime);
 }
 
 static usec_t scope_running_timeout(Scope *s) {
@@ -353,6 +355,9 @@ static int scope_enter_start_chown(Scope *s) {
         assert(s);
         assert(s->user);
 
+        if (!s->cgroup_runtime)
+                return -EINVAL;
+
         r = scope_arm_timer(s, /* relative= */ true, u->manager->defaults.timeout_start_usec);
         if (r < 0)
                 return r;
@@ -385,7 +390,7 @@ static int scope_enter_start_chown(Scope *s) {
                         }
                 }
 
-                r = cg_set_access(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, uid, gid);
+                r = cg_set_access(SYSTEMD_CGROUP_CONTROLLER, s->cgroup_runtime->cgroup_path, uid, gid);
                 if (r < 0) {
                         log_unit_error_errno(UNIT(s), r, "Failed to adjust control group access: %m");
                         _exit(EXIT_CGROUP);
@@ -776,6 +781,7 @@ const UnitVTable scope_vtable = {
         .object_size = sizeof(Scope),
         .cgroup_context_offset = offsetof(Scope, cgroup_context),
         .kill_context_offset = offsetof(Scope, kill_context),
+        .cgroup_runtime_offset = offsetof(Scope, cgroup_runtime),
 
         .sections =
                 "Unit\0"

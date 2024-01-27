@@ -166,6 +166,8 @@ static void socket_done(Unit *u) {
         s->peers_by_address = set_free(s->peers_by_address);
 
         s->exec_runtime = exec_runtime_free(s->exec_runtime);
+        s->cgroup_runtime = cgroup_runtime_free(s->cgroup_runtime);
+
         exec_command_free_array(s->exec_command, _SOCKET_EXEC_COMMAND_MAX);
         s->control_command = NULL;
 
@@ -2454,7 +2456,8 @@ static int socket_start(Unit *u) {
         s->result = SOCKET_SUCCESS;
         exec_command_reset_status_list_array(s->exec_command, _SOCKET_EXEC_COMMAND_MAX);
 
-        u->reset_accounting = true;
+        if (s->cgroup_runtime)
+                s->cgroup_runtime->reset_accounting = true;
 
         socket_enter_start_pre(s);
         return 1;
@@ -3509,6 +3512,7 @@ const UnitVTable socket_vtable = {
         .cgroup_context_offset = offsetof(Socket, cgroup_context),
         .kill_context_offset = offsetof(Socket, kill_context),
         .exec_runtime_offset = offsetof(Socket, exec_runtime),
+        .cgroup_runtime_offset = offsetof(Socket, cgroup_runtime),
 
         .sections =
                 "Unit\0"

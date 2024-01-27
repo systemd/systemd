@@ -448,6 +448,7 @@ static void service_release_stdio_fd(Service *s) {
         s->stdout_fd = asynchronous_close(s->stdout_fd);
         s->stderr_fd = asynchronous_close(s->stderr_fd);
 }
+
 static void service_done(Unit *u) {
         Service *s = SERVICE(u);
 
@@ -459,6 +460,8 @@ static void service_done(Unit *u) {
         s->status_text = mfree(s->status_text);
 
         s->exec_runtime = exec_runtime_free(s->exec_runtime);
+        s->cgroup_runtime = cgroup_runtime_free(s->cgroup_runtime);
+
         exec_command_free_array(s->exec_command, _SERVICE_EXEC_COMMAND_MAX);
         s->control_command = NULL;
         s->main_command = NULL;
@@ -1348,6 +1351,7 @@ static int service_coldplug(Unit *u) {
                     SERVICE_DEAD_RESOURCES_PINNED)) {
                 (void) unit_enqueue_rewatch_pids(u);
                 (void) unit_setup_exec_runtime(u);
+                (void) unit_setup_cgroup_runtime(u);
         }
 
         if (IN_SET(s->deserialized_state, SERVICE_START_POST, SERVICE_RUNNING, SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY))
@@ -1856,10 +1860,10 @@ static int cgroup_good(Service *s) {
         /* Returns 0 if the cgroup is empty or doesn't exist, > 0 if it is exists and is populated, < 0 if we can't
          * figure it out */
 
-        if (!UNIT(s)->cgroup_path)
+        if (!s->cgroup_runtime || !s->cgroup_runtime->cgroup_path)
                 return 0;
 
-        r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, UNIT(s)->cgroup_path);
+        r = cg_is_empty_recursive(SYSTEMD_CGROUP_CONTROLLER, s->cgroup_runtime->cgroup_path);
         if (r < 0)
                 return r;
 
@@ -2741,7 +2745,9 @@ static int service_start(Unit *u) {
                 s->flush_n_restarts = false;
         }
 
-        u->reset_accounting = true;
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+        if (crt)
+                crt->reset_accounting = true;
 
         service_enter_condition(s);
         return 1;
@@ -5116,6 +5122,7 @@ const UnitVTable service_vtable = {
         .cgroup_context_offset = offsetof(Service, cgroup_context),
         .kill_context_offset = offsetof(Service, kill_context),
         .exec_runtime_offset = offsetof(Service, exec_runtime),
+        .cgroup_runtime_offset = offsetof(Service, cgroup_runtime),
 
         .sections =
                 "Unit\0"
