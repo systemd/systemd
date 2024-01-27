@@ -1300,7 +1300,9 @@ int bus_cgroup_set_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->cpu_quota_per_sec_usec = u64;
-                        u->warned_clamping_cpu_quota_period = false;
+                        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+                        if (crt)
+                                crt->warned_clamping_cpu_quota_period = false;
                         unit_invalidate_cgroup(u, CGROUP_MASK_CPU);
 
                         if (c->cpu_quota_per_sec_usec == USEC_INFINITY)
@@ -1324,7 +1326,9 @@ int bus_cgroup_set_property(
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
                         c->cpu_quota_period_usec = u64;
-                        u->warned_clamping_cpu_quota_period = false;
+                        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+                        if (crt)
+                                crt->warned_clamping_cpu_quota_period = false;
                         unit_invalidate_cgroup(u, CGROUP_MASK_CPU);
                         if (c->cpu_quota_period_usec == USEC_INFINITY)
                                 unit_write_setting(u, flags, "CPUQuotaPeriodSec", "CPUQuotaPeriodSec=");
