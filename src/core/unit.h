@@ -208,6 +208,7 @@ struct UnitRef {
         LIST_FIELDS(UnitRef, refs_by_target);
 };
 
+/* The generic, dynamic definition of the unit */
 typedef struct Unit {
         Manager *manager;
 
@@ -370,74 +371,6 @@ typedef struct Unit {
         UnitFileState unit_file_state;
         PresetAction unit_file_preset;
 
-        /* Where the cpu.stat or cpuacct.usage was at the time the unit was started */
-        nsec_t cpu_usage_base;
-        nsec_t cpu_usage_last; /* the most recently read value */
-
-        /* Most recently read value of memory accounting metrics */
-        uint64_t memory_accounting_last[_CGROUP_MEMORY_ACCOUNTING_METRIC_CACHED_LAST + 1];
-
-        /* The current counter of OOM kills initiated by systemd-oomd */
-        uint64_t managed_oom_kill_last;
-
-        /* The current counter of the oom_kill field in the memory.events cgroup attribute */
-        uint64_t oom_kill_last;
-
-        /* Where the io.stat data was at the time the unit was started */
-        uint64_t io_accounting_base[_CGROUP_IO_ACCOUNTING_METRIC_MAX];
-        uint64_t io_accounting_last[_CGROUP_IO_ACCOUNTING_METRIC_MAX]; /* the most recently read value */
-
-        /* Counterparts in the cgroup filesystem */
-        char *cgroup_path;
-        uint64_t cgroup_id;
-        CGroupMask cgroup_realized_mask;           /* In which hierarchies does this unit's cgroup exist? (only relevant on cgroup v1) */
-        CGroupMask cgroup_enabled_mask;            /* Which controllers are enabled (or more correctly: enabled for the children) for this unit's cgroup? (only relevant on cgroup v2) */
-        CGroupMask cgroup_invalidated_mask;        /* A mask specifying controllers which shall be considered invalidated, and require re-realization */
-        CGroupMask cgroup_members_mask;            /* A cache for the controllers required by all children of this cgroup (only relevant for slice units) */
-
-        /* Inotify watch descriptors for watching cgroup.events and memory.events on cgroupv2 */
-        int cgroup_control_inotify_wd;
-        int cgroup_memory_inotify_wd;
-
-        /* Device Controller BPF program */
-        BPFProgram *bpf_device_control_installed;
-
-        /* IP BPF Firewalling/accounting */
-        int ip_accounting_ingress_map_fd;
-        int ip_accounting_egress_map_fd;
-        uint64_t ip_accounting_extra[_CGROUP_IP_ACCOUNTING_METRIC_MAX];
-
-        int ipv4_allow_map_fd;
-        int ipv6_allow_map_fd;
-        int ipv4_deny_map_fd;
-        int ipv6_deny_map_fd;
-        BPFProgram *ip_bpf_ingress, *ip_bpf_ingress_installed;
-        BPFProgram *ip_bpf_egress, *ip_bpf_egress_installed;
-
-        Set *ip_bpf_custom_ingress;
-        Set *ip_bpf_custom_ingress_installed;
-        Set *ip_bpf_custom_egress;
-        Set *ip_bpf_custom_egress_installed;
-
-        /* BPF programs managed (e.g. loaded to kernel) by an entity external to systemd,
-         * attached to unit cgroup by provided program fd and attach type. */
-        Hashmap *bpf_foreign_by_key;
-
-        FDSet *initial_socket_bind_link_fds;
-#if BPF_FRAMEWORK
-        /* BPF links to BPF programs attached to cgroup/bind{4|6} hooks and
-         * responsible for allowing or denying a unit to bind(2) to a socket
-         * address. */
-        struct bpf_link *ipv4_socket_bind_link;
-        struct bpf_link *ipv6_socket_bind_link;
-#endif
-
-        FDSet *initial_restric_ifaces_link_fds;
-#if BPF_FRAMEWORK
-        struct bpf_link *restrict_ifaces_ingress_bpf_link;
-        struct bpf_link *restrict_ifaces_egress_bpf_link;
-#endif
-
         /* Low-priority event source which is used to remove watched PIDs that have gone away, and subscribe to any new
          * ones which might have appeared. */
         sd_event_source *rewatch_pids_event_source;
@@ -508,12 +441,6 @@ typedef struct Unit {
         bool in_audit:1;
         bool on_console:1;
 
-        bool cgroup_realized:1;
-        bool cgroup_members_mask_valid:1;
-
-        /* Reset cgroup accounting next time we fork something off */
-        bool reset_accounting:1;
-
         bool start_limit_hit:1;
 
         /* Did we already invoke unit_coldplug() for this unit? */
@@ -528,9 +455,6 @@ typedef struct Unit {
         bool exported_log_extra_fields:1;
         bool exported_log_ratelimit_interval:1;
         bool exported_log_ratelimit_burst:1;
-
-        /* Whether we warned about clamping the CPU quota period */
-        bool warned_clamping_cpu_quota_period:1;
 
         /* When writing transient unit files, stores which section we stored last. If < 0, we didn't write any yet. If
          * == 0 we are in the [Unit] section, if > 0 we are in the unit type-specific section. */
@@ -577,6 +501,7 @@ static inline bool UNIT_WRITE_FLAGS_NOOP(UnitWriteFlags flags) {
 
 #include "kill.h"
 
+/* The static const, immutable data about a specific unit type */
 typedef struct UnitVTable {
         /* How much memory does an object of this unit type need */
         size_t object_size;
@@ -593,10 +518,13 @@ typedef struct UnitVTable {
          * KillContext is found, if the unit type has that */
         size_t kill_context_offset;
 
-        /* If greater than 0, the offset into the object where the
-         * pointer to ExecSharedRuntime is found, if the unit type has
-         * that */
+        /* If greater than 0, the offset into the object where the pointer to ExecRuntime is found, if
+         * the unit type has that */
         size_t exec_runtime_offset;
+
+        /* If greater than 0, the offset into the object where the pointer to CGroupRuntime is found, if the
+         * unit type has that */
+        size_t cgroup_runtime_offset;
 
         /* The name of the configuration file section with the private settings of this unit */
         const char *private_section;
@@ -993,12 +921,14 @@ void unit_ref_unset(UnitRef *ref);
 int unit_patch_contexts(Unit *u);
 
 ExecContext *unit_get_exec_context(const Unit *u) _pure_;
-KillContext *unit_get_kill_context(Unit *u) _pure_;
-CGroupContext *unit_get_cgroup_context(Unit *u) _pure_;
+KillContext *unit_get_kill_context(const Unit *u) _pure_;
+CGroupContext *unit_get_cgroup_context(const Unit *u) _pure_;
 
-ExecRuntime *unit_get_exec_runtime(Unit *u) _pure_;
+ExecRuntime *unit_get_exec_runtime(const Unit *u) _pure_;
+CGroupRuntime *unit_get_cgroup_runtime(const Unit *u) _pure_;
 
 int unit_setup_exec_runtime(Unit *u);
+CGroupRuntime *unit_setup_cgroup_runtime(Unit *u);
 
 const char* unit_escape_setting(const char *s, UnitWriteFlags flags, char **buf);
 char* unit_concat_strv(char **l, UnitWriteFlags flags);
