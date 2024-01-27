@@ -11,6 +11,154 @@
 #include "process-util.h"
 #include "strv.h"
 
+static int parse_newlink_message(
+                  sd_netlink_message *message,
+                  char **ret_name,
+                  char ***ret_altnames) {
+
+        _cleanup_strv_free_ char **altnames = NULL;
+        int r, ifindex;
+
+        assert(message);
+
+        uint16_t type;
+        r = sd_netlink_message_get_type(message, &type);
+        if (r < 0)
+                return r;
+        if (type != RTM_NEWLINK)
+                return -EPROTO;
+
+        r = sd_rtnl_message_link_get_ifindex(message, &ifindex);
+        if (r < 0)
+                return r;
+        if (ifindex <= 0)
+                return -EPROTO;
+
+        if (ret_altnames) {
+                r = sd_netlink_message_read_strv(message, IFLA_PROP_LIST, IFLA_ALT_IFNAME, &altnames);
+                if (r < 0 && r != -ENODATA)
+                        return r;
+        }
+
+        if (ret_name) {
+                r = sd_netlink_message_read_string_strdup(message, IFLA_IFNAME, ret_name);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ret_altnames)
+                *ret_altnames = TAKE_PTR(altnames);
+
+        return ifindex;
+}
+
+int rtnl_get_ifname_full(sd_netlink **rtnl, int ifindex, char **ret_name, char ***ret_altnames) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
+        _cleanup_(sd_netlink_unrefp) sd_netlink *our_rtnl = NULL;
+        int r;
+
+        assert(ifindex > 0);
+
+        /* This is similar to if_indextoname(), but also optionally provides alternative names. */
+
+        if (!rtnl)
+                rtnl = &our_rtnl;
+        if (!*rtnl) {
+                r = sd_netlink_open(rtnl);
+                if (r < 0)
+                        return r;
+        }
+
+        r = sd_rtnl_message_new_link(*rtnl, &message, RTM_GETLINK, ifindex);
+        if (r < 0)
+                return r;
+
+        r = sd_netlink_call(*rtnl, message, 0, &reply);
+        if (r < 0)
+                return r;
+
+        return parse_newlink_message(reply, ret_name, ret_altnames);
+}
+
+int rtnl_resolve_ifname_full(
+                  sd_netlink **rtnl,
+                  ResolveInterfaceNameFlag flags,
+                  const char *name,
+                  char **ret_name,
+                  char ***ret_altnames) {
+
+        _cleanup_(sd_netlink_unrefp) sd_netlink *our_rtnl = NULL;
+        int r;
+
+        assert(name);
+        assert(flags > 0);
+
+        /* This is similar to if_nametoindex(), but also resolves alternative names and decimal formatted
+         * ifindex too. Returns ifindex, and optionally provides the main interface name and alternative
+         * names.*/
+
+        if (!rtnl)
+                rtnl = &our_rtnl;
+        if (!*rtnl) {
+                r = sd_netlink_open(rtnl);
+                if (r < 0)
+                        return r;
+        }
+
+        /* First, use IFLA_IFNAME */
+        if (FLAGS_SET(flags, RESOLVE_IFNAME_MAIN) && ifname_valid(name)) {
+                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
+
+                r = sd_rtnl_message_new_link(*rtnl, &message, RTM_GETLINK, 0);
+                if (r < 0)
+                        return r;
+
+                r = sd_netlink_message_append_string(message, IFLA_IFNAME, name);
+                if (r < 0)
+                        return r;
+
+                r = sd_netlink_call(*rtnl, message, 0, &reply);
+                if (r >= 0)
+                        return parse_newlink_message(reply, ret_name, ret_altnames);
+                if (r != -ENODEV)
+                        return r;
+        }
+
+        /* Next, try IFLA_ALT_IFNAME */
+        if (FLAGS_SET(flags, RESOLVE_IFNAME_ALTERNATIVE) &&
+            ifname_valid_full(name, IFNAME_VALID_ALTERNATIVE)) {
+                _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
+
+                r = sd_rtnl_message_new_link(*rtnl, &message, RTM_GETLINK, 0);
+                if (r < 0)
+                        return r;
+
+                r = sd_netlink_message_append_string(message, IFLA_ALT_IFNAME, name);
+                if (r < 0)
+                        return r;
+
+                r = sd_netlink_call(*rtnl, message, 0, &reply);
+                if (r >= 0)
+                        return parse_newlink_message(reply, ret_name, ret_altnames);
+                /* The kernels older than 76c9ac0ee878f6693d398d3a95ccaf85e1f597a6 (v5.5) return -EINVAL. */
+                if (!IN_SET(r, -ENODEV, -EINVAL))
+                        return r;
+        }
+
+        /* Finally, assume the string is a decimal formatted ifindex. */
+        if (FLAGS_SET(flags, RESOLVE_IFNAME_NUMERIC)) {
+                int ifindex;
+
+                ifindex = parse_ifindex(name);
+                if (ifindex <= 0)
+                        return -ENODEV;
+
+                return rtnl_get_ifname_full(rtnl, ifindex, ret_name, ret_altnames);
+        }
+
+        return -ENODEV;
+}
+
 static int set_link_name(sd_netlink **rtnl, int ifindex, const char *name) {
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL;
         int r;
@@ -242,38 +390,6 @@ int rtnl_set_link_properties(
         return 0;
 }
 
-int rtnl_get_link_alternative_names(sd_netlink **rtnl, int ifindex, char ***ret) {
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
-        _cleanup_strv_free_ char **names = NULL;
-        int r;
-
-        assert(rtnl);
-        assert(ifindex > 0);
-        assert(ret);
-
-        if (!*rtnl) {
-                r = sd_netlink_open(rtnl);
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_rtnl_message_new_link(*rtnl, &message, RTM_GETLINK, ifindex);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_call(*rtnl, message, 0, &reply);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_message_read_strv(reply, IFLA_PROP_LIST, IFLA_ALT_IFNAME, &names);
-        if (r < 0 && r != -ENODATA)
-                return r;
-
-        *ret = TAKE_PTR(names);
-
-        return 0;
-}
-
 static int rtnl_update_link_alternative_names(
                 sd_netlink **rtnl,
                 uint16_t nlmsg_type,
@@ -372,92 +488,6 @@ int rtnl_set_link_alternative_names_by_ifname(
                 return r;
 
         return 0;
-}
-
-int rtnl_resolve_link_alternative_name(sd_netlink **rtnl, const char *name, char **ret) {
-        _cleanup_(sd_netlink_unrefp) sd_netlink *our_rtnl = NULL;
-        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *message = NULL, *reply = NULL;
-        int r, ifindex;
-
-        assert(name);
-
-        /* This returns ifindex and the main interface name. */
-
-        if (!ifname_valid_full(name, IFNAME_VALID_ALTERNATIVE))
-                return -EINVAL;
-
-        if (!rtnl)
-                rtnl = &our_rtnl;
-        if (!*rtnl) {
-                r = sd_netlink_open(rtnl);
-                if (r < 0)
-                        return r;
-        }
-
-        r = sd_rtnl_message_new_link(*rtnl, &message, RTM_GETLINK, 0);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_message_append_string(message, IFLA_ALT_IFNAME, name);
-        if (r < 0)
-                return r;
-
-        r = sd_netlink_call(*rtnl, message, 0, &reply);
-        if (r == -EINVAL)
-                return -ENODEV; /* The device doesn't exist */
-        if (r < 0)
-                return r;
-
-        r = sd_rtnl_message_link_get_ifindex(reply, &ifindex);
-        if (r < 0)
-                return r;
-        assert(ifindex > 0);
-
-        if (ret) {
-                r = sd_netlink_message_read_string_strdup(reply, IFLA_IFNAME, ret);
-                if (r < 0)
-                        return r;
-        }
-
-        return ifindex;
-}
-
-int rtnl_resolve_ifname(sd_netlink **rtnl, const char *name) {
-        int r;
-
-        /* Like if_nametoindex, but resolves "alternative names" too. */
-
-        assert(name);
-
-        r = if_nametoindex(name);
-        if (r > 0)
-                return r;
-
-        return rtnl_resolve_link_alternative_name(rtnl, name, NULL);
-}
-
-int rtnl_resolve_interface(sd_netlink **rtnl, const char *name) {
-        int r;
-
-        /* Like rtnl_resolve_ifname, but resolves interface numbers too. */
-
-        assert(name);
-
-        r = parse_ifindex(name);
-        if (r > 0)
-                return r;
-        assert(r < 0);
-
-        return rtnl_resolve_ifname(rtnl, name);
-}
-
-int rtnl_resolve_interface_or_warn(sd_netlink **rtnl, const char *name) {
-        int r;
-
-        r = rtnl_resolve_interface(rtnl, name);
-        if (r < 0)
-                return log_error_errno(r, "Failed to resolve interface \"%s\": %m", name);
-        return r;
 }
 
 int rtnl_get_link_info(
