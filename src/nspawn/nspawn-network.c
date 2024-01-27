@@ -512,6 +512,38 @@ int test_network_interfaces_initialized(char **iface_pairs) {
         return 0;
 }
 
+int resolve_network_interface_names(char **iface_pairs) {
+        _cleanup_(sd_netlink_unrefp) sd_netlink *rtnl = NULL;
+        int r;
+
+        /* Due to a bug in kernel fixed by 8e15aee621618a3ee3abecaf1fd8c1428098b7ef (v6.6, backported to
+         * 6.1.60 and 6.5.9), an interface with alternative names cannot be resolved by the alternative name
+         * if the interface is moved to another network namespace. Hence, we need to adjust the provided
+         * names before moving interfaces to container namespace. */
+
+        STRV_FOREACH_PAIR(from, to, iface_pairs) {
+                _cleanup_free_ char *name = NULL;
+                _cleanup_strv_free_ char **altnames = NULL;
+
+                r = rtnl_resolve_ifname_full(&rtnl, _RESOLVE_IFNAME_ALL, *from, &name, &altnames);
+                if (r < 0)
+                        return r;
+
+                /* Always use the resolved name for 'from'. */
+                free_and_replace(*from, name);
+
+                /* If the name 'to' is assigned as an alternative name, we cannot rename the interface.
+                 * Hence, use the assigned interface name (including the alternative names) as is, and
+                 * use the resolved name for 'to'. */
+                if (strv_contains(altnames, *to)) {
+                        r = free_and_strdup_warn(to, *from);
+                        if (r < 0)
+                                return r;
+                }
+        }
+        return 0;
+}
+
 static int netns_child_begin(int netns_fd, int *ret_original_netns_fd) {
         _cleanup_close_ int original_netns_fd = -EBADF;
         int r;
@@ -580,37 +612,6 @@ static int netns_fork_and_wait(int netns_fd, int *ret_original_netns_fd) {
         return 1;
 }
 
-static int needs_rename(sd_netlink **rtnl, sd_device *dev, const char *name) {
-        int r;
-
-        assert(rtnl);
-        assert(dev);
-        assert(name);
-
-        const char *ifname;
-        r = sd_device_get_sysname(dev, &ifname);
-        if (r < 0)
-                return r;
-
-        if (streq(name, ifname))
-                return false;
-
-        int ifindex;
-        r = sd_device_get_ifindex(dev, &ifindex);
-        if (r < 0)
-                return r;
-
-        _cleanup_strv_free_ char **altnames = NULL;
-        r = rtnl_get_link_alternative_names(rtnl, ifindex, &altnames);
-        if (r == -EOPNOTSUPP)
-                return true; /* alternative interface name is not supported, hence the name is not
-                              * assigned to the interface. */
-        if (r < 0)
-                return r;
-
-        return !strv_contains(altnames, name);
-}
-
 static int move_wlan_interface_impl(sd_netlink **genl, int netns_fd, sd_device *dev) {
         _cleanup_(sd_netlink_unrefp) sd_netlink *our_genl = NULL;
         _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *m = NULL;
@@ -666,12 +667,8 @@ static int move_wlan_interface_one(
         assert(temp_netns_fd);
         assert(netns_fd >= 0);
         assert(dev);
-        assert(name);
 
-        r = needs_rename(rtnl, dev, name);
-        if (r < 0)
-                return log_device_error_errno(dev, r, "Failed to determine if the interface should be renamed to '%s': %m", name);
-        if (r == 0)
+        if (!name)
                 return move_wlan_interface_impl(genl, netns_fd, dev);
 
         /* The command NL80211_CMD_SET_WIPHY_NETNS takes phy instead of network interface, and does not take
@@ -728,7 +725,6 @@ static int move_network_interface_one(sd_netlink **rtnl, int netns_fd, sd_device
         assert(rtnl);
         assert(netns_fd >= 0);
         assert(dev);
-        assert(name);
 
         if (!*rtnl) {
                 r = sd_netlink_open(rtnl);
@@ -749,10 +745,7 @@ static int move_network_interface_one(sd_netlink **rtnl, int netns_fd, sd_device
         if (r < 0)
                 return log_device_error_errno(dev, r, "Failed to append namespace fd to netlink message: %m");
 
-        r = needs_rename(rtnl, dev, name);
-        if (r < 0)
-                return log_device_error_errno(dev, r, "Failed to determine if the interface should be renamed to '%s': %m", name);
-        if (r > 0) {
+        if (name) {
                 r = sd_netlink_message_append_string(m, IFLA_IFNAME, name);
                 if (r < 0)
                         return log_device_error_errno(dev, r, "Failed to add netlink interface name: %m");
@@ -777,15 +770,18 @@ int move_network_interfaces(int netns_fd, char **iface_pairs) {
 
         STRV_FOREACH_PAIR(from, to, iface_pairs) {
                 _cleanup_(sd_device_unrefp) sd_device *dev = NULL;
+                const char *name;
+
+                name = streq(*from, *to) ? NULL : *to;
 
                 r = sd_device_new_from_ifname(&dev, *from);
                 if (r < 0)
                         return log_error_errno(r, "Unknown interface name %s: %m", *from);
 
                 if (device_is_devtype(dev, "wlan"))
-                        r = move_wlan_interface_one(&rtnl, &genl, &temp_netns_fd, netns_fd, dev, *to);
+                        r = move_wlan_interface_one(&rtnl, &genl, &temp_netns_fd, netns_fd, dev, name);
                 else
-                        r = move_network_interface_one(&rtnl, netns_fd, dev, *to);
+                        r = move_network_interface_one(&rtnl, netns_fd, dev, name);
                 if (r < 0)
                         return r;
         }

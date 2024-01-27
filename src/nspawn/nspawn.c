@@ -5625,6 +5625,10 @@ static int run(int argc, char *argv[]) {
         if (r < 0)
                 goto finish;
 
+        r = resolve_network_interface_names(arg_network_interfaces);
+        if (r < 0)
+                goto finish;
+
         r = verify_network_interfaces_initialized();
         if (r < 0)
                 goto finish;
