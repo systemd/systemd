@@ -5,10 +5,13 @@
 
 #include "sd-bus.h"
 
+#include "bus-dump.h"
+#include "bus-util.h"
 #include "fd-util.h"
 #include "process-util.h"
 #include "socket-util.h"
 #include "tests.h"
+#include "user-util.h"
 
 static void *server(void *p) {
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -27,11 +30,13 @@ static void *server(void *p) {
         assert_se(sd_bus_set_fd(bus, fd, fd) >= 0);
         TAKE_FD(fd);
         assert_se(sd_bus_set_server(bus, true, id) >= 0);
-        assert_se(sd_bus_negotiate_creds(bus, 1, SD_BUS_CREDS_EUID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_PID|SD_BUS_CREDS_COMM|SD_BUS_CREDS_DESCRIPTION) >= 0);
+        assert_se(sd_bus_negotiate_creds(bus, 1, SD_BUS_CREDS_EUID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_PID|SD_BUS_CREDS_COMM|SD_BUS_CREDS_DESCRIPTION|SD_BUS_CREDS_PIDFD|SD_BUS_CREDS_SUPPLEMENTARY_GIDS) >= 0);
 
         assert_se(sd_bus_start(bus) >= 0);
 
-        assert_se(sd_bus_get_owner_creds(bus, SD_BUS_CREDS_EUID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_PID|SD_BUS_CREDS_COMM|SD_BUS_CREDS_DESCRIPTION, &c) >= 0);
+        assert_se(sd_bus_get_owner_creds(bus, SD_BUS_CREDS_EUID|SD_BUS_CREDS_EGID|SD_BUS_CREDS_PID|SD_BUS_CREDS_COMM|SD_BUS_CREDS_DESCRIPTION|SD_BUS_CREDS_PIDFD|SD_BUS_CREDS_SUPPLEMENTARY_GIDS, &c) >= 0);
+
+        bus_creds_dump(c, /* f= */ NULL, /* terse= */ false);
 
         uid_t u;
         assert_se(sd_bus_creds_get_euid(c, &u) >= 0);
@@ -44,6 +49,52 @@ static void *server(void *p) {
         pid_t pid;
         assert_se(sd_bus_creds_get_pid(c, &pid) >= 0);
         assert_se(pid == getpid_cached());
+
+        int pidfd = -EBADF;
+        if (sd_bus_creds_get_pidfd_dup(c, &pidfd) >= 0) {
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
+
+                assert_se(pidref_set_pidfd_take(&pidref, pidfd) >= 0);
+                assert_se(pidref.pid == getpid_cached());
+        }
+
+        const gid_t *gl = NULL;
+        int n;
+        n = sd_bus_creds_get_supplementary_gids(c, &gl);
+        if (n >= 0) {
+                _cleanup_free_ gid_t *gg = NULL;
+                r = getgroups_alloc(&gg);
+                assert_se(r >= 0);
+
+                assert_se(GREEDY_REALLOC(gg, r + 1));
+                gg[r++] = getgid(); /* dbus adds in the primary gid to the list */
+
+                /* Check that everything in gl[] is also in gg[] */
+                for (int i = 0; i < n; i++) {
+                        bool f = false;
+
+                        for (int j = 0; j < r; j++)
+                                if (gl[i] == gg[j]) {
+                                        f = true;
+                                        break;
+                                }
+
+                        assert_se(f);
+                }
+
+                /* Check that everything in gg[] is also in gl[] */
+                for (int j = 0; j < r; j++) {
+                        bool f = false;
+
+                        for (int i = 0; i < n; i++)
+                                if (gl[i] == gg[j]) {
+                                        f = true;
+                                        break;
+                                }
+
+                        assert_se(f);
+                }
+        }
 
         const char *comm;
         assert_se(sd_bus_creds_get_comm(c, &comm) >= 0);

@@ -11,6 +11,7 @@
 #include "bus-common-errors.h"
 #include "bus-get-properties.h"
 #include "bus-log-control-api.h"
+#include "bus-util.h"
 #include "chase.h"
 #include "confidential-virt.h"
 #include "data-fd-util.h"
@@ -464,18 +465,13 @@ static int bus_get_unit_by_name(Manager *m, sd_bus_message *message, const char 
          * its sleeve: if the name is specified empty we use the client's unit. */
 
         if (isempty(name)) {
-                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-                pid_t pid;
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
-                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
+                r = bus_query_sender_pidref(message, &pidref);
                 if (r < 0)
                         return r;
 
-                r = sd_bus_creds_get_pid(creds, &pid);
-                if (r < 0)
-                        return r;
-
-                u = manager_get_unit_by_pid(m, pid);
+                u = manager_get_unit_by_pidref(m, &pidref);
                 if (!u)
                         return sd_bus_error_set(error, BUS_ERROR_NO_SUCH_UNIT, "Client not member of any unit.");
         } else {
@@ -542,7 +538,7 @@ static int method_get_unit(sd_bus_message *message, void *userdata, sd_bus_error
 
 static int method_get_unit_by_pid(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         Manager *m = ASSERT_PTR(userdata);
-        pid_t pid;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         Unit *u;
         int r;
 
@@ -552,27 +548,20 @@ static int method_get_unit_by_pid(sd_bus_message *message, void *userdata, sd_bu
 
         /* Anyone can call this method */
 
-        r = sd_bus_message_read(message, "u", &pid);
+        r = sd_bus_message_read(message, "u", &pidref.pid);
         if (r < 0)
                 return r;
-        if (pid < 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid PID " PID_FMT, pid);
-
-        if (pid == 0) {
-                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-
-                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_creds_get_pid(creds, &pid);
+        if (pidref.pid < 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid PID " PID_FMT, pidref.pid);
+        if (pidref.pid == 0) {
+                r = bus_query_sender_pidref(message, &pidref);
                 if (r < 0)
                         return r;
         }
 
-        u = manager_get_unit_by_pid(m, pid);
+        u = manager_get_unit_by_pidref(m, &pidref);
         if (!u)
-                return sd_bus_error_setf(error, BUS_ERROR_NO_UNIT_FOR_PID, "PID "PID_FMT" does not belong to any loaded unit.", pid);
+                return sd_bus_error_setf(error, BUS_ERROR_NO_UNIT_FOR_PID, "PID "PID_FMT" does not belong to any loaded unit.", pidref.pid);
 
         return reply_unit_path(u, message, error);
 }
@@ -601,21 +590,16 @@ static int method_get_unit_by_invocation_id(sd_bus_message *message, void *userd
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid invocation ID");
 
         if (sd_id128_is_null(id)) {
-                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-                pid_t pid;
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
-                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
+                r = bus_query_sender_pidref(message, &pidref);
                 if (r < 0)
                         return r;
 
-                r = sd_bus_creds_get_pid(creds, &pid);
-                if (r < 0)
-                        return r;
-
-                u = manager_get_unit_by_pid(m, pid);
+                u = manager_get_unit_by_pidref(m, &pidref);
                 if (!u)
                         return sd_bus_error_setf(error, BUS_ERROR_NO_SUCH_UNIT,
-                                                 "Client " PID_FMT " not member of any unit.", pid);
+                                                 "Client " PID_FMT " not member of any unit.", pidref.pid);
         } else {
                 u = hashmap_get(m->units_by_invocation_id, &id);
                 if (!u)
@@ -2934,7 +2918,7 @@ static int method_dump_unit_descriptor_store(sd_bus_message *message, void *user
 }
 
 static int aux_scope_from_message(Manager *m, sd_bus_message *message, Unit **ret_scope, sd_bus_error *error) {
-        _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        _cleanup_(pidref_done) PidRef sender_pidref = PIDREF_NULL;
         _cleanup_free_ PidRef *pidrefs = NULL;
         const char *name;
         Unit *from, *scope;
@@ -2942,20 +2926,15 @@ static int aux_scope_from_message(Manager *m, sd_bus_message *message, Unit **re
         CGroupContext *cc;
         size_t n_pids = 0;
         uint64_t flags;
-        pid_t pid;
         int r;
 
         assert(ret_scope);
 
-        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
+        r = bus_query_sender_pidref(message, &sender_pidref);
         if (r < 0)
                 return r;
 
-        r = sd_bus_creds_get_pid(creds, &pid);
-        if (r < 0)
-                return r;
-
-        from = manager_get_unit_by_pid(m, pid);
+        from = manager_get_unit_by_pidref(m, &sender_pidref);
         if (!from)
                 return sd_bus_error_set(error, BUS_ERROR_NO_SUCH_UNIT, "Client not member of any unit.");
 
