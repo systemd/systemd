@@ -19,6 +19,22 @@ typedef struct RouteVia {
         union in_addr_union address;
 } _packed_ RouteVia;
 
+int rtnl_get_ifname_full(sd_netlink **rtnl, int ifindex, char **ret_name, char ***ret_altnames);
+
+typedef enum ResolveInterfaceNameFlag {
+        RESOLVE_IFNAME_MAIN        = 1 << 0, /* resolve main interface name */
+        RESOLVE_IFNAME_ALTERNATIVE = 1 << 1, /* resolve alternative name */
+        RESOLVE_IFNAME_NUMERIC     = 1 << 2, /* resolve decimal formatted ifindex */
+        _RESOLVE_IFNAME_ALL        = RESOLVE_IFNAME_MAIN | RESOLVE_IFNAME_ALTERNATIVE | RESOLVE_IFNAME_NUMERIC,
+} ResolveInterfaceNameFlag;
+
+int rtnl_resolve_ifname_full(
+                  sd_netlink **rtnl,
+                  ResolveInterfaceNameFlag flags,
+                  const char *name,
+                  char **ret_name,
+                  char ***ret_altnames);
+
 int rtnl_rename_link(sd_netlink **rtnl, const char *orig_name, const char *new_name);
 int rtnl_set_link_name(sd_netlink **rtnl, int ifindex, const char *name, char* const* alternative_names);
 static inline int rtnl_append_link_alternative_names(sd_netlink **rtnl, int ifindex, char* const *alternative_names) {
@@ -35,14 +51,32 @@ int rtnl_set_link_properties(
                 uint32_t mtu,
                 uint32_t gso_max_size,
                 size_t gso_max_segments);
-int rtnl_get_link_alternative_names(sd_netlink **rtnl, int ifindex, char ***ret);
+static inline int rtnl_get_link_alternative_names(sd_netlink **rtnl, int ifindex, char ***ret) {
+        return rtnl_get_ifname_full(rtnl, ifindex, NULL, ret);
+}
 int rtnl_set_link_alternative_names(sd_netlink **rtnl, int ifindex, char* const *alternative_names);
 int rtnl_set_link_alternative_names_by_ifname(sd_netlink **rtnl, const char *ifname, char* const *alternative_names);
 int rtnl_delete_link_alternative_names(sd_netlink **rtnl, int ifindex, char* const *alternative_names);
-int rtnl_resolve_link_alternative_name(sd_netlink **rtnl, const char *name, char **ret);
-int rtnl_resolve_ifname(sd_netlink **rtnl, const char *name);
-int rtnl_resolve_interface(sd_netlink **rtnl, const char *name);
-int rtnl_resolve_interface_or_warn(sd_netlink **rtnl, const char *name);
+static inline int rtnl_resolve_link_alternative_name(sd_netlink **rtnl, const char *name, char **ret) {
+        return rtnl_resolve_ifname_full(rtnl, RESOLVE_IFNAME_ALTERNATIVE, name, ret, NULL);
+}
+static inline int rtnl_resolve_ifname(sd_netlink **rtnl, const char *name) {
+        return rtnl_resolve_ifname_full(rtnl, RESOLVE_IFNAME_MAIN | RESOLVE_IFNAME_ALTERNATIVE, name, NULL, NULL);
+}
+static inline int rtnl_resolve_interface(sd_netlink **rtnl, const char *name) {
+        return rtnl_resolve_ifname_full(rtnl, _RESOLVE_IFNAME_ALL, name, NULL, NULL);
+}
+static inline int rtnl_resolve_interface_or_warn(sd_netlink **rtnl, const char *name) {
+        int r;
+
+        assert(name);
+
+        r = rtnl_resolve_interface(rtnl, name);
+        if (r < 0)
+                return log_error_errno(r, "Failed to resolve interface \"%s\": %m", name);
+        return r;
+}
+
 int rtnl_get_link_info(
                 sd_netlink **rtnl,
                 int ifindex,
