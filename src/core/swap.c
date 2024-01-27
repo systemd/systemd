@@ -168,6 +168,7 @@ static void swap_done(Unit *u) {
         s->parameters_fragment.options = mfree(s->parameters_fragment.options);
 
         s->exec_runtime = exec_runtime_free(s->exec_runtime);
+
         exec_command_done_array(s->exec_command, _SWAP_EXEC_COMMAND_MAX);
         s->control_command = NULL;
 
@@ -564,8 +565,10 @@ static int swap_coldplug(Unit *u) {
                         return r;
         }
 
-        if (!IN_SET(new_state, SWAP_DEAD, SWAP_FAILED))
+        if (!IN_SET(new_state, SWAP_DEAD, SWAP_FAILED)) {
                 (void) unit_setup_exec_runtime(u);
+                (void) unit_setup_cgroup_runtime(u);
+        }
 
         swap_set_state(s, new_state);
         return 0;
@@ -854,7 +857,9 @@ static void swap_cycle_clear(Swap *s) {
 
         s->result = SWAP_SUCCESS;
         exec_command_reset_status_array(s->exec_command, _SWAP_EXEC_COMMAND_MAX);
-        UNIT(s)->reset_accounting = true;
+
+        if (s->cgroup_runtime)
+                s->cgroup_runtime->reset_accounting = true;
 }
 
 static int swap_start(Unit *u) {
@@ -1589,6 +1594,7 @@ const UnitVTable swap_vtable = {
         .cgroup_context_offset = offsetof(Swap, cgroup_context),
         .kill_context_offset = offsetof(Swap, kill_context),
         .exec_runtime_offset = offsetof(Swap, exec_runtime),
+        .cgroup_runtime_offset = offsetof(Swap, cgroup_runtime),
 
         .sections =
                 "Unit\0"
