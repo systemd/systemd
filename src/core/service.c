@@ -115,6 +115,25 @@ static int service_dispatch_exec_io(sd_event_source *source, int fd, uint32_t ev
 static void service_enter_signal(Service *s, ServiceState state, ServiceResult f);
 static void service_enter_reload_by_notify(Service *s);
 
+static bool SERVICE_STATE_WITH_MAIN_PROCESS(ServiceState state) {
+        return IN_SET(state,
+                      SERVICE_START, SERVICE_START_POST,
+                      SERVICE_RUNNING,
+                      SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY,
+                      SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
+                      SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL);
+}
+
+static bool SERVICE_STATE_WITH_CONTROL_PROCESS(ServiceState state) {
+        return IN_SET(state,
+                      SERVICE_CONDITION,
+                      SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
+                      SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY,
+                      SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
+                      SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
+                      SERVICE_CLEANING);
+}
+
 static void service_init(Unit *u) {
         Service *s = SERVICE(u);
 
@@ -1216,22 +1235,12 @@ static void service_set_state(Service *s, ServiceState state) {
                     SERVICE_CLEANING))
                 s->timer_event_source = sd_event_source_disable_unref(s->timer_event_source);
 
-        if (!IN_SET(state,
-                    SERVICE_START, SERVICE_START_POST,
-                    SERVICE_RUNNING,
-                    SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY,
-                    SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
-                    SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL)) {
+        if (!SERVICE_STATE_WITH_MAIN_PROCESS(state)) {
                 service_unwatch_main_pid(s);
                 s->main_command = NULL;
         }
 
-        if (!IN_SET(state,
-                    SERVICE_CONDITION, SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
-                    SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY,
-                    SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
-                    SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
-                    SERVICE_CLEANING)) {
+        if (!SERVICE_STATE_WITH_CONTROL_PROCESS(state)) {
                 service_unwatch_control_pid(s);
                 s->control_command = NULL;
                 s->control_command_id = _SERVICE_EXEC_COMMAND_INVALID;
@@ -1318,12 +1327,7 @@ static int service_coldplug(Unit *u) {
 
         if (pidref_is_set(&s->main_pid) &&
             pidref_is_unwaited(&s->main_pid) > 0 &&
-            (IN_SET(s->deserialized_state,
-                    SERVICE_START, SERVICE_START_POST,
-                    SERVICE_RUNNING,
-                    SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY,
-                    SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
-                    SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL))) {
+            SERVICE_STATE_WITH_MAIN_PROCESS(s->deserialized_state)) {
                 r = unit_watch_pidref(UNIT(s), &s->main_pid, /* exclusive= */ false);
                 if (r < 0)
                         return r;
@@ -1331,12 +1335,7 @@ static int service_coldplug(Unit *u) {
 
         if (pidref_is_set(&s->control_pid) &&
             pidref_is_unwaited(&s->control_pid) > 0 &&
-            IN_SET(s->deserialized_state,
-                   SERVICE_CONDITION, SERVICE_START_PRE, SERVICE_START, SERVICE_START_POST,
-                   SERVICE_RELOAD, SERVICE_RELOAD_SIGNAL, SERVICE_RELOAD_NOTIFY,
-                   SERVICE_STOP, SERVICE_STOP_WATCHDOG, SERVICE_STOP_SIGTERM, SERVICE_STOP_SIGKILL, SERVICE_STOP_POST,
-                   SERVICE_FINAL_WATCHDOG, SERVICE_FINAL_SIGTERM, SERVICE_FINAL_SIGKILL,
-                   SERVICE_CLEANING)) {
+            SERVICE_STATE_WITH_CONTROL_PROCESS(s->deserialized_state)) {
                 r = unit_watch_pidref(UNIT(s), &s->control_pid, /* exclusive= */ false);
                 if (r < 0)
                         return r;
