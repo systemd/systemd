@@ -69,6 +69,10 @@ static int build_managed_oom_json_array_element(Unit *u, const char *property, J
         if (!c)
                 return -EINVAL;
 
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+        if (!crt)
+                return -EINVAL;
+
         if (UNIT_IS_INACTIVE_OR_FAILED(unit_active_state(u)))
                 /* systemd-oomd should always treat inactive units as though they didn't enable any action since they
                  * should not have a valid cgroup */
@@ -83,19 +87,24 @@ static int build_managed_oom_json_array_element(Unit *u, const char *property, J
 
         return json_build(ret_v, JSON_BUILD_OBJECT(
                                  JSON_BUILD_PAIR("mode", JSON_BUILD_STRING(mode)),
-                                 JSON_BUILD_PAIR("path", JSON_BUILD_STRING(u->cgroup_path)),
+                                 JSON_BUILD_PAIR("path", JSON_BUILD_STRING(crt->cgroup_path)),
                                  JSON_BUILD_PAIR("property", JSON_BUILD_STRING(property)),
                                  JSON_BUILD_PAIR_CONDITION(use_limit, "limit", JSON_BUILD_UNSIGNED(c->moom_mem_pressure_limit))));
 }
 
 int manager_varlink_send_managed_oom_update(Unit *u) {
         _cleanup_(json_variant_unrefp) JsonVariant *arr = NULL, *v = NULL;
+        CGroupRuntime *crt;
         CGroupContext *c;
         int r;
 
         assert(u);
 
-        if (!UNIT_VTABLE(u)->can_set_managed_oom || !u->manager || !u->cgroup_path)
+        if (!UNIT_VTABLE(u)->can_set_managed_oom || !u->manager)
+                return 0;
+
+        crt = unit_get_cgroup_runtime(u);
+        if (!crt || !crt->cgroup_path)
                 return 0;
 
         if (MANAGER_IS_SYSTEM(u->manager)) {
