@@ -135,7 +135,7 @@ static int parse_argv(int argc, char *argv[]) {
 
         _cleanup_fdset_free_ FDSet *passed = NULL;
         bool do_exec = false;
-        int c, r, n_env;
+        int c, r;
 
         assert(argc >= 0);
         assert(argv);
@@ -283,6 +283,8 @@ static int parse_argv(int argc, char *argv[]) {
         if (arg_fdname && fdset_isempty(arg_fds))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No file descriptors passed, but --fdname= set, refusing.");
 
+        size_t n_env;
+
         if (do_exec) {
                 int i;
 
@@ -293,7 +295,7 @@ static int parse_argv(int argc, char *argv[]) {
                 if (i >= argc)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "If --exec is used argument list must contain ';' separator, refusing.");
                 if (i+1 == argc)
-                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Empty command line specified after ';' separator, refusing");
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Empty command line specified after ';' separator, refusing.");
 
                 arg_exec = strv_copy_n(argv + i + 1, argc - i - 1);
                 if (!arg_exec)
@@ -316,16 +318,14 @@ static int parse_argv(int argc, char *argv[]) {
 }
 
 static int run(int argc, char* argv[]) {
-        _cleanup_free_ char *status = NULL, *cpid = NULL, *n = NULL, *monotonic_usec = NULL, *fdn = NULL;
+        _cleanup_free_ char *status = NULL, *cpid = NULL, *msg = NULL, *monotonic_usec = NULL, *fdn = NULL;
         _cleanup_strv_free_ char **final_env = NULL;
-        char* our_env[9];
+        const char *our_env[9];
         size_t i = 0;
         pid_t source_pid;
         int r;
 
-        log_show_color(true);
-        log_parse_environment();
-        log_open();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
@@ -342,7 +342,7 @@ static int run(int argc, char* argv[]) {
         }
 
         if (arg_reloading) {
-                our_env[i++] = (char*) "RELOADING=1";
+                our_env[i++] = "RELOADING=1";
 
                 if (asprintf(&monotonic_usec, "MONOTONIC_USEC=" USEC_FMT, now(CLOCK_MONOTONIC)) < 0)
                         return log_oom();
@@ -351,10 +351,10 @@ static int run(int argc, char* argv[]) {
         }
 
         if (arg_ready)
-                our_env[i++] = (char*) "READY=1";
+                our_env[i++] = "READY=1";
 
         if (arg_stopping)
-                our_env[i++] = (char*) "STOPPING=1";
+                our_env[i++] = "STOPPING=1";
 
         if (arg_status) {
                 status = strjoin("STATUS=", arg_status);
@@ -372,7 +372,7 @@ static int run(int argc, char* argv[]) {
         }
 
         if (!fdset_isempty(arg_fds)) {
-                our_env[i++] = (char*) "FDSTORE=1";
+                our_env[i++] = "FDSTORE=1";
 
                 if (arg_fdname) {
                         fdn = strjoin("FDNAME=", arg_fdname);
@@ -385,15 +385,15 @@ static int run(int argc, char* argv[]) {
 
         our_env[i++] = NULL;
 
-        final_env = strv_env_merge(our_env, arg_env);
+        final_env = strv_env_merge((char**) our_env, arg_env);
         if (!final_env)
                 return log_oom();
 
         if (strv_isempty(final_env))
                 return 0;
 
-        n = strv_join(final_env, "\n");
-        if (!n)
+        msg = strv_join(final_env, "\n");
+        if (!msg)
                 return log_oom();
 
         /* If this is requested change to the requested UID/GID. Note that we only change the real UID here, and leave
@@ -421,7 +421,7 @@ static int run(int argc, char* argv[]) {
         }
 
         if (fdset_isempty(arg_fds))
-                r = sd_pid_notify(source_pid, /* unset_environment= */ false, n);
+                r = sd_pid_notify(source_pid, /* unset_environment= */ false, msg);
         else {
                 _cleanup_free_ int *a = NULL;
                 int k;
@@ -430,7 +430,7 @@ static int run(int argc, char* argv[]) {
                 if (k < 0)
                         return log_error_errno(k, "Failed to convert file descriptor set to array: %m");
 
-                r = sd_pid_notify_with_fds(source_pid, /* unset_environment= */ false, n, a, k);
+                r = sd_pid_notify_with_fds(source_pid, /* unset_environment= */ false, msg, a, k);
 
         }
         if (r < 0)
