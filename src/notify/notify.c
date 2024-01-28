@@ -448,15 +448,10 @@ static int run(int argc, char* argv[]) {
         }
 
         if (arg_exec) {
-                _cleanup_free_ char *cmdline = NULL;
-
                 execvp(arg_exec[0], arg_exec);
 
-                cmdline = strv_join(arg_exec, " ");
-                if (!cmdline)
-                        return log_oom();
-
-                return log_error_errno(errno, "Failed to execute command line: %s", cmdline);
+                _cleanup_free_ char *cmdline = strv_join(arg_exec, " ");
+                return log_error_errno(errno, "Failed to execute command line: %s", strnull(cmdline));
         }
 
         /* The DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE() boilerplate will send the exit status via
