@@ -99,6 +99,18 @@ static pid_t manager_pid(void) {
         return pid;
 }
 
+static pid_t pid_parent_if_possible(void) {
+        pid_t parent_pid = getppid();
+
+        /* Don't send from PID 1 or the service manager's PID (which might be distinct from 1, if we are a
+         * --user service). That'd just be confusing for the service manager. */
+        if (parent_pid <= 1 ||
+            parent_pid == manager_pid())
+                return getpid_cached();
+
+        return parent_pid;
+}
+
 static int parse_argv(int argc, char *argv[]) {
 
         enum {
@@ -163,16 +175,9 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_PID:
-                        if (isempty(optarg) || streq(optarg, "auto")) {
-                                arg_pid = getppid();
-
-                                if (arg_pid <= 1 ||
-                                    arg_pid == manager_pid()) /* Don't send from PID 1 or the service
-                                                               * manager's PID (which might be distinct from
-                                                               * 1, if we are a --user instance), that'd just
-                                                               * be confusing for the service manager */
-                                        arg_pid = getpid_cached();
-                        } else if (streq(optarg, "parent"))
+                        if (isempty(optarg) || streq(optarg, "auto"))
+                                arg_pid = pid_parent_if_possible();
+                        else if (streq(optarg, "parent"))
                                 arg_pid = getppid();
                         else if (streq(optarg, "self"))
                                 arg_pid = getpid_cached();
@@ -322,7 +327,6 @@ static int run(int argc, char* argv[]) {
         _cleanup_strv_free_ char **final_env = NULL;
         const char *our_env[9];
         size_t i = 0;
-        pid_t source_pid;
         int r;
 
         log_setup();
@@ -408,20 +412,13 @@ static int run(int argc, char* argv[]) {
             setreuid(arg_uid, UID_INVALID) < 0)
                 return log_error_errno(errno, "Failed to change UID: %m");
 
-        if (arg_pid > 0)
-                source_pid = arg_pid;
-        else {
-                /* Pretend the message originates from our parent, given that we are typically called from a
-                 * shell script, i.e. we are not the main process of a service but only a child of it. */
-                source_pid = getppid();
-                if (source_pid <= 1 ||
-                    source_pid == manager_pid()) /* safety check: don't claim we'd send anything from PID 1
-                                                  * or the service manager itself */
-                        source_pid = 0;
-        }
+        /* If --pid= is explicitly specified, use it as source pid. Otherwise, pretend the message originates
+         * from our parent, i.e. --pid=auto */
+        if (arg_pid <= 0)
+                arg_pid = pid_parent_if_possible();
 
         if (fdset_isempty(arg_fds))
-                r = sd_pid_notify(source_pid, /* unset_environment= */ false, msg);
+                r = sd_pid_notify(arg_pid, /* unset_environment= */ false, msg);
         else {
                 _cleanup_free_ int *a = NULL;
                 int k;
@@ -430,7 +427,7 @@ static int run(int argc, char* argv[]) {
                 if (k < 0)
                         return log_error_errno(k, "Failed to convert file descriptor set to array: %m");
 
-                r = sd_pid_notify_with_fds(source_pid, /* unset_environment= */ false, msg, a, k);
+                r = sd_pid_notify_with_fds(arg_pid, /* unset_environment= */ false, msg, a, k);
 
         }
         if (r < 0)
@@ -442,7 +439,7 @@ static int run(int argc, char* argv[]) {
         arg_fds = fdset_free(arg_fds); /* Close before we execute anything */
 
         if (!arg_no_block) {
-                r = sd_pid_notify_barrier(source_pid, /* unset_environment= */ false, 5 * USEC_PER_SEC);
+                r = sd_pid_notify_barrier(arg_pid, /* unset_environment= */ false, 5 * USEC_PER_SEC);
                 if (r < 0)
                         return log_error_errno(r, "Failed to invoke barrier: %m");
                 if (r == 0)
