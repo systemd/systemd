@@ -11,6 +11,16 @@
   },
   {
     "category": "Project",
+    "title": "Mailing List",
+    "url": "https://lists.freedesktop.org/mailman/listinfo/systemd-devel"
+  },
+  {
+    "category": "Project",
+    "title": "Mastodon",
+    "url": "https://mastodon.social/@pid_eins"
+  },
+  {
+    "category": "Project",
     "title": "Releases",
     "url": "https://github.com/systemd/systemd/releases"
   },
@@ -28,11 +38,6 @@
     "category": "Project",
     "title": "Pull Requests",
     "url": "https://github.com/systemd/systemd/pulls"
-  },
-  {
-    "category": "Project",
-    "title": "Mailing List",
-    "url": "https://lists.freedesktop.org/mailman/listinfo/systemd-devel"
   },
   {
     "category": "Manual Pages",
@@ -414,4 +419,99 @@
     "title": "Introduction to systemd in French",
     "url": "http://lea-linux.org/documentations/Systemd"
   },
+  {
+    "category": "The various distributions",
+    "title": "Fedora packages",
+    "url": "https://packages.fedoraproject.org/pkgs/systemd/systemd/"
+  },
+  {
+    "category": "The various distributions",
+    "title": "Fedora sources",
+    "url": "https://src.fedoraproject.org/rpms/systemd"
+  },
+  {
+    "category": "The various distributions",
+    "title": "Fedora bugtracker",
+    "url": "https://bugzilla.redhat.com/buglist.cgi?list_id=565273&classification=Fedora&query_format=advanced&bug_status=NEW&bug_status=ASSIGNED&bug_status=MODIFIED&bug_status=ON_DEV&bug_status=ON_QA&bug_status=VERIFIED&bug_status=RELEASE_PENDING&bug_status=POST&component=systemd&product=Fedora"
+  },
+  {
+    "category": "The various distributions",
+    "title": "openSUSE packages",
+    "url": "https://build.opensuse.org/package/show/Base:System/systemd"
+  },
+  {
+    "category": "The various distributions",
+    "title": "openSUSE instructions",
+    "url": "http://en.opensuse.org/SDB:Systemd"
+  },
+  {
+    "category": "The various distributions",
+    "title": "openSUSE bugtracker",
+    "url": "https://bugzilla.novell.com/buglist.cgi?short_desc=systemd&field0-0-0=product&type0-0-1=substring&field0-0-1=component&classification=openSUSE&value0-0-2=systemd&query_based_on=systemd&query_format=advanced&type0-0-3=substring&field0-0-3=status_whiteboard&value0-0-3=systemd&bug_status=UNCONFIRMED&bug_status=NEW&bug_status=ASSIGNED&bug_status=NEEDINFO&bug_status=REOPENED&short_desc_type=allwordssubstr&field0-0-2=short_desc&value0-0-1=systemd&type0-0-0=substring&value0-0-0=systemd&type0-0-2=substring&known_name=systemd"
+  },
+  {
+    "category": "The various distributions",
+    "title": "Arch Linux packages",
+    "url": "https://www.archlinux.org/packages/core/x86_64/systemd/"
+  },
+  {
+    "category": "The various distributions",
+    "title": "Arch Linux wiki",
+    "url": "https://wiki.archlinux.org/index.php/Systemd"
+  },
+  {
+    "category": "The various distributions",
+    "title": "Arch Linux bugtracker",
+    "url": "https://bugs.archlinux.org/?project=1&cat%5B%5D=31&string=systemd"
+  },
+  {
+    "category": "The various distributions",
+    "title": "Debian packages",
+    "url": "http://packages.debian.org/systemd"
+  },
+  {
+    "category": "The various distributions",
+    "title": "Debian wiki",
+    "url": "http://wiki.debian.org/systemd"
+  },
+  {
+    "category": "The various distributions",
+    "title": "Debian bugtracker",
+    "url": "http://bugs.debian.org/cgi-bin/pkgreport.cgi?ordering=normal;archive=0;src=systemd"
+  },
+  {
+    "category": "The various distributions",
+    "title": "Ubuntu packages",
+    "url": "https://launchpad.net/ubuntu/+source/systemd"
+  },
+  {
+    "category": "The various distributions",
+    "title": "Ubuntu wiki",
+    "url": "https://wiki.ubuntu.com/systemd"
+  },
+  {
+    "category": "The various distributions",
+    "title": "Mageia packages",
+    "url": "http://svnweb.mageia.org/packages/cauldron/systemd/current/"
+  },
+  {
+    "category": "The various distributions",
+    "title": "Mageia bugtracker",
+    "url": "https://bugs.mageia.org/buglist.cgi?field0-0-0=cf_rpmpkg&query_format=advanced&bug_status=NEW&bug_status=UNCONFIRMED&bug_status=ASSIGNED&bug_status=REOPENED&type0-0-0=substring&value0-0-0=systemd&component=RPM%20Packages&product=Mageia"
+  },
+  {
+    "category": "The various distributions",
+    "title": "Gentoo packages",
+    "url": "http://packages.gentoo.org/package/sys-apps/systemd"
+  },
+  {
+    "category": "The various distributions",
+    "title": "Gentoo wiki",
+    "url": "http://wiki.gentoo.org/wiki/Systemd"
+  },
+  {
+    "category": "The various distributions",
+    "title": "Gentoo bugtracker",
+    "url": "https://bugs.gentoo.org/buglist.cgi?quicksearch=systemd"
+  }
 ]
