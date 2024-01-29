@@ -518,6 +518,8 @@ bool fstype_can_umask(const char *fstype) {
 }
 
 bool fstype_can_uid_gid(const char *fstype) {
+        assert(fstype);
+
         /* All file systems that have a uid=/gid= mount option that fixates the owners of all files and
          * directories, current and future. Note that this does *not* ask the kernel via
          * mount_option_supported() here because the uid=/gid= setting of various file systems mean different
@@ -534,6 +536,27 @@ bool fstype_can_uid_gid(const char *fstype) {
                           "msdos",
                           "ntfs",
                           "vfat");
+}
+
+bool fstype_can_freeze_thaw(const char *fstype) {
+        assert(fstype);
+
+        /* All file systems that support the FIFREEZE/FITHAW ioctls. Unfourtunately, the kernel
+         * doesn't have a way of checking this, so we maintain a curated list below... */
+
+         return STR_IN_SET(fstype,
+                           "bcachefs",
+                           "btrfs",
+                           "cifs",
+                           "ext2",
+                           "ext3",
+                           "ext4",
+                           "f2fs",
+                           "gfs2",
+                           "jfs",
+                           "nilfs2",
+                           "reiserfs",
+                           "xfs");
 }
 
 int dev_is_devtmpfs(void) {
