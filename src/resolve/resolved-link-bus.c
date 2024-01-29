@@ -236,10 +236,15 @@ static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, voi
         if (r < 0)
                 return r;
 
+        const char *details[] = {
+                "interface", l->ifname,
+                NULL
+        };
+
         r = bus_verify_polkit_async(
                         message,
                         "org.freedesktop.resolve1.set-dns-servers",
-                        /* details= */ NULL,
+                        details,
                         &l->manager->polkit_registry, error);
         if (r < 0)
                 goto finalize;
@@ -369,10 +374,15 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
         if (r < 0)
                 return r;
 
+        const char *details[] = {
+                "interface", l->ifname,
+                NULL
+        };
+
         r = bus_verify_polkit_async(
                         message,
                         "org.freedesktop.resolve1.set-domains",
-                        /* details= */ NULL,
+                        details,
                         &l->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -449,10 +459,15 @@ int bus_link_method_set_default_route(sd_bus_message *message, void *userdata, s
         if (r < 0)
                 return r;
 
+        const char *details[] = {
+                "interface", l->ifname,
+                NULL
+        };
+
         r = bus_verify_polkit_async(
                         message,
                         "org.freedesktop.resolve1.set-default-route",
-                        /* details= */ NULL,
+                        details,
                         &l->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -498,10 +513,15 @@ int bus_link_method_set_llmnr(sd_bus_message *message, void *userdata, sd_bus_er
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid LLMNR setting: %s", llmnr);
         }
 
+        const char *details[] = {
+                "interface", l->ifname,
+                NULL
+        };
+
         r = bus_verify_polkit_async(
                         message,
                         "org.freedesktop.resolve1.set-llmnr",
-                        /* details= */ NULL,
+                        details,
                         &l->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -548,10 +568,15 @@ int bus_link_method_set_mdns(sd_bus_message *message, void *userdata, sd_bus_err
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid MulticastDNS setting: %s", mdns);
         }
 
+        const char *details[] = {
+                "interface", l->ifname,
+                NULL
+        };
+
         r = bus_verify_polkit_async(
                         message,
                         "org.freedesktop.resolve1.set-mdns",
-                        /* details= */ NULL,
+                        details,
                         &l->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -598,10 +623,15 @@ int bus_link_method_set_dns_over_tls(sd_bus_message *message, void *userdata, sd
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid DNSOverTLS setting: %s", dns_over_tls);
         }
 
+        const char *details[] = {
+                "interface", l->ifname,
+                NULL
+        };
+
         r = bus_verify_polkit_async(
                         message,
                         "org.freedesktop.resolve1.set-dns-over-tls",
-                        /* details= */ NULL,
+                        details,
                         &l->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -648,10 +678,15 @@ int bus_link_method_set_dnssec(sd_bus_message *message, void *userdata, sd_bus_e
                         return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid DNSSEC setting: %s", dnssec);
         }
 
+        const char *details[] = {
+                "interface", l->ifname,
+                NULL
+        };
+
         r = bus_verify_polkit_async(
                         message,
                         "org.freedesktop.resolve1.set-dnssec",
-                        /* details= */ NULL,
+                        details,
                         &l->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -711,10 +746,15 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
                         return -ENOMEM;
         }
 
+        const char *details[] = {
+                "interface", l->ifname,
+                NULL
+        };
+
         r = bus_verify_polkit_async(
                         message,
                         "org.freedesktop.resolve1.set-dnssec-negative-trust-anchors",
-                        /* details= */ NULL,
+                        details,
                         &l->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -749,10 +789,15 @@ int bus_link_method_revert(sd_bus_message *message, void *userdata, sd_bus_error
         if (r < 0)
                 return r;
 
+        const char *details[] = {
+                "interface", l->ifname,
+                NULL
+        };
+
         r = bus_verify_polkit_async(
                         message,
                         "org.freedesktop.resolve1.revert",
-                        /* details= */ NULL,
+                        details,
                         &l->manager->polkit_registry,
                         error);
         if (r < 0)
