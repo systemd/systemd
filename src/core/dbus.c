@@ -232,6 +232,8 @@ static int mac_selinux_filter(sd_bus_message *message, void *userdata, sd_bus_er
                 return 0;
 
         path = sd_bus_message_get_path(message);
+        if (!path)
+                return 0;
 
         if (object_path_startswith("/org/freedesktop/systemd1", path)) {
                 r = mac_selinux_access_check(message, verb, error);
@@ -241,25 +243,20 @@ static int mac_selinux_filter(sd_bus_message *message, void *userdata, sd_bus_er
                 return 0;
         }
 
-        if (streq_ptr(path, "/org/freedesktop/systemd1/unit/self")) {
-                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-                pid_t pid;
+        if (streq(path, "/org/freedesktop/systemd1/unit/self")) {
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
 
-                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
+                r = bus_query_sender_pidref(message, &pidref);
                 if (r < 0)
                         return 0;
 
-                r = sd_bus_creds_get_pid(creds, &pid);
-                if (r < 0)
-                        return 0;
-
-                u = manager_get_unit_by_pid(m, pid);
+                u = manager_get_unit_by_pidref(m, &pidref);
         } else {
                 r = manager_get_job_from_dbus_path(m, path, &j);
                 if (r >= 0)
                         u = j->unit;
                 else
-                        manager_load_unit_from_dbus_path(m, path, NULL, &u);
+                        (void) manager_load_unit_from_dbus_path(m, path, NULL, &u);
         }
         if (!u)
                 return 0;
@@ -280,24 +277,19 @@ static int find_unit(Manager *m, sd_bus *bus, const char *path, Unit **unit, sd_
         assert(bus);
         assert(path);
 
-        if (streq_ptr(path, "/org/freedesktop/systemd1/unit/self")) {
-                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
+        if (streq(path, "/org/freedesktop/systemd1/unit/self")) {
+                _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
                 sd_bus_message *message;
-                pid_t pid;
 
                 message = sd_bus_get_current_message(bus);
                 if (!message)
                         return 0;
 
-                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
+                r = bus_query_sender_pidref(message, &pidref);
                 if (r < 0)
                         return r;
 
-                r = sd_bus_creds_get_pid(creds, &pid);
-                if (r < 0)
-                        return r;
-
-                u = manager_get_unit_by_pid(m, pid);
+                u = manager_get_unit_by_pidref(m, &pidref);
                 if (!u)
                         return 0;
         } else {

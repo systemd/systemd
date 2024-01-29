@@ -5,6 +5,9 @@
 
 #include "sd-bus.h"
 
+#include "pidref.h"
+#include "user-util.h"
+
 struct sd_bus_creds {
         bool allocated;
         unsigned n_ref;
@@ -27,6 +30,7 @@ struct sd_bus_creds {
         pid_t ppid;
         pid_t pid;
         pid_t tid;
+        int pidfd;
 
         char *comm;
         char *tid_comm;
@@ -63,10 +67,22 @@ struct sd_bus_creds {
         char *description, *unescaped_description;
 };
 
+#define SD_BUS_CREDS_INIT_FIELDS        \
+        .uid = UID_INVALID,             \
+        .euid = UID_INVALID,            \
+        .suid = UID_INVALID,            \
+        .fsuid = UID_INVALID,           \
+        .gid = GID_INVALID,             \
+        .egid = GID_INVALID,            \
+        .sgid = GID_INVALID,            \
+        .fsgid = GID_INVALID,           \
+        .pidfd = -EBADF,                \
+        .audit_login_uid = UID_INVALID
+
 sd_bus_creds* bus_creds_new(void);
 
 void bus_creds_done(sd_bus_creds *c);
 
-int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, pid_t pid, pid_t tid);
+int bus_creds_add_more(sd_bus_creds *c, uint64_t mask, PidRef *pidref, pid_t tid);
 
 int bus_creds_extend_by_pid(sd_bus_creds *c, uint64_t mask, sd_bus_creds **ret);
