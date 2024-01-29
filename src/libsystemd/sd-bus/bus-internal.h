@@ -269,6 +269,7 @@ struct sd_bus {
         size_t n_groups;
         union sockaddr_union sockaddr_peer;
         socklen_t sockaddr_size_peer;
+        int pidfd;
 
         uint64_t creds_mask;
 

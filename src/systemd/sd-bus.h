@@ -90,8 +90,9 @@ __extension__ enum {
         SD_BUS_CREDS_UNIQUE_NAME        = 1ULL << 31,
         SD_BUS_CREDS_WELL_KNOWN_NAMES   = 1ULL << 32,
         SD_BUS_CREDS_DESCRIPTION        = 1ULL << 33,
+        SD_BUS_CREDS_PIDFD              = 1ULL << 34,
         SD_BUS_CREDS_AUGMENT            = 1ULL << 63, /* special flag, if on sd-bus will augment creds struct, in a potentially race-full way. */
-        _SD_BUS_CREDS_ALL               = (1ULL << 34) -1
+        _SD_BUS_CREDS_ALL               = (1ULL << 35) -1
 };
 
 __extension__ enum {
@@ -402,12 +403,14 @@ int sd_bus_match_signal_async(sd_bus *bus, sd_bus_slot **ret, const char *sender
 /* Credential handling */
 
 int sd_bus_creds_new_from_pid(sd_bus_creds **ret, pid_t pid, uint64_t creds_mask);
+int sd_bus_creds_new_from_pidfd(sd_bus_creds **ret, int pidfd, uint64_t creds_mask);
 sd_bus_creds* sd_bus_creds_ref(sd_bus_creds *c);
 sd_bus_creds* sd_bus_creds_unref(sd_bus_creds *c);
 uint64_t sd_bus_creds_get_mask(const sd_bus_creds *c);
 uint64_t sd_bus_creds_get_augmented_mask(const sd_bus_creds *c);
 
 int sd_bus_creds_get_pid(sd_bus_creds *c, pid_t *pid);
+int sd_bus_creds_get_pidfd_dup(sd_bus_creds *c, int *ret_fd);
 int sd_bus_creds_get_ppid(sd_bus_creds *c, pid_t *ppid);
 int sd_bus_creds_get_tid(sd_bus_creds *c, pid_t *tid);
 int sd_bus_creds_get_uid(sd_bus_creds *c, uid_t *uid);
