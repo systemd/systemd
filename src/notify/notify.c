@@ -273,22 +273,11 @@ static int parse_argv(int argc, char *argv[]) {
                 }
         }
 
-        if (optind >= argc &&
-            !arg_ready &&
-            !arg_stopping &&
-            !arg_reloading &&
-            !arg_status &&
-            !arg_pid &&
-            !arg_booted &&
-            fdset_isempty(arg_fds)) {
-                help();
-                return -EINVAL;
-        }
-
         if (arg_fdname && fdset_isempty(arg_fds))
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No file descriptors passed, but --fdname= set, refusing.");
 
-        size_t n_env;
+        bool have_env = arg_ready || arg_stopping || arg_reloading || arg_status || arg_pid > 0 || !fdset_isempty(arg_fds);
+        size_t n_arg_env;
 
         if (do_exec) {
                 int i;
@@ -306,12 +295,23 @@ static int parse_argv(int argc, char *argv[]) {
                 if (!arg_exec)
                         return log_oom();
 
-                n_env = i - optind;
+                n_arg_env = i - optind;
         } else
-                n_env = argc - optind;
+                n_arg_env = argc - optind;
 
-        if (n_env > 0) {
-                arg_env = strv_copy_n(argv + optind, n_env);
+        have_env = have_env || n_arg_env > 0;
+
+        if (!have_env && !arg_booted) {
+                if (do_exec)
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No notify message specified while --exec, refusing.");
+
+                /* No argument at all? */
+                help();
+                return -EINVAL;
+        }
+
+        if (n_arg_env > 0) {
+                arg_env = strv_copy_n(argv + optind, n_arg_env);
                 if (!arg_env)
                         return log_oom();
         }
@@ -392,9 +392,7 @@ static int run(int argc, char* argv[]) {
         final_env = strv_env_merge((char**) our_env, arg_env);
         if (!final_env)
                 return log_oom();
-
-        if (strv_isempty(final_env))
-                return 0;
+        assert(!strv_isempty(final_env));
 
         msg = strv_join(final_env, "\n");
         if (!msg)
