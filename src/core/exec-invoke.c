@@ -1194,7 +1194,7 @@ static int setup_pam(
 
         pam_code = pam_setcred(handle, PAM_ESTABLISH_CRED | flags);
         if (pam_code != PAM_SUCCESS)
-                log_debug("pam_setcred() failed, ignoring: %s", pam_strerror(handle, pam_code));
+                log_debug("pam_setcred(PAM_ESTABLISH_CRED) failed, ignoring: %s", pam_strerror(handle, pam_code));
 
         pam_code = pam_open_session(handle, flags);
         if (pam_code != PAM_SUCCESS)
