@@ -25,6 +25,7 @@ int bus_home_method_unlock(sd_bus_message *message, void *userdata, sd_bus_error
 int bus_home_method_acquire(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_home_method_ref(sd_bus_message *message, void *userdata, sd_bus_error *error);
 int bus_home_method_release(sd_bus_message *message, void *userdata, sd_bus_error *error);
+int bus_home_method_inhibit_suspend(sd_bus_message *message, void *userdata, sd_bus_error *error);
 
 extern const BusObjectImplementation home_object;
 
