@@ -1077,26 +1077,91 @@ static int pam_close_session_and_delete_credentials(pam_handle_t *handle, int fl
         return r != PAM_SUCCESS ? r : s;
 }
 
+static int notify_pam_pid(
+                int notify_pam_pid_fd,
+                const PidRef *parent_pid) {
+
+        struct iovec iov;
+        struct msghdr msghdr = {
+                .msg_iov = &iov,
+                .msg_iovlen = 1,
+        };
+        int r;
+
+        assert(notify_pam_pid_fd >= 0);
+        assert(pidref_is_set(parent_pid));
+
+        _cleanup_(pidref_done) PidRef pam_pid = PIDREF_NULL;
+        r = pidref_set_self(&pam_pid);
+        if (r < 0)
+                return r;
+
+        char buf[DECIMAL_STR_MAX(pid_t) * 2 + STRLEN("\n")];
+        xsprintf(buf, PID_FMT"\n"PID_FMT, parent_pid->pid, pam_pid.pid);
+        iov = IOVEC_MAKE_STRING(buf);
+
+        bool send_pidfd = (parent_pid->fd > 0 && pam_pid.fd > 0);
+
+        /* CMSG_SPACE(0) may return value different than zero, which results in miscalculated controllen. */
+        msghdr.msg_controllen = (send_pidfd ? CMSG_SPACE(sizeof(int) * 2) : 0) + CMSG_SPACE(sizeof(struct ucred));
+        msghdr.msg_control = alloca0(msghdr.msg_controllen);
+
+        struct cmsghdr *cmsg = CMSG_FIRSTHDR(&msghdr);
+        if (send_pidfd > 0) {
+                cmsg->cmsg_level = SOL_SOCKET;
+                cmsg->cmsg_type = SCM_RIGHTS;
+                cmsg->cmsg_len = CMSG_LEN(sizeof(int) * 2);
+
+                int *p = CMSG_TYPED_DATA(cmsg, int);
+                p[0] = parent_pid->fd;
+                p[1] = pam_pid.fd;
+
+                assert_se(cmsg = CMSG_NXTHDR(&msghdr, cmsg));
+        }
+
+        cmsg->cmsg_level = SOL_SOCKET;
+        cmsg->cmsg_type = SCM_CREDENTIALS;
+        cmsg->cmsg_len = CMSG_LEN(sizeof(struct ucred));
+
+        struct ucred *ucred = CMSG_TYPED_DATA(cmsg, struct ucred);
+        ucred->pid = pam_pid.pid;
+        ucred->uid = getuid();
+        ucred->gid = getgid();
+
+        if (sendmsg(notify_pam_pid_fd, &msghdr, MSG_NOSIGNAL) < 0)
+                return -errno;
+
+        return 0;
+}
+
 static int pam_child_main(
                 pam_handle_t *handle,
                 int flags,
                 Barrier *barrier,
                 const int fds[], size_t n_fds,
                 int exec_fd,
-                uid_t uid,
-                gid_t gid,
+                int notify_pam_pid_fd,
                 const PidRef *parent_pid) {
 
         int r, pam_code = PAM_SUCCESS;
 
         assert(handle);
         assert(barrier);
+        assert(notify_pam_pid_fd >= 0);
         assert(pidref_is_set(parent_pid));
 
         assert_se(sigprocmask_many(SIG_BLOCK, NULL, SIGTERM) >= 0);
 
         /* The child's job is to reset the PAM session on termination. */
         barrier_set_role(barrier, BARRIER_CHILD);
+
+        r = notify_pam_pid(notify_pam_pid_fd, parent_pid);
+        if (r < 0) {
+                log_error_errno(r, "Failed to send PAM PID to the service manager: %m");
+                goto finalize;
+        }
+
+        notify_pam_pid_fd = safe_close(notify_pam_pid_fd);
 
         /* Make sure we don't keep open the passed fds in this child. We assume that otherwise only those fds
          * are open here that have been opened by PAM. */
@@ -1107,13 +1172,6 @@ static int pam_child_main(
          * completion. */
         exec_fd = safe_close(exec_fd);
 
-        /* Drop privileges - we don't need any to pam_close_session and this will make PR_SET_PDEATHSIG (set
-         * by FORK_DEATHSIG_SIGTERM flag) work in most cases. If this fails, ignore the error - but expect
-         * sd-pam threads to fail to exit normally. */
-        r = fully_set_uid_gid(uid, gid, /* supplementary_gids= */ NULL, /* n_supplementary_gids= */ 0);
-        if (r < 0)
-                log_warning_errno(r, "Failed to drop privileges in sd-pam, ignoring: %m");
-
         (void) ignore_signals(SIGPIPE);
 
         /* Tell the parent that our setup is done. This is especially important regarding dropping privileges.
@@ -1122,27 +1180,24 @@ static int pam_child_main(
          * If the parent aborted, we'll detect this below, hence ignore return failure here. */
         (void) barrier_place(barrier);
 
-        /* Check if our parent process might already have died? */
-        if (getppid() == parent_pid->pid) {
-                sigset_t ss;
-                int sig;
+        sigset_t ss;
+        assert_se(sigemptyset(&ss) >= 0);
+        assert_se(sigaddset(&ss, SIGTERM) >= 0);
 
-                assert_se(sigemptyset(&ss) >= 0);
-                assert_se(sigaddset(&ss, SIGTERM) >= 0);
+        int sig;
+        assert_se(sigwait(&ss, &sig) == 0);
+        assert(sig == SIGTERM);
 
-                assert_se(sigwait(&ss, &sig) == 0);
-                assert(sig == SIGTERM);
-        }
-
-        /* If our parent died we'll end the session. */
-        if (getppid() != parent_pid->pid)
+finalize:
+        /* If our original parent died we'll end the session. */
+        if (!pidref_is_alive(parent_pid))
                 pam_code = pam_close_session_and_delete_credentials(handle, flags);
 
         /* NB: pam_end() when called in child processes should set PAM_DATA_SILENT to let the module
          * know about this. See pam_end(3). */
         (void) pam_end(handle, pam_code | flags | PAM_DATA_SILENT);
 
-        return pam_code;
+        return r < 0 ? r : pam_code;
 }
 
 #endif
@@ -1150,12 +1205,11 @@ static int pam_child_main(
 static int setup_pam(
                 const char *name,
                 const char *user,
-                uid_t uid,
-                gid_t gid,
                 const char *tty,
                 char ***env, /* updated on success */
                 const int fds[], size_t n_fds,
-                int exec_fd) {
+                int exec_fd,
+                int notify_pam_pid_fd) {
 
 #if HAVE_PAM
 
@@ -1174,6 +1228,7 @@ static int setup_pam(
         assert(name);
         assert(user);
         assert(env);
+        assert(notify_pam_pid_fd >= 0);
 
         /* We set up PAM in the parent process, then fork. The child
          * will then stay around until killed via PR_GET_PDEATHSIG or
@@ -1242,11 +1297,11 @@ static int setup_pam(
                 goto fail;
         }
 
-        r = safe_fork("(sd-pam)", FORK_DEATHSIG_SIGTERM, NULL);
+        r = safe_fork("(sd-pam)", FORK_RESET_SIGNALS|FORK_REOPEN_LOG|FORK_DETACH, NULL);
         if (r < 0)
                 goto fail;
         if (r == 0) {
-                r = pam_child_main(handle, flags, &barrier, fds, n_fds, exec_fd, uid, gid, &parent_pid);
+                r = pam_child_main(handle, flags, &barrier, fds, n_fds, exec_fd, notify_pam_pid_fd, &parent_pid);
                 _exit(r != 0 ? EXIT_PAM : EXIT_SUCCESS);
         }
 
@@ -3521,7 +3576,7 @@ static int close_remaining_fds(
                 const int *fds, size_t n_fds) {
 
         size_t n_dont_close = 0;
-        int dont_close[n_fds + 14];
+        int dont_close[n_fds + 15];
 
         assert(params);
 
@@ -3556,6 +3611,9 @@ static int close_remaining_fds(
 
         if (params->user_lookup_fd >= 0)
                 dont_close[n_dont_close++] = params->user_lookup_fd;
+
+        if (params->notify_pam_pid_fd >= 0)
+                dont_close[n_dont_close++] = params->notify_pam_pid_fd;
 
         return close_all_fds(dont_close, n_dont_close);
 }
@@ -4627,7 +4685,7 @@ int exec_invoke(
                  * wins here. (See above.) */
 
                 /* All fds passed in the fds array will be closed in the pam child process. */
-                r = setup_pam(context->pam_name, username, uid, gid, context->tty_path, &accum_env, params->fds, n_fds, params->exec_fd);
+                r = setup_pam(context->pam_name, username, context->tty_path, &accum_env, params->fds, n_fds, params->exec_fd, params->notify_pam_pid_fd);
                 if (r < 0) {
                         *exit_status = EXIT_PAM;
                         return log_exec_error_errno(context, params, r, "Failed to set up PAM session: %m");
@@ -4653,6 +4711,8 @@ int exec_invoke(
                         return log_exec_error_errno(context, params, ngids_after_pam, "Failed to obtain groups after setting up PAM: %m");
                 }
         }
+
+        params->notify_pam_pid_fd = safe_close(params->notify_pam_pid_fd);
 
         if (needs_sandboxing && exec_context_need_unprivileged_private_users(context, params)) {
                 /* If we're unprivileged, set up the user namespace first to enable use of the other namespaces.

@@ -335,6 +335,8 @@ typedef struct Unit {
         /* PIDs we keep an eye on. Note that a unit might have many more, but these are the ones we care
          * enough about to process SIGCHLD for */
         Set *pids; /* → PidRef* */
+        Set *killed_pam_pids; /* PIDs we have sent SIGTERM for, but we have not received SIGCHLD for them. */
+        Hashmap *pam_pids_by_parent; /* Parent PidRef* -> PAM PidRef*, both PidRef* are owned by 'pids'. */
 
         /* Used in SIGCHLD and sd_notify() message event invocation logic to avoid that we dispatch the same event
          * multiple times on the same unit. */
@@ -855,6 +857,7 @@ int unit_start(Unit *u, ActivationDetails *details);
 int unit_stop(Unit *u);
 int unit_reload(Unit *u);
 
+int unit_kill_pam_by_parent(Unit *u, const PidRef *parent_pidref, int signo);
 int unit_kill(Unit *u, KillWho w, int signo, int code, int value, sd_bus_error *ret_error);
 
 void unit_notify_cgroup_oom(Unit *u, bool managed_oom);
@@ -870,6 +873,8 @@ void unit_unwatch_pidref_done(Unit *u, PidRef *pidref);
 
 int unit_enqueue_rewatch_pids(Unit *u);
 void unit_dequeue_rewatch_pids(Unit *u);
+
+int unit_watch_pam_pidref(Unit *u, const PidRef *parent_pidref, const PidRef *pam_pidref);
 
 int unit_install_bus_match(Unit *u, sd_bus *bus, const char *name);
 int unit_watch_bus_name(Unit *u, const char *name);

@@ -2504,6 +2504,7 @@ void exec_params_shallow_clear(ExecParameters *p) {
         p->exec_fd = safe_close(p->exec_fd);
         p->user_lookup_fd = -EBADF;
         p->bpf_restrict_fs_map_fd = -EBADF;
+        p->notify_pam_pid_fd = -EBADF;
         p->unit_id = mfree(p->unit_id);
         p->invocation_id = SD_ID128_NULL;
         p->invocation_id_string[0] = '\0';
