@@ -51,32 +51,32 @@
   },
   {
     "category": "Publications",
-    "title": "Bê-á-bá do systemd #1",
+    "title": "Bê-á-bá do systemd #1 (Brazilian Portuguese)",
     "url": "https://community.ibm.com/community/user/legacy"
   },
   {
     "category": "Publications",
-    "title": "Bê-á-bá do systemd #2",
+    "title": "Bê-á-bá do systemd #2 (Brazilian Portuguese)",
     "url": "https://community.ibm.com/community/user/legacy"
   },
   {
     "category": "Publications",
-    "title": "Bê-á-bá do systemd #3",
+    "title": "Bê-á-bá do systemd #3 (Brazilian Portuguese)",
     "url": "https://community.ibm.com/community/user/legacy"
   },
   {
     "category": "Publications",
-    "title": "Bê-á-bá do systemd #4",
+    "title": "Bê-á-bá do systemd #4 (Brazilian Portuguese)",
     "url": "https://community.ibm.com/community/user/legacy"
   },
   {
     "category": "Publications",
-    "title": "Bê-á-bá do systemd #5",
+    "title": "Bê-á-bá do systemd #5 (Brazilian Portuguese)",
     "url": "https://community.ibm.com/community/user/legacy"
   },
   {
     "category": "Publications",
-    "title": "Bê-á-bá do systemd #6",
+    "title": "Bê-á-bá do systemd #6 (Brazilian Portuguese)",
     "url": "https://community.ibm.com/community/user/legacy"
   },
   {
@@ -388,5 +388,25 @@
     "category": "Related Packages",
     "title": "C++ bindings for sd-bus",
     "url": "https://github.com/Kistler-Group/sdbus-cpp/"
-  }
+  },
+  {
+    "category": "Documentation for Developers - external links",
+    "title": "On /etc/os-release",
+    "url": "http://0pointer.de/blog/projects/os-release.html"
+  },
+  {
+    "category": "Documentation for Developers - external links",
+    "title": "Control Groups vs. Control Groups",
+    "url": "http://0pointer.de/blog/projects/cgroups-vs-cgroups.html"
+  },
+  {
+    "category": "Documentation for Developers - external links",
+    "title": "The 30 Biggest Myths about systemd",
+    "url": "http://0pointer.de/blog/projects/the-biggest-myths.html"
+  },
+  {
+    "category": "Documentation for Developers - external links",
+    "title": "Introduction to systemd in French",
+    "url": "http://lea-linux.org/documentations/Systemd"
+  },
 ]
