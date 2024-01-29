@@ -1335,7 +1335,9 @@ static int varlink_dispatch_method(Varlink *v) {
 
                         r = varlink_idl_validate_method_call(v->current_method, parameters, &bad_field);
                         if (r < 0) {
-                                varlink_log_errno(v, r, "Parameters for method %s() didn't pass validation on field '%s': %m", method, strna(bad_field));
+                                /* Please adjust test/units/end.sh when updating the log message. */
+                                varlink_log_errno(v, r, "Parameters for method %s() didn't pass validation on field '%s': %m",
+                                                  method, strna(bad_field));
 
                                 if (IN_SET(v->state, VARLINK_PROCESSING_METHOD, VARLINK_PROCESSING_METHOD_MORE)) {
                                         r = varlink_errorb(v, VARLINK_ERROR_INVALID_PARAMETER, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_STRING("parameter", bad_field)));
@@ -2302,7 +2304,9 @@ int varlink_reply(Varlink *v, JsonVariant *parameters) {
 
                 r = varlink_idl_validate_method_reply(v->current_method, parameters, &bad_field);
                 if (r < 0)
-                        varlink_log_errno(v, r, "Return parameters for method reply %s() didn't pass validation on field '%s', ignoring: %m", v->current_method->name, strna(bad_field));
+                        /* Please adjust test/units/end.sh when updating the log message. */
+                        varlink_log_errno(v, r, "Return parameters for method reply %s() didn't pass validation on field '%s', ignoring: %m",
+                                          v->current_method->name, strna(bad_field));
         }
 
         r = varlink_enqueue_json(v, m);
@@ -2379,7 +2383,9 @@ int varlink_error(Varlink *v, const char *error_id, JsonVariant *parameters) {
 
                 r = varlink_idl_validate_error(symbol, parameters, &bad_field);
                 if (r < 0)
-                        varlink_log_errno(v, r, "Parameters for error %s didn't pass validation on field '%s', ignoring: %m", error_id, strna(bad_field));
+                        /* Please adjust test/units/end.sh when updating the log message. */
+                        varlink_log_errno(v, r, "Parameters for error %s didn't pass validation on field '%s', ignoring: %m",
+                                          error_id, strna(bad_field));
         }
 
         r = varlink_enqueue_json(v, m);
@@ -2494,7 +2500,9 @@ int varlink_notify(Varlink *v, JsonVariant *parameters) {
 
                 r = varlink_idl_validate_method_reply(v->current_method, parameters, &bad_field);
                 if (r < 0)
-                        varlink_log_errno(v, r, "Return parameters for method reply %s() didn't pass validation on field '%s', ignoring: %m", v->current_method->name, strna(bad_field));
+                        /* Please adjust test/units/end.sh when updating the log message. */
+                        varlink_log_errno(v, r, "Return parameters for method reply %s() didn't pass validation on field '%s', ignoring: %m",
+                                          v->current_method->name, strna(bad_field));
         }
 
         r = varlink_enqueue_json(v, m);
