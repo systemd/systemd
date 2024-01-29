@@ -310,6 +310,9 @@ static int parse_argv(int argc, char *argv[]) {
                 return -EINVAL;
         }
 
+        if (have_env && arg_booted)
+                log_warning("Notify message specified along with --booted, ignoring.");
+
         if (n_arg_env > 0) {
                 arg_env = strv_copy_n(argv + optind, n_arg_env);
                 if (!arg_env)
