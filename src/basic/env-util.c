@@ -529,18 +529,17 @@ int _strv_env_assign_many(char ***l, ...) {
         return 0;
 }
 
-char *strv_env_get_n(char **l, const char *name, size_t k, ReplaceEnvFlags flags) {
+char* strv_env_get_n(char * const *l, const char *name, size_t k, ReplaceEnvFlags flags) {
         assert(name);
 
         if (k == SIZE_MAX)
-                k = strlen_ptr(name);
+                k = strlen(name);
         if (k <= 0)
                 return NULL;
 
         STRV_FOREACH_BACKWARDS(i, l)
-                if (strneq(*i, name, k) &&
-                    (*i)[k] == '=')
-                        return *i + k + 1;
+                if (strneq(*i, name, k) && (*i)[k] == '=')
+                        return (char*) *i + k + 1;
 
         if (flags & REPLACE_ENV_USE_ENVIRONMENT) {
                 const char *t;
