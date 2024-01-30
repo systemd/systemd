@@ -91,6 +91,41 @@ int xdg_user_data_dir(char **ret, const char *suffix) {
         return 1;
 }
 
+int runtime_directory(char **ret, const char *suffix) {
+        int r;
+        bool apply_suffix = true;
+        _cleanup_free_ char *d = NULL;
+
+        assert(ret);
+        assert(suffix);
+
+        /* Accept $RUNTIME_DIRECTORY as authoritative
+         * If its missing apply the suffix to /run or $XDG_RUNTIME_DIR
+         * depending on whether are root or a regular user.
+         *
+         * Return value indicates whether the suffix was applied or not */
+
+        const char *e = getenv("RUNTIME_DIRECTORY");
+        if (e) {
+                d = strdup(e);
+                apply_suffix = false;
+        } else if (getuid() == 0)
+                d = strdup("/run");
+        else {
+                r = xdg_user_runtime_dir(&d, "");
+                if (r < 0)
+                        return r;
+        }
+        if (!d)
+                return -ENOMEM;
+
+        if (apply_suffix && !path_extend(&d, suffix))
+                return -ENOMEM;
+
+        *ret = TAKE_PTR(d);
+        return apply_suffix;
+}
+
 static const char* const user_data_unit_paths[] = {
         "/usr/local/lib/systemd/user",
         "/usr/local/share/systemd/user",
