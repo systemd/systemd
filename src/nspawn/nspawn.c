@@ -1255,33 +1255,11 @@ static int parse_argv(int argc, char *argv[]) {
                                 arg_uid_shift = 0;
                                 arg_uid_range = UINT32_C(0x10000);
                         } else {
-                                _cleanup_free_ char *buffer = NULL;
-                                const char *range, *shift;
-
                                 /* anything else: User namespacing on, UID range is explicitly configured */
-
-                                range = strchr(optarg, ':');
-                                if (range) {
-                                        buffer = strndup(optarg, range - optarg);
-                                        if (!buffer)
-                                                return log_oom();
-                                        shift = buffer;
-
-                                        range++;
-                                        r = safe_atou32(range, &arg_uid_range);
-                                        if (r < 0)
-                                                return log_error_errno(r, "Failed to parse UID range \"%s\": %m", range);
-                                } else
-                                        shift = optarg;
-
-                                r = parse_uid(shift, &arg_uid_shift);
+                                r = parse_userns_uid_range(optarg, &arg_uid_shift, &arg_uid_range);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to parse UID \"%s\": %m", optarg);
-
+                                        return r;
                                 arg_userns_mode = USER_NAMESPACE_FIXED;
-
-                                if (!userns_shift_range_valid(arg_uid_shift, arg_uid_range))
-                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID range cannot be empty or go beyond " UID_FMT ".", UID_INVALID);
                         }
 
                         arg_settings_mask |= SETTING_USERNS;
