@@ -3052,9 +3052,11 @@ static int determine_names(void) {
         }
 
         if (!arg_machine) {
-                if (arg_directory && path_equal(arg_directory, "/"))
+                if (arg_directory && path_equal(arg_directory, "/")) {
                         arg_machine = gethostname_malloc();
-                else if (arg_image) {
+                        if (!arg_machine)
+                                return log_oom();
+                } else if (arg_image) {
                         char *e;
 
                         r = path_extract_filename(arg_image, &arg_machine);
