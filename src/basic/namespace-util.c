@@ -11,6 +11,7 @@
 #include "missing_magic.h"
 #include "missing_sched.h"
 #include "namespace-util.h"
+#include "parse-util.h"
 #include "process-util.h"
 #include "stat-util.h"
 #include "stdio-util.h"
@@ -304,4 +305,42 @@ int in_same_namespace(pid_t pid1, pid_t pid2, NamespaceType type) {
                 return -errno;
 
         return stat_inode_same(&ns_st1, &ns_st2);
+}
+
+int parse_userns_uid_range(const char *s, uid_t *ret_uid_shift, uid_t *ret_uid_range) {
+        _cleanup_free_ char *buffer = NULL;
+        const char *range, *shift;
+        int r;
+        uid_t uid_shift, uid_range = 65536;
+
+        assert(s);
+
+        range = strchr(s, ':');
+        if (range) {
+                buffer = strndup(s, range - s);
+                if (!buffer)
+                        return log_oom();
+                shift = buffer;
+
+                range++;
+                r = safe_atou32(range, &uid_range);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to parse UID range \"%s\": %m", range);
+        } else
+                shift = s;
+
+        r = parse_uid(shift, &uid_shift);
+        if (r < 0)
+                return log_error_errno(r, "Failed to parse UID \"%s\": %m", s);
+
+        if (!userns_shift_range_valid(uid_shift, uid_range))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "UID range cannot be empty or go beyond " UID_FMT ".", UID_INVALID);
+
+        if (ret_uid_shift)
+                *ret_uid_shift = uid_shift;
+
+        if (ret_uid_range)
+                *ret_uid_range = uid_range;
+
+        return 0;
 }
