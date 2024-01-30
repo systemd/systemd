@@ -378,7 +378,13 @@ static int slice_freezer_action(Unit *s, FreezerAction action) {
         }
 
         UNIT_FOREACH_DEPENDENCY(member, s, UNIT_ATOM_SLICE_OF) {
-                if (!member->cgroup_realized)
+                CGroupRuntime *crt;
+
+                crt = unit_get_cgroup_runtime(member);
+                if (!crt)
+                        continue;
+
+                if (!crt->cgroup_realized)
                         continue;
 
                 if (action == FREEZER_FREEZE)
@@ -416,6 +422,7 @@ static bool slice_can_freeze(Unit *s) {
 const UnitVTable slice_vtable = {
         .object_size = sizeof(Slice),
         .cgroup_context_offset = offsetof(Slice, cgroup_context),
+        .cgroup_runtime_offset = offsetof(Slice, cgroup_runtime),
 
         .sections =
                 "Unit\0"
