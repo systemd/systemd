@@ -9,28 +9,13 @@
 #include "fileio.h"
 #include "kmod-setup.h"
 #include "macro.h"
+#include "module-util.h"
 #include "recurse-dir.h"
 #include "string-util.h"
 #include "strv.h"
 #include "virt.h"
 
 #if HAVE_KMOD
-#include "module-util.h"
-
-static void systemd_kmod_log(
-                void *data,
-                int priority,
-                const char *file, int line,
-                const char *fn,
-                const char *format,
-                va_list args) {
-
-        /* library logging is enabled at debug only */
-        DISABLE_WARNING_FORMAT_NONLITERAL;
-        log_internalv(LOG_DEBUG, 0, file, line, fn, format, args);
-        REENABLE_WARNING;
-}
-
 static int match_modalias_recurse_dir_cb(
                 RecurseDirEvent event,
                 const char *path,
@@ -166,8 +151,10 @@ int kmod_setup(void) {
                 { "tpm",                        "/sys/class/tpmrm",          false, false, efi_has_tpm2       },
 #endif
         };
-        _cleanup_(kmod_unrefp) struct kmod_ctx *ctx = NULL;
-        unsigned i;
+
+        _cleanup_(sym_kmod_unrefp) struct kmod_ctx *ctx = NULL;
+        size_t i;
+        int r;
 
         if (have_effective_cap(CAP_SYS_MODULE) <= 0)
                 return 0;
@@ -185,12 +172,9 @@ int kmod_setup(void) {
                                   "this by loading the module...", kmod_table[i].module);
 
                 if (!ctx) {
-                        ctx = kmod_new(NULL, NULL);
-                        if (!ctx)
-                                return log_oom();
-
-                        kmod_set_log_fn(ctx, systemd_kmod_log, NULL);
-                        kmod_load_resources(ctx);
+                        r = module_setup_context(&ctx);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to initialize kmod context: %m");
                 }
 
                 (void) module_load_and_warn(ctx, kmod_table[i].module, kmod_table[i].warn_if_unavailable);
