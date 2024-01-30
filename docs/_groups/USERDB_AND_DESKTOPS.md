@@ -21,10 +21,10 @@ are recommended. A few areas where that applies are discussed below.
 
 Before reading on, please read up on the basic concepts, specifically:
 
-* [Home Directories](HOME_DIRECTORY.md)
-* [JSON User Records](USER_RECORD.md)
-* [JSON Group Records](GROUP_RECORD.md)
-* [User/Group Record Lookup API via Varlink](USER_GROUP_API.md)
+* [Home Directories](HOME_DIRECTORY)
+* [JSON User Records](USER_RECORD)
+* [JSON Group Records](GROUP_RECORD)
+* [User/Group Record Lookup API via Varlink](USER_GROUP_API)
 
 ## Support for Suspending Home Directory Access during System Suspend
 
@@ -147,7 +147,7 @@ solution only.
 In case you wonder, there's no automatic mechanism for converting existing
 users registered in `/etc/passwd` or LDAP to users managed by
 `systemd-homed`. There's documentation for doing this manually though, see
-[Converting Existing Users to systemd-homed managed Users](CONVERTING_TO_HOMED.md).
+[Converting Existing Users to systemd-homed managed Users](CONVERTING_TO_HOMED).
 
 ## Future Additions
 
