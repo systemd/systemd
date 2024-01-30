@@ -294,14 +294,12 @@ void print_separator(void) {
          * one line filled with spaces with ANSI underline set, followed by a second (empty) line. */
 
         if (underline_enabled()) {
-                size_t i, c;
-
-                c = columns();
+                size_t c = columns();
 
                 flockfile(stdout);
                 fputs_unlocked(ANSI_UNDERLINE, stdout);
 
-                for (i = 0; i < c; i++)
+                for (size_t i = 0; i < c; i++)
                         fputc_unlocked(' ', stdout);
 
                 fputs_unlocked(ANSI_NORMAL "\n\n", stdout);
@@ -350,24 +348,17 @@ static int guess_type(const char **name, char ***prefixes, bool *is_collection, 
 
         if (path_equal(n, "udev/hwdb.d"))
                 ext = ".hwdb";
-
-        if (path_equal(n, "udev/rules.d"))
+        else if (path_equal(n, "udev/rules.d"))
                 ext = ".rules";
-
-        if (path_equal(n, "kernel/install.d"))
+        else if (path_equal(n, "kernel/install.d"))
                 ext = ".install";
-
-        if (path_equal(n, "systemd/ntp-units.d")) {
+        else if (path_equal(n, "systemd/ntp-units.d")) {
                 coll = true;
                 ext = ".list";
-        }
-
-        if (path_equal(n, "systemd/relabel-extra.d")) {
+        } else if (path_equal(n, "systemd/relabel-extra.d")) {
                 coll = run = true;
                 ext = ".relabel";
-        }
-
-        if (PATH_IN_SET(n, "systemd/system-preset", "systemd/user-preset")) {
+        } else if (PATH_IN_SET(n, "systemd/system-preset", "systemd/user-preset")) {
                 coll = true;
                 ext = ".preset";
         }
