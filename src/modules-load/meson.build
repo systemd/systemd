@@ -5,7 +5,7 @@ executables += [
                 'name' : 'systemd-modules-load',
                 'conditions' : ['HAVE_KMOD'],
                 'sources' : files('modules-load.c'),
-                'dependencies' : libkmod,
+                'dependencies' : libkmod_cflags,
         },
 ]
 
