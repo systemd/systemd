@@ -335,7 +335,7 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-netlink-manual.c'),
-                'dependencies' : libkmod,
+                'dependencies' : libkmod_cflags,
                 'conditions' : ['HAVE_KMOD'],
                 'type' : 'manual',
         },
