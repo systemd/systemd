@@ -6,6 +6,44 @@
 #include "proc-cmdline.h"
 #include "strv.h"
 
+#if HAVE_KMOD
+
+static void *libkmod_dl = NULL;
+
+DLSYM_FUNCTION(kmod_list_next);
+DLSYM_FUNCTION(kmod_load_resources);
+DLSYM_FUNCTION(kmod_module_get_initstate);
+DLSYM_FUNCTION(kmod_module_get_module);
+DLSYM_FUNCTION(kmod_module_get_name);
+DLSYM_FUNCTION(kmod_module_new_from_lookup);
+DLSYM_FUNCTION(kmod_module_probe_insert_module);
+DLSYM_FUNCTION(kmod_module_unref);
+DLSYM_FUNCTION(kmod_module_unref_list);
+DLSYM_FUNCTION(kmod_new);
+DLSYM_FUNCTION(kmod_set_log_fn);
+DLSYM_FUNCTION(kmod_unref);
+DLSYM_FUNCTION(kmod_validate_resources);
+
+int dlopen_libkmod(void) {
+        return dlopen_many_sym_or_warn(
+                        &libkmod_dl,
+                        "libkmod.so.2",
+                        LOG_DEBUG,
+                        DLSYM_ARG(kmod_list_next),
+                        DLSYM_ARG(kmod_load_resources),
+                        DLSYM_ARG(kmod_module_get_initstate),
+                        DLSYM_ARG(kmod_module_get_module),
+                        DLSYM_ARG(kmod_module_get_name),
+                        DLSYM_ARG(kmod_module_new_from_lookup),
+                        DLSYM_ARG(kmod_module_probe_insert_module),
+                        DLSYM_ARG(kmod_module_unref),
+                        DLSYM_ARG(kmod_module_unref_list),
+                        DLSYM_ARG(kmod_new),
+                        DLSYM_ARG(kmod_set_log_fn),
+                        DLSYM_ARG(kmod_unref),
+                        DLSYM_ARG(kmod_validate_resources));
+}
+
 static int denylist_modules(const char *p, char ***denylist) {
         _cleanup_strv_free_ char **k = NULL;
         int r;
@@ -41,19 +79,21 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
 }
 
 int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose) {
-        const int probe_flags = KMOD_PROBE_APPLY_BLACKLIST;
-        struct kmod_list *itr;
-        _cleanup_(kmod_module_unref_listp) struct kmod_list *modlist = NULL;
+        _cleanup_(sym_kmod_module_unref_listp) struct kmod_list *modlist = NULL;
         _cleanup_strv_free_ char **denylist = NULL;
         bool denylist_parsed = false;
+        struct kmod_list *itr;
         int r;
+
+        assert(ctx);
+        assert(module);
 
         /* verbose==true means we should log at non-debug level if we
          * fail to find or load the module. */
 
         log_debug("Loading module: %s", module);
 
-        r = kmod_module_new_from_lookup(ctx, module, &modlist);
+        r = sym_kmod_module_new_from_lookup(ctx, module, &modlist);
         if (r < 0)
                 return log_full_errno(verbose ? LOG_ERR : LOG_DEBUG, r,
                                       "Failed to look up module alias '%s': %m", module);
@@ -63,32 +103,37 @@ int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose)
                                       SYNTHETIC_ERRNO(ENOENT),
                                       "Failed to find module '%s'", module);
 
-        kmod_list_foreach(itr, modlist) {
-                _cleanup_(kmod_module_unrefp) struct kmod_module *mod = NULL;
+        sym_kmod_list_foreach(itr, modlist) {
+                _cleanup_(sym_kmod_module_unrefp) struct kmod_module *mod = NULL;
                 int state, err;
 
-                mod = kmod_module_get_module(itr);
-                state = kmod_module_get_initstate(mod);
+                mod = sym_kmod_module_get_module(itr);
+                state = sym_kmod_module_get_initstate(mod);
 
                 switch (state) {
                 case KMOD_MODULE_BUILTIN:
                         log_full(verbose ? LOG_INFO : LOG_DEBUG,
-                                 "Module '%s' is built in", kmod_module_get_name(mod));
+                                 "Module '%s' is built in", sym_kmod_module_get_name(mod));
                         break;
 
                 case KMOD_MODULE_LIVE:
-                        log_debug("Module '%s' is already loaded", kmod_module_get_name(mod));
+                        log_debug("Module '%s' is already loaded", sym_kmod_module_get_name(mod));
                         break;
 
                 default:
-                        err = kmod_module_probe_insert_module(mod, probe_flags,
-                                                              NULL, NULL, NULL, NULL);
+                        err = sym_kmod_module_probe_insert_module(
+                                        mod,
+                                        KMOD_PROBE_APPLY_BLACKLIST,
+                                        /* extra_options= */ NULL,
+                                        /* run_install= */ NULL,
+                                        /* data= */ NULL,
+                                        /* print_action= */ NULL);
                         if (err == 0)
                                 log_full(verbose ? LOG_INFO : LOG_DEBUG,
-                                         "Inserted module '%s'", kmod_module_get_name(mod));
+                                         "Inserted module '%s'", sym_kmod_module_get_name(mod));
                         else if (err == KMOD_PROBE_APPLY_BLACKLIST)
                                 log_full(verbose ? LOG_INFO : LOG_DEBUG,
-                                         "Module '%s' is deny-listed (by kmod)", kmod_module_get_name(mod));
+                                         "Module '%s' is deny-listed (by kmod)", sym_kmod_module_get_name(mod));
                         else {
                                 assert(err < 0);
 
@@ -102,9 +147,9 @@ int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose)
 
                                                 denylist_parsed = true;
                                         }
-                                        if (strv_contains(denylist, kmod_module_get_name(mod))) {
+                                        if (strv_contains(denylist, sym_kmod_module_get_name(mod))) {
                                                 log_full(verbose ? LOG_INFO : LOG_DEBUG,
-                                                         "Module '%s' is deny-listed (by kernel)", kmod_module_get_name(mod));
+                                                         "Module '%s' is deny-listed (by kernel)", sym_kmod_module_get_name(mod));
                                                 continue;
                                         }
                                 }
@@ -115,7 +160,7 @@ int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose)
                                                                 LOG_ERR,
                                                err,
                                                "Failed to insert module '%s': %m",
-                                               kmod_module_get_name(mod));
+                                               sym_kmod_module_get_name(mod));
                                 if (!IN_SET(err, -ENODEV, -ENOENT))
                                         r = err;
                         }
@@ -124,3 +169,38 @@ int module_load_and_warn(struct kmod_ctx *ctx, const char *module, bool verbose)
 
         return r;
 }
+
+_printf_(6,0) static void systemd_kmod_log(
+                void *data,
+                int priority,
+                const char *file,
+                int line,
+                const char *fn,
+                const char *format,
+                va_list args) {
+
+        log_internalv(priority, 0, file, line, fn, format, args);
+}
+
+int module_setup_context(struct kmod_ctx **ret) {
+        _cleanup_(sym_kmod_unrefp) struct kmod_ctx *ctx = NULL;
+        int r;
+
+        assert(ret);
+
+        r = dlopen_libkmod();
+        if (r < 0)
+                return r;
+
+        ctx = sym_kmod_new(NULL, NULL);
+        if (!ctx)
+                return -ENOMEM;
+
+        (void) sym_kmod_load_resources(ctx);
+        sym_kmod_set_log_fn(ctx, systemd_kmod_log, NULL);
+
+        *ret = TAKE_PTR(ctx);
+        return 0;
+}
+
+#endif
