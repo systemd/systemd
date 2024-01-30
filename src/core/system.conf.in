@@ -29,6 +29,7 @@
 #CrashReboot=no
 #CtrlAltDelBurstAction=reboot-force
 #CPUAffinity=
+#AllowedCPUs=
 #NUMAPolicy=default
 #NUMAMask=
 #RuntimeWatchdogSec=off

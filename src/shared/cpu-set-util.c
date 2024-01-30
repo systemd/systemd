@@ -133,6 +133,28 @@ int cpu_set_add_all(CPUSet *a, const CPUSet *b) {
         return 1;
 }
 
+int cpu_set_copy(CPUSet *dst, CPUSet *src) {
+        cpu_set_t *t;
+
+        assert(src);
+        assert(dst);
+
+        if(src->set == NULL || src->allocated == 0)
+                return -EFAULT;
+
+        /* ensure src and dst are the same size */
+        t = realloc(dst->set, src->allocated);
+        if (!t)
+                return -ENOMEM;
+
+        dst->set = t;
+        dst->allocated = src->allocated;
+
+        memcpy(dst->set, src->set, dst->allocated);
+
+        return 0;
+}
+
 int parse_cpu_set_full(
                 const char *rvalue,
                 CPUSet *cpu_set,
