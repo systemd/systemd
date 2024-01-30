@@ -208,6 +208,7 @@ sshdconfdir = get_option('sshdconfdir')
 if sshdconfdir == ''
         sshdconfdir = sysconfdir / 'ssh/sshd_config.d'
 endif
+conf.set10('ENABLE_SSH_PROXY_CONFIG', sshconfdir != 'no')
 
 libcryptsetup_plugins_dir = get_option('libcryptsetup-plugins-dir')
 if libcryptsetup_plugins_dir == ''
