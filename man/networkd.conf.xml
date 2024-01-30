@@ -37,9 +37,7 @@
   <refsect1>
     <title>Description</title>
 
-    <para>These configuration files control global network parameters.
-    Currently the DHCP Unique Identifier (DUID).</para>
-
+    <para>These configuration files control global network parameters.</para>
   </refsect1>
 
   <xi:include href="standard-conf.xml" xpointer="main-conf" />
