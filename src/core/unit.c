@@ -1676,6 +1676,9 @@ static int unit_validate_on_failure_job_mode(
 
 int unit_load(Unit *u) {
         int r;
+        CGroupContext *cc;
+        _cleanup_free_ char *unit_cgroup_path = NULL;
+
 
         assert(u);
 
@@ -1740,6 +1743,23 @@ int unit_load(Unit *u) {
 
                 /* We finished loading, let's ensure our parents recalculate the members mask */
                 unit_invalidate_cgroup_members_masks(u);
+        }
+
+        /* For top-level cgroups, if not set during loading, restrict allowed CPUs based on manager value */
+        if(u->manager->defaults.allowed_cpus.allocated > 0 && UNIT_HAS_CGROUP_CONTEXT(u)) {
+                cc = unit_get_cgroup_context(u);
+                if(!cc)
+                        goto fail;
+
+                if(cc->cpuset_cpus.allocated == 0) {
+                        r = unit_default_cgroup_path(u, &unit_cgroup_path);
+                        if (r < 0 || unit_cgroup_path == NULL)
+                                goto fail;
+
+                        /* All top-level cgroups should have only one leading slash */
+                        if(strchr(&unit_cgroup_path[1], '/') == NULL)
+                                cpu_set_copy(&cc->cpuset_cpus, &u->manager->defaults.allowed_cpus);
+                }
         }
 
         assert((u->load_state != UNIT_MERGED) == !u->merged_into);
