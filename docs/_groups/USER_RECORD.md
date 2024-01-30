@@ -15,7 +15,7 @@ pairs, encoded as JSON. Specifically:
 1. [`systemd-homed.service`](https://www.freedesktop.org/software/systemd/man/systemd-homed.service.html)
    manages `human` user home directories and embeds these JSON records
    directly in the home directory images
-   (see [Home Directories](HOME_DIRECTORY.md) for details).
+   (see [Home Directories](HOME_DIRECTORY) for details).
 
 2. [`pam_systemd`](https://www.freedesktop.org/software/systemd/man/pam_systemd.html)
    processes these JSON records for users that log in, and applies various
@@ -72,11 +72,11 @@ the following extensions are envisioned:
 4. Default parameters for backup applications and similar
 
 Similar to JSON User Records there are also
-[JSON Group Records](GROUP_RECORD.md) that encapsulate UNIX groups.
+[JSON Group Records](GROUP_RECORD) that encapsulate UNIX groups.
 
 JSON User Records may be transferred or written to disk in various protocols
 and formats. To inquire about such records defined on the local system use the
-[User/Group Lookup API via Varlink](USER_GROUP_API.md). User/group records may
+[User/Group Lookup API via Varlink](USER_GROUP_API). User/group records may
 also be dropped in number of drop-in directories as files. See
 [`nss-systemd(8)`](https://www.freedesktop.org/software/systemd/man/nss-systemd.html)
 for details.
@@ -214,7 +214,7 @@ object. The following fields are currently defined:
 UNIX user name. This field is the only mandatory field, all others are
 optional. Corresponds with the `pw_name` field of `struct passwd` and the
 `sp_namp` field of `struct spwd` (i.e. the shadow user record stored in
-`/etc/shadow`). See [User/Group Name Syntax](USER_NAMES.md) for
+`/etc/shadow`). See [User/Group Name Syntax](USER_NAMES) for
 the (relaxed) rules the various systemd components enforce on user/group names.
 
 `realm` → The "realm" a user is defined in. This concept allows distinguishing

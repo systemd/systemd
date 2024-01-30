@@ -59,7 +59,7 @@ purpose. Specifically, the following features are provided:
 8. Credentials are an effective way to pass parameters into services that run
    with `RootImage=` or `RootDirectory=` and thus cannot read these resources
    directly from the host directory tree.
-   Specifically, [Portable Services](PORTABLE_SERVICES.md) may be
+   Specifically, [Portable Services](PORTABLE_SERVICES) may be
    parameterized this way securely and robustly.
 
 9. Credentials can be binary and relatively large (though currently an overall
@@ -288,7 +288,7 @@ services where they are ultimately consumed.
    invokes. [`systemd-nspawn(1)`](https://www.freedesktop.org/software/systemd/man/systemd-nspawn.html#Credentials)'s
    `--set-credential=` and `--load-credential=` switches implement this, in
    order to pass arbitrary credentials from host to container payload. Also see
-   the [Container Interface](CONTAINER_INTERFACE.md) documentation.
+   the [Container Interface](CONTAINER_INTERFACE) documentation.
 
 2. Quite similar, VMs can be passed credentials via SMBIOS OEM strings (example
    qemu command line switch `-smbios

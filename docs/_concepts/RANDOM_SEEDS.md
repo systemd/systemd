@@ -384,7 +384,7 @@ This primarily leaves two kind of systems in the cold:
     for an introduction why. That said, any boot loader can re-implement the
     logic described above, and can pass a random seed that systemd as PID 1
     will then upload into the kernel's entropy pool. For details see the
-    [Boot Loader Interface](BOOT_LOADER_INTERFACE.md) documentation.
+    [Boot Loader Interface](BOOT_LOADER_INTERFACE) documentation.
 
 11. *Why not pass the boot loader random seed via kernel command line instead
     of as EFI variable?*
