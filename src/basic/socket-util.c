@@ -930,13 +930,15 @@ int getpeersec(int fd, char **ret) {
 }
 
 int getpeergroups(int fd, gid_t **ret) {
+        socklen_t n = sizeof(gid_t) * 64U;
         _cleanup_free_ gid_t *d = NULL;
 
         assert(fd >= 0);
         assert(ret);
 
         long ngroups_max = sysconf(_SC_NGROUPS_MAX);
-        socklen_t n = sizeof(gid_t) * MAX((socklen_t) ngroups_max, 64U);
+        if (ngroups_max > 0)
+                n = MAX(n, sizeof(gid_t) * (socklen_t) ngroups_max);
 
         for (;;) {
                 d = malloc(n);
