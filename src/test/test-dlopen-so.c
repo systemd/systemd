@@ -12,6 +12,7 @@
 #include "libfido2-util.h"
 #include "macro.h"
 #include "main-func.h"
+#include "module-util.h"
 #include "password-quality-util-passwdqc.h"
 #include "password-quality-util-pwquality.h"
 #include "pcre2-util.h"
@@ -86,6 +87,10 @@ static int run(int argc, char **argv) {
 
 #if HAVE_XZ
         assert_se(dlopen_lzma() >= 0);
+#endif
+
+#if HAVE_KMOD
+        assert_se(dlopen_libkmod() >= 0);
 #endif
 
         return 0;
