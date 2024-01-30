@@ -508,7 +508,7 @@ static int execute_s2h(const SleepConfig *sleep_config) {
 
                 r = check_wakeup_type();
                 if (r < 0)
-                        return log_debug_errno(r, "Failed to check hardware wakeup type: %m");
+                        return log_error_errno(r, "Failed to check hardware wakeup type: %m");
 
                 if (r == 0)
                         /* For APM Timer wakeup, system should hibernate else wakeup */
