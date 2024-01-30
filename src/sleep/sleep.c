@@ -233,7 +233,7 @@ static int execute(
         /* This file is opened first, so that if we hit an error, we can abort before modifying any state. */
         state_fd = open("/sys/power/state", O_WRONLY|O_CLOEXEC);
         if (state_fd < 0)
-                return -errno;
+                return log_error_errno(errno, "Failed to open /sys/power/state: %m");
 
         /* Configure hibernation settings if we are supposed to hibernate */
         if (sleep_operation_is_hibernation(operation)) {
