@@ -800,8 +800,7 @@ const UnitVTable scope_vtable = {
         .start = scope_start,
         .stop = scope_stop,
 
-        .freeze = unit_freeze_vtable_common,
-        .thaw = unit_thaw_vtable_common,
+        .freezer_action = unit_cgroup_freezer_action,
 
         .get_timeout = scope_get_timeout,
 
