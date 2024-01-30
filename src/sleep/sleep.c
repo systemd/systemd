@@ -437,15 +437,13 @@ static int custom_timer_suspend(const SleepConfig *sleep_config) {
                         if (r < 0)
                                 log_warning_errno(r, "Failed to estimate and update battery discharge rate, ignoring: %m");
                 } else
-                        log_debug("System woke up too early to estimate discharge rate");
+                        log_debug("System woke up too early to estimate discharge rate.");
 
                 if (!woken_by_timer)
                         /* Return as manual wakeup done. This also will return in case battery was charged during suspension */
                         return 0;
 
                 r = check_wakeup_type();
-                if (r < 0)
-                        log_debug_errno(r, "Failed to check hardware wakeup type, ignoring: %m");
                 if (r > 0) {
                         log_debug("wakeup type is APM timer");
                         /* system should hibernate */
