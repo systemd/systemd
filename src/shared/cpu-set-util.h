@@ -22,6 +22,9 @@ static inline void cpu_set_reset(CPUSet *a) {
 int cpu_set_add_all(CPUSet *a, const CPUSet *b);
 int cpu_set_add(CPUSet *a, unsigned cpu);
 
+int cpu_set_copy(CPUSet *dst, const CPUSet *src);
+bool cpu_set_is_empty(const CPUSet *cpu_set);
+
 char* cpu_set_to_string(const CPUSet *a);
 char *cpu_set_to_range_string(const CPUSet *a);
 int cpu_set_realloc(CPUSet *cpu_set, unsigned ncpus);
