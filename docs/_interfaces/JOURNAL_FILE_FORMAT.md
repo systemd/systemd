@@ -46,7 +46,7 @@ _Or, to put this in other words: this low-level document is probably not what
 you want to use as base of your project. You want our [C
 API](https://www.freedesktop.org/software/systemd/man/sd-journal.html) instead!
 And if you really don't want the C API, then you want the
-[Journal Export Format or Journal JSON Format](JOURNAL_EXPORT_FORMATS.md)
+[Journal Export Format or Journal JSON Format](JOURNAL_EXPORT_FORMATS)
 instead! This document is primarily for your entertainment and education.
 Thank you!_
 
