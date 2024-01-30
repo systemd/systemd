@@ -265,7 +265,10 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-dlopen-so.c'),
-                'dependencies' : libp11kit_cflags
+                'dependencies' : [
+                        libp11kit_cflags,
+                        libkmod_cflags,
+                ],
         },
         test_template + {
                 # only static linking apart from libdl, to make sure that the
@@ -335,7 +338,7 @@ executables += [
         },
         test_template + {
                 'sources' : files('test-netlink-manual.c'),
-                'dependencies' : libkmod,
+                'dependencies' : libkmod_cflags,
                 'conditions' : ['HAVE_KMOD'],
                 'type' : 'manual',
         },
