@@ -261,6 +261,29 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>link-volume-key=</option></term>
+
+        <listitem><para>Specifies the kernel keyring and key description
+        (see <citerefentry project='man-pages'><refentrytitle>keyrings</refentrytitle><manvolnum>7</manvolnum></citerefentry>)
+        where LUKS2 volume key gets linked during device activation. The kernel keyring
+        description and key description must be separated by <literal>::</literal>.</para>
+
+        <para>The kernel keyring part can be a string description or a predefined
+        kernel keyring prefixed with <literal>@</literal> (e.g.: to use <literal>@s</literal> session or
+        <literal>@u</literal> user keyring directly). The type prefix text in the kernel keyring description
+        is not required. The specified kernel keyring must already exist at the time of device activation.</para>
+
+        <para>The key part is a string description optionally prefixed by a <literal>%key_type:</literal>.
+        If no type is specified, the <literal>user</literal> type key is linked by default. See
+        <citerefentry project='man-pages'><refentrytitle>keyctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for more information on key descriptions (KEY IDENTIFIERS section).</para>
+
+        <para>Note that the linked volume key is not cleaned up automatically when the device is detached.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>luks</option></term>
 
         <listitem><para>Force LUKS mode. When this mode is used, the
