@@ -1867,10 +1867,18 @@ static int cgroup_good(Service *s) {
 
 static bool service_shall_restart(Service *s, const char **reason) {
         assert(s);
+        assert(reason);
 
         /* Don't restart after manual stops */
         if (s->forbid_restart) {
                 *reason = "manual stop";
+                return false;
+        }
+
+        /* Don't allow Type=oneshot services to restart on success. Note that Restart=always/on-success
+         * is already rejected in service_verify */
+        if (s->type == SERVICE_ONESHOT && s->result == SERVICE_SUCCESS) {
+                *reason = "service type and exit status";
                 return false;
         }
 
