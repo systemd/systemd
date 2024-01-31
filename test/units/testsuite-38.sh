@@ -105,7 +105,14 @@ check_freezer_state() {
 }
 
 check_cgroup_state() {
-    grep -q "frozen $2" /sys/fs/cgroup/system.slice/"$1"/cgroup.events
+    # foo.unit -> /system.slice/foo.unit/
+    # foo.slice/ -> /foo.slice/./
+    # foo.slice/foo.unit -> /foo.slice/foo.unit/
+    local slice unit
+    unit="${1##*/}"
+    slice="${1%"$unit"}"
+    slice="${slice%/}"
+    grep -q "frozen $2" /sys/fs/cgroup/"${slice:-system.slice}"/"${unit:-.}"/cgroup.events
 }
 
 testcase_dbus_api() {
@@ -137,31 +144,6 @@ testcase_dbus_api() {
     echo -n "  - CanFreeze(): "
     output=$(dbus_can_freeze "${unit}")
     [ "$output" = "b true" ]
-    echo "[ OK ]"
-
-    echo
-}
-
-testcase_jobs() {
-    local pid_before=
-    local pid_after=
-    echo "Test that it is possible to apply jobs on frozen units:"
-
-    systemctl start "${unit}"
-    dbus_freeze "${unit}"
-    check_freezer_state "${unit}" "frozen"
-
-    echo -n "  - restart: "
-    pid_before=$(systemctl show -p MainPID "${unit}" --value)
-    systemctl restart "${unit}"
-    pid_after=$(systemctl show -p MainPID "${unit}" --value)
-    [ "$pid_before" != "$pid_after" ] && echo "[ OK ]"
-
-    dbus_freeze "${unit}"
-    check_freezer_state "${unit}" "frozen"
-
-    echo -n "  - stop: "
-    timeout 5s systemctl stop "${unit}"
     echo "[ OK ]"
 
     echo
@@ -224,21 +206,100 @@ testcase_recursive() {
 
     echo "Test recursive freezing:"
 
-    echo -n "  - freeze: "
+    echo -n "  - freeze/thaw parent: "
     systemctl freeze "$slice"
-    check_freezer_state "${slice}" "frozen"
-    check_freezer_state "${unit}" "frozen"
-    grep -q "frozen 1" /sys/fs/cgroup/"${slice}"/cgroup.events
-    grep -q "frozen 1" /sys/fs/cgroup/"${slice}"/"${unit}"/cgroup.events
+    check_freezer_state "$slice" "frozen"
+    check_freezer_state "$unit" "frozen-by-parent"
+    check_cgroup_state "$slice/" 1
+    check_cgroup_state "$slice/$unit" 1
+    systemctl thaw "$slice"
+    check_freezer_state "$slice" "running"
+    check_freezer_state "$unit" "running"
+    check_cgroup_state "$slice/" 0
+    check_cgroup_state "$slice/$unit" 0
     echo "[ OK ]"
 
-    echo -n "  - thaw: "
+    echo -n "  - child freeze/thaw during frozen parent: "
+    systemctl freeze "$slice"
+    check_freezer_state "$slice" "frozen"
+    check_freezer_state "$unit" "frozen-by-parent"
+    check_cgroup_state "$slice/" 1
+    check_cgroup_state "$slice/$unit" 1
+    systemctl freeze "$unit"
+    check_freezer_state "$slice" "frozen"
+    check_freezer_state "$unit" "frozen"
+    check_cgroup_state "$slice/" 1
+    check_cgroup_state "$slice/$unit" 1
+    systemctl thaw "$unit"
+    check_freezer_state "$slice" "frozen"
+    check_freezer_state "$unit" "frozen-by-parent"
+    check_cgroup_state "$slice/" 1
+    check_cgroup_state "$slice/$unit" 1
     systemctl thaw "$slice"
-    check_freezer_state "${unit}" "running"
-    check_freezer_state "${slice}" "running"
-    grep -q "frozen 0" /sys/fs/cgroup/"${slice}"/cgroup.events
-    grep -q "frozen 0" /sys/fs/cgroup/"${slice}"/"${unit}"/cgroup.events
+    check_freezer_state "$slice" "running"
+    check_freezer_state "$unit" "running"
+    check_cgroup_state "$slice/" 0
+    check_cgroup_state "$slice/$unit" 0
     echo "[ OK ]"
+
+    echo -n "  - pre-frozen child not thawed by parent: "
+    systemctl freeze "$unit"
+    check_freezer_state "$slice" "running"
+    check_freezer_state "$unit" "frozen"
+    check_cgroup_state "$slice/" 0
+    check_cgroup_state "$slice/$unit" 1
+    systemctl freeze "$slice"
+    check_freezer_state "$slice" "frozen"
+    check_freezer_state "$unit" "frozen"
+    check_cgroup_state "$slice/" 1
+    check_cgroup_state "$slice/$unit" 1
+    systemctl thaw "$slice"
+    check_freezer_state "$slice" "running"
+    check_freezer_state "$unit" "frozen"
+    check_cgroup_state "$slice/" 0
+    check_cgroup_state "$slice/$unit" 1
+    echo "[ OK ]"
+
+    echo -n "  - pre-frozen child demoted and thawed by parent: "
+    systemctl freeze "$slice"
+    check_freezer_state "$slice" "frozen"
+    check_freezer_state "$unit" "frozen"
+    check_cgroup_state "$slice/" 1
+    check_cgroup_state "$slice/$unit" 1
+    systemctl thaw "$unit"
+    check_freezer_state "$slice" "frozen"
+    check_freezer_state "$unit" "frozen-by-parent"
+    check_cgroup_state "$slice/" 1
+    check_cgroup_state "$slice/$unit" 1
+    systemctl thaw "$slice"
+    check_freezer_state "$slice" "running"
+    check_freezer_state "$unit" "running"
+    check_cgroup_state "$slice/" 0
+    check_cgroup_state "$slice/$unit" 0
+    echo "[ OK ]"
+
+    echo -n "  - child promoted and not thawed by parent: "
+    systemctl freeze "$slice"
+    check_freezer_state "$slice" "frozen"
+    check_freezer_state "$unit" "frozen-by-parent"
+    check_cgroup_state "$slice/" 1
+    check_cgroup_state "$slice/$unit" 1
+    systemctl freeze "$unit"
+    check_freezer_state "$slice" "frozen"
+    check_freezer_state "$unit" "frozen"
+    check_cgroup_state "$slice/" 1
+    check_cgroup_state "$slice/$unit" 1
+    systemctl thaw "$slice"
+    check_freezer_state "$slice" "running"
+    check_freezer_state "$unit" "frozen"
+    check_cgroup_state "$slice/" 0
+    check_cgroup_state "$slice/$unit" 1
+    echo "[ OK ]"
+
+    echo -n "  - can't stop a frozen unit: "
+    (! systemctl -q stop "$unit" )
+    echo "[ OK ]"
+    systemctl thaw "$unit"
 
     systemctl stop "$unit"
     systemctl stop "$slice"
@@ -255,38 +316,39 @@ testcase_preserve_state() {
     echo "Test that freezer state is preserved when recursive freezing is initiated from outside (e.g. by manager up the tree):"
 
     echo -n "  - freeze from outside: "
-    echo 1 >/sys/fs/cgroup/"${slice}"/cgroup.freeze
+    echo 1 >/sys/fs/cgroup/"$slice"/cgroup.freeze
     # Give kernel some time to freeze the slice
     sleep 1
 
     # Our state should not be affected
-    check_freezer_state "${slice}" "running"
-    check_freezer_state "${unit}" "running"
+    check_freezer_state "$slice" "running"
+    check_freezer_state "$unit" "running"
 
     # However actual kernel state should be frozen
-    grep -q "frozen 1" /sys/fs/cgroup/"${slice}"/cgroup.events
-    grep -q "frozen 1" /sys/fs/cgroup/"${slice}"/"${unit}"/cgroup.events
+    check_cgroup_state "$slice/" 1
+    check_cgroup_state "$slice/$unit" 1
     echo "[ OK ]"
 
     echo -n "  - thaw from outside: "
-    echo 0 >/sys/fs/cgroup/"${slice}"/cgroup.freeze
+    echo 0 >/sys/fs/cgroup/"$slice"/cgroup.freeze
     sleep 1
 
-    check_freezer_state "${unit}" "running"
-    check_freezer_state "${slice}" "running"
-    grep -q "frozen 0" /sys/fs/cgroup/"${slice}"/cgroup.events
-    grep -q "frozen 0" /sys/fs/cgroup/"${slice}"/"${unit}"/cgroup.events
+    check_freezer_state "$unit" "running"
+    check_freezer_state "$slice" "running"
+    check_cgroup_state "$slice/" 0
+    check_cgroup_state "$slice/$unit" 0
     echo "[ OK ]"
 
     echo -n "  - thaw from outside while inner service is frozen: "
     systemctl freeze "$unit"
-    check_freezer_state "${unit}" "frozen"
-    echo 1 >/sys/fs/cgroup/"${slice}"/cgroup.freeze
-    echo 0 >/sys/fs/cgroup/"${slice}"/cgroup.freeze
-    check_freezer_state "${slice}" "running"
-    check_freezer_state "${unit}" "frozen"
+    check_freezer_state "$unit" "frozen"
+    echo 1 >/sys/fs/cgroup/"$slice"/cgroup.freeze
+    echo 0 >/sys/fs/cgroup/"$slice"/cgroup.freeze
+    check_freezer_state "$slice" "running"
+    check_freezer_state "$unit" "frozen"
     echo "[ OK ]"
 
+    systemctl thaw "$unit"
     systemctl stop "$unit"
     systemctl stop "$slice"
 
