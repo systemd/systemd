@@ -34,6 +34,7 @@ typedef enum AnsiColorState  {
         ANSI_COLOR_STATE_ESC,
         ANSI_COLOR_STATE_CSI_SEQUENCE,
         ANSI_COLOR_STATE_NEWLINE,
+        ANSI_COLOR_STATE_CARRIAGE_RETURN,
         _ANSI_COLOR_STATE_MAX,
         _ANSI_COLOR_STATE_INVALID = -EINVAL,
 } AnsiColorState;
@@ -230,9 +231,7 @@ static char *background_color_sequence(PTYForward *f) {
         assert(f);
         assert(f->background_color);
 
-        /* This sets the background color to the desired one, and erase the rest of the line with it */
-
-        return strjoin("\x1B[", f->background_color, "m", ANSI_ERASE_TO_END_OF_LINE);
+        return strjoin("\x1B[", f->background_color, "m");
 }
 
 static int insert_string(PTYForward *f, size_t offset, const char *s) {
@@ -257,11 +256,32 @@ static int insert_string(PTYForward *f, size_t offset, const char *s) {
         return (int) l;
 }
 
-static int insert_erase_newline(PTYForward *f, size_t offset) {
+static int insert_newline_color_erase(PTYForward *f, size_t offset) {
         _cleanup_free_ char *s = NULL;
 
         assert(f);
         assert(f->background_color);
+
+        /* When we see a newline (ASCII 10) then this sets the background color to the desired one, and erase the rest
+         * of the line with it */
+
+        s = background_color_sequence(f);
+        if (!s)
+                return -ENOMEM;
+
+        if (!strextend(&s, ANSI_ERASE_TO_END_OF_LINE))
+                return -ENOMEM;
+
+        return insert_string(f, offset, s);
+}
+
+static int insert_carriage_return_color(PTYForward *f, size_t offset) {
+        _cleanup_free_ char *s = NULL;
+
+        assert(f);
+        assert(f->background_color);
+
+        /* When we see a carriage return (ASCII 13) this this sets only the background */
 
         s = background_color_sequence(f);
         if (!s)
@@ -369,31 +389,36 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                 switch (f->ansi_color_state) {
 
                 case ANSI_COLOR_STATE_TEXT:
-                        if (c == '\n')
-                                f->ansi_color_state = ANSI_COLOR_STATE_NEWLINE;
-                        if (c == 0x1B) /* ESC */
-                                f->ansi_color_state = ANSI_COLOR_STATE_ESC;
                         break;
 
                 case ANSI_COLOR_STATE_NEWLINE: {
                         /* Immediately after a newline insert an ANSI sequence to erase the line with a background color */
 
-                        r = insert_erase_newline(f, i);
+                        r = insert_newline_color_erase(f, i);
                         if (r < 0)
                                 return r;
 
                         i += r;
+                        break;
+                }
 
-                        f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
+                case ANSI_COLOR_STATE_CARRIAGE_RETURN: {
+                        /* Immediately after a carriage return insert an ANSI sequence set the background color back */
+
+                        r = insert_carriage_return_color(f, i);
+                        if (r < 0)
+                                return r;
+
+                        i += r;
                         break;
                 }
 
                 case ANSI_COLOR_STATE_ESC: {
 
-                        if (c == '[')
+                        if (c == '[') {
                                 f->ansi_color_state = ANSI_COLOR_STATE_CSI_SEQUENCE;
-                        else
-                                f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
+                                continue;
+                        }
 
                         break;
                 }
@@ -408,7 +433,7 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                                         /* Safety check: lets not accept unbounded CSI sequences */
 
                                         f->csi_sequence = mfree(f->csi_sequence);
-                                        f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
+                                        break;
                                 } else if (!strextend(&f->csi_sequence, CHAR_TO_STR(c)))
                                         return -ENOMEM;
                         } else {
@@ -427,12 +452,21 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
                                 f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
                         }
 
-                        break;
+                        continue;
                 }
 
                 default:
                         assert_not_reached();
                 }
+
+                if (c == '\n')
+                        f->ansi_color_state = ANSI_COLOR_STATE_NEWLINE;
+                else if (c == '\r')
+                        f->ansi_color_state = ANSI_COLOR_STATE_CARRIAGE_RETURN;
+                else if (c == 0x1B) /* ESC */
+                        f->ansi_color_state = ANSI_COLOR_STATE_ESC;
+                else
+                        f->ansi_color_state = ANSI_COLOR_STATE_TEXT;
         }
 
         return 0;
@@ -448,6 +482,9 @@ static int shovel(PTYForward *f) {
                 /* Erase the first line when we start */
                 f->out_buffer = background_color_sequence(f);
                 if (!f->out_buffer)
+                        return pty_forward_done(f, log_oom());
+
+                if (!strextend(&f->out_buffer, ANSI_ERASE_TO_END_OF_LINE))
                         return pty_forward_done(f, log_oom());
 
                 f->out_buffer_full = strlen(f->out_buffer);
