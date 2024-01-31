@@ -1021,12 +1021,15 @@
 
       <varlistentry>
         <term><varname>RestartForceExitStatus=</varname></term>
-        <listitem><para>Takes a list of exit status definitions that,
-        when returned by the main service process, will force automatic
-        service restarts, regardless of the restart setting configured
-        with <varname>Restart=</varname>. The argument format is
-        similar to
-        <varname>RestartPreventExitStatus=</varname>.</para>
+
+        <listitem><para>Takes a list of exit status definitions that, when returned by the main service
+        process, will force automatic service restarts, regardless of the restart setting configured with
+        <varname>Restart=</varname>. The argument format is similar to <varname>RestartPreventExitStatus=</varname>.
+        </para>
+
+        <para>Note that for <varname>Type=oneshot</varname> services, a success exit status will prevent
+        them from auto-restarting, no matter whether the corresponding exit statuses are listed in this
+        option or not.</para>
 
         <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
