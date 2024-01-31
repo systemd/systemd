@@ -337,6 +337,7 @@ Features:
   - systemd-analyze
   - systemd-pcrlock (to allow fwupd to relax policy)
   - kernel-install
+  - systemd-mount (with PK so that desktop environments could use it to mount disks)
 
 * in the service manager, pick up ERRNO= + BUSERROR= + VARLINKERROR= error
   identifiers, and store them along with the exit status of a server and report
