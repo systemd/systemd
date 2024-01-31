@@ -2889,21 +2889,18 @@ int setup_tmp_dirs(const char *id, char **tmp_dir, char **var_tmp_dir) {
 
 int setup_shareable_ns(int ns_storage_socket[static 2], unsigned long nsflag) {
         _cleanup_close_ int ns = -EBADF;
-        int r;
         const char *ns_name, *ns_path;
+        int r;
 
         assert(ns_storage_socket);
         assert(ns_storage_socket[0] >= 0);
         assert(ns_storage_socket[1] >= 0);
 
-        ns_name = namespace_single_flag_to_string(nsflag);
-        assert(ns_name);
+        ns_name = ASSERT_PTR(namespace_single_flag_to_string(nsflag));
 
-        /* We use the passed socketpair as a storage buffer for our
-         * namespace reference fd. Whatever process runs this first
-         * shall create a new namespace, all others should just join
-         * it. To serialize that we use a file lock on the socket
-         * pair.
+        /* We use the passed socketpair as a storage buffer for our namespace reference fd. Whatever process
+         * runs this first shall create a new namespace, all others should just join it. To serialize that we
+         * use a file lock on the socket pair.
          *
          * It's a bit crazy, but hey, works great! */
 
@@ -2931,7 +2928,8 @@ int setup_shareable_ns(int ns_storage_socket[static 2], unsigned long nsflag) {
         if (unshare(nsflag) < 0)
                 return -errno;
 
-        (void) loopback_setup();
+        if (nsflag == CLONE_NEWNET)
+                (void) loopback_setup();
 
         ns_path = strjoina("/proc/self/ns/", ns_name);
         ns = open(ns_path, O_RDONLY|O_CLOEXEC|O_NOCTTY);
