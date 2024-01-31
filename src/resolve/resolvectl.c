@@ -184,6 +184,9 @@ static void print_source(uint64_t flags, usec_t rtt) {
         if (!arg_legend)
                 return;
 
+        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
+                return;
+
         if (flags == 0)
                 return;
 
@@ -249,6 +252,9 @@ static int resolve_host(sd_bus *bus, const char *name) {
         int r;
 
         assert(name);
+
+        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type=A or --type=AAAA to acquire address record information in JSON format.");
 
         log_debug("Resolving %s (family %s, interface %s).", name, af_to_name(arg_family) ?: "*", isempty(arg_ifname) ? "*" : arg_ifname);
 
@@ -348,6 +354,9 @@ static int resolve_address(sd_bus *bus, int family, const union in_addr_union *a
         assert(IN_SET(family, AF_INET, AF_INET6));
         assert(address);
 
+        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type= to acquire resource record information in JSON format.");
+
         if (ifindex <= 0)
                 ifindex = arg_ifindex;
 
@@ -433,11 +442,23 @@ static int output_rr_packet(const void *d, size_t l, int ifindex) {
         _cleanup_(dns_resource_record_unrefp) DnsResourceRecord *rr = NULL;
         int r;
 
+        assert(d || l == 0);
+
         r = dns_resource_record_new_from_raw(&rr, d, l);
         if (r < 0)
                 return log_error_errno(r, "Failed to parse RR: %m");
 
-        if (arg_raw == RAW_PAYLOAD) {
+        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF)) {
+                _cleanup_(json_variant_unrefp) JsonVariant *j = NULL;
+                r = dns_resource_record_to_json(rr, &j);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to convert RR to JSON: %m");
+
+                r = json_variant_dump(j, arg_json_format_flags, NULL, NULL);
+                if (r < 0)
+                        return r;
+
+        } else if (arg_raw == RAW_PAYLOAD) {
                 void *data;
                 ssize_t k;
 
@@ -946,6 +967,9 @@ static int resolve_service(sd_bus *bus, const char *name, const char *type, cons
 static int verb_service(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
 
+        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type= to acquire resource record information in JSON format.");
+
         if (argc == 2)
                 return resolve_service(bus, NULL, NULL, argv[1]);
         else if (argc == 3)
@@ -1005,6 +1029,9 @@ static int verb_openpgp(int argc, char **argv, void *userdata) {
         sd_bus *bus = userdata;
         int q, r = 0;
 
+        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type= to acquire resource record information in JSON format.");
+
         STRV_FOREACH(p, argv + 1) {
                 q = resolve_openpgp(bus, *p);
                 if (q < 0)
@@ -1055,6 +1082,9 @@ static int verb_tlsa(int argc, char **argv, void *userdata) {
         char **args = argv + 1;
         const char *family = "tcp";
         int q, r = 0;
+
+        if (!FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
+                return log_error_errno(SYNTHETIC_ERRNO(EOPNOTSUPP), "Use --json=pretty with --type= to acquire resource record information in JSON format.");
 
         if (service_family_is_valid(argv[1])) {
                 family = argv[1];
@@ -3265,11 +3295,11 @@ static int native_help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] COMMAND ...\n"
+        printf("%1$s [OPTIONS...] COMMAND ...\n"
                "\n"
-               "%sSend control commands to the network name resolution manager, or%s\n"
-               "%sresolve domain names, IPv4 and IPv6 addresses, DNS records, and services.%s\n"
-               "\nCommands:\n"
+               "%5$sSend control commands to the network name resolution manager, or%6$s\n"
+               "%5$sresolve domain names, IPv4 and IPv6 addresses, DNS records, and services.%6$s\n"
+               "\n%3$sCommands:%4$s\n"
                "  query HOSTNAME|ADDRESS...    Resolve domain names, IPv4 and IPv6 addresses\n"
                "  service [[NAME] TYPE] DOMAIN Resolve service (SRV)\n"
                "  openpgp EMAIL@DOMAIN...      Query OpenPGP public key\n"
@@ -3292,7 +3322,7 @@ static int native_help(void) {
                "  nta [LINK [DOMAIN...]]       Get/set per-interface DNSSEC NTA\n"
                "  revert LINK                  Revert per-interface configuration\n"
                "  log-level [LEVEL]            Get/set logging threshold for systemd-resolved\n"
-               "\nOptions:\n"
+               "\n%3$sOptions:%4$s\n"
                "  -h --help                    Show this help\n"
                "     --version                 Show package version\n"
                "     --no-pager                Do not pipe output into a pager\n"
@@ -3321,13 +3351,13 @@ static int native_help(void) {
                "     --json=MODE               Output as JSON\n"
                "  -j                           Same as --json=pretty on tty, --json=short\n"
                "                               otherwise\n"
-               "\nSee the %s for details.\n",
+               "\nSee the %2$s for details.\n",
                program_invocation_short_name,
-               ansi_highlight(),
+               link,
+               ansi_underline(),
                ansi_normal(),
                ansi_highlight(),
-               ansi_normal(),
-               link);
+               ansi_normal());
 
         return 0;
 }

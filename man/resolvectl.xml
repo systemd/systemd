@@ -69,6 +69,9 @@
         <option>--type=</option>/<option>--class=</option> is used IDNA translation is turned off and domain
         names are processed as specified.</para>
 
+        <para>If combined with <option>--json=</option> (only supported in combination with
+        <option>--type=</option>) will output the resource record data in a JSON object.</para>
+
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>
       </varlistentry>
 
@@ -478,15 +481,7 @@
       </varlistentry>
 
       <xi:include href="standard-options.xml" xpointer="json" />
-
-      <varlistentry>
-        <term><option>-j</option></term>
-
-        <listitem><para>Short for <option>--json=auto</option></para>
-
-        <xi:include href="version-info.xml" xpointer="v252"/></listitem>
-      </varlistentry>
-
+      <xi:include href="standard-options.xml" xpointer="j" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="help" />
       <xi:include href="standard-options.xml" xpointer="version" />
