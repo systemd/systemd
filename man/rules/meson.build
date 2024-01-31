@@ -5,7 +5,7 @@
 #     ninja -C build update-man-rules
 manpages = [
 ['binfmt.d', '5', [], 'ENABLE_BINFMT'],
- ['bootctl', '1', [], 'ENABLE_BOOTLOADER'],
+ ['bootctl', '1', [], ''],
  ['bootup', '7', [], ''],
  ['busctl', '1', [], ''],
  ['coredump.conf', '5', ['coredump.conf.d'], 'ENABLE_COREDUMP'],
