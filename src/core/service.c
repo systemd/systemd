@@ -664,9 +664,6 @@ static int service_verify(Service *s) {
         if (s->type == SERVICE_ONESHOT && IN_SET(s->restart, SERVICE_RESTART_ALWAYS, SERVICE_RESTART_ON_SUCCESS))
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has Restart= set to either always or on-success, which isn't allowed for Type=oneshot services. Refusing.");
 
-        if (s->type == SERVICE_ONESHOT && !exit_status_set_is_empty(&s->restart_force_status))
-                return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has RestartForceExitStatus= set, which isn't allowed for Type=oneshot services. Refusing.");
-
         if (s->type == SERVICE_ONESHOT && s->exit_type == SERVICE_EXIT_CGROUP)
                 return log_unit_error_errno(UNIT(s), SYNTHETIC_ERRNO(ENOEXEC), "Service has ExitType=cgroup set, which isn't allowed for Type=oneshot services. Refusing.");
 
@@ -1876,7 +1873,7 @@ static bool service_shall_restart(Service *s, const char **reason) {
         }
 
         /* Don't allow Type=oneshot services to restart on success. Note that Restart=always/on-success
-         * is already rejected in service_verify */
+         * is already rejected in service_verify, hence this is primarily for RestartForceExitStatus= */
         if (s->type == SERVICE_ONESHOT && s->result == SERVICE_SUCCESS) {
                 *reason = "service type and exit status";
                 return false;
