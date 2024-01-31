@@ -105,6 +105,9 @@ static bool arg_headless = false;
 static usec_t arg_token_timeout_usec = 30*USEC_PER_SEC;
 static unsigned arg_tpm2_measure_pcr = UINT_MAX; /* This and the following field is about measuring the unlocked volume key to the local TPM */
 static char **arg_tpm2_measure_banks = NULL;
+static char *arg_link_keyring = NULL;
+static char *arg_link_key_type = NULL;
+static char *arg_link_key_description = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_cipher, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_hash, freep);
@@ -118,6 +121,9 @@ STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_signature, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_measure_banks, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_pcrlock, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_link_keyring, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_link_key_type, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_link_key_description, freep);
 
 static const char* const passphrase_type_table[_PASSPHRASE_TYPE_MAX] = {
         [PASSPHRASE_REGULAR] = "passphrase",
@@ -508,6 +514,56 @@ static int parse_one_option(const char *option) {
                 if (r < 0)
                         log_warning_errno(r, "Failed to parse %s, ignoring: %m", option);
 
+        } else if ((val = startswith(option, "link-volume-key="))) {
+#ifdef HAVE_CRYPT_SET_KEYRING_TO_LINK
+                const char *sep, *c;
+                _cleanup_free_ char *keyring = NULL, *key_type = NULL, *key_description = NULL;
+
+                /* Stick with cryptsetup --link-vk-to-keyring format
+                 * <keyring_description>::%<key_type>:<key_description>,
+                 * where %<key_type> is optional and defaults to 'user'.
+                 */
+                if (!(sep = strstr(val, "::")))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse link-volume-key= option value: %m");
+
+                /* cryptsetup (cli) supports <keyring_description> passed in various formats:
+                 * - well-known keyrings prefixed with '@' (@u user, @s session, etc)
+                 * - text descriptions prefixed with "%:" or "%keyring:".
+                 * - text desription with no prefix.
+                 * - numeric keyring id (ignored in current patch set). */
+                if (*val == '@' || *val == '%')
+                        keyring = strndup(val, sep - val);
+                else
+                        /* add type prefix if missing (crypt_set_keyring_to_link() expects it) */
+                        keyring = strnappend("%:", val, sep - val);
+                if (!keyring)
+                        return log_oom();
+
+                sep += 2;
+
+                /* %<key_type> is optional (and defaults to 'user') */
+                if (*sep == '%') {
+                        /* must be separated by colon */
+                        if (!(c = strchr(sep, ':')))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to parse link-volume-key= option value: %m");
+
+                        key_type = strndup(sep + 1, c - sep - 1);
+                        if (!key_type)
+                                return log_oom();
+
+                        sep = c + 1;
+                }
+
+                key_description = strdup(sep);
+                if (!key_description)
+                        return log_oom();
+
+                free_and_replace(arg_link_keyring, keyring);
+                free_and_replace(arg_link_key_type, key_type);
+                free_and_replace(arg_link_key_description, key_description);
+#else
+                log_error("Build lacks libcryptsetup support for linking volume keys in user specified kernel keyrings upon device activation, ignoring: %s", option);
+#endif
         } else if (!streq(option, "x-initrd.attach"))
                 log_warning("Encountered unknown /etc/crypttab option '%s', ignoring.", option);
 
@@ -2286,6 +2342,15 @@ static int run(int argc, char *argv[]) {
                         r = crypt_load(cd, !arg_type || streq(arg_type, ANY_LUKS) ? CRYPT_LUKS : arg_type, NULL);
                         if (r < 0)
                                 return log_error_errno(r, "Failed to load LUKS superblock on device %s: %m", crypt_get_device_name(cd));
+
+/* since cryptsetup 2.7.0 (Jan 2024) */
+#if HAVE_CRYPT_SET_KEYRING_TO_LINK
+                        if (arg_link_key_description) {
+                                r = crypt_set_keyring_to_link(cd, arg_link_key_description, NULL, arg_link_key_type, arg_link_keyring);
+                                if (r < 0)
+                                        log_warning_errno(r, "Failed to set keyring or key description to link volume key in, ignoring: %m");
+                        }
+#endif
 
                         if (arg_header) {
                                 r = crypt_set_data_device(cd, source);
