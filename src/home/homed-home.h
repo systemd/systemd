@@ -126,6 +126,7 @@ struct Home {
         int worker_stdout_fd;
         sd_event_source *worker_event_source;
         int worker_error_code;
+        bool worker_host_only;
 
         /* The message we are currently processing, and thus need to reply to on completion */
         Operation *current_operation;

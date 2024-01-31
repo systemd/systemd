@@ -6,7 +6,7 @@
 
 typedef struct PasswordCache {
         /* Passwords acquired from the kernel keyring */
-        char **keyring_passswords;
+        char **keyring_passwords;
 
         /* Decoding passwords from security tokens is expensive and typically requires user interaction,
          * hence cache any we already figured out. */
@@ -22,7 +22,7 @@ static inline bool password_cache_contains(const PasswordCache *cache, const cha
 
         return strv_contains(cache->pkcs11_passwords, p) ||
                 strv_contains(cache->fido2_passwords, p) ||
-                strv_contains(cache->keyring_passswords, p);
+                strv_contains(cache->keyring_passwords, p);
 }
 
-void password_cache_load_keyring(UserRecord *h, PasswordCache *cache);
+int password_cache_load_keyring(UserRecord *h, PasswordCache *cache);
