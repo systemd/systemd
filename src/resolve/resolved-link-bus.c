@@ -239,7 +239,7 @@ static int bus_link_method_set_dns_servers_internal(sd_bus_message *message, voi
         r = bus_verify_polkit_async(
                         message,
                         "org.freedesktop.resolve1.set-dns-servers",
-                        /* details= */ NULL,
+                        (const char**) STRV_MAKE("interface", l->ifname),
                         &l->manager->polkit_registry, error);
         if (r < 0)
                 goto finalize;
@@ -372,7 +372,7 @@ int bus_link_method_set_domains(sd_bus_message *message, void *userdata, sd_bus_
         r = bus_verify_polkit_async(
                         message,
                         "org.freedesktop.resolve1.set-domains",
-                        /* details= */ NULL,
+                        (const char**) STRV_MAKE("interface", l->ifname),
                         &l->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -452,7 +452,7 @@ int bus_link_method_set_default_route(sd_bus_message *message, void *userdata, s
         r = bus_verify_polkit_async(
                         message,
                         "org.freedesktop.resolve1.set-default-route",
-                        /* details= */ NULL,
+                        (const char**) STRV_MAKE("interface", l->ifname),
                         &l->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -501,7 +501,7 @@ int bus_link_method_set_llmnr(sd_bus_message *message, void *userdata, sd_bus_er
         r = bus_verify_polkit_async(
                         message,
                         "org.freedesktop.resolve1.set-llmnr",
-                        /* details= */ NULL,
+                        (const char**) STRV_MAKE("interface", l->ifname),
                         &l->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -551,7 +551,7 @@ int bus_link_method_set_mdns(sd_bus_message *message, void *userdata, sd_bus_err
         r = bus_verify_polkit_async(
                         message,
                         "org.freedesktop.resolve1.set-mdns",
-                        /* details= */ NULL,
+                        (const char**) STRV_MAKE("interface", l->ifname),
                         &l->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -601,7 +601,7 @@ int bus_link_method_set_dns_over_tls(sd_bus_message *message, void *userdata, sd
         r = bus_verify_polkit_async(
                         message,
                         "org.freedesktop.resolve1.set-dns-over-tls",
-                        /* details= */ NULL,
+                        (const char**) STRV_MAKE("interface", l->ifname),
                         &l->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -651,7 +651,7 @@ int bus_link_method_set_dnssec(sd_bus_message *message, void *userdata, sd_bus_e
         r = bus_verify_polkit_async(
                         message,
                         "org.freedesktop.resolve1.set-dnssec",
-                        /* details= */ NULL,
+                        (const char**) STRV_MAKE("interface", l->ifname),
                         &l->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -714,7 +714,7 @@ int bus_link_method_set_dnssec_negative_trust_anchors(sd_bus_message *message, v
         r = bus_verify_polkit_async(
                         message,
                         "org.freedesktop.resolve1.set-dnssec-negative-trust-anchors",
-                        /* details= */ NULL,
+                        (const char**) STRV_MAKE("interface", l->ifname),
                         &l->manager->polkit_registry,
                         error);
         if (r < 0)
@@ -752,7 +752,7 @@ int bus_link_method_revert(sd_bus_message *message, void *userdata, sd_bus_error
         r = bus_verify_polkit_async(
                         message,
                         "org.freedesktop.resolve1.revert",
-                        /* details= */ NULL,
+                        (const char**) STRV_MAKE("interface", l->ifname),
                         &l->manager->polkit_registry,
                         error);
         if (r < 0)
