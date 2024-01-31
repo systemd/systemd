@@ -3252,11 +3252,11 @@ static int native_help(void) {
         if (r < 0)
                 return log_oom();
 
-        printf("%s [OPTIONS...] COMMAND ...\n"
+        printf("%1$s [OPTIONS...] COMMAND ...\n"
                "\n"
-               "%sSend control commands to the network name resolution manager, or%s\n"
-               "%sresolve domain names, IPv4 and IPv6 addresses, DNS records, and services.%s\n"
-               "\nCommands:\n"
+               "%5$sSend control commands to the network name resolution manager, or%6$s\n"
+               "%5$sresolve domain names, IPv4 and IPv6 addresses, DNS records, and services.%6$s\n"
+               "\n%3$sCommands:%4$s\n"
                "  query HOSTNAME|ADDRESS...    Resolve domain names, IPv4 and IPv6 addresses\n"
                "  service [[NAME] TYPE] DOMAIN Resolve service (SRV)\n"
                "  openpgp EMAIL@DOMAIN...      Query OpenPGP public key\n"
@@ -3279,7 +3279,7 @@ static int native_help(void) {
                "  nta [LINK [DOMAIN...]]       Get/set per-interface DNSSEC NTA\n"
                "  revert LINK                  Revert per-interface configuration\n"
                "  log-level [LEVEL]            Get/set logging threshold for systemd-resolved\n"
-               "\nOptions:\n"
+               "\n%3$sOptions:%4$s\n"
                "  -h --help                    Show this help\n"
                "     --version                 Show package version\n"
                "     --no-pager                Do not pipe output into a pager\n"
@@ -3308,13 +3308,13 @@ static int native_help(void) {
                "     --json=MODE               Output as JSON\n"
                "  -j                           Same as --json=pretty on tty, --json=short\n"
                "                               otherwise\n"
-               "\nSee the %s for details.\n",
+               "\nSee the %2$s for details.\n",
                program_invocation_short_name,
-               ansi_highlight(),
+               link,
+               ansi_underline(),
                ansi_normal(),
                ansi_highlight(),
-               ansi_normal(),
-               link);
+               ansi_normal());
 
         return 0;
 }
