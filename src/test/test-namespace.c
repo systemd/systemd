@@ -93,7 +93,7 @@ static void test_shareable_ns(unsigned long nsflag) {
                 return;
         }
 
-        assert_se(socketpair(AF_UNIX, SOCK_DGRAM, 0, s) >= 0);
+        assert_se(socketpair(AF_UNIX, SOCK_DGRAM|SOCK_CLOEXEC, 0, s) >= 0);
 
         pid1 = fork();
         assert_se(pid1 >= 0);
