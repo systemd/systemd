@@ -1699,12 +1699,13 @@ static struct crypt_pbkdf_type* build_minimal_pbkdf(struct crypt_pbkdf_type *buf
         assert(hr);
 
         /* For PKCS#11 derived keys (which are generated randomly and are of high quality already) we use a
-         * minimal PBKDF */
+         * minimal PBKDF and CRYPT_PBKDF_NO_BENCHMARK flag to skip benchmark. */
         *buffer = (struct crypt_pbkdf_type) {
                 .hash = user_record_luks_pbkdf_hash_algorithm(hr),
                 .type = CRYPT_KDF_PBKDF2,
-                .iterations = 1,
-                .time_ms = 1,
+                .iterations = 1000, /* recommended minimum count for pbkdf2
+                                     * according to NIST SP 800-132, ch. 5.2 */
+                .flags = CRYPT_PBKDF_NO_BENCHMARK
         };
 
         return buffer;
