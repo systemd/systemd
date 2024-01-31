@@ -684,6 +684,7 @@ static int parse_config_file(void) {
 
 #endif
                 { "Manager", "TimerSlackNSec",               config_parse_nsec,                  0,                        &arg_timer_slack_nsec             },
+                { "Manager", "DefaultAllowedCPUs",           config_parse_cpu_affinity2,         0,                        &arg_defaults.allowed_cpus        },
                 { "Manager", "DefaultTimerAccuracySec",      config_parse_sec,                   0,                        &arg_defaults.timer_accuracy_usec },
                 { "Manager", "DefaultStandardOutput",        config_parse_output_restricted,     0,                        &arg_defaults.std_output          },
                 { "Manager", "DefaultStandardError",         config_parse_output_restricted,     0,                        &arg_defaults.std_error           },

@@ -43,6 +43,7 @@
 #SystemCallArchitectures=
 #TimerSlackNSec=
 #StatusUnitFormat={{STATUS_UNIT_FORMAT_DEFAULT_STR}}
+#DefaultAllowedCPUs=
 #DefaultTimerAccuracySec=1min
 #DefaultStandardOutput=journal
 #DefaultStandardError=inherit
