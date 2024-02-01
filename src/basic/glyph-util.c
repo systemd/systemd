@@ -74,6 +74,9 @@ const char *special_glyph_full(SpecialGlyph code, bool force_utf) {
                         [SPECIAL_GLYPH_SPARKLES]                = "*",
                         [SPECIAL_GLYPH_LOW_BATTERY]             = "!",
                         [SPECIAL_GLYPH_WARNING_SIGN]            = "!",
+                        [SPECIAL_GLYPH_RED_CIRCLE]              = "o",
+                        [SPECIAL_GLYPH_YELLOW_CIRCLE]           = "o",
+                        [SPECIAL_GLYPH_BLUE_CIRCLE]             = "o",
                 },
 
                 /* UTF-8 */
@@ -136,6 +139,10 @@ const char *special_glyph_full(SpecialGlyph code, bool force_utf) {
                         [SPECIAL_GLYPH_WARNING_SIGN]            = u8"⚠️",
                         [SPECIAL_GLYPH_COMPUTER_DISK]           = u8"💽",
                         [SPECIAL_GLYPH_WORLD]                   = u8"🌍",
+
+                        [SPECIAL_GLYPH_RED_CIRCLE]              = u8"🔴",
+                        [SPECIAL_GLYPH_YELLOW_CIRCLE]           = u8"🟡",
+                        [SPECIAL_GLYPH_BLUE_CIRCLE]             = u8"🔵",
                 },
         };
 
