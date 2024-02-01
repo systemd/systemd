@@ -334,12 +334,16 @@ static int make_choice(
 
         FOREACH_ARRAY(entry, de->entries, de->n_entries) {
                 unsigned found_tries_done = UINT_MAX, found_tries_left = UINT_MAX;
-                _cleanup_free_ char *chopped = NULL;
+                _cleanup_free_ char *dname = NULL;
                 size_t found_architecture_index = SIZE_MAX;
                 const char *e;
 
+                dname = strdup((*entry)->d_name);
+                if (!dname)
+                        return log_oom_debug();
+
                 if (!isempty(filter->basename)) {
-                        e = startswith((*entry)->d_name, filter->basename);
+                        e = startswith(dname, filter->basename);
                         if (!e)
                                 continue;
 
@@ -348,20 +352,14 @@ static int make_choice(
 
                         e++;
                 } else
-                        e = (*entry)->d_name;
+                        e = dname;
 
                 if (!isempty(filter->suffix)) {
-                        const char *sfx;
-
-                        sfx = endswith(e, filter->suffix);
+                        char *sfx = endswith(e, filter->suffix);
                         if (!sfx)
                                 continue;
 
-                        chopped = strndup(e, sfx - e);
-                        if (!chopped)
-                                return log_oom_debug();
-
-                        e = chopped;
+                        *sfx = 0;
                 }
 
                 if (FLAGS_SET(flags, PICK_TRIES)) {
