@@ -152,6 +152,37 @@ if ! systemd-detect-virt -cq ; then
     inspect test-user2
 fi
 
+# Do some keyring tests, but only on real kernels, since keyring access inside of containers will fail
+# (See: https://github.com/systemd/systemd/issues/17606)
+if ! systemd-detect-virt -cq ; then
+        PASSWORD=xEhErW0ndafV4s homectl activate test-user
+        inspect test-user
+
+        # Key should now be in the keyring
+        homectl update test-user --real-name "Keyring Test"
+        inspect test-user
+
+        # These commands shouldn't use the keyring
+        (! homectl authenticate test-user </dev/null )
+        (! NEWPASSWORD="foobar" homectl passwd test-user </dev/null )
+
+        homectl lock test-user
+        inspect test-user
+
+        # Key should be gone from keyring
+        (! homectl update test-user --real-name "Keyring Test 2" </dev/null )
+
+        PASSWORD=xEhErW0ndafV4s homectl unlock test-user
+        inspect test-user
+
+        # Key should have been re-instantiated into the keyring
+        homectl update test-user --real-name "Keyring Test 3"
+        inspect test-user
+
+        homectl deactivate test-user
+        inspect test-user
+fi
+
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- test ! -f /home/test-user/xyz
 (! PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz)
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- touch /home/test-user/xyz
