@@ -1879,7 +1879,6 @@ static int socket_spawn(Socket *s, ExecCommand *c, PidRef *ret_pid) {
         _cleanup_(exec_params_shallow_clear) ExecParameters exec_params = EXEC_PARAMETERS_INIT(
                         EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT|EXEC_APPLY_TTY_STDIN);
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
-        pid_t pid;
         int r;
 
         assert(s);
@@ -1904,11 +1903,7 @@ static int socket_spawn(Socket *s, ExecCommand *c, PidRef *ret_pid) {
                        &exec_params,
                        s->exec_runtime,
                        &s->cgroup_context,
-                       &pid);
-        if (r < 0)
-                return r;
-
-        r = pidref_set_pid(&pidref, pid);
+                       &pidref);
         if (r < 0)
                 return r;
 
