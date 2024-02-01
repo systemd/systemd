@@ -2034,7 +2034,7 @@ int make_reaper_process(bool b) {
         return 0;
 }
 
-int posix_spawn_wrapper(const char *path, char *const *argv, char *const *envp, pid_t *ret_pid) {
+int posix_spawn_wrapper(const char *path, char *const *argv, char *const *envp, PidRef *ret_pidref) {
         posix_spawnattr_t attr;
         sigset_t mask;
         pid_t pid;
@@ -2047,7 +2047,7 @@ int posix_spawn_wrapper(const char *path, char *const *argv, char *const *envp, 
 
         assert(path);
         assert(argv);
-        assert(ret_pid);
+        assert(ret_pidref);
 
         assert_se(sigfillset(&mask) >= 0);
 
@@ -2068,10 +2068,9 @@ int posix_spawn_wrapper(const char *path, char *const *argv, char *const *envp, 
         if (r != 0)
                 goto fail;
 
-        *ret_pid = pid;
-
         posix_spawnattr_destroy(&attr);
-        return 0;
+
+        return pidref_set_pid(ret_pidref, pid);
 
 fail:
         assert(r > 0);

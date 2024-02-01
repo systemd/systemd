@@ -1607,7 +1607,6 @@ static int service_spawn_internal(
         _cleanup_strv_free_ char **final_env = NULL, **our_env = NULL;
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         size_t n_env = 0;
-        pid_t pid;
         int r;
 
         assert(caller);
@@ -1798,16 +1797,12 @@ static int service_spawn_internal(
                        &exec_params,
                        s->exec_runtime,
                        &s->cgroup_context,
-                       &pid);
+                       &pidref);
         if (r < 0)
                 return r;
 
         s->exec_fd_event_source = TAKE_PTR(exec_fd_source);
         s->exec_fd_hot = false;
-
-        r = pidref_set_pid(&pidref, pid);
-        if (r < 0)
-                return r;
 
         r = unit_watch_pidref(UNIT(s), &pidref, /* exclusive= */ true);
         if (r < 0)
