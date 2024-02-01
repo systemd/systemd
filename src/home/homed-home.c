@@ -1810,7 +1810,6 @@ int home_update(Home *h, UserRecord *hr, Hashmap *blobs, uint64_t flags, sd_bus_
 int home_resize(Home *h,
                 uint64_t disk_size,
                 UserRecord *secret,
-                bool automatic,
                 sd_bus_error *error) {
 
         _cleanup_(user_record_unrefp) UserRecord *c = NULL;
@@ -1886,7 +1885,7 @@ int home_resize(Home *h,
                 c = TAKE_PTR(signed_c);
         }
 
-        r = home_update_internal(h, automatic ? "resize-auto" : "resize", c, secret, NULL, 0, error);
+        r = home_update_internal(h, "resize", c, secret, NULL, 0, error);
         if (r < 0)
                 return r;
 
