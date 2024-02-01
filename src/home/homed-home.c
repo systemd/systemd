@@ -955,9 +955,12 @@ static void home_create_finish(Home *h, int ret, UserRecord *hr) {
 
 static void home_change_finish(Home *h, int ret, UserRecord *hr) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        uint64_t flags;
         int r;
 
         assert(h);
+
+        flags = h->current_operation ? h->current_operation->call_flags : 0;
 
         if (ret < 0) {
                 (void) home_count_bad_authentication(h, ret, /* save= */ true);
@@ -969,17 +972,22 @@ static void home_change_finish(Home *h, int ret, UserRecord *hr) {
         }
 
         if (hr) {
-                r = home_set_record(h, hr);
-                if (r < 0)
-                        log_warning_errno(r, "Failed to update home record, ignoring: %m");
-                else {
+                if (!FLAGS_SET(flags, SD_HOMED_UPDATE_OFFLINE)) {
                         r = user_record_good_authentication(h->record);
                         if (r < 0)
                                 log_warning_errno(r, "Failed to increase good authentication counter, ignoring: %m");
+                }
 
+                r = home_set_record(h, hr);
+                if (r >= 0)
                         r = home_save_record(h);
-                        if (r < 0)
-                                log_warning_errno(r, "Failed to write home record to disk, ignoring: %m");
+                if (r < 0) {
+                        if (FLAGS_SET(flags, SD_HOMED_UPDATE_OFFLINE)) {
+                                log_error_errno(r, "Failed to update home record and write it to disk: %m");
+                                sd_bus_error_set(&error, SD_BUS_ERROR_FAILED, "Failed to cache changes to home record");
+                                goto finish;
+                        } else
+                                log_warning_errno(r, "Failed to update home record, ignoring: %m");
                 }
         }
 
@@ -1799,7 +1807,10 @@ int home_update(Home *h, UserRecord *hr, Hashmap *blobs, uint64_t flags, sd_bus_
         case HOME_UNFIXATED:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_UNFIXATED, "Home %s has not been fixated yet.", h->user_name);
         case HOME_ABSENT:
-                return sd_bus_error_setf(error, BUS_ERROR_HOME_ABSENT, "Home %s is currently missing or not plugged in.", h->user_name);
+                if (!FLAGS_SET(flags, SD_HOMED_UPDATE_OFFLINE))
+                        return sd_bus_error_setf(error, BUS_ERROR_HOME_ABSENT, "Home %s is currently missing or not plugged in.", h->user_name);
+                else
+                        break; /* offline updates are compatible w/ an absent home area */
         case HOME_LOCKED:
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_LOCKED, "Home %s is currently locked.", h->user_name);
         case HOME_INACTIVE:
