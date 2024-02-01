@@ -148,7 +148,7 @@ int bus_home_method_activate(
 
         assert(message);
 
-        r = bus_message_read_secret(message, &secret, error);
+        r = bus_message_read_secret(message, /* required= */ true, &secret, error);
         if (r < 0)
                 return r;
 
@@ -234,7 +234,7 @@ int bus_home_method_realize(
 
         assert(message);
 
-        r = bus_message_read_secret(message, &secret, error);
+        r = bus_message_read_secret(message, /* required= */ true, &secret, error);
         if (r < 0)
                 return r;
 
@@ -249,7 +249,7 @@ int bus_home_method_realize(
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = home_create(h, secret, error);
+        r = home_create(h, secret, NULL, 0, error);
         if (r < 0)
                 return r;
 
@@ -312,7 +312,7 @@ int bus_home_method_fixate(
 
         assert(message);
 
-        r = bus_message_read_secret(message, &secret, error);
+        r = bus_message_read_secret(message, /* required= */ true, &secret, error);
         if (r < 0)
                 return r;
 
@@ -341,7 +341,7 @@ int bus_home_method_authenticate(
 
         assert(message);
 
-        r = bus_message_read_secret(message, &secret, error);
+        r = bus_message_read_secret(message, /* required= */ true, &secret, error);
         if (r < 0)
                 return r;
 
@@ -372,7 +372,13 @@ int bus_home_method_authenticate(
         return 1;
 }
 
-int bus_home_method_update_record(Home *h, sd_bus_message *message, UserRecord *hr, sd_bus_error *error) {
+int bus_home_method_update_record(
+                Home *h,
+                sd_bus_message *message,
+                UserRecord *hr,
+                Hashmap *blobs,
+                uint64_t flags,
+                sd_bus_error *error) {
         int r;
 
         assert(h);
@@ -382,6 +388,9 @@ int bus_home_method_update_record(Home *h, sd_bus_message *message, UserRecord *
         r = user_record_is_supported(hr, error);
         if (r < 0)
                 return r;
+
+        if ((flags & ~SD_HOMED_UPDATE_FLAGS_ALL) != 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags provided.");
 
         r = bus_verify_polkit_async(
                         message,
@@ -394,7 +403,7 @@ int bus_home_method_update_record(Home *h, sd_bus_message *message, UserRecord *
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = home_update(h, hr, error);
+        r = home_update(h, hr, blobs, flags, error);
         if (r < 0)
                 return r;
 
@@ -405,6 +414,8 @@ int bus_home_method_update_record(Home *h, sd_bus_message *message, UserRecord *
         if (r < 0)
                 return r;
 
+        h->current_operation->call_flags = flags;
+
         return 1;
 }
 
@@ -414,16 +425,28 @@ int bus_home_method_update(
                 sd_bus_error *error) {
 
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
+        _cleanup_hashmap_free_ Hashmap *blobs = NULL;
+        uint64_t flags = 0;
         Home *h = ASSERT_PTR(userdata);
         int r;
 
         assert(message);
 
-        r = bus_message_read_home_record(message, USER_RECORD_REQUIRE_REGULAR|USER_RECORD_REQUIRE_SECRET|USER_RECORD_ALLOW_PRIVILEGED|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_SIGNATURE|USER_RECORD_PERMISSIVE, &hr, error);
+        r = bus_message_read_home_record(message, USER_RECORD_REQUIRE_REGULAR|USER_RECORD_ALLOW_SECRET|USER_RECORD_ALLOW_PRIVILEGED|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_SIGNATURE|USER_RECORD_PERMISSIVE, &hr, error);
         if (r < 0)
                 return r;
 
-        return bus_home_method_update_record(h, message, hr, error);
+        if (endswith(sd_bus_message_get_member(message), "Ex")) {
+                r = bus_message_read_blobs(message, &blobs, error);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_read(message, "t", &flags);
+                if (r < 0)
+                        return r;
+        }
+
+        return bus_home_method_update_record(h, message, hr, blobs, flags, error);
 }
 
 int bus_home_method_resize(
@@ -442,7 +465,7 @@ int bus_home_method_resize(
         if (r < 0)
                 return r;
 
-        r = bus_message_read_secret(message, &secret, error);
+        r = bus_message_read_secret(message, /* required= */ false, &secret, error);
         if (r < 0)
                 return r;
 
@@ -457,7 +480,7 @@ int bus_home_method_resize(
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = home_resize(h, sz, secret, /* automatic= */ false, error);
+        r = home_resize(h, sz, secret, error);
         if (r < 0)
                 return r;
 
@@ -482,11 +505,11 @@ int bus_home_method_change_password(
 
         assert(message);
 
-        r = bus_message_read_secret(message, &new_secret, error);
+        r = bus_message_read_secret(message, /* required= */ true, &new_secret, error);
         if (r < 0)
                 return r;
 
-        r = bus_message_read_secret(message, &old_secret, error);
+        r = bus_message_read_secret(message, /* required= */ true, &old_secret, error);
         if (r < 0)
                 return r;
 
@@ -554,7 +577,7 @@ int bus_home_method_unlock(
 
         assert(message);
 
-        r = bus_message_read_secret(message, &secret, error);
+        r = bus_message_read_secret(message, /* required= */ true, &secret, error);
         if (r < 0)
                 return r;
 
@@ -586,7 +609,7 @@ int bus_home_method_acquire(
 
         assert(message);
 
-        r = bus_message_read_secret(message, &secret, error);
+        r = bus_message_read_secret(message, /* required= */ true, &secret, error);
         if (r < 0)
                 return r;
 
@@ -836,6 +859,11 @@ const sd_bus_vtable home_vtable[] = {
                                 SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
         SD_BUS_METHOD_WITH_ARGS("Update",
                                 SD_BUS_ARGS("s", user_record),
+                                SD_BUS_NO_RESULT,
+                                bus_home_method_update,
+                                SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
+        SD_BUS_METHOD_WITH_ARGS("UpdateEx",
+                                SD_BUS_ARGS("s", user_record, "a{sh}", blobs, "t", flags),
                                 SD_BUS_NO_RESULT,
                                 bus_home_method_update,
                                 SD_BUS_VTABLE_UNPRIVILEGED|SD_BUS_VTABLE_SENSITIVE),
