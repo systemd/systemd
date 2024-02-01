@@ -430,7 +430,7 @@ int bus_home_method_update(
 
         assert(message);
 
-        r = bus_message_read_home_record(message, USER_RECORD_REQUIRE_REGULAR|USER_RECORD_REQUIRE_SECRET|USER_RECORD_ALLOW_PRIVILEGED|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_SIGNATURE|USER_RECORD_PERMISSIVE, &hr, error);
+        r = bus_message_read_home_record(message, USER_RECORD_REQUIRE_REGULAR|USER_RECORD_ALLOW_SECRET|USER_RECORD_ALLOW_PRIVILEGED|USER_RECORD_ALLOW_PER_MACHINE|USER_RECORD_ALLOW_SIGNATURE|USER_RECORD_PERMISSIVE, &hr, error);
         if (r < 0)
                 return r;
 
@@ -463,7 +463,7 @@ int bus_home_method_resize(
         if (r < 0)
                 return r;
 
-        r = bus_message_read_secret(message, /* required= */ true, &secret, error);
+        r = bus_message_read_secret(message, /* required= */ false, &secret, error);
         if (r < 0)
                 return r;
 
@@ -478,7 +478,7 @@ int bus_home_method_resize(
         if (r == 0)
                 return 1; /* Will call us back */
 
-        r = home_resize(h, sz, secret, /* automatic= */ false, error);
+        r = home_resize(h, sz, secret, error);
         if (r < 0)
                 return r;
 

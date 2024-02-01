@@ -1518,7 +1518,6 @@ static int home_auto_grow_luks(
         return home_resize_luks(
                         h,
                         HOME_SETUP_ALREADY_ACTIVATED|
-                        HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES|
                         HOME_SETUP_RESIZE_DONT_SHRINK|
                         HOME_SETUP_RESIZE_DONT_UNDO,
                         setup,
@@ -3240,15 +3239,13 @@ int home_resize_luks(
                         whole_disk,
                         setup,
                         cache,
-                        FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES) ? NULL : &header_home);
+                        &header_home);
         if (r < 0)
                 return r;
 
-        if (!FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES)) {
-                reconciled = home_load_embedded_identity(h, setup->root_fd, header_home, USER_RECONCILE_REQUIRE_NEWER_OR_EQUAL, cache, &embedded_home, &new_home);
-                if (reconciled < 0)
-                        return reconciled;
-        }
+        reconciled = home_load_embedded_identity(h, setup->root_fd, header_home, USER_RECONCILE_REQUIRE_NEWER_OR_EQUAL, cache, &embedded_home, &new_home);
+        if (reconciled < 0)
+                return reconciled;
 
         r = home_maybe_shift_uid(h, flags, setup);
         if (r < 0)
@@ -3457,15 +3454,13 @@ int home_resize_luks(
         } else {
                 /* → Shrink */
 
-                if (!FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES)) {
-                        r = home_store_embedded_identity(new_home, setup->root_fd, embedded_home);
-                        if (r < 0)
-                                return r;
+                r = home_store_embedded_identity(new_home, setup->root_fd, embedded_home);
+                if (r < 0)
+                        return r;
 
-                        r = home_reconcile_blob_dirs(new_home, setup->root_fd, reconciled);
-                        if (r < 0)
-                                return r;
-                }
+                r = home_reconcile_blob_dirs(new_home, setup->root_fd, reconciled);
+                if (r < 0)
+                        return r;
 
                 if (S_ISREG(st.st_mode)) {
                         if (user_record_luks_discard(h))
@@ -3549,26 +3544,22 @@ int home_resize_luks(
                         log_debug_errno(errno, "BLKRRPART failed on block device, ignoring: %m");
 
         } else { /* → Grow */
-                if (!FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES)) {
-                        r = home_store_embedded_identity(new_home, setup->root_fd, embedded_home);
-                        if (r < 0)
-                                return r;
-
-                        r = home_reconcile_blob_dirs(new_home, setup->root_fd, reconciled);
-                        if (r < 0)
-                                return r;
-                }
-        }
-
-        if (!FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES)) {
-                r = home_store_header_identity_luks(new_home, setup, header_home);
+                r = home_store_embedded_identity(new_home, setup->root_fd, embedded_home);
                 if (r < 0)
                         return r;
 
-                r = home_extend_embedded_identity(new_home, h, setup);
+                r = home_reconcile_blob_dirs(new_home, setup->root_fd, reconciled);
                 if (r < 0)
                         return r;
         }
+
+        r = home_store_header_identity_luks(new_home, setup, header_home);
+        if (r < 0)
+                return r;
+
+        r = home_extend_embedded_identity(new_home, h, setup);
+        if (r < 0)
+                return r;
 
         if (user_record_luks_discard(h))
                 (void) run_fitrim(setup->root_fd);
@@ -3908,7 +3899,6 @@ int home_auto_shrink_luks(UserRecord *h, HomeSetup *setup, PasswordCache *cache)
         r = home_resize_luks(
                         h,
                         HOME_SETUP_ALREADY_ACTIVATED|
-                        HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES|
                         HOME_SETUP_RESIZE_MINIMIZE|
                         HOME_SETUP_RESIZE_DONT_GROW|
                         HOME_SETUP_RESIZE_DONT_UNDO,
