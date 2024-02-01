@@ -6,6 +6,11 @@
 #include "user-record.h"
 #include "group-record.h"
 
+/* We intentionally use snake_case instead of the usual camelCase here to further
+ * reduce the chance of collision with a field any legitimate user record may ever
+ * want to set. */
+#define HOMEWORK_BLOB_FDMAP_FIELD "__systemd_homework_internal_blob_fdmap"
+
 int user_record_synthesize(UserRecord *h, const char *user_name, const char *realm, const char *image_path, UserStorage storage, uid_t uid, gid_t gid);
 int group_record_synthesize(GroupRecord *g, UserRecord *u);
 
@@ -63,3 +68,5 @@ int user_record_is_supported(UserRecord *hr, sd_bus_error *error);
 
 bool user_record_shall_rebalance(UserRecord *h);
 int user_record_set_rebalance_weight(UserRecord *h, uint64_t weight);
+
+int user_record_ensure_blob_manifest(UserRecord *h, Hashmap *blobs, const char **ret_failed);
