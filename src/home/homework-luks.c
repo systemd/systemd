@@ -33,6 +33,7 @@
 #include "glyph-util.h"
 #include "gpt.h"
 #include "home-util.h"
+#include "homework-blob.h"
 #include "homework-luks.h"
 #include "homework-mount.h"
 #include "io-util.h"
@@ -420,7 +421,7 @@ static int luks_setup(
         r = -ENOKEY;
         char **list;
         FOREACH_ARGUMENT(list,
-                         cache ? cache->keyring_passswords : NULL,
+                         cache ? cache->keyring_passwords : NULL,
                          cache ? cache->pkcs11_passwords : NULL,
                          cache ? cache->fido2_passwords : NULL,
                          passwords) {
@@ -562,7 +563,7 @@ static int luks_open(
         r = -ENOKEY;
         char **list;
         FOREACH_ARGUMENT(list,
-                         cache ? cache->keyring_passswords : NULL,
+                         cache ? cache->keyring_passwords : NULL,
                          cache ? cache->pkcs11_passwords : NULL,
                          cache ? cache->fido2_passwords : NULL,
                          h->password) {
@@ -3128,7 +3129,7 @@ int home_resize_luks(
         struct fdisk_partition *partition = NULL;
         _cleanup_close_ int opened_image_fd = -EBADF;
         _cleanup_free_ char *whole_disk = NULL;
-        int r, resize_type, image_fd = -EBADF;
+        int r, resize_type, image_fd = -EBADF, reconciled = USER_RECONCILE_IDENTICAL;
         sd_id128_t disk_uuid;
         const char *ip, *ipo;
         struct statfs sfs;
@@ -3234,9 +3235,9 @@ int home_resize_luks(
                 return r;
 
         if (!FLAGS_SET(flags, HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES)) {
-                r = home_load_embedded_identity(h, setup->root_fd, header_home, USER_RECONCILE_REQUIRE_NEWER_OR_EQUAL, cache, &embedded_home, &new_home);
-                if (r < 0)
-                        return r;
+                reconciled = home_load_embedded_identity(h, setup->root_fd, header_home, USER_RECONCILE_REQUIRE_NEWER_OR_EQUAL, cache, &embedded_home, &new_home);
+                if (reconciled < 0)
+                        return reconciled;
         }
 
         r = home_maybe_shift_uid(h, flags, setup);
@@ -3450,6 +3451,10 @@ int home_resize_luks(
                         r = home_store_embedded_identity(new_home, setup->root_fd, embedded_home);
                         if (r < 0)
                                 return r;
+
+                        r = home_reconcile_blob_dirs(new_home, setup->root_fd, reconciled);
+                        if (r < 0)
+                                return r;
                 }
 
                 if (S_ISREG(st.st_mode)) {
@@ -3538,6 +3543,10 @@ int home_resize_luks(
                         r = home_store_embedded_identity(new_home, setup->root_fd, embedded_home);
                         if (r < 0)
                                 return r;
+
+                        r = home_reconcile_blob_dirs(new_home, setup->root_fd, reconciled);
+                        if (r < 0)
+                                return r;
                 }
         }
 
@@ -3616,7 +3625,7 @@ int home_passwd_luks(
         r = -ENOKEY;
         char **list;
         FOREACH_ARGUMENT(list,
-                         cache ? cache->keyring_passswords : NULL,
+                         cache ? cache->keyring_passwords : NULL,
                          cache ? cache->pkcs11_passwords : NULL,
                          cache ? cache->fido2_passwords : NULL,
                          h->password) {
