@@ -11,10 +11,6 @@ if conf.get('HAVE_P11KIT') == 1
         systemd_cryptsetup_sources += files('cryptsetup-pkcs11.c')
 endif
 
-if conf.get('HAVE_TPM2') == 1
-        systemd_cryptsetup_sources += files('cryptsetup-tpm2.c')
-endif
-
 executables += [
         executable_template + {
                 'name' : 'systemd-cryptsetup',
