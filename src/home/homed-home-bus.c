@@ -5,6 +5,7 @@
 #include "bus-common-errors.h"
 #include "bus-polkit.h"
 #include "fd-util.h"
+#include "home-util.h"
 #include "homed-bus.h"
 #include "homed-home-bus.h"
 #include "homed-home.h"
@@ -389,8 +390,8 @@ int bus_home_method_update_record(
         if (r < 0)
                 return r;
 
-        if (flags != 0)
-                return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Provided flags are unsupported.");
+        if ((flags & ~SD_HOMED_UPDATE_FLAGS_ALL) != 0)
+                return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags provided.");
 
         r = bus_verify_polkit_async(
                         message,
@@ -413,6 +414,8 @@ int bus_home_method_update_record(
         r = home_set_current_message(h, message);
         if (r < 0)
                 return r;
+
+        h->current_operation->call_flags = flags;
 
         return 1;
 }
