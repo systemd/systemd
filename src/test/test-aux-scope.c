@@ -77,6 +77,8 @@ static int on_sigusr1(sd_event_source *s, const struct signalfd_siginfo *ssi, vo
         if (r < 0)
                 return r;
 
+        log_info("Successfully processed SIGUSR1");
+
         return 0;
 }
 
