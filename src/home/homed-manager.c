@@ -2025,7 +2025,7 @@ static int manager_rebalance_apply(Manager *m) {
 
                 h->rebalance_pending = false;
 
-                r = home_resize(h, h->rebalance_goal, /* secret= */ NULL, /* automatic= */ true, &error);
+                r = home_resize(h, h->rebalance_goal, /* secret= */ NULL, &error);
                 if (r < 0)
                         log_warning_errno(r, "Failed to resize home '%s' for rebalancing, ignoring: %s",
                                           h->user_name, bus_error_message(&error, r));
