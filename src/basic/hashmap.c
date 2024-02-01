@@ -2120,7 +2120,10 @@ static int hashmap_entry_compare(
         return compare((*a)->key, (*b)->key);
 }
 
-int _hashmap_dump_sorted(HashmapBase *h, void ***ret, size_t *ret_n) {
+static int _hashmap_dump_entries_sorted(
+                HashmapBase *h,
+                struct hashmap_base_entry ***ret,
+                size_t *ret_n) {
         _cleanup_free_ struct hashmap_base_entry **entries = NULL;
         Iterator iter;
         unsigned idx;
@@ -2130,8 +2133,7 @@ int _hashmap_dump_sorted(HashmapBase *h, void ***ret, size_t *ret_n) {
 
         if (_hashmap_size(h) == 0) {
                 *ret = NULL;
-                if (ret_n)
-                        *ret_n = 0;
+                *ret_n = 0;
                 return 0;
         }
 
@@ -2148,6 +2150,40 @@ int _hashmap_dump_sorted(HashmapBase *h, void ***ret, size_t *ret_n) {
         entries[n] = NULL;
 
         typesafe_qsort_r(entries, n, hashmap_entry_compare, h->hash_ops->compare);
+
+        *ret = TAKE_PTR(entries);
+        *ret_n = n;
+        return 0;
+}
+
+int _hashmap_dump_keys_sorted(HashmapBase *h, void ***ret, size_t *ret_n) {
+        _cleanup_free_ struct hashmap_base_entry **entries = NULL;
+        size_t n;
+        int r;
+
+        r = _hashmap_dump_entries_sorted(h, &entries, &n);
+        if (r < 0)
+                return r;
+
+        /* Reuse the array. */
+        FOREACH_ARRAY(e, entries, n)
+                *e = (void*) (*e)->key;
+
+        *ret = (void**) TAKE_PTR(entries);
+        if (ret_n)
+                *ret_n = n;
+        return 0;
+}
+
+
+int _hashmap_dump_sorted(HashmapBase *h, void ***ret, size_t *ret_n) {
+        _cleanup_free_ struct hashmap_base_entry **entries = NULL;
+        size_t n;
+        int r;
+
+        r = _hashmap_dump_entries_sorted(h, &entries, &n);
+        if (r < 0)
+                return r;
 
         /* Reuse the array. */
         FOREACH_ARRAY(e, entries, n)
