@@ -74,13 +74,19 @@ inspect test-user
 homectl deactivate test-user
 inspect test-user
 
+homectl update test-user --real-name "Offline test" --offline
+inspect test-user
+
 PASSWORD=xEhErW0ndafV4s homectl activate test-user
 inspect test-user
+
+# Ensure that the offline changes were propagated in
+grep "Offline test" /home/test-user/.identity
 
 homectl deactivate test-user
 inspect test-user
 
-PASSWORD=xEhErW0ndafV4s homectl update test-user --real-name="Offline test"
+PASSWORD=xEhErW0ndafV4s homectl update test-user --real-name="Inactive test"
 inspect test-user
 
 PASSWORD=xEhErW0ndafV4s homectl activate test-user
@@ -325,6 +331,16 @@ checkblob barely-fits /tmp/external-barely-fits
 (! PASSWORD=EMJuc3zQaMibJo homectl update blob-user -b with=equals=/tmp/external-test3 )
 (! PASSWORD=EMJuc3zQaMibJo homectl update blob-user -b файл=/tmp/external-test3 )
 (! PASSWORD=EMJuc3zQaMibJo homectl update blob-user -b special@chars=/tmp/external-test3 )
+
+# Make sure offline updates to blobs get propagated in
+homectl deactivate blob-user
+inspect blob-user
+homectl update blob-user --offline -b barely-fits= -b propagated=/tmp/external-test3
+inspect blob-user
+PASSWORD=EMJuc3zQaMibJo homectl activate blob-user
+inspect blob-user
+(! checkblob barely-fits /tmp/external-barely-fits )
+checkblob propagated /tmp/external-test3
 
 homectl deactivate blob-user
 wait_for_state blob-user inactive
