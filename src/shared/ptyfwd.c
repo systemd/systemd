@@ -92,6 +92,8 @@ struct PTYForward {
         char *background_color;
         AnsiColorState ansi_color_state;
         char *csi_sequence;
+
+        char *title;
 };
 
 #define ESCAPE_USEC (1*USEC_PER_SEC)
@@ -115,8 +117,12 @@ static void pty_forward_disconnect(PTYForward *f) {
                 /* STDIN/STDOUT should not be non-blocking normally, so let's reset it */
                 (void) fd_nonblock(f->output_fd, false);
 
-                if (colors_enabled())
+                if (colors_enabled()) {
                         (void) loop_write(f->output_fd, ANSI_NORMAL ANSI_ERASE_TO_END_OF_SCREEN, SIZE_MAX);
+
+                        if (f->title)
+                                (void) loop_write(f->output_fd, ANSI_WINDOW_TITLE_POP, SIZE_MAX);
+                }
 
                 if (f->close_output_fd)
                         f->output_fd = safe_close(f->output_fd);
@@ -478,17 +484,28 @@ static int shovel(PTYForward *f) {
 
         assert(f);
 
-        if (f->out_buffer_size == 0 && f->background_color) {
-                /* Erase the first line when we start */
-                f->out_buffer = background_color_sequence(f);
-                if (!f->out_buffer)
-                        return pty_forward_done(f, log_oom());
+        if (f->out_buffer_size == 0) {
+                if (f->background_color) {
+                        /* Erase the first line when we start */
+                        f->out_buffer = background_color_sequence(f);
+                        if (!f->out_buffer)
+                                return pty_forward_done(f, log_oom());
 
-                if (!strextend(&f->out_buffer, ANSI_ERASE_TO_END_OF_LINE))
-                        return pty_forward_done(f, log_oom());
+                        if (!strextend(&f->out_buffer, ANSI_ERASE_TO_END_OF_LINE))
+                                return pty_forward_done(f, log_oom());
+                }
 
-                f->out_buffer_full = strlen(f->out_buffer);
-                f->out_buffer_size = MALLOC_SIZEOF_SAFE(f->out_buffer);
+                if (f->title) {
+                        if (!strextend(&f->out_buffer,
+                                       ANSI_WINDOW_TITLE_PUSH
+                                       "\x1b]2;", f->title, "\a"))
+                                return pty_forward_done(f, log_oom());
+                }
+
+                if (f->out_buffer) {
+                        f->out_buffer_full = strlen(f->out_buffer);
+                        f->out_buffer_size = MALLOC_SIZEOF_SAFE(f->out_buffer);
+                }
         }
 
         if (f->out_buffer_size < LINE_MAX) {
@@ -855,6 +872,7 @@ PTYForward *pty_forward_free(PTYForward *f) {
                 return NULL;
         pty_forward_disconnect(f);
         free(f->background_color);
+        free(f->title);
         return mfree(f);
 }
 
@@ -994,4 +1012,36 @@ int pty_forward_set_background_color(PTYForward *f, const char *color) {
         assert(f);
 
         return free_and_strdup(&f->background_color, color);
+}
+
+int pty_forward_set_title(PTYForward *f, const char *title) {
+        assert(f);
+
+        /* Refuse accepting a title when we already started shoveling */
+        if (f->out_buffer_size > 0)
+                return -EBUSY;
+
+        return free_and_strdup(&f->title, title);
+}
+
+int pty_forward_set_titlef(PTYForward *f, const char *format, ...) {
+        _cleanup_free_ char *title = NULL;
+        va_list ap;
+        int r;
+
+        assert(f);
+        assert(format);
+
+        if (f->out_buffer_size > 0)
+                return -EBUSY;
+
+        va_start(ap, format);
+        DISABLE_WARNING_FORMAT_NONLITERAL;
+        r = vasprintf(&title, format, ap);
+        REENABLE_WARNING;
+        va_end(ap);
+        if (r < 0)
+                return -ENOMEM;
+
+        return free_and_replace(f->title, title);
 }
