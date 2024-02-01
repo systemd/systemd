@@ -33,7 +33,9 @@ int (*sym_crypt_keyslot_destroy)(struct crypt_device *cd, int keyslot);
 int (*sym_crypt_keyslot_max)(const char *type);
 int (*sym_crypt_load)(struct crypt_device *cd, const char *requested_type, void *params);
 int (*sym_crypt_resize)(struct crypt_device *cd, const char *name, uint64_t new_size);
+#if HAVE_CRYPT_RESUME_BY_VOLUME_KEY
 int (*sym_crypt_resume_by_volume_key)(struct crypt_device *cd, const char *name, const char *volume_key, size_t volume_key_size);
+#endif
 int (*sym_crypt_set_data_device)(struct crypt_device *cd, const char *device);
 void (*sym_crypt_set_debug_level)(int level);
 void (*sym_crypt_set_log_callback)(struct crypt_device *cd, void (*log)(int level, const char *msg, void *usrptr), void *usrptr);

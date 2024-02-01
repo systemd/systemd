@@ -3681,6 +3681,7 @@ int home_passwd_luks(
         return 1;
 }
 
+#if HAVE_CRYPT_RESUME_BY_VOLUME_KEY
 int home_lock_luks(UserRecord *h, HomeSetup *setup) {
         const char *p;
         int r;
@@ -3753,6 +3754,15 @@ int home_unlock_luks(UserRecord *h, HomeSetup *setup, const PasswordCache *cache
         log_info("LUKS device resumed.");
         return 0;
 }
+#else
+int home_lock_luks(UserRecord *h, HomeSetup *setup) {
+        return log_error_errno(SYNTHETIC_ERRNO(ENOSYS), "libcryptsetup is too old to support unlocking, refusing to lock.");
+}
+
+int home_unlock_luks(UserRecord *h, HomeSetup *setup, const PasswordCache *cache) {
+        return log_error_errno(SYNTHETIC_ERRNO(ENOSYS), "libcryptsetup is too old to support unlocking.");
+}
+#endif
 
 static int device_is_gone(HomeSetup *setup) {
         _cleanup_(sd_device_unrefp) sd_device *d = NULL;

@@ -2075,12 +2075,16 @@ int home_lock(Home *h, sd_bus_error *error) {
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_BUSY, "An operation on home %s is currently being executed.", h->user_name);
         }
 
+#if HAVE_CRYPT_RESUME_BY_VOLUME_KEY
         r = home_start_work(h, "lock", h->record, NULL, NULL, 0);
         if (r < 0)
                 return r;
 
         home_set_state(h, HOME_LOCKING);
         return 0;
+#else
+        return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "libcryptsetup is too old to support unlocking, refusing to lock.");
+#endif
 }
 
 static int home_unlock_internal(Home *h, UserRecord *secret, HomeState for_state, sd_bus_error *error) {
@@ -2090,12 +2094,16 @@ static int home_unlock_internal(Home *h, UserRecord *secret, HomeState for_state
         assert(secret);
         assert(IN_SET(for_state, HOME_UNLOCKING, HOME_UNLOCKING_FOR_ACQUIRE));
 
+#if HAVE_CRYPT_RESUME_BY_VOLUME_KEY
         r = home_start_work(h, "unlock", h->record, secret, NULL, 0);
         if (r < 0)
                 return r;
 
         home_set_state(h, for_state);
         return 0;
+#else
+        return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "libcryptsetup is too old to support unlocking.");
+#endif
 }
 
 int home_unlock(Home *h, UserRecord *secret, sd_bus_error *error) {
@@ -2875,10 +2883,15 @@ bool home_is_referenced(Home *h) {
 bool home_shall_suspend(Home *h) {
         assert(h);
 
+#if HAVE_CRYPT_RESUME_BY_VOLUME_KEY
         /* We lock the home area on suspend if... */
         return h->ref_event_source_please_suspend && /* at least one client supports suspend, and... */
                !h->ref_event_source_dont_suspend && /* no clients lack support for suspend, and... */
                !h->inhibit_suspend_event_source; /* no client is temporarily inhibiting suspend */
+#else
+        /* We don't support locking because libcryptsetup is too old */
+        return false;
+#endif
 }
 
 static int home_dispatch_release(Home *h, Operation *o) {
