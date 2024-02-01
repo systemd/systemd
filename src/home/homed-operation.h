@@ -39,6 +39,7 @@ typedef struct Operation {
         sd_bus_message *message;
 
         UserRecord *secret;
+        uint64_t call_flags; /* flags passed into UpdateEx() or CreateHomeEx() */
         int send_fd;   /* pipe fd for AcquireHome() which is taken already when we start the operation */
 
         int result;    /* < 0 if not completed yet, == 0 on failure, > 0 on success */

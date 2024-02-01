@@ -1551,6 +1551,21 @@ static int home_remove(UserRecord *h) {
         return 0;
 }
 
+static int home_basic_validate_update(UserRecord *h) {
+        assert(h);
+
+        if (!h->user_name)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User record lacks user name, refusing.");
+
+        if (!uid_is_valid(h->uid))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User record lacks UID, refusing.");
+
+        if (!IN_SET(user_record_storage(h), USER_LUKS, USER_DIRECTORY, USER_SUBVOLUME, USER_FSCRYPT, USER_CIFS))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTTY), "Processing home directories of type '%s' currently not supported.", user_storage_to_string(user_record_storage(h)));
+
+        return 0;
+}
+
 static int home_validate_update(UserRecord *h, HomeSetup *setup, HomeSetupFlags *flags) {
         bool has_mount = false;
         int r;
@@ -1558,12 +1573,9 @@ static int home_validate_update(UserRecord *h, HomeSetup *setup, HomeSetupFlags 
         assert(h);
         assert(setup);
 
-        if (!h->user_name)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User record lacks user name, refusing.");
-        if (!uid_is_valid(h->uid))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User record lacks UID, refusing.");
-        if (!IN_SET(user_record_storage(h), USER_LUKS, USER_DIRECTORY, USER_SUBVOLUME, USER_FSCRYPT, USER_CIFS))
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTTY), "Processing home directories of type '%s' currently not supported.", user_storage_to_string(user_record_storage(h)));
+        r = home_basic_validate_update(h);
+        if (r < 0)
+                return r;
 
         r = user_record_test_home_directory_and_warn(h);
         if (r < 0)
@@ -1610,25 +1622,42 @@ static int home_update(UserRecord *h, Hashmap *blobs, UserRecord **ret) {
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
         HomeSetupFlags flags = 0;
+        bool offline;
         int r;
 
         assert(h);
         assert(ret);
 
-        password_cache_load_keyring(h, &cache);
+        offline = getenv_bool("SYSTEMD_HOMEWORK_UPDATE_OFFLINE") > 0;
 
-        r = user_record_authenticate(h, h, &cache, /* strict_verify= */ true);
-        if (r < 0)
-                return r;
-        assert(r > 0); /* Insist that a password was verified */
+        if (!offline) {
+                password_cache_load_keyring(h, &cache);
 
-        r = home_validate_update(h, &setup, &flags);
+                r = user_record_authenticate(h, h, &cache, /* strict_verify= */ true);
+                if (r < 0)
+                        return r;
+                assert(r > 0); /* Insist that a password was verified */
+
+                r = home_validate_update(h, &setup, &flags);
+        } else {
+                /* In offline mode we skip all authentication, since we're
+                 * not propagating anything into the home area. The new home
+                 * records's authentication will still be checked when the user
+                 * next logs in, so this is fine */
+
+                r = home_basic_validate_update(h);
+        }
         if (r < 0)
                 return r;
 
         r = home_apply_new_blob_dir(h, blobs);
         if (r < 0)
                 return r;
+
+        if (offline) {
+                log_info("Offline update requested. Not touching embedded records.");
+                return user_record_clone(h, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_PERMISSIVE, ret);
+        }
 
         r = home_setup(h, flags, &setup, &cache, &header_home);
         if (r < 0)
