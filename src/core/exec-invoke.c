@@ -1098,6 +1098,22 @@ static int null_conv(
         return PAM_CONV_ERR;
 }
 
+static int pam_close_session_and_delete_credentials(pam_handle_t *handle, int flags) {
+        int r, s;
+
+        assert(handle);
+
+        r = pam_close_session(handle, flags);
+        if (r != PAM_SUCCESS)
+                log_debug("pam_close_session() failed: %s", pam_strerror(handle, r));
+
+        s = pam_setcred(handle, PAM_DELETE_CRED | flags);
+        if (s != PAM_SUCCESS)
+                log_debug("pam_setcred(PAM_DELETE_CRED) failed: %s", pam_strerror(handle, s));
+
+        return r != PAM_SUCCESS ? r : s;
+}
+
 #endif
 
 static int setup_pam(
@@ -1178,7 +1194,7 @@ static int setup_pam(
 
         pam_code = pam_setcred(handle, PAM_ESTABLISH_CRED | flags);
         if (pam_code != PAM_SUCCESS)
-                log_debug("pam_setcred() failed, ignoring: %s", pam_strerror(handle, pam_code));
+                log_debug("pam_setcred(PAM_ESTABLISH_CRED) failed, ignoring: %s", pam_strerror(handle, pam_code));
 
         pam_code = pam_open_session(handle, flags);
         if (pam_code != PAM_SUCCESS)
@@ -1250,13 +1266,9 @@ static int setup_pam(
                         assert(sig == SIGTERM);
                 }
 
-                pam_code = pam_setcred(handle, PAM_DELETE_CRED | flags);
-                if (pam_code != PAM_SUCCESS)
-                        goto child_finish;
-
                 /* If our parent died we'll end the session */
                 if (getppid() != parent_pid) {
-                        pam_code = pam_close_session(handle, flags);
+                        pam_code = pam_close_session_and_delete_credentials(handle, flags);
                         if (pam_code != PAM_SUCCESS)
                                 goto child_finish;
                 }
@@ -1299,7 +1311,7 @@ fail:
 
         if (handle) {
                 if (close_session)
-                        pam_code = pam_close_session(handle, flags);
+                        pam_code = pam_close_session_and_delete_credentials(handle, flags);
 
                 (void) pam_end(handle, pam_code | flags);
         }
