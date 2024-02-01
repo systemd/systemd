@@ -159,14 +159,14 @@ static int pin_choice(
 
         struct stat st;
         if (fstat(inode_fd, &st) < 0)
-                return log_debug_errno(errno, "Failed to stat discovered inode '%s/%s': %m", toplevel_path, inode_path);
+                return log_debug_errno(errno, "Failed to stat discovered inode '%s': %m", prefix_roota(toplevel_path, inode_path));
 
         if (filter->type_mask != 0 &&
             !FLAGS_SET(filter->type_mask, UINT32_C(1) << IFTODT(st.st_mode)))
                 return log_debug_errno(
                                 SYNTHETIC_ERRNO(errno_from_mode(filter->type_mask, st.st_mode)),
-                                "Inode '%s/%s' has wrong type, found '%s'.",
-                                toplevel_path, inode_path,
+                                "Inode '%s' has wrong type, found '%s'.",
+                                prefix_roota(toplevel_path, inode_path),
                                 inode_type_to_string(st.st_mode));
 
         _cleanup_(pick_result_done) PickResult result = {
@@ -293,7 +293,7 @@ static int make_choice(
                 r = chaseat(toplevel_fd, p, CHASE_AT_RESOLVE_IN_ROOT, &object_path, &object_fd);
                 if (r < 0) {
                         if (r != -ENOENT)
-                                return log_debug_errno(r, "Failed to open '%s/%s': %m", toplevel_path, p);
+                                return log_debug_errno(r, "Failed to open '%s': %m", prefix_roota(toplevel_path, p));
 
                         *ret = PICK_RESULT_NULL;
                         return 0;
@@ -318,11 +318,11 @@ static int make_choice(
         /* Convert O_PATH to a regular directory fd */
         dir_fd = fd_reopen(inode_fd, O_DIRECTORY|O_RDONLY|O_CLOEXEC);
         if (dir_fd < 0)
-                return log_debug_errno(dir_fd, "Failed to reopen '%s/%s' as directory: %m", toplevel_path, inode_path);
+                return log_debug_errno(dir_fd, "Failed to reopen '%s' as directory: %m", prefix_roota(toplevel_path, inode_path));
 
         r = readdir_all(dir_fd, 0, &de);
         if (r < 0)
-                return log_debug_errno(r, "Failed to read directory '%s/%s': %m", toplevel_path, inode_path);
+                return log_debug_errno(r, "Failed to read directory '%s': %m", prefix_roota(toplevel_path, inode_path));
 
         if (filter->architecture < 0) {
                 architectures = local_architectures;
@@ -466,7 +466,7 @@ static int make_choice(
 
         object_fd = openat(dir_fd, best_filename, O_CLOEXEC|O_PATH);
         if (object_fd < 0)
-                return log_debug_errno(errno, "Failed to open '%s/%s': %m", toplevel_path, p);
+                return log_debug_errno(errno, "Failed to open '%s': %m", prefix_roota(toplevel_path, p));
 
         return pin_choice(
                         toplevel_path,
