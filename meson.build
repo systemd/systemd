@@ -1250,7 +1250,8 @@ foreach ident : ['crypt_set_metadata_size',
                  'crypt_reencrypt_init_by_passphrase',
                  'crypt_reencrypt',
                  'crypt_set_data_offset',
-                 'crypt_set_keyring_to_link']
+                 'crypt_set_keyring_to_link',
+                 'crypt_resume_by_volume_key']
         have_ident = have and cc.has_function(
                 ident,
                 prefix : '#include <libcryptsetup.h>',
@@ -1563,7 +1564,8 @@ conf.set10('ENABLE_IMPORTD', have)
 have = get_option('homed').require(
         conf.get('HAVE_OPENSSL') == 1 and
         conf.get('HAVE_LIBFDISK') == 1 and
-        conf.get('HAVE_LIBCRYPTSETUP') == 1,
+        conf.get('HAVE_LIBCRYPTSETUP') == 1 and
+        conf.get('HAVE_CRYPT_RESUME_BY_VOLUME_KEY') == 1,
         error_message : 'openssl, fdisk and libcryptsetup required').allowed()
 conf.set10('ENABLE_HOMED', have)
 
