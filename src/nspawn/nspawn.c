@@ -4432,6 +4432,22 @@ static int setup_notify_parent(sd_event *event, int fd, pid_t *inner_child_pid, 
         return 0;
 }
 
+static void set_window_title(PTYForward *f) {
+        _cleanup_free_ char *hn = NULL, *dot = NULL;
+
+        assert(f);
+
+        (void) gethostname_strict(&hn);
+
+        if (emoji_enabled())
+                dot = strjoin(special_glyph(SPECIAL_GLYPH_BLUE_CIRCLE), " ");
+
+        if (hn)
+                (void) pty_forward_set_titlef(f, "%sContainer %s on %s", strempty(dot), arg_machine, hn);
+        else
+                (void) pty_forward_set_titlef(f, "%sContainer %s", strempty(dot), arg_machine);
+}
+
 static int merge_settings(Settings *settings, const char *path) {
         int rl;
 
@@ -5364,6 +5380,7 @@ static int run_container(
                         } else if (!isempty(arg_background))
                                 (void) pty_forward_set_background_color(forward, arg_background);
 
+                        set_window_title(forward);
                         break;
 
                 default:
