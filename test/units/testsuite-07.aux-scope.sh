@@ -10,12 +10,16 @@ if ! grep -q pidfd_open /proc/kallsyms; then
     exit 0
 fi
 
+journalctl --cursor-file=/tmp/aux-scope.cursor -n 0 -q
+
 systemd-run --unit test-aux-scope.service \
             -p Slice=aux.slice -p Type=exec -p TasksMax=99 -p CPUWeight=199 -p IPAccounting=yes \
             /usr/lib/systemd/tests/unit-tests/manual/test-aux-scope
 kill -s USR1 "$(systemctl show --value --property MainPID test-aux-scope.service)"
 
-sleep 1
+timeout 10s bash -xec \
+    'until journalctl -q --cursor-file=/tmp/aux-scope.cursor -u test-aux-scope.service --grep "Successfully processed SIGUSR1"; do sleep .5; done'
+rm -f /tmp/aux-scope.cursor
 
 systemctl status test-aux-scope.service
 # shellcheck disable=SC2009
