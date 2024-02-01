@@ -1164,6 +1164,7 @@ int user_record_merge_secret(UserRecord *h, UserRecord *secret) {
         int r;
 
         assert(h);
+        assert(secret);
 
         /* Merges the secrets from 'secret' into 'h'. */
 

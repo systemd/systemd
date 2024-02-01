@@ -1404,6 +1404,7 @@ static int home_fixate_internal(
         int r;
 
         assert(h);
+        assert(secret);
         assert(IN_SET(for_state, HOME_FIXATING, HOME_FIXATING_FOR_ACTIVATION, HOME_FIXATING_FOR_ACQUIRE));
 
         r = home_start_work(h, "inspect", h->record, secret, NULL, 0);
@@ -1424,6 +1425,7 @@ int home_fixate(Home *h, UserRecord *secret, sd_bus_error *error) {
         int r;
 
         assert(h);
+        assert(secret);
 
         switch (home_get_state(h)) {
         case HOME_ABSENT:
@@ -1451,6 +1453,7 @@ static int home_activate_internal(Home *h, UserRecord *secret, HomeState for_sta
         int r;
 
         assert(h);
+        assert(secret);
         assert(IN_SET(for_state, HOME_ACTIVATING, HOME_ACTIVATING_FOR_ACQUIRE));
 
         r = home_start_work(h, "activate", h->record, secret, NULL, 0);
@@ -1465,6 +1468,7 @@ int home_activate(Home *h, UserRecord *secret, sd_bus_error *error) {
         int r;
 
         assert(h);
+        assert(secret);
 
         switch (home_get_state(h)) {
         case HOME_UNFIXATED:
@@ -1498,6 +1502,7 @@ static int home_authenticate_internal(Home *h, UserRecord *secret, HomeState for
         int r;
 
         assert(h);
+        assert(secret);
         assert(IN_SET(for_state, HOME_AUTHENTICATING, HOME_AUTHENTICATING_WHILE_ACTIVE, HOME_AUTHENTICATING_FOR_ACQUIRE));
 
         r = home_start_work(h, "inspect", h->record, secret, NULL, 0);
@@ -1513,6 +1518,7 @@ int home_authenticate(Home *h, UserRecord *secret, sd_bus_error *error) {
         int r;
 
         assert(h);
+        assert(secret);
 
         state = home_get_state(h);
         switch (state) {
@@ -1585,6 +1591,7 @@ int home_create(Home *h, UserRecord *secret, Hashmap *blobs, uint64_t flags, sd_
         int r;
 
         assert(h);
+        assert(secret);
 
         switch (home_get_state(h)) {
         case HOME_INACTIVE: {
@@ -1932,6 +1939,8 @@ int home_passwd(Home *h,
         int r;
 
         assert(h);
+        assert(new_secret);
+        assert(old_secret);
 
         if (h->signed_locally <= 0) /* Don't allow changing of records not signed only by us */
                 return sd_bus_error_setf(error, BUS_ERROR_HOME_RECORD_SIGNED, "Home %s is signed and cannot be modified locally.", h->user_name);
@@ -2078,6 +2087,7 @@ static int home_unlock_internal(Home *h, UserRecord *secret, HomeState for_state
         int r;
 
         assert(h);
+        assert(secret);
         assert(IN_SET(for_state, HOME_UNLOCKING, HOME_UNLOCKING_FOR_ACQUIRE));
 
         r = home_start_work(h, "unlock", h->record, secret, NULL, 0);
@@ -2090,7 +2100,9 @@ static int home_unlock_internal(Home *h, UserRecord *secret, HomeState for_state
 
 int home_unlock(Home *h, UserRecord *secret, sd_bus_error *error) {
         int r;
+
         assert(h);
+        assert(secret);
 
         r = home_ratelimit(h, error);
         if (r < 0)
