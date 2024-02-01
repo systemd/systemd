@@ -516,19 +516,26 @@ static void setup_remaining_vcs(int src_fd, unsigned src_idx, bool utf8) {
 }
 
 static int find_source_vc(char **ret_path, unsigned *ret_idx) {
-        int r, err = 0;
+        int err = 0;
 
         assert(ret_path);
         assert(ret_idx);
 
+        /* This function returns an fd when it finds a candidate. It returns 0 when it finds some VCs but all
+         * are busy. Otherwise it returns the first error that occured when the VC was opened. */
+
         for (unsigned i = 1; i <= 63; i++) {
                 _cleanup_close_ int fd = -EBADF;
                 _cleanup_free_ char *path = NULL;
+                int r;
+
+                /* We save the first error but we give less importance for the case where we previously fail
+                 * due to the VCs being not allocated. Similarly errors on opening a device has a higher
+                 * priority than errors due to devices either not allocated or busy. */
 
                 r = verify_vc_allocation(i);
                 if (r < 0) {
-                        log_debug_errno(r, "VC %u existence check failed, skipping: %m", i);
-                        RET_GATHER(err, r);
+                        RET_GATHER(err, log_debug_errno(r, "VC %u existence check failed, skipping: %m", i));
                         continue;
                 }
 
@@ -537,27 +544,32 @@ static int find_source_vc(char **ret_path, unsigned *ret_idx) {
 
                 fd = open_terminal(path, O_RDWR|O_CLOEXEC|O_NOCTTY);
                 if (fd < 0) {
-                        RET_GATHER(err, log_debug_errno(fd, "Failed to open terminal %s, ignoring: %m", path));
+                        log_debug_errno(fd, "Failed to open terminal %s, ignoring: %m", path);
+                        if (IN_SET(err, 0, -EBUSY, -ENOENT))
+                                err = fd;
                         continue;
                 }
 
                 r = verify_vc_kbmode(fd);
+                if (r >= 0)
+                        r = verify_vc_display_mode(fd);
                 if (r < 0) {
-                        RET_GATHER(err, log_debug_errno(r, "Failed to check VC %s keyboard mode: %m", path));
+                        log_debug_errno(r, "Failed to check VC %s keyboard or display mode: %m", path);
+                        if (IN_SET(err, 0, -ENOENT))
+                                err = r;
                         continue;
                 }
 
-                r = verify_vc_display_mode(fd);
-                if (r < 0) {
-                        RET_GATHER(err, log_debug_errno(r, "Failed to check VC %s display mode: %m", path));
-                        continue;
-                }
+                log_debug("Selecting %s as source console", path);
 
                 /* all checks passed, return this one as a source console */
                 *ret_idx = i;
                 *ret_path = TAKE_PTR(path);
                 return TAKE_FD(fd);
         }
+
+        if (err == -EBUSY)
+                return 0;
 
         return log_error_errno(err, "No usable source console found: %m");
 }
@@ -615,9 +627,18 @@ static int run(int argc, char **argv) {
         else
                 fd = find_source_vc(&vc, &idx);
         if (fd < 0)
-                return fd;
+                return EXIT_FAILURE;
 
         utf8 = is_locale_utf8();
+        (void) toggle_utf8_sysfs(utf8);
+
+        if (fd == 0) {
+                /* We found only busy VCs, which might happen during the boot process when the boot splash is
+                 * displayed on the only allocated VC. In this case we don't interfer and avoid initializing
+                 * the VC partially as some operations are likely to fail. */
+                log_notice("All allocated VCs are currently busy, skipping.");
+                return EXIT_SUCCESS;
+        }
 
         context_load_config(&c);
 
@@ -629,7 +650,6 @@ static int run(int argc, char **argv) {
         else if (lock_fd < 0)
                 return log_error_errno(lock_fd, "Failed to lock /dev/console: %m");
 
-        (void) toggle_utf8_sysfs(utf8);
         (void) toggle_utf8_vc(vc, fd, utf8);
 
         r = font_load_and_wait(vc, &c);
