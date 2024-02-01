@@ -169,6 +169,16 @@
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--offline</option></term>
+
+        <listitem><para>Do not attempt to update the copy of the user record and blob directory that is embedded inside
+        of the home area. This allows for operation on home areas that are absent, or without needing to authenticate as
+        the user being modified.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
       <xi:include href="user-system-options.xml" xpointer="host" />
       <xi:include href="user-system-options.xml" xpointer="machine" />
 
