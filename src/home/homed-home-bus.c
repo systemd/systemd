@@ -148,7 +148,7 @@ int bus_home_method_activate(
 
         assert(message);
 
-        r = bus_message_read_secret(message, &secret, error);
+        r = bus_message_read_secret(message, /* required= */ true, &secret, error);
         if (r < 0)
                 return r;
 
@@ -234,7 +234,7 @@ int bus_home_method_realize(
 
         assert(message);
 
-        r = bus_message_read_secret(message, &secret, error);
+        r = bus_message_read_secret(message, /* required= */ true, &secret, error);
         if (r < 0)
                 return r;
 
@@ -312,7 +312,7 @@ int bus_home_method_fixate(
 
         assert(message);
 
-        r = bus_message_read_secret(message, &secret, error);
+        r = bus_message_read_secret(message, /* required= */ true, &secret, error);
         if (r < 0)
                 return r;
 
@@ -341,7 +341,7 @@ int bus_home_method_authenticate(
 
         assert(message);
 
-        r = bus_message_read_secret(message, &secret, error);
+        r = bus_message_read_secret(message, /* required= */ true, &secret, error);
         if (r < 0)
                 return r;
 
@@ -463,7 +463,7 @@ int bus_home_method_resize(
         if (r < 0)
                 return r;
 
-        r = bus_message_read_secret(message, &secret, error);
+        r = bus_message_read_secret(message, /* required= */ true, &secret, error);
         if (r < 0)
                 return r;
 
@@ -503,11 +503,11 @@ int bus_home_method_change_password(
 
         assert(message);
 
-        r = bus_message_read_secret(message, &new_secret, error);
+        r = bus_message_read_secret(message, /* required= */ true, &new_secret, error);
         if (r < 0)
                 return r;
 
-        r = bus_message_read_secret(message, &old_secret, error);
+        r = bus_message_read_secret(message, /* required= */ true, &old_secret, error);
         if (r < 0)
                 return r;
 
@@ -575,7 +575,7 @@ int bus_home_method_unlock(
 
         assert(message);
 
-        r = bus_message_read_secret(message, &secret, error);
+        r = bus_message_read_secret(message, /* required= */ true, &secret, error);
         if (r < 0)
                 return r;
 
@@ -607,7 +607,7 @@ int bus_home_method_acquire(
 
         assert(message);
 
-        r = bus_message_read_secret(message, &secret, error);
+        r = bus_message_read_secret(message, /* required= */ true, &secret, error);
         if (r < 0)
                 return r;
 
