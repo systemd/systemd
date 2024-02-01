@@ -71,6 +71,9 @@ node /org/freedesktop/home1 {
       RegisterHome(in  s user_record);
       UnregisterHome(in  s user_name);
       CreateHome(in  s user_record);
+      CreateHomeEx(in  s user_record,
+                   in  a{sh} blobs,
+                   in  t flags);
       RealizeHome(in  s user_name,
                   in  s secret);
       RemoveHome(in  s user_name);
@@ -80,6 +83,9 @@ node /org/freedesktop/home1 {
       AuthenticateHome(in  s user_name,
                        in  s secret);
       UpdateHome(in  s user_record);
+      UpdateHomeEx(in  s user_record,
+                   in  a{sh} blobs,
+                   in  t flags);
       ResizeHome(in  s user_name,
                  in  t size,
                  in  s secret);
@@ -144,6 +150,8 @@ node /org/freedesktop/home1 {
 
     <variablelist class="dbus-method" generated="True" extra-ref="CreateHome()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="CreateHomeEx()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="RealizeHome()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="RemoveHome()"/>
@@ -153,6 +161,8 @@ node /org/freedesktop/home1 {
     <variablelist class="dbus-method" generated="True" extra-ref="AuthenticateHome()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="UpdateHome()"/>
+
+    <variablelist class="dbus-method" generated="True" extra-ref="UpdateHomeEx()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="ResizeHome()"/>
 
@@ -251,6 +261,19 @@ node /org/freedesktop/home1 {
       the user record locally and creates a home directory matching it, depending on the settings specified
       in the record in combination with local configuration.</para>
 
+      <para><function>CreateHomeEx()</function> is like <function>CreateHome()</function>, but it allows the
+      home directory to be created with a pre-populated blob directory (see
+      <ulink url="https://systemd.io/USER_RECORD_BLOB_DIRS">User Record Blob Directories</ulink> for more info).
+      This can be done via the dictionary passed as the <varname>blobs</varname> argument to this method: the values
+      are open file descriptors to regular files, and the keys are the filenames that should contain their respective
+      file's data in the blob directory. Note that for security reasons, the file descriptors passed into this method
+      must have enough privileges to read their target file and thus cannot be <literal>O_PATH</literal>; this
+      is done to ensure the caller is actually permitted to read the file they are asking to publish in the
+      blob directories. If the user record passed as the first argument contains a <literal>blobManifest</literal>
+      field it will be enforced; otherwise, a <literal>blobManifest</literal> field will be generated and inserted
+      into the record. The <varname>flags</varname> argument may be used for future expansion, but for now
+      pass 0.</para>
+
       <para><function>RealizeHome()</function> creates a home directory whose user record is already
       registered locally. This takes a user name plus a user record consisting only of the
       <literal>secret</literal> section. Invoking <function>RegisterHome()</function> followed by
@@ -285,23 +308,38 @@ node /org/freedesktop/home1 {
       interface.</para>
 
       <para><function>UpdateHome()</function> updates a locally registered user record. Takes a fully
-      specified JSON user record as argument (including the <literal>secret</literal> section). A user with a
-      matching name and realm must be registered locally already, and the last change timestamp of the newly
-      supplied record must be newer than the previously existing user record. Note this operation updates the
-      user record only, it does not propagate passwords/authentication tokens from the user record to the
+      specified JSON user record as argument (possibly including the <literal>secret</literal> section). A user
+      with a matching name and realm must be registered locally already, and the last change timestamp of the
+      newly supplied record must be newer than the previously existing user record. Note this operation updates
+      the user record only, it does not propagate passwords/authentication tokens from the user record to the
       storage back-end, or resizes the storage back-end. Typically a home directory is first updated, and then
       the password of the underlying storage updated using <function>ChangePasswordHome()</function> as well
       as the storage resized using <function>ResizeHome()</function>. This method is equivalent to
       <function>Update()</function> on the <classname>org.freedesktop.home1.Home</classname> interface.</para>
 
+      <para><function>UpdateHomeEx()</function> is like <function>UpdateHome()</function>, but it allows for
+      changes to the blob directory (see <ulink url="https://systemd.io/USER_RECORD_BLOB_DIRS">User Record Blob
+      Directories</ulink> for more info). The <varname>blobs</varname> argument works in the same way as
+      <function>CreateHomeEx()</function>, so check there for details. The new blob directory contents passed into
+      this method will completely replace the user's existing blob directory. The <varname>flags</varname> argument
+      can be used to further customize the behavior of this method via flags defined as follows:</para>
+      <programlisting>
+#define SD_HOMED_UPDATE_OFFLINE (UINT64_C(1) &lt;&lt; 0)
+      </programlisting>
+      <para>When <constant>SD_HOMED_UPDATE_OFFLINE</constant> (0x01) is set, no attempt is made to update the copies
+      of the user record and blob directory that are embedded into the home directory. Changes will be stored, however,
+      and may be propagated into the home directory the next time it is reconciled (most likely when the user next logs in).
+      Note that any changes made with this flag set may be lost if the home area has a newer record, which can happen
+      if the home area is updated on another machine after this method call. This method is equivalent to
+      <function>UpdateEx()</function> on the <classname>org.freedesktop.home1.Home</classname> interface.</para>
+
       <para><function>ResizeHome()</function> resizes the storage associated with a user record. Takes a user
-      name, a disk size in bytes and a user record consisting only of the <literal>secret</literal> section
-      as argument. If the size is specified as <constant>UINT64_MAX</constant> the storage is resized to the
-      size already specified in the user record. Typically, if the user record is updated using
+      name, a disk size in bytes, and optionally a user record consisting only of the <literal>secret</literal>
+      section as arguments. If the size is specified as <constant>UINT64_MAX</constant> the storage is resized to
+      the size already specified in the user record. Typically, if the user record is updated using
       <function>UpdateHome()</function> above this is used to propagate the size configured there-in down to
-      the underlying storage back-end. This method is equivalent to
-      <function>Resize()</function> on the <classname>org.freedesktop.home1.Home</classname>
-      interface.</para>
+      the underlying storage back-end. This method is equivalent to <function>Resize()</function> on the
+      <classname>org.freedesktop.home1.Home</classname> interface.</para>
 
       <para><function>ChangePasswordHome()</function> changes the passwords/authentication tokens of a home
       directory. Takes a user name, and two JSON user record objects, each consisting only of the
@@ -420,6 +458,9 @@ node /org/freedesktop/home1/home {
       Fixate(in  s secret);
       Authenticate(in  s secret);
       Update(in  s user_record);
+      UpdateEx(in  s user_record,
+               in  a{sh} blobs,
+               in  t flags);
       Resize(in  t size,
              in  s secret);
       ChangePassword(in  s new_secret,
@@ -481,6 +522,8 @@ node /org/freedesktop/home1/home {
 
     <variablelist class="dbus-method" generated="True" extra-ref="Update()"/>
 
+    <variablelist class="dbus-method" generated="True" extra-ref="UpdateEx()"/>
+
     <variablelist class="dbus-method" generated="True" extra-ref="Resize()"/>
 
     <variablelist class="dbus-method" generated="True" extra-ref="ChangePassword()"/>
@@ -515,16 +558,16 @@ node /org/freedesktop/home1/home {
       <para><function>Activate()</function>, <function>Deactivate()</function>,
       <function>Unregister()</function>, <function>Realize()</function>, <function>Remove()</function>,
       <function>Fixate()</function>, <function>Authenticate()</function>, <function>Update()</function>,
-      <function>Resize()</function>, <function>ChangePassword()</function>, <function>Lock()</function>,
-      <function>Unlock()</function>, <function>Acquire()</function>, <function>Ref()</function>,
-      <function>Release()</function>, <function>InhibitSuspend()</function> operate like their matching counterparts on the
-      <classname>org.freedesktop.home1.Manager</classname> interface (see above). The main difference is that
-      they are methods of the home directory objects, and hence carry no additional user name
-      parameter. Which of the two flavors of methods to call depends on the handles to the user known on the
-      client side: if only the user name is known, it's preferable to use the methods on the manager object
-      since they operate with user names only. If however the home object path was already acquired some way
-      it is preferable to operate on the <classname>org.freedesktop.home1.Home</classname> objects
-      instead.</para>
+      <function>UpdateEx()</function>, <function>Resize()</function>, <function>ChangePassword()</function>,
+      <function>Lock()</function>, <function>Unlock()</function>, <function>Acquire()</function>,
+      <function>Ref()</function>, <function>Release()</function>, <function>InhibitSuspend()</function>
+      operate like their matching counterparts on the <classname>org.freedesktop.home1.Manager</classname>
+      interface (see above). The main difference is that they are methods of the home directory objects, and
+      hence carry no additional user name parameter. Which of the two flavors of methods to call depends on the
+      handles to the user known on the client side: if only the user name is known, it's preferable to use the
+      methods on the manager object since they operate with user names only. If however the home object path was
+      already acquired some way it is preferable to operate on the <classname>org.freedesktop.home1.Home</classname>
+      objects instead.</para>
     </refsect2>
 
     <refsect2>
@@ -549,11 +592,13 @@ node /org/freedesktop/home1/home {
     <title>History</title>
     <refsect2>
       <title>The Manager Object</title>
-      <para><function>InhibitSuspendHome()</function> was added in version 256.</para>
+      <para><function>CreateHomeEx()</function>, <function>InhibitSuspendHome()</function>,
+      and <function>UpdateHomeEx()</function> were added in version 256.</para>
     </refsect2>
     <refsect2>
       <title>Home Objects</title>
-      <para><function>InhibitSuspend()</function> was added in version 256.</para>
+      <para><function>InhibitSuspend()</function> and <function>UpdateEx()</function>
+      were added in version 256.</para>
     </refsect2>
   </refsect1>
 
