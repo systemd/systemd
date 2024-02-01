@@ -521,6 +521,10 @@ static int find_source_vc(char **ret_path, unsigned *ret_idx) {
         assert(ret_path);
         assert(ret_idx);
 
+        /* This function returns -EBUSY only when it finds VCs and all are busy. If one of them can't be used
+         * for any other reason, the corresponding error is returned instead. It returns -ENOENT when no VC
+         * is found at all. */
+
         for (unsigned i = 1; i <= 63; i++) {
                 _cleanup_close_ int fd = -EBADF;
                 _cleanup_free_ char *path = NULL;
@@ -528,6 +532,8 @@ static int find_source_vc(char **ret_path, unsigned *ret_idx) {
                 r = verify_vc_allocation(i);
                 if (r < 0) {
                         log_debug_errno(r, "VC %u existence check failed, skipping: %m", i);
+                        if (r != -ENOENT && err == -EBUSY)
+                                err = 0; /* EBUSY has less priority than any other error except for ENOENT. */
                         RET_GATHER(err, r);
                         continue;
                 }
@@ -537,7 +543,9 @@ static int find_source_vc(char **ret_path, unsigned *ret_idx) {
 
                 fd = open_terminal(path, O_RDWR|O_CLOEXEC|O_NOCTTY);
                 if (fd < 0) {
-                        RET_GATHER(err, log_debug_errno(fd, "Failed to open terminal %s, ignoring: %m", path));
+                        log_debug_errno(fd, "Failed to open terminal %s, ignoring: %m", path);
+                        if (IN_SET(err, 0, -EBUSY))
+                                err = fd;
                         continue;
                 }
 
@@ -558,6 +566,9 @@ static int find_source_vc(char **ret_path, unsigned *ret_idx) {
                 *ret_path = TAKE_PTR(path);
                 return TAKE_FD(fd);
         }
+
+        if (err == -EBUSY)
+                return log_notice_errno(err, "All existing virtual consoles are currently busy, skipping.");
 
         return log_error_errno(err, "No usable source console found: %m");
 }
@@ -612,10 +623,15 @@ static int run(int argc, char **argv) {
 
         if (argv[1])
                 fd = verify_source_vc(&vc, argv[1]);
-        else
+        else {
                 fd = find_source_vc(&vc, &idx);
+                if (fd == -EBUSY)
+                        /* We found only busy VCs, which might happen during the boot process when the boot
+                         * splash is displayed on the only allocated VC. */
+                        return EXIT_SUCCESS;
+        }
         if (fd < 0)
-                return fd;
+                return EXIT_FAILURE;
 
         utf8 = is_locale_utf8();
 
