@@ -57,6 +57,7 @@ rules_in = [
         ['50-udev-default.rules'],
         ['60-persistent-storage.rules'],
         ['64-btrfs.rules'],
+        ['70-amd-pmf.rules'],
         ['99-systemd.rules'],
 
         ['70-uaccess.rules',   enable_logind and conf.get('HAVE_ACL') == 1],
