@@ -1841,6 +1841,9 @@ static int home_lock(UserRecord *h) {
         if (r < 0)
                 return r;
 
+        /* Explicitly flush any per-user key from the keyring */
+        (void) keyring_flush(h);
+
         log_info("Everything completed.");
         return 1;
 }
