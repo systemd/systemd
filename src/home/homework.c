@@ -1883,6 +1883,9 @@ static int home_lock(UserRecord *h) {
 
         unit_freezer_done(&freezer); /* Don't thaw the user session. */
 
+        /* Explicitly flush any per-user key from the keyring */
+        (void) keyring_flush(h);
+
         log_info("Everything completed.");
         return 1;
 }

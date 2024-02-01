@@ -256,43 +256,30 @@ static int run_fsck(const char *node, const char *fstype) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(key_serial_t, keyring_unlink, -1);
 
-static int upload_to_keyring(
-                UserRecord *h,
-                const char *password,
-                key_serial_t *ret_key_serial) {
+static int upload_to_keyring(UserRecord *h, const void *vk, size_t vks, key_serial_t *ret) {
 
         _cleanup_free_ char *name = NULL;
         key_serial_t serial;
 
         assert(h);
-        assert(password);
+        assert(vk);
+        assert(vks > 0);
 
-        /* If auto-shrink-on-logout is turned on, we need to keep the key we used to unlock the LUKS volume
-         * around, since we'll need it when automatically resizing (since we can't ask the user there
-         * again). We do this by uploading it into the kernel keyring, specifically the "session" one. This
-         * is done under the assumption systemd-homed gets its private per-session keyring (i.e. default
-         * service behaviour, given that KeyringMode=private is the default). It will survive between our
-         * systemd-homework invocations that way.
-         *
-         * If auto-shrink-on-logout is disabled we'll skip this step, to be frugal with sensitive data. */
-
-        if (user_record_auto_resize_mode(h) != AUTO_RESIZE_SHRINK_AND_GROW) {  /* Won't need it */
-                if (ret_key_serial)
-                        *ret_key_serial = -1;
-                return 0;
-        }
+        /* We upload the LUKS volume key into the kernel session keyring, under the assumption that
+         * systemd-homed gets its own private session keyring (i.e. the default service behavior, given
+         * that KeyringMode=private is the default). That way, the key will survive between invocations
+         * of systemd-homework. */
 
         name = strjoin("homework-user-", h->user_name);
         if (!name)
                 return -ENOMEM;
 
-        serial = add_key("user", name, password, strlen(password), KEY_SPEC_SESSION_KEYRING);
+        serial = add_key("user", name, vk, vks, KEY_SPEC_SESSION_KEYRING);
         if (serial == -1)
                 return -errno;
 
-        if (ret_key_serial)
-                *ret_key_serial = serial;
-
+        if (ret)
+                *ret = serial;
         return 1;
 }
 
@@ -301,13 +288,14 @@ static int luks_try_passwords(
                 struct crypt_device *cd,
                 char **passwords,
                 void *volume_key,
-                size_t *volume_key_size,
-                key_serial_t *ret_key_serial) {
+                size_t *volume_key_size) {
 
         int r;
 
         assert(h);
         assert(cd);
+        assert(volume_key);
+        assert(volume_key_size);
 
         STRV_FOREACH(pp, passwords) {
                 size_t vks = *volume_key_size;
@@ -320,21 +308,71 @@ static int luks_try_passwords(
                                 *pp,
                                 strlen(*pp));
                 if (r >= 0) {
-                        if (ret_key_serial) {
-                                /* If ret_key_serial is non-NULL, let's try to upload the password that
-                                 * worked, and return its serial. */
-                                r = upload_to_keyring(h, *pp, ret_key_serial);
-                                if (r < 0) {
-                                        log_debug_errno(r, "Failed to upload LUKS password to kernel keyring, ignoring: %m");
-                                        *ret_key_serial = -1;
-                                }
-                        }
-
                         *volume_key_size = vks;
                         return 0;
                 }
 
                 log_debug_errno(r, "Password %zu didn't work for unlocking LUKS superblock: %m", (size_t) (pp - passwords));
+        }
+
+        return -ENOKEY;
+}
+
+static int luks_get_volume_key(
+                UserRecord *h,
+                struct crypt_device *cd,
+                const PasswordCache *cache,
+                void *volume_key,
+                size_t *volume_key_size,
+                key_serial_t *ret_key_serial) {
+
+        char **list;
+        size_t vks;
+        int r;
+
+        assert(h);
+        assert(cd);
+        assert(volume_key);
+        assert(volume_key_size);
+
+        if (cache && cache->volume_key) {
+                /* Shortcut: If volume key was loaded from the keyring then just use it */
+                if (cache->volume_key_size > *volume_key_size)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOBUFS),
+                                               "LUKS volume key from kernel keyring too big for buffer (need %zu bytes, have %zu)",
+                                               cache->volume_key_size, *volume_key_size);
+                memcpy(volume_key, cache->volume_key, cache->volume_key_size);
+                *volume_key_size = cache->volume_key_size;
+                if (ret_key_serial)
+                        *ret_key_serial = -1; /* Key came from keyring. No need to re-upload it */
+                return 0;
+        }
+
+        vks = *volume_key_size;
+
+        FOREACH_ARGUMENT(list,
+                         cache ? cache->pkcs11_passwords : NULL,
+                         cache ? cache->fido2_passwords : NULL,
+                         h->password) {
+
+                r = luks_try_passwords(h, cd, list, volume_key, &vks);
+                if (r == -ENOKEY)
+                        continue;
+                if (r < 0)
+                        return r;
+
+                /* We got a volume key! */
+
+                if (ret_key_serial) {
+                        r = upload_to_keyring(h, volume_key, vks, ret_key_serial);
+                        if (r < 0) {
+                                log_warning_errno(r, "Failed to upload LUKS volume key to kernel keyring, ignoring: %m");
+                                *ret_key_serial = -1;
+                        }
+                }
+
+                *volume_key_size = vks;
+                return 0;
         }
 
         return -ENOKEY;
@@ -348,7 +386,6 @@ static int luks_setup(
                 const char *cipher,
                 const char *cipher_mode,
                 uint64_t volume_key_size,
-                char **passwords,
                 const PasswordCache *cache,
                 bool discard,
                 struct crypt_device **ret,
@@ -414,18 +451,7 @@ static int luks_setup(
         if (!vk)
                 return log_oom();
 
-        r = -ENOKEY;
-        char **list;
-        FOREACH_ARGUMENT(list,
-                         cache ? cache->keyring_passswords : NULL,
-                         cache ? cache->pkcs11_passwords : NULL,
-                         cache ? cache->fido2_passwords : NULL,
-                         passwords) {
-
-                r = luks_try_passwords(h, cd, list, vk, &vks, ret_key_serial ? &key_serial : NULL);
-                if (r != -ENOKEY)
-                        break;
-        }
+        r = luks_get_volume_key(h, cd, cache, vk, &vks, ret_key_serial ? &key_serial : NULL);
         if (r == -ENOKEY)
                 return log_error_errno(r, "No valid password for LUKS superblock.");
         if (r < 0)
@@ -556,18 +582,7 @@ static int luks_open(
         if (!vk)
                 return log_oom();
 
-        r = -ENOKEY;
-        char **list;
-        FOREACH_ARGUMENT(list,
-                         cache ? cache->keyring_passswords : NULL,
-                         cache ? cache->pkcs11_passwords : NULL,
-                         cache ? cache->fido2_passwords : NULL,
-                         h->password) {
-
-                r = luks_try_passwords(h, setup->crypt_device, list, vk, &vks, NULL);
-                if (r != -ENOKEY)
-                        break;
-        }
+        r = luks_get_volume_key(h, setup->crypt_device, cache, vk, &vks, NULL);
         if (r == -ENOKEY)
                 return log_error_errno(r, "No valid password for LUKS superblock.");
         if (r < 0)
@@ -1401,7 +1416,6 @@ int home_setup_luks(
                                h->luks_cipher,
                                h->luks_cipher_mode,
                                h->luks_volume_key_size,
-                               h->password,
                                cache,
                                user_record_luks_discard(h) || user_record_luks_offline_discard(h),
                                &setup->crypt_device,
@@ -3619,18 +3633,7 @@ int home_passwd_luks(
         if (!volume_key)
                 return log_oom();
 
-        r = -ENOKEY;
-        char **list;
-        FOREACH_ARGUMENT(list,
-                         cache ? cache->keyring_passswords : NULL,
-                         cache ? cache->pkcs11_passwords : NULL,
-                         cache ? cache->fido2_passwords : NULL,
-                         h->password) {
-
-                r = luks_try_passwords(h, setup->crypt_device, list, volume_key, &volume_key_size, NULL);
-                if (r != -ENOKEY)
-                        break;
-        }
+        r = luks_get_volume_key(h, setup->crypt_device, cache, volume_key, &volume_key_size, NULL);
         if (r == -ENOKEY)
                 return log_error_errno(SYNTHETIC_ERRNO(ENOKEY), "Failed to unlock LUKS superblock with supplied passwords.");
         if (r < 0)
@@ -3673,11 +3676,6 @@ int home_passwd_luks(
                         return log_error_errno(r, "Failed to set up LUKS password: %m");
 
                 log_info("Updated LUKS key slot %zu.", i);
-
-                /* If we changed the password, then make sure to update the copy in the keyring, so that
-                 * auto-rebalance continues to work. We only do this if we operate on an active home dir. */
-                if (i == 0 && FLAGS_SET(flags, HOME_SETUP_ALREADY_ACTIVATED))
-                        upload_to_keyring(h, effective_passwords[i], NULL);
         }
 
         return 1;
@@ -3715,35 +3713,10 @@ int home_lock_luks(UserRecord *h, HomeSetup *setup) {
         return 0;
 }
 
-static int luks_try_resume(
-                struct crypt_device *cd,
-                const char *dm_name,
-                char **password) {
-
-        int r;
-
-        assert(cd);
-        assert(dm_name);
-
-        STRV_FOREACH(pp, password) {
-                r = sym_crypt_resume_by_passphrase(
-                                cd,
-                                dm_name,
-                                CRYPT_ANY_SLOT,
-                                *pp,
-                                strlen(*pp));
-                if (r >= 0) {
-                        log_info("Resumed LUKS device %s.", dm_name);
-                        return 0;
-                }
-
-                log_debug_errno(r, "Password %zu didn't work for resuming device: %m", (size_t) (pp - password));
-        }
-
-        return -ENOKEY;
-}
-
 int home_unlock_luks(UserRecord *h, HomeSetup *setup, const PasswordCache *cache) {
+        _cleanup_(keyring_unlinkp) key_serial_t key_serial = -1;
+        _cleanup_(erase_and_freep) void *vk = NULL;
+        size_t vks;
         int r;
 
         assert(h);
@@ -3756,21 +3729,26 @@ int home_unlock_luks(UserRecord *h, HomeSetup *setup, const PasswordCache *cache
 
         log_info("Discovered used LUKS device %s.", setup->dm_node);
 
-        r = -ENOKEY;
-        char **list;
-        FOREACH_ARGUMENT(list,
-                         cache ? cache->pkcs11_passwords : NULL,
-                         cache ? cache->fido2_passwords : NULL,
-                         h->password) {
+        r = sym_crypt_get_volume_key_size(setup->crypt_device);
+        if (r <= 0)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine LUKS volume key size");
+        vks = (size_t) r;
 
-                r = luks_try_resume(setup->crypt_device, setup->dm_name, list);
-                if (r != -ENOKEY)
-                        break;
-        }
+        vk = malloc(vks);
+        if (!vk)
+                return log_oom();
+
+        r = luks_get_volume_key(h, setup->crypt_device, cache, vk, &vks, &key_serial);
         if (r == -ENOKEY)
                 return log_error_errno(r, "No valid password for LUKS superblock.");
         if (r < 0)
+                return log_error_errno(r, "Failed to unlock LUKS superblock: %m");
+
+        r = sym_crypt_resume_by_volume_key(setup->crypt_device, setup->dm_name, vk, vks);
+        if (r < 0)
                 return log_error_errno(r, "Failed to resume LUKS superblock: %m");
+
+        TAKE_KEY_SERIAL(key_serial); /* Leave key in kernel keyring */
 
         log_info("LUKS device resumed.");
         return 0;
