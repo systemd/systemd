@@ -176,7 +176,6 @@ static int ndisc_request_route(Route *route, Link *link, sd_ndisc_router *rt) {
         struct in6_addr router;
         uint8_t hop_limit = 0;
         uint32_t mtu = 0;
-        bool is_new;
         int r;
 
         assert(route);
@@ -222,7 +221,19 @@ static int ndisc_request_route(Route *route, Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return r;
 
-        is_new = route_get(link->manager, route, NULL) < 0;
+        bool is_new;
+        Route *existing;
+        if (route_get(link->manager, route, &existing) >= 0) {
+                is_new = false;
+
+                if (!route_can_update(existing, route)) {
+                        log_link_debug(link, "Found a conflicting route with requested one based on a received RA, removing.");
+                        r = route_remove_and_cancel(existing, link->manager);
+                        if (r < 0)
+                                return r;
+                }
+        } else
+                is_new = true;
 
         r = link_request_route(link, route, &link->ndisc_messages, ndisc_route_handler);
         if (r < 0)
