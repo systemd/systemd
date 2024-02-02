@@ -1517,7 +1517,6 @@ int user_group_record_mangle(
 
         assert(v);
         assert(ret_variant);
-        assert(ret_mask);
 
         /* Note that this function is shared with the group record parser, hence we try to be generic in our
          * log message wording here, to cover both cases. */
@@ -1605,7 +1604,8 @@ int user_group_record_mangle(
         else
                 *ret_variant = json_variant_ref(v);
 
-        *ret_mask = m;
+        if (ret_mask)
+                *ret_mask = m;
         return 0;
 }
 
