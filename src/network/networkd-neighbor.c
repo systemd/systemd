@@ -442,6 +442,9 @@ int neighbor_remove(Neighbor *neighbor, Link *link) {
         assert(link->manager);
         assert(link->manager->rtnl);
 
+        /* If the neighbor is remembered, then use the remembered object. */
+        (void) neighbor_get(link, neighbor, &neighbor);
+
         log_neighbor_debug(neighbor, "Removing", link);
 
         r = sd_rtnl_message_new_neigh(link->manager->rtnl, &m, RTM_DELNEIGH,
