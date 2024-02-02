@@ -205,7 +205,6 @@ static int ndisc_request_route(Route *route, Link *link, sd_ndisc_router *rt) {
         route->provider.in6 = router;
         if (!route->table_set)
                 route->table = link_get_ipv6_accept_ra_route_table(link);
-        ndisc_set_route_priority(link, route);
         if (!route->protocol_set)
                 route->protocol = RTPROT_RA;
         r = route_metric_set(&route->metric, RTAX_MTU, mtu);
@@ -221,6 +220,47 @@ static int ndisc_request_route(Route *route, Link *link, sd_ndisc_router *rt) {
         r = route_adjust_nexthops(route, link);
         if (r < 0)
                 return r;
+
+        uint8_t pref, pref_original = route->pref;
+        FOREACH_ARGUMENT(pref, SD_NDISC_PREFERENCE_LOW, SD_NDISC_PREFERENCE_MEDIUM, SD_NDISC_PREFERENCE_HIGH) {
+                Route *existing;
+                Request *req;
+
+                /* If the preference is specified by the user config (that is, for semi-static routes),
+                 * rather than RA, then only search conflicting routes that have the same preference. */
+                if (route->pref_set && pref != pref_original)
+                        continue;
+
+                route->pref = pref;
+                ndisc_set_route_priority(link, route);
+
+                /* Note, here do not call route_remove_and_cancel() with 'route' directly, otherwise
+                 * existing route(s) may be removed needlessly. */
+
+                if (route_get(link->manager, route, &existing) >= 0) {
+                        /* Found an existing route that may conflict with this route. */
+                        if (!route_can_update(existing, route)) {
+                                log_link_debug(link, "Found an existing route that conflicts with new route based on a received RA, removing.");
+                                r = route_remove_and_cancel(existing, link->manager);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+
+                if (route_get_request(link->manager, route, &req) >= 0) {
+                        existing = ASSERT_PTR(req->userdata);
+                        if (!route_can_update(existing, route)) {
+                                log_link_debug(link, "Found a pending route request that conflicts with new request based on a received RA, cancelling.");
+                                r = route_remove_and_cancel(existing, link->manager);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+        }
+
+        /* The preference (and priority) may be changed in the above loop. Restore it. */
+        route->pref = pref_original;
+        ndisc_set_route_priority(link, route);
 
         is_new = route_get(link->manager, route, NULL) < 0;
 

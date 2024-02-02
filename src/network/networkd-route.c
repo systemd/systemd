@@ -352,7 +352,7 @@ static int route_get_link(Manager *manager, const Route *route, Link **ret) {
         return route_nexthop_get_link(manager, &route->nexthop, ret);
 }
 
-static int route_get_request(Manager *manager, const Route *route, Request **ret) {
+int route_get_request(Manager *manager, const Route *route, Request **ret) {
         Request *req;
 
         assert(manager);
