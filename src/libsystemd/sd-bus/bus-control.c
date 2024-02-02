@@ -629,7 +629,7 @@ _public_ int sd_bus_get_name_creds(
                                                 }
                                         } else if (need_gids && streq(m, "UnixGroupIDs")) {
 
-                                                /* Note that D-Bus actualy only gives us a combined list of
+                                                /* Note that D-Bus actually only gives us a combined list of
                                                  * primary gid and supplementary gids. And we don't know
                                                  * which one the primary one is. We'll take the whole shebang
                                                  * hence and use it as the supplementary group list, and not
