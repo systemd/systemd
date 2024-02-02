@@ -134,7 +134,7 @@ Some source files are generated during build. We use two templating engines:
   where jinja2 syntax is not interpreted.
 
   See the
-  [Jinja Template Designer Documentation](https://jinja2docs.readthedocs.io/en/stable/templates.html#synopsis)
+  [Jinja Template Designer Documentation](https://jinja.palletsprojects.com/en/3.1.x/templates/#synopsis)
   for details.
 
 Please note that files for both template engines use the `.in` extension.
