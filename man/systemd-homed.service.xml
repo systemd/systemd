@@ -46,6 +46,10 @@
     url="https://systemd.io/USER_GROUP_API">User/Group Record Lookup API via Varlink</ulink>, and thus may be
     browsed with
     <citerefentry><refentrytitle>userdbctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+    <para><filename>systemd-homed.service</filename> also manages blob directories for each home directory
+    it manages. See <ulink url="https://systemd.io/USER_RECORD_BLOB_DIRS">User Record Blob Directories</ulink>
+    for more details.</para>
   </refsect1>
 
   <refsect1>
