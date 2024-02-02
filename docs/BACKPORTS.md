@@ -22,4 +22,4 @@ The following types of commits are cherry-picked onto those branches:
 * hardware database additions, especially the keymap updates
 * small non-conflicting features deemed safe to add in a stable release
 
-Please try to ensure that anything backported to the stable repository is done with the `git cherry-pick -x` option such that text stating the original SHA1 is added into the commit message. This makes it easier to check where the code came from (as sometimes it is necessary to add small fixes as new code due to the upstream refactors that are deemed too invasive to backport as a stable patch.
+Please try to ensure that anything backported to the stable repository is done with the `git cherry-pick -x` option such that text stating the original SHA1 is added into the commit message. This makes it easier to check where the code came from (as sometimes it is necessary to add small fixes as new code due to the upstream refactors) that are deemed too invasive to backport as a stable patch.
