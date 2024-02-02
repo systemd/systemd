@@ -12,17 +12,27 @@ systemd provides aggressive parallelization capabilities, uses socket and D-Bus 
 Other parts include a logging daemon, utilities to control basic system configuration like the hostname, date, locale, maintain a list of logged-in users and running containers and virtual machines, system accounts, runtime directories and settings, and daemons to manage simple network configuration, network time synchronization, log forwarding, and name resolution.
 
 ---
-
-{% assign by_category = site.pages | group_by:"category" %}
-{% assign extra_pages = site.data.extra_pages | group_by:"category" %}
-{% assign merged = by_category | concat: extra_pages | sort:"name" %}
-
-{% for pair in merged %}
-  {% if pair.name != "" %}
-## {{ pair.name }}
-{% assign sorted = pair.items | sort:"title" %}{% for page in sorted %}
+## Project
+{% for page in site.data.project %}
 * [{{ page.title }}]({{ page.url | relative_url }}){% endfor %}
-  {% endif %}
+
+<!-- Collections -->
+{% for c in site.collections %}
+<!-- hide autegenerated posts collection -->
+{% if c.label != "posts" %}
+## {{ c.title }}
+{% for item in site[c.label] %}
+* [{{ item.title }}]({{ item.url | relative_url }}){% endfor %}
+{% endif %}
+{% endfor %}
+
+<!-- external pages -->
+{% assign external_pages = site.data.extra_pages | group_by:"category" %}
+
+{% for category in external_pages %}
+## {{ category.name }}
+{% assign sorted = category.items | sort:"title" %}{% for page in sorted %}
+* [{{ page.title }}]({{ page.url | relative_url }}){% endfor %}
 {% endfor %}
 
 ## See also
