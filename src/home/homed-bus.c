@@ -7,7 +7,7 @@
 #include "stat-util.h"
 #include "strv.h"
 
-int bus_message_read_secret(sd_bus_message *m, bool required, UserRecord **ret, sd_bus_error *error) {
+int bus_message_read_secret(sd_bus_message *m, UserRecord **ret, sd_bus_error *error) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *full = NULL;
         _cleanup_(user_record_unrefp) UserRecord *hr = NULL;
         unsigned line = 0, column = 0;
@@ -19,14 +19,6 @@ int bus_message_read_secret(sd_bus_message *m, bool required, UserRecord **ret, 
         r = sd_bus_message_read(m, "s", &json);
         if (r < 0)
                 return r;
-
-        if (isempty(json)) {
-                if (required)
-                        return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Missing required secret.");
-
-                *ret = NULL;
-                return 0;
-        }
 
         r = json_parse(json, JSON_PARSE_SENSITIVE, &v, &line, &column);
         if (r < 0)
