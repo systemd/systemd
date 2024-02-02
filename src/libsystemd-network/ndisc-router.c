@@ -717,7 +717,7 @@ int sd_ndisc_router_dnssl_get_domains(sd_ndisc_router *rt, char ***ret) {
                                 e[n] = 0;
                                 r = dns_name_normalize(e, 0, &normalized);
                                 if (r < 0)
-                                        return r;
+                                        return r == -ENOMEM ? -ENOMEM : -EBADMSG;
 
                                 /* Ignore the root domain name or "localhost" and friends */
                                 if (!is_localhost(normalized) &&
@@ -754,7 +754,7 @@ int sd_ndisc_router_dnssl_get_domains(sd_ndisc_router *rt, char ***ret) {
 
                 r = dns_label_escape((char*) p+1, *p, e + n, DNS_LABEL_ESCAPED_MAX);
                 if (r < 0)
-                        return r;
+                        return r == -ENOMEM ? -ENOMEM : -EBADMSG;
 
                 n += r;
 
