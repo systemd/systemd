@@ -654,7 +654,7 @@ static void bus_get_peercred(sd_bus *b) {
 
         r = getpeerpidfd(b->input_fd);
         if (r < 0)
-                log_debug_errno(r, "Failed to determin peer pidfd, ignoring: %m");
+                log_debug_errno(r, "Failed to determine peer pidfd, ignoring: %m");
         else
                 close_and_replace(b->pidfd, r);
 
