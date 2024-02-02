@@ -187,6 +187,7 @@ static inline int run_test_table(void) {
                         _r = run_test_table();            \
                 _q = _outro ? _outro() : EXIT_SUCCESS;    \
                 static_destruct();                        \
+                hashmap_trim_pools();
                 if (_r < 0)                               \
                         return EXIT_FAILURE;              \
                 if (_r != EXIT_SUCCESS)                   \
