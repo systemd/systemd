@@ -552,6 +552,9 @@ int nexthop_remove(NextHop *nexthop, Manager *manager) {
         assert(nexthop->id > 0);
         assert(manager);
 
+        /* If the nexthop is remembered, then use the remembered object. */
+        (void) nexthop_get_by_id(manager, PTR_TO_UINT32(nexthop->id), &nexthop);
+
         /* link may be NULL. */
         (void) link_get_by_index(manager, nexthop->ifindex, &link);
 

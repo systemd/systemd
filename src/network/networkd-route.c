@@ -575,8 +575,12 @@ int route_remove(Route *route, Manager *manager) {
         assert(route);
         assert(manager);
 
+        /* If the route is remembered, then use the remembered object. */
+        (void) route_get(manager, route, &route);
+
         log_route_debug(route, "Removing", manager);
 
+        /* For logging. */
         (void) route_get_link(manager, route, &link);
 
         r = sd_rtnl_message_new_route(manager->rtnl, &m, RTM_DELROUTE, route->family, route->protocol);
@@ -1301,6 +1305,43 @@ static bool route_by_kernel(const Route *route) {
         return false;
 }
 
+bool route_can_update(const Route *existing, const Route *requesting) {
+        assert(existing);
+        assert(requesting);
+
+        if (route_compare_func(existing, requesting) != 0)
+                return false;
+
+        switch (existing->family) {
+        case AF_INET:
+                if (existing->nexthop.weight != requesting->nexthop.weight)
+                        return false;
+                return true;
+
+        case AF_INET6:
+                if (existing->protocol != requesting->protocol)
+                        return false;
+                if (existing->type != requesting->type)
+                        return false;
+                if (existing->flags != requesting->flags)
+                        return false;
+                if (!in6_addr_equal(&existing->prefsrc.in6, &requesting->prefsrc.in6))
+                        return false;
+                if (existing->pref != requesting->pref)
+                        return false;
+                if (existing->expiration_managed_by_kernel && requesting->lifetime_usec != USEC_INFINITY)
+                        return false; /* We cannot disable expiration timer in the kernel. */
+                if (!route_metric_can_update(&existing->metric, &requesting->metric, existing->expiration_managed_by_kernel))
+                        return false;
+                if (existing->nexthop.weight != requesting->nexthop.weight)
+                        return false;
+                return true;
+
+        default:
+                assert_not_reached();
+        }
+}
+
 static int link_unmark_route(Link *link, const Route *route, const RouteNextHop *nh) {
         _cleanup_(route_unrefp) Route *tmp = NULL;
         Route *existing;
@@ -1318,6 +1359,9 @@ static int link_unmark_route(Link *link, const Route *route, const RouteNextHop 
                 return r;
 
         if (route_get(link->manager, tmp, &existing) < 0)
+                return 0;
+
+        if (!route_can_update(existing, tmp))
                 return 0;
 
         route_unmark(existing);
