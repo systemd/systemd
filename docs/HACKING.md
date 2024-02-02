@@ -33,7 +33,7 @@ run the relevant tool from the build directory.
 For some components (most importantly, systemd/PID 1 itself) this is not
 possible, however. In order to simplify testing for cases like this we provide
 a set of `mkosi` config files directly in the source tree.
-[mkosi](https://github.com/systemd/mkosi) is a tool for building clean OS images
+[mkosi](http://mkosi.systemd.io/) is a tool for building clean OS images
 from an upstream distribution in combination with a fresh build of the project
 in the local working directory. To make use of this, please install the latest
 version of mkosi from the [GitHub repository](https://github.com/systemd/mkosi).
