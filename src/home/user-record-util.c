@@ -1410,7 +1410,7 @@ static int remove_safe_json_fields_regular(JsonVariant **v) {
 
         assert(v);
 
-        const char *safe_fields[] = {
+        char **safe_fields = STRV_MAKE(
                 /* For display purposes */
                 "realName",
                 "emailAddress", /* Just the $EMAIL env var */
@@ -1430,18 +1430,19 @@ static int remove_safe_json_fields_regular(JsonVariant **v) {
                 "recoveryKeyType",
 
                 "lastChangeUSec", /* Necessary to be able to change record at all */
-                "lastPasswordChangeUSec", /* Ditto, but for authentication methods */
-        }, *safe_blobs[] = {
+                "lastPasswordChangeUSec" /* Ditto, but for authentication methods */
+        );
+        char **safe_blobs = STRV_MAKE(
                 /* For display purposes */
                 "avatar",
-                "login-background",
-        };
+                "login-background"
+        );
 
         if (!json_variant_is_object(*v))
                 return -EINVAL;
 
         /* Handle basic fields */
-        r = json_variant_filter(v, (char**) safe_fields);
+        r = json_variant_filter(v, safe_fields);
         if (r < 0)
                 return r;
 
@@ -1453,7 +1454,7 @@ static int remove_safe_json_fields_regular(JsonVariant **v) {
                  * manifests like this, we're actually comparing the contents
                  * of the blob directories */
 
-                r = json_variant_filter(&blobs, (char**) safe_blobs);
+                r = json_variant_filter(&blobs, safe_blobs);
                 if (r < 0)
                         return r;
 
@@ -1488,7 +1489,7 @@ static int remove_safe_json_fields(JsonVariant **v) {
          * state.
          */
 
-        const char *safe_privileged[] = {
+        char **safe_privileged = STRV_MAKE(
                 /* For display purposes */
                 "passwordHint",
 
@@ -1498,8 +1499,8 @@ static int remove_safe_json_fields(JsonVariant **v) {
                 "fido2HmacSalt",
                 "recoveryKey",
 
-                "sshAuthorizedKeys", /* Basically just ~/.ssh/authorized_keys */
-        };
+                "sshAuthorizedKeys" /* Basically just ~/.ssh/authorized_keys */
+        );
 
         if (!json_variant_is_object(*v))
                 return -EINVAL;
@@ -1561,7 +1562,7 @@ static int remove_safe_json_fields(JsonVariant **v) {
         /* Handle the privileged section */
         privileged = json_variant_ref(json_variant_by_key(*v, "privileged"));
         if (privileged) {
-                r = json_variant_filter(&privileged, (char**) safe_privileged);
+                r = json_variant_filter(&privileged, safe_privileged);
                 if (r < 0)
                         return r;
 

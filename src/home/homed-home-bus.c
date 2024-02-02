@@ -524,7 +524,7 @@ int bus_home_method_change_password(
 
         _cleanup_(user_record_unrefp) UserRecord *new_secret = NULL, *old_secret = NULL;
         Home *h = ASSERT_PTR(userdata);
-        int r, trusted;
+        int r;
 
         assert(message);
 
@@ -536,19 +536,12 @@ int bus_home_method_change_password(
         if (r < 0)
                 return r;
 
-        trusted = bus_home_client_is_trusted(h, message);
-        if (trusted < 0) {
-                log_warning_errno(trusted, "Failed to determine whether client is trusted, assuming not: %m");
-                trusted = false;
-        }
-
         r = bus_verify_polkit_async_full(
                         message,
-                        trusted ? "org.freedesktop.home1.passwd-own-home"
-                                : "org.freedesktop.home1.passwd-home",
+                        "org.freedesktop.home1.passwd-home",
                         /* details= */ NULL,
                         /* interactive= */ false,
-                        h->uid,
+                        h->uid, /* Always let a user change their own password. Safe b/c homework will always re-check password */
                         &h->manager->polkit_registry,
                         error);
         if (r < 0)
