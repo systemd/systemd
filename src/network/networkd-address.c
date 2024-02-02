@@ -1426,9 +1426,6 @@ int link_request_address(
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Failed to acquire an address from pool: %m");
 
-                /* Consider address tentative until we get the real flags from the kernel */
-                tmp->flags |= IFA_F_TENTATIVE;
-
         } else {
                 r = address_dup(address, &tmp);
                 if (r < 0)
