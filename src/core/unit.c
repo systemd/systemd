@@ -6149,7 +6149,7 @@ void unit_next_freezer_state(Unit *u, FreezerAction action, FreezerState *ret, F
         assert(ret);
         assert(ret_target);
 
-        /* This function determintes the correct freezer state transitions for a unit
+        /* This function determines the correct freezer state transitions for a unit
          * given the action being requested. It returns the next state, and also the "target",
          * which is either FREEZER_FROZEN or FREEZER_RUNNING, depending on what actual state we
          * ultimately want to achieve. */
