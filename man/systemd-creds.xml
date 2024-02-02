@@ -208,7 +208,7 @@
         to select which user the credential is from. Such credentials may only be decrypted from the
         specified user's context, except if privileges can be acquired. Generally, when an encrypted
         credential shall be used in the per-user service manager it should be encrypted with this option set,
-        when it shall be used in the system service manager it should be encypted without.</para>
+        when it shall be used in the system service manager it should be encrypted without.</para>
 
         <para>Internally, this ensures that the selected user's numeric UID and username, as well as the
         system's
