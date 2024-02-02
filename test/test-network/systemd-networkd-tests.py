@@ -4421,6 +4421,12 @@ class NetworkdBondTests(unittest.TestCase, Utilities):
         print(output)
         self.assertIn('active_slave dummy98', output)
 
+        # test case for issue #31165.
+        since = datetime.datetime.now()
+        networkctl_reconfigure('dummy98')
+        self.wait_online(['dummy98:enslaved', 'bond199:degraded'])
+        self.assertNotIn('dummy98: Bringing link down', read_networkd_log(since=since))
+
     def test_bond_primary_slave(self):
         copy_network_unit('23-primary-slave.network', '23-bond199.network', '25-bond-active-backup-slave.netdev', '12-dummy.netdev')
         start_networkd()

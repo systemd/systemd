@@ -1008,6 +1008,8 @@ static int link_up_or_down(Link *link, bool up, Request *req) {
         assert(link->manager->rtnl);
         assert(req);
 
+        /* The log message is checked in the test. Please also update test_bond_active_slave() in
+         * test/test-network/systemd-networkd-tests.py. when the log message below is modified. */
         log_link_debug(link, "Bringing link %s", up_or_down(up));
 
         r = sd_rtnl_message_new_link(link->manager->rtnl, &m, RTM_SETLINK, link->ifindex);
