@@ -2412,6 +2412,75 @@ static int verb_show_log(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int event_log_record_to_cel(EventLogRecord *record, uint64_t *recnum, JsonVariant **ret) {
+        _cleanup_(json_variant_unrefp) JsonVariant *ja = NULL, *fj = NULL;
+        JsonVariant *cd = NULL;
+        const char *ct = NULL;
+        int r;
+
+        assert(record);
+        assert(recnum);
+        assert(ret);
+
+        LIST_FOREACH(banks, bank, record->banks) {
+                r = json_variant_append_arrayb(
+                                &ja, JSON_BUILD_OBJECT(
+                                                JSON_BUILD_PAIR_STRING("hashAlg", tpm2_hash_alg_to_string(bank->algorithm)),
+                                                JSON_BUILD_PAIR_HEX("digest", bank->hash.buffer, bank->hash.size)));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to append CEL digest entry: %m");
+        }
+
+        if (!ja) {
+                r = json_variant_new_array(&ja, NULL, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate JSON array: %m");
+        }
+
+        if (EVENT_LOG_RECORD_IS_FIRMWARE(record)) {
+                _cleanup_free_ char *et = NULL;
+                const char *z;
+
+                z = tpm2_log_event_type_to_string(record->firmware_event_type);
+                if (z) {
+                        _cleanup_free_ char *b = NULL;
+
+                        b = strreplace(z, "-", "_");
+                        if (!b)
+                                return log_oom();
+
+                        et = strjoin("EV_", ascii_strupper(b));
+                        if (!et)
+                                return log_oom();
+                } else if (asprintf(&et, "%" PRIu32, record->firmware_event_type) < 0)
+                        return log_oom();
+
+                r = json_build(&fj, JSON_BUILD_OBJECT(
+                                               JSON_BUILD_PAIR_STRING("event_type", et),
+                                               JSON_BUILD_PAIR_HEX("event_data", record->firmware_payload, record->firmware_payload_size)));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build firmware event data: %m");
+
+                cd = fj;
+                ct = "pcclient_std";
+        } else if (EVENT_LOG_RECORD_IS_USERSPACE(record)) {
+                cd = record->userspace_content;
+                ct = "systemd";
+        }
+
+        r = json_build(ret,
+                       JSON_BUILD_OBJECT(
+                                       JSON_BUILD_PAIR_UNSIGNED("pcr", record->pcr),
+                                       JSON_BUILD_PAIR_UNSIGNED("recnum", ++(*recnum)),
+                                       JSON_BUILD_PAIR_VARIANT("digests", ja),
+                                       JSON_BUILD_PAIR_CONDITION(ct, "content_type", JSON_BUILD_STRING(ct)),
+                                       JSON_BUILD_PAIR_CONDITION(cd, "content", JSON_BUILD_VARIANT(cd))));
+        if (r < 0)
+                return log_error_errno(r, "Failed to make CEL record: %m");
+
+        return 0;
+}
+
 static int verb_show_cel(int argc, char *argv[], void *userdata) {
         _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
         _cleanup_(event_log_freep) EventLog *el = NULL;
@@ -2429,66 +2498,15 @@ static int verb_show_cel(int argc, char *argv[], void *userdata) {
         /* Output the event log in TCG CEL-JSON. */
 
         FOREACH_ARRAY(rr, el->records, el->n_records) {
-                _cleanup_(json_variant_unrefp) JsonVariant *ja = NULL, *fj = NULL;
-                EventLogRecord *record = *rr;
-                JsonVariant *cd = NULL;
-                const char *ct = NULL;
+                _cleanup_(json_variant_unrefp) JsonVariant *cel = NULL;
 
-                LIST_FOREACH(banks, bank, record->banks) {
-                        r = json_variant_append_arrayb(
-                                        &ja, JSON_BUILD_OBJECT(
-                                                        JSON_BUILD_PAIR_STRING("hashAlg", tpm2_hash_alg_to_string(bank->algorithm)),
-                                                        JSON_BUILD_PAIR_HEX("digest", bank->hash.buffer, bank->hash.size)));
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to append CEL digest entry: %m");
-                }
-
-                if (!ja) {
-                        r = json_variant_new_array(&ja, NULL, 0);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to allocate JSON array: %m");
-                }
-
-                if (EVENT_LOG_RECORD_IS_FIRMWARE(record)) {
-                        _cleanup_free_ char *et = NULL;
-                        const char *z;
-
-                        z = tpm2_log_event_type_to_string(record->firmware_event_type);
-                        if (z) {
-                                _cleanup_free_ char *b = NULL;
-
-                                b = strreplace(z, "-", "_");
-                                if (!b)
-                                        return log_oom();
-
-                                et = strjoin("EV_", ascii_strupper(b));
-                                if (!et)
-                                        return log_oom();
-                        } else if (asprintf(&et, "%" PRIu32, record->firmware_event_type) < 0)
-                                return log_oom();
-
-                        r = json_build(&fj, JSON_BUILD_OBJECT(
-                                                       JSON_BUILD_PAIR_STRING("event_type", et),
-                                                       JSON_BUILD_PAIR_HEX("event_data", record->firmware_payload, record->firmware_payload_size)));
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to build firmware event data: %m");
-
-                        cd = fj;
-                        ct = "pcclient_std";
-                } else if (EVENT_LOG_RECORD_IS_USERSPACE(record)) {
-                        cd = record->userspace_content;
-                        ct = "systemd";
-                }
-
-                r = json_variant_append_arrayb(&array,
-                                         JSON_BUILD_OBJECT(
-                                                         JSON_BUILD_PAIR_UNSIGNED("pcr", record->pcr),
-                                                         JSON_BUILD_PAIR_UNSIGNED("recnum", ++recnum),
-                                                         JSON_BUILD_PAIR_VARIANT("digests", ja),
-                                                         JSON_BUILD_PAIR_CONDITION(ct, "content_type", JSON_BUILD_STRING(ct)),
-                                                         JSON_BUILD_PAIR_CONDITION(cd, "content", JSON_BUILD_VARIANT(cd))));
+                r = event_log_record_to_cel(*rr, &recnum, &cel);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to append CEL record: %m");
+                        return r;
+
+                r = json_variant_append_array(&array, cel);
+                if (r < 0)
+                        return log_error_errno(r, "Failed append CEL record: %m");
         }
 
         if (arg_json_format_flags & (JSON_FORMAT_PRETTY|JSON_FORMAT_PRETTY_AUTO))
