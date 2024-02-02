@@ -301,9 +301,8 @@
           required when determining whether the link is online (including when running
           <command>systemd-networkd-wait-online</command>). Takes one of <literal>ipv4</literal>,
           <literal>ipv6</literal>, <literal>both</literal>, or <literal>any</literal>. Defaults to
-          <literal>any</literal>. Note that this option has no effect if
-          <literal>RequiredForOnline=no</literal>, or if <literal>RequiredForOnline=</literal>
-          specifies a minimum operational state below <literal>degraded</literal>.</para>
+          <literal>no</literal>. Note that this option has no effect if
+          <literal>RequiredForOnline=no</literal>.</para>
 
           <xi:include href="version-info.xml" xpointer="v249"/>
         </listitem>
