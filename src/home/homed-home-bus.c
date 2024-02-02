@@ -405,7 +405,7 @@ int bus_home_method_update_record(
                 Hashmap *blobs,
                 uint64_t flags,
                 sd_bus_error *error) {
-        int r;
+        int r, safe;
 
         assert(h);
         assert(message);
@@ -424,9 +424,31 @@ int bus_home_method_update_record(
                 NULL
         };
 
+        if (blobs) {
+                const char *failed = NULL;
+                r = user_record_ensure_blob_manifest(hr, blobs, &failed);
+                if (r == -EINVAL)
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Provided blob files do not correspond to blob manifest.");
+                if (r < 0)
+                        return sd_bus_error_set_errnof(error, r, "Failed to generate hash for blob %s: %m", strnull(failed));
+        }
+
+        safe = user_record_changes_are_safe(h->record, hr);
+        if (safe < 0) {
+                log_warning_errno(safe, "Failed to determine if changes to user record are safe, assuming not: %m");
+                safe = false;
+        } else if (safe) {
+                safe = bus_home_client_is_trusted(h, message);
+                if (safe < 0) {
+                        log_warning_errno(safe, "Failed to determine whether client is trusted, assuming not: %m");
+                        safe = false;
+                }
+        }
+
         r = bus_verify_polkit_async(
                         message,
-                        "org.freedesktop.home1.update-home",
+                        safe ? "org.freedesktop.home1.update-own-home"
+                             : "org.freedesktop.home1.update-home",
                         details,
                         &h->manager->polkit_registry,
                         error);
@@ -562,7 +584,7 @@ int bus_home_method_change_password(
                         "org.freedesktop.home1.passwd-home",
                         details,
                         /* interactive= */ false,
-                        h->uid,
+                        h->uid, /* Always let a user change their own password. Safe b/c homework will always re-check password */
                         &h->manager->polkit_registry,
                         error);
         if (r < 0)
