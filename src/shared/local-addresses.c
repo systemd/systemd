@@ -359,7 +359,7 @@ int local_gateways(
         int r;
 
         /* The RTA_VIA attribute is used only for IPv4 routes with an IPv6 gateway. If IPv4 gateways are
-         * requested (af == AF_INET), then we do not return IPv6 gateway addresses. Similary, if IPv6
+         * requested (af == AF_INET), then we do not return IPv6 gateway addresses. Similarly, if IPv6
          * gateways are requested (af == AF_INET6), then we do not return gateway addresses for IPv4 routes.
          * So, the RTA_VIA attribute is only parsed when af == AF_UNSPEC. */
         bool allow_via = af == AF_UNSPEC;
