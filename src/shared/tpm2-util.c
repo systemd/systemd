@@ -6940,7 +6940,7 @@ int tpm2_pcrlock_policy_from_credentials(
                         return 0;
                 }
 
-                return log_error_errno(errno, "Faile to open system credentials directory.");
+                return log_error_errno(errno, "Failed to open system credentials directory.");
         }
 
         _cleanup_free_ DirectoryEntries *de = NULL;
