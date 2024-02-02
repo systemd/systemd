@@ -53,14 +53,13 @@ Preparations:
 
 * Get autopkgtest:
   ```sh
-    git clone https://salsa.debian.org/ci-team/autopkgtest.git
+  git clone https://salsa.debian.org/ci-team/autopkgtest.git
   ```
 
 * Install necessary dependencies; on Debian/Ubuntu you can simply run `sudo apt install autopkgtest` (instead of the above cloning), on Fedora do `yum install qemu-kvm dpkg-perl`
-
 * Build a test image based on Ubuntu cloud images for the desired release/arch:
   ```sh
-    autopkgtest/tools/autopkgtest-buildvm-ubuntu-cloud -r bionic -a amd64
+  autopkgtest/tools/autopkgtest-buildvm-ubuntu-cloud -r bionic -a amd64
   ```
 
   This will build `autopkgtest-bionic-amd64.img`. This is normally being used through the `autopkgtest` command (see below), but you can boot this normally in QEMU (using `-snapshot` is highly recommended) to interactively poke around; this provides a easy throw-away test environment.
