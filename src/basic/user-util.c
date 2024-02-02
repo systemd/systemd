@@ -1065,7 +1065,7 @@ int getpwnam_malloc(const char *name, struct passwd **ret) {
         int r;
 
         /* A wrapper around getpwnam_r() that allocates the necessary buffer on the heap. The caller must
-         * free() the returned sructured! */
+         * free() the returned structures! */
 
         if (isempty(name))
                 return -EINVAL;
