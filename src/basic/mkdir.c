@@ -70,17 +70,11 @@ int mkdirat_safe_internal(
                                       path, st.st_mode & 0777, mode);
 
         if ((uid != UID_INVALID && st.st_uid != uid) ||
-            (gid != GID_INVALID && st.st_gid != gid)) {
-                char u[DECIMAL_STR_MAX(uid_t)] = "-", g[DECIMAL_STR_MAX(gid_t)] = "-";
-
-                if (uid != UID_INVALID)
-                        xsprintf(u, UID_FMT, uid);
-                if (gid != UID_INVALID)
-                        xsprintf(g, GID_FMT, gid);
+            (gid != GID_INVALID && st.st_gid != gid))
                 return log_full_errno(flags & MKDIR_WARN_MODE ? LOG_WARNING : LOG_DEBUG, SYNTHETIC_ERRNO(EEXIST),
                                       "Directory \"%s\" already exists, but is owned by "UID_FMT":"GID_FMT" (%s:%s was requested), refusing.",
-                                      path, st.st_uid, st.st_gid, u, g);
-        }
+                                      path, st.st_uid, st.st_gid, uid != UID_INVALID ? FORMAT_UID(uid) : "-",
+                                      gid != UID_INVALID ? FORMAT_GID(gid) : "-");
 
         return 0;
 }
