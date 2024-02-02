@@ -15,7 +15,7 @@ systemd 183 and newer include a logic to inhibit system shutdowns and sleep stat
 - A web browser wants to be notified before system hibernation in order to free its cache to minimize the amount of memory that needs to be virtualized.
 - A screen lock tool wants to bring up the screen lock right before suspend, and delay the suspend until that's complete.
 
-Applications which want to make use of the inhibition logic shall take an inhibitor lock via the [logind D-Bus API](http://www.freedesktop.org/wiki/Software/systemd/logind).
+Applications which want to make use of the inhibition logic shall take an inhibitor lock via the [logind D-Bus API](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.login1.html).
 
 Seven distinct inhibitor lock types may be taken, or a combination of them:
 
