@@ -261,6 +261,29 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>link-volume-key-to-keyring=</option></term>
+
+        <listitem><para>Specifies the keyring and key description where
+        LUKS2 volume key gets linked during device activation. The keyring
+        description and key description must be separated by <literal>::</literal>.</para>
+
+        <para>The keyring part can be a string description, or predefined
+        keyring prefixed with <literal>@</literal> (e.g.: to use @s session or
+        @u user keyring directly). The type prefix text keyring description is not required.</para>
+
+        <para>The key part is a string description optionally prefixed by a <literal>%key_type:</literal>.
+        If no type is specified, libcryptsetup uses <literal>user</literal> type key by default. See
+        <citerefentry project='die-net'><refentrytitle>keyctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
+        for more information on key descriptions (KEY IDENTIFIERS section).</para>
+
+        <para>Note that linked volume key is not cleaned up by the service unit to set up the device.
+        If the key gets linked in a persistent keyring it has to be released by a service supposed
+        to use/receive the linked key after the device activation.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>luks</option></term>
 
         <listitem><para>Force LUKS mode. When this mode is used, the
