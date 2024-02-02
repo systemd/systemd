@@ -510,15 +510,6 @@ static int link_is_ready_to_set_link(Link *link, Request *req) {
                         if (!netdev_is_ready(link->network->bond))
                                 return false;
                         m = link->network->bond->ifindex;
-
-                        /* Do not check link->set_flags_messages here, as it is ok even if link->flags
-                         * is outdated, and checking the counter causes a deadlock. */
-                        if (FLAGS_SET(link->flags, IFF_UP)) {
-                                /* link must be down when joining to bond master. */
-                                r = link_down_now(link);
-                                if (r < 0)
-                                        return r;
-                        }
                 } else if (link->network->bridge) {
                         if (ordered_set_contains(link->manager->request_queue, &req_mac))
                                 return false;
@@ -535,6 +526,15 @@ static int link_is_ready_to_set_link(Link *link, Request *req) {
                         /* The requested master is already set. */
                         link->master_set = true;
                         return -EALREADY; /* indicate to cancel the request. */
+                }
+
+                /* Do not check link->set_flags_messages here, as it is ok even if link->flags is outdated,
+                 * and checking the counter causes a deadlock. */
+                if (link->network->bond && FLAGS_SET(link->flags, IFF_UP)) {
+                        /* link must be down when joining to bond master. */
+                        r = link_down_now(link);
+                        if (r < 0)
+                                return r;
                 }
 
                 req->userdata = UINT32_TO_PTR(m);
