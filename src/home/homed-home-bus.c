@@ -423,7 +423,7 @@ int bus_home_method_update_record(
                 Hashmap *blobs,
                 uint64_t flags,
                 sd_bus_error *error) {
-        int r;
+        int r, safe;
 
         assert(h);
         assert(message);
@@ -436,10 +436,32 @@ int bus_home_method_update_record(
         if ((flags & ~SD_HOMED_UPDATE_FLAGS_ALL) != 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid flags provided.");
 
+        if (blobs) {
+                const char *failed = NULL;
+                r = user_record_ensure_blob_manifest(hr, blobs, &failed);
+                if (r == -EINVAL)
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Provided blob files do not correspond to blob manifest.");
+                if (r < 0)
+                        return sd_bus_error_set_errnof(error, r, "Failed to generate hash for blob %s: %m", strnull(failed));
+        }
+
+        safe = user_record_changes_are_safe(h->record, hr);
+        if (safe < 0) {
+                log_warning_errno(safe, "Failed to determine if changes to user record are safe, assuming not: %m");
+                safe = false;
+        } else if (safe) {
+                safe = bus_home_client_is_trusted(h, message);
+                if (safe < 0) {
+                        log_warning_errno(safe, "Failed to determine whether client is trusted, assuming not: %m");
+                        safe = false;
+                }
+        }
+
         r = home_verify_polkit_async(
                         h,
                         message,
-                        "org.freedesktop.home1.update-home",
+                        safe ? "org.freedesktop.home1.update-own-home"
+                             : "org.freedesktop.home1.update-home",
                         UID_INVALID,
                         error);
         if (r < 0)
@@ -561,7 +583,7 @@ int bus_home_method_change_password(
                         h,
                         message,
                         "org.freedesktop.home1.passwd-home",
-                        h->uid,
+                        h->uid, /* Always let a user change their own password. Safe b/c homework will always re-check password */
                         error);
         if (r < 0)
                 return r;
