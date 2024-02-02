@@ -1186,7 +1186,7 @@ static int vl_method_encrypt(Varlink *link, JsonVariant *parameters, VarlinkMeth
         bool own_scope = p.scope == CREDENTIAL_USER && p.uid == peer_uid;
 
         if (!own_scope || !timestamp_fresh) {
-                /* Insist on PK if client wants to encrypt for another user or the system, or if the timestamp was explicitly overriden. */
+                /* Insist on PK if client wants to encrypt for another user or the system, or if the timestamp was explicitly overridden. */
                 r = varlink_verify_polkit_async(
                                 link,
                                 /* bus= */ NULL,
