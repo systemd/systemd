@@ -134,6 +134,25 @@ TEST(MAX) {
         assert_se(CLAMP(CLAMP(0, -10, 10), CLAMP(-5, 10, 20), CLAMP(100, -5, 20)) == 10);
 }
 
+TEST(IN_RANGE) {
+        assert_se(!IN_RANGE(0, 1, 2));
+        assert_se(IN_RANGE(1, 1, 2));
+        assert_se(IN_RANGE(2, 1, 2));
+        assert_se(!IN_RANGE(3, 1, 2));
+
+        assert_se(IN_RANGE(INT_MIN, INT_MIN, INT_MAX));
+        assert_se(IN_RANGE(INT_MAX, INT_MIN, INT_MAX));
+        assert_se(!IN_RANGE(LONG_LONG_MIN, INT_MIN, INT_MAX));
+        assert_se(!IN_RANGE(LONG_LONG_MAX, INT_MIN, INT_MAX));
+
+        assert_se(IN_RANGE(INT_MIN, LONG_LONG_MIN, LONG_LONG_MAX));
+        assert_se(IN_RANGE(INT_MAX, LONG_LONG_MIN, LONG_LONG_MAX));
+        assert_se(IN_RANGE(INT_MIN - 1LL, LONG_LONG_MIN, LONG_LONG_MAX));
+        assert_se(IN_RANGE(INT_MAX + 1LL, LONG_LONG_MIN, LONG_LONG_MAX));
+        assert_se(IN_RANGE(LONG_LONG_MIN, LONG_LONG_MIN, LONG_LONG_MAX));
+        assert_se(IN_RANGE(LONG_LONG_MAX, LONG_LONG_MIN, LONG_LONG_MAX));
+}
+
 #pragma GCC diagnostic push
 #ifdef __clang__
 #  pragma GCC diagnostic ignored "-Waddress-of-packed-member"
