@@ -48,6 +48,8 @@
 #include "unaligned.h"
 #include "unit-name.h"
 #include "utf8.h"
+#include "varlink.h"
+#include "varlink-io.systemd.PCRLock.h"
 #include "verbs.h"
 
 static PagerFlags arg_pager_flags = 0;
@@ -65,6 +67,7 @@ static char *arg_policy_path = NULL;
 static bool arg_force = false;
 static BootEntryTokenType arg_entry_token_type = BOOT_ENTRY_TOKEN_AUTO;
 static char *arg_entry_token = NULL;
+static bool arg_varlink = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_components, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_pcrlock_path, freep);
@@ -4310,7 +4313,7 @@ static int write_boot_policy_file(const char *json_text) {
         return 1;
 }
 
-static int verb_make_policy(int argc, char *argv[], void *userdata) {
+static int make_policy(bool force, bool recovery_pin) {
         int r;
 
         /* Here's how this all works: after predicting all possible PCR values for next boot (with
@@ -4385,11 +4388,11 @@ static int verb_make_policy(int argc, char *argv[], void *userdata) {
                 if (arg_nv_index != 0 && old_policy.nv_index != arg_nv_index)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Stored policy references different NV index (0x%x) than specified (0x%x), refusing.", old_policy.nv_index, arg_nv_index);
 
-                if (!arg_force &&
+                if (!force &&
                     old_policy.algorithm == el->primary_algorithm &&
                     tpm2_pcr_prediction_equal(&old_policy.prediction, &new_prediction, el->primary_algorithm)) {
                         log_info("Prediction is identical to current policy, skipping update.");
-                        return EXIT_SUCCESS;
+                        return 0; /* NOP */
                 }
         }
 
@@ -4434,7 +4437,7 @@ static int verb_make_policy(int argc, char *argv[], void *userdata) {
 
         /* Acquire a recovery PIN, either from the user, or create a randomized one */
         _cleanup_(erase_and_freep) char *pin = NULL;
-        if (arg_recovery_pin) {
+        if (recovery_pin) {
                 r = getenv_steal_erase("PIN", &pin);
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire PIN from environment: %m");
@@ -4712,7 +4715,11 @@ static int verb_make_policy(int argc, char *argv[], void *userdata) {
 
         log_info("Overall time spent: %s", FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), start_usec), 1));
 
-        return 0;
+        return 1; /* installed new policy */
+}
+
+static int verb_make_policy(int argc, char *argv[], void *userdata) {
+        return make_policy(arg_force, arg_recovery_pin);
 }
 
 static int undefine_policy_nv_index(
@@ -4768,7 +4775,7 @@ static int undefine_policy_nv_index(
         return 0;
 }
 
-static int verb_remove_policy(int argc, char *argv[], void *userdata) {
+static int remove_policy(void) {
         int ret = 0, r;
 
         _cleanup_(tpm2_pcrlock_policy_done) Tpm2PCRLockPolicy policy = {};
@@ -4805,6 +4812,10 @@ static int verb_remove_policy(int argc, char *argv[], void *userdata) {
                 RET_GATHER(ret, r);
 
         return ret;
+}
+
+static int verb_remove_policy(int argc, char *argv[], void *userdata) {
+        return remove_policy();
 }
 
 static int help(int argc, char *argv[], void *userdata) {
@@ -5082,6 +5093,14 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_oom();
         }
 
+        r = varlink_invocation(VARLINK_ALLOW_ACCEPT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
+        if (r > 0) {
+                arg_varlink = true;
+                arg_pager_flags |= PAGER_DISABLE;
+        }
+
         return 1;
 }
 
@@ -5124,6 +5143,88 @@ static int pcrlock_main(int argc, char *argv[]) {
         return dispatch_verb(argc, argv, verbs, NULL);
 }
 
+static int vl_method_read_event_log(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        _cleanup_(event_log_freep) EventLog *el = NULL;
+        uint64_t recnum = 0;
+        int r;
+
+        assert(link);
+
+        if (json_variant_elements(parameters) > 0)
+                return varlink_error_invalid_parameter(link, parameters);
+
+        el = event_log_new();
+        if (!el)
+                return log_oom();
+
+        r = event_log_load(el);
+        if (r < 0)
+                return r;
+
+        _cleanup_(json_variant_unrefp) JsonVariant *rec_cel = NULL;
+
+        FOREACH_ARRAY(rr, el->records, el->n_records) {
+
+                if (rec_cel) {
+                        r = varlink_notifyb(link,
+                                            JSON_BUILD_OBJECT(JSON_BUILD_PAIR_VARIANT("record", rec_cel)));
+                        if (r < 0)
+                                return r;
+
+                        rec_cel = json_variant_unref(rec_cel);
+                }
+
+                r = event_log_record_to_cel(*rr, &recnum, &rec_cel);
+                if (r < 0)
+                        return r;
+        }
+
+        return varlink_replyb(link,
+                              JSON_BUILD_OBJECT(JSON_BUILD_PAIR_CONDITION(rec_cel, "record", JSON_BUILD_VARIANT(rec_cel))));
+}
+
+typedef struct MethodMakePolicyParameters {
+        bool force;
+} MethodMakePolicyParameters;
+
+static int vl_method_make_policy(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        static const JsonDispatch dispatch_table[] = {
+                { "force", JSON_VARIANT_BOOLEAN, json_dispatch_boolean, offsetof(MethodMakePolicyParameters, force), 0 },
+                {}
+        };
+        MethodMakePolicyParameters p = {};
+        int r;
+
+        assert(link);
+
+        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        r = make_policy(p.force, /* recovery_key= */ false);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return varlink_error(link, "io.systemd.PCRLock.NoChange", NULL);
+
+        return varlink_reply(link, NULL);
+}
+
+static int vl_method_remove_policy(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        int r;
+
+        assert(link);
+
+        if (json_variant_elements(parameters) > 0)
+                return varlink_error_invalid_parameter(link, parameters);
+
+        r = remove_policy();
+        if (r < 0)
+                return r;
+
+        return varlink_reply(link, NULL);
+}
+
 static int run(int argc, char *argv[]) {
         int r;
 
@@ -5132,6 +5233,34 @@ static int run(int argc, char *argv[]) {
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        if (arg_varlink) {
+                _cleanup_(varlink_server_unrefp) VarlinkServer *varlink_server = NULL;
+
+                /* Invocation as Varlink service */
+
+                r = varlink_server_new(&varlink_server, VARLINK_SERVER_ROOT_ONLY);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+                r = varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_PCRLock);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add Varlink interface: %m");
+
+                r = varlink_server_bind_method_many(
+                                varlink_server,
+                                "io.systemd.PCRLock.ReadEventLog", vl_method_read_event_log,
+                                "io.systemd.PCRLock.MakePolicy",   vl_method_make_policy,
+                                "io.systemd.PCRLock.RemovePolicy", vl_method_remove_policy);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to bind Varlink methods: %m");
+
+                r = varlink_server_loop_auto(varlink_server);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to run Varlink event loop: %m");
+
+                return EXIT_SUCCESS;
+        }
 
         return pcrlock_main(argc, argv);
 }
