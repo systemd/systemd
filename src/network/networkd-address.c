@@ -1155,6 +1155,9 @@ int address_remove(Address *address, Link *link) {
         assert(link->manager);
         assert(link->manager->rtnl);
 
+        /* If the address is remembered, use the remembered object. */
+        (void) address_get(link, address, &address);
+
         log_address_debug(address, "Removing", link);
 
         r = sd_rtnl_message_new_addr(link->manager->rtnl, &m, RTM_DELADDR,

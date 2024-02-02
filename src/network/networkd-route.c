@@ -575,8 +575,12 @@ int route_remove(Route *route, Manager *manager) {
         assert(route);
         assert(manager);
 
+        /* If the route is remembered, then use the remembered object. */
+        (void) route_get(manager, route, &route);
+
         log_route_debug(route, "Removing", manager);
 
+        /* For logging. */
         (void) route_get_link(manager, route, &link);
 
         r = sd_rtnl_message_new_route(manager->rtnl, &m, RTM_DELROUTE, route->family, route->protocol);
