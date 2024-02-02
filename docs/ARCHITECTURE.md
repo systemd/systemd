@@ -161,7 +161,7 @@ orders-of-magnitude faster than `qemu`, but some tests require privileged
 operations like using `dm-crypt` or `loopdev`. They are clearly marked if that
 is the case.
 
-See `test/README.testsuite` for more specific details.
+See [`test/README.testsuite`](https://github.com/systemd/systemd/blob/main/test/README.testsuite) for more specific details.
 
 ## hwdb
 
