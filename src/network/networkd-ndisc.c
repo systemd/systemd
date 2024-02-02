@@ -421,7 +421,7 @@ static int ndisc_router_process_retransmission_time(Link *link, sd_ndisc_router 
                 return 0;
         }
 
-        /* Set the retransmission time for Neigbor Solicitations. */
+        /* Set the retransmission time for Neighbor Solicitations. */
         r = sysctl_write_ip_neighbor_property_uint32(AF_INET6, link->ifname, "retrans_time_ms", (uint32_t) msec);
         if (r < 0)
                 log_link_warning_errno(
