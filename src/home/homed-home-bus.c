@@ -5,6 +5,7 @@
 #include "bus-common-errors.h"
 #include "bus-polkit.h"
 #include "fd-util.h"
+#include "format-util.h"
 #include "homed-bus.h"
 #include "homed-home-bus.h"
 #include "homed-home.h"
@@ -73,6 +74,35 @@ int bus_home_client_is_trusted(Home *h, sd_bus_message *message) {
 
         return euid == 0 || h->uid == euid;
 }
+
+static int home_verify_polkit_async(
+                Home *h,
+                sd_bus_message *message,
+                const char *action,
+                uid_t good_uid,
+                sd_bus_error *error) {
+
+        assert(h);
+        assert(message);
+        assert(action);
+        assert(error);
+
+        const char *details[] = {
+                "uid", FORMAT_UID(h->uid),
+                "username", h->user_name,
+                NULL
+        };
+
+        return bus_verify_polkit_async_full(
+                        message,
+                        action,
+                        details,
+                        /* interactive= */ false,
+                        good_uid,
+                        &h->manager->polkit_registry,
+                        error);
+}
+
 
 int bus_home_get_record_json(
                 Home *h,
@@ -217,11 +247,11 @@ int bus_home_method_unregister(
 
         assert(message);
 
-        r = bus_verify_polkit_async(
+        r = home_verify_polkit_async(
+                        h,
                         message,
                         "org.freedesktop.home1.remove-home",
-                        /* details= */ NULL,
-                        &h->manager->polkit_registry,
+                        UID_INVALID,
                         error);
         if (r < 0)
                 return r;
@@ -254,11 +284,11 @@ int bus_home_method_realize(
         if (r < 0)
                 return r;
 
-        r = bus_verify_polkit_async(
+        r = home_verify_polkit_async(
+                        h,
                         message,
                         "org.freedesktop.home1.create-home",
-                        /* details= */ NULL,
-                        &h->manager->polkit_registry,
+                        UID_INVALID,
                         error);
         if (r < 0)
                 return r;
@@ -291,11 +321,11 @@ int bus_home_method_remove(
 
         assert(message);
 
-        r = bus_verify_polkit_async(
+        r = home_verify_polkit_async(
+                        h,
                         message,
                         "org.freedesktop.home1.remove-home",
-                        /* details= */ NULL,
-                        &h->manager->polkit_registry,
+                        UID_INVALID,
                         error);
         if (r < 0)
                 return r;
@@ -361,13 +391,11 @@ int bus_home_method_authenticate(
         if (r < 0)
                 return r;
 
-        r = bus_verify_polkit_async_full(
+        r = home_verify_polkit_async(
+                        h,
                         message,
                         "org.freedesktop.home1.authenticate-home",
-                        /* details= */ NULL,
-                        /* interactive= */ false,
                         h->uid,
-                        &h->manager->polkit_registry,
                         error);
         if (r < 0)
                 return r;
@@ -408,11 +436,11 @@ int bus_home_method_update_record(
         if (flags != 0)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_NOT_SUPPORTED, "Provided flags are unsupported.");
 
-        r = bus_verify_polkit_async(
+        r = home_verify_polkit_async(
+                        h,
                         message,
                         "org.freedesktop.home1.update-home",
-                        /* details= */ NULL,
-                        &h->manager->polkit_registry,
+                        UID_INVALID,
                         error);
         if (r < 0)
                 return r;
@@ -483,11 +511,11 @@ int bus_home_method_resize(
         if (r < 0)
                 return r;
 
-        r = bus_verify_polkit_async(
+        r = home_verify_polkit_async(
+                        h,
                         message,
                         "org.freedesktop.home1.resize-home",
-                        /* details= */ NULL,
-                        &h->manager->polkit_registry,
+                        UID_INVALID,
                         error);
         if (r < 0)
                 return r;
@@ -527,13 +555,11 @@ int bus_home_method_change_password(
         if (r < 0)
                 return r;
 
-        r = bus_verify_polkit_async_full(
+        r = home_verify_polkit_async(
+                        h,
                         message,
                         "org.freedesktop.home1.passwd-home",
-                        /* details= */ NULL,
-                        /* interactive= */ false,
                         h->uid,
-                        &h->manager->polkit_registry,
                         error);
         if (r < 0)
                 return r;
@@ -730,13 +756,11 @@ int bus_home_method_inhibit_suspend(
         HomeState state;
         int r;
 
-        r = bus_verify_polkit_async_full(
+        r = home_verify_polkit_async(
+                        h,
                         message,
                         "org.freedesktop.home1.inhibit-suspend",
-                        /* details= */ NULL,
-                        /* interactive= */ false,
                         h->uid,
-                        &h->manager->polkit_registry,
                         error);
         if (r < 0)
                 return r;
