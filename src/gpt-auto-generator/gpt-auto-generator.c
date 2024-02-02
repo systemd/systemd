@@ -523,18 +523,6 @@ static int add_partition_xbootldr(DissectedPartition *p) {
 }
 
 #if ENABLE_EFI
-static int slash_efi_in_fstab(void) {
-        static int cache = -1;
-
-        if (cache >= 0)
-                return cache;
-
-        cache = fstab_is_mount_point("/efi");
-        if (cache < 0)
-                return log_error_errno(cache, "Failed to parse fstab: %m");
-        return cache;
-}
-
 static bool slash_boot_exists(void) {
         static int cache = -1;
 
@@ -562,39 +550,46 @@ static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
                 return 0;
         }
 
-        /* Check if there's an existing fstab entry for ESP. If so, we just skip the gpt-auto logic. */
+        /* Check if there's an existing fstab entry for ESP.
+         *
+         * Looking for the ESP node is useful to shortcut things but if we're told that the node is not
+         * referenced in fstab that doesn't necessarily mean that ESP is not mounted via fstab. Indeed the
+         * check is not reliable in all cases. Firstly because it assumes that udev already set the symlinks
+         * up. This is not the case for initrd-less boots. Secondly the devname of the ESP partition can be
+         * wrongly constructed (e.g. multipath). Hence we need to be defensive here and also verify the paths
+         * of the mount point directory. */
         r = fstab_has_node(p->node);
         if (r < 0)
-                return log_error_errno(r,
-                                       "Failed to check if fstab entry for device '%s' exists: %m", p->node);
+                return log_error_errno(r, "Failed to check if fstab entry for device '%s' exists: %m", p->node);
         if (r > 0)
                 return 0;
 
-        /* If /boot/ is present, unused, and empty, we'll take that.
-         * Otherwise, if /efi/ is unused and empty (or missing), we'll take that.
-         * Otherwise, we do nothing. */
+        /* We just check the presence of /boot/efi and skip the gpt-auto logic if it's there but we never set
+         * it up as a possible mount point. */
+        FOREACH_STRING(dir, "/boot/efi", "/boot", "/efi") {
+                if (has_xbootldr && startswith(dir, "/boot"))
+                        continue;
+
+                r = fstab_is_mount_point(dir);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        log_debug("%s specified in fstab, ignoring ESP partition.", dir);
+                        return 0;
+                }
+        }
+
         if (!has_xbootldr && slash_boot_exists()) {
-                r = slash_boot_in_fstab();
+                r = path_is_busy("/boot");
                 if (r < 0)
                         return r;
                 if (r == 0) {
-                        r = path_is_busy("/boot");
-                        if (r < 0)
-                                return r;
-                        if (r == 0) {
-                                esp_path = "/boot";
-                                id = "boot";
-                        }
+                        esp_path = "/boot";
+                        id = "boot";
                 }
         }
 
         if (!esp_path) {
-                r = slash_efi_in_fstab();
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        return 0;
-
                 r = path_is_busy("/efi");
                 if (r < 0)
                         return r;
