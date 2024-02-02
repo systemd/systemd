@@ -76,14 +76,46 @@ void link_required_operstate_for_online(Link *link, LinkOperationalStateRange *r
         assert(ret);
 
         if (link->network && operational_state_range_is_valid(&link->network->required_operstate_for_online))
+                /* If explicitly specified, use it as is. */
                 *ret = link->network->required_operstate_for_online;
         else if (link->iftype == ARPHRD_CAN)
+                /* CAN devices do not support addressing, hence defaults to 'carrier'. */
                 *ret = (const LinkOperationalStateRange) {
                         .min = LINK_OPERSTATE_CARRIER,
                         .max = LINK_OPERSTATE_CARRIER,
                 };
+        else if (link->network && link->network->bond)
+                /* Bonding slaves do not support addressing. */
+                *ret = (const LinkOperationalStateRange) {
+                        .min = LINK_OPERSTATE_ENSLAVED,
+                        .max = LINK_OPERSTATE_ENSLAVED,
+                };
+        else if (STRPTR_IN_SET(link->kind, "batadv", "bond", "bridge", "vrf"))
+                /* Some of slave interfaces may be offline. */
+                *ret = (const LinkOperationalStateRange) {
+                        .min = LINK_OPERSTATE_DEGRADED_CARRIER,
+                        .max = LINK_OPERSTATE_ROUTABLE,
+                };
         else
                 *ret = LINK_OPERSTATE_RANGE_DEFAULT;
+}
+
+AddressFamily link_required_family_for_online(Link *link) {
+        assert(link);
+
+        if (link->network && link->network->required_family_for_online >= 0)
+                return link->network->required_family_for_online;
+
+        if (link->network && operational_state_range_is_valid(&link->network->required_operstate_for_online))
+                /* If RequiredForOnline= is explicitly specified, defaults to no. */
+                return ADDRESS_FAMILY_NO;
+
+        if (STRPTR_IN_SET(link->kind, "batadv", "bond", "bridge", "vrf"))
+                /* As the minimum required operstate for master interfaces is 'degraded-carrier',
+                 * we should request an address assigned to the link for backward compatibility. */
+                return ADDRESS_FAMILY_YES;
+
+        return ADDRESS_FAMILY_NO;
 }
 
 bool link_ipv6_enabled(Link *link) {
@@ -1877,7 +1909,7 @@ void link_update_operstate(Link *link, bool also_update_master) {
                 online_state = LINK_ONLINE_STATE_OFFLINE;
 
         else {
-                AddressFamily required_family = link->network->required_family_for_online;
+                AddressFamily required_family = link_required_family_for_online(link);
                 bool needs_ipv4 = required_family & ADDRESS_FAMILY_IPV4;
                 bool needs_ipv6 = required_family & ADDRESS_FAMILY_IPV6;
 
