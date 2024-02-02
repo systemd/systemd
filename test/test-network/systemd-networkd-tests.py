@@ -11,7 +11,7 @@
 #
 #    sudo ./systemd-networkd-tests.py NetworkdMTUTests.test_ipv6_mtu
 #
-# Similarly, other indivdual tests can be run, eg.:
+# Similarly, other individual tests can be run, eg.:
 #
 #    sudo ./systemd-networkd-tests.py NetworkdNetworkTests.test_ipv6_neigh_retrans_time
 
