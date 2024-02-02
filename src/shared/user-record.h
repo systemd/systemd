@@ -438,6 +438,7 @@ int user_record_languages(UserRecord *h, char ***ret);
 const char **user_record_self_modifiable_fields(UserRecord *h);
 const char **user_record_self_modifiable_blobs(UserRecord *h);
 const char **user_record_self_modifiable_privileged(UserRecord *h);
+int user_record_self_changes_allowed(UserRecord *current, UserRecord *new);
 
 int user_record_build_image_path(UserStorage storage, const char *user_name_and_realm, char **ret);
 

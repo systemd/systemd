@@ -1529,7 +1529,6 @@ int user_group_record_mangle(
 
         assert(v);
         assert(ret_variant);
-        assert(ret_mask);
 
         /* Note that this function is shared with the group record parser, hence we try to be generic in our
          * log message wording here, to cover both cases. */
@@ -1617,7 +1616,8 @@ int user_group_record_mangle(
         else
                 *ret_variant = json_variant_ref(v);
 
-        *ret_mask = m;
+        if (ret_mask)
+                *ret_mask = m;
         return 0;
 }
 
@@ -2288,6 +2288,158 @@ const char **user_record_self_modifiable_privileged(UserRecord *h) {
         assert(h);
 
         return (const char**) h->self_modifiable_privileged ?: safe_privileged;
+}
+
+static int remove_self_modifiable_json_fields_common(UserRecord *current, JsonVariant **ret) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *blobs = NULL;
+        char **allowed;
+        int r;
+
+        assert(current);
+        assert(ret);
+
+        if (!json_variant_is_object(*ret))
+                return -EINVAL;
+
+        v = json_variant_ref(*ret);
+
+        /* Handle basic fields */
+        allowed = (char**) user_record_self_modifiable_fields(current);
+        r = json_variant_filter(&v, allowed);
+        if (r < 0)
+                return r;
+
+        /* Handle blobs */
+        blobs = json_variant_ref(json_variant_by_key(v, "blobManifest"));
+        if (blobs) {
+                /* The blobManifest contains the sha256 hashes of the blobs,
+                 * which are enforced by the service managing the user. So, by
+                 * comparing the blob manifests like this, we're actually comparing
+                 * the contents of the blob directories & files */
+
+                allowed = (char**) user_record_self_modifiable_blobs(current);
+                r = json_variant_filter(&blobs, allowed);
+                if (r < 0)
+                        return r;
+
+                if (json_variant_is_blank_object(blobs))
+                        r = json_variant_filter(&v, STRV_MAKE("blobManifest"));
+                else
+                        r = json_variant_set_field(&v, "blobManifest", blobs);
+                if (r < 0)
+                        return r;
+        }
+
+        JSON_VARIANT_REPLACE(*ret, TAKE_PTR(v));
+        return 0;
+}
+
+static int remove_self_modifiable_json_fields(UserRecord *current, UserRecord *h, JsonVariant **ret) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL, *privileged = NULL;
+        JsonVariant *per_machine;
+        char **allowed;
+        int r;
+
+        assert(current);
+        assert(h);
+        assert(ret);
+
+        r = user_group_record_mangle(h->json, USER_RECORD_EXTRACT_SIGNABLE|USER_RECORD_PERMISSIVE, &v, NULL);
+        if (r < 0)
+                return r;
+
+        /* Handle the regular section */
+        r = remove_self_modifiable_json_fields_common(current, &v);
+        if (r < 0)
+                return r;
+
+        per_machine = json_variant_by_key(v, "perMachine");
+        if (per_machine) {
+                _cleanup_(json_variant_unrefp) JsonVariant *new_per_machine = NULL;
+                JsonVariant *e;
+
+                if (!json_variant_is_array(per_machine))
+                        return -EINVAL;
+
+                JSON_VARIANT_ARRAY_FOREACH(e, per_machine) {
+                        _cleanup_(json_variant_unrefp) JsonVariant *z = NULL;
+
+                        if (!json_variant_is_object(e))
+                                return -EINVAL;
+
+                        r = per_machine_match(e, 0);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
+                                /* It's only permissable to change anything inside of matching perMachine sections */
+                                r = json_variant_append_array(&new_per_machine, e);
+                                if (r < 0)
+                                        return r;
+                                continue;
+                        }
+
+                        z = json_variant_ref(e);
+
+                        r = remove_self_modifiable_json_fields_common(current, &z);
+                        if (r < 0)
+                                return r;
+
+                        if (!json_variant_is_blank_object(z)) {
+                                r = json_variant_append_array(&new_per_machine, z);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+
+                if (json_variant_is_blank_array(new_per_machine))
+                        r = json_variant_filter(&v, STRV_MAKE("perMachine"));
+                else
+                        r = json_variant_set_field(&v, "perMachine", new_per_machine);
+                if (r < 0)
+                        return r;
+        }
+
+        /* Handle the privileged section */
+        privileged = json_variant_ref(json_variant_by_key(v, "privileged"));
+        if (privileged) {
+                allowed = (char**) user_record_self_modifiable_privileged(current);
+                r = json_variant_filter(&privileged, allowed);
+                if (r < 0)
+                        return r;
+
+                if (json_variant_is_blank_object(privileged))
+                        r = json_variant_filter(&v, STRV_MAKE("privileged"));
+                else
+                        r = json_variant_set_field(&v, "privileged", privileged);
+                if (r < 0)
+                        return r;
+        }
+
+        JSON_VARIANT_REPLACE(*ret, TAKE_PTR(v));
+        return 0;
+}
+
+int user_record_self_changes_allowed(UserRecord *current, UserRecord *new) {
+        _cleanup_(json_variant_unrefp) JsonVariant *vc = NULL, *vn = NULL;
+        int r;
+
+        assert(current);
+        assert(new);
+
+        /* We remove the fields that are allowed to change as the user,
+         * and then compare the resulting JSON records. If they are not equal,
+         * that means an unsafe field has been changed and thus we should not
+         * allow the user to apply the changes to themself. */
+
+        r = remove_self_modifiable_json_fields(current, current, &vc);
+        if (r < 0)
+                return r;
+
+        r = remove_self_modifiable_json_fields(current, new, &vn);
+        if (r < 0)
+                return r;
+
+        return json_variant_equal(vc, vn);
 }
 
 uint64_t user_record_ratelimit_next_try(UserRecord *h) {
