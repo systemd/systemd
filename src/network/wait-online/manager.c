@@ -174,7 +174,9 @@ bool manager_configured(Manager *m) {
                 }
 
                 r = manager_link_is_online(m, l, /* state_range = */ NULL);
-                if (r < 0 && !m->any) /* Unlike the above loop, unmanaged interfaces are ignored here. */
+                /* Unlike the above loop, unmanaged interfaces are ignored here. Also, Configured but offline
+                 * interfaces are ignored. See issue #29506. */
+                if (r < 0 && r != -EADDRNOTAVAIL && !m->any)
                         return false;
                 if (r > 0) {
                         if (m->any)
