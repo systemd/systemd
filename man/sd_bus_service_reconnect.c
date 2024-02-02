@@ -104,7 +104,7 @@ static int setup(object *o) {
   }
 
   /* Set up a new bus object for the system bus, configure it to wait for D-Bus to be available
-   * instead of failing if it is not, and start it. All the following operations are asyncronous
+   * instead of failing if it is not, and start it. All the following operations are asynchronous
    * and will not block waiting for D-Bus to be available.
    * https://www.freedesktop.org/software/systemd/man/sd_bus_new.html
    * https://www.freedesktop.org/software/systemd/man/sd_bus_set_address.html
