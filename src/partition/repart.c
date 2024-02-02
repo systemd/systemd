@@ -2337,7 +2337,7 @@ static int context_load_partition_table(Context *context) {
                         return log_error_errno(errno, "Failed to stat %s: %m", context->node);
 
                 if (IN_SET(arg_empty, EMPTY_REQUIRE, EMPTY_FORCE, EMPTY_CREATE) && S_ISREG(st.st_mode))
-                        /* Don't probe sector size from partition table if we are supposed to strat from an empty disk */
+                        /* Don't probe sector size from partition table if we are supposed to start from an empty disk */
                         fs_secsz = ssz = 512;
                 else {
                         /* Auto-detect sector size if not specified. */
