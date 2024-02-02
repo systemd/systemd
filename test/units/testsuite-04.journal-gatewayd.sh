@@ -154,7 +154,7 @@ systemd-run --unit="test-gatewayd.service" --socket-property="ListenStream=19531
 # See: https://github.com/systemd/systemd/issues/9858
 OUT="$(mktemp)"
 for _ in {0..4}; do
-    curl --fail-with-body -d "plese process this🐱 $RANDOM" -L http://localhost:19531/upload | tee "$OUT"
+    curl --fail-with-body -d "please process this🐱 $RANDOM" -L http://localhost:19531/upload | tee "$OUT"
     (! grep '[^[:print:]]' "$OUT")
 done
 curl --fail-with-body --upload-file "$GATEWAYD_FILE" -L http://localhost:19531/upload | tee "$OUT"
