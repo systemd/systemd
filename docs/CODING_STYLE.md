@@ -297,7 +297,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
   t.bar = "bazz";
   ```
 
-- To implement an endless loop, use `for (;;)` rather than `while (1)`.  The
+- To implement an endless loop, use `for (;;)` rather than `while (1)`. The
   latter is a bit ugly anyway, since you probably really meant `while
   (true)`. To avoid the discussion what the right always-true expression for an
   infinite while loop is, our recommendation is to simply write it without any
