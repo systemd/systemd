@@ -2261,7 +2261,7 @@ static void service_enter_start_post(Service *s) {
                 r = service_spawn(s,
                                   s->control_command,
                                   s->timeout_start_usec,
-                                  EXEC_IS_CONTROL|EXEC_CONTROL_CGROUP,
+                                  EXEC_IS_CONTROL|EXEC_CONTROL_CGROUP|EXEC_WRITE_CREDENTIALS,
                                   &s->control_pid);
                 if (r < 0) {
                         log_unit_warning_errno(UNIT(s), r, "Failed to spawn 'start-post' task: %m");
