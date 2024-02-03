@@ -27,6 +27,7 @@ units = [
           'file' : 'dev-mqueue.mount',
           'symlinks' : ['sysinit.target.wants/'],
         },
+        { 'file' : 'emergency-exit.service' },
         { 'file' : 'emergency.service.in' },
         { 'file' : 'emergency.target' },
         { 'file' : 'exit.target' },

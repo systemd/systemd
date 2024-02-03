@@ -8,8 +8,7 @@
 #  (at your option) any later version.
 
 [Unit]
-Description=Emergency Mode
-Documentation=man:systemd.special(7)
-Requires=emergency.service emergency-exit.service
-After=emergency.service emergency-exit.service
-AllowIsolate=yes
+Description=Exit on emergency
+DefaultDependencies=no
+ConditionKernelCommandLine=systemd.emergency=exit
+SuccessAction=exit-force
