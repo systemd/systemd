@@ -56,16 +56,15 @@ bool exec_context_has_credentials(const ExecContext *c) {
                 !set_isempty(c->import_credentials);
 }
 
-bool exec_context_has_encrypted_credentials(ExecContext *c) {
-        ExecLoadCredential *load_cred;
-        ExecSetCredential *set_cred;
-
+bool exec_context_has_encrypted_credentials(const ExecContext *c) {
         assert(c);
 
+        const ExecLoadCredential *load_cred;
         HASHMAP_FOREACH(load_cred, c->load_credentials)
                 if (load_cred->encrypted)
                         return true;
 
+        const ExecSetCredential *set_cred;
         HASHMAP_FOREACH(set_cred, c->set_credentials)
                 if (set_cred->encrypted)
                         return true;
