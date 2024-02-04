@@ -154,7 +154,7 @@ static int run(int argc, char *argv[]) {
         if (!IN_SET(m, VOLATILE_YES, VOLATILE_OVERLAY))
                 return 0;
 
-        r = path_is_mount_point(path, NULL, AT_SYMLINK_FOLLOW);
+        r = path_is_mount_point_full(path, /* root = */ NULL, AT_SYMLINK_FOLLOW);
         if (r < 0)
                 return log_error_errno(r, "Couldn't determine whether %s is a mount point: %m", path);
         if (r == 0)
