@@ -23,6 +23,7 @@ const char *user_record_state_color(const char *state) {
 }
 
 void user_record_show(UserRecord *hr, bool show_full_group_info) {
+        _cleanup_strv_free_ char **langs = NULL;
         const char *hd, *ip, *shell;
         UserStorage storage;
         usec_t t;
@@ -237,15 +238,15 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         if (hr->time_zone)
                 printf("   Time Zone: %s\n", hr->time_zone);
 
-        if (hr->preferred_language)
-                printf("    Language: %s\n", hr->preferred_language);
-
-        if (!strv_isempty(hr->environment))
-                STRV_FOREACH(i, hr->environment) {
-                        printf(i == hr->environment ?
-                               " Environment: %s\n" :
-                               "              %s\n", *i);
-                }
+        r = user_record_languages(hr, &langs);
+        if (r < 0) {
+                errno = -r;
+                printf("   Languages: (can't acquire: %m)\n");
+        } else if (!strv_isempty(langs)) {
+                STRV_FOREACH(i, langs)
+                        printf(i == langs ? "   Languages: %s" : ", %s", *i);
+                printf("\n");
+        }
 
         if (hr->locked >= 0)
                 printf("      Locked: %s\n", yes_no(hr->locked));
