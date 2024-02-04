@@ -598,6 +598,13 @@ int manager_parse_config_file(Manager *m) {
                 m->dns_over_tls_mode = DNS_OVER_TLS_NO;
         }
 #endif
+
+#if !ENABLE_DNS_OVER_HTTPS
+        if (m->dns_over_https_mode != DNS_OVER_HTTPS_NO) {
+                log_warning("DNS-over-HTTPS option cannot be enabled or set to opportunistic when systemd-resolved is built without DNS-over-HTTPS support. Turning off DNS-over-HTTPS support.");
+                m->dns_over_https_mode = DNS_OVER_HTTPS_NO;
+        }
+#endif
         return 0;
 
 }

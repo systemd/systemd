@@ -14,6 +14,7 @@ typedef struct DnsStubListenerExtra DnsStubListenerExtra;
 
 #include "resolved-dns-packet.h"
 #include "resolved-dnstls.h"
+#include "resolved-dnshttps.h"
 
 /* Various timeouts for establishing TCP connections. First the default time-out for that. */
 #define DNS_STREAM_DEFAULT_TIMEOUT_USEC (10 * USEC_PER_SEC)
@@ -72,6 +73,13 @@ struct DnsStream {
         uint32_t dnstls_events;
 #endif
 
+#if ENABLE_DNS_OVER_HTTPS
+        be16_t dnshttps_write_size, dnshttps_read_size;
+        char dnshttps_sent[524];
+        char dnshttps_read[524];
+        Hashmap *response_headers;
+#endif
+
         sd_event_source *io_event_source;
         sd_event_source *timeout_event_source;
 
@@ -89,6 +97,9 @@ struct DnsStream {
 
         /* used when DNS-over-TLS is enabled */
         bool encrypted:1;
+
+        /* used when DNS-over-HTTPS is enabled */
+        bool encrypted_dnshttps:1;
 
         DnsStubListenerExtra *stub_listener_extra;
 

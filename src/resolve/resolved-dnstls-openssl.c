@@ -33,6 +33,7 @@ static int dnstls_flush_write_buffer(DnsStream *stream) {
         assert(stream);
         assert(stream->encrypted);
 
+
         if (stream->dnstls_data.buffer_offset < stream->dnstls_data.write_buffer->length) {
                 assert(stream->dnstls_data.write_buffer->data);
 
@@ -126,6 +127,9 @@ int dnstls_stream_connect_tls(DnsStream *stream, DnsServer *server) {
 
         stream->encrypted = true;
         stream->dnstls_data.ssl = TAKE_PTR(s);
+
+        if (server->manager->dns_over_https_mode)
+                stream->encrypted_dnshttps = true;
 
         r = dnstls_flush_write_buffer(stream);
         if (r < 0 && r != -EAGAIN) {
@@ -346,8 +350,19 @@ ssize_t dnstls_stream_read(DnsStream *stream, void *buf, size_t count) {
         assert(stream->dnstls_data.ssl);
         assert(buf);
 
+        /* TODO: remove my debugs here */
+        puts("dnstls_stream_read");
+
         ERR_clear_error();
         ss = r = SSL_read(stream->dnstls_data.ssl, buf, count);
+
+        /* TODO: remove my debugs here */
+        int i;
+        char *char_buf = (char *)buf;
+        for (i = 0; i < 512; ++i){
+                printf("%c", char_buf[i]);
+        }
+
         if (r <= 0) {
                 error = SSL_get_error(stream->dnstls_data.ssl, r);
                 if (IN_SET(error, SSL_ERROR_WANT_READ, SSL_ERROR_WANT_WRITE)) {
@@ -372,10 +387,14 @@ ssize_t dnstls_stream_read(DnsStream *stream, void *buf, size_t count) {
         } else
                 stream->dnstls_events = 0;
 
-        /* flush write buffer in cache of renegotiation */
-        r = dnstls_flush_write_buffer(stream);
-        if (r < 0)
-                return r;
+
+        /* TODO: This condition is a workaround for SSL_read()'s the unexpected eof while reading error */
+        if (!ss == -EPIPE){
+                /* flush write buffer in cache of renegotiation */
+                r = dnstls_flush_write_buffer(stream);
+                if (r < 0)
+                        return r;
+        }
 
         return ss;
 }

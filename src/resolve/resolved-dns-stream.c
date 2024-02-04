@@ -272,6 +272,7 @@ static int on_stream_timeout(sd_event_source *es, usec_t usec, void *userdata) {
 static DnsPacket *dns_stream_take_read_packet(DnsStream *s) {
         assert(s);
 
+
         /* Note, dns_stream_update() should be called after this is called. When this is called, the
          * stream may be already full and the EPOLLIN flag is dropped from the stream IO event source.
          * Even this makes a room to read in the stream, this does not call dns_stream_update(), hence
@@ -285,7 +286,9 @@ static DnsPacket *dns_stream_take_read_packet(DnsStream *s) {
         if (s->n_read < sizeof(s->read_size))
                 return NULL;
 
-        if (s->n_read < sizeof(s->read_size) + be16toh(s->read_size))
+        /* TODO: Need to figure out who s->read_size really works when handling the HTTP packet */
+        if ((s->n_read < sizeof(s->read_size) + be16toh(s->read_size)) &&
+            (s->encrypted_dnshttps == false))
                 return NULL;
 
         s->n_read = 0;
@@ -331,6 +334,18 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                         IOVEC_MAKE(DNS_PACKET_DATA(s->write_packet), s->write_packet->size),
                 };
 
+                /* TODO: Improve here */
+                if (s->encrypted_dnshttps){
+                        puts("about to overwrite iov...");
+                        int i;
+                        for (i = 0; i < 524; ++i){
+                                printf("%c", s->dnshttps_sent[i]);
+                        }
+
+                        iov[0].iov_base = &s->dnshttps_sent;
+                        iov[0].iov_len = 524;
+                };
+
                 iovec_increment(iov, ELEMENTSOF(iov), s->n_written);
 
                 ssize_t ss = dns_stream_writev(s, iov, ELEMENTSOF(iov), 0);
@@ -354,6 +369,7 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                (!s->read_packet ||
                 s->n_read < sizeof(s->read_size) + s->read_packet->size)) {
 
+
                 if (s->n_read < sizeof(s->read_size)) {
                         ssize_t ss;
 
@@ -370,6 +386,7 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                         }
                 }
 
+
                 if (s->n_read >= sizeof(s->read_size)) {
 
                         if (be16toh(s->read_size) < DNS_PACKET_HEADER_SIZE)
@@ -379,6 +396,7 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                                 ssize_t ss;
 
                                 if (!s->read_packet) {
+                                        puts("about to create new read packet...");
                                         r = dns_packet_new(&s->read_packet, s->protocol, be16toh(s->read_size), DNS_PACKET_SIZE_MAX);
                                         if (r < 0)
                                                 return dns_stream_complete(s, -r);
@@ -420,6 +438,15 @@ static int on_stream_io(sd_event_source *es, int fd, uint32_t revents, void *use
                                         return dns_stream_complete(s, ECONNRESET);
                                 else
                                         s->n_read += ss;
+                        }
+
+                        /* Here we parse the HTTP response and unwrap the DNS answer packet data */
+                        if (s->encrypted_dnshttps){
+                                log_debug("Extracting DNS data from the HTTP packet.");
+                                r = dnshttps_stream_extract_dns(s);
+                                if (r < 0)
+                                        return -1;
+
                         }
 
                         /* Are we done? If so, call the packet handler and re-enable EPOLLIN for the

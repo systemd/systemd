@@ -13,6 +13,7 @@
 #include "resolved-dns-cache.h"
 #include "resolved-dns-transaction.h"
 #include "resolved-dnstls.h"
+#include "resolved-dnshttps.h"
 #include "resolved-llmnr.h"
 #include "string-table.h"
 
@@ -663,6 +664,15 @@ static int on_stream_packet(DnsStream *s, DnsPacket *p) {
         assert(s->manager);
         assert(p);
 
+        int p_id = DNS_PACKET_ID(p);
+        int *pp_id = &p_id;
+
+        /* TODO: how skip ID validation during HTTPS properly? */
+        if (s->encrypted_dnshttps){
+                t = s->transactions;
+                return dns_transaction_on_stream_packet(t, s, p);
+        }
+
         t = hashmap_get(s->manager->dns_transactions, UINT_TO_PTR(DNS_PACKET_ID(p)));
         if (t && t->stream == s) /* Validate that the stream we got this on actually is the stream the
                                   * transaction was using. */
@@ -679,7 +689,13 @@ static uint16_t dns_transaction_port(DnsTransaction *t) {
         if (t->server->port > 0)
                 return t->server->port;
 
-        return DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level) ? 853 : 53;
+        if (DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level))
+                return 853;
+
+        if (DNS_SERVER_FEATURE_LEVEL_IS_HTTPS(t->current_feature_level))
+                return 443;
+
+        return 53;
 }
 
 static int dns_transaction_emit_tcp(DnsTransaction *t) {
@@ -714,7 +730,8 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                                 return r;
                 }
 
-                if (t->server->stream && (DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level) == t->server->stream->encrypted))
+                if (t->server->stream && (DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level) == t->server->stream->encrypted) ||
+                t->server->stream && (DNS_SERVER_FEATURE_LEVEL_IS_HTTPS(t->current_feature_level) == t->server->stream->encrypted_dnshttps))
                         s = dns_stream_ref(t->server->stream);
                 else
                         fd = dns_scope_socket_tcp(t->scope, AF_UNSPEC, NULL, t->server, dns_transaction_port(t), &sa);
@@ -782,6 +799,19 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
                 }
 #endif
 
+#if ENABLE_DNS_OVER_HTTPS
+                printf("\n in tcp, about to start https stream via tls...\n");
+                if (t->scope->protocol == DNS_PROTOCOL_DNS &&
+                    DNS_SERVER_FEATURE_LEVEL_IS_HTTPS(t->current_feature_level)) {
+
+                        printf("\nconfirmed, about to connect tls...\n");
+                        assert(t->server);
+                        r = dnstls_stream_connect_tls(s, t->server);
+                        if (r < 0)
+                                return r;
+                }
+#endif
+
                 if (t->server) {
                         dns_server_unref_stream(t->server);
                         s->server = dns_server_ref(t->server);
@@ -796,6 +826,18 @@ static int dns_transaction_emit_tcp(DnsTransaction *t) {
 
         t->stream = TAKE_PTR(s);
         LIST_PREPEND(transactions_by_stream, t->stream->transactions, t);
+
+#if ENABLE_DNS_OVER_HTTPS
+        /* Here we transform the DNS query into the HTTP GET wire format before send out */
+        if (t->scope->protocol == DNS_PROTOCOL_DNS &&
+            DNS_SERVER_FEATURE_LEVEL_IS_HTTPS(t->current_feature_level)) {
+                r = dnshttps_packet_to_base64url(t);
+                if (r < 0) {
+                        dns_transaction_close_connection(t, /* use_graveyard= */ false);
+                        return r;
+                }
+        }
+#endif
 
         r = dns_stream_write_packet(t->stream, t->sent);
         if (r < 0) {
@@ -1145,7 +1187,9 @@ void dns_transaction_process_reply(DnsTransaction *t, DnsPacket *p, bool encrypt
                         return;
                 }
 
-                if (DNS_PACKET_ID(p) != t->id) {
+                /* skip the packet ID verification for dns over https accordingly to rfc */
+                if (DNS_PACKET_ID(p) != t->id &&
+                    !(DNS_SERVER_FEATURE_LEVEL_IS_HTTPS(t->current_feature_level))) {
                         /* Not the reply to our query? Somebody must be fucking with us */
                         dns_transaction_complete(t, DNS_TRANSACTION_INVALID_REPLY);
                         return;
@@ -1512,6 +1556,17 @@ static int dns_transaction_emit_udp(DnsTransaction *t) {
 
                 if (t->current_feature_level < DNS_SERVER_FEATURE_LEVEL_UDP || DNS_SERVER_FEATURE_LEVEL_IS_TLS(t->current_feature_level))
                         return -EAGAIN; /* Sorry, can't do UDP, try TCP! */
+
+                /* TODO: Decide which one to remove, need better understanding here */
+                if (DNS_SERVER_FEATURE_LEVEL_IS_HTTPS(t->current_feature_level)) {
+                        printf("\n forced dnshttps confirmed, routing to tcp...\n");
+                        return -EAGAIN; /* Sorry, can't do UDP, try TCP! */
+                }
+
+                if (t->current_feature_level < DNS_SERVER_FEATURE_LEVEL_UDP || DNS_SERVER_FEATURE_LEVEL_IS_HTTPS(t->current_feature_level)) {
+                        printf("\n dnshttps confirmed, routing to tcp...\n");
+                        return -EAGAIN; /* Sorry, can't do UDP, try TCP! */
+                }
 
                 if (!t->bypass && !dns_server_dnssec_supported(t->server) && dns_type_is_dnssec(dns_transaction_key(t)->type))
                         return -EOPNOTSUPP;
@@ -2168,7 +2223,7 @@ int dns_transaction_go(DnsTransaction *t) {
                 if (r == -EMSGSIZE)
                         log_debug("Sending query via TCP since it is too large.");
                 else if (r == -EAGAIN)
-                        log_debug("Sending query via TCP since UDP isn't supported or DNS-over-TLS is selected.");
+                        log_debug("Sending query via TCP since UDP isn't supported or DNS-over-TLS or DNS-over-HTTPS is selected.");
                 else if (r == -EPERM)
                         log_debug("Sending query via TCP since UDP is blocked.");
                 if (IN_SET(r, -EMSGSIZE, -EAGAIN, -EPERM))

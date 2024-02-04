@@ -1339,6 +1339,11 @@ libopenssl = dependency('openssl',
                         required : get_option('openssl'))
 conf.set10('HAVE_OPENSSL', libopenssl.found())
 
+libllhttp = dependency('libllhttp',
+                        version : '>= 9.1',
+                        required : get_option('libllhttp'))
+conf.set10('HAVE_LIBLLHTTP', libllhttp.found())
+
 libp11kit = dependency('p11-kit-1',
                        version : '>= 0.23.3',
                        required : get_option('p11kit'))
@@ -1525,6 +1530,28 @@ endif
 conf.set('DEFAULT_DNS_OVER_TLS_MODE',
          'DNS_OVER_TLS_' + default_dns_over_tls.underscorify().to_upper())
 conf.set_quoted('DEFAULT_DNS_OVER_TLS_MODE_STR', default_dns_over_tls)
+
+dns_over_https = get_option('dns-over-https')
+if dns_over_https != 'false'
+         if have_openssl == false
+            error('DNS-over-HTTPS support depends on openssl, but dependencies are not available')
+            have = false
+         endif
+endif
+conf.set10('ENABLE_DNS_OVER_HTTPS', have)
+
+default_dns_over_https = get_option('default-dns-over-https')
+if default_dns_over_https != 'no' and conf.get('ENABLE_DNS_OVER_HTTPS') == 0
+        message('default-dns-over-https cannot be enabled when DNS-over-HTTPS support is disabled. Setting default-dns-over-https to no.')
+        default_dns_over_https = 'no'
+endif
+if default_dns_over_https != 'no' and conf.get('ENABLE_DNS_OVER_TLS') == 0
+        message('default-dns-over-https cannot be enabled when DNS-over-TLS support is disabled. Setting default-dns-over-https to no.')
+        default_dns_over_https = 'no'
+endif
+conf.set('DEFAULT_DNS_OVER_HTTPS_MODE',
+         'DNS_OVER_HTTPS_' + default_dns_over_https.underscorify().to_upper())
+conf.set_quoted('DEFAULT_DNS_OVER_HTTPS_MODE_STR', default_dns_over_https)
 
 default_mdns = get_option('default-mdns')
 conf.set('DEFAULT_MDNS_MODE',
@@ -2736,6 +2763,7 @@ summary({
         'default compression method' :      compression,
         'default DNSSEC mode' :             default_dnssec,
         'default DNS-over-TLS mode' :       default_dns_over_tls,
+        'default DNS-over-HTTPS mode' :     default_dns_over_https,
         'default mDNS mode' :               default_mdns,
         'default LLMNR mode' :              default_llmnr,
         'default DNS servers' :             dns_servers.split(' '),

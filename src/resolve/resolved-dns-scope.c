@@ -56,11 +56,13 @@ int dns_scope_new(Manager *m, DnsScope **ret, Link *l, DnsProtocol protocol, int
                 } else {
                         s->dnssec_mode = manager_get_dnssec_mode(m);
                         s->dns_over_tls_mode = manager_get_dns_over_tls_mode(m);
+                        s->dns_over_https_mode = manager_get_dns_over_https_mode(m);
                 }
 
         } else {
                 s->dnssec_mode = DNSSEC_NO;
                 s->dns_over_tls_mode = DNS_OVER_TLS_NO;
+                s->dns_over_https_mode = DNS_OVER_HTTPS_NO;
         }
 
         LIST_PREPEND(scopes, m->dns_scopes, s);
