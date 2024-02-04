@@ -224,7 +224,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = path_is_mount_point(arg_target, NULL, 0);
+        r = path_is_mount_point(arg_target);
         if (r < 0)
                 return log_error_errno(r, "Failed to check if \"%s\" is a mount point: %m", arg_target);
         if (r == 0)

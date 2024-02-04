@@ -642,7 +642,7 @@ int mount_all(const char *dest,
 
                 /* Skip this entry if it is not a remount. */
                 if (mount_table[k].what) {
-                        r = path_is_mount_point(where, NULL, 0);
+                        r = path_is_mount_point(where);
                         if (r < 0 && r != -ENOENT)
                                 return log_error_errno(r, "Failed to detect whether %s is a mount point: %m", where);
                         if (r > 0)
