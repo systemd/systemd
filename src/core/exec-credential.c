@@ -172,6 +172,14 @@ static int write_credential(
         _cleanup_(unlink_and_freep) char *tmp = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r;
+        struct stat buf;
+
+        /* check, and purge existing credential if it exists */
+        if (fstatat(dfd, id, &buf, AT_SYMLINK_NOFOLLOW) == 0) {
+                if (unlinkat( dfd, id, 0 ) < 0) {
+                        return -errno;
+                }
+        }
 
         r = tempfn_random_child("", "cred", &tmp);
         if (r < 0)
