@@ -1609,7 +1609,7 @@ static ExecFlags service_exec_flags(ServiceExecCommand command_id) {
 
         /* All start phases get access to credentials */
         // FIXME: SERVICE_EXEC_START_POST
-        if (IN_SET(command_id, /* FIXME */ SERVICE_EXEC_CONDITION, SERVICE_EXEC_START_PRE, SERVICE_EXEC_START, /* FIXME */ SERVICE_EXEC_RELOAD))
+        if (IN_SET(command_id, SERVICE_EXEC_START_PRE, SERVICE_EXEC_START))
                 flags |= EXEC_WRITE_CREDENTIALS;
 
         if (IN_SET(command_id, SERVICE_EXEC_START_PRE, SERVICE_EXEC_START))
