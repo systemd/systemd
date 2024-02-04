@@ -274,15 +274,11 @@ void user_record_show(UserRecord *hr, bool show_full_group_info) {
         if (hr->time_zone)
                 printf("   Time Zone: %s\n", hr->time_zone);
 
-        if (hr->preferred_language)
-                printf("    Language: %s\n", hr->preferred_language);
-
-        if (!strv_isempty(hr->environment))
-                STRV_FOREACH(i, hr->environment) {
-                        printf(i == hr->environment ?
-                               " Environment: %s\n" :
-                               "              %s\n", *i);
-                }
+        if (hr->languages) {
+                STRV_FOREACH(i, hr->languages)
+                        printf(i == hr->languages ? "   Languages: %s": ", %s", *i);
+                printf("\n");
+        }
 
         if (hr->locked >= 0)
                 printf("      Locked: %s\n", yes_no(hr->locked));
