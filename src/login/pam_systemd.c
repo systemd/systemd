@@ -651,18 +651,34 @@ static int apply_user_record_settings(
                 }
         }
 
-        if (ur->preferred_language) {
-                if (locale_is_installed(ur->preferred_language) <= 0)
+        if (ur->languages) {
+                if (locale_is_installed(ur->languages[0]) <= 0)
                         pam_debug_syslog(handle, debug,
-                                         "Preferred language specified in user record is not valid or not installed, not setting $LANG.");
+                                         "Preferred language specified in user record is not valid or not installed, not setting $LANG or $LANGUAGE.");
                 else {
-                        _cleanup_free_ char *joined = NULL;
+                        _cleanup_free_ char *lang = NULL;
 
-                        joined = strjoin("LANG=", ur->preferred_language);
-                        if (!joined)
+                        if (strv_length(ur->languages) > 1) {
+                                _cleanup_free_ char *joined = NULL, *language = NULL;
+
+                                joined = strv_join(ur->languages, ":");
+                                if (!joined)
+                                        return pam_log_oom(handle);
+
+                                language = strjoin("LANGUAGE=", joined);
+                                if (!language)
+                                        return pam_log_oom(handle);
+
+                                r = pam_putenv_and_log(handle, language, debug);
+                                if (r != PAM_SUCCESS)
+                                        return r;
+                        }
+
+                        lang = strjoin("LANG=", ur->languages[0]);
+                        if (!lang)
                                 return pam_log_oom(handle);
 
-                        r = pam_putenv_and_log(handle, joined, debug);
+                        r = pam_putenv_and_log(handle, lang, debug);
                         if (r != PAM_SUCCESS)
                                 return r;
                 }
