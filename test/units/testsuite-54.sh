@@ -3,6 +3,9 @@
 # shellcheck disable=SC2016
 set -eux
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
 systemd-analyze log-level debug
 
 run_with_cred_compare() {
@@ -301,6 +304,18 @@ systemd-run -p DynamicUser=yes -p 'LoadCredential=os:/etc/os-release' \
             --wait \
             --pipe \
             true | cmp /etc/os-release
+
+# https://github.com/systemd/systemd/pull/24734#issuecomment-1925440546
+dd if=/dev/urandom of=/tmp/cred-huge bs=600K count=1
+cp /tmp/cred-huge /tmp/cred-huge-original
+systemd-run -p 'LoadCredential=huge:/tmp/cred-huge' \
+            -p 'ExecStartPre=true' \
+            -p 'ExecStartPre=bash -c "echo bogus >/tmp/cred-huge"' \
+            --unit=test-54-huge-cred.service \
+            --wait --pipe \
+            systemd-creds cat huge | cmp - /tmp/cred-huge-original
+assert_eq "$(cat /tmp/cred-huge)" "bogus"
+rm /tmp/cred-huge
 
 if ! systemd-detect-virt -q -c ; then
     # Validate that the credential we inserted via the initrd logic arrived
