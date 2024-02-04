@@ -10,6 +10,7 @@
 #include "glyph-util.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
+#include "locale-util.h"
 #include "memory-util.h"
 #include "path-util.h"
 #include "pkcs11-util.h"
@@ -146,6 +147,7 @@ static UserRecord* user_record_free(UserRecord *h) {
         strv_free(h->environment);
         free(h->time_zone);
         free(h->preferred_language);
+        strv_free(h->additional_languages);
         rlimit_free_all(h->rlimits);
 
         free(h->skeleton_directory);
@@ -528,6 +530,62 @@ static int json_dispatch_environment(const char *name, JsonVariant *variant, Jso
                         return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of environment variables.", strna(name));
 
                 r = strv_env_replace_strdup(&n, a);
+                if (r < 0)
+                        return json_log_oom(variant, flags);
+        }
+
+        return strv_free_and_replace(*l, n);
+}
+
+static int json_dispatch_locale(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        char **s = userdata;
+        const char *n;
+        int r;
+
+        if (json_variant_is_null(variant)) {
+                *s = mfree(*s);
+                return 0;
+        }
+
+        if (!json_variant_is_string(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+        n = json_variant_string(variant);
+
+        if (!locale_is_valid(n))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a valid locale.", strna(name));
+
+        r = free_and_strdup(s, n);
+        if (r < 0)
+                return json_log(variant, flags, r, "Failed to allocate string: %m");
+
+        return 0;
+}
+
+static int json_dispatch_locales(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        _cleanup_strv_free_ char **n = NULL;
+        char ***l = userdata;
+        const char *locale;
+        JsonVariant *e;
+        int r;
+
+        if (json_variant_is_null(variant)) {
+                *l = strv_free(*l);
+                return 0;
+        }
+
+        if (!json_variant_is_array(variant))
+                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of strings.", strna(name));
+
+        JSON_VARIANT_ARRAY_FOREACH(e, variant) {
+                if (!json_variant_is_string(e))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of strings.", strna(name));
+
+                locale = json_variant_string(e);
+                if (!locale_is_valid(locale))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of valid locales.", strna(name));
+
+                r = strv_extend(&n, locale);
                 if (r < 0)
                         return json_log_oom(variant, flags);
         }
@@ -1171,7 +1229,8 @@ static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDisp
                 { "umask",                      JSON_VARIANT_UNSIGNED,      json_dispatch_umask,                  offsetof(UserRecord, umask),                         0         },
                 { "environment",                JSON_VARIANT_ARRAY,         json_dispatch_environment,            offsetof(UserRecord, environment),                   0         },
                 { "timeZone",                   JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, time_zone),                     JSON_SAFE },
-                { "preferredLanguage",          JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, preferred_language),            JSON_SAFE },
+                { "preferredLanguage",          JSON_VARIANT_STRING,        json_dispatch_locale,                 offsetof(UserRecord, preferred_language),            0         },
+                { "additionalLanguages",        JSON_VARIANT_ARRAY,         json_dispatch_locales,                offsetof(UserRecord, additional_languages),          0         },
                 { "niceLevel",                  _JSON_VARIANT_TYPE_INVALID, json_dispatch_nice,                   offsetof(UserRecord, nice_level),                    0         },
                 { "resourceLimits",             _JSON_VARIANT_TYPE_INVALID, json_dispatch_rlimits,                offsetof(UserRecord, rlimits),                       0         },
                 { "locked",                     JSON_VARIANT_BOOLEAN,       json_dispatch_tristate,               offsetof(UserRecord, locked),                        0         },
@@ -1506,7 +1565,8 @@ int user_record_load(UserRecord *h, JsonVariant *v, UserRecordLoadFlags load_fla
                 { "umask",                      JSON_VARIANT_UNSIGNED,      json_dispatch_umask,                  offsetof(UserRecord, umask),                         0         },
                 { "environment",                JSON_VARIANT_ARRAY,         json_dispatch_environment,            offsetof(UserRecord, environment),                   0         },
                 { "timeZone",                   JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, time_zone),                     JSON_SAFE },
-                { "preferredLanguage",          JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, preferred_language),            JSON_SAFE },
+                { "preferredLanguage",          JSON_VARIANT_STRING,        json_dispatch_locale,                 offsetof(UserRecord, preferred_language),            0         },
+                { "additionalLanguages",        JSON_VARIANT_ARRAY,         json_dispatch_locales,                offsetof(UserRecord, additional_languages),          0         },
                 { "niceLevel",                  _JSON_VARIANT_TYPE_INVALID, json_dispatch_nice,                   offsetof(UserRecord, nice_level),                    0         },
                 { "resourceLimits",             _JSON_VARIANT_TYPE_INVALID, json_dispatch_rlimits,                offsetof(UserRecord, rlimits),                       0         },
                 { "locked",                     JSON_VARIANT_BOOLEAN,       json_dispatch_tristate,               offsetof(UserRecord, locked),                        0         },
@@ -2032,6 +2092,27 @@ uint64_t user_record_capability_ambient_set(UserRecord *h) {
                 return UINT64_MAX;
 
         return parse_caps_strv(h->capability_ambient_set) & user_record_capability_bounding_set(h);
+}
+
+int user_record_languages(UserRecord *h, char ***ret) {
+        _cleanup_strv_free_ char **l = NULL;
+        int r;
+
+        assert(h);
+        assert(ret);
+
+        if (h->preferred_language) {
+                l = strv_new(h->preferred_language);
+                if (!l)
+                        return -ENOMEM;
+        }
+
+        r = strv_extend_strv(&l, h->additional_languages, /* filter_duplicates= */ true);
+        if (r < 0)
+                return r;
+
+        *ret = TAKE_PTR(l);
+        return 0;
 }
 
 uint64_t user_record_ratelimit_next_try(UserRecord *h) {
