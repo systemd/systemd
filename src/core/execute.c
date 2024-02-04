@@ -292,7 +292,6 @@ int exec_params_get_cgroup_path(
                 char **ret) {
 
         const char *subgroup = NULL;
-        char *p;
 
         assert(params);
         assert(ret);
@@ -309,13 +308,14 @@ int exec_params_get_cgroup_path(
          * this is not necessary, the cgroup is still empty. We distinguish these cases with the EXEC_CONTROL_CGROUP
          * flag, which is only passed for the former statements, not for the latter. */
 
-        if (FLAGS_SET(params->flags, EXEC_CGROUP_DELEGATE) && (FLAGS_SET(params->flags, EXEC_CONTROL_CGROUP) || c->delegate_subgroup)) {
+        if (FLAGS_SET(params->flags, EXEC_CGROUP_DELEGATE|EXEC_CONTROL_CGROUP) || c->delegate_subgroup) {
                 if (FLAGS_SET(params->flags, EXEC_IS_CONTROL))
                         subgroup = ".control";
                 else
                         subgroup = c->delegate_subgroup;
         }
 
+        char *p;
         if (subgroup)
                 p = path_join(params->cgroup_path, subgroup);
         else
