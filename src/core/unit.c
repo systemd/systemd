@@ -4959,8 +4959,7 @@ int unit_setup_exec_runtime(Unit *u) {
         if (*rt)
                 return 0;
 
-        ec = unit_get_exec_context(u);
-        assert(ec);
+        ec = ASSERT_PTR(unit_get_exec_context(u));
 
         r = unit_get_transitive_dependency_set(u, UNIT_ATOM_JOINS_NAMESPACE_OF, &units);
         if (r < 0)
@@ -5319,7 +5318,6 @@ int unit_acquire_invocation_id(Unit *u) {
 }
 
 int unit_set_exec_params(Unit *u, ExecParameters *p) {
-        const char *confirm_spawn;
         int r;
 
         assert(u);
@@ -5332,12 +5330,9 @@ int unit_set_exec_params(Unit *u, ExecParameters *p) {
 
         p->runtime_scope = u->manager->runtime_scope;
 
-        confirm_spawn = manager_get_confirm_spawn(u->manager);
-        if (confirm_spawn) {
-                p->confirm_spawn = strdup(confirm_spawn);
-                if (!p->confirm_spawn)
-                        return -ENOMEM;
-        }
+        r = strdup_or_null(manager_get_confirm_spawn(u->manager), &p->confirm_spawn);
+        if (r < 0)
+                return r;
 
         p->cgroup_supported = u->manager->cgroup_supported;
         p->prefix = u->manager->prefix;
