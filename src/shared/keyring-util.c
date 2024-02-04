@@ -5,34 +5,39 @@
 #include "missing_syscall.h"
 
 int keyring_read(key_serial_t serial, void **ret, size_t *ret_size) {
-        size_t m = 100;
+        long bufsize;
+
+        /* Get the size of the key by passing in a NULL buffer */
+        bufsize = keyctl(KEYCTL_READ, (unsigned long) serial, (unsigned long) NULL, 0, 0);
+        if (bufsize < 0)
+                return -errno;
 
         for (;;) {
-                _cleanup_(erase_and_freep) uint8_t *p = NULL;
+                _cleanup_(erase_and_freep) uint8_t *buf = NULL;
                 long n;
 
-                p = new(uint8_t, m+1);
-                if (!p)
+                buf = new(uint8_t, bufsize + 1);
+                if (!buf)
                         return -ENOMEM;
 
-                n = keyctl(KEYCTL_READ, (unsigned long) serial, (unsigned long) p, (unsigned long) m, 0);
+                n = keyctl(KEYCTL_READ, (unsigned long) serial, (unsigned long) buf, (unsigned long) bufsize, 0);
                 if (n < 0)
                         return -errno;
 
-                if ((size_t) n <= m) {
-                        p[n] = 0; /* NUL terminate, just in case */
+                if (n <= bufsize) {
+                        buf[n] = 0; /* NUL terminate, just in case */
 
                         if (ret)
-                                *ret = TAKE_PTR(p);
+                                *ret = TAKE_PTR(buf);
                         if (ret_size)
                                 *ret_size = n;
 
                         return 0;
                 }
 
-                if (m > (SIZE_MAX-1) / 2) /* overflow check */
-                        return -ENOMEM;
-
-                m *= 2;
+                /* If we reach this point, the key must have gotten bigger between our
+                 * initial size query and our actual read. n is holding the new size,
+                 * so we should try again with it. */
+                bufsize = n;
         }
 }

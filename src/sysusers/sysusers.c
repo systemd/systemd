@@ -141,14 +141,6 @@ static void context_done(Context *c) {
         uid_range_free(c->uid_range);
 }
 
-/* Note: the lifetime of the compound literal is the immediately surrounding block,
- * see C11 §6.5.2.5, and
- * https://stackoverflow.com/questions/34880638/compound-literal-lifetime-and-if-blocks */
-#define FORMAT_UID(is_set, uid) \
-        ((is_set) ? snprintf_ok((char[DECIMAL_STR_MAX(uid_t)]){}, DECIMAL_STR_MAX(uid_t), UID_FMT, uid) : "(unset)")
-#define FORMAT_GID(is_set, gid) \
-        ((is_set) ? snprintf_ok((char[DECIMAL_STR_MAX(gid_t)]){}, DECIMAL_STR_MAX(gid_t), GID_FMT, gid) : "(unset)")
-
 static void maybe_emit_login_defs_warning(Context *c) {
         assert(c);
 
@@ -1620,7 +1612,8 @@ static int item_equivalent(Item *a, Item *b) {
             (a->uid_set && a->uid != b->uid)) {
                 log_syntax(NULL, LOG_DEBUG, a->filename, a->line, 0,
                            "Item not equivalent because UIDs differ (%s vs. %s)",
-                           FORMAT_UID(a->uid_set, a->uid), FORMAT_UID(b->uid_set, b->uid));
+                           a->uid_set ? FORMAT_UID(a->uid) : "(unset)",
+                           b->uid_set ? FORMAT_UID(b->uid) : "(unset)");
                 return false;
         }
 
@@ -1628,7 +1621,8 @@ static int item_equivalent(Item *a, Item *b) {
             (a->gid_set && a->gid != b->gid)) {
                 log_syntax(NULL, LOG_DEBUG, a->filename, a->line, 0,
                            "Item not equivalent because GIDs differ (%s vs. %s)",
-                           FORMAT_GID(a->gid_set, a->gid), FORMAT_GID(b->gid_set, b->gid));
+                           a->gid_set ? FORMAT_GID(a->gid) : "(unset)",
+                           b->gid_set ? FORMAT_GID(b->gid) : "(unset)");
                 return false;
         }
 
