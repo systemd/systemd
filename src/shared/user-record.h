@@ -251,7 +251,7 @@ typedef struct UserRecord {
         mode_t umask;
         char **environment;
         char *time_zone;
-        char *preferred_language;
+        char **languages;
         int nice_level;
         struct rlimit *rlimits[_RLIMIT_MAX];
 
