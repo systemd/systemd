@@ -2195,8 +2195,7 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           <para>When true, the DHCPv4 configuration will be delayed by the timespan provided by the DHCP
           server and skip to configure dynamic IPv4 network connectivity if IPv6 connectivity is provided
           within the timespan. See <ulink url="https://tools.ietf.org/html/rfc8925">RFC 8925</ulink>.
-          Defaults to true when <varname>IPv6AcceptRA=</varname> is enabled or DHCPv6 client is enabled
-          (i.e., <varname>DHCP=yes</varname>), and false otherwise.</para>
+          Defaults to false.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>
