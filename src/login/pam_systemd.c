@@ -617,48 +617,25 @@ static int apply_user_record_settings(
         }
 
         STRV_FOREACH(i, ur->environment) {
-                _cleanup_free_ char *n = NULL;
-                const char *e;
-
-                assert_se(e = strchr(*i, '=')); /* environment was already validated while parsing JSON record, this thus must hold */
-
-                n = strndup(*i, e - *i);
-                if (!n)
-                        return pam_log_oom(handle);
-
-                if (pam_getenv(handle, n)) {
-                        pam_debug_syslog(handle, debug,
-                                         "PAM environment variable $%s already set, not changing based on record.", *i);
-                        continue;
-                }
-
                 r = pam_putenv_and_log(handle, *i, debug);
                 if (r != PAM_SUCCESS)
                         return r;
         }
 
         if (ur->email_address) {
-                if (pam_getenv(handle, "EMAIL"))
-                        pam_debug_syslog(handle, debug,
-                                         "PAM environment variable $EMAIL already set, not changing based on user record.");
-                else {
-                        _cleanup_free_ char *joined = NULL;
+                _cleanup_free_ char *joined = NULL;
 
-                        joined = strjoin("EMAIL=", ur->email_address);
-                        if (!joined)
-                                return pam_log_oom(handle);
+                joined = strjoin("EMAIL=", ur->email_address);
+                if (!joined)
+                        return pam_log_oom(handle);
 
-                        r = pam_putenv_and_log(handle, joined, debug);
-                        if (r != PAM_SUCCESS)
-                                return r;
-                }
+                r = pam_putenv_and_log(handle, joined, debug);
+                if (r != PAM_SUCCESS)
+                        return r;
         }
 
         if (ur->time_zone) {
-                if (pam_getenv(handle, "TZ"))
-                        pam_debug_syslog(handle, debug,
-                                         "PAM environment variable $TZ already set, not changing based on user record.");
-                else if (!timezone_is_valid(ur->time_zone, LOG_DEBUG))
+                if (!timezone_is_valid(ur->time_zone, LOG_DEBUG))
                         pam_debug_syslog(handle, debug,
                                          "Time zone specified in user record is not valid locally, not setting $TZ.");
                 else {
@@ -675,10 +652,7 @@ static int apply_user_record_settings(
         }
 
         if (ur->preferred_language) {
-                if (pam_getenv(handle, "LANG"))
-                        pam_debug_syslog(handle, debug,
-                                         "PAM environment variable $LANG already set, not changing based on user record.");
-                else if (locale_is_installed(ur->preferred_language) <= 0)
+                if (locale_is_installed(ur->preferred_language) <= 0)
                         pam_debug_syslog(handle, debug,
                                          "Preferred language specified in user record is not valid or not installed, not setting $LANG.");
                 else {
