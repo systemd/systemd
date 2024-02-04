@@ -366,10 +366,11 @@
       <varlistentry>
         <term><option>--language=</option><replaceable>LANG</replaceable></term>
 
-        <listitem><para>Takes a specifier indicating the preferred language of the user. The
-        <varname>$LANG</varname> environment variable is initialized from this value on login, and thus a
-        value suitable for this environment variable is accepted here, for example
-        <option>--language=de_DE.UTF8</option>.</para>
+        <listitem><para>Takes a comma- or colon-separated list of languages preferred by the user, ordered
+        by descending priority. The <varname>$LANG</varname> and <varname>$LANGUAGE</varname> environment
+        variables are initialized from this value on login, and thus values suitible for these environment
+        variables are accepted here, for example <option>--language=de_DE.UTF-8</option>. This option may
+        be used more than once, in which case the language lists are concatenated.</para>
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
