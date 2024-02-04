@@ -80,7 +80,7 @@ static int acquire_credential_directory(ImportCredentialContext *c, const char *
         if (c->target_dir_fd >= 0)
                 return c->target_dir_fd;
 
-        r = path_is_mount_point(path, NULL, 0);
+        r = path_is_mount_point(path);
         if (r < 0) {
                 if (r != -ENOENT)
                         return log_error_errno(r, "Failed to determine if %s is a mount point: %m", path);
