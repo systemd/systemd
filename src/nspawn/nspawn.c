@@ -2560,7 +2560,7 @@ static int setup_journal(const char *directory) {
         p = strjoina("/var/log/journal/", SD_ID128_TO_STRING(arg_uuid));
         q = prefix_roota(directory, p);
 
-        if (path_is_mount_point(p, NULL, 0) > 0) {
+        if (path_is_mount_point(p) > 0) {
                 if (try)
                         return 0;
 
@@ -2568,7 +2568,7 @@ static int setup_journal(const char *directory) {
                                        "%s: already a mount point, refusing to use for journal", p);
         }
 
-        if (path_is_mount_point(q, NULL, 0) > 0) {
+        if (path_is_mount_point(q) > 0) {
                 if (try)
                         return 0;
 
@@ -3633,7 +3633,7 @@ static int setup_unix_export_dir_outside(char **ret) {
         if (!p)
                 return log_oom();
 
-        r = path_is_mount_point(p, /* root= */ NULL, 0);
+        r = path_is_mount_point(p);
         if (r > 0)
                 return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Mount point '%s' exists already, refusing.", p);
         if (r < 0 && r != -ENOENT)
@@ -5680,7 +5680,7 @@ static int run(int argc, char *argv[]) {
                         /* If the specified path is a mount point we generate the new snapshot immediately
                          * inside it under a random name. However if the specified is not a mount point we
                          * create the new snapshot in the parent directory, just next to it. */
-                        r = path_is_mount_point(arg_directory, NULL, 0);
+                        r = path_is_mount_point(arg_directory);
                         if (r < 0) {
                                 log_error_errno(r, "Failed to determine whether directory %s is mount point: %m", arg_directory);
                                 goto finish;
