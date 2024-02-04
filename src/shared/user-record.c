@@ -10,6 +10,7 @@
 #include "glyph-util.h"
 #include "hexdecoct.h"
 #include "hostname-util.h"
+#include "locale-util.h"
 #include "memory-util.h"
 #include "path-util.h"
 #include "pkcs11-util.h"
@@ -145,7 +146,7 @@ static UserRecord* user_record_free(UserRecord *h) {
 
         strv_free(h->environment);
         free(h->time_zone);
-        free(h->preferred_language);
+        strv_free(h->languages);
         rlimit_free_all(h->rlimits);
 
         free(h->skeleton_directory);
@@ -529,6 +530,51 @@ static int json_dispatch_environment(const char *name, JsonVariant *variant, Jso
 
                 r = strv_env_replace_strdup(&n, a);
                 if (r < 0)
+                        return json_log_oom(variant, flags);
+        }
+
+        return strv_free_and_replace(*l, n);
+}
+
+static int json_dispatch_locales(const char *name, JsonVariant *variant, JsonDispatchFlags flags, void *userdata) {
+        _cleanup_strv_free_ char **n = NULL;
+        char ***l = userdata, *locale;
+        int r;
+
+        if (json_variant_is_null(variant)) {
+                *l = strv_free(*l);
+                return 0;
+        }
+
+        if (json_variant_is_array(variant)) { /* languages */
+                JsonVariant *e;
+                JSON_VARIANT_ARRAY_FOREACH(e, variant) {
+                        if (!json_variant_is_string(e))
+                                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of strings.", strna(name));
+
+                        assert_se(locale = json_variant_string(e));
+
+                        if (!locale_is_valid(locale))
+                                return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not an array of locales.", strna(name));
+
+                        r = strv_extend(&n, locale);
+                        if (r < 0)
+                                return json_log_oom(variant, flags);
+                }
+        } else { /* preferredLanguage */
+                if (!json_variant_is_string(variant))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a string.", strna(name));
+
+                assert_se(locale = json_variant_string(variant));
+
+                if (*l) /* preferredLanguage shouldn't override languages */
+                        return 0;
+
+                if (!locale_is_valid(locale))
+                        return json_log(variant, flags, SYNTHETIC_ERRNO(EINVAL), "JSON field '%s' is not a locale.", strna(name));
+
+                n = strv_new(locale);
+                if (!n)
                         return json_log_oom(variant, flags);
         }
 
@@ -1171,7 +1217,8 @@ static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDisp
                 { "umask",                      JSON_VARIANT_UNSIGNED,      json_dispatch_umask,                  offsetof(UserRecord, umask),                         0         },
                 { "environment",                JSON_VARIANT_ARRAY,         json_dispatch_environment,            offsetof(UserRecord, environment),                   0         },
                 { "timeZone",                   JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, time_zone),                     JSON_SAFE },
-                { "preferredLanguage",          JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, preferred_language),            JSON_SAFE },
+                { "preferredLanguage",          JSON_VARIANT_STRING,        json_dispatch_locales,                offsetof(UserRecord, languages),                     0         },
+                { "languages",                  JSON_VARIANT_ARRAY,         json_dispatch_locales,                offsetof(UserRecord, languages),                     0         },
                 { "niceLevel",                  _JSON_VARIANT_TYPE_INVALID, json_dispatch_nice,                   offsetof(UserRecord, nice_level),                    0         },
                 { "resourceLimits",             _JSON_VARIANT_TYPE_INVALID, json_dispatch_rlimits,                offsetof(UserRecord, rlimits),                       0         },
                 { "locked",                     JSON_VARIANT_BOOLEAN,       json_dispatch_tristate,               offsetof(UserRecord, locked),                        0         },
@@ -1506,7 +1553,8 @@ int user_record_load(UserRecord *h, JsonVariant *v, UserRecordLoadFlags load_fla
                 { "umask",                      JSON_VARIANT_UNSIGNED,      json_dispatch_umask,                  offsetof(UserRecord, umask),                         0         },
                 { "environment",                JSON_VARIANT_ARRAY,         json_dispatch_environment,            offsetof(UserRecord, environment),                   0         },
                 { "timeZone",                   JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, time_zone),                     JSON_SAFE },
-                { "preferredLanguage",          JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, preferred_language),            JSON_SAFE },
+                { "preferredLanguage",          JSON_VARIANT_STRING,        json_dispatch_locales,                offsetof(UserRecord, languages),                     0         },
+                { "languages",                  JSON_VARIANT_ARRAY,         json_dispatch_locales,                offsetof(UserRecord, languages),                     0         },
                 { "niceLevel",                  _JSON_VARIANT_TYPE_INVALID, json_dispatch_nice,                   offsetof(UserRecord, nice_level),                    0         },
                 { "resourceLimits",             _JSON_VARIANT_TYPE_INVALID, json_dispatch_rlimits,                offsetof(UserRecord, rlimits),                       0         },
                 { "locked",                     JSON_VARIANT_BOOLEAN,       json_dispatch_tristate,               offsetof(UserRecord, locked),                        0         },
