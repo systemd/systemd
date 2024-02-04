@@ -347,7 +347,7 @@ int bind_remount_recursive_with_mountinfo(
                                  * think autofs, NFS, FUSE, …), but let's generate useful debug messages at
                                  * the very least. */
 
-                                q = path_is_mount_point(x, NULL, 0);
+                                q = path_is_mount_point(x);
                                 if (IN_SET(q, 0, -ENOENT)) {
                                         /* Hmm, whaaaa? The mount point is not actually a mount point? Then
                                          * it is either obstructed by a later mount or somebody has been
@@ -1283,7 +1283,7 @@ int make_mount_point(const char *path) {
 
         /* If 'path' is already a mount point, does nothing and returns 0. If it is not it makes it one, and returns 1. */
 
-        r = path_is_mount_point(path, NULL, 0);
+        r = path_is_mount_point(path);
         if (r < 0)
                 return log_debug_errno(r, "Failed to determine whether '%s' is a mount point: %m", path);
         if (r > 0)
@@ -1590,7 +1590,7 @@ int bind_mount_submounts(
                 if (!t)
                         return -ENOMEM;
 
-                r = path_is_mount_point(t, NULL, 0);
+                r = path_is_mount_point(t);
                 if (r < 0) {
                         log_debug_errno(r, "Failed to detect if '%s' already is a mount point, ignoring: %m", t);
                         continue;
