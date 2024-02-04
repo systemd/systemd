@@ -1604,7 +1604,7 @@ static ExecFlags service_exec_flags(ServiceExecCommand command_id) {
         assert(command_id < _SERVICE_EXEC_COMMAND_MAX);
 
         /* Control processes spawned before main process also get tty access */
-        if (IN_SET(command_id, SERVICE_EXEC_CONDITION, SERVICE_EXEC_START_PRE, SERVICE_EXEC_START, /* FIXME */ SERVICE_EXEC_STOP_POST))
+        if (IN_SET(command_id, SERVICE_EXEC_CONDITION, SERVICE_EXEC_START_PRE, SERVICE_EXEC_START))
                 flags |= EXEC_APPLY_TTY_STDIN;
 
         /* All start phases get access to credentials */
