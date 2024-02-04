@@ -777,7 +777,7 @@ static int setup_credentials_internal(
         assert(workspace);
 
         if (reuse_workspace) {
-                r = path_is_mount_point(workspace, NULL, 0);
+                r = path_is_mount_point(workspace);
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -788,7 +788,7 @@ static int setup_credentials_internal(
         } else
                 workspace_mounted = -1; /* ditto */
 
-        r = path_is_mount_point(final, NULL, 0);
+        r = path_is_mount_point(final);
         if (r < 0)
                 return r;
         if (r > 0) {

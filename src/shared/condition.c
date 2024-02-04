@@ -931,7 +931,7 @@ static int condition_test_path_is_mount_point(Condition *c, char **env) {
         assert(c->parameter);
         assert(c->type == CONDITION_PATH_IS_MOUNT_POINT);
 
-        return path_is_mount_point(c->parameter, NULL, AT_SYMLINK_FOLLOW) > 0;
+        return path_is_mount_point_full(c->parameter, /* root = */ NULL, AT_SYMLINK_FOLLOW) > 0;
 }
 
 static int condition_test_path_is_read_write(Condition *c, char **env) {
