@@ -81,7 +81,7 @@ static void test2(void) {
 int main(int argc, char *argv[]) {
         _cleanup_free_ char *self = NULL;
 
-        if (path_is_mount_point("/sys", NULL, 0) <= 0)
+        if (path_is_mount_point("/sys") <= 0)
                 return log_tests_skipped("/sys is not mounted");
 
         if (argc > 1) {
