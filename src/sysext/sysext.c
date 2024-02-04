@@ -113,7 +113,7 @@ static int is_our_mount_point(
 
         assert(p);
 
-        r = path_is_mount_point(p, NULL, 0);
+        r = path_is_mount_point(p);
         if (r == -ENOENT) {
                 log_debug_errno(r, "Hierarchy '%s' doesn't exist.", p);
                 return false;
