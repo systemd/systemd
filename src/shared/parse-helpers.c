@@ -19,6 +19,7 @@ int path_simplify_and_warn(
                 const char *lvalue) {
 
         bool fatal = flags & PATH_CHECK_FATAL;
+        int level = fatal ? LOG_ERR : LOG_WARNING;
 
         assert(path);
         assert(!FLAGS_SET(flags, PATH_CHECK_ABSOLUTE | PATH_CHECK_RELATIVE));
@@ -33,12 +34,12 @@ int path_simplify_and_warn(
                 absolute = path_is_absolute(path);
 
                 if (!absolute && (flags & PATH_CHECK_ABSOLUTE))
-                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                        return log_syntax(unit, level, filename, line, SYNTHETIC_ERRNO(EINVAL),
                                           "%s= path is not absolute%s: %s",
                                           lvalue, fatal ? "" : ", ignoring", path);
 
                 if (absolute && (flags & PATH_CHECK_RELATIVE))
-                        return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                        return log_syntax(unit, level, filename, line, SYNTHETIC_ERRNO(EINVAL),
                                           "%s= path is absolute%s: %s",
                                           lvalue, fatal ? "" : ", ignoring", path);
         }
@@ -46,17 +47,17 @@ int path_simplify_and_warn(
         path_simplify_full(path, flags & PATH_KEEP_TRAILING_SLASH ? PATH_SIMPLIFY_KEEP_TRAILING_SLASH : 0);
 
         if (!path_is_valid(path))
-                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                return log_syntax(unit, level, filename, line, SYNTHETIC_ERRNO(EINVAL),
                                   "%s= path has invalid length (%zu bytes)%s.",
                                   lvalue, strlen(path), fatal ? "" : ", ignoring");
 
         if (!path_is_normalized(path))
-                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                return log_syntax(unit, level, filename, line, SYNTHETIC_ERRNO(EINVAL),
                                   "%s= path is not normalized%s: %s",
                                   lvalue, fatal ? "" : ", ignoring", path);
 
         if (FLAGS_SET(flags, PATH_CHECK_NON_API_VFS) && path_below_api_vfs(path))
-                return log_syntax(unit, LOG_ERR, filename, line, SYNTHETIC_ERRNO(EINVAL),
+                return log_syntax(unit, level, filename, line, SYNTHETIC_ERRNO(EINVAL),
                                   "%s= path is below API VFS%s: %s",
                                   lvalue, fatal ? ", refusing" : ", ignoring",
                                   path);
