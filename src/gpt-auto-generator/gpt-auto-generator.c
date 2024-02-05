@@ -280,7 +280,7 @@ static int path_is_busy(const char *where) {
         assert(where);
 
         /* already a mountpoint; generators run during reload */
-        r = path_is_mount_point(where, NULL, AT_SYMLINK_FOLLOW);
+        r = path_is_mount_point_full(where, /* root = */ NULL, AT_SYMLINK_FOLLOW);
         if (r > 0)
                 return false;
         /* The directory will be created by the mount or automount unit when it is started. */

@@ -329,34 +329,33 @@ fallback_fstat:
 }
 
 /* flags can be AT_SYMLINK_FOLLOW or 0 */
-int path_is_mount_point(const char *t, const char *root, int flags) {
+int path_is_mount_point_full(const char *path, const char *root, int flags) {
         _cleanup_free_ char *canonical = NULL;
         _cleanup_close_ int fd = -EBADF;
         int r;
 
-        assert(t);
+        assert(path);
         assert((flags & ~AT_SYMLINK_FOLLOW) == 0);
 
-        if (path_equal(t, "/"))
+        if (path_equal(path, "/"))
                 return 1;
 
-        /* we need to resolve symlinks manually, we can't just rely on
-         * fd_is_mount_point() to do that for us; if we have a structure like
-         * /bin -> /usr/bin/ and /usr is a mount point, then the parent that we
+        /* we need to resolve symlinks manually, we can't just rely on fd_is_mount_point() to do that for us;
+         * if we have a structure like /bin -> /usr/bin/ and /usr is a mount point, then the parent that we
          * look at needs to be /usr, not /. */
-        if (flags & AT_SYMLINK_FOLLOW) {
-                r = chase(t, root, CHASE_TRAIL_SLASH, &canonical, NULL);
+        if (FLAGS_SET(flags, AT_SYMLINK_FOLLOW)) {
+                r = chase(path, root, CHASE_TRAIL_SLASH, &canonical, NULL);
                 if (r < 0)
                         return r;
 
-                t = canonical;
+                path = canonical;
         }
 
-        fd = open_parent(t, O_PATH|O_CLOEXEC, 0);
+        fd = open_parent(path, O_PATH|O_CLOEXEC, 0);
         if (fd < 0)
                 return fd;
 
-        return fd_is_mount_point(fd, last_path_component(t), flags);
+        return fd_is_mount_point(fd, last_path_component(path), flags);
 }
 
 int path_get_mnt_id_at_fallback(int dir_fd, const char *path, int *ret) {

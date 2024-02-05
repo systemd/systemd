@@ -677,7 +677,7 @@ TEST(devname_from_devnum) {
 }
 
 static int intro(void) {
-        if (path_is_mount_point("/sys", NULL, 0) <= 0)
+        if (path_is_mount_point("/sys") <= 0)
                 return log_tests_skipped("/sys is not mounted");
 
         return EXIT_SUCCESS;
