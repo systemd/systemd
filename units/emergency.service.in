@@ -15,6 +15,7 @@ Conflicts=shutdown.target
 Conflicts=rescue.service
 Before=shutdown.target
 Before=rescue.service
+ConditionKernelCommandLine=!systemd.emergency=exit
 
 [Service]
 Environment=HOME=/root
