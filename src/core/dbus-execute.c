@@ -2721,8 +2721,9 @@ int bus_exec_context_set_transient_property(
                 return 1;
 
         } else if (streq(name, "WorkingDirectory")) {
+                _cleanup_free_ char *simplified = NULL;
+                bool missing_ok, is_home;
                 const char *s;
-                bool missing_ok;
 
                 r = sd_bus_message_read(message, "s", &s);
                 if (r < 0)
@@ -2734,23 +2735,33 @@ int bus_exec_context_set_transient_property(
                 } else
                         missing_ok = false;
 
-                if (!isempty(s) && !streq(s, "~") && !path_is_absolute(s))
-                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "WorkingDirectory= expects an absolute path or '~'");
+                if (isempty(s))
+                        is_home = false;
+                else if (streq(s, "~"))
+                        is_home = true;
+                else {
+                        if (!path_is_absolute(s))
+                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "WorkingDirectory= expects an absolute path or '~'");
+
+                        r = path_simplify_alloc(s, &simplified);
+                        if (r < 0)
+                                return r;
+
+                        if (!path_is_normalized(simplified))
+                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "WorkingDirectory= expects a normalized path or '~'");
+
+                        if (path_below_api_vfs(simplified))
+                                return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "WorkingDirectory= may not be below /proc/, /sys/ or /dev/.");
+
+                        is_home = false;
+                }
 
                 if (!UNIT_WRITE_FLAGS_NOOP(flags)) {
-                        if (streq(s, "~")) {
-                                c->working_directory = mfree(c->working_directory);
-                                c->working_directory_home = true;
-                        } else {
-                                r = free_and_strdup(&c->working_directory, empty_to_null(s));
-                                if (r < 0)
-                                        return r;
-
-                                c->working_directory_home = false;
-                        }
-
+                        free_and_replace(c->working_directory, simplified);
+                        c->working_directory_home = is_home;
                         c->working_directory_missing_ok = missing_ok;
-                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "WorkingDirectory=%s%s", missing_ok ? "-" : "", s);
+
+                        unit_write_settingf(u, flags|UNIT_ESCAPE_SPECIFIERS, name, "WorkingDirectory=%s%s", missing_ok ? "-" : "", c->working_directory_home ? "+" : ASSERT_PTR(c->working_directory));
                 }
 
                 return 1;
