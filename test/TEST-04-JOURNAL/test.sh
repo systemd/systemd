@@ -11,8 +11,8 @@ test_append_files() {
     local workspace="${1:?}"
     local dropin_dir
 
-    mkdir -p "$workspace/test-journals/"
-    cp -av "${TEST_BASE_DIR:?}/test-journals/"* "$workspace/test-journals/"
+    mkdir -p "$workspace/usr/test-journals/"
+    cp -av "${TEST_BASE_DIR:?}/test-journals/"* "$workspace/usr/test-journals/"
 
     image_install curl setterm unzstd
     image_install -o openssl
