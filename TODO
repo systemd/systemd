@@ -1367,8 +1367,6 @@ Features:
 
 * if /usr/bin/swapoff fails due to OOM, log a friendly explanatory message about it
 
-* pid1: support new clone3() fork-into-cgroup feature
-
 * pid1: also remove PID files of a service when the service starts, not just
   when it exits
 
