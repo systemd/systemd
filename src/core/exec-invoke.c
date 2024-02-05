@@ -3337,31 +3337,39 @@ static int apply_working_directory(
                 const char *home,
                 int *exit_status) {
 
-        const char *d, *wd;
+        const char *wd;
+        int r;
 
         assert(context);
         assert(exit_status);
 
         if (context->working_directory_home) {
-
                 if (!home) {
                         *exit_status = EXIT_CHDIR;
                         return -ENXIO;
                 }
 
                 wd = home;
-
         } else
                 wd = empty_to_root(context->working_directory);
 
         if (params->flags & EXEC_APPLY_CHROOT)
-                d = wd;
-        else
-                d = prefix_roota((runtime ? runtime->ephemeral_copy : NULL) ?: context->root_directory, wd);
+                r = RET_NERRNO(chdir(wd));
+        else {
+                _cleanup_close_ int dfd = -EBADF;
 
-        if (chdir(d) < 0 && !context->working_directory_missing_ok) {
+                r = chase(wd,
+                          (runtime ? runtime->ephemeral_copy : NULL) ?: context->root_directory,
+                          CHASE_PREFIX_ROOT|CHASE_AT_RESOLVE_IN_ROOT,
+                          /* ret_path= */ NULL,
+                          &dfd);
+                if (r >= 0)
+                        r = RET_NERRNO(fchdir(dfd));
+        }
+
+        if (r < 0 && !context->working_directory_missing_ok) {
                 *exit_status = EXIT_CHDIR;
-                return -errno;
+                return r;
         }
 
         return 0;
