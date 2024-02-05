@@ -3525,6 +3525,9 @@ static int inner_child(
         if (!barrier_place_and_sync(barrier)) /* #5 */
                 return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Parent died too early");
 
+        /* Note, this should be done this late (💣 and not moved earlier! 💣), so that all namespacing
+         * changes are already in effect by now, so that any resolved paths here definitely reference
+         * resources inside the container, and not outside of them. */
         if (arg_chdir)
                 if (chdir(arg_chdir) < 0)
                         return log_error_errno(errno, "Failed to change to specified working directory %s: %m", arg_chdir);
