@@ -19,11 +19,11 @@ int path_simplify_and_warn(
                 const char *lvalue);
 
 int parse_socket_bind_item(
-        const char *str,
-        int *address_family,
-        int *ip_protocol,
-        uint16_t *nr_ports,
-        uint16_t *port_min);
+                const char *str,
+                int *address_family,
+                int *ip_protocol,
+                uint16_t *nr_ports,
+                uint16_t *port_min);
 
 int config_parse_path_or_ignore(
                 const char *unit,
