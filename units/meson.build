@@ -270,6 +270,7 @@ units = [
         {
           'file' : 'systemd-confext.service',
           'conditions' : ['ENABLE_SYSEXT'],
+          'symlinks' : ['sysinit.target.wants/'],
         },
         {
           'file' : 'systemd-coredump.socket',
@@ -570,6 +571,7 @@ units = [
         {
           'file' : 'systemd-sysext.service',
           'conditions' : ['ENABLE_SYSEXT'],
+          'symlinks' : ['sysinit.target.wants/'],
         },
         {
           'file' : 'systemd-sysext.socket',
