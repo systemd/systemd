@@ -106,7 +106,9 @@ _homectl() {
                         --cifs-service
                         --stop-delay
                         --kill-processes
-                        --auto-login'
+                        --auto-login
+                        --session
+                        --session-type'
     )
 
     if __contains_word "$prev" ${OPTS[ARG]}; then
@@ -145,6 +147,12 @@ _homectl() {
                 ;;
             --cifs-user-name)
                 comps=$(compgen -A user -- "$cur" )
+                ;;
+            --session)
+                comps=$(find /usr/share/{x,wayland-}sessions/ -type f -name '*.desktop' -exec basename {} .desktop \; 2>/dev/null | sort -u)
+                ;;
+            --session-type)
+                comps='wayland x11 tty'
                 ;;
         esac
         COMPREPLY=( $(compgen -W '$comps' -- "$cur") )
