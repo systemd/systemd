@@ -9,7 +9,7 @@ SPDX-License-Identifier: LGPL-2.1-or-later
 
 _Or: How to hook up your favourite network configuration manager's DNS logic with `systemd-resolved`_
 
-_(This is a longer explanation how to use some parts of `systemd-resolved` bus API. If you are just looking for an API reference, consult the [bus API documentation](https://wiki.freedesktop.org/www/Software/systemd/resolved/) instead.)_
+_(This is a longer explanation how to use some parts of `systemd-resolved` bus API. If you are just looking for an API reference, consult the [bus API documentation](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.resolve1.html) instead.)_
 
 Since systemd 229 `systemd-resolved` offers a powerful bus API that may be used by network configuration managers (e.g. NetworkManager, connman, …, but also lower level DHCP, VPN or PPP daemons managing specific interfaces) to pass DNS server and DNSSEC configuration directly to `systemd-resolved`. Note that `systemd-resolved` also reads the DNS configuration data in `/etc/resolv.conf`, for compatibility. However, by passing the DNS configuration directly to `systemd-resolved` via the bus a couple of benefits are available:
 
@@ -33,7 +33,7 @@ In order to pass the DNS configuration information to resolved, use the followin
 4. To configure DNSSEC Negative Trust Anchors (NTAs, i.e. domains for which not to do DNSSEC validation), use `SetLinkDNSSECNegativeTrustAnchors()`
 5. To configure the LLMNR and MulticastDNS mode, use `SetLinkLLMNR()` and `SetLinkMulticastDNS()`
 
-For details about these calls see the [full resolved bus API documentation](https://wiki.freedesktop.org/www/Software/systemd/resolved/).
+For details about these calls see the [full resolved bus API documentation](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.resolve1.html).
 
 The calls should be pretty obvious to use: they simply take an interface index and the parameters to set. IP addresses are encoded as an address family specifier (an integer, that takes the usual `AF_INET` and `AF_INET6` constants), followed by a 4 or 16 byte array with the address in network byte order.
 
@@ -45,7 +45,7 @@ It is strongly recommended for network configuration managers that implement cap
 
 If a network configuration manager wants to reset specific settings to the defaults (such as the DNSSEC, LLMNR or MulticastDNS mode), it may simply call the function with an empty argument. To reset all per-link changes it made it may call `RevertLink()`.
 
-To read back the various settings made, use `GetLink()` to get a `org.freedesktop.resolve1.Link` object for a specific network interface. It exposes the current settings in its bus properties. See the [full bus API documentation](https://wiki.freedesktop.org/www/Software/systemd/resolved/) for details on this.
+To read back the various settings made, use `GetLink()` to get a `org.freedesktop.resolve1.Link` object for a specific network interface. It exposes the current settings in its bus properties. See the [full bus API documentation](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.resolve1.html) for details on this.
 
 In order to translate a network interface name to an interface index, use the usual glibc `if_nametoindex()` call.
 
