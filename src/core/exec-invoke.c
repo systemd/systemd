@@ -5040,8 +5040,10 @@ int exec_invoke(
                 }
         }
 
-        /* Apply working directory here, because the working directory might be on NFS and only the user running
-         * this service might have the correct privilege to change to the working directory */
+        /* Apply working directory here, because the working directory might be on NFS and only the user
+         * running this service might have the correct privilege to change to the working directory. Also, it
+         * is absolutely 💣 crucial 💣 we applied all mount namespacing rearrangements before this, so that
+         * the cwd cannot be used to pin directories outside of the sandbox. */
         r = apply_working_directory(context, params, runtime, home, exit_status);
         if (r < 0)
                 return log_exec_error_errno(context, params, r, "Changing to the requested working directory failed: %m");
