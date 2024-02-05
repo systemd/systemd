@@ -93,4 +93,39 @@ TEST(invalid_items) {
         test_invalid_item("ipv6:tcp:6666\n zupa");
 }
 
+static int test_path_simplify_and_warn_one(const char *p, const char *q, PathSimplifyWarnFlags f) {
+        _cleanup_free_ char *s = ASSERT_PTR(strdup(p));
+        int a, b;
+
+        a = path_simplify_and_warn(s, f, /* unit= */ NULL, /* filename= */ NULL, /* line= */ 0, "Foobar=");
+        assert(streq_ptr(s, q));
+
+        free(s);
+        s = ASSERT_PTR(strdup(p));
+
+        b = path_simplify_and_warn(s, f|PATH_CHECK_FATAL, /* unit= */ NULL, /* filename= */ NULL, /* line= */ 0, "Foobar=");
+        assert(streq_ptr(s, q));
+
+        assert(a == b);
+
+        return a;
+}
+
+TEST(path_simplify_and_warn) {
+
+        assert_se(test_path_simplify_and_warn_one("", "", 0) == -EINVAL);
+        assert_se(test_path_simplify_and_warn_one("/", "/", 0) == 0);
+        assert_se(test_path_simplify_and_warn_one("/foo/../bar", "/foo/../bar", 0) == -EINVAL);
+        assert_se(test_path_simplify_and_warn_one("/foo/./bar", "/foo/bar", 0) == 0);
+        assert_se(test_path_simplify_and_warn_one("/proc/self///fd", "/proc/self/fd", 0) == 0);
+        assert_se(test_path_simplify_and_warn_one("/proc/self///fd", "/proc/self/fd", PATH_CHECK_NON_API_VFS) == -EINVAL);
+        assert_se(test_path_simplify_and_warn_one("aaaa", "aaaa", 0) == 0);
+        assert_se(test_path_simplify_and_warn_one("aaaa", "aaaa", PATH_CHECK_ABSOLUTE) == -EINVAL);
+        assert_se(test_path_simplify_and_warn_one("aaaa", "aaaa", PATH_CHECK_RELATIVE) == 0);
+        assert_se(test_path_simplify_and_warn_one("/aaaa", "/aaaa", 0) == 0);
+        assert_se(test_path_simplify_and_warn_one("/aaaa", "/aaaa", PATH_CHECK_ABSOLUTE) == 0);
+        assert_se(test_path_simplify_and_warn_one("/aaaa", "/aaaa", PATH_CHECK_RELATIVE) == -EINVAL);
+
+}
+
 DEFINE_TEST_MAIN(LOG_INFO);
