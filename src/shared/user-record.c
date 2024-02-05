@@ -180,6 +180,9 @@ static UserRecord* user_record_free(UserRecord *h) {
         free(h->state);
         free(h->service);
 
+        free(h->session_type);
+        free(h->session_name);
+
         strv_free(h->pkcs11_token_uri);
         for (size_t i = 0; i < h->n_pkcs11_encrypted_key; i++)
                 pkcs11_encrypted_key_done(h->pkcs11_encrypted_key + i);
@@ -1272,6 +1275,8 @@ static int dispatch_per_machine(const char *name, JsonVariant *variant, JsonDisp
                 { "rateLimitBurst",             _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,                 offsetof(UserRecord, ratelimit_burst),               0         },
                 { "enforcePasswordPolicy",      JSON_VARIANT_BOOLEAN,       json_dispatch_tristate,               offsetof(UserRecord, enforce_password_policy),       0         },
                 { "autoLogin",                  JSON_VARIANT_BOOLEAN,       json_dispatch_tristate,               offsetof(UserRecord, auto_login),                    0         },
+                { "sessionType",                JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, session_type),                  JSON_SAFE },
+                { "sessionName",                JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, session_type),                  JSON_SAFE },
                 { "stopDelayUSec",              _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,                 offsetof(UserRecord, stop_delay_usec),               0         },
                 { "killProcesses",              JSON_VARIANT_BOOLEAN,       json_dispatch_tristate,               offsetof(UserRecord, kill_processes),                0         },
                 { "passwordChangeMinUSec",      _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,                 offsetof(UserRecord, password_change_min_usec),      0         },
@@ -1610,6 +1615,8 @@ int user_record_load(UserRecord *h, JsonVariant *v, UserRecordLoadFlags load_fla
                 { "rateLimitBurst",             _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,                 offsetof(UserRecord, ratelimit_burst),               0         },
                 { "enforcePasswordPolicy",      JSON_VARIANT_BOOLEAN,       json_dispatch_tristate,               offsetof(UserRecord, enforce_password_policy),       0         },
                 { "autoLogin",                  JSON_VARIANT_BOOLEAN,       json_dispatch_tristate,               offsetof(UserRecord, auto_login),                    0         },
+                { "sessionType",                JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, session_type),                  JSON_SAFE },
+                { "sessionName",                JSON_VARIANT_STRING,        json_dispatch_string,                 offsetof(UserRecord, session_type),                  JSON_SAFE },
                 { "stopDelayUSec",              _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,                 offsetof(UserRecord, stop_delay_usec),               0         },
                 { "killProcesses",              JSON_VARIANT_BOOLEAN,       json_dispatch_tristate,               offsetof(UserRecord, kill_processes),                0         },
                 { "passwordChangeMinUSec",      _JSON_VARIANT_TYPE_INVALID, json_dispatch_uint64,                 offsetof(UserRecord, password_change_min_usec),      0         },
