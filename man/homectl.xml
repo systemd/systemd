@@ -963,6 +963,28 @@
 
         <xi:include href="version-info.xml" xpointer="v245"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><option>--session-launcher=</option><replaceable>LAUNCHER</replaceable></term>
+
+        <listitem><para>Takes a string argument. Configures the user's preferred session launcher
+        .desktop entry file (i.e. <literal>gnome</literal>, <literal>plasma</literal>, or other names that
+        appear in <filename>/usr/share/xesssions/</filename> or <filename>/usr/share/wayland-sessions</filename>).
+        This is read by the display manager to pick the default session that is launched when the user logs in.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--session-type=</option><replaceable>TYPE</replaceable></term>
+
+        <listitem><para>Takes a string argument. Configures the user's preferred session type
+        (i.e. <literal>x11</literal>, <literal>wayland</literal>, and other values accepted by
+        <varname>$XDG_SESSION_TYPE</varname>). This is read by the display manage to pick the
+        default session type the user is logged into.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 

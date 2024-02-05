@@ -2701,6 +2701,9 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --kill-processes=BOOL     Whether to kill user processes when sessions\n"
                "                               terminate\n"
                "     --auto-login=BOOL         Try to log this user in automatically\n"
+               "     --session-launcher=LAUNCHER\n"
+               "                               Preferred session launcher file\n"
+               "     --session-type=TYPE       Preferred session type\n"
                "\nSee the %6$s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -2777,6 +2780,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PASSWORD_CHANGE_INACTIVE,
                 ARG_EXPORT_FORMAT,
                 ARG_AUTO_LOGIN,
+                ARG_SESSION_LAUNCHER,
+                ARG_SESSION_TYPE,
                 ARG_PKCS11_TOKEN_URI,
                 ARG_FIDO2_DEVICE,
                 ARG_FIDO2_WITH_PIN,
@@ -2870,6 +2875,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "password-change-warn",        required_argument, NULL, ARG_PASSWORD_CHANGE_WARN        },
                 { "password-change-inactive",    required_argument, NULL, ARG_PASSWORD_CHANGE_INACTIVE    },
                 { "auto-login",                  required_argument, NULL, ARG_AUTO_LOGIN                  },
+                { "session-launcher",            required_argument, NULL, ARG_SESSION_LAUNCHER,           },
+                { "session-type",                required_argument, NULL, ARG_SESSION_TYPE,               },
                 { "json",                        required_argument, NULL, ARG_JSON                        },
                 { "export-format",               required_argument, NULL, ARG_EXPORT_FORMAT               },
                 { "pkcs11-token-uri",            required_argument, NULL, ARG_PKCS11_TOKEN_URI            },
@@ -3009,7 +3016,9 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_CIFS_USER_NAME:
                 case ARG_CIFS_DOMAIN:
                 case ARG_CIFS_EXTRA_MOUNT_OPTIONS:
-                case ARG_LUKS_EXTRA_MOUNT_OPTIONS: {
+                case ARG_LUKS_EXTRA_MOUNT_OPTIONS:
+                case ARG_SESSION_LAUNCHER:
+                case ARG_SESSION_TYPE: {
 
                         const char *field =
                                            c == ARG_EMAIL_ADDRESS ? "emailAddress" :
@@ -3019,6 +3028,8 @@ static int parse_argv(int argc, char *argv[]) {
                                              c == ARG_CIFS_DOMAIN ? "cifsDomain" :
                                 c == ARG_CIFS_EXTRA_MOUNT_OPTIONS ? "cifsExtraMountOptions" :
                                 c == ARG_LUKS_EXTRA_MOUNT_OPTIONS ? "luksExtraMountOptions" :
+                                        c == ARG_SESSION_LAUNCHER ? "preferredSessionLauncher" :
+                                            c == ARG_SESSION_TYPE ? "preferredSessionType" :
                                                                     NULL;
 
                         assert(field);
