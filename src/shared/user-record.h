@@ -251,7 +251,7 @@ typedef struct UserRecord {
         mode_t umask;
         char **environment;
         char *time_zone;
-        char *preferred_language;
+        char **languages;
         int nice_level;
         struct rlimit *rlimits[_RLIMIT_MAX];
 
@@ -339,6 +339,9 @@ typedef struct UserRecord {
         int enforce_password_policy;
         int auto_login;
         int drop_caches;
+
+        char *session_type;
+        char *session_name;
 
         uint64_t stop_delay_usec;   /* How long to leave systemd --user around on log-out */
         int kill_processes;         /* Whether to kill user processes forcibly on log-out */

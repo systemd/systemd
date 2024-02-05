@@ -2535,6 +2535,8 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --kill-processes=BOOL     Whether to kill user processes when sessions\n"
                "                               terminate\n"
                "     --auto-login=BOOL         Try to log this user in automatically\n"
+               "     --session=SESSION         User's preferred session (e.g. gnome, plasma)\n"
+               "     --session-type=TYPE       User's preferred session type (e.g. x11, wayland)\n"
                "\nSee the %6$s for details.\n",
                program_invocation_short_name,
                ansi_highlight(),
@@ -2610,6 +2612,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_PASSWORD_CHANGE_INACTIVE,
                 ARG_EXPORT_FORMAT,
                 ARG_AUTO_LOGIN,
+                ARG_SESSION,
+                ARG_SESSION_TYPE,
                 ARG_PKCS11_TOKEN_URI,
                 ARG_FIDO2_DEVICE,
                 ARG_FIDO2_WITH_PIN,
@@ -2701,6 +2705,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "password-change-warn",        required_argument, NULL, ARG_PASSWORD_CHANGE_WARN        },
                 { "password-change-inactive",    required_argument, NULL, ARG_PASSWORD_CHANGE_INACTIVE    },
                 { "auto-login",                  required_argument, NULL, ARG_AUTO_LOGIN                  },
+                { "session",                     required_argument, NULL, ARG_SESSION,                    },
+                { "session-type",                required_argument, NULL, ARG_SESSION_TYPE,               },
                 { "json",                        required_argument, NULL, ARG_JSON                        },
                 { "export-format",               required_argument, NULL, ARG_EXPORT_FORMAT               },
                 { "pkcs11-token-uri",            required_argument, NULL, ARG_PKCS11_TOKEN_URI            },
@@ -2837,7 +2843,9 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_CIFS_USER_NAME:
                 case ARG_CIFS_DOMAIN:
                 case ARG_CIFS_EXTRA_MOUNT_OPTIONS:
-                case ARG_LUKS_EXTRA_MOUNT_OPTIONS: {
+                case ARG_LUKS_EXTRA_MOUNT_OPTIONS:
+                case ARG_SESSION:
+                case ARG_SESSION_TYPE: {
 
                         const char *field =
                                            c == ARG_EMAIL_ADDRESS ? "emailAddress" :
@@ -2847,6 +2855,8 @@ static int parse_argv(int argc, char *argv[]) {
                                              c == ARG_CIFS_DOMAIN ? "cifsDomain" :
                                 c == ARG_CIFS_EXTRA_MOUNT_OPTIONS ? "cifsExtraMountOptions" :
                                 c == ARG_LUKS_EXTRA_MOUNT_OPTIONS ? "luksExtraMountOptions" :
+                                                 c == ARG_SESSION ? "sessionName" :
+                                            c == ARG_SESSION_TYPE ? "sessionType" :
                                                                     NULL;
 
                         assert(field);
@@ -3121,26 +3131,62 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case ARG_LANGUAGE:
-                        if (isempty(optarg)) {
-                                r = drop_from_identity("language");
+                case ARG_LANGUAGE: {
+                        const char *p = optarg;
+
+                        r = drop_from_identity("preferredLanguage");
+                        if (r < 0)
+                                return r;
+
+                        if (isempty(p)) {
+                                r = drop_from_identity("languages");
                                 if (r < 0)
                                         return r;
 
                                 break;
                         }
 
-                        if (!locale_is_valid(optarg))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Locale '%s' is not valid.", optarg);
+                        for (;;) {
+                                _cleanup_(json_variant_unrefp) JsonVariant *mo = NULL;
+                                _cleanup_strv_free_ char **list = NULL;
+                                _cleanup_free_ char *word = NULL;
 
-                        if (locale_is_installed(optarg) <= 0)
-                                log_warning("Locale '%s' is not installed, accepting anyway.", optarg);
+                                r = extract_first_word(&p, &word, ",", 0);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse locale list: %m");
+                                if (r == 0)
+                                        break;
 
-                        r = json_variant_set_field_string(&arg_identity_extra, "preferredLanguage", optarg);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to set preferredLanguage field: %m");
+                                if (!locale_is_valid(word))
+                                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Locale '%s' is not valid.", word);
+
+                                if (locale_is_installed(word) <= 0)
+                                        log_warning("Locale '%s' is not installed, accepting anyway.", word);
+
+                                mo = json_variant_ref(json_variant_by_key(arg_identity_extra, "languages"));
+
+                                r = json_variant_strv(mo, &list);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse locale list: %m");
+
+                                r = strv_extend(&list, word);
+                                if (r < 0)
+                                        return log_oom();
+
+                                strv_uniq(list);
+
+                                mo = json_variant_unref(mo);
+                                r = json_variant_new_array_strv(&mo, list);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to create locale list JSON: %m");
+
+                                r = json_variant_set_field(&arg_identity_extra, "languages", mo);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to update locale list: %m");
+                        }
 
                         break;
+                }
 
                 case ARG_NOSUID:
                 case ARG_NODEV:
