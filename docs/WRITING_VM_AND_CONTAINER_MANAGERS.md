@@ -27,28 +27,12 @@ their own.
 
 ## Host OS Integration
 
-All virtual machines and containers should be registered with the
-[systemd-machined(8)](https://www.freedesktop.org/software/systemd/man/latest/systemd-machined.service.html)
-mini service that is part of systemd. This provides integration into the core
-OS at various points. For example, tools like ps, cgls, gnome-system-manager
-use this registration information to show machine information for running
-processes, as each of the VM's/container's processes can reliably attributed to
-a registered machine. The various systemd tools (like systemctl, journalctl,
-loginctl, systemd-run, ...) all support a -M switch that operates on machines
-registered with machined. "machinectl" may be used to execute operations on any
-such machine. When a machine is registered via machined its processes will
-automatically be placed in a systemd scope unit (that is located in the
-machines.slice slice) and thus appear in "systemctl" and similar commands. The
-scope unit name is based on the machine meta information passed to machined at
-registration.
+All virtual machines and containers should be registered with the [machined](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.machine1) mini service that is part of systemd. This provides integration into the core OS at various points. For example, tools like ps, cgls, gnome-system-manager use this registration information to show machine information for running processes, as each of the VM's/container's processes can reliably attributed to a registered machine. The various systemd tools (like systemctl, journalctl, loginctl, systemd-run, ...) all support a -M switch that operates on machines registered with machined. "machinectl" may be used to execute operations on any such machine. When a machine is registered via machined its processes will automatically be placed in a systemd scope unit (that is located in the machines.slice slice) and thus appear in "systemctl" and similar commands. The scope unit name is based on the machine meta information passed to machined at registration.
 
-For more details on the APIs provided by machine consult [the bus API interface
-documentation](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.machine1.html).
+For more details on the APIs provided by machine consult [the bus API interface documentation](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.machine1).
 
 ## Guest OS Integration
 
-A number of interfaces are defined that permit a machine or container manager
-to set provide integration points with the payload/guest system. These
-interfaces are documented in [Container Interface of
-systemd](https://systemd.io/CONTAINER_INTERFACE) and [VM Interface of
-systemd](https://systemd.io/VM_INTERFACE).
+As container virtualization is much less comprehensive, and the guest is less isolated from the host, there are a number of interfaces defined how the container manager can set up the environment for systemd running inside a container. These Interfaces are documented in [Container Interface of systemd](CONTAINER_INTERFACE).
+
+VM virtualization is more comprehensive and fewer integration APIs are available. In fact there's only one: a VM manager may initialize the SMBIOS DMI field "Product UUUID" to a UUID uniquely identifying this virtual machine instance. This is read in the guest via /sys/class/dmi/id/product_uuid, and used as configuration source for /etc/machine-id if in the guest, if that file is not initialized yet. Note that this is currently only supported for kvm hosts, but may be extended to other managers as well.
