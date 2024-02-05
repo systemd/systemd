@@ -2034,7 +2034,13 @@ int make_reaper_process(bool b) {
         return 0;
 }
 
-int posix_spawn_wrapper(const char *path, char *const *argv, char *const *envp, PidRef *ret_pidref) {
+int posix_spawn_wrapper(const char *path, char *const *argv, char *const *envp, const char *cgroup, PidRef *ret_pidref) {
+        /* Due to posix_spawn_attr_t cleanup we use a 'goto fail' pattern here, so make sure to declare all
+         * the _cleanup_ variables here at the top, otherwise they will not be initialized but the cleanup
+         * will be called regardless due to the jump on error. */
+        _unused_ _cleanup_close_ int cgroup_fd = -EBADF, pidfd = -EBADF;
+        _unused_ _cleanup_free_ char *resolved_cgroup = NULL;
+        short flags = POSIX_SPAWN_SETSIGMASK|POSIX_SPAWN_SETSIGDEF;
         posix_spawnattr_t attr;
         sigset_t mask;
         pid_t pid;
@@ -2054,13 +2060,56 @@ int posix_spawn_wrapper(const char *path, char *const *argv, char *const *envp, 
         r = posix_spawnattr_init(&attr);
         if (r != 0)
                 return -r; /* These functions return a positive errno on failure */
-        /* Set all signals to SIG_DFL */
-        r = posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSIGMASK|POSIX_SPAWN_SETSIGDEF);
+
+#if HAVE_PIDFD_SPAWN
+        if (cgroup) {
+                r = cg_get_path_and_check(
+                                SYSTEMD_CGROUP_CONTROLLER,
+                                cgroup,
+                                /* suffix= */ NULL,
+                                &resolved_cgroup);
+                if (r < 0) {
+                        r = -r;
+                        goto fail;
+                }
+
+                cgroup_fd = open(resolved_cgroup, O_PATH|O_DIRECTORY|O_CLOEXEC);
+                if (cgroup_fd < 0) {
+                        r = errno;
+                        goto fail;
+                }
+
+                r = posix_spawnattr_setcgroup_np(&attr, cgroup_fd);
+                if (r != 0)
+                        goto fail;
+
+                flags |= POSIX_SPAWN_SETCGROUP;
+        }
+#endif
+
+        r = posix_spawnattr_setflags(&attr, flags);
         if (r != 0)
                 goto fail;
         r = posix_spawnattr_setsigmask(&attr, &mask);
         if (r != 0)
                 goto fail;
+
+#if HAVE_PIDFD_SPAWN
+        r = pidfd_spawn(&pidfd, path, NULL, &attr, argv, envp);
+        if (r == 0) {
+                posix_spawnattr_destroy(&attr);
+                return pidref_set_pidfd_consume(ret_pidref, TAKE_FD(pidfd));
+        }
+        if (!(ERRNO_IS_NOT_SUPPORTED(errno) || ERRNO_IS_PRIVILEGE(errno)))
+                goto fail;
+
+        /* Compiled on a newer host, or seccomp&friends blocking clone3()? Fallback, but need to change the
+         * flags to remove the cgroup one, which is what redirects to clone3() */
+        flags &= ~POSIX_SPAWN_SETCGROUP;
+        r = posix_spawnattr_setflags(&attr, flags);
+        if (r != 0)
+                goto fail;
+#endif
 
         r = posix_spawn(&pid, path, NULL, &attr, argv, envp);
         if (r != 0)
