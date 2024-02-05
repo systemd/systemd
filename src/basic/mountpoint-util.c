@@ -784,3 +784,10 @@ int mount_option_supported(const char *fstype, const char *key, const char *valu
 
         return true; /* works! */
 }
+
+bool path_below_api_vfs(const char *p) {
+        assert(p);
+
+        /* API VFS are either directly mounted on any of these three paths, or below it. */
+        return PATH_STARTSWITH_SET(p, "/dev", "/sys", "/proc");
+}

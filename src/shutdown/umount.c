@@ -95,7 +95,7 @@ int mount_points_list_get(const char *mountinfo, MountPoint **head) {
                  * we might lack the rights to unmount these things, hence don't bother. */
                 if (mount_point_is_api(path) ||
                     mount_point_ignore(path) ||
-                    PATH_STARTSWITH_SET(path, "/dev", "/sys", "/proc"))
+                    path_below_api_vfs(path))
                         continue;
 
                 is_api_vfs = fstype_is_api_vfs(fstype);
