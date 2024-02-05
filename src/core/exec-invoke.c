@@ -2028,16 +2028,19 @@ static int build_environment(
                 our_env[n_env++] = x;
         }
 
-        _cleanup_free_ char *creds_dir = NULL;
-        r = exec_context_get_credential_directory(c, p, p->unit_id, &creds_dir);
-        if (r < 0)
-                return r;
-        if (r > 0) {
-                x = strjoin("CREDENTIALS_DIRECTORY=", creds_dir);
-                if (!x)
-                        return -ENOMEM;
+        if (FLAGS_SET(p->flags, EXEC_WRITE_CREDENTIALS)) {
+                _cleanup_free_ char *creds_dir = NULL;
 
-                our_env[n_env++] = x;
+                r = exec_context_get_credential_directory(c, p, p->unit_id, &creds_dir);
+                if (r < 0)
+                        return r;
+                if (r > 0) {
+                        x = strjoin("CREDENTIALS_DIRECTORY=", creds_dir);
+                        if (!x)
+                                return -ENOMEM;
+
+                        our_env[n_env++] = x;
+                }
         }
 
         if (asprintf(&x, "SYSTEMD_EXEC_PID=" PID_FMT, getpid_cached()) < 0)
