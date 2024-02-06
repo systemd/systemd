@@ -172,6 +172,10 @@ static int write_credential(
         _cleanup_close_ int fd = -EBADF;
         int r;
 
+        assert(dfd >= 0);
+        assert(id);
+        assert(data || size == 0);
+
         r = tempfn_random_child("", "cred", &tmp);
         if (r < 0)
                 return r;
@@ -224,7 +228,6 @@ typedef enum CredentialSearchPath {
 } CredentialSearchPath;
 
 static char **credential_search_path(const ExecParameters *params, CredentialSearchPath path) {
-
         _cleanup_strv_free_ char **l = NULL;
 
         assert(params);
@@ -274,6 +277,10 @@ static int maybe_decrypt_and_write_credential(
         size_t add;
         int r;
 
+        assert(dir_fd >= 0);
+        assert(id);
+        assert(left);
+
         if (encrypted) {
                 r = decrypt_credential_and_warn(
                                 id,
@@ -306,7 +313,7 @@ static int maybe_decrypt_and_write_credential(
 static int load_credential_glob(
                 const char *path,
                 bool encrypted,
-                char **search_path,
+                char * const *search_path,
                 ReadFullFileFlags flags,
                 int write_dfd,
                 uid_t uid,
@@ -315,6 +322,11 @@ static int load_credential_glob(
                 uint64_t *left) {
 
         int r;
+
+        assert(path);
+        assert(search_path);
+        assert(write_dfd >= 0);
+        assert(left);
 
         STRV_FOREACH(d, search_path) {
                 _cleanup_globfree_ glob_t pglob = {};
@@ -522,6 +534,9 @@ static int load_cred_recurse_dir_cb(
         _cleanup_free_ char *sub_id = NULL;
         int r;
 
+        assert(path);
+        assert(de);
+
         if (event != RECURSE_DIR_ENTRY)
                 return RECURSE_DIR_CONTINUE;
 
@@ -578,6 +593,8 @@ static int acquire_credentials(
         int r;
 
         assert(context);
+        assert(params);
+        assert(unit);
         assert(p);
 
         dfd = open(p, O_DIRECTORY|O_CLOEXEC);
@@ -622,8 +639,7 @@ static int acquire_credentials(
                                         &left);
                 else
                         /* Directory */
-                        r = recurse_dir(
-                                        sub_fd,
+                        r = recurse_dir(sub_fd,
                                         /* path= */ lc->id, /* recurse_dir() will suffix the subdir paths from here to the top-level id */
                                         /* statx_mask= */ 0,
                                         /* n_depth_max= */ UINT_MAX,
@@ -773,6 +789,8 @@ static int setup_credentials_internal(
         const char *where;
 
         assert(context);
+        assert(params);
+        assert(unit);
         assert(final);
         assert(workspace);
 
@@ -918,6 +936,7 @@ int exec_setup_credentials(
 
         assert(context);
         assert(params);
+        assert(unit);
 
         if (!exec_context_has_credentials(context))
                 return 0;
