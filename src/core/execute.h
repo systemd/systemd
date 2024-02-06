@@ -399,7 +399,7 @@ typedef enum ExecFlags {
         EXEC_CGROUP_DELEGATE       = 1 << 6,
         EXEC_IS_CONTROL            = 1 << 7,
         EXEC_CONTROL_CGROUP        = 1 << 8, /* Place the process not in the indicated cgroup but in a subcgroup '/.control', but only EXEC_CGROUP_DELEGATE and EXEC_IS_CONTROL is set, too */
-        EXEC_WRITE_CREDENTIALS     = 1 << 9, /* Set up the credential store logic */
+        EXEC_SETUP_CREDENTIALS     = 1 << 9, /* Set up the credential store logic */
 
         /* The following are not used by execute.c, but by consumers internally */
         EXEC_PASS_FDS              = 1 << 10,
