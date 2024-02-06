@@ -336,38 +336,36 @@ static int load_credential_glob(
                 if (r < 0)
                         return r;
 
-                for (size_t n = 0; n < pglob.gl_pathc; n++) {
+                FOREACH_ARRAY(p, pglob.gl_pathv, pglob.gl_pathc) {
                         _cleanup_free_ char *fn = NULL;
                         _cleanup_(erase_and_freep) char *data = NULL;
                         size_t size;
 
                         /* path is absolute, hence pass AT_FDCWD as nop dir fd here */
                         r = read_full_file_full(
-                                AT_FDCWD,
-                                pglob.gl_pathv[n],
-                                UINT64_MAX,
-                                encrypted ? CREDENTIAL_ENCRYPTED_SIZE_MAX : CREDENTIAL_SIZE_MAX,
-                                flags,
-                                NULL,
-                                &data, &size);
+                                        AT_FDCWD,
+                                        *p,
+                                        UINT64_MAX,
+                                        encrypted ? CREDENTIAL_ENCRYPTED_SIZE_MAX : CREDENTIAL_SIZE_MAX,
+                                        flags,
+                                        NULL,
+                                        &data, &size);
                         if (r < 0)
-                                return log_debug_errno(r, "Failed to read credential '%s': %m",
-                                                        pglob.gl_pathv[n]);
+                                return log_debug_errno(r, "Failed to read credential '%s': %m", *p);
 
-                        r = path_extract_filename(pglob.gl_pathv[n], &fn);
+                        r = path_extract_filename(*p, &fn);
                         if (r < 0)
-                                return log_debug_errno(r, "Failed to extract filename from '%s': %m",
-                                                        pglob.gl_pathv[n]);
+                                return log_debug_errno(r, "Failed to extract filename from '%s': %m", *p);
 
                         r = maybe_decrypt_and_write_credential(
-                                write_dfd,
-                                fn,
-                                encrypted,
-                                uid,
-                                gid,
-                                ownership_ok,
-                                data, size,
-                                left);
+                                        write_dfd,
+                                        fn,
+                                        encrypted,
+                                        uid,
+                                        gid,
+                                        ownership_ok,
+                                        data, size,
+                                        left);
                         if (r == -EEXIST)
                                 continue;
                         if (r < 0)
