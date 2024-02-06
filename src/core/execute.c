@@ -364,7 +364,6 @@ int exec_spawn(Unit *unit,
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         _cleanup_fdset_free_ FDSet *fdset = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        bool move_child = true;
         int r;
 
         assert(unit);
@@ -372,10 +371,10 @@ int exec_spawn(Unit *unit,
         assert(unit->manager->executor_fd >= 0);
         assert(command);
         assert(context);
-        assert(ret);
         assert(params);
         assert(params->fds || (params->n_socket_fds + params->n_storage_fds <= 0));
         assert(!params->files_env); /* We fill this field, ensure it comes NULL-initialized to us */
+        assert(ret);
 
         LOG_CONTEXT_PUSH_UNIT(unit);
 
@@ -456,16 +455,15 @@ int exec_spawn(Unit *unit,
                         &pidref);
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to spawn executor: %m");
-        if (r > 0)
-                move_child = false; /* Already in the right cgroup thanks to CLONE_INTO_CGROUP */
-
-        log_unit_debug(unit, "Forked %s as "PID_FMT, command->path, pidref.pid);
-
         /* We add the new process to the cgroup both in the child (so that we can be sure that no user code is ever
          * executed outside of the cgroup) and in the parent (so that we can be sure that when we kill the cgroup the
          * process will be killed too). */
-        if (move_child && subcgroup_path)
+        if (r == 0 && subcgroup_path)
                 (void) cg_attach(SYSTEMD_CGROUP_CONTROLLER, subcgroup_path, pidref.pid);
+        /* r > 0: Already in the right cgroup thanks to CLONE_INTO_CGROUP */
+
+        log_unit_debug(unit, "Forked %s as " PID_FMT " (%s CLONE_INTO_CGROUP)",
+                       command->path, pidref.pid, r > 0 ? "via" : "without");
 
         exec_status_start(&command->exec_status, pidref.pid);
 
