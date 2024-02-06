@@ -238,7 +238,12 @@ int get_process_threads(pid_t pid);
 int is_reaper_process(void);
 int make_reaper_process(bool b);
 
-int posix_spawn_wrapper(const char *path, char *const *argv, char *const *envp, const char *cgroup, PidRef *ret_pidref);
+int posix_spawn_wrapper(
+                const char *path,
+                char * const *argv,
+                char * const *envp,
+                const char *cgroup,
+                PidRef *ret_pidref);
 
 int proc_dir_open(DIR **ret);
 int proc_dir_read(DIR *d, pid_t *ret);
