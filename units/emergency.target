@@ -10,6 +10,6 @@
 [Unit]
 Description=Emergency Mode
 Documentation=man:systemd.special(7)
-Requires=emergency.service
-After=emergency.service
+Requires=emergency.service emergency-exit.service
+After=emergency.service emergency-exit.service
 AllowIsolate=yes
