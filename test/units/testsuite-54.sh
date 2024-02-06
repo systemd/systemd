@@ -3,6 +3,9 @@
 # shellcheck disable=SC2016
 set -eux
 
+# shellcheck source=test/units/util.sh
+. "$(dirname "$0")"/util.sh
+
 systemd-analyze log-level debug
 
 run_with_cred_compare() {
@@ -297,10 +300,39 @@ fi
 systemd-run -p DynamicUser=yes -p 'LoadCredential=os:/etc/os-release' \
             -p 'ExecStartPre=true' \
             -p 'ExecStartPre=systemd-creds cat os' \
-            --unit=test-54-exec-start.service \
+            --unit=test-54-exec-start-pre.service \
             --wait \
             --pipe \
             true | cmp /etc/os-release
+
+# https://github.com/systemd/systemd/issues/31194
+systemd-run -p DynamicUser=yes -p 'LoadCredential=os:/etc/os-release' \
+            -p 'ExecStartPost=systemd-creds cat os' \
+            --unit=test-54-exec-start-post.service \
+            --service-type=oneshot --wait --pipe \
+            true | cmp /etc/os-release
+
+# https://github.com/systemd/systemd/pull/24734#issuecomment-1925440546
+# Also ExecStartPre= should be able to update creds
+dd if=/dev/urandom of=/tmp/cred-huge bs=600K count=1
+chmod 777 /tmp/cred-huge
+systemd-run -p ProtectSystem=full \
+            -p 'LoadCredential=huge:/tmp/cred-huge' \
+            -p 'ExecStartPre=true' \
+            -p 'ExecStartPre=bash -c "echo fresh >/tmp/cred-huge"' \
+            --unit=test-54-huge-cred.service \
+            --wait --pipe \
+            systemd-creds cat huge | cmp - <(echo "fresh")
+rm /tmp/cred-huge
+
+echo stable >/tmp/cred-stable
+systemd-run -p 'LoadCredential=stable:/tmp/cred-stable' \
+            -p 'ExecStartPost=systemd-creds cat stable' \
+            --unit=test-54-stable.service \
+            --service-type=oneshot --wait --pipe \
+            bash -c "echo bogus >/tmp/cred-stable" | cmp - <(echo "stable")
+assert_eq "$(cat /tmp/cred-stable)" "bogus"
+rm /tmp/cred-stable
 
 if ! systemd-detect-virt -q -c ; then
     # Validate that the credential we inserted via the initrd logic arrived
