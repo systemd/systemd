@@ -735,11 +735,12 @@ static int unit_compare_memory_limit(Unit *u, const char *property_name, uint64_
 
 #define FORMAT_CGROUP_DIFF_MAX 128
 
-static char *format_cgroup_memory_limit_comparison(char *buf, size_t l, Unit *u, const char *property_name) {
+static char *format_cgroup_memory_limit_comparison(Unit *u, const char *property_name, char *buf, size_t l) {
         uint64_t kval, sval;
         int r;
 
         assert(u);
+        assert(property_name);
         assert(buf);
         assert(l > 0);
 
@@ -809,18 +810,9 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
         _cleanup_free_ char *disable_controllers_str = NULL, *delegate_controllers_str = NULL, *cpuset_cpus = NULL, *cpuset_mems = NULL, *startup_cpuset_cpus = NULL, *startup_cpuset_mems = NULL;
         CGroupContext *c;
         struct in_addr_prefix *iaai;
-
-        char cda[FORMAT_CGROUP_DIFF_MAX];
-        char cdb[FORMAT_CGROUP_DIFF_MAX];
-        char cdc[FORMAT_CGROUP_DIFF_MAX];
-        char cdd[FORMAT_CGROUP_DIFF_MAX];
-        char cde[FORMAT_CGROUP_DIFF_MAX];
-        char cdf[FORMAT_CGROUP_DIFF_MAX];
-        char cdg[FORMAT_CGROUP_DIFF_MAX];
-        char cdh[FORMAT_CGROUP_DIFF_MAX];
-        char cdi[FORMAT_CGROUP_DIFF_MAX];
-        char cdj[FORMAT_CGROUP_DIFF_MAX];
-        char cdk[FORMAT_CGROUP_DIFF_MAX];
+        char cda[FORMAT_CGROUP_DIFF_MAX], cdb[FORMAT_CGROUP_DIFF_MAX], cdc[FORMAT_CGROUP_DIFF_MAX], cdd[FORMAT_CGROUP_DIFF_MAX],
+                cde[FORMAT_CGROUP_DIFF_MAX], cdf[FORMAT_CGROUP_DIFF_MAX], cdg[FORMAT_CGROUP_DIFF_MAX], cdh[FORMAT_CGROUP_DIFF_MAX],
+                cdi[FORMAT_CGROUP_DIFF_MAX], cdj[FORMAT_CGROUP_DIFF_MAX], cdk[FORMAT_CGROUP_DIFF_MAX];
 
         assert(u);
         assert(f);
@@ -906,17 +898,17 @@ void cgroup_context_dump(Unit *u, FILE* f, const char *prefix) {
                 prefix, c->startup_blockio_weight,
                 prefix, c->default_memory_min,
                 prefix, c->default_memory_low,
-                prefix, c->memory_min, format_cgroup_memory_limit_comparison(cda, sizeof(cda), u, "MemoryMin"),
-                prefix, c->memory_low, format_cgroup_memory_limit_comparison(cdb, sizeof(cdb), u, "MemoryLow"),
-                prefix, c->startup_memory_low, format_cgroup_memory_limit_comparison(cdc, sizeof(cdc), u, "StartupMemoryLow"),
-                prefix, c->memory_high, format_cgroup_memory_limit_comparison(cdd, sizeof(cdd), u, "MemoryHigh"),
-                prefix, c->startup_memory_high, format_cgroup_memory_limit_comparison(cde, sizeof(cde), u, "StartupMemoryHigh"),
-                prefix, c->memory_max, format_cgroup_memory_limit_comparison(cdf, sizeof(cdf), u, "MemoryMax"),
-                prefix, c->startup_memory_max, format_cgroup_memory_limit_comparison(cdg, sizeof(cdg), u, "StartupMemoryMax"),
-                prefix, c->memory_swap_max, format_cgroup_memory_limit_comparison(cdh, sizeof(cdh), u, "MemorySwapMax"),
-                prefix, c->startup_memory_swap_max, format_cgroup_memory_limit_comparison(cdi, sizeof(cdi), u, "StartupMemorySwapMax"),
-                prefix, c->memory_zswap_max, format_cgroup_memory_limit_comparison(cdj, sizeof(cdj), u, "MemoryZSwapMax"),
-                prefix, c->startup_memory_zswap_max, format_cgroup_memory_limit_comparison(cdk, sizeof(cdk), u, "StartupMemoryZSwapMax"),
+                prefix, c->memory_min, format_cgroup_memory_limit_comparison(u, "MemoryMin", cda, sizeof(cda)),
+                prefix, c->memory_low, format_cgroup_memory_limit_comparison(u, "MemoryLow", cdb, sizeof(cdb)),
+                prefix, c->startup_memory_low, format_cgroup_memory_limit_comparison(u, "StartupMemoryLow", cdc, sizeof(cdc)),
+                prefix, c->memory_high, format_cgroup_memory_limit_comparison(u, "MemoryHigh", cdd, sizeof(cdd)),
+                prefix, c->startup_memory_high, format_cgroup_memory_limit_comparison(u, "StartupMemoryHigh", cde, sizeof(cde)),
+                prefix, c->memory_max, format_cgroup_memory_limit_comparison(u, "MemoryMax", cdf, sizeof(cdf)),
+                prefix, c->startup_memory_max, format_cgroup_memory_limit_comparison(u, "StartupMemoryMax", cdg, sizeof(cdg)),
+                prefix, c->memory_swap_max, format_cgroup_memory_limit_comparison(u, "MemorySwapMax", cdh, sizeof(cdh)),
+                prefix, c->startup_memory_swap_max, format_cgroup_memory_limit_comparison(u, "StartupMemorySwapMax", cdi, sizeof(cdi)),
+                prefix, c->memory_zswap_max, format_cgroup_memory_limit_comparison(u, "MemoryZSwapMax", cdj, sizeof(cdj)),
+                prefix, c->startup_memory_zswap_max, format_cgroup_memory_limit_comparison(u, "StartupMemoryZSwapMax", cdk, sizeof(cdk)),
                 prefix, c->memory_limit,
                 prefix, cgroup_tasks_max_resolve(&c->tasks_max),
                 prefix, cgroup_device_policy_to_string(c->device_policy),
