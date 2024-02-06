@@ -3175,11 +3175,9 @@ static int apply_mount_namespace(
                                params,
                                "shared mount propagation hidden by other fs namespacing unit settings: ignoring");
 
-        if (FLAGS_SET(params->flags, EXEC_WRITE_CREDENTIALS)) {
-                r = exec_context_get_credential_directory(context, params, params->unit_id, &creds_path);
-                if (r < 0)
-                        return r;
-        }
+        r = exec_context_get_credential_directory(context, params, params->unit_id, &creds_path);
+        if (r < 0)
+                return r;
 
         if (params->runtime_scope == RUNTIME_SCOPE_SYSTEM) {
                 propagate_dir = path_join("/run/systemd/propagate/", params->unit_id);
@@ -4534,12 +4532,10 @@ int exec_invoke(
                         return log_exec_error_errno(context, params, r, "Failed to set up special execution directory in %s: %m", params->prefix[dt]);
         }
 
-        if (FLAGS_SET(params->flags, EXEC_WRITE_CREDENTIALS)) {
-                r = exec_setup_credentials(context, params, params->unit_id, uid, gid);
-                if (r < 0) {
-                        *exit_status = EXIT_CREDENTIALS;
-                        return log_exec_error_errno(context, params, r, "Failed to set up credentials: %m");
-                }
+        r = exec_setup_credentials(context, params, params->unit_id, uid, gid);
+        if (r < 0) {
+                *exit_status = EXIT_CREDENTIALS;
+                return log_exec_error_errno(context, params, r, "Failed to set up credentials: %m");
         }
 
         r = build_environment(
