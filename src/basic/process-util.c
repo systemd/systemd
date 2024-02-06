@@ -2036,7 +2036,13 @@ int make_reaper_process(bool b) {
 
 DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(posix_spawnattr_t*, posix_spawnattr_destroy, NULL);
 
-int posix_spawn_wrapper(const char *path, char *const *argv, char *const *envp, const char *cgroup, PidRef *ret_pidref) {
+int posix_spawn_wrapper(
+                const char *path,
+                char * const *argv,
+                char * const *envp,
+                const char *cgroup,
+                PidRef *ret_pidref) {
+
         short flags = POSIX_SPAWN_SETSIGMASK|POSIX_SPAWN_SETSIGDEF;
         posix_spawnattr_t attr;
         sigset_t mask;
@@ -2045,7 +2051,13 @@ int posix_spawn_wrapper(const char *path, char *const *argv, char *const *envp, 
         /* Forks and invokes 'path' with 'argv' and 'envp' using CLONE_VM and CLONE_VFORK, which means the
          * caller will be blocked until the child either exits or exec's. The memory of the child will be
          * fully shared with the memory of the parent, so that there are no copy-on-write or memory.max
-         * issues. */
+         * issues.
+         *
+         * Also, move the newly-created process into 'cgroup' through POSIX_SPAWN_SETCGROUP (clone3())
+         * if available. Note that CLONE_INTO_CGROUP is only supported on cgroup v2.
+         * returns 1: We're already in the right cgroup
+         *         0: 'cgroup' not specified or POSIX_SPAWN_SETCGROUP is not supported. The caller
+         *            needs to call 'cg_attach' on their own */
 
         assert(path);
         assert(argv);
@@ -2102,10 +2114,7 @@ int posix_spawn_wrapper(const char *path, char *const *argv, char *const *envp, 
                 if (r < 0)
                         return r;
 
-                if (cgroup_fd == -EBADF)
-                        return 0; /* We managed to use the new API but we are running under cgroupv1 */
-
-                return 1; /* We managed to use the new API and we are already in the new cgroup */
+                return FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP);
         }
         if (!(ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r)))
                 return -r;
