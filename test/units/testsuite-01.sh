@@ -48,14 +48,16 @@ systemd-analyze blame
 # Test for 'systemd-update-utmp runlevel' vs 'systemctl daemon-reexec'.
 # See issue #27163.
 # shellcheck disable=SC2034
-for _ in {0..10}; do
-    systemctl daemon-reexec &
-    pid_reexec=$!
-    # shellcheck disable=SC2034
+if [[ -x /usr/lib/systemd/systemd-update-utmp ]]; then
     for _ in {0..10}; do
-        SYSTEMD_LOG_LEVEL=debug /usr/lib/systemd/systemd-update-utmp runlevel
+        systemctl daemon-reexec &
+        pid_reexec=$!
+        # shellcheck disable=SC2034
+        for _ in {0..10}; do
+            SYSTEMD_LOG_LEVEL=debug /usr/lib/systemd/systemd-update-utmp runlevel
+        done
+        wait "$pid_reexec"
     done
-    wait "$pid_reexec"
-done
+fi
 
 touch /testok
