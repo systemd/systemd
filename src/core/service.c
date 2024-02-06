@@ -1609,7 +1609,7 @@ static ExecFlags service_exec_flags(ServiceExecCommand command_id) {
 
         /* All start phases get access to credentials */
         if (IN_SET(command_id, SERVICE_EXEC_START_PRE, SERVICE_EXEC_START, SERVICE_EXEC_START_POST))
-                flags |= EXEC_WRITE_CREDENTIALS;
+                flags |= EXEC_SETUP_CREDENTIALS;
 
         if (IN_SET(command_id, SERVICE_EXEC_START_PRE, SERVICE_EXEC_START))
                 flags |= EXEC_SETENV_MONITOR_RESULT;
