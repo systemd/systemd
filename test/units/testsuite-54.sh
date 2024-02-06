@@ -297,9 +297,16 @@ fi
 systemd-run -p DynamicUser=yes -p 'LoadCredential=os:/etc/os-release' \
             -p 'ExecStartPre=true' \
             -p 'ExecStartPre=systemd-creds cat os' \
-            --unit=test-54-exec-start.service \
+            --unit=test-54-exec-start-pre.service \
             --wait \
             --pipe \
+            true | cmp /etc/os-release
+
+# https://github.com/systemd/systemd/issues/31194
+systemd-run -p DynamicUser=yes -p 'LoadCredential=os:/etc/os-release' \
+            -p 'ExecStartPost=systemd-creds cat os' \
+            --unit=test-54-exec-start-post.service \
+            --service-type=oneshot --wait --pipe \
             true | cmp /etc/os-release
 
 if ! systemd-detect-virt -q -c ; then
