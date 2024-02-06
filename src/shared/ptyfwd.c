@@ -478,7 +478,7 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
         return 0;
 }
 
-static int shovel(PTYForward *f) {
+static int do_shovel(PTYForward *f) {
         ssize_t k;
         int r;
 
@@ -489,10 +489,10 @@ static int shovel(PTYForward *f) {
                         /* Erase the first line when we start */
                         f->out_buffer = background_color_sequence(f);
                         if (!f->out_buffer)
-                                return pty_forward_done(f, log_oom());
+                                return log_oom();
 
                         if (!strextend(&f->out_buffer, ANSI_ERASE_TO_END_OF_LINE))
-                                return pty_forward_done(f, log_oom());
+                                return log_oom();
                 }
 
                 if (f->title) {
@@ -500,7 +500,7 @@ static int shovel(PTYForward *f) {
                         if (!strextend(&f->out_buffer,
                                        ANSI_WINDOW_TITLE_PUSH
                                        "\x1b]2;", f->title, "\a"))
-                                return pty_forward_done(f, log_oom());
+                                return log_oom();
                 }
 
                 if (f->out_buffer) {
@@ -513,7 +513,7 @@ static int shovel(PTYForward *f) {
                 /* Make sure we always have room for at least one "line" */
                 void *p = realloc(f->out_buffer, LINE_MAX);
                 if (!p)
-                        return pty_forward_done(f, log_oom());
+                        return log_oom();
 
                 f->out_buffer = p;
                 f->out_buffer_size = MALLOC_SIZEOF_SAFE(p);
@@ -536,10 +536,8 @@ static int shovel(PTYForward *f) {
                                         f->stdin_hangup = true;
 
                                         f->stdin_event_source = sd_event_source_unref(f->stdin_event_source);
-                                } else {
-                                        log_error_errno(errno, "read(): %m");
-                                        return pty_forward_done(f, -errno);
-                                }
+                                } else
+                                        return log_error_errno(errno, "read(): %m");
                         } else if (k == 0) {
                                 /* EOF on stdin */
                                 f->stdin_readable = false;
@@ -550,7 +548,7 @@ static int shovel(PTYForward *f) {
                                 /* Check if ^] has been pressed three times within one second. If we get this we quite
                                  * immediately. */
                                 if (look_for_escape(f, f->in_buffer + f->in_buffer_full, k))
-                                        return pty_forward_done(f, -ECANCELED);
+                                        return -ECANCELED;
 
                                 f->in_buffer_full += (size_t) k;
                         }
@@ -568,10 +566,8 @@ static int shovel(PTYForward *f) {
                                         f->master_hangup = true;
 
                                         f->master_event_source = sd_event_source_unref(f->master_event_source);
-                                } else {
-                                        log_error_errno(errno, "write(): %m");
-                                        return pty_forward_done(f, -errno);
-                                }
+                                } else
+                                        return log_error_errno(errno, "write(): %m");
                         } else {
                                 assert(f->in_buffer_full >= (size_t) k);
                                 memmove(f->in_buffer, f->in_buffer + k, f->in_buffer_full - k);
@@ -595,10 +591,8 @@ static int shovel(PTYForward *f) {
                                         f->master_hangup = true;
 
                                         f->master_event_source = sd_event_source_unref(f->master_event_source);
-                                } else {
-                                        log_error_errno(errno, "read(): %m");
-                                        return pty_forward_done(f, -errno);
-                                }
+                                } else
+                                        return log_error_errno(errno, "read(): %m");
                         } else {
                                 f->read_from_master = true;
                                 size_t scan_index = f->out_buffer_full;
@@ -606,7 +600,7 @@ static int shovel(PTYForward *f) {
 
                                 r = pty_forward_ansi_process(f, scan_index);
                                 if (r < 0)
-                                        return pty_forward_done(f, log_error_errno(r, "Failed to scan for ANSI sequences: %m"));
+                                        return log_error_errno(r, "Failed to scan for ANSI sequences: %m");
                         }
                 }
 
@@ -621,10 +615,8 @@ static int shovel(PTYForward *f) {
                                         f->stdout_writable = false;
                                         f->stdout_hangup = true;
                                         f->stdout_event_source = sd_event_source_unref(f->stdout_event_source);
-                                } else {
-                                        log_error_errno(errno, "write(): %m");
-                                        return pty_forward_done(f, -errno);
-                                }
+                                } else
+                                        return log_error_errno(errno, "write(): %m");
 
                         } else {
 
@@ -655,6 +647,18 @@ static int shovel(PTYForward *f) {
                 return pty_forward_done(f, 0);
 
         return 0;
+}
+
+static int shovel(PTYForward *f) {
+        int r;
+
+        assert(f);
+
+        r = do_shovel(f);
+        if (r < 0)
+                return pty_forward_done(f, r);
+
+        return r;
 }
 
 static int on_master_event(sd_event_source *e, int fd, uint32_t revents, void *userdata) {
