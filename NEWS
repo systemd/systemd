@@ -660,6 +660,13 @@ CHANGES WITH 254:
           cgroup v2 (i.e. the "unified hierarchy") sooner rather than later.
           Most of Linux userspace has been ported over already.
 
+        * Support for Forward Secure Sealing (FSS) is deprecated.
+          'journalctl --setup-keys/--verify-key' will emit a warning when
+          used. The security guarantees provided by this feature are relatively
+          weak and it seems that it is little-used. The plan is to drop support
+          altogether at a later point, but this might be revisited based on
+          user feedback.
+
         * Support for System V service scripts is now deprecated and will be
           removed in a future release. Please make sure to update your software
           *now* to include a native systemd unit file instead of a legacy
