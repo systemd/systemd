@@ -299,7 +299,7 @@ int main(int argc, char *argv[]) {
         if (getuid() != 0)
                 return log_tests_skipped("not root");
 
-        if (path_is_mount_point("/sys", NULL, 0) <= 0)
+        if (path_is_mount_point("/sys") <= 0)
                 return log_tests_skipped("/sys is not mounted");
 
         if (path_is_read_only_fs("/sys") > 0)

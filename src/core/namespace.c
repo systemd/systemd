@@ -1117,7 +1117,7 @@ static int mount_bind_dev(const MountEntry *m) {
 
         (void) mkdir_p_label(mount_entry_path(m), 0755);
 
-        r = path_is_mount_point(mount_entry_path(m), NULL, 0);
+        r = path_is_mount_point(mount_entry_path(m));
         if (r < 0)
                 return log_debug_errno(r, "Unable to determine whether /dev is already mounted: %m");
         if (r > 0) /* make this a NOP if /dev is already a mount point */
@@ -1137,7 +1137,7 @@ static int mount_bind_sysfs(const MountEntry *m) {
 
         (void) mkdir_p_label(mount_entry_path(m), 0755);
 
-        r = path_is_mount_point(mount_entry_path(m), NULL, 0);
+        r = path_is_mount_point(mount_entry_path(m));
         if (r < 0)
                 return log_debug_errno(r, "Unable to determine whether /sys is already mounted: %m");
         if (r > 0) /* make this a NOP if /sys is already a mount point */
@@ -1184,7 +1184,7 @@ static int mount_private_apivfs(
                 /* When we do not have enough privileges to mount a new instance, fall back to use an
                  * existing mount. */
 
-                r = path_is_mount_point(entry_path, /* root = */ NULL, /* flags = */ 0);
+                r = path_is_mount_point(entry_path);
                 if (r < 0)
                         return log_debug_errno(r, "Unable to determine whether '%s' is already mounted: %m", entry_path);
                 if (r > 0)
@@ -1299,7 +1299,7 @@ static int mount_run(const MountEntry *m) {
 
         assert(m);
 
-        r = path_is_mount_point(mount_entry_path(m), NULL, 0);
+        r = path_is_mount_point(mount_entry_path(m));
         if (r < 0 && r != -ENOENT)
                 return log_debug_errno(r, "Unable to determine whether /run is already mounted: %m");
         if (r > 0) /* make this a NOP if /run is already a mount point */
@@ -1533,7 +1533,7 @@ static int apply_one_mount(
         case MOUNT_READ_WRITE_IMPLICIT:
         case MOUNT_EXEC:
         case MOUNT_NOEXEC:
-                r = path_is_mount_point(mount_entry_path(m), root_directory, 0);
+                r = path_is_mount_point_full(mount_entry_path(m), root_directory, /* flags = */ 0);
                 if (r == -ENOENT && m->ignore)
                         return 0;
                 if (r < 0)
@@ -2537,7 +2537,7 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
         } else if (p->root_directory) {
 
                 /* A root directory is specified. Turn its directory into bind mount, if it isn't one yet. */
-                r = path_is_mount_point(root, NULL, AT_SYMLINK_FOLLOW);
+                r = path_is_mount_point_full(root, /* root = */ NULL, AT_SYMLINK_FOLLOW);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to detect that %s is a mount point or not: %m", root);
                 if (r == 0) {
