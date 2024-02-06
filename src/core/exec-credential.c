@@ -49,6 +49,12 @@ DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
         char, string_hash_func, string_compare_func,
         ExecLoadCredential, exec_load_credential_free);
 
+bool exec_params_need_credentials(const ExecParameters *p) {
+        assert(p);
+
+        return FLAGS_SET(p->flags, EXEC_SETUP_CREDENTIALS);
+}
+
 bool exec_context_has_credentials(const ExecContext *c) {
         assert(c);
 
@@ -106,7 +112,7 @@ int exec_context_get_credential_directory(
         assert(unit);
         assert(ret);
 
-        if (!exec_context_has_credentials(context)) {
+        if (!exec_params_need_credentials(params) || !exec_context_has_credentials(context)) {
                 *ret = NULL;
                 return 0;
         }
@@ -936,7 +942,7 @@ int exec_setup_credentials(
         assert(params);
         assert(unit);
 
-        if (!exec_context_has_credentials(context))
+        if (!exec_params_need_credentials(params) || !exec_context_has_credentials(context))
                 return 0;
 
         if (!params->prefix[EXEC_DIRECTORY_RUNTIME])
