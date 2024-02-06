@@ -1650,6 +1650,7 @@ static int unit_validate_on_failure_job_mode(
 
 int unit_load(Unit *u) {
         int r;
+        CGroupContext *cc;
 
         assert(u);
 
@@ -1679,6 +1680,15 @@ int unit_load(Unit *u) {
         r = UNIT_VTABLE(u)->load(u);
         if (r < 0)
                 goto fail;
+
+        /* For the root slices/scopes, if a cpuset was not specified when loading conf files, set to manager default (if set) */
+        cc = unit_get_cgroup_context(u);
+        if(cc && cc->cpuset_cpus.allocated == 0 && u->manager->defaults.allowed_cpus.allocated > 0 &&
+           ( unit_has_name(u, SPECIAL_SYSTEM_SLICE)  ||
+             unit_has_name(u, SPECIAL_USER_SLICE)    ||
+             unit_has_name(u, SPECIAL_MACHINE_SLICE) ||
+             unit_has_name(u, SPECIAL_INIT_SCOPE) ))
+                cpu_set_copy(&cc->cpuset_cpus, &u->manager->defaults.allowed_cpus);
 
         assert(u->load_state != UNIT_STUB);
 
