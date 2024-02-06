@@ -260,7 +260,10 @@ bool locale_is_valid(const char *name) {
         if (!filename_is_valid(name))
                 return false;
 
-        if (!string_is_safe(name))
+        /* Locales look like: ll_CC.ENC@variant, where ll and CC are alphabetic, ENC is alphanumeric with
+         * dashes, and variant seems to be alphabetic.
+         * See: https://www.gnu.org/software/gettext/manual/html_node/Locale-Names.html */
+        if (!in_charset(name, ALPHANUMERICAL "_.-@"))
                 return false;
 
         return true;

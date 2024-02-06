@@ -310,11 +310,22 @@ string. The string should be a `tzdata` compatible location string, for
 example: `Europe/Berlin`.
 
 `preferredLanguage` → A string indicating the preferred language/locale for the
-user. When logging in
+user. It is combined with the `additionalLanguages` field to initialize the `$LANG`
+and `$LANGUAGE` environment variables on login; see below for more details. This string
+should be in a format compatible with the `$LANG` environment variable, for example:
+`de_DE.UTF-8`.
+
+`additionalLanguages` → An array of strings indicating the preferred languages/locales
+that should be used in the event that translations for the `preferredLanguage` are
+missing, listed in order of descending priority. This allows multi-lingual users to
+specify all the languages that they know, so software lacking translations in the user's
+primary language can try another language that the user knows rather than falling back to
+the default English. All entries in this field must be valid locale names, compatible with
+the `$LANG` variable, for example: `de_DE.UTF-8`. When logging in
 [`pam_systemd`](https://www.freedesktop.org/software/systemd/man/pam_systemd.html)
-will automatically initialize the `$LANG` environment variable from this
-string. The string hence should be in a format compatible with this environment
-variable, for example: `de_DE.UTF8`.
+will prepend `preferredLanguage` (if set) to this list (if set), remove duplicates,
+and then automatically initialize the `$LANGUAGE` variable with the resulting list.
+It will also initialize `$LANG` variable with the first entry in the resulting list.
 
 `niceLevel` → An integer value in the range -20…19. When logging in
 [`pam_systemd`](https://www.freedesktop.org/software/systemd/man/pam_systemd.html)
@@ -543,6 +554,15 @@ it is bypassed.
 auto-login. Systems are supposed to automatically log in a user marked this way
 during boot, if there's exactly one user on it defined this way.
 
+`sessionType` → A string that indicates the user's preferred session type (i.e.
+`x11`, `wayland`, or other values valid for `$XDG_SESSION_TYPE`). This should be
+used by the display manager to pre-select the correct environment to log into.
+
+`sessionName` → A string that indicates the user's preferred session (i.e. `gnome`,
+`gnome-classic`, `plasma`, `kodi`, or others that appear in locations such as
+`/usr/share/xsessions` or `/usr/share/wayland-sessions`). This should be used by
+the display manager to pre-select the correct environment to log into.
+
 `stopDelayUSec` → An unsigned 64-bit integer, indicating the time in µs the
 per-user service manager is kept around after the user fully logged out.  This
 value is honored by
@@ -744,7 +764,7 @@ that may be used in this section are identical to the equally named ones in the
 `regular` section (i.e. at the top-level object). Specifically, these are:
 
 `iconName`, `location`, `shell`, `umask`, `environment`, `timeZone`,
-`preferredLanguage`, `niceLevel`, `resourceLimits`, `locked`, `notBeforeUSec`,
+`preferredLanguage`, `additionalLanguages`, `niceLevel`, `resourceLimits`, `locked`, `notBeforeUSec`,
 `notAfterUSec`, `storage`, `diskSize`, `diskSizeRelative`, `skeletonDirectory`,
 `accessMode`, `tasksMax`, `memoryHigh`, `memoryMax`, `cpuWeight`, `ioWeight`,
 `mountNoDevices`, `mountNoSuid`, `mountNoExecute`, `cifsDomain`,
@@ -755,7 +775,7 @@ that may be used in this section are identical to the equally named ones in the
 `luksPbkdfType`, `luksPbkdfForceIterations`, `luksPbkdfTimeCostUSec`, `luksPbkdfMemoryCost`,
 `luksPbkdfParallelThreads`, `luksSectorSize`, `autoResizeMode`, `rebalanceWeight`,
 `rateLimitIntervalUSec`, `rateLimitBurst`, `enforcePasswordPolicy`,
-`autoLogin`, `stopDelayUSec`, `killProcesses`, `passwordChangeMinUSec`,
+`autoLogin`, `sessionType`, `sessionName`, `stopDelayUSec`, `killProcesses`, `passwordChangeMinUSec`,
 `passwordChangeMaxUSec`, `passwordChangeWarnUSec`,
 `passwordChangeInactiveUSec`, `passwordChangeNow`, `pkcs11TokenUri`,
 `fido2HmacCredential`.
