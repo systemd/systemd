@@ -1368,17 +1368,27 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
-                case ARG_CHDIR:
+                case ARG_CHDIR: {
+                        _cleanup_free_ char *wd = NULL;
+
                         if (!path_is_absolute(optarg))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                                        "Working directory %s is not an absolute path.", optarg);
 
-                        r = free_and_strdup(&arg_chdir, optarg);
+                        r = path_simplify_alloc(optarg, &wd);
                         if (r < 0)
-                                return log_oom();
+                                return log_error_errno(r, "Failed to simplify path %s: %m", optarg);
 
+                        if (!path_is_normalized(wd))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Working dirctory path is not normalized: %s", wd);
+
+                        if (path_below_api_vfs(wd))
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Working directory is below API VFS, refusing: %s", wd);
+
+                        free_and_replace(arg_chdir, wd);
                         arg_settings_mask |= SETTING_WORKING_DIRECTORY;
                         break;
+                }
 
                 case ARG_PIVOT_ROOT:
                         r = pivot_root_parse(&arg_pivot_root_new, &arg_pivot_root_old, optarg);
@@ -3512,6 +3522,9 @@ static int inner_child(
         if (!barrier_place_and_sync(barrier)) /* #5 */
                 return log_error_errno(SYNTHETIC_ERRNO(ESRCH), "Parent died too early");
 
+        /* Note, this should be done this late (💣 and not moved earlier! 💣), so that all namespacing
+         * changes are already in effect by now, so that any resolved paths here definitely reference
+         * resources inside the container, and not outside of them. */
         if (arg_chdir)
                 if (chdir(arg_chdir) < 0)
                         return log_error_errno(errno, "Failed to change to specified working directory %s: %m", arg_chdir);
