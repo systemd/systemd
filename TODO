@@ -132,6 +132,11 @@ Deprecations and removals:
 
 Features:
 
+* Introduce a CGroupRef structure, inspired by PidRef. Should contain cgroup
+  path, cgroup id, and cgroup fd. Use it to continously pin all v2 cgroups via
+  a cgroup_ref field in the CGroupRuntime structure. Eventually switch things
+  over to do all cgroupfs access only via that structure's fd.
+
 * Get rid of the symlinks in /run/systemd/units/* and exclusively use cgroupfs
   xattrs to convey info about invocation ids, logging settings and so on.
   support for cgroupfs xattrs in the "trusted." namespace was added in linux
@@ -317,12 +322,6 @@ Features:
   confext as well is multi-modal DDIs that qualify as both. Then introduce
   /var/lib/sysexts/ which can be used to place only DDIs that shall be used as
   sysext
-
-* in pid1: move out all cgroup state settings from Unit into a new object
-  CGroupState or so which is allocated when we realize the unit into a cgroup,
-  and then remains referenced by it. The new object should also carry an fd to
-  the realized cgroup, to pin it (and later execute all cgroup operations over,
-  once we drop cgroupv1 compat).
 
 * Varlinkification of the following command line tools, to open them up to
   other programs via IPC:
