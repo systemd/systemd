@@ -21,6 +21,7 @@ struct Scope {
 
         CGroupContext cgroup_context;
         KillContext kill_context;
+        CGroupRuntime *cgroup_runtime;
 
         ScopeState state, deserialized_state;
         ScopeResult result;

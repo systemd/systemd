@@ -139,13 +139,18 @@ int bpf_socket_bind_add_initial_link_fd(Unit *u, int fd) {
 
         assert(u);
 
-        if (!u->initial_socket_bind_link_fds) {
-                u->initial_socket_bind_link_fds = fdset_new();
-                if (!u->initial_socket_bind_link_fds)
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+        if (!crt)
+                return log_unit_error_errno(u, SYNTHETIC_ERRNO(EINVAL),
+                                            "Failed to get control group runtime object.");
+
+        if (!crt->initial_socket_bind_link_fds) {
+                crt->initial_socket_bind_link_fds = fdset_new();
+                if (!crt->initial_socket_bind_link_fds)
                         return log_oom();
         }
 
-        r = fdset_put(u->initial_socket_bind_link_fds, fd);
+        r = fdset_put(crt->initial_socket_bind_link_fds, fd);
         if (r < 0)
                 return log_unit_error_errno(u, r, "bpf-socket-bind: Failed to put BPF fd %d to initial fdset", fd);
 
@@ -158,6 +163,7 @@ static int socket_bind_install_impl(Unit *u) {
         _cleanup_free_ char *cgroup_path = NULL;
         _cleanup_close_ int cgroup_fd = -EBADF;
         CGroupContext *cc;
+        CGroupRuntime *crt;
         int r;
 
         assert(u);
@@ -166,7 +172,11 @@ static int socket_bind_install_impl(Unit *u) {
         if (!cc)
                 return 0;
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, NULL, &cgroup_path);
+        crt = unit_get_cgroup_runtime(u);
+        if (!crt)
+                return 0;
+
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path, NULL, &cgroup_path);
         if (r < 0)
                 return log_unit_error_errno(u, r, "bpf-socket-bind: Failed to get cgroup path: %m");
 
@@ -193,35 +203,42 @@ static int socket_bind_install_impl(Unit *u) {
                 return log_unit_error_errno(u, r, "bpf-socket-bind: Failed to link '%s' cgroup-bpf program: %m",
                                             sym_bpf_program__name(obj->progs.sd_bind6));
 
-        u->ipv4_socket_bind_link = TAKE_PTR(ipv4);
-        u->ipv6_socket_bind_link = TAKE_PTR(ipv6);
+        crt->ipv4_socket_bind_link = TAKE_PTR(ipv4);
+        crt->ipv6_socket_bind_link = TAKE_PTR(ipv6);
 
         return 0;
 }
 
 int bpf_socket_bind_install(Unit *u) {
+        CGroupRuntime *crt;
         int r;
 
         assert(u);
 
-        r = socket_bind_install_impl(u);
-        if (r == -ENOMEM)
-                return r;
+        crt = unit_get_cgroup_runtime(u);
+        if (!crt)
+                return 0;
 
-        fdset_close(u->initial_socket_bind_link_fds);
+        r = socket_bind_install_impl(u);
+        fdset_close(crt->initial_socket_bind_link_fds);
         return r;
 }
 
 int bpf_socket_bind_serialize(Unit *u, FILE *f, FDSet *fds) {
+        CGroupRuntime *crt;
         int r;
 
         assert(u);
 
-        r = bpf_serialize_link(f, fds, "ipv4-socket-bind-bpf-link", u->ipv4_socket_bind_link);
+        crt = unit_get_cgroup_runtime(u);
+        if (!crt)
+                return 0;
+
+        r = bpf_serialize_link(f, fds, "ipv4-socket-bind-bpf-link", crt->ipv4_socket_bind_link);
         if (r < 0)
                 return r;
 
-        return bpf_serialize_link(f, fds, "ipv6-socket-bind-bpf-link", u->ipv6_socket_bind_link);
+        return bpf_serialize_link(f, fds, "ipv6-socket-bind-bpf-link", crt->ipv6_socket_bind_link);
 }
 
 #else /* ! BPF_FRAMEWORK */
