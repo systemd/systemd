@@ -1,3 +1,0 @@
-# This is the fallback locale configuration provided by systemd.
-
-LANG="{{ SYSTEMD_DEFAULT_LOCALE }}"

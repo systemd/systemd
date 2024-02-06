@@ -2504,7 +2504,6 @@ subdir('units')
 
 install_subdir('factory/etc',
                install_dir : factorydir)
-subdir('factory/templates')
 
 if install_sysconfdir
         install_data('xorg/50-systemd-user.sh',
