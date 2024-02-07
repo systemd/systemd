@@ -389,6 +389,9 @@ static int pty_forward_ansi_process(PTYForward *f, size_t offset) {
         if (!f->background_color)
                 return 0;
 
+        if (FLAGS_SET(f->flags, PTY_FORWARD_DUMB_TERMINAL))
+                return 0;
+
         for (size_t i = offset; i < f->out_buffer_full; i++) {
                 char c = f->out_buffer[i];
 
@@ -484,7 +487,11 @@ static int do_shovel(PTYForward *f) {
 
         assert(f);
 
-        if (f->out_buffer_size == 0) {
+        if (f->out_buffer_size == 0 && !FLAGS_SET(f->flags, PTY_FORWARD_DUMB_TERMINAL)) {
+                /* If the output hasn't been allocated yet, we are at the beginning of the first
+                 * shovelling. Hence, possibly send some initial ANSI sequences. But do so only if we are
+                 * talking to an actual TTY. */
+
                 if (f->background_color) {
                         /* Erase the first line when we start */
                         f->out_buffer = background_color_sequence(f);
@@ -791,6 +798,10 @@ int pty_forward_new(
                 return r;
 
         f->master = master;
+
+        /* Disable color/window title setting unless we talk to a good TTY */
+        if (!isatty_safe(f->output_fd) || get_color_mode() == COLOR_OFF)
+                f->flags |= PTY_FORWARD_DUMB_TERMINAL;
 
         if (ioctl(f->output_fd, TIOCGWINSZ, &ws) < 0)
                 /* If we can't get the resolution from the output fd, then use our internal, regular width/height,

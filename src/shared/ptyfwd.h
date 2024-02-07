@@ -10,13 +10,17 @@
 typedef struct PTYForward PTYForward;
 
 typedef enum PTYForwardFlags {
-        PTY_FORWARD_READ_ONLY = 1,
+        /* Only output to STDOUT, never try to read from STDIN */
+        PTY_FORWARD_READ_ONLY              = 1 << 0,
 
         /* Continue reading after hangup? */
-        PTY_FORWARD_IGNORE_VHANGUP = 2,
+        PTY_FORWARD_IGNORE_VHANGUP         = 1 << 1,
 
         /* Continue reading after hangup but only if we never read anything else? */
-        PTY_FORWARD_IGNORE_INITIAL_VHANGUP = 4,
+        PTY_FORWARD_IGNORE_INITIAL_VHANGUP = 1 << 2,
+
+        /* Don't tint the background, or set window title */
+        PTY_FORWARD_DUMB_TERMINAL          = 1 << 3,
 } PTYForwardFlags;
 
 typedef int (*PTYForwardHandler)(PTYForward *f, int rcode, void *userdata);
