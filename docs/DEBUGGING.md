@@ -15,7 +15,7 @@ Try to boot without `rhgb` and `quiet` on the kernel command line. If you see so
 * Starting _name_...
 * \[ OK \] Started _name_.
 
-then systemd is running. (See an actual [screenshot](f17boot.png).)
+then systemd is running. (See an actual [screenshot](../assets/f17boot.png).)
 
 Debugging always gets easier if you can get a shell. If you do not get a login prompt, try switching to a different virtual terminal using CTRL+ALT+F\_\_. Problems with a display server startup may manifest themselves as a missing login on tty1, but other VTs working.
 
