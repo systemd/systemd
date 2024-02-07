@@ -20,6 +20,7 @@ ListenStream=/run/systemd/io.systemd.PCRExtend
 FileDescriptorName=varlink
 SocketMode=0600
 Accept=yes
+MaxConnectionsPerSource=16
 
 [Install]
 WantedBy=sockets.target
