@@ -437,6 +437,10 @@ units = [
         },
         { 'file' : 'systemd-nspawn@.service.in' },
         {
+          'file' : 'systemd-vmspawn@.service.in',
+          'conditions' : ['ENABLE_VMSPAWN'],
+        },
+        {
           'file' : 'systemd-oomd.service.in',
           'conditions' : ['ENABLE_OOMD'],
         },
