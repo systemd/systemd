@@ -33,7 +33,7 @@ UnitType unit_name_to_type(const char *n) _pure_;
 int unit_name_change_suffix(const char *n, const char *suffix, char **ret);
 
 int unit_name_build(const char *prefix, const char *instance, const char *suffix, char **ret);
-int unit_name_build_from_type(const char *prefix, const char *instance, UnitType, char **ret);
+int unit_name_build_from_type(const char *prefix, const char *instance, UnitType type, char **ret);
 
 char *unit_name_escape(const char *f);
 int unit_name_unescape(const char *f, char **ret);
