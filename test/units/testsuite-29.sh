@@ -203,6 +203,14 @@ portablectl inspect --force --cat --extension /usr/share/app0.raw --extension /u
 
 portablectl detach --now --runtime --extension /usr/share/app0.raw --extension /usr/share/conf0.raw /usr/share/minimal_0.raw app0
 
+# Ensure that mixed mode copies the images and units (client-owned) but symlinks the profile (OS owned)
+portablectl "${ARGS[@]}" attach --copy=mixed --runtime --extension /usr/share/app0.raw /usr/share/minimal_0.raw app0
+test -f /run/portables/app0.raw
+test -f /run/portables/minimal_0.raw
+test -f /run/systemd/system.attached/app0.service
+test -L /run/systemd/system.attached/app0.service.d/10-profile.conf
+portablectl detach --runtime --extension /usr/share/app0.raw /usr/share/minimal_0.raw app0
+
 # portablectl also works with directory paths rather than images
 
 mkdir /tmp/rootdir /tmp/app0 /tmp/app1 /tmp/overlay /tmp/os-release-fix /tmp/os-release-fix/etc
@@ -254,6 +262,17 @@ grep -q -F "LogExtraFields=PORTABLE_EXTENSION=app1" /run/systemd/system.attached
 grep -q -F "LogExtraFields=PORTABLE_EXTENSION_NAME_AND_VERSION=app_1" /run/systemd/system.attached/app1.service.d/20-portable.conf
 
 portablectl detach --now --runtime --extension /tmp/app0 --extension /tmp/app1 /tmp/rootdir app0 app1
+
+# Ensure that mixed mode copies the images and units (client-owned) but symlinks the profile (OS owned)
+portablectl "${ARGS[@]}" attach --copy=mixed --runtime --extension /tmp/app0 --extension /tmp/app1 /tmp/rootdir app0 app1
+test -d /run/portables/app0
+test -d /run/portables/app1
+test -d /run/portables/rootdir
+test -f /run/systemd/system.attached/app0.service
+test -f /run/systemd/system.attached/app1.service
+test -L /run/systemd/system.attached/app0.service.d/10-profile.conf
+test -L /run/systemd/system.attached/app1.service.d/10-profile.conf
+portablectl detach --runtime --extension /tmp/app0 --extension /tmp/app1 /tmp/rootdir app0 app1
 
 # Attempt to disable the app unit during detaching. Requires --copy=symlink to reproduce.
 # Provides coverage for https://github.com/systemd/systemd/issues/23481
