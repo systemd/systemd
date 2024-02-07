@@ -66,6 +66,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
         const char *verb = argv[0];
         int carries_install_info = -1;
         bool ignore_carries_install_info = arg_quiet || arg_no_warn;
+        sd_bus *bus = NULL;
         int r;
 
         if (!argv[1])
@@ -140,7 +141,6 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                 bool send_runtime = true, send_force = true, send_preset_mode = false;
                 const char *method, *warn_trigger_operation = NULL;
                 bool warn_trigger_ignore_masked = true; /* suppress "used uninitialized" warning */
-                sd_bus *bus;
 
                 if (STR_IN_SET(verb, "mask", "unmask")) {
                         _cleanup_(lookup_paths_free) LookupPaths lp = {};
@@ -312,13 +312,18 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                 }
         }
 
-        if (arg_now && STR_IN_SET(argv[0], "enable", "disable", "mask")) {
+        if (arg_now) {
                 _cleanup_strv_free_ char **new_args = NULL;
-                sd_bus *bus;
 
-                r = acquire_bus(BUS_MANAGER, &bus);
-                if (r < 0)
-                        return r;
+                if (!STR_IN_SET(verb, "enable", "disable", "mask"))
+                        return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                               "--now can only be used with verb enable, disable, or mask.");
+
+                if (install_client_side())
+                        return log_error_errno(SYNTHETIC_ERRNO(EREMOTE),
+                                               "--now cannot be used when systemd is not running or in conjunction with --root=/--global, refusing.");
+
+                assert(bus);
 
                 if (strv_extend(&new_args, streq(verb, "enable") ? "start" : "stop") < 0)
                         return log_oom();
