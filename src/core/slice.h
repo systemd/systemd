@@ -11,6 +11,8 @@ struct Slice {
         SliceState state, deserialized_state;
 
         CGroupContext cgroup_context;
+
+        CGroupRuntime *cgroup_runtime;
 };
 
 extern const UnitVTable slice_vtable;
