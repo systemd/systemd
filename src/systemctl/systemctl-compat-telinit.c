@@ -4,6 +4,8 @@
 #include <unistd.h>
 
 #include "alloc-util.h"
+#include "fs-util.h"
+#include "path-util.h"
 #include "pretty-print.h"
 #include "rlimit-util.h"
 #include "systemctl-compat-telinit.h"
@@ -157,6 +159,20 @@ int reload_with_fallback(void) {
 }
 
 int exec_telinit(char *argv[]) {
+        _cleanup_free_ char *self_exe = NULL;
+        int r;
+
+        r = readlink_and_make_absolute("/proc/self/exe", &self_exe);
+        if (r < 0)
+                return r;
+
+        /* Avoid ending up in an endless loop in case the system is misconfigured
+         * and TELINIT points back to us (systemctl) */
+        if (path_equal_or_inode_same(self_exe, TELINIT, 0))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
+                                       "Configured telinit binary %s points to us, refusing to reexecute.",
+                                       TELINIT);
+
         (void) rlimit_nofile_safe();
         (void) execv(TELINIT, argv);
 
