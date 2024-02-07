@@ -781,6 +781,18 @@ static int process_loader_partitions(DissectedPartition *esp, DissectedPartition
         assert(esp);
         assert(xbootldr);
 
+        /* If any paths in fstab look similar to our favorite paths for ESP or XBOOTLDR, we just exit
+         * early. We also don't bother with cases where one is configured explicitly and the other shall be
+         * mounted automatically. */
+
+        r = fstab_has_mount_point_prefix_strv(STRV_MAKE("/boot", "/efi"));
+        if (r > 0) {
+                log_debug("Found path in fstab starting with either /boot or /efi, skipping ESP and XBOOTLDR mounts.");
+                return 0;
+        }
+        if (r < 0)
+                log_debug_errno(r, "Failed to check fstab existing paths, ignoring: %m");
+
         if (!is_efi_boot()) {
                 log_debug("Not an EFI boot, skipping loader partition UUID check.");
                 goto mount;

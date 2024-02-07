@@ -25,6 +25,8 @@ static inline int fstab_has_node(const char *path) {
         return fstab_is_mount_point_full(NULL, path);
 }
 
+int fstab_has_mount_point_prefix_strv(char **prefixes);
+
 int fstab_filter_options(
                 const char *opts,
                 const char *names,
