@@ -1455,10 +1455,12 @@ static bool link_dhcp4_ipv6_only_mode(Link *link) {
         assert(link);
         assert(link->network);
 
+        /* If it is explicitly specified, then honor the setting. */
         if (link->network->dhcp_ipv6_only_mode >= 0)
                 return link->network->dhcp_ipv6_only_mode;
 
-        return link_dhcp6_enabled(link) || link_ipv6_accept_ra_enabled(link);
+        /* Defaults to false, until we support 464XLAT. See issue #30891. */
+        return false;
 }
 
 static int dhcp4_configure(Link *link) {

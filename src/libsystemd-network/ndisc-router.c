@@ -9,6 +9,7 @@
 
 #include "alloc-util.h"
 #include "dns-domain.h"
+#include "escape.h"
 #include "hostname-util.h"
 #include "memory-util.h"
 #include "missing_network.h"
@@ -716,8 +717,12 @@ int sd_ndisc_router_dnssl_get_domains(sd_ndisc_router *rt, char ***ret) {
 
                                 e[n] = 0;
                                 r = dns_name_normalize(e, 0, &normalized);
-                                if (r < 0)
-                                        return r;
+                                if (r < 0) {
+                                        _cleanup_free_ char *escaped = cescape(e);
+                                        log_debug_errno(r, "Failed to normalize advertised domain name \"%s\": %m", strna(escaped));
+                                        /* Here, do not propagate error code from dns_name_normalize() except for ENOMEM. */
+                                        return r == -ENOMEM ? -ENOMEM : -EBADMSG;
+                                }
 
                                 /* Ignore the root domain name or "localhost" and friends */
                                 if (!is_localhost(normalized) &&
@@ -753,8 +758,12 @@ int sd_ndisc_router_dnssl_get_domains(sd_ndisc_router *rt, char ***ret) {
                         e[n++] = '.';
 
                 r = dns_label_escape((char*) p+1, *p, e + n, DNS_LABEL_ESCAPED_MAX);
-                if (r < 0)
-                        return r;
+                if (r < 0) {
+                        _cleanup_free_ char *escaped = cescape_length((const char*) p+1, *p);
+                        log_debug_errno(r, "Failed to escape advertised domain name \"%s\": %m", strna(escaped));
+                        /* Here, do not propagate error code from dns_label_escape() except for ENOMEM. */
+                        return r == -ENOMEM ? -ENOMEM : -EBADMSG;
+                }
 
                 n += r;
 
