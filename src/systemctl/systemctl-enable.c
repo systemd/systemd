@@ -313,24 +313,45 @@ int verb_enable(int argc, char *argv[], void *userdata) {
         }
 
         if (arg_now && STR_IN_SET(argv[0], "enable", "disable", "mask")) {
+                _cleanup_strv_free_ char **new_args = NULL;
                 sd_bus *bus;
-                size_t len, i;
 
                 r = acquire_bus(BUS_MANAGER, &bus);
                 if (r < 0)
                         return r;
 
-                len = strv_length(names);
-                {
-                        char *new_args[len + 2];
+                if (strv_extend(&new_args, streq(argv[0], "enable") ? "start" : "stop") < 0)
+                        return log_oom();
 
-                        new_args[0] = (char*) (streq(argv[0], "enable") ? "start" : "stop");
-                        for (i = 0; i < len; i++)
-                                new_args[i + 1] = basename(names[i]);
-                        new_args[i + 1] = NULL;
+                STRV_FOREACH(name, names) {
+                        _cleanup_free_ char *fn = NULL;
 
-                        r = verb_start(len + 1, new_args, userdata);
+                        r = path_extract_filename(*name, &fn);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to extract filename of '%s': %m", *name);
+
+                        /* We can safely assume the unit names are valid here (i.e. no need for unit_name_is_valid) */
+                        char *t = strrchr(fn, '@');
+                        if (t) {
+                                _cleanup_free_ char *globbed = NULL;
+                                const char *suffix = t + 1;
+
+                                assert(suffix[0] == '.');
+
+                                *t = '\0';
+
+                                globbed = strjoin(fn, "@*", suffix);
+                                if (!globbed)
+                                        return log_oom();
+
+                                r = strv_consume(&new_args, TAKE_PTR(globbed));
+                        } else
+                                r = strv_consume(&new_args, TAKE_PTR(fn));
+                        if (r < 0)
+                                return log_oom();
                 }
+
+                return verb_start(strv_length(new_args), new_args, userdata);
         }
 
         return 0;
