@@ -470,9 +470,10 @@
 
       <varlistentry>
         <term><varname>MaxConnectionsPerSource=</varname></term>
-        <listitem><para>The maximum number of connections for a service per source IP address.
-        This is very similar to the <varname>MaxConnections=</varname> directive
-        above. Disabled by default.</para>
+        <listitem><para>The maximum number of connections for a service per source IP address (in case of
+        IPv4/IPv6), per source CID (in case of <constant>AF_VSOCK</constant>), or source UID (in case of
+        <constant>AF_UNIX</constant>). This is very similar to the <varname>MaxConnections=</varname>
+        directive above. Disabled by default.</para>
 
         <xi:include href="version-info.xml" xpointer="v232"/>
         </listitem>
