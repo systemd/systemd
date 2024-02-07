@@ -481,4 +481,14 @@ systemctl daemon-reload
 systemctl enable --now test-WantedBy.service || :
 systemctl daemon-reload
 
+# Refuse to exec() the TELINIT binary if it points to us to avoid an endless loop
+# See: https://github.com/systemd/systemd/issues/31220
+mkdir -p /usr/lib/sysvinit/
+ln -svrf /usr/bin/systemctl /usr/lib/sysvinit/telinit
+timeout 10s systemd-nspawn --volatile=yes --directory=/ -- telinit u && EC=0 || EC=$?
+[[ $EC -eq 1 ]]
+ln -svrf /usr/bin/true /usr/lib/sysvinit/telinit
+timeout 10s systemd-nspawn --volatile=yes --directory=/ -- telinit u
+rm -rf /usr/lib/sysvinit/
+
 touch /testok
