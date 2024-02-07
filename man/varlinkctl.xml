@@ -185,6 +185,15 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--collect</option></term>
+
+        <listitem><para>This is similar to <option>--more</option> but collects all responses in a JSON
+        array, and prints it, rather than in JSON_SEQ mode.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--oneway</option></term>
 
         <listitem><para>When used with <command>call</command>: do not expect a method reply. If this flag
