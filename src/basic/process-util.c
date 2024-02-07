@@ -2088,13 +2088,16 @@ int posix_spawn_wrapper(
 
                 cgroup_fd = open(resolved_cgroup, O_PATH|O_DIRECTORY|O_CLOEXEC);
                 if (cgroup_fd < 0)
-                        return -errno;
+                        log_debug_errno(errno,
+                                        "Failed to open '%s', cannot spawn with CLONE_INTO_CGROUP: %m",
+                                        resolved_cgroup);
+                else {
+                        r = posix_spawnattr_setcgroup_np(&attr, cgroup_fd);
+                        if (r != 0)
+                                return -r;
 
-                r = posix_spawnattr_setcgroup_np(&attr, cgroup_fd);
-                if (r != 0)
-                        return -r;
-
-                flags |= POSIX_SPAWN_SETCGROUP;
+                        flags |= POSIX_SPAWN_SETCGROUP;
+                }
         }
 #endif
 
