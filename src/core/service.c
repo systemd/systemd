@@ -1595,27 +1595,33 @@ static Service *service_get_triggering_service(Service *s) {
         return NULL;
 }
 
-static ExecFlags service_exec_flags(ServiceExecCommand command_id) {
+static ExecFlags service_exec_flags(ServiceExecCommand command_id, ExecFlags cred_flag) {
         /* All service main/control processes honor sandboxing and namespacing options (except those
         explicitly excluded in service_spawn()) */
         ExecFlags flags = EXEC_APPLY_SANDBOXING|EXEC_APPLY_CHROOT;
 
         assert(command_id >= 0);
         assert(command_id < _SERVICE_EXEC_COMMAND_MAX);
+        assert((cred_flag & ~(EXEC_SETUP_CREDENTIALS_FRESH|EXEC_SETUP_CREDENTIALS)) == 0);
+        assert((cred_flag != 0) == (command_id == SERVICE_EXEC_START));
 
         /* Control processes spawned before main process also get tty access */
         if (IN_SET(command_id, SERVICE_EXEC_CONDITION, SERVICE_EXEC_START_PRE, SERVICE_EXEC_START))
                 flags |= EXEC_APPLY_TTY_STDIN;
 
-        /* All start phases get access to credentials */
-        if (IN_SET(command_id, SERVICE_EXEC_START_PRE, SERVICE_EXEC_START, SERVICE_EXEC_START_POST))
-                flags |= EXEC_WRITE_CREDENTIALS;
+        /* All start phases get access to credentials. ExecStartPre= gets a new credential store upon
+         * every invocation, so that updating credential files through it works. When the first main process
+         * starts, passed creds become stable. Also see 'cred_flag'. */
+        if (command_id == SERVICE_EXEC_START_PRE)
+                flags |= EXEC_SETUP_CREDENTIALS_FRESH;
+        if (command_id == SERVICE_EXEC_START_POST)
+                flags |= EXEC_SETUP_CREDENTIALS;
 
         if (IN_SET(command_id, SERVICE_EXEC_START_PRE, SERVICE_EXEC_START))
                 flags |= EXEC_SETENV_MONITOR_RESULT;
 
         if (command_id == SERVICE_EXEC_START)
-                return flags|EXEC_PASS_FDS|EXEC_SET_WATCHDOG;
+                return flags|cred_flag|EXEC_PASS_FDS|EXEC_SET_WATCHDOG;
 
         flags |= EXEC_IS_CONTROL;
 
@@ -1632,13 +1638,12 @@ static ExecFlags service_exec_flags(ServiceExecCommand command_id) {
 static int service_spawn_internal(
                 const char *caller,
                 Service *s,
-                ServiceExecCommand command_id,
                 ExecCommand *c,
+                ExecFlags flags,
                 usec_t timeout,
                 PidRef *ret_pid) {
 
-        _cleanup_(exec_params_shallow_clear) ExecParameters exec_params =
-                        EXEC_PARAMETERS_INIT(service_exec_flags(command_id));
+        _cleanup_(exec_params_shallow_clear) ExecParameters exec_params = EXEC_PARAMETERS_INIT(flags);
         _cleanup_(sd_event_source_unrefp) sd_event_source *exec_fd_source = NULL;
         _cleanup_strv_free_ char **final_env = NULL, **our_env = NULL;
         _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
@@ -2083,8 +2088,8 @@ static void service_enter_stop_post(Service *s, ServiceResult f) {
                 pidref_done(&s->control_pid);
 
                 r = service_spawn(s,
-                                  s->control_command_id,
                                   s->control_command,
+                                  service_exec_flags(s->control_command_id, /* cred_flag = */ 0),
                                   s->timeout_stop_usec,
                                   &s->control_pid);
                 if (r < 0) {
@@ -2206,8 +2211,8 @@ static void service_enter_stop(Service *s, ServiceResult f) {
                 pidref_done(&s->control_pid);
 
                 r = service_spawn(s,
-                                  s->control_command_id,
                                   s->control_command,
+                                  service_exec_flags(s->control_command_id, /* cred_flag = */ 0),
                                   s->timeout_stop_usec,
                                   &s->control_pid);
                 if (r < 0) {
@@ -2290,8 +2295,8 @@ static void service_enter_start_post(Service *s) {
                 pidref_done(&s->control_pid);
 
                 r = service_spawn(s,
-                                  s->control_command_id,
                                   s->control_command,
+                                  service_exec_flags(s->control_command_id, /* cred_flag = */ 0),
                                   s->timeout_start_usec,
                                   &s->control_pid);
                 if (r < 0) {
@@ -2400,8 +2405,8 @@ static void service_enter_start(Service *s) {
                 timeout = s->timeout_start_usec;
 
         r = service_spawn(s,
-                          SERVICE_EXEC_START,
                           c,
+                          service_exec_flags(SERVICE_EXEC_START, EXEC_SETUP_CREDENTIALS_FRESH),
                           timeout,
                           &pidref);
         if (r < 0) {
@@ -2460,8 +2465,8 @@ static void service_enter_start_pre(Service *s) {
                 s->control_command_id = SERVICE_EXEC_START_PRE;
 
                 r = service_spawn(s,
-                                  s->control_command_id,
                                   s->control_command,
+                                  service_exec_flags(s->control_command_id, /* cred_flag = */ 0),
                                   s->timeout_start_usec,
                                   &s->control_pid);
                 if (r < 0) {
@@ -2497,8 +2502,8 @@ static void service_enter_condition(Service *s) {
                 pidref_done(&s->control_pid);
 
                 r = service_spawn(s,
-                                  s->control_command_id,
                                   s->control_command,
+                                  service_exec_flags(s->control_command_id, /* cred_flag = */ 0),
                                   s->timeout_start_usec,
                                   &s->control_pid);
 
@@ -2608,8 +2613,8 @@ static void service_enter_reload(Service *s) {
                 pidref_done(&s->control_pid);
 
                 r = service_spawn(s,
-                                  s->control_command_id,
                                   s->control_command,
+                                  service_exec_flags(s->control_command_id, /* cred_flag = */ 0),
                                   s->timeout_start_usec,
                                   &s->control_pid);
                 if (r < 0) {
@@ -2664,8 +2669,8 @@ static void service_run_next_control(Service *s) {
         pidref_done(&s->control_pid);
 
         r = service_spawn(s,
-                          s->control_command_id,
                           s->control_command,
+                          service_exec_flags(s->control_command_id, /* cred_flag = */ 0),
                           timeout,
                           &s->control_pid);
         if (r < 0) {
@@ -2696,8 +2701,8 @@ static void service_run_next_main(Service *s) {
         service_unwatch_main_pid(s);
 
         r = service_spawn(s,
-                          SERVICE_EXEC_START,
                           s->main_command,
+                          service_exec_flags(SERVICE_EXEC_START, EXEC_SETUP_CREDENTIALS),
                           s->timeout_start_usec,
                           &pidref);
         if (r < 0) {
