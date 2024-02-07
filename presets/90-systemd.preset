@@ -20,6 +20,7 @@ enable getty@.service
 enable systemd-boot-update.service
 enable systemd-confext.service
 enable systemd-homed.service
+enable systemd-homed-*.service
 enable systemd-journald-audit.socket
 enable systemd-network-generator.service
 enable systemd-networkd.service
