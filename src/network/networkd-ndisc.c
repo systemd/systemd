@@ -191,13 +191,13 @@ static int ndisc_request_route(Route *route, Link *link, sd_ndisc_router *rt) {
         if (link->network->ipv6_accept_ra_use_mtu) {
                 r = sd_ndisc_router_get_mtu(rt, &mtu);
                 if (r < 0 && r != -ENODATA)
-                        return log_link_warning_errno(link, r, "Failed to get default router MTU from RA: %m");
+                        return log_link_warning_errno(link, r, "Failed to get MTU from RA: %m");
         }
 
         if (link->network->ipv6_accept_ra_use_hop_limit) {
                 r = sd_ndisc_router_get_hop_limit(rt, &hop_limit);
                 if (r < 0 && r != -ENODATA)
-                        return log_link_warning_errno(link, r, "Failed to get default router hop limit from RA: %m");
+                        return log_link_warning_errno(link, r, "Failed to get hop limit from RA: %m");
         }
 
         route->source = NETWORK_CONFIG_SOURCE_NDISC;
@@ -310,7 +310,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
 
         r = sd_ndisc_router_get_preference(rt, &preference);
         if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to get default router preference from RA: %m");
+                return log_link_warning_errno(link, r, "Failed to get router preference from RA: %m");
 
         if (link->network->ipv6_accept_ra_use_gateway) {
                 _cleanup_(route_freep) Route *route = NULL;
@@ -618,7 +618,7 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
                 return 0;
         }
         if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to get default router preference from RA: %m");
+                return log_link_warning_errno(link, r, "Failed to get router preference from RA: %m");
 
         r = route_new(&route);
         if (r < 0)
