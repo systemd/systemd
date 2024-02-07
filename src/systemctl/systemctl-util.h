@@ -24,7 +24,7 @@ int translate_bus_error_to_exit_status(int r, const sd_bus_error *error);
 int get_state_one_unit(sd_bus *bus, const char *unit, UnitActiveState *ret_active_state);
 int get_sub_state_one_unit(sd_bus *bus, const char *unit, char **ret_sub_state);
 int get_unit_list(sd_bus *bus, const char *machine, char **patterns, UnitInfo **unit_infos, int c, sd_bus_message **ret_reply);
-int expand_unit_names(sd_bus *bus, char **names, const char* suffix, char ***ret, bool *ret_expanded);
+int expand_unit_names(sd_bus *bus, char * const *names, const char* suffix, char ***ret, bool *ret_expanded);
 
 int get_active_triggering_units(sd_bus *bus, const char *unit, bool ignore_masked, char ***ret);
 void warn_triggering_units(sd_bus *bus, const char *unit, const char *operation, bool ignore_masked);
@@ -53,7 +53,7 @@ int output_table(Table *table);
 
 bool show_preset_for_state(UnitFileState state);
 
-int mangle_names(const char *operation, char **original_names, char ***ret_mangled_names);
+int mangle_names(const char *operation, char * const *original_names, char ***ret);
 
 UnitFileFlags unit_file_flags_from_args(void);
 
