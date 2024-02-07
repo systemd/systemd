@@ -302,24 +302,45 @@ int verb_enable(int argc, char *argv[], void *userdata) {
         }
 
         if (arg_now && STR_IN_SET(argv[0], "enable", "disable", "mask")) {
+                _cleanup_strv_free_ char **new_args = NULL;
                 sd_bus *bus;
-                size_t len, i;
 
                 r = acquire_bus(BUS_MANAGER, &bus);
                 if (r < 0)
                         return r;
 
-                len = strv_length(names);
-                {
-                        char *new_args[len + 2];
+                if (strv_extend(&new_args, streq(verb, "enable") ? "start" : "stop") < 0)
+                        return log_oom();
 
-                        new_args[0] = (char*) (streq(argv[0], "enable") ? "start" : "stop");
-                        for (i = 0; i < len; i++)
-                                new_args[i + 1] = basename(names[i]);
-                        new_args[i + 1] = NULL;
+                STRV_FOREACH(name, names) {
+                        if (streq(verb, "enable")) {
+                                char *fn;
 
-                        r = verb_start(len + 1, new_args, userdata);
+                                /* 'enable' accept path to unit files, so extract it first. Don't try to
+                                 * glob them though, as starting globbed unit seldomly makes sense and
+                                 * actually changes the semantic (we're operating on DefaultInstance=
+                                 * when enabling). */
+
+                                r = path_extract_filename(*name, &fn);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to extract filename of '%s': %m", *name);
+
+                                r = strv_consume(&new_args, fn);
+                        } else if (unit_name_is_valid(*name, UNIT_NAME_TEMPLATE)) {
+                                char *globbed;
+
+                                r = unit_name_replace_instance_full(*name, "*", /* accept_glob = */ true, &globbed);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to glob unit name '%s': %m", *name);
+
+                                r = strv_consume(&new_args, globbed);
+                        } else
+                                r = strv_extend(&new_args, *name);
+                        if (r < 0)
+                                return log_oom();
                 }
+
+                return verb_start(strv_length(new_args), new_args, userdata);
         }
 
         return 0;
