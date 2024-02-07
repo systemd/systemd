@@ -12,6 +12,7 @@
 #include "chase.h"
 #include "dirent-util.h"
 #include "fd-util.h"
+#include "discover-image.h"
 #include "sd-daemon.h"
 #include "sd-event.h"
 #include "sd-id128.h"
@@ -1508,8 +1509,28 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 static int determine_names(void) {
         int r;
 
-        if (!arg_directory && !arg_image)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine path, please use -D or -i.");
+        if (!arg_directory && !arg_image) {
+                if (arg_machine) {
+                        _cleanup_(image_unrefp) Image *i = NULL;
+
+                        r = image_find(IMAGE_MACHINE, arg_machine, NULL, &i);
+                        if (r == -ENOENT)
+                                return log_error_errno(r, "No image for machine '%s'.", arg_machine);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to find image for machine '%s': %m", arg_machine);
+
+                        if (IN_SET(i->type, IMAGE_RAW, IMAGE_BLOCK))
+                                r = free_and_strdup(&arg_image, i->path);
+                        else
+                                r = free_and_strdup(&arg_directory, i->path);
+                        if (r < 0)
+                                return log_oom();
+                } else {
+                        r = safe_getcwd(&arg_directory);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine current directory: %m");
+                }
+        }
 
         if (!arg_machine) {
                 if (arg_directory && path_equal(arg_directory, "/")) {
