@@ -48,7 +48,7 @@ option('sysvinit-path', type : 'string', value : '/etc/init.d',
 option('sysvrcnd-path', type : 'string', value : '/etc/rc.d',
        description : 'the base directory for SysV rcN.d directories')
 option('telinit-path', type : 'string', value : '/lib/sysvinit/telinit',
-       description : 'path to telinit')
+       description : 'path to telinit (must be a non-systemd telinit binary)')
 option('rc-local', type : 'string',
        value : '/etc/rc.local')
 option('initrd', type : 'boolean',
