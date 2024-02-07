@@ -463,18 +463,6 @@ static int add_automount(
         return generator_add_symlink(arg_dest, SPECIAL_LOCAL_FS_TARGET, "wants", unit);
 }
 
-static int slash_boot_in_fstab(void) {
-        static int cache = -1;
-
-        if (cache >= 0)
-                return cache;
-
-        cache = fstab_is_mount_point("/boot");
-        if (cache < 0)
-                return log_error_errno(cache, "Failed to parse fstab: %m");
-        return cache;
-}
-
 static int add_partition_xbootldr(DissectedPartition *p) {
         _cleanup_free_ char *options = NULL;
         int r;
@@ -483,14 +471,6 @@ static int add_partition_xbootldr(DissectedPartition *p) {
 
         if (in_initrd()) {
                 log_debug("In initrd, ignoring the XBOOTLDR partition.");
-                return 0;
-        }
-
-        r = slash_boot_in_fstab();
-        if (r < 0)
-                return r;
-        if (r > 0) {
-                log_debug("/boot/ specified in fstab, ignoring XBOOTLDR partition.");
                 return 0;
         }
 
@@ -523,18 +503,6 @@ static int add_partition_xbootldr(DissectedPartition *p) {
 }
 
 #if ENABLE_EFI
-static int slash_efi_in_fstab(void) {
-        static int cache = -1;
-
-        if (cache >= 0)
-                return cache;
-
-        cache = fstab_is_mount_point("/efi");
-        if (cache < 0)
-                return log_error_errno(cache, "Failed to parse fstab: %m");
-        return cache;
-}
-
 static bool slash_boot_exists(void) {
         static int cache = -1;
 
@@ -574,27 +542,16 @@ static int add_partition_esp(DissectedPartition *p, bool has_xbootldr) {
          * Otherwise, if /efi/ is unused and empty (or missing), we'll take that.
          * Otherwise, we do nothing. */
         if (!has_xbootldr && slash_boot_exists()) {
-                r = slash_boot_in_fstab();
+                r = path_is_busy("/boot");
                 if (r < 0)
                         return r;
                 if (r == 0) {
-                        r = path_is_busy("/boot");
-                        if (r < 0)
-                                return r;
-                        if (r == 0) {
-                                esp_path = "/boot";
-                                id = "boot";
-                        }
+                        esp_path = "/boot";
+                        id = "boot";
                 }
         }
 
         if (!esp_path) {
-                r = slash_efi_in_fstab();
-                if (r < 0)
-                        return r;
-                if (r > 0)
-                        return 0;
-
                 r = path_is_busy("/efi");
                 if (r < 0)
                         return r;
@@ -780,6 +737,18 @@ static int process_loader_partitions(DissectedPartition *esp, DissectedPartition
 
         assert(esp);
         assert(xbootldr);
+
+        /* If any paths in fstab look similar to our favorite paths for ESP or XBOOTLDR, we just exit
+         * early. We also don't bother with cases where one is configured explicitly and the other shall be
+         * mounted automatically. */
+
+        r = fstab_has_mount_point_prefix_strv(STRV_MAKE("/boot", "/efi"));
+        if (r > 0) {
+                log_debug("Found mount entries in the /boot/ or /efi/ hierarchies in fstab, not generating ESP or XBOOTLDR mounts.");
+                return 0;
+        }
+        if (r < 0)
+                log_debug_errno(r, "Failed to check fstab existing paths, ignoring: %m");
 
         if (!is_efi_boot()) {
                 log_debug("Not an EFI boot, skipping loader partition UUID check.");
