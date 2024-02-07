@@ -466,6 +466,41 @@ static int ndisc_router_process_retransmission_time(Link *link, sd_ndisc_router 
         return 0;
 }
 
+static int ndisc_router_process_hop_limit(Link *link, sd_ndisc_router *rt) {
+        uint8_t hop_limit;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(rt);
+
+        if (!link->network->ipv6_accept_ra_use_hop_limit)
+                return 0;
+
+        r = sd_ndisc_router_get_hop_limit(rt, &hop_limit);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get hop limit from RA: %m");
+
+        /* 0 is the unspecified value and must not be set (see RFC4861, 6.3.4):
+         *
+         * A Router Advertisement field (e.g., Cur Hop Limit, Reachable Time, and Retrans Timer) may contain
+         * a value denoting that it is unspecified. In such cases, the parameter should be ignored and the
+         * host should continue using whatever value it is already using. In particular, a host MUST NOT
+         * interpret the unspecified value as meaning change back to the default value that was in use before
+         * the first Router Advertisement was received.
+         *
+         * If the received Cur Hop Limit value is non-zero, the host SHOULD set
+         * its CurHopLimit variable to the received value.*/
+        if (hop_limit <= 0)
+                return 0;
+
+        r = sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "hop_limit", (uint32_t) hop_limit);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Failed to apply hop_limit (%u), ignoring: %m", hop_limit);
+
+        return 0;
+}
+
 static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *rt) {
         usec_t lifetime_valid_usec, lifetime_preferred_usec;
         _cleanup_set_free_ Set *addresses = NULL;
@@ -1499,6 +1534,10 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
                 return r;
 
         r = ndisc_router_process_retransmission_time(link, rt);
+        if (r < 0)
+                return r;
+
+        r = ndisc_router_process_hop_limit(link, rt);
         if (r < 0)
                 return r;
 
