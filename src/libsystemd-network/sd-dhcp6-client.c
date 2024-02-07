@@ -511,7 +511,6 @@ int sd_dhcp6_client_set_rapid_commit(sd_dhcp6_client *client, int enable) {
 
 int sd_dhcp6_client_set_send_release(sd_dhcp6_client *client, int enable) {
         assert_return(client, -EINVAL);
-        assert_return(!sd_dhcp6_client_is_running(client), -EBUSY);
 
         client->send_release = enable;
         return 0;
