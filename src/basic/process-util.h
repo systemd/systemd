@@ -101,6 +101,11 @@ bool oom_score_adjust_is_valid(int oa);
 #define PERSONALITY_INVALID 0xffffffffLU
 #endif
 
+/* The personality() syscall returns a 32-bit value where the top three bytes are reserved for flags that
+ * emulate historical or architectural quirks, and only the least significant byte reflects the actual
+ * personality we're interested in. */
+#define OPINIONATED_PERSONALITY_MASK 0xFFUL
+
 unsigned long personality_from_string(const char *p);
 const char *personality_to_string(unsigned long);
 
