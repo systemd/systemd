@@ -487,7 +487,7 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         /* Prefix Information option does not have preference, hence we use the 'main' preference here */
         r = sd_ndisc_router_get_preference(rt, &preference);
         if (r < 0)
-                log_link_warning_errno(link, r, "Failed to get default router preference from RA: %m");
+                return log_link_warning_errno(link, r, "Failed to get router preference from RA: %m");
 
         r = route_new(&route);
         if (r < 0)
