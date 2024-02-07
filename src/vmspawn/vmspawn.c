@@ -8,6 +8,10 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#include "bootspec.h"
+#include "chase.h"
+#include "dirent-util.h"
+#include "fd-util.h"
 #include "sd-daemon.h"
 #include "sd-event.h"
 #include "sd-id128.h"
@@ -45,6 +49,7 @@
 #include "rm-rf.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
@@ -818,6 +823,85 @@ static int kernel_cmdline_maybe_append_root(void) {
         return 0;
 }
 
+static int discover_bootloader(const char *root, char **ret_linux, char ***ret_initrds) {
+        _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
+        _cleanup_free_ char *esp_path = NULL, *xbootldr_path = NULL;
+        int r;
+
+        assert(root);
+        assert(ret_linux);
+        assert(ret_initrds);
+
+        esp_path = path_join(root, "efi");
+        if (!esp_path)
+                return log_oom();
+
+        xbootldr_path = path_join(root, "boot");
+        if (!xbootldr_path)
+                return log_oom();
+
+        r = boot_config_load(&config, esp_path, xbootldr_path);
+        if (r < 0)
+                return r;
+
+        r = boot_config_select_special_entries(&config, /* skip_efivars= */ true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to find special boot config entries: %m");
+
+        const BootEntry *boot_entry = boot_config_default_entry(&config);
+
+        if (!IN_SET(boot_entry->type, BOOT_ENTRY_UNIFIED, BOOT_ENTRY_CONF))
+                boot_entry = NULL;
+
+        /* if we cannot determine a default entry search for UKIs then confs */
+        if (!boot_entry)
+                FOREACH_ARRAY(entry, config.entries, config.n_entries)
+                        if (entry->type == BOOT_ENTRY_UNIFIED) {
+                                boot_entry = entry;
+                                break;
+                        }
+
+        if (!boot_entry)
+                FOREACH_ARRAY(entry, config.entries, config.n_entries)
+                        if (entry->type == BOOT_ENTRY_CONF) {
+                                boot_entry = entry;
+                                break;
+                        }
+
+        if (!boot_entry)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Failed to discover any bootloader entries.");
+
+        log_debug("Discovered bootloader %s (%s)", boot_entry->id, boot_entry_type_to_string(boot_entry->type));
+
+        _cleanup_free_ char *linux_kernel = NULL;
+        _cleanup_strv_free_ char **initrds = NULL;
+        if (boot_entry->type == BOOT_ENTRY_UNIFIED) {
+                linux_kernel = path_join(boot_entry->root, boot_entry->kernel);
+                if (!linux_kernel)
+                        return log_oom();
+        } else if (boot_entry->type == BOOT_ENTRY_CONF) {
+                linux_kernel = path_join(boot_entry->root, boot_entry->kernel);
+                if (!linux_kernel)
+                        return log_oom();
+
+                STRV_FOREACH(initrd, boot_entry->initrd) {
+                        _cleanup_free_ char *initrd_path = path_join(boot_entry->root, *initrd);
+                        if (!initrd_path)
+                                return log_oom();
+
+                        r = strv_consume(&initrds, TAKE_PTR(initrd_path));
+                        if (r < 0)
+                                return log_oom();
+                }
+        } else
+                assert_not_reached();
+
+        *ret_linux = TAKE_PTR(linux_kernel);
+        *ret_initrds = TAKE_PTR(initrds);
+
+        return 0;
+}
+
 static int merge_initrds(char **ret) {
         _cleanup_(rm_rf_physical_and_freep) char *merged_initrd = NULL;
         _cleanup_close_ int ofd = -EBADF;
@@ -909,8 +993,14 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 kernel = strdup(arg_linux);
                 if (!kernel)
                         return log_oom();
-        } else if (arg_directory)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Please specify a kernel (--linux=) when using -D/--directory=, refusing.");
+        } else if (arg_directory) {
+                /* a kernel is required for directory type images so attempt to locate a UKI under /boot and /efi */
+                r = discover_bootloader(arg_directory, &kernel, &arg_initrds);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to locate UKI in directory type image, please specify one with --linux=.");
+
+                log_debug("Discovered UKI image at %s", kernel);
+        }
 
         r = find_qemu_binary(&qemu_binary);
         if (r == -EOPNOTSUPP)
@@ -1454,6 +1544,9 @@ static int determine_names(void) {
 static int verify_arguments(void) {
         if (arg_network_stack == QEMU_NET_TAP && !arg_privileged)
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM), "--network-tap requires root privileges, refusing.");
+
+        if (!strv_isempty(arg_initrds) && !arg_linux)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--initrd= may not be specified on its own, please also specify a kernel (--linux=), refusing.");
 
         return 0;
 }
