@@ -13,6 +13,14 @@ CHANGES WITH 256 in spe:
           section, then all assigned VLAN IDs on the interface that are not
           configured in the .network file are removed.
 
+        * systemd-logind now always enforces inhibitor locks, regardless of the
+          uid of the caller, even if root. This is not a security restriction,
+          as a privileged user can always list the active inhibitor locks using
+          'systemd-inhibit', but it is a safety measure, to avoid accidental
+          reboot/shutdown/etc that were not meant to happen. Previously,
+          requests from root or the same uid as the lock holder were always
+          bypassing inhibitors by default.
+
         Network Management:
 
         * systemd-networkd's proxy support gained a new option to configure
