@@ -822,6 +822,25 @@ int fd_reopen(int fd, int flags) {
         return new_fd;
 }
 
+int fd_reopen_propagate_flags(int fd, int flags, int propagate_flags) {
+        /* Invokes fd_reopen(fd, flags),
+         * but propagates selected flags if set on the original fd.
+         *
+         * You should use this for example if the original fd potentially is O_APPEND,
+         * otherwise we get rather "unexpected" behavior.
+         * Unless you intentionally want to overwrite pre-existing data,
+         * and have your output overwritten by the next guy.
+         *
+         * Used for "systemd-run --pty >> some-log", but may be used
+         * to propagate other flags as well, if there is a use case. */
+
+        int orig_status_flags = fcntl(fd, F_GETFL);
+        if (orig_status_flags != -1)
+                flags |= (orig_status_flags & propagate_flags);
+
+        return fd_reopen(fd, flags);
+}
+
 int fd_reopen_condition(
                 int fd,
                 int flags,
