@@ -805,6 +805,13 @@ int fd_reopen(int fd, int flags) {
                  * magic /proc/ directory, and make ourselves independent of that being mounted. */
                 return RET_NERRNO(openat(fd, ".", flags | O_DIRECTORY));
 
+        /* Keep/propagate O_APPEND, if set on original fd.
+         * Otherwise we get rather "unexpected" behavior,
+         * for example with repeated "systemd-run --pty >> some-log" */
+        int orig_status_flags = fcntl(fd, F_GETFL);
+        if (orig_status_flags != -1 && FLAGS_SET(orig_status_flags, O_APPEND))
+                flags |= O_APPEND;
+
         int new_fd = open(FORMAT_PROC_FD_PATH(fd), flags);
         if (new_fd < 0) {
                 if (errno != ENOENT)
