@@ -36,6 +36,7 @@
 #define VARLINK_DEFAULT_TIMEOUT_USEC (45U*USEC_PER_SEC)
 #define VARLINK_BUFFER_MAX (16U*1024U*1024U)
 #define VARLINK_READ_SIZE (64U*1024U)
+#define VARLINK_COLLECT_MAX 1024U
 
 typedef enum VarlinkState {
         /* Client side states */
@@ -2155,6 +2156,9 @@ static int collect_callback(
 
                 return 0;
         }
+
+        if (json_variant_elements(context->parameters) >= VARLINK_COLLECT_MAX)
+                return varlink_log_errno(v, SYNTHETIC_ERRNO(E2BIG), "Number of reply messages grew too large (%zu) while collecting.", json_variant_elements(context->parameters));
 
         r = json_variant_append_array(&context->parameters, parameters);
         if (r < 0)
