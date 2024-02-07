@@ -260,7 +260,13 @@ int get_unit_list(
         return c;
 }
 
-int expand_unit_names(sd_bus *bus, char **names, const char* suffix, char ***ret, bool *ret_expanded) {
+int expand_unit_names(
+                sd_bus *bus,
+                char * const *names,
+                const char *suffix,
+                char ***ret,
+                bool *ret_expanded) {
+
         _cleanup_strv_free_ char **mangled = NULL, **globs = NULL;
         int r;
 
@@ -288,30 +294,20 @@ int expand_unit_names(sd_bus *bus, char **names, const char* suffix, char ***ret
         if (expanded) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                 _cleanup_free_ UnitInfo *unit_infos = NULL;
-                size_t n;
 
                 r = get_unit_list(bus, NULL, globs, &unit_infos, 0, &reply);
                 if (r < 0)
                         return r;
 
-                n = strv_length(mangled);
-
-                for (int i = 0; i < r; i++) {
-                        if (!GREEDY_REALLOC(mangled, n+2))
+                FOREACH_ARRAY(info, unit_infos, r)
+                        if (strv_extend(&mangled, info->id) < 0)
                                 return log_oom();
-
-                        mangled[n] = strdup(unit_infos[i].id);
-                        if (!mangled[n])
-                                return log_oom();
-
-                        mangled[++n] = NULL;
-                }
         }
 
+        *ret = TAKE_PTR(mangled);
         if (ret_expanded)
                 *ret_expanded = expanded;
 
-        *ret = TAKE_PTR(mangled);
         return 0;
 }
 
