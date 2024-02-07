@@ -1372,12 +1372,13 @@ static int parse_argv(int argc, char *argv[]) {
                 case ARG_COPY:
                         if (streq(optarg, "auto"))
                                 arg_copy_mode = NULL;
-                        else if (STR_IN_SET(optarg, "copy", "symlink"))
+                        else if (STR_IN_SET(optarg, "copy", "symlink", "mixed"))
                                 arg_copy_mode = optarg;
                         else if (streq(optarg, "help")) {
                                 puts("auto\n"
                                      "copy\n"
-                                     "symlink");
+                                     "symlink\n"
+                                     "mixed\n");
                                 return 0;
                         } else
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
