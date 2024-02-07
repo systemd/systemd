@@ -869,6 +869,49 @@ int fd_reopen(int fd, int flags) {
         return new_fd;
 }
 
+int fd_reopen_propagate_append_and_position(int fd, int flags) {
+        /* Invokes fd_reopen(fd, flags), but propagates O_APPEND if set on original fd, and also tries to
+         * keep current file position.
+         *
+         * You should use this if the original fd potentially is O_APPEND, otherwise we get rather
+         * "unexpected" behavior. Unless you intentionally want to overwrite pre-existing data, and have
+         * your output overwritten by the next user.
+         *
+         * Use case: "systemd-run --pty >> some-log".
+         *
+         * The "keep position" part is obviously nonsense for the O_APPEND case, but should reduce surprises
+         * if someone carefully pre-positioned the passed in original input or non-append output FDs. */
+
+        assert(fd >= 0);
+        assert(!(flags & (O_APPEND|O_DIRECTORY)));
+
+        int existing_flags = fcntl(fd, F_GETFL);
+        if (existing_flags < 0)
+                return -errno;
+
+        int new_fd = fd_reopen(fd, flags | (existing_flags & O_APPEND));
+        if (new_fd < 0)
+                return new_fd;
+
+        /* Try to adjust the offset, but ignore errors for now. */
+        off_t p = lseek(fd, 0, SEEK_CUR);
+        if (p <= 0)
+                return new_fd;
+
+        off_t new_p = lseek(new_fd, p, SEEK_SET);
+        if (new_p == (off_t) -1)
+                log_debug_errno(errno,
+                                "Failed to propagate file position for re-opened fd %d, ignoring: %m",
+                                fd);
+        else if (new_p != p)
+                log_debug("Failed to propagate file position for re-opened fd %d (%lld != %lld), ignoring: %m",
+                          fd,
+                          (long long) new_p,
+                          (long long) p);
+
+        return new_fd;
+}
+
 int fd_reopen_condition(
                 int fd,
                 int flags,
