@@ -260,7 +260,13 @@ int get_unit_list(
         return c;
 }
 
-int expand_unit_names(sd_bus *bus, char **names, const char* suffix, char ***ret, bool *ret_expanded) {
+int expand_unit_names(
+                sd_bus *bus,
+                char * const *names,
+                const char *suffix,
+                char ***ret,
+                bool *ret_expanded) {
+
         _cleanup_strv_free_ char **mangled = NULL, **globs = NULL;
         int r;
 
@@ -288,30 +294,20 @@ int expand_unit_names(sd_bus *bus, char **names, const char* suffix, char ***ret
         if (expanded) {
                 _cleanup_(sd_bus_message_unrefp) sd_bus_message *reply = NULL;
                 _cleanup_free_ UnitInfo *unit_infos = NULL;
-                size_t n;
 
                 r = get_unit_list(bus, NULL, globs, &unit_infos, 0, &reply);
                 if (r < 0)
                         return r;
 
-                n = strv_length(mangled);
-
-                for (int i = 0; i < r; i++) {
-                        if (!GREEDY_REALLOC(mangled, n+2))
+                FOREACH_ARRAY(info, unit_infos, r)
+                        if (strv_extend(&mangled, info->id) < 0)
                                 return log_oom();
-
-                        mangled[n] = strdup(unit_infos[i].id);
-                        if (!mangled[n])
-                                return log_oom();
-
-                        mangled[++n] = NULL;
-                }
         }
 
+        *ret = TAKE_PTR(mangled);
         if (ret_expanded)
                 *ret_expanded = expanded;
 
-        *ret = TAKE_PTR(mangled);
         return 0;
 }
 
@@ -921,37 +917,31 @@ UnitFileFlags unit_file_flags_from_args(void) {
                (arg_force   ? UNIT_FILE_FORCE   : 0);
 }
 
-int mangle_names(const char *operation, char **original_names, char ***ret_mangled_names) {
+int mangle_names(const char *operation, char * const *original_names, char ***ret) {
         _cleanup_strv_free_ char **l = NULL;
-        char **i;
         int r;
 
-        assert(ret_mangled_names);
-
-        l = i = new(char*, strv_length(original_names) + 1);
-        if (!l)
-                return log_oom();
+        assert(operation);
+        assert(ret);
 
         STRV_FOREACH(name, original_names) {
-
-                /* When enabling units qualified path names are OK, too, hence allow them explicitly. */
+                char *mangled;
 
                 if (is_path(*name))
-                        r = path_make_absolute_cwd(*name, i);
+                        /* When enabling units qualified path names are OK, too, hence allow them explicitly. */
+                        r = path_make_absolute_cwd(*name, &mangled);
                 else
                         r = unit_name_mangle_with_suffix(*name, operation,
                                                          arg_quiet ? 0 : UNIT_NAME_MANGLE_WARN,
-                                                         ".service", i);
-                if (r < 0) {
-                        *i = NULL;
+                                                         ".service", &mangled);
+                if (r < 0)
                         return log_error_errno(r, "Failed to mangle unit name or path '%s': %m", *name);
-                }
 
-                i++;
+                if (strv_consume(&l, mangled) < 0)
+                        return log_oom();
         }
 
-        *i = NULL;
-        *ret_mangled_names = TAKE_PTR(l);
+        *ret = TAKE_PTR(l);
 
         return 0;
 }
