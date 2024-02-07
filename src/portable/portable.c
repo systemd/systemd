@@ -33,6 +33,7 @@
 #include "path-lookup.h"
 #include "portable.h"
 #include "process-util.h"
+#include "rm-rf.h"
 #include "selinux-util.h"
 #include "set.h"
 #include "signal-util.h"
@@ -1341,7 +1342,7 @@ static int attach_unit_file(
         return 0;
 }
 
-static int image_symlink(
+static int image_target_path(
                 const char *image_path,
                 PortableFlags flags,
                 char **ret) {
@@ -1367,37 +1368,66 @@ static int image_symlink(
         return 0;
 }
 
-static int install_image_symlink(
+static int install_image(
                 const char *image_path,
                 PortableFlags flags,
                 PortableChange **changes,
                 size_t *n_changes) {
 
-        _cleanup_free_ char *sl = NULL;
+        _cleanup_free_ char *target = NULL;
         int r;
 
         assert(image_path);
 
-        /* If the image is outside of the image search also link it into it, so that it can be found with short image
-         * names and is listed among the images. */
+        /* If the image is outside of the image search also link it into it, so that it can be found with
+         * short image names and is listed among the images. If we are operating in mixed mode, the image is
+         * copied instead. */
 
         if (image_in_search_path(IMAGE_PORTABLE, NULL, image_path))
                 return 0;
 
-        r = image_symlink(image_path, flags, &sl);
+        r = image_target_path(image_path, flags, &target);
         if (r < 0)
                 return log_debug_errno(r, "Failed to generate image symlink path: %m");
 
-        (void) mkdir_parents(sl, 0755);
+        (void) mkdir_parents(target, 0755);
 
-        if (symlink(image_path, sl) < 0)
-                return log_debug_errno(errno, "Failed to link %s %s %s: %m", image_path, special_glyph(SPECIAL_GLYPH_ARROW_RIGHT), sl);
+        if (flags & PORTABLE_MIXED_COPY_LINK) {
+                r = copy_tree(image_path,
+                              target,
+                              UID_INVALID,
+                              GID_INVALID,
+                              COPY_REFLINK | COPY_FSYNC | COPY_FSYNC_FULL | COPY_SYNCFS,
+                              /* denylist= */ NULL,
+                              /* subvolumes= */ NULL);
+                if (r < 0)
+                        return log_debug_errno(
+                                        r,
+                                        "Failed to copy %s %s %s: %m",
+                                        image_path,
+                                        special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                                        target);
 
-        (void) portable_changes_add(changes, n_changes, PORTABLE_SYMLINK, sl, image_path);
+        } else {
+                if (symlink(image_path, target) < 0)
+                        return log_debug_errno(
+                                        errno,
+                                        "Failed to link %s %s %s: %m",
+                                        image_path,
+                                        special_glyph(SPECIAL_GLYPH_ARROW_RIGHT),
+                                        target);
+        }
+
+        (void) portable_changes_add(
+                        changes,
+                        n_changes,
+                        (flags & PORTABLE_MIXED_COPY_LINK) ? PORTABLE_COPY : PORTABLE_SYMLINK,
+                        target,
+                        image_path);
         return 0;
 }
 
-static int install_image_and_extensions_symlinks(
+static int install_image_and_extensions(
                 const Image *image,
                 OrderedHashmap *extension_images,
                 PortableFlags flags,
@@ -1410,12 +1440,12 @@ static int install_image_and_extensions_symlinks(
         assert(image);
 
         ORDERED_HASHMAP_FOREACH(ext, extension_images) {
-                r = install_image_symlink(ext->path, flags, changes, n_changes);
+                r = install_image(ext->path, flags, changes, n_changes);
                 if (r < 0)
                         return r;
         }
 
-        r = install_image_symlink(image->path, flags, changes, n_changes);
+        r = install_image(image->path, flags, changes, n_changes);
         if (r < 0)
                 return r;
 
@@ -1608,9 +1638,9 @@ int portable_attach(
                         return sd_bus_error_set_errnof(error, r, "Failed to attach unit '%s': %m", item->name);
         }
 
-        /* We don't care too much for the image symlink, it's just a convenience thing, it's not necessary for proper
-         * operation otherwise. */
-        (void) install_image_and_extensions_symlinks(image, extension_images, flags, changes, n_changes);
+        /* We don't care too much for the image symlink/copy, it's just a convenience thing, it's not necessary for
+         * proper operation otherwise. */
+        (void) install_image_and_extensions(image, extension_images, flags, changes, n_changes);
 
         log_portable_verb(
                         "attached",
@@ -1909,34 +1939,24 @@ int portable_detach(
                         portable_changes_add_with_prefix(changes, n_changes, PORTABLE_UNLINK, where, md, NULL);
         }
 
-        /* Now, also drop any image symlink, for images outside of the sarch path */
+        /* Now, also drop any image symlink or copy, for images outside of the sarch path */
         SET_FOREACH(item, markers) {
-                _cleanup_free_ char *sl = NULL;
-                struct stat st;
+                _cleanup_free_ char *target = NULL;
 
-                r = image_symlink(item, flags, &sl);
+                r = image_target_path(item, flags, &target);
                 if (r < 0) {
-                        log_debug_errno(r, "Failed to determine image symlink for '%s', ignoring: %m", item);
+                        log_debug_errno(r, "Failed to determine image path for '%s', ignoring: %m", item);
                         continue;
                 }
 
-                if (lstat(sl, &st) < 0) {
-                        log_debug_errno(errno, "Failed to stat '%s', ignoring: %m", sl);
-                        continue;
-                }
+                r = rm_rf(target, REMOVE_ROOT | REMOVE_PHYSICAL | REMOVE_MISSING_OK | REMOVE_SYNCFS);
+                if (r < 0) {
+                        log_debug_errno(r, "Can't remove image '%s': %m", target);
 
-                if (!S_ISLNK(st.st_mode)) {
-                        log_debug("Image '%s' is not a symlink, ignoring.", sl);
-                        continue;
-                }
-
-                if (unlink(sl) < 0) {
-                        log_debug_errno(errno, "Can't remove image symlink '%s': %m", sl);
-
-                        if (errno != ENOENT && ret >= 0)
-                                ret = -errno;
+                        if (r != -ENOENT)
+                                RET_GATHER(ret, r);
                 } else
-                        portable_changes_add(changes, n_changes, PORTABLE_UNLINK, sl, NULL);
+                        portable_changes_add(changes, n_changes, PORTABLE_UNLINK, target, NULL);
         }
 
         /* Try to remove the unit file directory, if we can */
