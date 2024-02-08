@@ -5142,9 +5142,11 @@ class NetworkdRATests(unittest.TestCase, Utilities):
 
         output = check_output('ip -6 route show dev client default via fe80::1034:56ff:fe78:9a99')
         print(output)
+        self.assertIn('metric 512', output)
         self.assertIn('pref high', output)
         output = check_output('ip -6 route show dev client default via fe80::1034:56ff:fe78:9a98')
         print(output)
+        self.assertIn('metric 2048', output)
         self.assertIn('pref low', output)
 
         with open(os.path.join(network_unit_dir, '25-veth-client.network'), mode='a', encoding='utf-8') as f:
@@ -5160,10 +5162,34 @@ class NetworkdRATests(unittest.TestCase, Utilities):
 
         output = check_output('ip -6 route show dev client default via fe80::1034:56ff:fe78:9a99')
         print(output)
+        self.assertIn('metric 100', output)
+        self.assertNotIn('metric 512', output)
         self.assertIn('pref high', output)
         output = check_output('ip -6 route show dev client default via fe80::1034:56ff:fe78:9a98')
         print(output)
+        self.assertIn('metric 300', output)
+        self.assertNotIn('metric 2048', output)
         self.assertIn('pref low', output)
+
+        # swap the preference (for issue #28439)
+        remove_network_unit('25-veth-router-high.network', '25-veth-router-low.network')
+        copy_network_unit('25-veth-router-high2.network', '25-veth-router-low2.network')
+        networkctl_reload()
+        self.wait_route('client', 'default via fe80::1034:56ff:fe78:9a99 proto ra metric 300', ipv='-6', timeout_sec=10)
+        self.wait_route('client', 'default via fe80::1034:56ff:fe78:9a98 proto ra metric 100', ipv='-6', timeout_sec=10)
+
+        output = check_output('ip -6 route show dev client default via fe80::1034:56ff:fe78:9a99')
+        print(output)
+        self.assertIn('metric 300', output)
+        self.assertNotIn('metric 100', output)
+        self.assertIn('pref low', output)
+        self.assertNotIn('pref high', output)
+        output = check_output('ip -6 route show dev client default via fe80::1034:56ff:fe78:9a98')
+        print(output)
+        self.assertIn('metric 100', output)
+        self.assertNotIn('metric 300', output)
+        self.assertIn('pref high', output)
+        self.assertNotIn('pref low', output)
 
     @unittest.skipUnless(radvd_check_config('captive-portal.conf'), "Installed radvd doesn't support captive portals")
     def test_captive_portal(self):
