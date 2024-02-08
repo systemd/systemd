@@ -388,4 +388,4 @@ static int run(int argc, char *argv[]) {
         return EXIT_SUCCESS;
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION(run, NOTIFY_EXIT);

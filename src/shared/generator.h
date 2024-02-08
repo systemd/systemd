@@ -102,4 +102,5 @@ void log_setup_generator(void);
                 impl(argv[1],                                           \
                      argv[argc == 4 ? 2 : 1],                           \
                      argv[argc == 4 ? 3 : 1]),                          \
-                r < 0 ? EXIT_FAILURE : EXIT_SUCCESS)
+                r < 0 ? EXIT_FAILURE : EXIT_SUCCESS,                    \
+                0)

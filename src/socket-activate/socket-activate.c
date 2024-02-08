@@ -492,4 +492,4 @@ static int run(int argc, char **argv) {
         return exec_process(exec_argv[0], exec_argv, SD_LISTEN_FDS_START, (size_t) n);
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION(run, 0);

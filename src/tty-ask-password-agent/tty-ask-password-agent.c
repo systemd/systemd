@@ -707,4 +707,4 @@ static int run(int argc, char *argv[]) {
         return process_and_watch_password_files(!IN_SET(arg_action, ACTION_QUERY, ACTION_LIST));
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION(run, 0);

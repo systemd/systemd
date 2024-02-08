@@ -39,4 +39,4 @@ static int run(int argc, char *argv[]) {
         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Unknown verb '%s'.", argv[1]);
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION(run, 0);

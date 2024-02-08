@@ -417,4 +417,4 @@ static int run(int argc, char *argv[]) {
         return !!(exit_status & (FSCK_SYSTEM_SHOULD_REBOOT | FSCK_ERRORS_LEFT_UNCORRECTED));
 }
 
-DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run, 0);

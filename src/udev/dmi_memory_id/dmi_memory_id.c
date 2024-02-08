@@ -718,4 +718,4 @@ static int run(int argc, char* const* argv) {
         return -EINVAL;
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION(run, 0);

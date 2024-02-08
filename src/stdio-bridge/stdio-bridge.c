@@ -249,4 +249,4 @@ static int run(int argc, char *argv[]) {
         }
 }
 
-DEFINE_MAIN_FUNCTION(run);
+DEFINE_MAIN_FUNCTION(run, 0);

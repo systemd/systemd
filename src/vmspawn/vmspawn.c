@@ -826,4 +826,4 @@ static int run(int argc, char *argv[]) {
         return run_virtual_machine();
 }
 
-DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run);
+DEFINE_MAIN_FUNCTION_WITH_POSITIVE_FAILURE(run, 0);
