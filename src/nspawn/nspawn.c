@@ -1380,7 +1380,7 @@ static int parse_argv(int argc, char *argv[]) {
                                 return log_error_errno(r, "Failed to simplify path %s: %m", optarg);
 
                         if (!path_is_normalized(wd))
-                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Working dirctory path is not normalized: %s", wd);
+                                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Working directory path is not normalized: %s", wd);
 
                         if (path_below_api_vfs(wd))
                                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Working directory is below API VFS, refusing: %s", wd);
