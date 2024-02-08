@@ -235,10 +235,9 @@ static void flood_test(const char *address) {
 
 static void *thread(void *arg) {
         _cleanup_(varlink_flush_close_unrefp) Varlink *c = NULL;
-        _cleanup_(json_variant_unrefp) JsonVariant *i = NULL, *j = NULL;
-        JsonVariant *o = NULL, *k = NULL;
+        _cleanup_(json_variant_unrefp) JsonVariant *i = NULL;
+        JsonVariant *o = NULL, *k = NULL, *j = NULL;
         const char *error_id;
-        VarlinkReplyFlags flags = 0;
         const char *e;
         int x = 0;
 
@@ -250,10 +249,9 @@ static void *thread(void *arg) {
         assert_se(varlink_set_allow_fd_passing_input(c, true) >= 0);
         assert_se(varlink_set_allow_fd_passing_output(c, true) >= 0);
 
-        assert_se(varlink_collect(c, "io.test.DoSomethingMore", i, &j, &error_id, &flags) >= 0);
+        assert_se(varlink_collect(c, "io.test.DoSomethingMore", i, &j, &error_id) >= 0);
 
         assert_se(!error_id);
-        assert_se(!flags);
         assert_se(json_variant_is_array(j) && !json_variant_is_blank_array(j));
 
         JSON_VARIANT_ARRAY_FOREACH(k, j) {
