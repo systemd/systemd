@@ -21,7 +21,9 @@ def run(args):
             "TERM": "linux",
         }, encoding='utf-8', timeout=60)
 
-    if args.verbose:
+    if args.logfile:
+        console.logfile = open(args.logfile,'w')
+    elif args.verbose:
         console.logfile = sys.stdout
 
     logger.debug("child pid %d", console.pid)
@@ -44,7 +46,7 @@ def run(args):
         console.sendline('tty')
         console.expect(r'/dev/(pts/\d+)')
         pty = console.match.group(1)
-        logger.info("window 1 at line %s", pty)
+        logger.info("window 1 at tty %s", pty)
 
         logger.info("schedule reboot")
         console.sendline('shutdown -r')
@@ -112,6 +114,7 @@ def run(args):
 def main():
     parser = argparse.ArgumentParser(description='test logind shutdown feature')
     parser.add_argument("-v", "--verbose", action="store_true", help="verbose")
+    parser.add_argument("--logfile", metavar='FILE', help="Save all test input/output to the given path")
     parser.add_argument("command", help="command to run")
     parser.add_argument("arg", nargs='*', help="args for command")
 
