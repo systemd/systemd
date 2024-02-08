@@ -124,23 +124,6 @@ int telinit_parse_argv(int argc, char *argv[]) {
         return 1;
 }
 
-int start_with_fallback(void) {
-        int r;
-
-        /* First, try systemd via D-Bus. */
-        r = verb_start(0, NULL, NULL);
-        if (r == 0)
-                return 0;
-
-#if HAVE_SYSV_COMPAT
-        /* Nothing else worked, so let's try /dev/initctl */
-        if (talk_initctl(action_to_runlevel()) > 0)
-                return 0;
-#endif
-
-        return log_error_errno(r, "Failed to talk to init daemon: %m");
-}
-
 int reload_with_fallback(void) {
 
         assert(IN_SET(arg_action, ACTION_RELOAD, ACTION_REEXEC));
@@ -154,12 +137,4 @@ int reload_with_fallback(void) {
                 return log_error_errno(errno, "kill() failed: %m");
 
         return 0;
-}
-
-int exec_telinit(char *argv[]) {
-        (void) rlimit_nofile_safe();
-        (void) execv(TELINIT, argv);
-
-        return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                               "Couldn't find an alternative telinit implementation to spawn.");
 }
