@@ -176,7 +176,6 @@ static int ndisc_request_route(Route *route, Link *link, sd_ndisc_router *rt) {
         struct in6_addr router;
         uint8_t hop_limit = 0;
         uint32_t mtu = 0;
-        bool is_new;
         int r;
 
         assert(route);
@@ -192,13 +191,13 @@ static int ndisc_request_route(Route *route, Link *link, sd_ndisc_router *rt) {
         if (link->network->ipv6_accept_ra_use_mtu) {
                 r = sd_ndisc_router_get_mtu(rt, &mtu);
                 if (r < 0 && r != -ENODATA)
-                        return log_link_warning_errno(link, r, "Failed to get default router MTU from RA: %m");
+                        return log_link_warning_errno(link, r, "Failed to get MTU from RA: %m");
         }
 
         if (link->network->ipv6_accept_ra_use_hop_limit) {
                 r = sd_ndisc_router_get_hop_limit(rt, &hop_limit);
                 if (r < 0 && r != -ENODATA)
-                        return log_link_warning_errno(link, r, "Failed to get default router hop limit from RA: %m");
+                        return log_link_warning_errno(link, r, "Failed to get hop limit from RA: %m");
         }
 
         route->source = NETWORK_CONFIG_SOURCE_NDISC;
@@ -222,7 +221,19 @@ static int ndisc_request_route(Route *route, Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return r;
 
-        is_new = route_get(link->manager, route, NULL) < 0;
+        bool is_new;
+        Route *existing;
+        if (route_get(link->manager, route, &existing) >= 0) {
+                is_new = false;
+
+                if (!route_can_update(existing, route)) {
+                        log_link_debug(link, "Found a conflicting route with requested one based on a received RA, removing.");
+                        r = route_remove_and_cancel(existing, link->manager);
+                        if (r < 0)
+                                return r;
+                }
+        } else
+                is_new = true;
 
         r = link_request_route(link, route, &link->ndisc_messages, ndisc_route_handler);
         if (r < 0)
@@ -313,7 +324,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
 
         r = sd_ndisc_router_get_preference(rt, &preference);
         if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to get default router preference from RA: %m");
+                return log_link_warning_errno(link, r, "Failed to get router preference from RA: %m");
 
         if (link->network->ipv6_accept_ra_use_gateway) {
                 _cleanup_(route_unrefp) Route *route = NULL;
@@ -372,10 +383,8 @@ static int ndisc_router_process_icmp6_ratelimit(Link *link, sd_ndisc_router *rt)
                 return 0;
 
         r = sd_ndisc_router_get_icmp6_ratelimit(rt, &icmp6_ratelimit);
-        if (r < 0) {
-                log_link_debug(link, "Failed to get ICMP6 ratelimit from RA, ignoring: %m");
-                return 0;
-        }
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get ICMP6 ratelimit from RA: %m");
 
         /* We do not allow 0 here. */
         if (!timestamp_is_set(icmp6_ratelimit))
@@ -406,10 +415,8 @@ static int ndisc_router_process_retransmission_time(Link *link, sd_ndisc_router 
                 return 0;
 
         r = sd_ndisc_router_get_retransmission_time(rt, &retrans_time);
-        if (r < 0) {
-                log_link_debug_errno(link, r, "Failed to get retransmission time from RA, ignoring: %m");
-                return 0;
-        }
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get retransmission time from RA: %m");
 
         /* 0 is the unspecified value and must not be set (see RFC4861, 6.3.4) */
         if (!timestamp_is_set(retrans_time))
@@ -426,6 +433,41 @@ static int ndisc_router_process_retransmission_time(Link *link, sd_ndisc_router 
         if (r < 0)
                 log_link_warning_errno(
                         link, r, "Failed to apply neighbor retransmission time (%"PRIu64"), ignoring: %m", msec);
+
+        return 0;
+}
+
+static int ndisc_router_process_hop_limit(Link *link, sd_ndisc_router *rt) {
+        uint8_t hop_limit;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(rt);
+
+        if (!link->network->ipv6_accept_ra_use_hop_limit)
+                return 0;
+
+        r = sd_ndisc_router_get_hop_limit(rt, &hop_limit);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get hop limit from RA: %m");
+
+        /* 0 is the unspecified value and must not be set (see RFC4861, 6.3.4):
+         *
+         * A Router Advertisement field (e.g., Cur Hop Limit, Reachable Time, and Retrans Timer) may contain
+         * a value denoting that it is unspecified. In such cases, the parameter should be ignored and the
+         * host should continue using whatever value it is already using. In particular, a host MUST NOT
+         * interpret the unspecified value as meaning change back to the default value that was in use before
+         * the first Router Advertisement was received.
+         *
+         * If the received Cur Hop Limit value is non-zero, the host SHOULD set
+         * its CurHopLimit variable to the received value.*/
+        if (hop_limit <= 0)
+                return 0;
+
+        r = sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "hop_limit", (uint32_t) hop_limit);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Failed to apply hop_limit (%u), ignoring: %m", hop_limit);
 
         return 0;
 }
@@ -526,7 +568,7 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         /* Prefix Information option does not have preference, hence we use the 'main' preference here */
         r = sd_ndisc_router_get_preference(rt, &preference);
         if (r < 0)
-                log_link_warning_errno(link, r, "Failed to get default router preference from RA: %m");
+                return log_link_warning_errno(link, r, "Failed to get router preference from RA: %m");
 
         r = route_new(&route);
         if (r < 0)
@@ -541,6 +583,69 @@ static int ndisc_router_process_onlink_prefix(Link *link, sd_ndisc_router *rt) {
         r = ndisc_request_route(route, link, rt);
         if (r < 0)
                 return log_link_warning_errno(link, r, "Could not request prefix route: %m");
+
+        return 0;
+}
+
+static int ndisc_router_drop_onlink_prefix(Link *link, sd_ndisc_router *rt) {
+        _cleanup_(route_unrefp) Route *route = NULL;
+        unsigned prefixlen, preference;
+        struct in6_addr prefix;
+        usec_t lifetime_usec;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(rt);
+
+        /* RFC 4861 section 6.3.4.
+         * Note, however, that a Prefix Information option with the on-link flag set to zero conveys no
+         * information concerning on-link determination and MUST NOT be interpreted to mean that addresses
+         * covered by the prefix are off-link. The only way to cancel a previous on-link indication is to
+         * advertise that prefix with the L-bit set and the Lifetime set to zero. */
+
+        if (!link->network->ipv6_accept_ra_use_onlink_prefix)
+                return 0;
+
+        r = sd_ndisc_router_prefix_get_valid_lifetime(rt, &lifetime_usec);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get prefix lifetime: %m");
+
+        if (lifetime_usec != 0)
+                return 0;
+
+        r = sd_ndisc_router_prefix_get_address(rt, &prefix);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get prefix address: %m");
+
+        r = sd_ndisc_router_prefix_get_prefixlen(rt, &prefixlen);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get prefix length: %m");
+
+        /* Prefix Information option does not have preference, hence we use the 'main' preference here */
+        r = sd_ndisc_router_get_preference(rt, &preference);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get router preference from RA: %m");
+
+        r = route_new(&route);
+        if (r < 0)
+                return log_oom();
+
+        route->family = AF_INET6;
+        route->dst.in6 = prefix;
+        route->dst_prefixlen = prefixlen;
+        route->table = link_get_ipv6_accept_ra_route_table(link);
+        route->pref = preference;
+        ndisc_set_route_priority(link, route);
+        route->protocol = RTPROT_RA;
+
+        r = route_adjust_nexthops(route, link);
+        if (r < 0)
+                return r;
+
+        r = route_remove_and_cancel(route, link->manager);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Could not remove prefix route: %m");
 
         return 0;
 }
@@ -584,11 +689,12 @@ static int ndisc_router_process_prefix(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return log_link_warning_errno(link, r, "Failed to get RA prefix flags: %m");
 
-        if (FLAGS_SET(flags, ND_OPT_PI_FLAG_ONLINK)) {
+        if (FLAGS_SET(flags, ND_OPT_PI_FLAG_ONLINK))
                 r = ndisc_router_process_onlink_prefix(link, rt);
-                if (r < 0)
-                        return r;
-        }
+        else
+                r = ndisc_router_drop_onlink_prefix(link, rt);
+        if (r < 0)
+                return r;
 
         if (FLAGS_SET(flags, ND_OPT_PI_FLAG_AUTO)) {
                 r = ndisc_router_process_autonomous_prefix(link, rt);
@@ -657,7 +763,7 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
                 return 0;
         }
         if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to get default router preference from RA: %m");
+                return log_link_warning_errno(link, r, "Failed to get router preference from RA: %m");
 
         r = route_new(&route);
         if (r < 0)
@@ -1399,6 +1505,10 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
                 return r;
 
         r = ndisc_router_process_retransmission_time(link, rt);
+        if (r < 0)
+                return r;
+
+        r = ndisc_router_process_hop_limit(link, rt);
         if (r < 0)
                 return r;
 
