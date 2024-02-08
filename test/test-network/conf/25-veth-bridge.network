@@ -7,4 +7,3 @@ Name=router-low-p
 [Network]
 Bridge=bridge99
 IPv6AcceptRA=no
-IPv6SendRA=yes
