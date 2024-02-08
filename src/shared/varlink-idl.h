@@ -88,17 +88,44 @@ struct VarlinkInterface {
 #define VARLINK_DEFINE_FIELD_BY_TYPE(_name, _named_type, _field_flags) \
         { .name = #_name, .field_type = VARLINK_NAMED_TYPE, .named_type = #_named_type, .symbol = &vl_type_ ## _named_type, .field_flags = (_field_flags) }
 
-#define VARLINK_DEFINE_INPUT(_name, _field_type, _field_flags)        \
+#define VARLINK_DEFINE_FIELD_BY_ANON_TYPE(_name, _field_type, _anon_type, _field_flags) \
+        { .name = #_name, .field_type = (_field_type), .symbol = &vl_anon_type_ ## _anon_type, .field_flags = (_field_flags) }
+
+#define VARLINK_DEFINE_FIELD_STRUCT(_name, _anon_struct, _field_flags) \
+        VARLINK_DEFINE_FIELD_BY_ANON_TYPE(_name, VARLINK_STRUCT, _anon_struct, _field_flags)
+
+#define VARLINK_DEFINE_FIELD_ENUM(_name, _anon_struct, _field_flags) \
+        VARLINK_DEFINE_FIELD_BY_ANON_TYPE(_name, VARLINK_ENUM, _anon_struct, _field_flags)
+
+#define VARLINK_DEFINE_INPUT(_name, _field_type, _field_flags) \
         { .name = #_name, .field_type = (_field_type), .field_flags = (_field_flags), .field_direction = VARLINK_INPUT }
 
 #define VARLINK_DEFINE_INPUT_BY_TYPE(_name, _named_type, _field_flags) \
         { .name = #_name, .field_type = VARLINK_NAMED_TYPE, .named_type = #_named_type, .symbol = &vl_type_ ## _named_type, .field_flags = (_field_flags), .field_direction = VARLINK_INPUT }
 
-#define VARLINK_DEFINE_OUTPUT(_name, _field_type, _field_flags)        \
+#define VARLINK_DEFINE_INPUT_BY_ANON_TYPE(_name, _field_type, _anon_type, _field_flags) \
+        { .name = #_name, .field_type = (_field_type), .symbol = &vl_anon_type_ ## _anon_type, .field_flags = (_field_flags), .field_direction = VARLINK_INPUT }
+
+#define VARLINK_DEFINE_INPUT_STRUCT(_name, _anon_struct, _field_flags) \
+        VARLINK_DEFINE_INPUT_BY_ANON_TYPE(_name, VARLINK_STRUCT, _anon_struct, _field_flags)
+
+#define VARLINK_DEFINE_INPUT_ENUM(_name, _anon_struct, _field_flags) \
+        VARLINK_DEFINE_INPUT_BY_ANON_TYPE(_name, VARLINK_ENUM, _anon_struct, _field_flags)
+
+#define VARLINK_DEFINE_OUTPUT(_name, _field_type, _field_flags) \
         { .name = #_name, .field_type = (_field_type), .field_flags = (_field_flags), .field_direction = VARLINK_OUTPUT }
 
 #define VARLINK_DEFINE_OUTPUT_BY_TYPE(_name, _named_type, _field_flags) \
         { .name = #_name, .field_type = VARLINK_NAMED_TYPE, .named_type = #_named_type, .symbol = &vl_type_ ## _named_type, .field_flags = (_field_flags), .field_direction = VARLINK_OUTPUT }
+
+#define VARLINK_DEFINE_OUTPUT_BY_ANON_TYPE(_name, _field_type, _anon_type, _field_flags) \
+        { .name = #_name, .field_type = (_field_type), .symbol = &vl_anon_type_ ## _anon_type, .field_flags = (_field_flags), .field_direction = VARLINK_OUTPUT }
+
+#define VARLINK_DEFINE_OUTPUT_STRUCT(_name, _anon_struct, _field_flags) \
+        VARLINK_DEFINE_OUTPUT_BY_ANON_TYPE(_name, VARLINK_STRUCT, _anon_struct, _field_flags)
+
+#define VARLINK_DEFINE_OUTPUT_ENUM(_name, _anon_struct, _field_flags) \
+        VARLINK_DEFINE_OUTPUT_BY_ANON_TYPE(_name, VARLINK_ENUM, _anon_struct, _field_flags)
 
 #define VARLINK_DEFINE_ENUM_VALUE(_name) \
         { .name = #_name, .field_type = VARLINK_ENUM_VALUE }
@@ -124,9 +151,21 @@ struct VarlinkInterface {
                 .fields = { __VA_ARGS__ __VA_OPT__(,) {}},              \
         }
 
+#define VARLINK_DEFINE_ANON_STRUCT(_name, ...)                          \
+        const VarlinkSymbol vl_anon_type_ ## _name = {                  \
+                .symbol_type = VARLINK_STRUCT_TYPE,                     \
+                .fields = { __VA_ARGS__ __VA_OPT__(,) {}},              \
+        }
+
 #define VARLINK_DEFINE_ENUM_TYPE(_name, ...)                            \
         const VarlinkSymbol vl_type_ ## _name = {                       \
                 .name = #_name,                                         \
+                .symbol_type = VARLINK_ENUM_TYPE,                       \
+                .fields = { __VA_ARGS__ __VA_OPT__(,) {}},              \
+        }
+
+#define VARLINK_DEFINE_ANON_ENUM(_name, ...)                            \
+        const VarlinkSymbol vl_anon_type_ ## _name = {                  \
                 .symbol_type = VARLINK_ENUM_TYPE,                       \
                 .fields = { __VA_ARGS__ __VA_OPT__(,) {}},              \
         }

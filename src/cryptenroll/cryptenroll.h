@@ -3,6 +3,9 @@
 
 #include <errno.h>
 
+#include "cryptsetup-util.h"
+#include "varlink.h"
+
 typedef enum EnrollType {
         ENROLL_PASSWORD,
         ENROLL_RECOVERY,
@@ -34,3 +37,13 @@ EnrollType enroll_type_from_string(const char *s);
 
 const char* luks2_token_type_to_string(EnrollType t);
 EnrollType luks2_token_type_from_string(const char *s);
+
+int vl_luks_setup(Varlink *link, JsonVariant *params, struct crypt_device **ret_cd, void **ret_vk, size_t *ret_vks);
+
+/* A set of JsonDispatch initializers that ignore fields used by vl_luks_setup, to avoid complaints
+ * about unexpected fields */
+#define VARLINK_DISPATCH_UNLOCK_FIELDS                                \
+        { .name = "node",           .type = JSON_VARIANT_STRING },    \
+        { .name = "unlockPassword", .type = JSON_VARIANT_STRING },    \
+        { .name = "unlockKey",      .type = JSON_VARIANT_STRING },    \
+        { .name = "unlockFido2",    .type = JSON_VARIANT_STRING }

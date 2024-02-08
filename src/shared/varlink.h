@@ -47,7 +47,7 @@ typedef enum VarlinkServerFlags {
         VARLINK_SERVER_MYSELF_ONLY      = 1 << 1, /* Only accessible by our own UID */
         VARLINK_SERVER_ACCOUNT_UID      = 1 << 2, /* Do per user accounting */
         VARLINK_SERVER_INHERIT_USERDATA = 1 << 3, /* Initialize Varlink connection userdata from VarlinkServer userdata */
-        VARLINK_SERVER_INPUT_SENSITIVE  = 1 << 4, /* Automatically mark al connection input as sensitive */
+        VARLINK_SERVER_INPUT_SENSITIVE  = 1 << 4, /* Automatically mark all connection input as sensitive */
         _VARLINK_SERVER_FLAGS_ALL = (1 << 5) - 1,
 } VarlinkServerFlags;
 
