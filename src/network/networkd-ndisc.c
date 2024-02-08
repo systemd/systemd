@@ -192,13 +192,13 @@ static int ndisc_request_route(Route *route, Link *link, sd_ndisc_router *rt) {
         if (link->network->ipv6_accept_ra_use_mtu) {
                 r = sd_ndisc_router_get_mtu(rt, &mtu);
                 if (r < 0 && r != -ENODATA)
-                        return log_link_warning_errno(link, r, "Failed to get default router MTU from RA: %m");
+                        return log_link_warning_errno(link, r, "Failed to get MTU from RA: %m");
         }
 
         if (link->network->ipv6_accept_ra_use_hop_limit) {
                 r = sd_ndisc_router_get_hop_limit(rt, &hop_limit);
                 if (r < 0 && r != -ENODATA)
-                        return log_link_warning_errno(link, r, "Failed to get default router hop limit from RA: %m");
+                        return log_link_warning_errno(link, r, "Failed to get hop limit from RA: %m");
         }
 
         route->source = NETWORK_CONFIG_SOURCE_NDISC;
@@ -313,7 +313,7 @@ static int ndisc_router_process_default(Link *link, sd_ndisc_router *rt) {
 
         r = sd_ndisc_router_get_preference(rt, &preference);
         if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to get default router preference from RA: %m");
+                return log_link_warning_errno(link, r, "Failed to get router preference from RA: %m");
 
         if (link->network->ipv6_accept_ra_use_gateway) {
                 _cleanup_(route_unrefp) Route *route = NULL;
@@ -372,10 +372,8 @@ static int ndisc_router_process_icmp6_ratelimit(Link *link, sd_ndisc_router *rt)
                 return 0;
 
         r = sd_ndisc_router_get_icmp6_ratelimit(rt, &icmp6_ratelimit);
-        if (r < 0) {
-                log_link_debug(link, "Failed to get ICMP6 ratelimit from RA, ignoring: %m");
-                return 0;
-        }
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get ICMP6 ratelimit from RA: %m");
 
         /* We do not allow 0 here. */
         if (!timestamp_is_set(icmp6_ratelimit))
@@ -406,10 +404,8 @@ static int ndisc_router_process_retransmission_time(Link *link, sd_ndisc_router 
                 return 0;
 
         r = sd_ndisc_router_get_retransmission_time(rt, &retrans_time);
-        if (r < 0) {
-                log_link_debug_errno(link, r, "Failed to get retransmission time from RA, ignoring: %m");
-                return 0;
-        }
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get retransmission time from RA: %m");
 
         /* 0 is the unspecified value and must not be set (see RFC4861, 6.3.4) */
         if (!timestamp_is_set(retrans_time))
@@ -657,7 +653,7 @@ static int ndisc_router_process_route(Link *link, sd_ndisc_router *rt) {
                 return 0;
         }
         if (r < 0)
-                return log_link_warning_errno(link, r, "Failed to get default router preference from RA: %m");
+                return log_link_warning_errno(link, r, "Failed to get router preference from RA: %m");
 
         r = route_new(&route);
         if (r < 0)
