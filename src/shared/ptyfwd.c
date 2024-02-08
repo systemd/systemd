@@ -715,7 +715,10 @@ int pty_forward_new(
                 } else
                         f->close_input_fd = true;
 
-                f->output_fd = fd_reopen(STDOUT_FILENO, O_WRONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK);
+                /* re-open stdout, but keep O_APPEND if it was set, to not violate expectations
+                 * of someone calling "systemd-run --pty >> some-log". */
+                f->output_fd = fd_reopen_propagate_flags(
+                                STDOUT_FILENO, O_WRONLY|O_CLOEXEC|O_NOCTTY|O_NONBLOCK, O_APPEND);
                 if (f->output_fd < 0) {
                         log_debug_errno(f->output_fd, "Failed to reopen stdout, using original fd: %m");
 
