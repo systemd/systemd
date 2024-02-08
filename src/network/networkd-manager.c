@@ -453,7 +453,7 @@ static int signal_restart_callback(sd_event_source *s, const struct signalfd_sig
 static int signal_reload_callback(sd_event_source *s, const struct signalfd_siginfo *si, void *userdata) {
         Manager *m = ASSERT_PTR(userdata);
 
-        manager_reload(m);
+        (void) manager_reload(m, /* message = */ NULL);
 
         return 0;
 }
@@ -1085,7 +1085,7 @@ int manager_set_timezone(Manager *m, const char *tz) {
         return 0;
 }
 
-int manager_reload(Manager *m) {
+int manager_reload(Manager *m, sd_bus_message *message) {
         Link *link;
         int r;
 
@@ -1105,9 +1105,14 @@ int manager_reload(Manager *m) {
                 goto finish;
 
         HASHMAP_FOREACH(link, m->links_by_index) {
-                r = link_reconfigure(link, /* force = */ false);
-                if (r < 0)
-                        goto finish;
+                if (message)
+                        r = link_reconfigure_on_bus_method_reload(link, message);
+                else
+                        r = link_reconfigure(link, /* force = */ false);
+                if (r < 0) {
+                        log_link_warning_errno(link, r, "Failed to reconfigure the interface: %m");
+                        link_enter_failed(link);
+                }
         }
 
         r = 0;
