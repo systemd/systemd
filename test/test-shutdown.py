@@ -4,6 +4,7 @@
 
 import argparse
 import logging
+import signal
 import sys
 import time
 
@@ -91,13 +92,10 @@ def run(args):
     except Exception as e:
         logger.error(e)
         logger.info("killing child pid %d", console.pid)
-        # We can't use console.terminate(force=True) right away, since
-        # the internal delay between sending a signal and checking the process
-        # is just 0.1s [0], which means we'd get SIGKILLed pretty quickly.
-        # Let's send SIGHUP/SIGINT first, wait a bit, and then follow-up with
-        # SIGHUP/SIGINT/SIGKILL if the process is still alive.
-        # [0] https://github.com/pexpect/pexpect/blob/acb017a97332c19a9295660fe87316926a8adc55/pexpect/spawnbase.py#L71
-        console.terminate()
+
+        # Ask systemd-nspawn to stop and release the container's resources properly.
+        console.kill(signal.SIGTERM)
+
         for _ in range(10):
             if not console.isalive():
                 break
