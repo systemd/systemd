@@ -3877,6 +3877,7 @@ static bool generator_path_any(const char* const* paths) {
 
 static int manager_run_environment_generators(Manager *m) {
         char **tmp = NULL; /* this is only used in the forked process, no cleanup here */
+        _cleanup_strv_free_ char **env = NULL;
         _cleanup_strv_free_ char **paths = NULL;
         void* args[] = {
                 [STDOUT_GENERATE] = &tmp,
@@ -3895,9 +3896,13 @@ static int manager_run_environment_generators(Manager *m) {
         if (!generator_path_any((const char* const*) paths))
                 return 0;
 
+        r = manager_get_effective_environment(m, &env);
+        if (r < 0)
+                return r;
+
         WITH_UMASK(0022)
                 r = execute_directories((const char* const*) paths, DEFAULT_TIMEOUT_USEC, gather_environment,
-                                        args, NULL, m->transient_environment,
+                                        args, NULL, env,
                                         EXEC_DIR_PARALLEL | EXEC_DIR_IGNORE_ERRORS | EXEC_DIR_SET_SYSTEMD_EXEC_PID);
         return r;
 }
@@ -3915,9 +3920,9 @@ static int build_generator_environment(Manager *m, char ***ret) {
          * adjust generated units to that. Let's pass down some bits of information that are easy for us to
          * determine (but a bit harder for generator scripts to determine), as environment variables. */
 
-        nl = strv_copy(m->transient_environment);
-        if (!nl)
-                return -ENOMEM;
+        r = manager_get_effective_environment(m, &nl);
+        if (r < 0)
+                return r;
 
         r = strv_env_assign(&nl, "SYSTEMD_SCOPE", runtime_scope_to_string(m->runtime_scope));
         if (r < 0)
