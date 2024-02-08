@@ -183,6 +183,7 @@
         <listitem>
           <para>Set the initrd to use for direct kernel boot.</para>
           <para>If the linux kernel supplied is a UKI then this argument is not required.</para>
+          <para>If the option is specified multiple times vmspawn will merge the initrds together.</para>
           <para>If no initrd was installed into the image then the image will fail to boot.</para>
           <xi:include href="version-info.xml" xpointer="v256"/>
         </listitem>

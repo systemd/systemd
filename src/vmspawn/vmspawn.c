@@ -2,8 +2,10 @@
 
 #include <getopt.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
 #include "sd-daemon.h"
@@ -64,7 +66,7 @@ static int arg_qemu_vsock = -1;
 static unsigned arg_vsock_cid = VMADDR_CID_ANY;
 static int arg_tpm = -1;
 static char *arg_linux = NULL;
-static char *arg_initrd = NULL;
+static char **arg_initrds = NULL;
 static bool arg_qemu_gui = false;
 static QemuNetworkStack arg_network_stack = QEMU_NET_NONE;
 static int arg_secure_boot = -1;
@@ -86,7 +88,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_runtime_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_credentials, machine_credential_context_done);
 STATIC_DESTRUCTOR_REGISTER(arg_firmware, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_linux, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_initrd, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_initrds, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_runtime_mounts, runtime_mount_context_done);
 STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline_extra, strv_freep);
 
@@ -312,9 +314,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_INITRD: {
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_initrd);
+                        _cleanup_free_ char *initrd_path = NULL;
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &initrd_path);
                         if (r < 0)
                                 return r;
+
+                        r = strv_consume(&arg_initrds, TAKE_PTR(initrd_path));
+                        if (r < 0)
+                                return log_oom();
+
                         break;
                 }
 
@@ -810,6 +818,43 @@ static int kernel_cmdline_maybe_append_root(void) {
         return 0;
 }
 
+static int merge_initrds(char **ret) {
+        _cleanup_(rm_rf_physical_and_freep) char *merged_initrd = NULL;
+        _cleanup_close_ int ofd = -EBADF;
+        int r;
+
+        assert(ret);
+
+        r = tempfn_random_child(NULL, "vmspawn-initrd-", &merged_initrd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create temporary file: %m");
+
+        ofd = open(merged_initrd, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0600);
+        if (ofd < 0)
+                return log_error_errno(errno, "Failed to create regular file %s: %m", merged_initrd);
+
+        size_t total_size = 0;
+        STRV_FOREACH(i, arg_initrds) {
+                _cleanup_close_ int ifd = -EBADF;
+                size_t to_seek = (4 - (total_size % 4)) % 4;
+
+                /* seek to assure 4 byte alignment for each initrd */
+                if (to_seek != 0 && lseek(ofd, to_seek, SEEK_CUR) < 0)
+                        return log_error_errno(errno, "Failed to seek %s: %m", merged_initrd);
+
+                ifd = open(*i, O_RDONLY|O_CLOEXEC);
+                if (ifd < 0)
+                        return log_error_errno(errno, "Failed to open %s: %m", *i);
+
+                r = copy_bytes(ifd, ofd, UINT64_MAX, COPY_REFLINK);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to copy bytes from %s to %s: %m", *i, merged_initrd);
+        }
+
+        *ret = TAKE_PTR(merged_initrd);
+        return 0;
+}
+
 static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -1248,8 +1293,22 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
         }
 
-        if (arg_initrd) {
-                r = strv_extend_many(&cmdline, "-initrd", arg_initrd);
+        char *initrd = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *merged_initrd = NULL;
+        size_t n_initrds = strv_length(arg_initrds);
+
+        if (n_initrds == 1)
+                initrd = arg_initrds[0];
+        else if (n_initrds > 1) {
+                r = merge_initrds(&merged_initrd);
+                if (r < 0)
+                        return r;
+
+                initrd = merged_initrd;
+        }
+
+        if (initrd) {
+                r = strv_extend_many(&cmdline, "-initrd", initrd);
                 if (r < 0)
                         return log_oom();
         }
