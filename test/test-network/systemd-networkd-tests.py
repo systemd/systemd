@@ -789,12 +789,8 @@ def networkctl_json(*args):
 def networkctl_reconfigure(*links):
     networkctl('reconfigure', *links)
 
-def networkctl_reload(sleep_time=1):
+def networkctl_reload():
     networkctl('reload')
-    # 'networkctl reload' asynchronously reconfigure links.
-    # Hence, we need to wait for a short time for link to be in configuring state.
-    if sleep_time > 0:
-        time.sleep(sleep_time)
 
 def resolvectl(*args):
     return check_output(*(resolvectl_cmd + list(args)), env=env)
