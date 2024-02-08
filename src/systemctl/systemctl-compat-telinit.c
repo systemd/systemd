@@ -155,11 +155,3 @@ int reload_with_fallback(void) {
 
         return 0;
 }
-
-int exec_telinit(char *argv[]) {
-        (void) rlimit_nofile_safe();
-        (void) execv(TELINIT, argv);
-
-        return log_error_errno(SYNTHETIC_ERRNO(EIO),
-                               "Couldn't find an alternative telinit implementation to spawn.");
-}

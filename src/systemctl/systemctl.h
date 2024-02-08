@@ -33,7 +33,6 @@ enum action {
         ACTION_RELOAD,
         ACTION_REEXEC,
         ACTION_RUNLEVEL,
-        ACTION_TELINIT,
         ACTION_CANCEL_SHUTDOWN,
         ACTION_SHOW_SHUTDOWN,
         _ACTION_MAX,

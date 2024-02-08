@@ -4,4 +4,3 @@
 int telinit_parse_argv(int argc, char *argv[]);
 int start_with_fallback(void);
 int reload_with_fallback(void);
-int exec_telinit(char *argv[]);
