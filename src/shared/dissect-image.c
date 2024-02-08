@@ -799,7 +799,7 @@ static int dissect_image(
                         if (suuid) {
                                 /* blkid will return FAT's serial number as UUID, hence it is quite possible
                                  * that parsing this will fail. We'll ignore the ID, since it's just too
-                                 * short to be useful as tru identifier. */
+                                 * short to be useful as true identifier. */
                                 r = sd_id128_from_string(suuid, &uuid);
                                 if (r < 0)
                                         log_debug_errno(r, "Failed to parse file system UUID '%s', ignoring: %m", suuid);
