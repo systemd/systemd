@@ -1118,15 +1118,8 @@ int systemctl_dispatch_parse_argv(int argc, char *argv[]) {
                  *
                  * Also see redirect_telinit() in src/core/main.c. */
 
-                if (sd_booted() > 0) {
-                        arg_action = _ACTION_INVALID;
-                        return telinit_parse_argv(argc, argv);
-                } else {
-                        /* Hmm, so some other init system is running, we need to forward this request to it.
-                         */
-                        arg_action = ACTION_TELINIT;
-                        return 1;
-                }
+                arg_action = _ACTION_INVALID;
+                return telinit_parse_argv(argc, argv);
 
         } else if (invoked_as(argv, "runlevel")) {
                 arg_action = ACTION_RUNLEVEL;
