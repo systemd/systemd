@@ -62,6 +62,13 @@ SYSTEMD_PROC_CMDLINE="$CMDLINE" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
 link_endswith "$OUT_DIR/early/default.target.wants/debug-shell.service" /lib/systemd/system/debug-shell.service
 grep -F "/dev/tty666" "$OUT_DIR/early/debug-shell.service.d/50-tty.conf"
 
+# Same thing, but with custom tty using systemd.default_debug_tty
+: "debug-shell: regular + systemd.default_debug_tty=/dev/tty666 systemd.debug_shell=yes"
+CMDLINE="$CMDLINE systemd.default_debug_tty=/dev/tty666 systemd.debug_shell=yes"
+SYSTEMD_PROC_CMDLINE="$CMDLINE" run_and_list "$GENERATOR_BIN" "$OUT_DIR"
+link_endswith "$OUT_DIR/early/default.target.wants/debug-shell.service" /lib/systemd/system/debug-shell.service
+grep -F "/dev/tty666" "$OUT_DIR/early/debug-shell.service.d/50-tty.conf"
+
 # Now override the default target via systemd.unit=
 : "debug-shell: regular + systemd.unit="
 CMDLINE="$CMDLINE systemd.unit=my-fancy.target"
