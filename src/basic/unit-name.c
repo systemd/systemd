@@ -454,34 +454,45 @@ int unit_name_path_unescape(const char *f, char **ret) {
         return 0;
 }
 
-int unit_name_replace_instance(const char *f, const char *i, char **ret) {
-        _cleanup_free_ char *s = NULL;
-        const char *p, *e;
-        size_t a, b;
+int unit_name_replace_instance_full(
+                const char *original,
+                const char *instance,
+                bool accept_glob,
+                char **ret) {
 
-        assert(f);
-        assert(i);
+        _cleanup_free_ char *s = NULL;
+        const char *prefix, *suffix;
+        size_t pl;
+
+        assert(original);
+        assert(instance);
         assert(ret);
 
-        if (!unit_name_is_valid(f, UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE))
+        if (!unit_name_is_valid(original, UNIT_NAME_INSTANCE|UNIT_NAME_TEMPLATE))
                 return -EINVAL;
-        if (!unit_instance_is_valid(i))
+        if (!unit_instance_is_valid(instance) && !(accept_glob && in_charset(instance, VALID_CHARS_GLOB)))
                 return -EINVAL;
 
-        assert_se(p = strchr(f, '@'));
-        assert_se(e = strrchr(f, '.'));
+        prefix = ASSERT_PTR(strchr(original, '@'));
+        suffix = ASSERT_PTR(strrchr(original, '.'));
+        assert(prefix < suffix);
 
-        a = p - f;
-        b = strlen(i);
+        pl = prefix - original + 1; /* include '@' */
 
-        s = new(char, a + 1 + b + strlen(e) + 1);
+        s = new(char, pl + strlen(instance) + strlen(suffix) + 1);
         if (!s)
                 return -ENOMEM;
 
-        strcpy(mempcpy(mempcpy(s, f, a + 1), i, b), e);
+#if HAS_FEATURE_MEMORY_SANITIZER
+        /* MSan doesn't like stpncpy... See also https://github.com/google/sanitizers/issues/926 */
+        memzero(s, pl + strlen(instance) + strlen(suffix) + 1);
+#endif
 
-        /* Make sure the resulting name still is valid, i.e. didn't grow too large */
-        if (!unit_name_is_valid(s, UNIT_NAME_INSTANCE))
+        strcpy(stpcpy(stpncpy(s, original, pl), instance), suffix);
+
+        /* Make sure the resulting name still is valid, i.e. didn't grow too large. Globs will be expanded
+         * by clients when used, so the check is pointless. */
+        if (!accept_glob && !unit_name_is_valid(s, UNIT_NAME_INSTANCE))
                 return -EINVAL;
 
         *ret = TAKE_PTR(s);
