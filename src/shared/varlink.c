@@ -170,6 +170,7 @@ struct Varlink {
         VarlinkReply reply_callback;
 
         JsonVariant *current;
+        VarlinkReplyFlags current_reply_flags;
         VarlinkSymbol *current_method;
 
         int peer_pidfd;
@@ -690,6 +691,7 @@ static void varlink_clear_current(Varlink *v) {
         /* Clears the currently processed incoming message */
         v->current = json_variant_unref(v->current);
         v->current_method = NULL;
+        v->current_reply_flags = 0;
 
         close_many(v->input_fds, v->n_input_fds);
         v->input_fds = mfree(v->input_fds);
@@ -1235,6 +1237,8 @@ static int varlink_dispatch_reply(Varlink *v) {
         if (r < 0)
                 goto invalid;
 
+        v->current_reply_flags = flags;
+
         if (IN_SET(v->state, VARLINK_AWAITING_REPLY, VARLINK_AWAITING_REPLY_MORE)) {
                 varlink_set_state(v, VARLINK_PROCESSING_REPLY);
 
@@ -1247,7 +1251,6 @@ static int varlink_dispatch_reply(Varlink *v) {
                 varlink_clear_current(v);
 
                 if (v->state == VARLINK_PROCESSING_REPLY) {
-
                         assert(v->n_pending > 0);
 
                         if (!FLAGS_SET(flags, VARLINK_REPLY_CONTINUES))
@@ -2200,7 +2203,6 @@ int varlink_call_full(
         v->timestamp = now(CLOCK_MONOTONIC);
 
         while (v->state == VARLINK_CALLING) {
-
                 r = varlink_process(v);
                 if (r < 0)
                         return r;
@@ -2233,7 +2235,7 @@ int varlink_call_full(
                 if (ret_error_id)
                         *ret_error_id = e ? json_variant_string(e) : NULL;
                 if (ret_flags)
-                        *ret_flags = 0;
+                        *ret_flags = v->current_reply_flags;
 
                 return 1;
         }
