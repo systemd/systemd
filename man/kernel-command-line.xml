@@ -86,6 +86,7 @@
         <term><varname>systemd.mask=</varname></term>
         <term><varname>systemd.wants=</varname></term>
         <term><varname>systemd.debug_shell</varname></term>
+        <term><varname>systemd.default_debug_tty=</varname></term>
         <listitem>
           <para>Additional parameters understood by
           <citerefentry><refentrytitle>systemd-debug-generator</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
