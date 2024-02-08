@@ -1431,6 +1431,80 @@ int link_reconfigure(Link *link, bool force) {
         return 1; /* 1 means the interface will be reconfigured. */
 }
 
+typedef struct ReconfigureData {
+        Link *link;
+        Manager *manager;
+        sd_bus_message *message;
+} ReconfigureData;
+
+static void reconfigure_data_destroy_callback(ReconfigureData *data) {
+        int r;
+
+        assert(data);
+        assert(data->link);
+        assert(data->manager);
+        assert(data->manager->reloading > 0);
+        assert(data->message);
+
+        link_unref(data->link);
+
+        data->manager->reloading--;
+        if (data->manager->reloading <= 0) {
+                r = sd_bus_reply_method_return(data->message, NULL);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to send reply for 'Reload' DBus method, ignoring: %m");
+        }
+
+        sd_bus_message_unref(data->message);
+        free(data);
+}
+
+static int reconfigure_handler_on_bus_method_reload(sd_netlink *rtnl, sd_netlink_message *m, ReconfigureData *data) {
+        assert(data);
+        assert(data->link);
+        return link_reconfigure_handler_internal(rtnl, m, data->link, /* force = */ false);
+}
+
+int link_reconfigure_on_bus_method_reload(Link *link, sd_bus_message *message) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_free_ ReconfigureData *data = NULL;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+        assert(link->manager->rtnl);
+        assert(message);
+
+        /* See comments in link_reconfigure() above. */
+        if (IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_INITIALIZED, LINK_STATE_LINGER))
+                return 0;
+
+        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_GETLINK, link->ifindex);
+        if (r < 0)
+                return r;
+
+        data = new(ReconfigureData, 1);
+        if (!data)
+                return -ENOMEM;
+
+        r = netlink_call_async(link->manager->rtnl, NULL, req,
+                               reconfigure_handler_on_bus_method_reload,
+                               reconfigure_data_destroy_callback, data);
+        if (r < 0)
+                return r;
+
+        *data = (ReconfigureData) {
+                .link = link_ref(link),
+                .manager = link->manager,
+                .message = sd_bus_message_ref(message),
+        };
+
+        link->manager->reloading++;
+
+        TAKE_PTR(data);
+        return 0;
+}
+
 static int link_initialized_and_synced(Link *link) {
         int r;
 

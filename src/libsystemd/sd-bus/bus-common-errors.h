@@ -111,6 +111,7 @@
 
 #define BUS_ERROR_SPEED_METER_INACTIVE         "org.freedesktop.network1.SpeedMeterInactive"
 #define BUS_ERROR_UNMANAGED_INTERFACE          "org.freedesktop.network1.UnmanagedInterface"
+#define BUS_ERROR_NETWORK_ALREADY_RELOADING    "org.freedesktop.network1.AlreadyReloading"
 
 #define BUS_ERROR_NO_SUCH_HOME                 "org.freedesktop.home1.NoSuchHome"
 #define BUS_ERROR_UID_IN_USE                   "org.freedesktop.home1.UIDInUse"
