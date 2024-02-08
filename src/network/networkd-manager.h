@@ -105,6 +105,8 @@ struct Manager {
         OrderedSet *remove_request_queue;
 
         Hashmap *tuntap_fds_by_name;
+
+        unsigned reloading;
 };
 
 int manager_new(Manager **ret, bool test_mode);
@@ -125,6 +127,6 @@ int manager_enumerate(Manager *m);
 int manager_set_hostname(Manager *m, const char *hostname);
 int manager_set_timezone(Manager *m, const char *timezone);
 
-int manager_reload(Manager *m);
+int manager_reload(Manager *m, sd_bus_message *message);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(Manager*, manager_free);
