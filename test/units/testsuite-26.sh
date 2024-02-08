@@ -207,6 +207,24 @@ test_mask_unmask_revert() {
 test_mask_unmask_revert
 test_mask_unmask_revert --root=/
 
+# disable --now with template unit
+cat >/run/systemd/system/test-disable@.service <<EOF
+[Service]
+ExecStart=sleep infinity
+
+[Install]
+WantedBy=multi-user.target
+EOF
+systemctl enable --now test-disable@1.service test-disable@2.service
+systemctl is-active test-disable@1.service
+systemctl is-active test-disable@2.service
+systemctl disable --now test-disable@.service
+for u in test-disable@{1,2}.service; do
+    (! systemctl is-active "$u")
+    (! systemctl is-enabled "$u")
+done
+rm /run/systemd/system/test-disable@.service
+
 # add-wants/add-requires
 (! systemctl show -P Wants "$UNIT_NAME" | grep "systemd-journald.service")
 systemctl add-wants "$UNIT_NAME" "systemd-journald.service"
