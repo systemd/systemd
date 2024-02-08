@@ -40,7 +40,14 @@ int unit_name_unescape(const char *f, char **ret);
 int unit_name_path_escape(const char *f, char **ret);
 int unit_name_path_unescape(const char *f, char **ret);
 
-int unit_name_replace_instance(const char *f, const char *i, char **ret);
+int unit_name_replace_instance_full(
+                const char *original,
+                const char *instance,
+                bool accept_glob,
+                char **ret);
+static inline int unit_name_replace_instance(const char *original, const char *instance, char **ret) {
+        return unit_name_replace_instance_full(original, instance, false, ret);
+}
 
 int unit_name_template(const char *f, char **ret);
 
