@@ -1058,8 +1058,9 @@ static int verb_help(int argc, char **argv, void *userdata) {
                 return log_oom();
 
         printf("%1$s [OPTIONS...] COMMAND\n"
-                "\n%5$sMerge extension images into /usr/ and /opt/ hierarchies for\n"
-               " sysext and into the /etc/ hierarchy for confext.%6$s\n"
+               "\n%5$sMerge extension images into /usr/ and /opt/ hierarchies for\n"
+               "sysext and into the /etc/ hierarchy for confext.%6$s\n"
+               "\n%3$sCommands:%4$s\n"
                "  status                  Show current merge status (default)\n"
                "  merge                   Merge extensions into relevant hierarchies\n"
                "  unmerge                 Unmerge extensions from relevant hierarchies\n"
