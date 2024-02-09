@@ -71,9 +71,22 @@ if systemctl is-active systemd-oomd.service; then
     systemctl restart systemd-oomd.service
 fi
 
-# Ensure that we can start services even with a very low hard memory cap without oom-kills, but skip under
-# sanitizers as they balloon memory usage.
-if ! [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
+if [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
+    # If we're running with sanitizers, sd-executor might pull in quite a significant chunk of shared
+    # libraries, which in turn causes a lot of pressure that can put us in the front when sd-oomd decides to
+    # go on a killing spree. This fact is exacerbated further on Arch Linux which ships unstripped gcc-libs,
+    # so sd-executor pulls in over 30M of libs on startup. Let's make the MemoryHigh= limit a bit more
+    # generous when running with sanitizers to make the test happy.
+    systemctl edit --runtime --stdin --drop-in=99-MemoryHigh.conf testsuite-55-testchill.service <<EOF
+[Service]
+MemoryHigh=60M
+EOF
+    # Do the same for the user instance as well
+    mkdir -p /run/systemd/user/
+    cp -rfv /run/systemd/system/testsuite-55-testchill.service.d/ /run/systemd/user/
+else
+    # Ensure that we can start services even with a very low hard memory cap without oom-kills, but skip
+    # under sanitizers as they balloon memory usage.
     systemd-run -t -p MemoryMax=10M -p MemorySwapMax=0 -p MemoryZSwapMax=0 /bin/true
 fi
 
