@@ -624,14 +624,10 @@ static int run(int argc, char **argv) {
         /* Take lock around the remaining operation to avoid being interrupted by a tty reset operation
          * performed for services with TTYVHangup=yes. */
         lock_fd = lock_dev_console();
-        if (lock_fd < 0) {
-                log_full_errno(lock_fd == -ENOENT ? LOG_DEBUG : LOG_ERR,
-                               lock_fd,
-                               "Failed to lock /dev/console%s: %m",
-                               lock_fd == -ENOENT ? ", ignoring" : "");
-                if (lock_fd != -ENOENT)
-                        return lock_fd;
-        }
+        if (ERRNO_IS_NEG_DEVICE_ABSENT(lock_fd))
+                log_debug_errno(lock_fd, "Device /dev/console does not exist, proceeding without locking it: %m");
+        else if (lock_fd < 0)
+                return log_error_errno(lock_fd, "Failed to lock /dev/console: %m");
 
         (void) toggle_utf8_sysfs(utf8);
         (void) toggle_utf8_vc(vc, fd, utf8);
