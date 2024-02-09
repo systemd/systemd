@@ -1442,7 +1442,7 @@ static int method_set_user_linger(sd_bus_message *message, void *userdata, sd_bu
                         uid == auth_uid ? "org.freedesktop.login1.set-self-linger" :
                                           "org.freedesktop.login1.set-user-linger",
                         /* details= */ NULL,
-                        interactive,
+                        interactive ? BUS_POLKIT_FLAGS_INTERACTIVE : 0,
                         /* good_user= */ UID_INVALID,
                         &m->polkit_registry,
                         error);
@@ -1614,7 +1614,7 @@ static int method_attach_device(sd_bus_message *message, void *userdata, sd_bus_
                         message,
                         "org.freedesktop.login1.attach-device",
                         /* details= */ NULL,
-                        interactive,
+                        interactive ? BUS_POLKIT_FLAGS_INTERACTIVE : 0,
                         /* good_user= */ UID_INVALID,
                         &m->polkit_registry,
                         error);
@@ -1644,7 +1644,7 @@ static int method_flush_devices(sd_bus_message *message, void *userdata, sd_bus_
                         message,
                         "org.freedesktop.login1.flush-devices",
                         /* details= */ NULL,
-                        interactive,
+                        interactive ? BUS_POLKIT_FLAGS_INTERACTIVE : 0,
                         /* good_user= */ UID_INVALID,
                         &m->polkit_registry,
                         error);
@@ -2001,7 +2001,7 @@ static int verify_shutdown_creds(
                                 message,
                                 a->polkit_action_multiple_sessions,
                                 /* details= */ NULL,
-                                interactive,
+                                interactive ? BUS_POLKIT_FLAGS_INTERACTIVE : 0,
                                 /* good_user= */ UID_INVALID,
                                 &m->polkit_registry,
                                 error);
@@ -2021,7 +2021,7 @@ static int verify_shutdown_creds(
                                 message,
                                 a->polkit_action_ignore_inhibit,
                                 /* details= */ NULL,
-                                interactive,
+                                interactive ? BUS_POLKIT_FLAGS_INTERACTIVE : 0,
                                 /* good_user= */ UID_INVALID,
                                 &m->polkit_registry,
                                 error);
@@ -2036,7 +2036,7 @@ static int verify_shutdown_creds(
                                 message,
                                 a->polkit_action,
                                 /* details= */ NULL,
-                                interactive,
+                                interactive ? BUS_POLKIT_FLAGS_INTERACTIVE : 0,
                                 /* good_user= */ UID_INVALID,
                                 &m->polkit_registry,
                                 error);

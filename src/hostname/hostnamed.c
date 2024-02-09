@@ -1111,7 +1111,7 @@ static int method_set_hostname(sd_bus_message *m, void *userdata, sd_bus_error *
                         m,
                         "org.freedesktop.hostname1.set-hostname",
                         /* details= */ NULL,
-                        interactive,
+                        interactive ? BUS_POLKIT_FLAGS_INTERACTIVE : 0,
                         /* good_user= */ UID_INVALID,
                         &c->polkit_registry,
                         error);
@@ -1157,7 +1157,7 @@ static int method_set_static_hostname(sd_bus_message *m, void *userdata, sd_bus_
                         m,
                         "org.freedesktop.hostname1.set-static-hostname",
                         /* details= */ NULL,
-                        interactive,
+                        interactive ? BUS_POLKIT_FLAGS_INTERACTIVE : 0,
                         /* good_user= */ UID_INVALID,
                         &c->polkit_registry,
                         error);
@@ -1235,7 +1235,7 @@ static int set_machine_info(Context *c, sd_bus_message *m, int prop, sd_bus_mess
                         m,
                         prop == PROP_PRETTY_HOSTNAME ? "org.freedesktop.hostname1.set-static-hostname" : "org.freedesktop.hostname1.set-machine-info",
                         /* details= */ NULL,
-                        interactive,
+                        interactive ? BUS_POLKIT_FLAGS_INTERACTIVE : 0,
                         /* good_user= */ UID_INVALID,
                         &c->polkit_registry,
                         error);
@@ -1312,7 +1312,7 @@ static int method_get_product_uuid(sd_bus_message *m, void *userdata, sd_bus_err
                         m,
                         "org.freedesktop.hostname1.get-product-uuid",
                         /* details= */ NULL,
-                        interactive,
+                        interactive ? BUS_POLKIT_FLAGS_INTERACTIVE : 0,
                         /* good_user= */ UID_INVALID,
                         &c->polkit_registry,
                         error);

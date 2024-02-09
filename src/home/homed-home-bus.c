@@ -97,7 +97,7 @@ static int home_verify_polkit_async(
                         message,
                         action,
                         details,
-                        /* interactive= */ false,
+                        /* flags= */ 0,
                         good_uid,
                         &h->manager->polkit_registry,
                         error);

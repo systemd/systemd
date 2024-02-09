@@ -162,7 +162,7 @@ int bus_session_method_terminate(sd_bus_message *message, void *userdata, sd_bus
                         message,
                         "org.freedesktop.login1.manage",
                         /* details= */ NULL,
-                        /* interactive= */ false,
+                        /* flags= */ 0,
                         s->user->user_record->uid,
                         &s->manager->polkit_registry,
                         error);
@@ -207,7 +207,7 @@ int bus_session_method_lock(sd_bus_message *message, void *userdata, sd_bus_erro
                         message,
                         "org.freedesktop.login1.lock-sessions",
                         /* details= */ NULL,
-                        /* interactive= */ false,
+                        /* flags= */ 0,
                         s->user->user_record->uid,
                         &s->manager->polkit_registry,
                         error);
@@ -317,7 +317,7 @@ int bus_session_method_kill(sd_bus_message *message, void *userdata, sd_bus_erro
                         message,
                         "org.freedesktop.login1.manage",
                         /* details= */ NULL,
-                        /* interactive= */ false,
+                        /* flags= */ 0,
                         s->user->user_record->uid,
                         &s->manager->polkit_registry,
                         error);
