@@ -61,15 +61,20 @@ cat >/run/systemd/system/testsuite-23-oneshot-restartforce.service <<EOF
 [Service]
 Type=oneshot
 RestartForceExitStatus=0 2
-RemainAfterExit=yes
 ExecStart=/usr/lib/systemd/tests/testdata/testsuite-23.units/testsuite-23-oneshot-restartforce.sh "$TMP_FILE"
+
+[Install]
+WantedBy=multi-user.target
 EOF
 
+# Pin the unit in memory
+systemctl enable testsuite-23-oneshot-restartforce.service
 (! systemctl start testsuite-23-oneshot-restartforce.service)
 sleep 5
-systemctl is-active testsuite-23-oneshot-restartforce.service
+assert_rc 3 systemctl --quiet is-active "$UNIT_NAME"
 assert_eq "$(systemctl show testsuite-23-oneshot-restartforce.service -P Result)" "success"
 assert_eq "$(systemctl show testsuite-23-oneshot-restartforce.service -P NRestarts)" "1"
+systemctl disable testsuite-23-oneshot-restartforce.service
 
 rm "$TMP_FILE" /run/systemd/system/testsuite-23-oneshot-restartforce.service
 
