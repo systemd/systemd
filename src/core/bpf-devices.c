@@ -372,8 +372,14 @@ int bpf_devices_allow_list_device(
                         return log_warning_errno(r, "Couldn't parse major/minor from device path '%s': %m", node);
 
                 struct stat st;
-                if (stat(node, &st) < 0)
+                if (stat(node, &st) < 0) {
+                        if (errno == ENOENT) {
+                                log_debug_errno(errno, "Device '%s' does not exist, skipping.", node);
+                                return 0; /* returning 0 means → skipped */
+                        }
+
                         return log_warning_errno(errno, "Couldn't stat device %s: %m", node);
+                }
 
                 if (!S_ISCHR(st.st_mode) && !S_ISBLK(st.st_mode))
                         return log_warning_errno(SYNTHETIC_ERRNO(ENODEV), "%s is not a device.", node);
