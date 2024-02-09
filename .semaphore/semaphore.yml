@@ -6,8 +6,8 @@ version: v1.0
 name: Debian autopkgtest (LXC)
 agent:
   machine:
-    type: e1-standard-2
-    os_image: ubuntu2004
+    type: e2-standard-2
+    os_image: ubuntu2204
 
 # Cancel any running or queued job for the same ref
 auto_cancel:
