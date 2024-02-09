@@ -317,7 +317,7 @@ int verb_enable(int argc, char *argv[], void *userdata) {
                                 char *fn;
 
                                 /* 'enable' accept path to unit files, so extract it first. Don't try to
-                                 * glob them though, as starting globbed unit seldomly makes sense and
+                                 * glob them though, as starting globbed unit seldom makes sense and
                                  * actually changes the semantic (we're operating on DefaultInstance=
                                  * when enabling). */
 
