@@ -1884,10 +1884,14 @@ static int cgroup_apply_devices(Unit *u) {
 
         bool allow_list_static = policy == CGROUP_DEVICE_POLICY_CLOSED ||
                 (policy == CGROUP_DEVICE_POLICY_AUTO && c->device_allow);
-        if (allow_list_static)
-                (void) bpf_devices_allow_list_static(prog, path);
 
-        bool any = allow_list_static;
+        bool any = false;
+        if (allow_list_static) {
+                r = bpf_devices_allow_list_static(prog, path);
+                if (r > 0)
+                        any = true;
+        }
+
         LIST_FOREACH(device_allow, a, c->device_allow) {
                 const char *val;
 
@@ -1905,7 +1909,7 @@ static int cgroup_apply_devices(Unit *u) {
                         continue;
                 }
 
-                if (r >= 0)
+                if (r > 0)
                         any = true;
         }
 
