@@ -198,8 +198,11 @@ static int bus_method_reconfigure_link(sd_bus_message *message, void *userdata, 
 }
 
 static int bus_method_reload(sd_bus_message *message, void *userdata, sd_bus_error *error) {
-        Manager *manager = userdata;
+        Manager *manager = ASSERT_PTR(userdata);
         int r;
+
+        if (manager->reloading > 0)
+                return sd_bus_error_set(error, BUS_ERROR_NETWORK_ALREADY_RELOADING, "Already reloading.");
 
         r = bus_verify_polkit_async(
                         message,
@@ -212,9 +215,12 @@ static int bus_method_reload(sd_bus_message *message, void *userdata, sd_bus_err
         if (r == 0)
                 return 1; /* Polkit will call us back */
 
-        r = manager_reload(manager);
+        r = manager_reload(manager, message);
         if (r < 0)
                 return r;
+
+        if (manager->reloading > 0)
+                return 1; /* Will reply later. */
 
         return sd_bus_reply_method_return(message, NULL);
 }
