@@ -401,15 +401,27 @@
         <command>systemd</command> will automatically disable kernel's rate-limiting applied to userspace
         processes (equivalent to setting <literal>printk.devkmsg=on</literal>).</para>
 
+        <para>When forwarding over a socket the <ulink url="https://systemd.io/JOURNAL_EXPORT_FORMATS/#journal-export-format">
+        Journal Export Format</ulink> is used when sending over the wire.  Notably this includes the metadata
+        field <varname>__REALTIME_TIMESTAMP</varname> so that
+        <command>systemd-journal-remote</command> (see
+        <citerefentry><refentrytitle>systemd-journal-remote.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>)
+        can be used to receive the forwarded journal entries.</para>
+
         <para>Note: Forwarding is performed synchronously within journald, and may significantly affect its
         performance.  This is particularly relevant when using ForwardToConsole=yes in cloud environments,
-        where the console is often a slow, virtual serial port.  Since journald is implemented as a
-        conventional single-process daemon, forwarding to a completely hung console will block journald.
-        This can have a cascading effect resulting in any services synchronously logging to the blocked
-        journal also becoming blocked.  Unless actively debugging/developing something, it's generally
-        preferable to setup a <command>journalctl --follow</command> style service redirected to the
+        where the console is often a slow, virtual serial port.
+        Since journald is implemented as a conventional single-process daemon, forwarding to a completely
+        hung console will block journald. This can have a cascading effect resulting in any services synchronously
+        logging to the blocked journal also becoming blocked.  Unless actively debugging/developing something, it's
+        generally preferable to setup a <command>journalctl --follow</command> style service redirected to the
         console, instead of ForwardToConsole=yes, for production use.</para>
         </listitem>
+
+        <para>Note: Using ForwardToSocket over IPv4/IPv6 links can be very slow due to the synchronous nature of the sockets.
+        Take care to ensure your link is a low-latency local link if possible. Typically IP networking is not available everywhere
+        journald runs, e.g. in the initrd during boot. Consider using AF_VSOCK/AF_UNIX sockets for this if possible.
+        </para>
       </varlistentry>
 
       <varlistentry>
