@@ -101,7 +101,7 @@ bool link_check_addresses_ready(Link *link, NetworkConfigSource source);
 
 DEFINE_SECTION_CLEANUP_FUNCTIONS(Address, address_unref);
 
-int link_drop_managed_addresses(Link *link);
+int link_drop_static_addresses(Link *link);
 int link_drop_foreign_addresses(Link *link);
 int link_drop_ipv6ll_addresses(Link *link);
 void link_foreignize_addresses(Link *link);
