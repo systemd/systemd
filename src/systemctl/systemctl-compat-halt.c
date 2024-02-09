@@ -177,7 +177,7 @@ int halt_main(void) {
                 arg_no_block = true;
 
                 if (!arg_dry_run)
-                        return start_with_fallback();
+                        return verb_start(/* argc= */ 0, /* argv= */ NULL, /* userdata= */ NULL);
         }
 
         if (geteuid() != 0) {
