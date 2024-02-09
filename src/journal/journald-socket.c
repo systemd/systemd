@@ -58,6 +58,15 @@ void server_forward_socket(
         if (LOG_PRI(priority) > s->max_level_socket)
                 return;
 
+        /* only open a forwarding socket if a forwarding address has been set
+         * and we are in the main namespace and the forwarding socket is not already open */
+        if (s->forward_to_socket.sockaddr.sa.sa_family != AF_UNSPEC && !s->namespace && s->forward_socket_fd < 0)
+                server_open_forward_socket(s);
+
+        /* if we failed to open a socket just return */
+        if (s->forward_socket_fd < 0)
+                return;
+
         /* we need a newline after each iovec */
         size_t n = n_iovec * 2;
 
@@ -88,6 +97,11 @@ void server_forward_socket(
         xsprintf(buf, "\n__REALTIME_TIMESTAMP="USEC_FMT"\n\n", now(CLOCK_REALTIME));
         iov[n - 1] = IOVEC_MAKE_STRING(buf);
 
-        if (writev(s->forward_socket_fd, iov, n) < 0)
-                log_debug("Failed to forward log message over socket");
+        if (writev(s->forward_socket_fd, iov, n) < 0) {
+                log_debug_errno(errno, "Failed to forward log message over socket: %m");
+
+                /* if we failed to send once we will probably fail again so wait for a new connection to
+                 * establish before attempting to forward again */
+                s->forward_socket_fd = safe_close(s->forward_socket_fd);
+        }
 }

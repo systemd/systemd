@@ -384,7 +384,7 @@
         as a boolean.</para>
 
         <para>The socket forwarding address can be specified with the credential
-        <literal>journald.forward_to_socket</literal>. The following socket types are supported:</para>
+        <literal>journal.forward_to_socket</literal>. The following socket types are supported:</para>
 
         <para><simplelist type="inline">
           <member><constant>AF_INET</constant> (e.g. <literal>192.168.0.11:4444</literal>)</member>

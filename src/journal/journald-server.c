@@ -1155,8 +1155,7 @@ static void server_dispatch_message_real(
         else
                 journal_uid = 0;
 
-        if (s->forward_socket_fd >= 0)
-                server_forward_socket(s, iovec, n, priority);
+        server_forward_socket(s, iovec, n, priority);
 
         server_write_to_journal(s, journal_uid, iovec, n, priority);
 }
@@ -2469,19 +2468,19 @@ static void server_load_credentials(Server *s) {
 
         /* if we already have a forward address from config don't load the credential */
         if (s->forward_to_socket.sockaddr.sa.sa_family != AF_UNSPEC) {
-                log_debug("Socket forward address already set not loading journald.forward_to_socket");
+                log_debug("Socket forward address already set not loading journal.forward_to_socket");
                 return;
         }
 
-        r = read_credential("journald.forward_to_socket", &data, NULL);
+        r = read_credential("journal.forward_to_socket", &data, NULL);
         if (r < 0) {
-                log_debug_errno(r, "Failed to read credential journald.forward_to_socket, ignoring: %m");
+                log_debug_errno(r, "Failed to read credential journal.forward_to_socket, ignoring: %m");
                 return;
         }
 
         r = socket_address_parse(&s->forward_to_socket, data);
         if (r < 0)
-                log_debug_errno(r, "Failed to parse credential journald.forward_to_socket, ignoring: %m");
+                log_debug_errno(r, "Failed to parse credential journal.forward_to_socket, ignoring: %m");
 }
 
 int server_new(Server **ret) {
@@ -2569,11 +2568,6 @@ int server_init(Server *s, const char *namespace) {
         server_parse_config_file(s);
 
         server_load_credentials(s);
-
-        /* only open a forwarding socket if a forwarding address has been set
-         * and we are in the main namespace */
-        if (s->forward_to_socket.sockaddr.sa.sa_family != AF_UNSPEC && !s->namespace)
-                server_open_forward_socket(s);
 
         if (!s->namespace) {
                 /* Parse kernel command line, but only if we are not a namespace instance */
