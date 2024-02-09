@@ -502,7 +502,7 @@ int link_drop_foreign_neighbors(Link *link) {
         return r;
 }
 
-int link_drop_managed_neighbors(Link *link) {
+int link_drop_static_neighbors(Link *link) {
         Neighbor *neighbor;
         int r = 0;
 
@@ -510,7 +510,7 @@ int link_drop_managed_neighbors(Link *link) {
 
         SET_FOREACH(neighbor, link->neighbors) {
                 /* Do not touch nexthops managed by kernel or other tools. */
-                if (neighbor->source == NETWORK_CONFIG_SOURCE_FOREIGN)
+                if (neighbor->source != NETWORK_CONFIG_SOURCE_STATIC)
                         continue;
 
                 /* Ignore neighbors not assigned yet or already removing. */
