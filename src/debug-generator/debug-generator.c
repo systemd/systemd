@@ -20,12 +20,15 @@ static const char *arg_dest = NULL;
 static char *arg_default_unit = NULL;
 static char **arg_mask = NULL;
 static char **arg_wants = NULL;
-static char *arg_debug_shell = NULL;
+static bool arg_debug_shell = false;
+static char *arg_debug_tty = NULL;
+static char *arg_default_debug_tty = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_default_unit, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_mask, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_wants, strv_freep);
-STATIC_DESTRUCTOR_REGISTER(arg_debug_shell, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_debug_tty, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_default_debug_tty, freep);
 
 static int parse_proc_cmdline_item(const char *key, const char *value, void *data) {
         int r;
@@ -61,15 +64,18 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                         return log_oom();
 
         } else if (proc_cmdline_key_streq(key, "systemd.debug_shell")) {
-                const char *t = NULL;
-
                 r = value ? parse_boolean(value) : 1;
-                if (r < 0)
-                        t = skip_dev_prefix(value);
-                else if (r > 0)
-                        t = skip_dev_prefix(DEBUGTTY);
+                arg_debug_shell = r != 0;
+                if (r >= 0)
+                        return 0;
 
-                return free_and_strdup_warn(&arg_debug_shell, t);
+                return free_and_strdup_warn(&arg_debug_tty, skip_dev_prefix(value));
+
+        } else if (proc_cmdline_key_streq(key, "systemd.default_debug_tty")) {
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                return free_and_strdup_warn(&arg_default_debug_tty, skip_dev_prefix(value));
 
         } else if (streq(key, "systemd.unit")) {
 
@@ -136,9 +142,10 @@ static int generate_wants_symlinks(void) {
 }
 
 static void install_debug_shell_dropin(const char *dir) {
+        const char *tty = arg_debug_tty ?: arg_default_debug_tty;
         int r;
 
-        if (streq(arg_debug_shell, skip_dev_prefix(DEBUGTTY)))
+        if (!tty || path_equal(tty, skip_dev_prefix(DEBUGTTY)))
                 return;
 
         r = write_drop_in_format(dir, "debug-shell.service", 50, "tty",
@@ -147,7 +154,7 @@ static void install_debug_shell_dropin(const char *dir) {
                         "ConditionPathExists=\n"
                         "[Service]\n"
                         "TTYPath=/dev/%s",
-                        arg_debug_shell, arg_debug_shell);
+                        tty, tty);
         if (r < 0)
                 log_warning_errno(r, "Failed to write drop-in for debug-shell.service, ignoring: %m");
 }
