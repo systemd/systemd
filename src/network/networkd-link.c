@@ -1115,12 +1115,11 @@ static int link_drop_managed_config(Link *link) {
         assert(link);
         assert(link->manager);
 
-        r = link_drop_managed_routes(link);
-
-        RET_GATHER(r, link_drop_managed_nexthops(link));
-        RET_GATHER(r, link_drop_managed_addresses(link));
-        RET_GATHER(r, link_drop_managed_neighbors(link));
-        RET_GATHER(r, link_drop_managed_routing_policy_rules(link));
+        r = link_drop_static_routes(link);
+        RET_GATHER(r, link_drop_static_nexthops(link));
+        RET_GATHER(r, link_drop_static_addresses(link));
+        RET_GATHER(r, link_drop_static_neighbors(link));
+        RET_GATHER(r, link_drop_static_routing_policy_rules(link));
 
         return r;
 }
