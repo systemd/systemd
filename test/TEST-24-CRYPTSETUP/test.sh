@@ -145,6 +145,10 @@ EOF
 
     mkdir -p "$initdir/etc/systemd/system/systemd-cryptsetup@.service.d"
     cat >"$initdir/etc/systemd/system/systemd-cryptsetup@.service.d/PKCS11.conf" <<EOF
+[Unit]
+# Make sure we can start systemd-cryptsetup@empty_pkcs11_auto.service many times
+StartLimitBurst=10
+
 [Service]
 Environment="SOFTHSM2_CONF=/etc/softhsm2.conf"
 Environment="PIN=$GNUTLS_PIN"
@@ -189,9 +193,10 @@ test_create_image() {
 /dev/mapper/$DM_NAME    /var    ext4    defaults 0 1
 EOF
 
-    # Forward journal messages to the console, so we have something
-    # to investigate even if we fail to mount the encrypted /var
-    echo ForwardToConsole=yes >>"$initdir/etc/systemd/journald.conf"
+    # Forward journal messages to the console, so we have something to investigate even if we fail to mount
+    # the encrypted /var
+    mkdir "$initdir/etc/systemd/journald.conf.d/"
+    echo -ne "[Journal]\nForwardToConsole=yes\n" >"$initdir/etc/systemd/journald.conf.d/99-forward.conf"
 
     # If $INITRD wasn't provided explicitly, generate a custom one with dm-crypt
     # support

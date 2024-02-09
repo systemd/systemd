@@ -49,6 +49,12 @@ DEFINE_HASH_OPS_WITH_VALUE_DESTRUCTOR(
         char, string_hash_func, string_compare_func,
         ExecLoadCredential, exec_load_credential_free);
 
+bool exec_params_need_credentials(const ExecParameters *p) {
+        assert(p);
+
+        return p->flags & (EXEC_SETUP_CREDENTIALS|EXEC_SETUP_CREDENTIALS_FRESH);
+}
+
 bool exec_context_has_credentials(const ExecContext *c) {
         assert(c);
 
@@ -57,16 +63,15 @@ bool exec_context_has_credentials(const ExecContext *c) {
                 !set_isempty(c->import_credentials);
 }
 
-bool exec_context_has_encrypted_credentials(ExecContext *c) {
-        ExecLoadCredential *load_cred;
-        ExecSetCredential *set_cred;
-
+bool exec_context_has_encrypted_credentials(const ExecContext *c) {
         assert(c);
 
+        const ExecLoadCredential *load_cred;
         HASHMAP_FOREACH(load_cred, c->load_credentials)
                 if (load_cred->encrypted)
                         return true;
 
+        const ExecSetCredential *set_cred;
         HASHMAP_FOREACH(set_cred, c->set_credentials)
                 if (set_cred->encrypted)
                         return true;
@@ -107,7 +112,7 @@ int exec_context_get_credential_directory(
         assert(unit);
         assert(ret);
 
-        if (!exec_context_has_credentials(context)) {
+        if (!exec_params_need_credentials(params) || !exec_context_has_credentials(context)) {
                 *ret = NULL;
                 return 0;
         }
@@ -173,6 +178,10 @@ static int write_credential(
         _cleanup_close_ int fd = -EBADF;
         int r;
 
+        assert(dfd >= 0);
+        assert(id);
+        assert(data || size == 0);
+
         r = tempfn_random_child("", "cred", &tmp);
         if (r < 0)
                 return r;
@@ -225,7 +234,6 @@ typedef enum CredentialSearchPath {
 } CredentialSearchPath;
 
 static char **credential_search_path(const ExecParameters *params, CredentialSearchPath path) {
-
         _cleanup_strv_free_ char **l = NULL;
 
         assert(params);
@@ -275,14 +283,19 @@ static int maybe_decrypt_and_write_credential(
         size_t add;
         int r;
 
+        assert(dir_fd >= 0);
+        assert(id);
+        assert(left);
+
         if (encrypted) {
                 r = decrypt_credential_and_warn(
                                 id,
                                 now(CLOCK_REALTIME),
                                 /* tpm2_device= */ NULL,
                                 /* tpm2_signature_path= */ NULL,
+                                getuid(),
                                 &IOVEC_MAKE(data, size),
-                                /* flags= */ 0,
+                                CREDENTIAL_ANY_SCOPE,
                                 &plaintext);
                 if (r < 0)
                         return r;
@@ -306,7 +319,7 @@ static int maybe_decrypt_and_write_credential(
 static int load_credential_glob(
                 const char *path,
                 bool encrypted,
-                char **search_path,
+                char * const *search_path,
                 ReadFullFileFlags flags,
                 int write_dfd,
                 uid_t uid,
@@ -315,6 +328,11 @@ static int load_credential_glob(
                 uint64_t *left) {
 
         int r;
+
+        assert(path);
+        assert(search_path);
+        assert(write_dfd >= 0);
+        assert(left);
 
         STRV_FOREACH(d, search_path) {
                 _cleanup_globfree_ glob_t pglob = {};
@@ -330,38 +348,36 @@ static int load_credential_glob(
                 if (r < 0)
                         return r;
 
-                for (size_t n = 0; n < pglob.gl_pathc; n++) {
+                FOREACH_ARRAY(p, pglob.gl_pathv, pglob.gl_pathc) {
                         _cleanup_free_ char *fn = NULL;
                         _cleanup_(erase_and_freep) char *data = NULL;
                         size_t size;
 
                         /* path is absolute, hence pass AT_FDCWD as nop dir fd here */
                         r = read_full_file_full(
-                                AT_FDCWD,
-                                pglob.gl_pathv[n],
-                                UINT64_MAX,
-                                encrypted ? CREDENTIAL_ENCRYPTED_SIZE_MAX : CREDENTIAL_SIZE_MAX,
-                                flags,
-                                NULL,
-                                &data, &size);
+                                        AT_FDCWD,
+                                        *p,
+                                        UINT64_MAX,
+                                        encrypted ? CREDENTIAL_ENCRYPTED_SIZE_MAX : CREDENTIAL_SIZE_MAX,
+                                        flags,
+                                        NULL,
+                                        &data, &size);
                         if (r < 0)
-                                return log_debug_errno(r, "Failed to read credential '%s': %m",
-                                                        pglob.gl_pathv[n]);
+                                return log_debug_errno(r, "Failed to read credential '%s': %m", *p);
 
-                        r = path_extract_filename(pglob.gl_pathv[n], &fn);
+                        r = path_extract_filename(*p, &fn);
                         if (r < 0)
-                                return log_debug_errno(r, "Failed to extract filename from '%s': %m",
-                                                        pglob.gl_pathv[n]);
+                                return log_debug_errno(r, "Failed to extract filename from '%s': %m", *p);
 
                         r = maybe_decrypt_and_write_credential(
-                                write_dfd,
-                                fn,
-                                encrypted,
-                                uid,
-                                gid,
-                                ownership_ok,
-                                data, size,
-                                left);
+                                        write_dfd,
+                                        fn,
+                                        encrypted,
+                                        uid,
+                                        gid,
+                                        ownership_ok,
+                                        data, size,
+                                        left);
                         if (r == -EEXIST)
                                 continue;
                         if (r < 0)
@@ -522,6 +538,9 @@ static int load_cred_recurse_dir_cb(
         _cleanup_free_ char *sub_id = NULL;
         int r;
 
+        assert(path);
+        assert(de);
+
         if (event != RECURSE_DIR_ENTRY)
                 return RECURSE_DIR_CONTINUE;
 
@@ -578,6 +597,8 @@ static int acquire_credentials(
         int r;
 
         assert(context);
+        assert(params);
+        assert(unit);
         assert(p);
 
         dfd = open(p, O_DIRECTORY|O_CLOEXEC);
@@ -622,8 +643,7 @@ static int acquire_credentials(
                                         &left);
                 else
                         /* Directory */
-                        r = recurse_dir(
-                                        sub_fd,
+                        r = recurse_dir(sub_fd,
                                         /* path= */ lc->id, /* recurse_dir() will suffix the subdir paths from here to the top-level id */
                                         /* statx_mask= */ 0,
                                         /* n_depth_max= */ UINT_MAX,
@@ -707,8 +727,9 @@ static int acquire_credentials(
                                         now(CLOCK_REALTIME),
                                         /* tpm2_device= */ NULL,
                                         /* tpm2_signature_path= */ NULL,
+                                        getuid(),
                                         &IOVEC_MAKE(sc->data, sc->size),
-                                        /* flags= */ 0,
+                                        CREDENTIAL_ANY_SCOPE,
                                         &plaintext);
                         if (r < 0)
                                 return r;
@@ -766,17 +787,42 @@ static int setup_credentials_internal(
                 uid_t uid,
                 gid_t gid) {
 
+        bool final_mounted;
         int r, workspace_mounted; /* negative if we don't know yet whether we have/can mount something; true
                                    * if we mounted something; false if we definitely can't mount anything */
-        bool final_mounted;
-        const char *where;
 
         assert(context);
+        assert(params);
+        assert(unit);
         assert(final);
         assert(workspace);
 
+        r = path_is_mount_point(final);
+        if (r < 0)
+                return r;
+        final_mounted = r > 0;
+
+        if (final_mounted) {
+                if (FLAGS_SET(params->flags, EXEC_SETUP_CREDENTIALS_FRESH)) {
+                        r = umount_verbose(LOG_DEBUG, final, MNT_DETACH|UMOUNT_NOFOLLOW);
+                        if (r < 0)
+                                return r;
+
+                        final_mounted = false;
+                } else {
+                        /* We can reuse the previous credential dir */
+                        r = dir_is_empty(final, /* ignore_hidden_or_backup = */ false);
+                        if (r < 0)
+                                return r;
+                        if (r == 0) {
+                                log_debug("Credential dir for unit '%s' already set up, skipping.", unit);
+                                return 0;
+                        }
+                }
+        }
+
         if (reuse_workspace) {
-                r = path_is_mount_point(workspace, NULL, 0);
+                r = path_is_mount_point(workspace);
                 if (r < 0)
                         return r;
                 if (r > 0)
@@ -787,40 +833,19 @@ static int setup_credentials_internal(
         } else
                 workspace_mounted = -1; /* ditto */
 
-        r = path_is_mount_point(final, NULL, 0);
-        if (r < 0)
-                return r;
-        if (r > 0) {
-                /* If the final place already has something mounted, we use that. If the workspace also has
-                 * something mounted we assume it's actually the same mount (but with MS_RDONLY
-                 * different). */
-                final_mounted = true;
-
-                if (workspace_mounted < 0) {
-                        /* If the final place is mounted, but the workspace isn't, then let's bind mount
-                         * the final version to the workspace, and make it writable, so that we can make
-                         * changes */
-
-                        r = mount_nofollow_verbose(LOG_DEBUG, final, workspace, NULL, MS_BIND|MS_REC, NULL);
-                        if (r < 0)
-                                return r;
-
-                        r = mount_nofollow_verbose(LOG_DEBUG, NULL, workspace, NULL, MS_BIND|MS_REMOUNT|credentials_fs_mount_flags(/* ro= */ false), NULL);
-                        if (r < 0)
-                                return r;
-
-                        workspace_mounted = true;
-                }
-        } else
-                final_mounted = false;
+        /* If both the final place and the workspace are mounted, we have no mounts to set up, based on
+         * the assumption that they're actually the same tmpfs (but the latter with MS_RDONLY different).
+         * If the workspace is not mounted, we just bind the final place over and make it writable. */
+        must_mount = must_mount || final_mounted;
 
         if (workspace_mounted < 0) {
-                /* Nothing is mounted on the workspace yet, let's try to mount something now */
-
-                r = mount_credentials_fs(workspace, CREDENTIALS_TOTAL_SIZE_MAX, /* ro= */ false);
-                if (r < 0) {
-                        /* If that didn't work, try to make a bind mount from the final to the workspace, so
-                         * that we can make it writable there. */
+                if (!final_mounted)
+                        /* Nothing is mounted on the workspace yet, let's try to mount a new tmpfs if
+                         * not using the final place. */
+                        r = mount_credentials_fs(workspace, CREDENTIALS_TOTAL_SIZE_MAX, /* ro= */ false);
+                if (final_mounted || r < 0) {
+                        /* If using final place or failed to mount new tmpfs, make a bind mount from
+                         * the final to the workspace, so that we can make it writable there. */
                         r = mount_nofollow_verbose(LOG_DEBUG, final, workspace, NULL, MS_BIND|MS_REC, NULL);
                         if (r < 0) {
                                 if (!ERRNO_IS_PRIVILEGE(r))
@@ -833,12 +858,19 @@ static int setup_credentials_internal(
                                         return r;
 
                                 /* If we lack privileges to bind mount stuff, then let's gracefully proceed
-                                 * for compat with container envs, and just use the final dir as is. */
+                                 * for compat with container envs, and just use the final dir as is.
+                                 * Final place must not be mounted in this case (refused by must_mount
+                                 * above) */
 
                                 workspace_mounted = false;
                         } else {
                                 /* Make the new bind mount writable (i.e. drop MS_RDONLY) */
-                                r = mount_nofollow_verbose(LOG_DEBUG, NULL, workspace, NULL, MS_BIND|MS_REMOUNT|credentials_fs_mount_flags(/* ro= */ false), NULL);
+                                r = mount_nofollow_verbose(LOG_DEBUG,
+                                                           NULL,
+                                                           workspace,
+                                                           NULL,
+                                                           MS_BIND|MS_REMOUNT|credentials_fs_mount_flags(/* ro= */ false),
+                                                           NULL);
                                 if (r < 0)
                                         return r;
 
@@ -848,34 +880,26 @@ static int setup_credentials_internal(
                         workspace_mounted = true;
         }
 
-        assert(!must_mount || workspace_mounted > 0);
-        where = workspace_mounted ? workspace : final;
+        assert(workspace_mounted >= 0);
+        assert(!must_mount || workspace_mounted);
+
+        const char *where = workspace_mounted ? workspace : final;
 
         (void) label_fix_full(AT_FDCWD, where, final, 0);
 
         r = acquire_credentials(context, params, unit, where, uid, gid, workspace_mounted);
-        if (r < 0)
+        if (r < 0) {
+                /* If we're using final place as workspace, and failed to acquire credentials, we might
+                 * have left half-written creds there. Let's get rid of the whole mount, so future
+                 * calls won't reuse it. */
+                if (final_mounted)
+                        (void) umount_verbose(LOG_DEBUG, final, MNT_DETACH|UMOUNT_NOFOLLOW);
+
                 return r;
+        }
 
         if (workspace_mounted) {
-                bool install;
-
-                /* Determine if we should actually install the prepared mount in the final location by bind
-                 * mounting it there. We do so only if the mount is not established there already, and if the
-                 * mount is actually non-empty (i.e. carries at least one credential). Not that in the best
-                 * case we are doing all this in a mount namespace, thus no one else will see that we
-                 * allocated a file system we are getting rid of again here. */
-                if (final_mounted)
-                        install = false; /* already installed */
-                else {
-                        r = dir_is_empty(where, /* ignore_hidden_or_backup= */ false);
-                        if (r < 0)
-                                return r;
-
-                        install = r == 0; /* install only if non-empty */
-                }
-
-                if (install) {
+                if (!final_mounted) {
                         /* Make workspace read-only now, so that any bind mount we make from it defaults to
                          * read-only too */
                         r = mount_nofollow_verbose(LOG_DEBUG, NULL, workspace, NULL, MS_BIND|MS_REMOUNT|credentials_fs_mount_flags(/* ro= */ true), NULL);
@@ -885,7 +909,7 @@ static int setup_credentials_internal(
                         /* And mount it to the final place, read-only */
                         r = mount_nofollow_verbose(LOG_DEBUG, workspace, final, NULL, MS_MOVE, NULL);
                 } else
-                        /* Otherwise get rid of it */
+                        /* Otherwise we just get rid of the bind mount of final place */
                         r = umount_verbose(LOG_DEBUG, workspace, MNT_DETACH|UMOUNT_NOFOLLOW);
                 if (r < 0)
                         return r;
@@ -917,8 +941,9 @@ int exec_setup_credentials(
 
         assert(context);
         assert(params);
+        assert(unit);
 
-        if (!exec_context_has_credentials(context))
+        if (!exec_params_need_credentials(params) || !exec_context_has_credentials(context))
                 return 0;
 
         if (!params->prefix[EXEC_DIRECTORY_RUNTIME])

@@ -1303,7 +1303,7 @@ int opinionated_personality(unsigned long *ret) {
         if (current < 0)
                 return current;
 
-        if (((unsigned long) current & 0xffff) == PER_LINUX32)
+        if (((unsigned long) current & OPINIONATED_PERSONALITY_MASK) == PER_LINUX32)
                 *ret = PER_LINUX32;
         else
                 *ret = PER_LINUX;
@@ -2034,49 +2034,109 @@ int make_reaper_process(bool b) {
         return 0;
 }
 
-int posix_spawn_wrapper(const char *path, char *const *argv, char *const *envp, pid_t *ret_pid) {
+DEFINE_TRIVIAL_CLEANUP_FUNC_FULL(posix_spawnattr_t*, posix_spawnattr_destroy, NULL);
+
+int posix_spawn_wrapper(
+                const char *path,
+                char * const *argv,
+                char * const *envp,
+                const char *cgroup,
+                PidRef *ret_pidref) {
+
+        short flags = POSIX_SPAWN_SETSIGMASK|POSIX_SPAWN_SETSIGDEF;
         posix_spawnattr_t attr;
         sigset_t mask;
-        pid_t pid;
         int r;
 
         /* Forks and invokes 'path' with 'argv' and 'envp' using CLONE_VM and CLONE_VFORK, which means the
          * caller will be blocked until the child either exits or exec's. The memory of the child will be
          * fully shared with the memory of the parent, so that there are no copy-on-write or memory.max
-         * issues. */
+         * issues.
+         *
+         * Also, move the newly-created process into 'cgroup' through POSIX_SPAWN_SETCGROUP (clone3())
+         * if available. Note that CLONE_INTO_CGROUP is only supported on cgroup v2.
+         * returns 1: We're already in the right cgroup
+         *         0: 'cgroup' not specified or POSIX_SPAWN_SETCGROUP is not supported. The caller
+         *            needs to call 'cg_attach' on their own */
 
         assert(path);
         assert(argv);
-        assert(ret_pid);
+        assert(ret_pidref);
 
         assert_se(sigfillset(&mask) >= 0);
 
         r = posix_spawnattr_init(&attr);
         if (r != 0)
                 return -r; /* These functions return a positive errno on failure */
-        r = posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSIGMASK);
+
+        /* Initialization needs to succeed before we can set up a destructor. */
+        _unused_ _cleanup_(posix_spawnattr_destroyp) posix_spawnattr_t *attr_destructor = &attr;
+
+#if HAVE_PIDFD_SPAWN
+        _cleanup_close_ int cgroup_fd = -EBADF;
+
+        if (cgroup) {
+                _cleanup_free_ char *resolved_cgroup = NULL;
+
+                r = cg_get_path_and_check(
+                                SYSTEMD_CGROUP_CONTROLLER,
+                                cgroup,
+                                /* suffix= */ NULL,
+                                &resolved_cgroup);
+                if (r < 0)
+                        return r;
+
+                cgroup_fd = open(resolved_cgroup, O_PATH|O_DIRECTORY|O_CLOEXEC);
+                if (cgroup_fd < 0)
+                        return -errno;
+
+                r = posix_spawnattr_setcgroup_np(&attr, cgroup_fd);
+                if (r != 0)
+                        return -r;
+
+                flags |= POSIX_SPAWN_SETCGROUP;
+        }
+#endif
+
+        r = posix_spawnattr_setflags(&attr, flags);
         if (r != 0)
-                goto fail;
-        r = posix_spawnattr_setflags(&attr, POSIX_SPAWN_SETSIGDEF); /* Set all signals to SIG_DFL */
-        if (r != 0)
-                goto fail;
+                return -r;
         r = posix_spawnattr_setsigmask(&attr, &mask);
         if (r != 0)
-                goto fail;
+                return -r;
 
+#if HAVE_PIDFD_SPAWN
+        _cleanup_close_ int pidfd = -EBADF;
+
+        r = pidfd_spawn(&pidfd, path, NULL, &attr, argv, envp);
+        if (r == 0) {
+                r = pidref_set_pidfd_consume(ret_pidref, TAKE_FD(pidfd));
+                if (r < 0)
+                        return r;
+
+                return FLAGS_SET(flags, POSIX_SPAWN_SETCGROUP);
+        }
+        if (!(ERRNO_IS_NOT_SUPPORTED(r) || ERRNO_IS_PRIVILEGE(r)))
+                return -r;
+
+        /* Compiled on a newer host, or seccomp&friends blocking clone3()? Fallback, but need to change the
+         * flags to remove the cgroup one, which is what redirects to clone3() */
+        flags &= ~POSIX_SPAWN_SETCGROUP;
+        r = posix_spawnattr_setflags(&attr, flags);
+        if (r != 0)
+                return -r;
+#endif
+
+        pid_t pid;
         r = posix_spawn(&pid, path, NULL, &attr, argv, envp);
         if (r != 0)
-                goto fail;
+                return -r;
 
-        *ret_pid = pid;
+        r = pidref_set_pid(ret_pidref, pid);
+        if (r < 0)
+                return r;
 
-        posix_spawnattr_destroy(&attr);
-        return 0;
-
-fail:
-        assert(r > 0);
-        posix_spawnattr_destroy(&attr);
-        return -r;
+        return 0; /* We did not use CLONE_INTO_CGROUP so return 0, the caller will have to move the child */
 }
 
 int proc_dir_open(DIR **ret) {

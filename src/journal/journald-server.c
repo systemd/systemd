@@ -2507,7 +2507,7 @@ int server_new(Server **ret) {
 int server_init(Server *s, const char *namespace) {
         const char *native_socket, *syslog_socket, *stdout_socket, *varlink_socket, *e;
         _cleanup_fdset_free_ FDSet *fds = NULL;
-        int n, r, fd, varlink_fd = -EBADF;
+        int n, r, varlink_fd = -EBADF;
         bool no_sockets;
 
         assert(s);
@@ -2575,7 +2575,7 @@ int server_init(Server *s, const char *namespace) {
         syslog_socket = strjoina(s->runtime_directory, "/dev-log");
         varlink_socket = strjoina(s->runtime_directory, "/io.systemd.journal");
 
-        for (fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++) {
+        for (int fd = SD_LISTEN_FDS_START; fd < SD_LISTEN_FDS_START + n; fd++)
 
                 if (sd_is_socket_unix(fd, SOCK_DGRAM, -1, native_socket, 0) > 0) {
 
@@ -2628,7 +2628,6 @@ int server_init(Server *s, const char *namespace) {
                         if (r < 0)
                                 return log_oom();
                 }
-        }
 
         /* Try to restore streams, but don't bother if this fails */
         (void) server_restore_streams(s, fds);

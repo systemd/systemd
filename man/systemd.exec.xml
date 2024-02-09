@@ -3396,6 +3396,12 @@ StandardInputData=V2XigLJyZSBubyBzdHJhbmdlcnMgdG8gbG92ZQpZb3Uga25vdyB0aGUgcnVsZX
         <citerefentry><refentrytitle>systemd.resource-control</refentrytitle><manvolnum>5</manvolnum></citerefentry>
         for the details about <varname>DevicePolicy=</varname> or <varname>DeviceAllow=</varname>.</para>
 
+        <para>Note that encrypted credentials targeted for services of the per-user service manager must be
+        encrypted with <command>systemd-creds encrypt --user</command>, and those for the system service
+        manager without the <option>--user</option> switch. Encrypted credentials are always targeted to a
+        specific user or the system as a whole, and it is ensured that per-user service managers cannot
+        decrypt secrets intended for the system or for other users.</para>
+
         <para>The credential files/IPC sockets must be accessible to the service manager, but don't have to
         be directly accessible to the unit's processes: the credential data is read and copied into separate,
         read-only copies for the unit that are accessible to appropriately privileged processes. This is

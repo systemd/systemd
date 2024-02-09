@@ -373,6 +373,7 @@ static int message_from_header(
         if (!m)
                 return -ENOMEM;
 
+        m->creds = (sd_bus_creds) { SD_BUS_CREDS_INIT_FIELDS };
         m->sealed = true;
         m->header = buffer;
 
@@ -469,6 +470,7 @@ _public_ int sd_bus_message_new(
                 return -ENOMEM;
 
         t->n_ref = 1;
+        t->creds = (sd_bus_creds) { SD_BUS_CREDS_INIT_FIELDS };
         t->bus = sd_bus_ref(bus);
         t->header = (struct bus_header*) ((uint8_t*) t + ALIGN(sizeof(struct sd_bus_message)));
         t->header->endian = BUS_NATIVE_ENDIAN;

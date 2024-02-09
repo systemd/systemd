@@ -73,11 +73,11 @@ TEST(is_symlink) {
 
 TEST(path_is_fs_type) {
         /* run might not be a mount point in build chroots */
-        if (path_is_mount_point("/run", NULL, AT_SYMLINK_FOLLOW) > 0) {
+        if (path_is_mount_point_full("/run", NULL, AT_SYMLINK_FOLLOW) > 0) {
                 assert_se(path_is_fs_type("/run", TMPFS_MAGIC) > 0);
                 assert_se(path_is_fs_type("/run", BTRFS_SUPER_MAGIC) == 0);
         }
-        if (path_is_mount_point("/proc", NULL, AT_SYMLINK_FOLLOW) > 0) {
+        if (path_is_mount_point_full("/proc", NULL, AT_SYMLINK_FOLLOW) > 0) {
                 assert_se(path_is_fs_type("/proc", PROC_SUPER_MAGIC) > 0);
                 assert_se(path_is_fs_type("/proc", BTRFS_SUPER_MAGIC) == 0);
         }
@@ -95,7 +95,7 @@ TEST(path_is_temporary_fs) {
         }
 
         /* run might not be a mount point in build chroots */
-        if (path_is_mount_point("/run", NULL, AT_SYMLINK_FOLLOW) > 0)
+        if (path_is_mount_point_full("/run", NULL, AT_SYMLINK_FOLLOW) > 0)
                 assert_se(path_is_temporary_fs("/run") > 0);
         assert_se(path_is_temporary_fs("/proc") == 0);
         assert_se(path_is_temporary_fs("/i-dont-exist") == -ENOENT);
@@ -111,7 +111,7 @@ TEST(path_is_read_only_fs) {
                                s, r, r < 0 ? errno_to_name(r) : yes_no(r));
         }
 
-        if (path_is_mount_point("/sys", NULL, AT_SYMLINK_FOLLOW) > 0)
+        if (path_is_mount_point_full("/sys", NULL, AT_SYMLINK_FOLLOW) > 0)
                 assert_se(IN_SET(path_is_read_only_fs("/sys"), 0, 1));
 
         assert_se(path_is_read_only_fs("/proc") == 0);

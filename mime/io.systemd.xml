@@ -33,10 +33,13 @@
     <generic-icon name="security-high"/>
     <magic>
       <match type="string" value="Whxqht+dQJax1aZeCGLxm" offset="0"/>
+      <match type="string" value="VbntHThZTUOoMZ0uuzMqx" offset="0"/>
       <match type="string" value="DHzAexF2RZGcSwvqCLwg/" offset="0"/>
       <match type="string" value="+vfrk0HjQSyhpDb5Wik2L" offset="0"/>
       <match type="string" value="k6iUCUh0RJCQyvL8k8q1U" offset="0"/>
+      <match type="string" value="70rBNnmpSA6n22iJf58WX" offset="0"/>
       <match type="string" value="r0lQqEkTTrGnOEYwT/MMB" offset="0"/>
+      <match type="string" value="rbxMo++2QgG6iBtvLkCV6" offset="0"/>
       <match type="string" value="BYRp2vb1QySABUnaD46i+" offset="0"/>
     </magic>
   </mime-type>

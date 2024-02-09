@@ -4,6 +4,9 @@ CHANGES WITH 256 in spe:
 
         Announcements of Future Feature Removals and Incompatible Changes:
 
+        * Support for flushing of the nscd user/group database caches will be
+          dropped in a future release.
+
         * Previously, systemd-networkd did not explicitly remove any bridge VLAN
           IDs assigned on bridge master and ports. Since v256, if a .network
           file for an interface has at least one valid settings in [BridgeVLAN]

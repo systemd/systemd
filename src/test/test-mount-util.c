@@ -508,11 +508,11 @@ TEST(bind_mount_submounts) {
         free(x);
 
         assert_se(x = path_join(b, "x"));
-        assert_se(path_is_mount_point(x, NULL, 0) > 0);
+        assert_se(path_is_mount_point(x) > 0);
         free(x);
 
         assert_se(x = path_join(b, "y"));
-        assert_se(path_is_mount_point(x, NULL, 0) > 0);
+        assert_se(path_is_mount_point(x) > 0);
 
         assert_se(umount_recursive(a, 0) >= 0);
         assert_se(umount_recursive(b, 0) >= 0);

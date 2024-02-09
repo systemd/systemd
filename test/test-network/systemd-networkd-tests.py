@@ -11,7 +11,7 @@
 #
 #    sudo ./systemd-networkd-tests.py NetworkdMTUTests.test_ipv6_mtu
 #
-# Similarly, other indivdual tests can be run, eg.:
+# Similarly, other individual tests can be run, eg.:
 #
 #    sudo ./systemd-networkd-tests.py NetworkdNetworkTests.test_ipv6_neigh_retrans_time
 
@@ -789,12 +789,8 @@ def networkctl_json(*args):
 def networkctl_reconfigure(*links):
     networkctl('reconfigure', *links)
 
-def networkctl_reload(sleep_time=1):
+def networkctl_reload():
     networkctl('reload')
-    # 'networkctl reload' asynchronously reconfigure links.
-    # Hence, we need to wait for a short time for link to be in configuring state.
-    if sleep_time > 0:
-        time.sleep(sleep_time)
 
 def resolvectl(*args):
     return check_output(*(resolvectl_cmd + list(args)), env=env)
@@ -4596,6 +4592,12 @@ class NetworkdBondTests(unittest.TestCase, Utilities):
         output = check_output('ip -d link show bond199')
         print(output)
         self.assertIn('active_slave dummy98', output)
+
+        # test case for issue #31165.
+        since = datetime.datetime.now()
+        networkctl_reconfigure('dummy98')
+        self.wait_online(['dummy98:enslaved', 'bond199:degraded'])
+        self.assertNotIn('dummy98: Bringing link down', read_networkd_log(since=since))
 
     def test_bond_primary_slave(self):
         copy_network_unit('23-primary-slave.network', '23-bond199.network', '25-bond-active-backup-slave.netdev', '12-dummy.netdev')

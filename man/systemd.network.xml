@@ -267,15 +267,8 @@
           when determining whether the system is online (including when running
           <command>systemd-networkd-wait-online</command>). When <literal>no</literal>, the network is
           ignored when determining the online state. When a minimum operational state and an optional
-          maximum operational state are set, <literal>yes</literal> is implied, and this controls the
-          minimum and maximum operational state required for the network interface to be considered
-          online.</para>
-
-          <para>When <literal>yes</literal> is specified for a CAN device,
-          <command>systemd-networkd-wait-online</command> deems that the interface is online when its
-          operational state becomes <literal>carrier</literal>. For an interface with other type, e.g.
-          <literal>ether</literal>, the interface is deened online when its online state is
-          <literal>degraded</literal> or <literal>routable</literal>.</para>
+          maximum operational state are set, <command>systemd-networkd-wait-online</command> deems that the
+          interface is online when the operational state is in the specified range.</para>
 
           <para>Defaults to <literal>yes</literal> when <varname>ActivationPolicy=</varname> is not
           set, or set to <literal>up</literal>, <literal>always-up</literal>, or
@@ -290,6 +283,44 @@
           skipped automatically by <command>systemd-networkd-wait-online</command> if
           <literal>RequiredForOnline=no</literal>.</para>
 
+          <para>The boolean value <literal>yes</literal> is translated as follows;
+          <variablelist>
+            <varlistentry>
+              <term><option>CAN devices</option></term>
+              <listitem>
+                <para><literal>carrier</literal>,</para>
+                <xi:include href="version-info.xml" xpointer="v256"/>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>Master devices, e.g. bond or bridge</option></term>
+              <listitem>
+                <para><literal>degraded-carrier</literal> with <varname>RequiredFamilyForOnline=any</varname>,</para>
+                <xi:include href="version-info.xml" xpointer="v256"/>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>Bonding port interfaces</option></term>
+              <listitem>
+                <para><literal>enslaved</literal>,</para>
+                <xi:include href="version-info.xml" xpointer="v256"/>
+              </listitem>
+            </varlistentry>
+            <varlistentry>
+              <term><option>Other interfaces</option></term>
+              <listitem>
+                <para><literal>degraded</literal>.</para>
+                <xi:include href="version-info.xml" xpointer="v236"/>
+              </listitem>
+            </varlistentry>
+          </variablelist>
+          </para>
+
+          <para>This setting can be overridden by the command line option for
+          <command>systemd-networkd-wait-online</command>. See
+          <citerefentry><refentrytitle>systemd-networkd-wait-online.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          for more details.</para>
+
           <xi:include href="version-info.xml" xpointer="v236"/>
         </listitem>
       </varlistentry>
@@ -301,9 +332,8 @@
           required when determining whether the link is online (including when running
           <command>systemd-networkd-wait-online</command>). Takes one of <literal>ipv4</literal>,
           <literal>ipv6</literal>, <literal>both</literal>, or <literal>any</literal>. Defaults to
-          <literal>any</literal>. Note that this option has no effect if
-          <literal>RequiredForOnline=no</literal>, or if <literal>RequiredForOnline=</literal>
-          specifies a minimum operational state below <literal>degraded</literal>.</para>
+          <literal>no</literal>. Note that this option has no effect if
+          <literal>RequiredForOnline=no</literal>.</para>
 
           <xi:include href="version-info.xml" xpointer="v249"/>
         </listitem>
@@ -2311,7 +2341,7 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           are implied and these settings in the .network file are silently ignored. Also,
           <varname>Hostname=</varname>,
           <varname>MUDURL=</varname>,
-          <varname>RequestAddress</varname>,
+          <varname>RequestAddress=</varname>,
           <varname>RequestOptions=</varname>,
           <varname>SendOption=</varname>,
           <varname>SendVendorOption=</varname>,
@@ -2653,8 +2683,7 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           <para>When true, the DHCPv4 configuration will be delayed by the timespan provided by the DHCP
           server and skip to configure dynamic IPv4 network connectivity if IPv6 connectivity is provided
           within the timespan. See <ulink url="https://tools.ietf.org/html/rfc8925">RFC 8925</ulink>.
-          Defaults to true when <varname>IPv6AcceptRA=</varname> is enabled or DHCPv6 client is enabled
-          (i.e., <varname>DHCP=yes</varname>), and false otherwise.</para>
+          Defaults to false.</para>
 
           <xi:include href="version-info.xml" xpointer="v255"/>
         </listitem>

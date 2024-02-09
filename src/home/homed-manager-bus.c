@@ -591,6 +591,10 @@ static int method_release_home(sd_bus_message *message, void *userdata, sd_bus_e
         return generic_home_method(userdata, message, bus_home_method_release, error);
 }
 
+static int method_inhibit_suspend_home(sd_bus_message *message, void *userdata, sd_bus_error *error) {
+        return generic_home_method(userdata, message, bus_home_method_inhibit_suspend, error);
+}
+
 static int method_lock_all_homes(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         _cleanup_(operation_unrefp) Operation *o = NULL;
         bool waiting = false;
@@ -844,6 +848,12 @@ static const sd_bus_vtable manager_vtable[] = {
                                 SD_BUS_NO_RESULT,
                                 method_release_home,
                                 0),
+
+        SD_BUS_METHOD_WITH_ARGS("InhibitSuspendHome",
+                                SD_BUS_ARGS("s", user_name),
+                                SD_BUS_RESULT("h", send_fd),
+                                method_inhibit_suspend_home,
+                                SD_BUS_VTABLE_UNPRIVILEGED),
 
         /* An operation that acts on all homes that allow it */
         SD_BUS_METHOD("LockAllHomes", NULL, NULL, method_lock_all_homes, 0),

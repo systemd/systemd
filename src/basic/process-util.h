@@ -101,11 +101,16 @@ bool is_main_thread(void);
 bool oom_score_adjust_is_valid(int oa);
 
 #ifndef PERSONALITY_INVALID
-/* personality(7) documents that 0xffffffffUL is used for querying the
+/* personality(2) documents that 0xFFFFFFFFUL is used for querying the
  * current personality, hence let's use that here as error
  * indicator. */
-#define PERSONALITY_INVALID 0xffffffffLU
+#define PERSONALITY_INVALID 0xFFFFFFFFUL
 #endif
+
+/* The personality() syscall returns a 32-bit value where the top three bytes are reserved for flags that
+ * emulate historical or architectural quirks, and only the least significant byte reflects the actual
+ * personality we're interested in. */
+#define OPINIONATED_PERSONALITY_MASK 0xFFUL
 
 unsigned long personality_from_string(const char *p);
 const char *personality_to_string(unsigned long);
@@ -238,7 +243,12 @@ int get_process_threads(pid_t pid);
 int is_reaper_process(void);
 int make_reaper_process(bool b);
 
-int posix_spawn_wrapper(const char *path, char *const *argv, char *const *envp, pid_t *ret_pid);
+int posix_spawn_wrapper(
+                const char *path,
+                char * const *argv,
+                char * const *envp,
+                const char *cgroup,
+                PidRef *ret_pidref);
 
 int proc_dir_open(DIR **ret);
 int proc_dir_read(DIR *d, pid_t *ret);

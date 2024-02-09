@@ -366,6 +366,15 @@ evdev:input:b0003v0430p0530*
  EVDEV_ABS_01=0:4096:16
 
 #########################################
+# GAOMON
+#########################################
+
+# GAOMON S620
+evdev:input:b0003v256Cp006F*
+ EVDEV_ABS_00=::210
+ EVDEV_ABS_01=::323
+
+#########################################
 # Google
 #########################################
 
@@ -482,8 +491,9 @@ evdev:name:SynPS/2 Synaptics TouchPad:dmi:*svnHP:pnHPENVYx360Convertible15-cn0xx
 # HUION
 #########################################
 
-# HUION Inpiroy H420X
+# HUION Inspiroy H420X and 2 L
 evdev:input:b0003v256Cp0064*
+evdev:input:b0003v256Cp0068*
  EVDEV_ABS_00=::200
  EVDEV_ABS_01=::200
 

@@ -5,7 +5,7 @@
 #     ninja -C build update-man-rules
 manpages = [
 ['binfmt.d', '5', [], 'ENABLE_BINFMT'],
- ['bootctl', '1', [], 'ENABLE_BOOTLOADER'],
+ ['bootctl', '1', [], ''],
  ['bootup', '7', [], ''],
  ['busctl', '1', [], ''],
  ['coredump.conf', '5', ['coredump.conf.d'], 'ENABLE_COREDUMP'],
@@ -202,6 +202,7 @@ manpages = [
    'sd_bus_creds_get_fsuid',
    'sd_bus_creds_get_gid',
    'sd_bus_creds_get_owner_uid',
+   'sd_bus_creds_get_pidfd_dup',
    'sd_bus_creds_get_ppid',
    'sd_bus_creds_get_selinux_context',
    'sd_bus_creds_get_session',
@@ -227,6 +228,7 @@ manpages = [
   '3',
   ['sd_bus_creds_get_augmented_mask',
    'sd_bus_creds_get_mask',
+   'sd_bus_creds_new_from_pidfd',
    'sd_bus_creds_ref',
    'sd_bus_creds_unref',
    'sd_bus_creds_unrefp'],

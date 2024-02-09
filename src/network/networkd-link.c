@@ -76,14 +76,46 @@ void link_required_operstate_for_online(Link *link, LinkOperationalStateRange *r
         assert(ret);
 
         if (link->network && operational_state_range_is_valid(&link->network->required_operstate_for_online))
+                /* If explicitly specified, use it as is. */
                 *ret = link->network->required_operstate_for_online;
         else if (link->iftype == ARPHRD_CAN)
+                /* CAN devices do not support addressing, hence defaults to 'carrier'. */
                 *ret = (const LinkOperationalStateRange) {
                         .min = LINK_OPERSTATE_CARRIER,
                         .max = LINK_OPERSTATE_CARRIER,
                 };
+        else if (link->network && link->network->bond)
+                /* Bonding slaves do not support addressing. */
+                *ret = (const LinkOperationalStateRange) {
+                        .min = LINK_OPERSTATE_ENSLAVED,
+                        .max = LINK_OPERSTATE_ENSLAVED,
+                };
+        else if (STRPTR_IN_SET(link->kind, "batadv", "bond", "bridge", "vrf"))
+                /* Some of slave interfaces may be offline. */
+                *ret = (const LinkOperationalStateRange) {
+                        .min = LINK_OPERSTATE_DEGRADED_CARRIER,
+                        .max = LINK_OPERSTATE_ROUTABLE,
+                };
         else
                 *ret = LINK_OPERSTATE_RANGE_DEFAULT;
+}
+
+AddressFamily link_required_family_for_online(Link *link) {
+        assert(link);
+
+        if (link->network && link->network->required_family_for_online >= 0)
+                return link->network->required_family_for_online;
+
+        if (link->network && operational_state_range_is_valid(&link->network->required_operstate_for_online))
+                /* If RequiredForOnline= is explicitly specified, defaults to no. */
+                return ADDRESS_FAMILY_NO;
+
+        if (STRPTR_IN_SET(link->kind, "batadv", "bond", "bridge", "vrf"))
+                /* As the minimum required operstate for master interfaces is 'degraded-carrier',
+                 * we should request an address assigned to the link for backward compatibility. */
+                return ADDRESS_FAMILY_YES;
+
+        return ADDRESS_FAMILY_NO;
 }
 
 bool link_ipv6_enabled(Link *link) {
@@ -1431,6 +1463,80 @@ int link_reconfigure(Link *link, bool force) {
         return 1; /* 1 means the interface will be reconfigured. */
 }
 
+typedef struct ReconfigureData {
+        Link *link;
+        Manager *manager;
+        sd_bus_message *message;
+} ReconfigureData;
+
+static void reconfigure_data_destroy_callback(ReconfigureData *data) {
+        int r;
+
+        assert(data);
+        assert(data->link);
+        assert(data->manager);
+        assert(data->manager->reloading > 0);
+        assert(data->message);
+
+        link_unref(data->link);
+
+        data->manager->reloading--;
+        if (data->manager->reloading <= 0) {
+                r = sd_bus_reply_method_return(data->message, NULL);
+                if (r < 0)
+                        log_warning_errno(r, "Failed to send reply for 'Reload' DBus method, ignoring: %m");
+        }
+
+        sd_bus_message_unref(data->message);
+        free(data);
+}
+
+static int reconfigure_handler_on_bus_method_reload(sd_netlink *rtnl, sd_netlink_message *m, ReconfigureData *data) {
+        assert(data);
+        assert(data->link);
+        return link_reconfigure_handler_internal(rtnl, m, data->link, /* force = */ false);
+}
+
+int link_reconfigure_on_bus_method_reload(Link *link, sd_bus_message *message) {
+        _cleanup_(sd_netlink_message_unrefp) sd_netlink_message *req = NULL;
+        _cleanup_free_ ReconfigureData *data = NULL;
+        int r;
+
+        assert(link);
+        assert(link->manager);
+        assert(link->manager->rtnl);
+        assert(message);
+
+        /* See comments in link_reconfigure() above. */
+        if (IN_SET(link->state, LINK_STATE_PENDING, LINK_STATE_INITIALIZED, LINK_STATE_LINGER))
+                return 0;
+
+        r = sd_rtnl_message_new_link(link->manager->rtnl, &req, RTM_GETLINK, link->ifindex);
+        if (r < 0)
+                return r;
+
+        data = new(ReconfigureData, 1);
+        if (!data)
+                return -ENOMEM;
+
+        r = netlink_call_async(link->manager->rtnl, NULL, req,
+                               reconfigure_handler_on_bus_method_reload,
+                               reconfigure_data_destroy_callback, data);
+        if (r < 0)
+                return r;
+
+        *data = (ReconfigureData) {
+                .link = link_ref(link),
+                .manager = link->manager,
+                .message = sd_bus_message_ref(message),
+        };
+
+        link->manager->reloading++;
+
+        TAKE_PTR(data);
+        return 0;
+}
+
 static int link_initialized_and_synced(Link *link) {
         int r;
 
@@ -1877,7 +1983,7 @@ void link_update_operstate(Link *link, bool also_update_master) {
                 online_state = LINK_ONLINE_STATE_OFFLINE;
 
         else {
-                AddressFamily required_family = link->network->required_family_for_online;
+                AddressFamily required_family = link_required_family_for_online(link);
                 bool needs_ipv4 = required_family & ADDRESS_FAMILY_IPV4;
                 bool needs_ipv6 = required_family & ADDRESS_FAMILY_IPV6;
 

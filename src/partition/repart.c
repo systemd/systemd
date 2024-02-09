@@ -2337,7 +2337,7 @@ static int context_load_partition_table(Context *context) {
                         return log_error_errno(errno, "Failed to stat %s: %m", context->node);
 
                 if (IN_SET(arg_empty, EMPTY_REQUIRE, EMPTY_FORCE, EMPTY_CREATE) && S_ISREG(st.st_mode))
-                        /* Don't probe sector size from partition table if we are supposed to strat from an empty disk */
+                        /* Don't probe sector size from partition table if we are supposed to start from an empty disk */
                         fs_secsz = ssz = 512;
                 else {
                         /* Auto-detect sector size if not specified. */
@@ -5828,7 +5828,7 @@ static int find_backing_devno(
         if (r < 0)
                 return r;
 
-        r = path_is_mount_point(resolved, NULL, 0);
+        r = path_is_mount_point(resolved);
         if (r < 0)
                 return r;
         if (r == 0) /* Not a mount point, then it's not a partition of its own, let's not automatically use it. */
@@ -7037,7 +7037,7 @@ static int parse_argv(int argc, char *argv[]) {
                 /* By default operate on /sysusr/ or /sysroot/ when invoked in the initrd. We prefer the
                  * former, if it is mounted, so that we have deterministic behaviour on systems where /usr/
                  * is vendor-supplied but the root fs formatted on first boot. */
-                r = path_is_mount_point("/sysusr/usr", NULL, 0);
+                r = path_is_mount_point("/sysusr/usr");
                 if (r <= 0) {
                         if (r < 0 && r != -ENOENT)
                                 log_debug_errno(r, "Unable to determine whether /sysusr/usr is a mount point, assuming it is not: %m");

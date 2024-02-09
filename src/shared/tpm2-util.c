@@ -6891,6 +6891,7 @@ static int pcrlock_policy_load_credential(
                         now(CLOCK_REALTIME),
                         /* tpm2_device= */ NULL,
                         /* tpm2_signature_path= */ NULL,
+                        UID_INVALID,
                         data,
                         CREDENTIAL_ALLOW_NULL,
                         &decoded);
@@ -6939,7 +6940,7 @@ int tpm2_pcrlock_policy_from_credentials(
                         return 0;
                 }
 
-                return log_error_errno(errno, "Faile to open system credentials directory.");
+                return log_error_errno(errno, "Failed to open system credentials directory.");
         }
 
         _cleanup_free_ DirectoryEntries *de = NULL;

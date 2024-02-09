@@ -217,7 +217,7 @@ REQUIREMENTS:
         pyelftools (optional, required for systemd-boot)
         meson >= 0.60.0
         ninja
-        gcc >= 4.7
+        gcc >= 8.4
         awk, sed, grep, and similar tools
         clang >= 10.0, llvm >= 10.0 (optional, required to build BPF programs
                 from source code in C)

@@ -41,7 +41,7 @@
 
     <command>systemctl preset</command> is used by the post install scriptlets of rpm packages (or other OS
     package formats), to enable/disable specific units by default on package installation, enforcing
-    distribution, spin or administrator preset policy. This allows choosing a certain set of units to be
+    distribution, spin, or administrator preset policy. This allows choosing a certain set of units to be
     enabled/disabled even before installing the actual package. For more information, see
     <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
 
@@ -56,7 +56,9 @@
     <para>When the machine is booted for the first time,
     <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry> will
     enable/disable all units according to preset policy, similarly to <command>systemctl
-    preset-all</command>. Also see "First Boot Semantics" in
+    preset-all</command>. Also see <varname>ConditionFirstBoot=</varname> in
+    <citerefentry><refentrytitle>systemd.unit</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
+    "First Boot Semantics" in
     <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>.
     </para>
   </refsect1>

@@ -34,8 +34,10 @@ DEFINE_TRIVIAL_CLEANUP_FUNC(ExecLoadCredential*, exec_load_credential_free);
 extern const struct hash_ops exec_set_credential_hash_ops;
 extern const struct hash_ops exec_load_credential_hash_ops;
 
-bool exec_context_has_encrypted_credentials(ExecContext *c);
+bool exec_params_need_credentials(const ExecParameters *p);
+
 bool exec_context_has_credentials(const ExecContext *c);
+bool exec_context_has_encrypted_credentials(const ExecContext *c);
 
 int exec_context_get_credential_directory(
                 const ExecContext *context,

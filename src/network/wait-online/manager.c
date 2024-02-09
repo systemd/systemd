@@ -52,13 +52,27 @@ static bool manager_ignore_link(Manager *m, Link *link) {
         return false;
 }
 
-static int manager_link_is_online(Manager *m, Link *l, const LinkOperationalStateRange *state_range) {
+static const LinkOperationalStateRange* get_state_range(Manager *m, Link *l, const LinkOperationalStateRange *from_cmdline) {
+        assert(m);
+        assert(l);
+
+        const LinkOperationalStateRange *range;
+        FOREACH_ARGUMENT(range, from_cmdline, &m->required_operstate, &l->required_operstate)
+                if (operational_state_range_is_valid(range))
+                        return range;
+
+        /* l->requred_operstate should be always valid. */
+        assert_not_reached();
+}
+
+static int manager_link_is_online(Manager *m, Link *l, const LinkOperationalStateRange *range) {
         AddressFamily required_family;
         bool needs_ipv4;
         bool needs_ipv6;
 
         assert(m);
         assert(l);
+        assert(range);
 
         /* This returns the following:
          * -EAGAIN       : not processed by udev
@@ -90,12 +104,6 @@ static int manager_link_is_online(Manager *m, Link *l, const LinkOperationalStat
                 return log_link_debug_errno(l, SYNTHETIC_ERRNO(EBUSY),
                                             "link is being processed by networkd: setup state is %s.",
                                             l->state);
-
-        const LinkOperationalStateRange *range;
-        FOREACH_ARGUMENT(range, state_range, &m->required_operstate, &l->required_operstate)
-                if (operational_state_range_is_valid(range))
-                        break;
-        assert(range != POINTER_MAX);
 
         if (!operational_state_is_in_range(l->operational_state, range))
                 return log_link_debug_errno(l, SYNTHETIC_ERRNO(EADDRNOTAVAIL),
@@ -134,7 +142,7 @@ bool manager_configured(Manager *m) {
         int r;
 
         if (!hashmap_isempty(m->command_line_interfaces_by_name)) {
-                LinkOperationalStateRange *range;
+                const LinkOperationalStateRange *range;
                 const char *ifname;
 
                 /* wait for all the links given on the command line to appear */
@@ -153,6 +161,8 @@ bool manager_configured(Manager *m) {
                                 continue;
                         }
 
+                        range = get_state_range(m, l, range);
+
                         r = manager_link_is_online(m, l, range);
                         if (r <= 0 && !m->any)
                                 return false;
@@ -168,13 +178,19 @@ bool manager_configured(Manager *m) {
         /* wait for all links networkd manages */
         bool has_online = false;
         HASHMAP_FOREACH(l, m->links_by_index) {
+                const LinkOperationalStateRange *range;
+
                 if (manager_ignore_link(m, l)) {
                         log_link_debug(l, "link is ignored");
                         continue;
                 }
 
-                r = manager_link_is_online(m, l, /* state_range = */ NULL);
-                if (r < 0 && !m->any) /* Unlike the above loop, unmanaged interfaces are ignored here. */
+                range = get_state_range(m, l, /* from_cmdline = */ NULL);
+
+                r = manager_link_is_online(m, l, range);
+                /* Unlike the above loop, unmanaged interfaces are ignored here. Also, Configured but offline
+                 * interfaces are ignored. See issue #29506. */
+                if (r < 0 && r != -EADDRNOTAVAIL && !m->any)
                         return false;
                 if (r > 0) {
                         if (m->any)

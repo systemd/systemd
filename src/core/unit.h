@@ -642,9 +642,9 @@ typedef struct UnitVTable {
         /* Clear out the various runtime/state/cache/logs/configuration data */
         int (*clean)(Unit *u, ExecCleanMask m);
 
-        /* Freeze the unit */
-        int (*freeze)(Unit *u);
-        int (*thaw)(Unit *u);
+        /* Freeze or thaw the unit. Returns > 0 to indicate that the request will be handled asynchronously; unit_frozen
+         * or unit_thawed should be called once the operation is done. Returns 0 if done successfully, or < 0 on error. */
+        int (*freezer_action)(Unit *u, FreezerAction a);
         bool (*can_freeze)(Unit *u);
 
         /* Return which kind of data can be cleaned */
@@ -912,7 +912,6 @@ bool unit_has_name(const Unit *u, const char *name);
 
 UnitActiveState unit_active_state(Unit *u);
 FreezerState unit_freezer_state(Unit *u);
-int unit_freezer_state_kernel(Unit *u, FreezerState *ret);
 
 const char* unit_sub_state_to_string(Unit *u);
 
@@ -1099,14 +1098,10 @@ bool unit_can_stop_refuse_manual(Unit *u);
 bool unit_can_isolate_refuse_manual(Unit *u);
 
 bool unit_can_freeze(Unit *u);
-int unit_freeze(Unit *u);
+int unit_freezer_action(Unit *u, FreezerAction action);
+void unit_next_freezer_state(Unit *u, FreezerAction a, FreezerState *ret, FreezerState *ret_tgt);
 void unit_frozen(Unit *u);
-
-int unit_thaw(Unit *u);
 void unit_thawed(Unit *u);
-
-int unit_freeze_vtable_common(Unit *u);
-int unit_thaw_vtable_common(Unit *u);
 
 Condition *unit_find_failed_condition(Unit *u);
 

@@ -17,6 +17,7 @@
 
   <refnamediv>
     <refname>sd_bus_creds_get_pid</refname>
+    <refname>sd_bus_creds_get_pidfd_dup</refname>
     <refname>sd_bus_creds_get_ppid</refname>
     <refname>sd_bus_creds_get_tid</refname>
     <refname>sd_bus_creds_get_uid</refname>
@@ -62,6 +63,12 @@
         <funcdef>int <function>sd_bus_creds_get_pid</function></funcdef>
         <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
         <paramdef>pid_t *<parameter>pid</parameter></paramdef>
+      </funcprototype>
+
+      <funcprototype>
+        <funcdef>int <function>sd_bus_creds_get_pidfd_dup</function></funcdef>
+        <paramdef>sd_bus_creds *<parameter>c</parameter></paramdef>
+        <paramdef>int *<parameter>ret_fd</parameter></paramdef>
       </funcprototype>
 
       <funcprototype>
@@ -289,11 +296,14 @@
     <citerefentry><refentrytitle>sd_bus_creds_get_mask</refentrytitle><manvolnum>3</manvolnum></citerefentry>
     to determine the mask of fields available.</para>
 
-    <para><function>sd_bus_creds_get_pid()</function> will retrieve
-    the PID (process identifier). Similarly,
-    <function>sd_bus_creds_get_ppid()</function> will retrieve the
-    parent PID. Note that PID 1 has no parent process, in which case
-    -ENXIO is returned.</para>
+    <para><function>sd_bus_creds_get_pid()</function> will retrieve the PID (process identifier). Similarly,
+    <function>sd_bus_creds_get_ppid()</function> will retrieve the parent PID. Note that PID 1 has no parent
+    process, in which case -ENXIO is returned.</para>
+
+    <para><function>sd_bus_creds_get_pidfd_dup()</function> will retrieve the PID file descriptor (pidfd),
+    see <citerefentry
+    project='man-pages'><refentrytitle>pidfd_open</refentrytitle><manvolnum>2</manvolnum></citerefentry> for
+    details. The file descriptor is duplicated and thus must be closed by the caller.</para>
 
     <para><function>sd_bus_creds_get_tid()</function> will retrieve the
     TID (thread identifier).</para>
@@ -543,6 +553,7 @@
     <function>sd_bus_creds_get_tty()</function>, and
     <function>sd_bus_creds_get_description()</function> were added in version 220.</para>
     <para><function>sd_bus_creds_get_user_slice()</function> was added in version 223.</para>
+    <para><function>sd_bus_creds_get_pidfd_dup()</function> was added in version 256.</para>
   </refsect1>
 
   <refsect1>

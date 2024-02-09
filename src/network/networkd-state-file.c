@@ -637,7 +637,7 @@ static int link_save(Link *link) {
                         link_operstate_to_string(st.min), link_operstate_to_string(st.max));
 
                 fprintf(f, "REQUIRED_FAMILY_FOR_ONLINE=%s\n",
-                        link_required_address_family_to_string(link->network->required_family_for_online));
+                        link_required_address_family_to_string(link_required_family_for_online(link)));
 
                 fprintf(f, "ACTIVATION_POLICY=%s\n",
                         activation_policy_to_string(link->network->activation_policy));

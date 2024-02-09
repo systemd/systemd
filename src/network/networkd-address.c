@@ -1155,6 +1155,9 @@ int address_remove(Address *address, Link *link) {
         assert(link->manager);
         assert(link->manager->rtnl);
 
+        /* If the address is remembered, use the remembered object. */
+        (void) address_get(link, address, &address);
+
         log_address_debug(address, "Removing", link);
 
         r = sd_rtnl_message_new_addr(link->manager->rtnl, &m, RTM_DELADDR,
@@ -1599,9 +1602,6 @@ int link_request_address(
                 r = address_acquire(link, address, &tmp);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Failed to acquire an address from pool: %m");
-
-                /* Consider address tentative until we get the real flags from the kernel */
-                tmp->flags |= IFA_F_TENTATIVE;
 
         } else {
                 r = address_dup(address, &tmp);

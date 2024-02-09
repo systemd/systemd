@@ -256,6 +256,7 @@ _public_ int sd_bus_new(sd_bus **ret) {
                 .n_groups = SIZE_MAX,
                 .close_on_exit = true,
                 .ucred = UCRED_INVALID,
+                .pidfd = -EBADF,
                 .runtime_scope = _RUNTIME_SCOPE_INVALID,
         };
 

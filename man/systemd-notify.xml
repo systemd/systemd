@@ -119,12 +119,12 @@
       <varlistentry>
         <term><option>--pid=</option></term>
 
-        <listitem><para>Inform the service manager about the main PID of the service. Takes a PID as
-        argument. If the argument is specified as <literal>auto</literal> or omitted, the PID of the process
-        that invoked <command>systemd-notify</command> is used, except if that's the service manager. If the
+        <listitem><para>Inform the service manager about the main PID of the service. Takes a PID as argument.
+        If the argument is specified as <literal>auto</literal> or omitted, the PID of the process that
+        invoked <command>systemd-notify</command> is used, except if that's the service manager. If the
         argument is specified as <literal>self</literal>, the PID of the <command>systemd-notify</command>
         command itself is used, and if <literal>parent</literal> is specified the calling process' PID is
-        used — even if it is the service manager. The latter is equivalent to <command>systemd-notify
+        used — even if it is the service manager. <option>--pid=auto</option> is equivalent to <command>systemd-notify
         MAINPID=$PID</command>. For details about the semantics of this option see
         <citerefentry><refentrytitle>sd_notify</refentrytitle><manvolnum>3</manvolnum></citerefentry>.</para>
 

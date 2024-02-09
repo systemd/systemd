@@ -69,4 +69,13 @@
                 </defaults>
         </action>
 
+        <action id="org.freedesktop.home1.inhibit-suspend">
+                <description gettext-domain="systemd">Inhibit automatic lock of a home area</description>
+                <message gettext-domain="systemd">Authentication is required to inhibit automatic lock of a user's home area.</message>
+                <defaults>
+                        <allow_any>auth_admin_keep</allow_any>
+                        <allow_inactive>auth_admin_keep</allow_inactive>
+                        <allow_active>auth_admin_keep</allow_active>
+                </defaults>
+        </action>
 </policyconfig>

@@ -759,8 +759,8 @@ static int create_session(
                 void *userdata,
                 sd_bus_error *error,
                 uid_t uid,
-                pid_t pid,
-                int pidfd,
+                pid_t leader_pid,
+                int leader_pidfd,
                 const char *service,
                 const char *type,
                 const char *class,
@@ -793,32 +793,18 @@ static int create_session(
         if (flags != 0)
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Flags must be zero.");
 
-        if (pidfd >= 0) {
-                r = pidref_set_pidfd(&leader, pidfd);
-                if (r < 0)
-                        return r;
-        } else if (pid == 0) {
-                _cleanup_(sd_bus_creds_unrefp) sd_bus_creds *creds = NULL;
-                pid_t p;
+        if (leader_pidfd >= 0)
+                r = pidref_set_pidfd(&leader, leader_pidfd);
+        else if (leader_pid == 0)
+                r = bus_query_sender_pidref(message, &leader);
+        else {
+                if (leader_pid < 0)
+                        return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Leader PID is not valid");
 
-                r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_PID, &creds);
-                if (r < 0)
-                        return r;
-
-                r = sd_bus_creds_get_pid(creds, &p);
-                if (r < 0)
-                        return r;
-
-                r = pidref_set_pid(&leader, p);
-                if (r < 0)
-                        return r;
-        } else {
-                assert(pid > 0);
-
-                r = pidref_set_pid(&leader, pid);
-                if (r < 0)
-                        return r;
+                r = pidref_set_pid(&leader, leader_pid);
         }
+        if (r < 0)
+                return r;
 
         if (leader.pid == 1 || leader.pid == getpid_cached())
                 return sd_bus_error_set(error, SD_BUS_ERROR_INVALID_ARGS, "Invalid leader PID");
@@ -1096,32 +1082,32 @@ fail:
 
 static int method_create_session(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *service, *type, *class, *cseat, *tty, *display, *remote_user, *remote_host, *desktop;
-        pid_t leader;
+        pid_t leader_pid;
+        uint32_t vtnr;
         uid_t uid;
-        int remote;
-        uint32_t vtnr = 0;
-        int r;
+        int remote, r;
 
         assert(message);
 
         assert_cc(sizeof(pid_t) == sizeof(uint32_t));
         assert_cc(sizeof(uid_t) == sizeof(uint32_t));
 
-        r = sd_bus_message_read(message,
-                                "uusssssussbss",
-                                &uid,
-                                &leader,
-                                &service,
-                                &type,
-                                &class,
-                                &desktop,
-                                &cseat,
-                                &vtnr,
-                                &tty,
-                                &display,
-                                &remote,
-                                &remote_user,
-                                &remote_host);
+        r = sd_bus_message_read(
+                        message,
+                        "uusssssussbss",
+                        &uid,
+                        &leader_pid,
+                        &service,
+                        &type,
+                        &class,
+                        &desktop,
+                        &cseat,
+                        &vtnr,
+                        &tty,
+                        &display,
+                        &remote,
+                        &remote_user,
+                        &remote_host);
         if (r < 0)
                 return r;
 
@@ -1130,7 +1116,7 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
                         userdata,
                         error,
                         uid,
-                        leader,
+                        leader_pid,
                         /* pidfd = */ -EBADF,
                         service,
                         type,
@@ -1148,29 +1134,28 @@ static int method_create_session(sd_bus_message *message, void *userdata, sd_bus
 
 static int method_create_session_pidfd(sd_bus_message *message, void *userdata, sd_bus_error *error) {
         const char *service, *type, *class, *cseat, *tty, *display, *remote_user, *remote_host, *desktop;
-        int leaderfd = -EBADF;
-        uid_t uid;
-        int remote;
-        uint32_t vtnr = 0;
         uint64_t flags;
-        int r;
+        uint32_t vtnr;
+        uid_t uid;
+        int leader_fd = -EBADF, remote, r;
 
-        r = sd_bus_message_read(message,
-                                "uhsssssussbsst",
-                                &uid,
-                                &leaderfd,
-                                &service,
-                                &type,
-                                &class,
-                                &desktop,
-                                &cseat,
-                                &vtnr,
-                                &tty,
-                                &display,
-                                &remote,
-                                &remote_user,
-                                &remote_host,
-                                &flags);
+        r = sd_bus_message_read(
+                        message,
+                        "uhsssssussbsst",
+                        &uid,
+                        &leader_fd,
+                        &service,
+                        &type,
+                        &class,
+                        &desktop,
+                        &cseat,
+                        &vtnr,
+                        &tty,
+                        &display,
+                        &remote,
+                        &remote_user,
+                        &remote_host,
+                        &flags);
         if (r < 0)
                 return r;
 
@@ -1179,8 +1164,8 @@ static int method_create_session_pidfd(sd_bus_message *message, void *userdata, 
                         userdata,
                         error,
                         uid,
-                        /* pid = */ 0,
-                        leaderfd,
+                        /* leader_pid = */ 0,
+                        leader_fd,
                         service,
                         type,
                         class,
@@ -3506,7 +3491,6 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
         Manager *m = ASSERT_PTR(userdata);
         InhibitMode mm;
         InhibitWhat w;
-        pid_t pid;
         uid_t uid;
         int r;
 
@@ -3557,7 +3541,7 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
         if (r == 0)
                 return 1; /* No authorization for now, but the async polkit stuff will call us again when it has it */
 
-        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID|SD_BUS_CREDS_PID, &creds);
+        r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID|SD_BUS_CREDS_PID|SD_BUS_CREDS_PIDFD, &creds);
         if (r < 0)
                 return r;
 
@@ -3565,13 +3549,9 @@ static int method_inhibit(sd_bus_message *message, void *userdata, sd_bus_error 
         if (r < 0)
                 return r;
 
-        r = sd_bus_creds_get_pid(creds, &pid);
+        r = bus_creds_get_pidref(creds, &pidref);
         if (r < 0)
                 return r;
-
-        r = pidref_set_pid(&pidref, pid);
-        if (r < 0)
-                return sd_bus_error_set_errnof(error, r, "Failed pin source process "PID_FMT": %m", pid);
 
         if (hashmap_size(m->inhibitors) >= m->inhibitors_max)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_LIMITS_EXCEEDED,

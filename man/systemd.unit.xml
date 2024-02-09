@@ -1654,11 +1654,19 @@
           whether the system is booting up for the first time. This roughly means that <filename>/etc/</filename>
           was unpopulated when the system started booting (for details, see "First Boot Semantics" in
           <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry>).
-          First boot is considered finished (this condition will evaluate as false) after the manager
+          First Boot is considered finished (this condition will evaluate as false) after the manager
           has finished the startup phase.</para>
 
           <para>This condition may be used to populate <filename>/etc/</filename> on the first boot after
           factory reset, or when a new system instance boots up for the first time.</para>
+
+          <para>Note that the service manager itself will perform setup steps during First Boot: it will
+          initialize
+          <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> and
+          preset all units, enabling or disabling them according to the
+          <citerefentry><refentrytitle>systemd.preset</refentrytitle><manvolnum>5</manvolnum></citerefentry>
+          settings. Additional setup may be performed via units with
+          <varname>ConditionFirstBoot=yes</varname>.</para>
 
           <para>For robustness, units with <varname>ConditionFirstBoot=yes</varname> should order themselves
           before <filename>first-boot-complete.target</filename> and pull in this passive target with

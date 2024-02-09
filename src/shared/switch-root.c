@@ -144,7 +144,7 @@ int switch_root(const char *new_root,
                         return log_error_errno(r, "Failed to resolve %s/%s: %m", new_root, transfer->path);
 
                 /* Let's see if it is a mount point already. */
-                r = path_is_mount_point(chased, NULL, 0);
+                r = path_is_mount_point(chased);
                 if (r < 0)
                         return log_error_errno(r, "Failed to determine whether %s is a mount point: %m", chased);
                 if (r > 0) /* If it is already mounted, then do nothing */

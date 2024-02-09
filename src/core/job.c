@@ -633,16 +633,19 @@ static const char* job_done_message_format(Unit *u, JobType t, JobResult result)
                 [JOB_UNSUPPORTED] = "Starting of %s unsupported.",
                 [JOB_COLLECTED]   = "Unnecessary job was removed for %s.",
                 [JOB_ONCE]        = "Unit %s has been started before and cannot be started again.",
+                [JOB_FROZEN]      = "Cannot start frozen unit %s.",
         };
         static const char* const generic_finished_stop_job[_JOB_RESULT_MAX] = {
                 [JOB_DONE]        = "Stopped %s.",
                 [JOB_FAILED]      = "Stopped %s with error.",
                 [JOB_TIMEOUT]     = "Timed out stopping %s.",
+                [JOB_FROZEN]      = "Cannot stop frozen unit %s.",
         };
         static const char* const generic_finished_reload_job[_JOB_RESULT_MAX] = {
                 [JOB_DONE]        = "Reloaded %s.",
                 [JOB_FAILED]      = "Reload failed for %s.",
                 [JOB_TIMEOUT]     = "Timed out reloading %s.",
+                [JOB_FROZEN]      = "Cannot reload frozen unit %s.",
         };
         /* When verify-active detects the unit is inactive, report it.
          * Most likely a DEPEND warning from a requisiting unit will
@@ -704,6 +707,7 @@ static const struct {
         [JOB_UNSUPPORTED] = { LOG_WARNING, ANSI_HIGHLIGHT_YELLOW, "UNSUPP" },
         [JOB_COLLECTED]   = { LOG_INFO,                                    },
         [JOB_ONCE]        = { LOG_ERR,     ANSI_HIGHLIGHT_RED,    " ONCE " },
+        [JOB_FROZEN]      = { LOG_ERR,     ANSI_HIGHLIGHT_RED,    "FROZEN" },
 };
 
 static const char* job_done_mid(JobType type, JobResult result) {
@@ -954,6 +958,8 @@ int job_run_and_invalidate(Job *j) {
                         r = job_finish_and_invalidate(j, JOB_DEPENDENCY, true, false);
                 else if (r == -ESTALE)
                         r = job_finish_and_invalidate(j, JOB_ONCE, true, false);
+                else if (r == -EDEADLK)
+                        r = job_finish_and_invalidate(j, JOB_FROZEN, true, false);
                 else if (r < 0)
                         r = job_finish_and_invalidate(j, JOB_FAILED, true, false);
         }
@@ -1011,7 +1017,7 @@ int job_finish_and_invalidate(Job *j, JobResult result, bool recursive, bool alr
                 goto finish;
         }
 
-        if (IN_SET(result, JOB_FAILED, JOB_INVALID))
+        if (IN_SET(result, JOB_FAILED, JOB_INVALID, JOB_FROZEN))
                 j->manager->n_failed_jobs++;
 
         job_uninstall(j);
@@ -1645,6 +1651,7 @@ static const char* const job_result_table[_JOB_RESULT_MAX] = {
         [JOB_UNSUPPORTED] = "unsupported",
         [JOB_COLLECTED]   = "collected",
         [JOB_ONCE]        = "once",
+        [JOB_FROZEN]      = "frozen",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(job_result, JobResult);

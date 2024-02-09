@@ -211,6 +211,7 @@ Home *home_free(Home *h) {
 
         h->ref_event_source_please_suspend = sd_event_source_disable_unref(h->ref_event_source_please_suspend);
         h->ref_event_source_dont_suspend = sd_event_source_disable_unref(h->ref_event_source_dont_suspend);
+        h->inhibit_suspend_event_source = sd_event_source_disable_unref(h->inhibit_suspend_event_source);
 
         h->pending_operations = ordered_set_free(h->pending_operations);
         h->pending_event_source = sd_event_source_disable_unref(h->pending_event_source);
@@ -2614,6 +2615,9 @@ static int on_home_ref_eof(sd_event_source *s, int fd, uint32_t revents, void *u
         if (h->ref_event_source_dont_suspend == s)
                 h->ref_event_source_dont_suspend = sd_event_source_disable_unref(h->ref_event_source_dont_suspend);
 
+        if (h->inhibit_suspend_event_source == s)
+                h->inhibit_suspend_event_source = sd_event_source_disable_unref(h->inhibit_suspend_event_source);
+
         if (home_is_referenced(h))
                 return 0;
 
@@ -2629,25 +2633,42 @@ static int on_home_ref_eof(sd_event_source *s, int fd, uint32_t revents, void *u
         return 0;
 }
 
-int home_create_fifo(Home *h, bool please_suspend) {
+int home_create_fifo(Home *h, HomeFifoType type) {
+        static const struct {
+                const char *suffix;
+                const char *description;
+                size_t event_source;
+        } table[_HOME_FIFO_TYPE_MAX] = {
+                [HOME_FIFO_PLEASE_SUSPEND] = {
+                        .suffix = ".please-suspend",
+                        .description = "acquire-ref",
+                        .event_source = offsetof(Home, ref_event_source_please_suspend),
+                },
+                [HOME_FIFO_DONT_SUSPEND] = {
+                        .suffix = ".dont-suspend",
+                        .description = "acquire-ref-dont-suspend",
+                        .event_source = offsetof(Home, ref_event_source_dont_suspend),
+                },
+                [HOME_FIFO_INHIBIT_SUSPEND] = {
+                        .suffix = ".inhibit-suspend",
+                        .description = "inhibit-suspend",
+                        .event_source = offsetof(Home, inhibit_suspend_event_source),
+                },
+        };
+
         _cleanup_close_ int ret_fd = -EBADF;
-        sd_event_source **ss;
-        const char *fn, *suffix;
+        sd_event_source **evt;
+        const char *fn;
         int r;
 
         assert(h);
+        assert(type >= 0 && type < _HOME_FIFO_TYPE_MAX);
 
-        if (please_suspend) {
-                suffix = ".please-suspend";
-                ss = &h->ref_event_source_please_suspend;
-        } else {
-                suffix = ".dont-suspend";
-                ss = &h->ref_event_source_dont_suspend;
-        }
+        evt = (sd_event_source**) ((uint8_t*) h + table[type].event_source);
 
-        fn = strjoina("/run/systemd/home/", h->user_name, suffix);
+        fn = strjoina("/run/systemd/home/", h->user_name, table[type].suffix);
 
-        if (!*ss) {
+        if (!*evt) {
                 _cleanup_close_ int ref_fd = -EBADF;
 
                 (void) mkdir("/run/systemd/home/", 0755);
@@ -2658,20 +2679,19 @@ int home_create_fifo(Home *h, bool please_suspend) {
                 if (ref_fd < 0)
                         return log_error_errno(errno, "Failed to open FIFO %s for reading: %m", fn);
 
-                r = sd_event_add_io(h->manager->event, ss, ref_fd, 0, on_home_ref_eof, h);
+                r = sd_event_add_io(h->manager->event, evt, ref_fd, 0, on_home_ref_eof, h);
                 if (r < 0)
                         return log_error_errno(r, "Failed to allocate reference FIFO event source: %m");
 
-                (void) sd_event_source_set_description(*ss, "acquire-ref");
+                (void) sd_event_source_set_description(*evt, table[type].description);
 
-                r = sd_event_source_set_priority(*ss, SD_EVENT_PRIORITY_IDLE-1);
+                r = sd_event_source_set_priority(*evt, SD_EVENT_PRIORITY_IDLE-1);
                 if (r < 0)
                         return r;
 
-                r = sd_event_source_set_io_fd_own(*ss, true);
+                r = sd_event_source_set_io_fd_own(*evt, true);
                 if (r < 0)
                         return log_error_errno(r, "Failed to pass ownership of FIFO event fd to event source: %m");
-
                 TAKE_FD(ref_fd);
         }
 
@@ -2751,8 +2771,10 @@ bool home_is_referenced(Home *h) {
 bool home_shall_suspend(Home *h) {
         assert(h);
 
-        /* Suspend if there's at least one client referencing this home directory that wants a suspend and none who does not. */
-        return h->ref_event_source_please_suspend && !h->ref_event_source_dont_suspend;
+        /* We lock the home area on suspend if... */
+        return h->ref_event_source_please_suspend && /* at least one client supports suspend, and... */
+               !h->ref_event_source_dont_suspend && /* no clients lack support for suspend, and... */
+               !h->inhibit_suspend_event_source; /* no client is temporarily inhibiting suspend */
 }
 
 static int home_dispatch_release(Home *h, Operation *o) {

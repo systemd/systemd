@@ -20,7 +20,7 @@ typedef void* (*mfree_func_t)(void *p);
  * proceeding and smashing the stack limits. Note that by default RLIMIT_STACK is 8M on Linux. */
 #define ALLOCA_MAX (4U*1024U*1024U)
 
-#define new(t, n) ((t*) malloc_multiply((n), sizeof(t)))
+#define new(t, n) ((t*) malloc_multiply(n, sizeof(t)))
 
 #define new0(t, n) ((t*) calloc((n) ?: 1, sizeof(t)))
 
@@ -45,9 +45,9 @@ typedef void* (*mfree_func_t)(void *p);
                 (t*) alloca0((sizeof(t)*_n_));                          \
         })
 
-#define newdup(t, p, n) ((t*) memdup_multiply(p, (n), sizeof(t)))
+#define newdup(t, p, n) ((t*) memdup_multiply(p, n, sizeof(t)))
 
-#define newdup_suffix0(t, p, n) ((t*) memdup_suffix0_multiply(p, (n), sizeof(t)))
+#define newdup_suffix0(t, p, n) ((t*) memdup_suffix0_multiply(p, n, sizeof(t)))
 
 #define malloc0(n) (calloc(1, (n) ?: 1))
 
@@ -237,7 +237,7 @@ static inline size_t malloc_sizeof_safe(void **xp) {
 #define strndupa_safe(s, n)                                             \
         ({                                                              \
                 const char *_t = (s);                                   \
-                (char*) memdupa_suffix0(_t, strnlen(_t, (n)));          \
+                (char*) memdupa_suffix0(_t, strnlen(_t, n));            \
         })
 
 /* Free every element of the array. */

@@ -43,7 +43,7 @@ int enroll_pkcs11(
         _cleanup_free_ char *keyslot_as_string = NULL, *private_uri = NULL;
         size_t decrypted_key_size, saved_key_size;
         _cleanup_free_ void *saved_key = NULL;
-        _cleanup_(X509_freep) X509 *cert = NULL;
+        _cleanup_(EVP_PKEY_freep) EVP_PKEY *pkey = NULL;
         ssize_t base64_encoded_size;
         const char *node;
         int r;
@@ -55,11 +55,11 @@ int enroll_pkcs11(
 
         assert_se(node = crypt_get_device_name(cd));
 
-        r = pkcs11_acquire_certificate(uri, "volume enrollment operation", "drive-harddisk", &cert, NULL);
+        r = pkcs11_acquire_public_key(uri, "volume enrollment operation", "drive-harddisk", &pkey, NULL);
         if (r < 0)
                 return r;
 
-        r = x509_generate_volume_keys(cert, &decrypted_key, &decrypted_key_size, &saved_key, &saved_key_size);
+        r = pkey_generate_volume_keys(pkey, &decrypted_key, &decrypted_key_size, &saved_key, &saved_key_size);
         if (r < 0)
                 return log_error_errno(r, "Failed to generate volume keys: %m");
 
@@ -86,8 +86,9 @@ int enroll_pkcs11(
         if (asprintf(&keyslot_as_string, "%i", keyslot) < 0)
                 return log_oom();
 
-        /* Change 'type=cert' in the provided URI to 'type=private' before storing in a LUKS2 header.
-           This allows users to use output of some PKCS#11 tools directly without modifications. */
+        /* Change 'type=cert' or 'type=public' in the provided URI to 'type=private' before storing in
+           a LUKS2 header. This allows users to use output of some PKCS#11 tools directly without
+           modifications. */
         r = uri_set_private_class(uri, &private_uri);
         if (r < 0)
                 return r;

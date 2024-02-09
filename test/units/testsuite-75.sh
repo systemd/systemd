@@ -821,6 +821,9 @@ run resolvectl reset-statistics --json=pretty
 
 run resolvectl reset-statistics --json=short
 
+test "$(resolvectl --json=short query -t AAAA localhost)" == '{"key":{"class":1,"type":28,"name":"localhost"},"address":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1]}'
+test "$(resolvectl --json=short query -t A localhost)" == '{"key":{"class":1,"type":1,"name":"localhost"},"address":[127,0,0,1]}'
+
 # Check if resolved exits cleanly.
 restart_resolved
 

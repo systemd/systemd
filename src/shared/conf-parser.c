@@ -466,7 +466,7 @@ int hashmap_put_stats_by_path(Hashmap **stats_by_path, const char *path, const s
                 return -ENOMEM;
 
         path_copy = strdup(path);
-        if (!path)
+        if (!path_copy)
                 return -ENOMEM;
 
         r = hashmap_put(*stats_by_path, path_copy, st_copy);

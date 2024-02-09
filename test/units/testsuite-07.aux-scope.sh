@@ -15,7 +15,7 @@ systemd-run --unit test-aux-scope.service \
             /usr/lib/systemd/tests/unit-tests/manual/test-aux-scope
 kill -s USR1 "$(systemctl show --value --property MainPID test-aux-scope.service)"
 
-sleep 1
+timeout 30s bash -xec 'until systemctl is-active test-aux-scope.scope; do sleep 1; done'
 
 systemctl status test-aux-scope.service
 # shellcheck disable=SC2009

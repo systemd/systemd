@@ -142,6 +142,24 @@ Features:
 
 * ditto: rewrite bpf-firewall in libbpf/C code
 
+* credentials: if we ever acquire a secure way to derive cgroup id of socket
+  peers (i.e. SO_PEERCGROUPID), then extend the "scoped" credential logic to
+  allow cgroup-scoped (i.e. app or service scoped) credentials. Then, as next
+  step use this to implement per-app/per-service encrypted directories, where
+  we set up fscrypt on the StateDirectory= with a randomized key which is
+  stored as xattr on the directory, encrypted as a credential.
+
+* credentials: optionally include a per-user secret in scoped user-credential
+  encryption keys. should come from homed in some way, derived from the luks
+  volume key or fscrypt directory key.
+
+* credentials: add a flag to the scoped credentials that if set require PK
+  reauthentication when unlocking a secret.
+
+* teach systemd --user to properly load credentials off disk, with
+  /etc/credstore equivalent and similar. Make sure that $CREDENTIALS_DIRECTORY=
+  actually works too when run with user privs.
+
 * extend the smbios11 logic for passing credentials so that instead of passing
   the credential data literally it can also just reference an AF_VSOCK CID/port
   to read them from. This way the data doesn't remain in the SMBIOS blob during
@@ -169,22 +187,10 @@ Features:
 * use udev rule networkd ownership property to take ownership of network
   interfaces nspawn creates
 
-* support encrypted credentials in user context too. This is complicated by the
-  fact that the user does not have access to the TPM nor the system
-  credential. Implementation idea: extend the systemd-creds Varlink interface
-  to allow this: user must supply some per-user secret, that we'll include in
-  the encryption key.
-
 * add a kernel cmdline switch (and cred?) for marking a system to be
   "headless", in which case we never open /dev/console for reading, only for
   writing. This would then mean: systemd-firstboot would process creds but not
   ask interactively, getty would not be started and so on.
-
-* extend mime database with mime types for:
-  - journal files
-  - credential files
-  - hwdb files
-  - catalog files
 
 * cryptsetup: new crypttab option to auto-grow a luks device to its backing
   partition size. new crypttab option to reencrypt a luks device with a new
@@ -331,6 +337,7 @@ Features:
   - systemd-analyze
   - systemd-pcrlock (to allow fwupd to relax policy)
   - kernel-install
+  - systemd-mount (with PK so that desktop environments could use it to mount disks)
 
 * in the service manager, pick up ERRNO= + BUSERROR= + VARLINKERROR= error
   identifiers, and store them along with the exit status of a server and report
@@ -379,7 +386,6 @@ Features:
   - actually wait for POLLIN on pidref's pidfd in service logic
   - exec_spawn() + safe_fork()
   - openpt_allocate_in_namespace()
-  - sd_bus_creds
   - unit_attach_pid_to_cgroup_via_bus()
   - cg_attach() – requires new kernel feature
 
@@ -689,10 +695,6 @@ Features:
   - Should it run on firstboot or on every boot?
   - If run on every boot, should it use the sysupdate config from the host on
     subsequent boots?
-
-* provide an API (probably IPC) to apps to encrypt/decrypt
-  credentials. use case: allow bluez bluetooth daemon to pass pairings to initrd
-  that way, without shelling out to our tools.
 
 * revisit default PCR bindings in cryptenroll and systemd-creds. Currently they
   use PCR 7 which should contain secureboot state db/dbx. Which sounded like a
@@ -1324,8 +1326,6 @@ Features:
     wireguard)
   - make gatewayd/remote read key via creds logic
   - add sd_notify() command for flushing out creds not needed anymore
-  - make user manager instances create and use a user-specific key (the one in
-    /var/lib is root-only) and add --user switch to systemd-creds to use it
 
 * TPM2: auto-reenroll in cryptsetup, as fallback for hosed firmware upgrades
   and such
@@ -1366,8 +1366,6 @@ Features:
 * make use of new glibc 2.32 APIs sigabbrev_np() and strerrorname_np().
 
 * if /usr/bin/swapoff fails due to OOM, log a friendly explanatory message about it
-
-* pid1: support new clone3() fork-into-cgroup feature
 
 * pid1: also remove PID files of a service when the service starts, not just
   when it exits

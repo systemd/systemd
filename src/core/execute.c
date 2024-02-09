@@ -163,6 +163,8 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p)
         lock_fd = lock_dev_console();
         if (ERRNO_IS_NEG_PRIVILEGE(lock_fd))
                 log_debug_errno(lock_fd, "No privileges to lock /dev/console, proceeding without: %m");
+        else if (ERRNO_IS_NEG_DEVICE_ABSENT(lock_fd))
+                log_debug_errno(lock_fd, "Device /dev/console does not exist, proceeding without locking it: %m");
         else if (lock_fd < 0)
                 return (void) log_debug_errno(lock_fd, "Failed to lock /dev/console: %m");
 
@@ -357,13 +359,13 @@ int exec_spawn(Unit *unit,
                ExecParameters *params,
                ExecRuntime *runtime,
                const CGroupContext *cgroup_context,
-               pid_t *ret) {
+               PidRef *ret) {
 
         char serialization_fd_number[DECIMAL_STR_MAX(int) + 1];
         _cleanup_free_ char *subcgroup_path = NULL, *log_level = NULL, *executor_path = NULL;
+        _cleanup_(pidref_done) PidRef pidref = PIDREF_NULL;
         _cleanup_fdset_free_ FDSet *fdset = NULL;
         _cleanup_fclose_ FILE *f = NULL;
-        pid_t pid;
         int r;
 
         assert(unit);
@@ -371,10 +373,10 @@ int exec_spawn(Unit *unit,
         assert(unit->manager->executor_fd >= 0);
         assert(command);
         assert(context);
-        assert(ret);
         assert(params);
         assert(params->fds || (params->n_socket_fds + params->n_storage_fds <= 0));
         assert(!params->files_env); /* We fill this field, ensure it comes NULL-initialized to us */
+        assert(ret);
 
         LOG_CONTEXT_PUSH_UNIT(unit);
 
@@ -404,8 +406,8 @@ int exec_spawn(Unit *unit,
          * child's memory.max, serialize all the state needed to start the unit, and pass it to the
          * systemd-executor binary. clone() with CLONE_VM + CLONE_VFORK will pause the parent until the exec
          * and ensure all memory is shared. The child immediately execs the new binary so the delay should
-         * be minimal. Once glibc provides a clone3 wrapper we can switch to that, and clone directly in the
-         * target cgroup. */
+         * be minimal. If glibc 2.39 is available pidfd_spawn() is used in order to get a race-free pid fd
+         * and to clone directly into the target cgroup (if we booted with cgroupv2). */
 
         r = open_serialization_file("sd-executor-state", &f);
         if (r < 0)
@@ -451,21 +453,23 @@ int exec_spawn(Unit *unit,
                                   "--log-level", log_level,
                                   "--log-target", log_target_to_string(manager_get_executor_log_target(unit->manager))),
                         environ,
-                        &pid);
+                        cg_unified() > 0 ? subcgroup_path : NULL,
+                        &pidref);
         if (r < 0)
                 return log_unit_error_errno(unit, r, "Failed to spawn executor: %m");
-
-        log_unit_debug(unit, "Forked %s as "PID_FMT, command->path, pid);
-
         /* We add the new process to the cgroup both in the child (so that we can be sure that no user code is ever
          * executed outside of the cgroup) and in the parent (so that we can be sure that when we kill the cgroup the
          * process will be killed too). */
-        if (subcgroup_path)
-                (void) cg_attach(SYSTEMD_CGROUP_CONTROLLER, subcgroup_path, pid);
+        if (r == 0 && subcgroup_path)
+                (void) cg_attach(SYSTEMD_CGROUP_CONTROLLER, subcgroup_path, pidref.pid);
+        /* r > 0: Already in the right cgroup thanks to CLONE_INTO_CGROUP */
 
-        exec_status_start(&command->exec_status, pid);
+        log_unit_debug(unit, "Forked %s as " PID_FMT " (%s CLONE_INTO_CGROUP)",
+                       command->path, pidref.pid, r > 0 ? "via" : "without");
 
-        *ret = pid;
+        exec_status_start(&command->exec_status, pidref.pid);
+
+        *ret = TAKE_PIDREF(pidref);
         return 0;
 }
 

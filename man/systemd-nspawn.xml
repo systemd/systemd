@@ -1439,7 +1439,8 @@ After=sys-subsystem-net-devices-ens1.device</programlisting>
         and the subdirectory is symlinked into the host at the same
         location. <literal>try-host</literal> and
         <literal>try-guest</literal> do the same but do not fail if
-        the host does not have persistent journaling enabled. If
+        the host does not have persistent journaling enabled, or if
+        the container is in the <option>--ephemeral</option> mode. If
         <literal>auto</literal> (the default), and the right
         subdirectory of <filename>/var/log/journal</filename> exists,
         it will be bind mounted into the container. If the

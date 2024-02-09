@@ -1117,7 +1117,7 @@ static int mount_bind_dev(const MountEntry *m) {
 
         (void) mkdir_p_label(mount_entry_path(m), 0755);
 
-        r = path_is_mount_point(mount_entry_path(m), NULL, 0);
+        r = path_is_mount_point(mount_entry_path(m));
         if (r < 0)
                 return log_debug_errno(r, "Unable to determine whether /dev is already mounted: %m");
         if (r > 0) /* make this a NOP if /dev is already a mount point */
@@ -1137,7 +1137,7 @@ static int mount_bind_sysfs(const MountEntry *m) {
 
         (void) mkdir_p_label(mount_entry_path(m), 0755);
 
-        r = path_is_mount_point(mount_entry_path(m), NULL, 0);
+        r = path_is_mount_point(mount_entry_path(m));
         if (r < 0)
                 return log_debug_errno(r, "Unable to determine whether /sys is already mounted: %m");
         if (r > 0) /* make this a NOP if /sys is already a mount point */
@@ -1184,7 +1184,7 @@ static int mount_private_apivfs(
                 /* When we do not have enough privileges to mount a new instance, fall back to use an
                  * existing mount. */
 
-                r = path_is_mount_point(entry_path, /* root = */ NULL, /* flags = */ 0);
+                r = path_is_mount_point(entry_path);
                 if (r < 0)
                         return log_debug_errno(r, "Unable to determine whether '%s' is already mounted: %m", entry_path);
                 if (r > 0)
@@ -1299,7 +1299,7 @@ static int mount_run(const MountEntry *m) {
 
         assert(m);
 
-        r = path_is_mount_point(mount_entry_path(m), NULL, 0);
+        r = path_is_mount_point(mount_entry_path(m));
         if (r < 0 && r != -ENOENT)
                 return log_debug_errno(r, "Unable to determine whether /run is already mounted: %m");
         if (r > 0) /* make this a NOP if /run is already a mount point */
@@ -1533,7 +1533,7 @@ static int apply_one_mount(
         case MOUNT_READ_WRITE_IMPLICIT:
         case MOUNT_EXEC:
         case MOUNT_NOEXEC:
-                r = path_is_mount_point(mount_entry_path(m), root_directory, 0);
+                r = path_is_mount_point_full(mount_entry_path(m), root_directory, /* flags = */ 0);
                 if (r == -ENOENT && m->ignore)
                         return 0;
                 if (r < 0)
@@ -2537,7 +2537,7 @@ int setup_namespace(const NamespaceParameters *p, char **error_path) {
         } else if (p->root_directory) {
 
                 /* A root directory is specified. Turn its directory into bind mount, if it isn't one yet. */
-                r = path_is_mount_point(root, NULL, AT_SYMLINK_FOLLOW);
+                r = path_is_mount_point_full(root, /* root = */ NULL, AT_SYMLINK_FOLLOW);
                 if (r < 0)
                         return log_debug_errno(r, "Failed to detect that %s is a mount point or not: %m", root);
                 if (r == 0) {
@@ -2889,21 +2889,18 @@ int setup_tmp_dirs(const char *id, char **tmp_dir, char **var_tmp_dir) {
 
 int setup_shareable_ns(int ns_storage_socket[static 2], unsigned long nsflag) {
         _cleanup_close_ int ns = -EBADF;
-        int r;
         const char *ns_name, *ns_path;
+        int r;
 
         assert(ns_storage_socket);
         assert(ns_storage_socket[0] >= 0);
         assert(ns_storage_socket[1] >= 0);
 
-        ns_name = namespace_single_flag_to_string(nsflag);
-        assert(ns_name);
+        ns_name = ASSERT_PTR(namespace_single_flag_to_string(nsflag));
 
-        /* We use the passed socketpair as a storage buffer for our
-         * namespace reference fd. Whatever process runs this first
-         * shall create a new namespace, all others should just join
-         * it. To serialize that we use a file lock on the socket
-         * pair.
+        /* We use the passed socketpair as a storage buffer for our namespace reference fd. Whatever process
+         * runs this first shall create a new namespace, all others should just join it. To serialize that we
+         * use a file lock on the socket pair.
          *
          * It's a bit crazy, but hey, works great! */
 
@@ -2931,7 +2928,8 @@ int setup_shareable_ns(int ns_storage_socket[static 2], unsigned long nsflag) {
         if (unshare(nsflag) < 0)
                 return -errno;
 
-        (void) loopback_setup();
+        if (nsflag == CLONE_NEWNET)
+                (void) loopback_setup();
 
         ns_path = strjoina("/proc/self/ns/", ns_name);
         ns = open(ns_path, O_RDONLY|O_CLOEXEC|O_NOCTTY);

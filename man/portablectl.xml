@@ -321,12 +321,14 @@
       <varlistentry>
         <term><option>--copy=</option></term>
 
-        <listitem><para>When attaching an image, select whether to prefer copying or symlinking of files installed into
-        the host system. Takes one of <literal>copy</literal> (to prefer copying of files), <literal>symlink</literal>
-        (to prefer creation of symbolic links) or <literal>auto</literal> for an intermediary mode where security
-        profile drop-ins are symlinked while unit files are copied. Note that this option expresses a preference only,
-        in cases where symbolic links cannot be created — for example when the image operated on is a raw disk image,
-        and hence not directly referentiable from the host file system — copying of files is used
+        <listitem><para>When attaching an image, select whether to prefer copying or symlinking of files
+        installed into the host system. Takes one of <literal>copy</literal> (files will be copied),
+        <literal>symlink</literal> (to prefer creation of symbolic links), <literal>auto</literal> for an
+        intermediary mode where security profile drop-ins and images are symlinked while unit files are
+        copied, or <literal>mixed</literal> (since v256) where security profile drop-ins are symlinked while
+        unit files and images are copied. Note that this option expresses a preference only, in cases where
+        symbolic links cannot be created — for example when the image operated on is a raw disk image, and
+        hence not directly referentiable from the host file system — copying of files is used
         unconditionally.</para>
 
         <xi:include href="version-info.xml" xpointer="v239"/></listitem>

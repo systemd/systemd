@@ -215,6 +215,36 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--user</option></term>
+
+        <listitem><para>When specified with the <command>encrypt</command> and <command>decrypt</command>
+        commands encrypts a user-scoped (rather than a system-scoped) credential. Use <option>--uid=</option>
+        to select which user the credential is from. Such credentials may only be decrypted from the
+        specified user's context, except if privileges can be acquired. Generally, when an encrypted
+        credential shall be used in the per-user service manager it should be encrypted with this option set,
+        when it shall be used in the system service manager it should be encrypted without.</para>
+
+        <para>Internally, this ensures that the selected user's numeric UID and username, as well as the
+        system's
+        <citerefentry><refentrytitle>machine-id</refentrytitle><manvolnum>5</manvolnum></citerefentry> are
+        incorporated into the encryption key.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--uid=</option></term>
+
+        <listitem><para>Specifies the user to encrypt the credential for. Takes a user name or numeric
+        UID. If set, implies <option>--user</option>. If set to the special string <literal>self</literal>
+        sets the user to the user of the calling process. If <option>--user</option> is used without
+        <option>--uid=</option> then <option>--uid=self</option> is implied, i.e. the credential is encrypted
+        for the calling user.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--transcode=</option></term>
 
         <listitem><para>When specified with the <command>cat</command> or <command>decrypt</command>

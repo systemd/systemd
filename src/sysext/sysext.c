@@ -68,10 +68,12 @@ STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 /* Helper struct for naming simplicity and reusability */
 static const struct {
-        const char *dot_directory_name;
-        const char *directory_name;
+        const char *full_identifier;
         const char *short_identifier;
         const char *short_identifier_plural;
+        const char *blurb;
+        const char *dot_directory_name;
+        const char *directory_name;
         const char *level_env;
         const char *scope_env;
         const char *name_env;
@@ -79,10 +81,11 @@ static const struct {
         unsigned long default_mount_flags;
 } image_class_info[_IMAGE_CLASS_MAX] = {
         [IMAGE_SYSEXT] = {
-                .dot_directory_name = ".systemd-sysext",
-                .directory_name = "systemd-sysext",
+                .full_identifier = "systemd-sysext",
                 .short_identifier = "sysext",
                 .short_identifier_plural = "extensions",
+                .blurb = "Merge system extension images into /usr/ and /opt/.",
+                .dot_directory_name = ".systemd-sysext",
                 .level_env = "SYSEXT_LEVEL",
                 .scope_env = "SYSEXT_SCOPE",
                 .name_env = "SYSTEMD_SYSEXT_HIERARCHIES",
@@ -90,10 +93,11 @@ static const struct {
                 .default_mount_flags = MS_RDONLY|MS_NODEV,
         },
         [IMAGE_CONFEXT] = {
-                .dot_directory_name = ".systemd-confext",
-                .directory_name = "systemd-confext",
+                .full_identifier = "systemd-confext",
                 .short_identifier = "confext",
                 .short_identifier_plural = "confexts",
+                .blurb = "Merge configuration extension images into /etc/.",
+                .dot_directory_name = ".systemd-confext",
                 .level_env = "CONFEXT_LEVEL",
                 .scope_env = "CONFEXT_SCOPE",
                 .name_env = "SYSTEMD_CONFEXT_HIERARCHIES",
@@ -113,7 +117,7 @@ static int is_our_mount_point(
 
         assert(p);
 
-        r = path_is_mount_point(p, NULL, 0);
+        r = path_is_mount_point(p);
         if (r == -ENOENT) {
                 log_debug_errno(r, "Hierarchy '%s' doesn't exist.", p);
                 return false;
@@ -1366,13 +1370,13 @@ static int verb_help(int argc, char **argv, void *userdata) {
         _cleanup_free_ char *link = NULL;
         int r;
 
-        r = terminal_urlify_man("systemd-sysext", "8", &link);
+        r = terminal_urlify_man(image_class_info[arg_image_class].full_identifier, "8", &link);
         if (r < 0)
                 return log_oom();
 
         printf("%1$s [OPTIONS...] COMMAND\n"
-                "\n%5$sMerge extension images into /usr/ and /opt/ hierarchies for\n"
-               " sysext and into the /etc/ hierarchy for confext.%6$s\n"
+               "\n%5$s%7$s%6$s\n"
+               "\n%3$sCommands:%4$s\n"
                "  status                  Show current merge status (default)\n"
                "  merge                   Merge extensions into relevant hierarchies\n"
                "  unmerge                 Unmerge extensions from relevant hierarchies\n"
@@ -1397,7 +1401,8 @@ static int verb_help(int argc, char **argv, void *userdata) {
                ansi_underline(),
                ansi_normal(),
                ansi_highlight(),
-               ansi_normal());
+               ansi_normal(),
+               image_class_info[arg_image_class].blurb);
 
         return 0;
 }
