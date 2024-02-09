@@ -82,7 +82,8 @@ void server_forward_socket(
 
         assert(iov_idx == n);
 
-        /* synthesise __REALTIME_TIMESTAMP as the last argument so systemd-journal-upload can receive these export messages */
+        /* synthesise __REALTIME_TIMESTAMP as the last argument so systemd-journal-upload can receive these export messages
+         * Note: this overwrites the last entry in iov which is currently a newline */
         char buf[sizeof("__REALTIME_TIMESTAMP=") + DECIMAL_STR_MAX(usec_t) + 3];
         xsprintf(buf, "\n__REALTIME_TIMESTAMP="USEC_FMT"\n\n", now(CLOCK_REALTIME));
         iov[n - 1] = IOVEC_MAKE_STRING(buf);
