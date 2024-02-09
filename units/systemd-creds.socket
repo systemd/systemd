@@ -18,3 +18,4 @@ ListenStream=/run/systemd/io.systemd.Credentials
 FileDescriptorName=varlink
 SocketMode=0666
 Accept=yes
+MaxConnectionsPerSource=16
