@@ -3,6 +3,8 @@
 libvmspawn_core_sources = files(
         'vmspawn-settings.c',
         'vmspawn-util.c',
+        'vmspawn-scope.c',
+        'vmspawn-mount.c',
 )
 libvmspawn_core = static_library(
         'vmspawn-core',
@@ -23,5 +25,6 @@ executables += [
                 'conditions': ['ENABLE_VMSPAWN'],
                 'sources' : files('vmspawn.c'),
                 'link_with' : vmspawn_libs,
+                'dependencies' : [libblkid]
         }
 ]
