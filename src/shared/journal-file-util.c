@@ -471,7 +471,6 @@ int journal_file_open_reliably(
                 uint64_t compress_threshold_bytes,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
-                JournalFile *template,
                 JournalFile **ret) {
 
         _cleanup_(journal_file_offline_closep) JournalFile *old_file = NULL;
@@ -486,7 +485,7 @@ int journal_file_open_reliably(
                         compress_threshold_bytes,
                         metrics,
                         mmap_cache,
-                        template,
+                        /* template = */ NULL,
                         ret);
         if (!IN_SET(r,
                     -EBADMSG,           /* Corrupted */
@@ -512,23 +511,19 @@ int journal_file_open_reliably(
         /* The file is corrupted. Rotate it away and try it again (but only once) */
         log_warning_errno(r, "File %s corrupted or uncleanly shut down, renaming and replacing.", fname);
 
-        if (!template) {
-                /* The file is corrupted and no template is specified. Try opening it read-only as the
-                 * template before rotating to inherit its sequence number and ID. */
-                r = journal_file_open(-EBADF, fname,
-                                      (open_flags & ~(O_ACCMODE|O_CREAT|O_EXCL)) | O_RDONLY,
-                                      file_flags, 0, compress_threshold_bytes, NULL,
-                                      mmap_cache, NULL, &old_file);
-                if (r < 0)
-                        log_debug_errno(r, "Failed to continue sequence from file %s, ignoring: %m", fname);
-                else
-                        template = old_file;
-        }
+        /* The file is corrupted. Try opening it read-only as the template before rotating to inherit its
+         * sequence number and ID. */
+        r = journal_file_open(-EBADF, fname,
+                              (open_flags & ~(O_ACCMODE|O_CREAT|O_EXCL)) | O_RDONLY,
+                              file_flags, 0, compress_threshold_bytes, NULL,
+                              mmap_cache, /* template = */ NULL, &old_file);
+        if (r < 0)
+                log_debug_errno(r, "Failed to continue sequence from file %s, ignoring: %m", fname);
 
         r = journal_file_dispose(AT_FDCWD, fname);
         if (r < 0)
                 return r;
 
         return journal_file_open(-EBADF, fname, open_flags, file_flags, mode, compress_threshold_bytes, metrics,
-                                 mmap_cache, template, ret);
+                                 mmap_cache, /* template = */ old_file, ret);
 }
