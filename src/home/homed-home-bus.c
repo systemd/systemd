@@ -349,7 +349,7 @@ int bus_home_method_authenticate(
                         message,
                         "org.freedesktop.home1.authenticate-home",
                         /* details= */ NULL,
-                        /* interactive= */ false,
+                        /* flags= */ 0,
                         h->uid,
                         &h->manager->polkit_registry,
                         error);
@@ -494,7 +494,7 @@ int bus_home_method_change_password(
                         message,
                         "org.freedesktop.home1.passwd-home",
                         /* details= */ NULL,
-                        /* interactive= */ false,
+                        /* flags= */ 0,
                         h->uid,
                         &h->manager->polkit_registry,
                         error);
@@ -689,7 +689,7 @@ int bus_home_method_inhibit_suspend(
                         message,
                         "org.freedesktop.home1.inhibit-suspend",
                         /* details= */ NULL,
-                        /* interactive= */ false,
+                        /* flags= */ 0,
                         h->uid,
                         &h->manager->polkit_registry,
                         error);

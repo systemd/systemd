@@ -286,7 +286,7 @@ static int method_set_locale(sd_bus_message *m, void *userdata, sd_bus_error *er
                         m,
                         "org.freedesktop.locale1.set-locale",
                         /* details= */ NULL,
-                        interactive,
+                        interactive ? BUS_POLKIT_FLAGS_INTERACTIVE : 0,
                         /* good_user= */ UID_INVALID,
                         &c->polkit_registry,
                         error);
@@ -390,7 +390,7 @@ static int method_set_vc_keyboard(sd_bus_message *m, void *userdata, sd_bus_erro
                         m,
                         "org.freedesktop.locale1.set-keyboard",
                         /* details= */ NULL,
-                        interactive,
+                        interactive ? BUS_POLKIT_FLAGS_INTERACTIVE : 0,
                         /* good_user= */ UID_INVALID,
                         &c->polkit_registry,
                         error);
@@ -509,7 +509,7 @@ static int method_set_x11_keyboard(sd_bus_message *m, void *userdata, sd_bus_err
                         m,
                         "org.freedesktop.locale1.set-keyboard",
                         /* details= */ NULL,
-                        interactive,
+                        interactive ? BUS_POLKIT_FLAGS_INTERACTIVE : 0,
                         /* good_user= */ UID_INVALID,
                         &c->polkit_registry,
                         error);

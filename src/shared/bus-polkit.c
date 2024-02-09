@@ -501,7 +501,7 @@ int bus_verify_polkit_async_full(
                 sd_bus_message *call,
                 const char *action,
                 const char **details,
-                bool interactive, /* Use only for legacy method calls that have a separate "allow_interactive_authentication" field */
+                BusPolkitFlags flags,
                 uid_t good_user,
                 Hashmap **registry,
                 sd_bus_error *ret_error) {
@@ -530,11 +530,13 @@ int bus_verify_polkit_async_full(
         }
 #endif
 
-        r = sd_bus_query_sender_privilege(call, -1);
-        if (r < 0)
-                return r;
-        if (r > 0)
-                return 1;
+        if (!FLAGS_SET(flags, BUS_POLKIT_FLAGS_SKIP_UID_CHECK)) {
+                r = sd_bus_query_sender_privilege(call, -1);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return 1;
+        }
 
 #if ENABLE_POLKIT
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *pk = NULL;
@@ -543,9 +545,9 @@ int bus_verify_polkit_async_full(
         if (c < 0)
                 return c;
         if (c > 0)
-                interactive = true;
+                flags |= BUS_POLKIT_FLAGS_INTERACTIVE;
 
-        r = bus_message_new_polkit_auth_call_for_bus(call, action, details, interactive, &pk);
+        r = bus_message_new_polkit_auth_call_for_bus(call, action, details, FLAGS_SET(flags, BUS_POLKIT_FLAGS_INTERACTIVE), &pk);
         if (r < 0)
                 return r;
 
