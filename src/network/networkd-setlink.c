@@ -464,7 +464,7 @@ static int link_is_ready_to_set_link(Link *link, Request *req) {
                 break;
 
         case REQUEST_TYPE_SET_LINK_CAN:
-                /* Do not check link->set_flgas_messages here, as it is ok even if link->flags
+                /* Do not check link->set_flags_messages here, as it is ok even if link->flags
                  * is outdated, and checking the counter causes a deadlock. */
                 if (FLAGS_SET(link->flags, IFF_UP)) {
                         /* The CAN interface must be down to configure bitrate, etc... */
@@ -511,7 +511,7 @@ static int link_is_ready_to_set_link(Link *link, Request *req) {
                                 return false;
                         m = link->network->bond->ifindex;
 
-                        /* Do not check link->set_flgas_messages here, as it is ok even if link->flags
+                        /* Do not check link->set_flags_messages here, as it is ok even if link->flags
                          * is outdated, and checking the counter causes a deadlock. */
                         if (FLAGS_SET(link->flags, IFF_UP)) {
                                 /* link must be down when joining to bond master. */
