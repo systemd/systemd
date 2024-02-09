@@ -4358,11 +4358,9 @@ int journal_file_archive(JournalFile *f, char **ret_previous_path) {
         (void) fsync_directory_of_file(f->fd);
 
         if (ret_previous_path)
-                *ret_previous_path = f->path;
-        else
-                free(f->path);
+                *ret_previous_path = TAKE_PTR(f->path);
 
-        f->path = TAKE_PTR(p);
+        free_and_replace(f->path, p);
 
         /* Set as archive so offlining commits w/state=STATE_ARCHIVED. Previously we would set old_file->header->state
          * to STATE_ARCHIVED directly here, but journal_file_set_offline() short-circuits when state != STATE_ONLINE,
