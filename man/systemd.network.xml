@@ -1911,7 +1911,7 @@ allow my_server_t localnet_peer_t:peer recv;</programlisting>
           are implied and these settings in the .network file are silently ignored. Also,
           <varname>Hostname=</varname>,
           <varname>MUDURL=</varname>,
-          <varname>RequestAddress</varname>,
+          <varname>RequestAddress=</varname>,
           <varname>RequestOptions=</varname>,
           <varname>SendOption=</varname>,
           <varname>SendVendorOption=</varname>,
