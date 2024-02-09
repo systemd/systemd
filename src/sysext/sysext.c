@@ -65,10 +65,11 @@ STATIC_DESTRUCTOR_REGISTER(arg_image_policy, image_policy_freep);
 
 /* Helper struct for naming simplicity and reusability */
 static const struct {
-        const char *dot_directory_name;
-        const char *directory_name;
+        const char *full_identifier;
         const char *short_identifier;
         const char *short_identifier_plural;
+        const char *dot_directory_name;
+        const char *directory_name;
         const char *level_env;
         const char *scope_env;
         const char *name_env;
@@ -76,10 +77,10 @@ static const struct {
         unsigned long default_mount_flags;
 } image_class_info[_IMAGE_CLASS_MAX] = {
         [IMAGE_SYSEXT] = {
-                .dot_directory_name = ".systemd-sysext",
-                .directory_name = "systemd-sysext",
+                .full_identifier = "systemd-sysext",
                 .short_identifier = "sysext",
                 .short_identifier_plural = "extensions",
+                .dot_directory_name = ".systemd-sysext",
                 .level_env = "SYSEXT_LEVEL",
                 .scope_env = "SYSEXT_SCOPE",
                 .name_env = "SYSTEMD_SYSEXT_HIERARCHIES",
@@ -87,10 +88,10 @@ static const struct {
                 .default_mount_flags = MS_RDONLY|MS_NODEV,
         },
         [IMAGE_CONFEXT] = {
-                .dot_directory_name = ".systemd-confext",
-                .directory_name = "systemd-confext",
+                .full_identifier = "systemd-confext",
                 .short_identifier = "confext",
                 .short_identifier_plural = "confexts",
+                .dot_directory_name = ".systemd-confext",
                 .level_env = "CONFEXT_LEVEL",
                 .scope_env = "CONFEXT_SCOPE",
                 .name_env = "SYSTEMD_CONFEXT_HIERARCHIES",
