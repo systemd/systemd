@@ -2468,7 +2468,7 @@ static void server_load_credentials(Server *s) {
         assert(s);
 
         /* if we already have a forward address from config don't load the credential */
-        if (s->forward_to_socket.sockaddr.sa.sa_family != AF_MAX) {
+        if (s->forward_to_socket.sockaddr.sa.sa_family != AF_UNSPEC) {
                 log_debug("Socket forward address already set not loading journald.forward_to_socket");
                 return;
         }
@@ -2518,7 +2518,7 @@ int server_new(Server **ret) {
                 .ratelimit_burst = DEFAULT_RATE_LIMIT_BURST,
 
                 .forward_to_wall = true,
-                .forward_to_socket = { .sockaddr.sa.sa_family = AF_MAX },
+                .forward_to_socket = { .sockaddr.sa.sa_family = AF_UNSPEC },
 
                 .max_file_usec = DEFAULT_MAX_FILE_USEC,
 
@@ -2572,7 +2572,7 @@ int server_init(Server *s, const char *namespace) {
 
         /* only open a forwarding socket if a forwarding address has been set
          * and we are in the main namespace */
-        if (s->forward_to_socket.sockaddr.sa.sa_family != AF_MAX && !s->namespace)
+        if (s->forward_to_socket.sockaddr.sa.sa_family != AF_UNSPEC && !s->namespace)
                 server_open_forward_socket(s);
 
         if (!s->namespace) {
