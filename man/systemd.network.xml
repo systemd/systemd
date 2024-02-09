@@ -2341,7 +2341,7 @@ NFTSet=prefix:netdev:filter:eth_ipv4_prefix</programlisting>
           are implied and these settings in the .network file are silently ignored. Also,
           <varname>Hostname=</varname>,
           <varname>MUDURL=</varname>,
-          <varname>RequestAddress</varname>,
+          <varname>RequestAddress=</varname>,
           <varname>RequestOptions=</varname>,
           <varname>SendOption=</varname>,
           <varname>SendVendorOption=</varname>,
