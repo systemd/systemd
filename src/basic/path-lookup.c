@@ -91,6 +91,44 @@ int xdg_user_data_dir(char **ret, const char *suffix) {
         return 1;
 }
 
+int runtime_directory(char **ret, RuntimeScope scope, const char *suffix) {
+        _cleanup_free_ char *d = NULL;
+        int r;
+
+        assert(ret);
+        assert(suffix);
+        assert(IN_SET(scope, RUNTIME_SCOPE_SYSTEM, RUNTIME_SCOPE_USER, RUNTIME_SCOPE_GLOBAL));
+
+        /* Accept $RUNTIME_DIRECTORY as authoritative
+         * If its missing apply the suffix to /run or $XDG_RUNTIME_DIR
+         * if we are in a user runtime scope.
+         *
+         * Return value indicates whether the suffix was applied or not */
+
+        const char *e = secure_getenv("RUNTIME_DIRECTORY");
+        if (e) {
+                d = strdup(e);
+                if (!d)
+                        return -ENOMEM;
+
+                *ret = TAKE_PTR(d);
+                return false;
+        }
+
+        if (scope == RUNTIME_SCOPE_USER) {
+                r = xdg_user_runtime_dir(&d, suffix);
+                if (r < 0)
+                        return r;
+        } else {
+                d = path_join("/run", suffix);
+                if (!d)
+                        return -ENOMEM;
+        }
+
+        *ret = TAKE_PTR(d);
+        return true;
+}
+
 static const char* const user_data_unit_paths[] = {
         "/usr/local/lib/systemd/user",
         "/usr/local/share/systemd/user",
