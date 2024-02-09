@@ -17,7 +17,6 @@ int journal_file_open_reliably(
                 uint64_t compress_threshold_bytes,
                 JournalMetrics *metrics,
                 MMapCache *mmap_cache,
-                JournalFile *template,
                 JournalFile **ret);
 
 JournalFile* journal_file_initiate_close(JournalFile *f, Set *deferred_closes);
