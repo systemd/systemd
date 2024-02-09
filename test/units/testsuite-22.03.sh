@@ -12,6 +12,14 @@ touch /tmp/file-owned-by-root
 #
 # 'f'
 #
+systemd-tmpfiles --dry-run --create - <<EOF
+f     /tmp/f/1    0644 - - - -
+f     /tmp/f/2    0644 - - - This string should be written
+EOF
+
+test ! -e /tmp/f/1
+test ! -e /tmp/f/2
+
 systemd-tmpfiles --create - <<EOF
 f     /tmp/f/1    0644 - - - -
 f     /tmp/f/2    0644 - - - This string should be written
@@ -189,6 +197,11 @@ touch /tmp/w/overwritten
 touch /tmp/w/appended
 
 ### nop if the target does not exist.
+systemd-tmpfiles --dry-run --create - <<EOF
+w     /tmp/w/unexistent    0644 - - - new content
+EOF
+test ! -e /tmp/w/unexistent
+
 systemd-tmpfiles --create - <<EOF
 w     /tmp/w/unexistent    0644 - - - new content
 EOF
@@ -200,6 +213,12 @@ w     /tmp/w/unexistent    0644 - - - -
 EOF
 
 ### write into an empty file.
+systemd-tmpfiles --dry-run --create - <<EOF
+w     /tmp/w/overwritten    0644 - - - old content
+EOF
+test -f /tmp/w/overwritten
+test -z "$(< /tmp/w/overwritten)"
+
 systemd-tmpfiles --create - <<EOF
 w     /tmp/w/overwritten    0644 - - - old content
 EOF
@@ -207,6 +226,12 @@ test -f /tmp/w/overwritten
 test "$(< /tmp/w/overwritten)" = "old content"
 
 ### old content is overwritten
+systemd-tmpfiles --dry-run --create - <<EOF
+w     /tmp/w/overwritten    0644 - - - new content
+EOF
+test -f /tmp/w/overwritten
+test "$(< /tmp/w/overwritten)" = "old content"
+
 systemd-tmpfiles --create - <<EOF
 w     /tmp/w/overwritten    0644 - - - new content
 EOF
@@ -223,6 +248,10 @@ test -f /tmp/w/appended
 test "$(< /tmp/w/appended)" = "$(echo -ne '12\n3')"
 
 ### writing into an 'exotic' file should be allowed.
+systemd-tmpfiles --dry-run --create - <<EOF
+w     /dev/null    - - - - new content
+EOF
+
 systemd-tmpfiles --create - <<EOF
 w     /dev/null    - - - - new content
 EOF

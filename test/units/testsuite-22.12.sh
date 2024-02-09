@@ -52,6 +52,16 @@ sleep 1
 touch /tmp/ageby/d{3,4}/f{2..4}
 
 # Check for cleanup of "f1" in each of "/tmp/d{1..4}".
+systemd-tmpfiles --dry-run --clean - <<-EOF
+d /tmp/ageby/d1 - - - a:1m -
+e /tmp/ageby/d2 - - - m:3m -
+D /tmp/ageby/d3 - - - c:2s -
+EOF
+
+for d in d{1..3}; do
+    test -f "/tmp/ageby/${d}/f1"
+done
+
 systemd-tmpfiles --clean - <<-EOF
 d /tmp/ageby/d1 - - - a:1m -
 e /tmp/ageby/d2 - - - m:3m -
