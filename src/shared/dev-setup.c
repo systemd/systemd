@@ -28,7 +28,7 @@ int lock_dev_console(void) {
 
         r = lock_generic(fd, LOCK_BSD, LOCK_EX);
         if (r < 0)
-                return log_error_errno(r, "Failed to lock /dev/console: %m");
+                return r;
 
         return TAKE_FD(fd);
 }
