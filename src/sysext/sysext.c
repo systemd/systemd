@@ -56,6 +56,8 @@ typedef enum MutableMode {
         MUTABLE_NO,
         MUTABLE_AUTO,
         MUTABLE_IMPORT,
+        _MUTABLE_MAX,
+        _MUTABLE_INVALID = -EINVAL,
 } MutableMode;
 
 static char **arg_hierarchies = NULL; /* "/usr" + "/opt" by default for sysext and /etc by default for confext */
@@ -570,6 +572,7 @@ static int mount_overlayfs(
         int r;
 
         assert(where);
+        assert((upper_dir && work_dir) || (!upper_dir && !work_dir));
 
         options = strdup("lowerdir=");
         if (!options)
@@ -633,7 +636,7 @@ static char *hierarchy_as_single_path_component(const char *hierarchy) {
         return TAKE_PTR(dir_name);
 }
 
-static char *determine_mutable_layer_path_for_hierarchy(const char *hierarchy) {
+static char *determine_mutable_directory_path_for_hierarchy(const char *hierarchy) {
         _cleanup_free_ char *dir_name = NULL;
 
         assert(hierarchy);
@@ -703,36 +706,36 @@ static int work_dir_for_hierarchy(
         return 0;
 }
 
-struct overlayfs_paths {
+typedef struct OverlayFSPaths {
         char *hierarchy;
         char *resolved_hierarchy;
-        char *resolved_upper_dir;
+        char *resolved_mutable_directory;
 
         /* NULL if merged fs is read-only */
-        char *ofs_upper_dir;
+        char *upper_dir;
         /* NULL if merged fs is read-only */
-        char *ofs_work_dir;
+        char *work_dir;
         /* lowest index is top lowerdir, highest index is bottom lowerdir */
-        char **ofs_lower_dirs;
-        size_t ofs_lower_dirs_size;
-};
+        char **lower_dirs;
+        size_t lower_dirs_size;
+} OverlayFSPaths;
 
-static struct overlayfs_paths *overlayfs_paths_free(struct overlayfs_paths *op) {
+static OverlayFSPaths *overlayfs_paths_free(OverlayFSPaths *op) {
         if (!op)
                 return NULL;
 
         free(op->hierarchy);
         free(op->resolved_hierarchy);
-        free(op->resolved_upper_dir);
+        free(op->resolved_mutable_directory);
 
-        free(op->ofs_upper_dir);
-        free(op->ofs_work_dir);
-        strv_free(op->ofs_lower_dirs);
+        free(op->upper_dir);
+        free(op->work_dir);
+        strv_free(op->lower_dirs);
 
         free(op);
         return NULL;
 }
-DEFINE_TRIVIAL_CLEANUP_FUNC(struct overlayfs_paths *, overlayfs_paths_free);
+DEFINE_TRIVIAL_CLEANUP_FUNC(OverlayFSPaths *, overlayfs_paths_free);
 
 static int resolve_hierarchy(const char *hierarchy, char **ret_resolved_hierarchy) {
         _cleanup_free_ char *resolved_path = NULL;
@@ -749,45 +752,45 @@ static int resolve_hierarchy(const char *hierarchy, char **ret_resolved_hierarch
         return 0;
 }
 
-static int resolve_upper_dir(const char *hierarchy, char **ret_resolved_upper_dir) {
-        _cleanup_free_ char *upper_dir = NULL, *resolved_path = NULL;
+static int resolve_mutable_directory(const char *hierarchy, char **ret_resolved_mutable_directory) {
+        _cleanup_free_ char *path = NULL, *resolved_path = NULL;
         int r;
 
         assert(hierarchy);
-        assert(ret_resolved_upper_dir);
+        assert(ret_resolved_mutable_directory);
 
         if (arg_mutable == MUTABLE_NO) {
-                log_debug("Mutability for hierarchy '%s' is disabled, not resolving upper dir.", hierarchy);
-                *ret_resolved_upper_dir = NULL;
+                log_debug("Mutability for hierarchy '%s' is disabled, not resolving mutable directory.", hierarchy);
+                *ret_resolved_mutable_directory = NULL;
                 return 0;
         }
 
-        upper_dir = determine_mutable_layer_path_for_hierarchy(hierarchy);
-        if (!upper_dir)
+        path = determine_mutable_directory_path_for_hierarchy(hierarchy);
+        if (!path)
                 return log_oom();
 
         if (arg_mutable == MUTABLE_YES) {
-                _cleanup_free_ char *path = NULL;
+                _cleanup_free_ char *path_in_root = NULL;
 
-                path = path_join(arg_root, upper_dir);
-                if (!path)
+                path_in_root = path_join(arg_root, path);
+                if (!path_in_root)
                         return log_oom();
 
-                r = mkdir_p(path, 0700);
+                r = mkdir_p(path_in_root, 0700);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to create a directory '%s': %m", path);
+                        return log_error_errno(r, "Failed to create a directory '%s': %m", path_in_root);
         }
 
-        r = chase(upper_dir, arg_root, CHASE_PREFIX_ROOT, &resolved_path, NULL);
+        r = chase(path, arg_root, CHASE_PREFIX_ROOT, &resolved_path, NULL);
         if (r < 0 && r != -ENOENT)
-                return log_error_errno(r, "Failed to resolve upper dir '%s': %m", upper_dir);
+                return log_error_errno(r, "Failed to resolve mutable directory '%s': %m", path);
 
-        *ret_resolved_upper_dir = TAKE_PTR(resolved_path);
+        *ret_resolved_mutable_directory = TAKE_PTR(resolved_path);
         return 0;
 }
 
-static int overlayfs_paths_new(const char *hierarchy, struct overlayfs_paths **ret_op) {
-        _cleanup_free_ char *hierarchy_copy = NULL, *resolved_hierarchy = NULL, *resolved_upper_dir = NULL;
+static int overlayfs_paths_new(const char *hierarchy, OverlayFSPaths **ret_op) {
+        _cleanup_free_ char *hierarchy_copy = NULL, *resolved_hierarchy = NULL, *resolved_mutable_directory = NULL;
         int r;
 
         assert (hierarchy);
@@ -800,65 +803,39 @@ static int overlayfs_paths_new(const char *hierarchy, struct overlayfs_paths **r
         r = resolve_hierarchy(hierarchy, &resolved_hierarchy);
         if (r < 0)
                 return r;
-        r = resolve_upper_dir(hierarchy, &resolved_upper_dir);
+        r = resolve_mutable_directory(hierarchy, &resolved_mutable_directory);
         if (r < 0)
                 return r;
 
-        struct overlayfs_paths *op;
-        op = new0(struct overlayfs_paths, 1);
+        OverlayFSPaths *op;
+        op = new0(OverlayFSPaths, 1);
         if (!op)
                 return log_oom();
 
-        *op = (struct overlayfs_paths) {
+        *op = (OverlayFSPaths) {
                 .hierarchy = TAKE_PTR(hierarchy_copy),
                 .resolved_hierarchy = TAKE_PTR(resolved_hierarchy),
-                .resolved_upper_dir = TAKE_PTR(resolved_upper_dir),
+                .resolved_mutable_directory = TAKE_PTR(resolved_mutable_directory),
         };
 
         *ret_op = TAKE_PTR(op);
         return 0;
 }
 
-static int consume_layer(struct overlayfs_paths *op, char *layer) {
-        int r;
-
-        assert(op);
-        assert(layer);
-
-        r = strv_consume_with_size(&op->ofs_lower_dirs, &op->ofs_lower_dirs_size, layer);
-        if (r < 0)
-                return log_oom();
-
-        return 0;
-}
-
-static int append_layer(struct overlayfs_paths *op, const char *layer) {
-        int r;
-
-        assert(op);
-        assert(layer);
-
-        r = strv_extend_with_size(&op->ofs_lower_dirs, &op->ofs_lower_dirs_size, layer);
-        if (r < 0)
-                return log_oom();
-
-        return 0;
-}
-
-static int determine_top_lower_dirs(struct overlayfs_paths *op, const char *meta_path) {
+static int determine_top_lower_dirs(OverlayFSPaths *op, const char *meta_path) {
         int r;
 
         assert(op);
         assert(meta_path);
 
         /* Put the meta path (i.e. our synthesized stuff) at the top of the layer stack */
-        r = append_layer(op, meta_path);
+        r = strv_extend(&op->lower_dirs, meta_path);
         if (r < 0)
-                return r;
+                return log_oom();
 
-        /* If importing writable layer and it actually exists, add it just below the meta path */
-        if (arg_mutable == MUTABLE_IMPORT && op->resolved_upper_dir) {
-                r = append_layer(op, op->resolved_upper_dir);
+        /* If importing mutable layer and it actually exists, add it just below the meta path */
+        if (arg_mutable == MUTABLE_IMPORT && op->resolved_mutable_directory) {
+                r = strv_extend(&op->lower_dirs, op->resolved_mutable_directory);
                 if (r < 0)
                         return r;
         }
@@ -866,7 +843,7 @@ static int determine_top_lower_dirs(struct overlayfs_paths *op, const char *meta
         return 0;
 }
 
-static int determine_middle_lower_dirs(struct overlayfs_paths *op, char **paths, size_t *extensions_used) {
+static int determine_middle_lower_dirs(OverlayFSPaths *op, char **paths, size_t *extensions_used) {
         size_t n = 0;
         int r;
 
@@ -894,9 +871,9 @@ static int determine_middle_lower_dirs(struct overlayfs_paths *op, char **paths,
                         continue;
                 }
 
-                r = consume_layer(op, TAKE_PTR(resolved));
+                r = strv_consume(&op->lower_dirs, TAKE_PTR(resolved));
                 if (r < 0)
-                        return r;
+                        return log_oom();
                 ++n;
         }
 
@@ -904,7 +881,7 @@ static int determine_middle_lower_dirs(struct overlayfs_paths *op, char **paths,
         return 0;
 }
 
-static int hierarchy_as_lower_dir(struct overlayfs_paths *op) {
+static int hierarchy_as_lower_dir(OverlayFSPaths *op) {
         int r;
 
         /* return 0 if hierarchy should be used as lower dir, >0, if not */
@@ -929,18 +906,18 @@ static int hierarchy_as_lower_dir(struct overlayfs_paths *op) {
                 return 0;
         }
 
-        if (!op->resolved_upper_dir) {
-                log_debug("No upperdir found, so host hierarchy '%s' will be used as lowerdir", op->resolved_hierarchy);
+        if (!op->resolved_mutable_directory) {
+                log_debug("No mutable directory found, so host hierarchy '%s' will be used as lowerdir", op->resolved_hierarchy);
                 return 0;
         }
 
-        if (path_equal(op->resolved_hierarchy, op->resolved_upper_dir)) {
+        if (path_equal(op->resolved_hierarchy, op->resolved_mutable_directory)) {
                 log_debug("Host hierarchy '%s' will serve as upperdir.", op->resolved_hierarchy);
                 return 1;
         }
-        r = inode_same(op->resolved_hierarchy, op->resolved_upper_dir, 0);
+        r = inode_same(op->resolved_hierarchy, op->resolved_mutable_directory, 0);
         if (r < 0)
-                return log_error_errno(r, "Failed to check inode equality of hierarchy %s and its extensions data directory %s: %m", op->resolved_hierarchy, op->resolved_upper_dir);
+                return log_error_errno(r, "Failed to check inode equality of hierarchy %s and its mutable directory %s: %m", op->resolved_hierarchy, op->resolved_mutable_directory);
         if (r > 0) {
                 log_debug("Host hierarchy '%s' will serve as upperdir.", op->resolved_hierarchy);
                 return 1;
@@ -949,7 +926,7 @@ static int hierarchy_as_lower_dir(struct overlayfs_paths *op) {
         return 0;
 }
 
-static int determine_bottom_lower_dirs(struct overlayfs_paths *op) {
+static int determine_bottom_lower_dirs(OverlayFSPaths *op) {
         int r;
 
         assert(op);
@@ -958,7 +935,7 @@ static int determine_bottom_lower_dirs(struct overlayfs_paths *op) {
         if (r < 0)
                 return r;
         if (!r) {
-                r = append_layer(op, op->resolved_hierarchy);
+                r = strv_extend(&op->lower_dirs, op->resolved_hierarchy);
                 if (r < 0)
                         return r;
         }
@@ -967,7 +944,7 @@ static int determine_bottom_lower_dirs(struct overlayfs_paths *op) {
 }
 
 static int determine_lower_dirs(
-                struct overlayfs_paths *op,
+                OverlayFSPaths *op,
                 char **paths,
                 const char *meta_path,
                 size_t *extensions_used) {
@@ -994,60 +971,60 @@ static int determine_lower_dirs(
         return 0;
 }
 
-static int determine_upper_dir(struct overlayfs_paths *op) {
+static int determine_upper_dir(OverlayFSPaths *op) {
         int r;
 
         assert(op);
-        assert(!op->ofs_upper_dir);
+        assert(!op->upper_dir);
 
         if (arg_mutable == MUTABLE_IMPORT) {
                 log_debug("Mutability is disabled, there will be no upperdir for host hierarchy '%s'", op->hierarchy);
                 return 0;
         }
 
-        if (!op->resolved_upper_dir) {
-                log_debug("No upperdir found for host hierarchy '%s'", op->hierarchy);
+        if (!op->resolved_mutable_directory) {
+                log_debug("No mutable directory found for host hierarchy '%s', there will be no upperdir", op->hierarchy);
                 return 0;
         }
 
         /* Require upper dir to be on writable filesystem if it's going to be used as an actual overlayfs
          * upperdir, instead of a lowerdir as an imported path. */
-        r = path_is_read_only_fs(op->resolved_upper_dir);
+        r = path_is_read_only_fs(op->resolved_mutable_directory);
         if (r < 0)
-                return log_error_errno(r, "Failed to determine if upperdir '%s' is on read-only filesystem: %m", op->resolved_upper_dir);
+                return log_error_errno(r, "Failed to determine if mutable directory '%s' is on read-only filesystem: %m", op->resolved_mutable_directory);
         if (r > 0)
-                return log_error_errno(SYNTHETIC_ERRNO(EROFS), "Can't use '%s' as an upperdir as it is read-only.", op->resolved_upper_dir);
+                return log_error_errno(SYNTHETIC_ERRNO(EROFS), "Can't use '%s' as an upperdir as it is read-only.", op->resolved_mutable_directory);
 
-        op->ofs_upper_dir = strdup(op->resolved_upper_dir);
-        if (!op->ofs_upper_dir)
+        op->upper_dir = strdup(op->resolved_mutable_directory);
+        if (!op->upper_dir)
                 return log_oom();
 
         return 0;
 }
 
-static int determine_work_dir(struct overlayfs_paths *op) {
+static int determine_work_dir(OverlayFSPaths *op) {
         _cleanup_free_ char *work_dir = NULL;
         int r;
 
         assert(op);
-        assert(!op->ofs_work_dir);
+        assert(!op->work_dir);
 
-        if (!op->ofs_upper_dir)
+        if (!op->upper_dir)
                 return 0;
 
         if (arg_mutable == MUTABLE_IMPORT)
                 return 0;
 
-        r = work_dir_for_hierarchy(op->hierarchy, op->ofs_upper_dir, &work_dir);
+        r = work_dir_for_hierarchy(op->hierarchy, op->upper_dir, &work_dir);
         if (r < 0)
                 return r;
 
-        op->ofs_work_dir = TAKE_PTR(work_dir);
+        op->work_dir = TAKE_PTR(work_dir);
         return 0;
 }
 
 static int mount_overlayfs_with_op(
-                struct overlayfs_paths *op,
+                OverlayFSPaths *op,
                 ImageClass image_class,
                 int noexec,
                 const char *overlay_path,
@@ -1066,13 +1043,13 @@ static int mount_overlayfs_with_op(
         if (r < 0)
                 return log_error_errno(r, "Failed to make directory '%s': %m", meta_path);
 
-        if (op->ofs_upper_dir && op->ofs_work_dir) {
-                r = mkdir_p(op->ofs_work_dir, 0700);
+        if (op->upper_dir && op->work_dir) {
+                r = mkdir_p(op->work_dir, 0700);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to make directory '%s': %m", op->ofs_work_dir);
+                        return log_error_errno(r, "Failed to make directory '%s': %m", op->work_dir);
         }
 
-        r = mount_overlayfs(image_class, noexec, overlay_path, op->ofs_lower_dirs, op->ofs_upper_dir, op->ofs_work_dir);
+        r = mount_overlayfs(image_class, noexec, overlay_path, op->lower_dirs, op->upper_dir, op->work_dir);
         if (r < 0)
                 return r;
 
@@ -1239,7 +1216,7 @@ static int merge_hierarchy(
                 const char *meta_path,
                 const char *overlay_path) {
 
-        _cleanup_(overlayfs_paths_freep) struct overlayfs_paths *op = NULL;
+        _cleanup_(overlayfs_paths_freep) OverlayFSPaths *op = NULL;
         size_t extensions_used = 0;
         int r;
 
@@ -1272,11 +1249,11 @@ static int merge_hierarchy(
         if (r < 0)
                 return r;
 
-        r = store_info_in_meta(image_class, extensions, meta_path, overlay_path, op->ofs_work_dir);
+        r = store_info_in_meta(image_class, extensions, meta_path, overlay_path, op->work_dir);
         if (r < 0)
                 return r;
 
-        r = make_mounts_read_only(image_class, overlay_path, op->ofs_upper_dir && op->ofs_work_dir);
+        r = make_mounts_read_only(image_class, overlay_path, op->upper_dir && op->work_dir);
         if (r < 0)
                 return r;
 
@@ -2143,7 +2120,7 @@ static int parse_argv(int argc, char *argv[]) {
                         else {
                                 r = parse_boolean(optarg);
                                 if (r < 0)
-                                        return log_error_errno(r, "Failed to parse argument to --mutable: %s", optarg);
+                                        return log_error_errno(r, "Failed to parse argument to --mutable=: %s", optarg);
                                 arg_mutable = r ? MUTABLE_YES : MUTABLE_NO;
                         }
                         break;
