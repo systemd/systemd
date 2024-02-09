@@ -7,9 +7,14 @@
 #include "user-util.h"
 #include "varlink.h"
 
+typedef enum {
+        BUS_POLKIT_FLAGS_INTERACTIVE, /* Use only for legacy method calls that have a separate "allow_interactive_authentication" field */
+        BUS_POLKIT_FLAGS_SKIP_UID_CHECK,
+} BusPolkitFlags;
+
 int bus_test_polkit(sd_bus_message *call, const char *action, const char **details, uid_t good_user, bool *_challenge, sd_bus_error *e);
 
-int bus_verify_polkit_async_full(sd_bus_message *call, const char *action, const char **details, bool interactive, uid_t good_user, Hashmap **registry, sd_bus_error *error);
+int bus_verify_polkit_async_full(sd_bus_message *call, const char *action, const char **details, BusPolkitFlags flags, uid_t good_user, Hashmap **registry, sd_bus_error *error);
 static inline int bus_verify_polkit_async(sd_bus_message *call, const char *action, const char **details, Hashmap **registry, sd_bus_error *ret_error) {
         return bus_verify_polkit_async_full(call, action, details, false, UID_INVALID, registry, ret_error);
 }
