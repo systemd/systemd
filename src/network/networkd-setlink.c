@@ -486,7 +486,7 @@ static int link_is_ready_to_set_link(Link *link, Request *req) {
                 return link->bridge_vlan_set;
 
         case REQUEST_TYPE_SET_LINK_CAN:
-                /* Do not check link->set_flgas_messages here, as it is ok even if link->flags
+                /* Do not check link->set_flags_messages here, as it is ok even if link->flags
                  * is outdated, and checking the counter causes a deadlock. */
                 if (FLAGS_SET(link->flags, IFF_UP)) {
                         /* The CAN interface must be down to configure bitrate, etc... */
@@ -532,15 +532,6 @@ static int link_is_ready_to_set_link(Link *link, Request *req) {
                         if (!netdev_is_ready(link->network->bond))
                                 return false;
                         m = link->network->bond->ifindex;
-
-                        /* Do not check link->set_flgas_messages here, as it is ok even if link->flags
-                         * is outdated, and checking the counter causes a deadlock. */
-                        if (FLAGS_SET(link->flags, IFF_UP)) {
-                                /* link must be down when joining to bond master. */
-                                r = link_down_now(link);
-                                if (r < 0)
-                                        return r;
-                        }
                 } else if (link->network->bridge) {
                         if (ordered_set_contains(link->manager->request_queue, &req_mac))
                                 return false;
@@ -557,6 +548,15 @@ static int link_is_ready_to_set_link(Link *link, Request *req) {
                         /* The requested master is already set. */
                         link->master_set = true;
                         return -EALREADY; /* indicate to cancel the request. */
+                }
+
+                /* Do not check link->set_flags_messages here, as it is ok even if link->flags is outdated,
+                 * and checking the counter causes a deadlock. */
+                if (link->network->bond && FLAGS_SET(link->flags, IFF_UP)) {
+                        /* link must be down when joining to bond master. */
+                        r = link_down_now(link);
+                        if (r < 0)
+                                return r;
                 }
 
                 req->userdata = UINT32_TO_PTR(m);
@@ -1046,6 +1046,8 @@ static int link_up_or_down(Link *link, bool up, Request *req) {
         assert(link->manager->rtnl);
         assert(req);
 
+        /* The log message is checked in the test. Please also update test_bond_active_slave() in
+         * test/test-network/systemd-networkd-tests.py. when the log message below is modified. */
         log_link_debug(link, "Bringing link %s", up_or_down(up));
 
         r = sd_rtnl_message_new_link(link->manager->rtnl, &m, RTM_SETLINK, link->ifindex);
