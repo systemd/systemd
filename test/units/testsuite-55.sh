@@ -13,15 +13,9 @@ test "$(cat /sys/fs/cgroup/init.scope/memory.high)" != "max"
 
 # Loose checks to ensure the environment has the necessary features for systemd-oomd
 [[ -e /proc/pressure ]] || echo "no PSI" >>/skipped
-cgroup_type="$(stat -fc %T /sys/fs/cgroup/)"
-if [[ "$cgroup_type" != *"cgroup2"* ]] && [[ "$cgroup_type" != *"0x63677270"* ]]; then
-    echo "no cgroup2" >>/skipped
-fi
-if [ ! -f /usr/lib/systemd/systemd-oomd ] && [ ! -f /lib/systemd/systemd-oomd ]; then
-    echo "no oomd" >>/skipped
-fi
-
-if [[ -e /skipped ]]; then
+[[ "$(get_cgroup_hierarchy)" == "unified" ]] || echo "no cgroupsv2" >>/skipped
+[[ -x /usr/lib/systemd/systemd-oomd ]] || echo "no oomd" >>/skipped
+if [[ -s /skipped ]]; then
     exit 0
 fi
 
@@ -71,9 +65,22 @@ if systemctl is-active systemd-oomd.service; then
     systemctl restart systemd-oomd.service
 fi
 
-# Ensure that we can start services even with a very low hard memory cap without oom-kills, but skip under
-# sanitizers as they balloon memory usage.
-if ! [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
+if [[ -v ASAN_OPTIONS || -v UBSAN_OPTIONS ]]; then
+    # If we're running with sanitizers, sd-executor might pull in quite a significant chunk of shared
+    # libraries, which in turn causes a lot of pressure that can put us in the front when sd-oomd decides to
+    # go on a killing spree. This fact is exacerbated further on Arch Linux which ships unstripped gcc-libs,
+    # so sd-executor pulls in over 30M of libs on startup. Let's make the MemoryHigh= limit a bit more
+    # generous when running with sanitizers to make the test happy.
+    systemctl edit --runtime --stdin --drop-in=99-MemoryHigh.conf testsuite-55-testchill.service <<EOF
+[Service]
+MemoryHigh=60M
+EOF
+    # Do the same for the user instance as well
+    mkdir -p /run/systemd/user/
+    cp -rfv /run/systemd/system/testsuite-55-testchill.service.d/ /run/systemd/user/
+else
+    # Ensure that we can start services even with a very low hard memory cap without oom-kills, but skip
+    # under sanitizers as they balloon memory usage.
     systemd-run -t -p MemoryMax=10M -p MemorySwapMax=0 -p MemoryZSwapMax=0 /bin/true
 fi
 
@@ -81,27 +88,16 @@ systemctl start testsuite-55-testchill.service
 systemctl start testsuite-55-testbloat.service
 
 # Verify systemd-oomd is monitoring the expected units
-# Try to avoid racing the oomctl output check by checking in a loop with a timeout
-oomctl_output=$(oomctl)
-timeout="$(date -ud "1 minutes" +%s)"
-while [[ $(date -u +%s) -le $timeout ]]; do
-    if grep "/testsuite-55-workload.slice" <<< "$oomctl_output"; then
-        break
-    fi
-    oomctl_output=$(oomctl)
-    sleep 1
-done
-
-grep "/testsuite-55-workload.slice" <<< "$oomctl_output"
-grep "20.00%" <<< "$oomctl_output"
-grep "Default Memory Pressure Duration: 2s" <<< "$oomctl_output"
+timeout 1m bash -xec 'until oomctl | grep "/testsuite-55-workload.slice"; do sleep 1; done'
+oomctl | grep "/testsuite-55-workload.slice"
+oomctl | grep "20.00%"
+oomctl | grep "Default Memory Pressure Duration: 2s"
 
 systemctl status testsuite-55-testchill.service
 
 # systemd-oomd watches for elevated pressure for 2 seconds before acting.
 # It can take time to build up pressure so either wait 2 minutes or for the service to fail.
-timeout="$(date -ud "2 minutes" +%s)"
-while [[ $(date -u +%s) -le $timeout ]]; do
+for _ in {0..59}; do
     if ! systemctl status testsuite-55-testbloat.service; then
         break
     fi
@@ -120,26 +116,16 @@ systemctl start --machine "testuser@.host" --user testsuite-55-testbloat.service
 
 # Verify systemd-oomd is monitoring the expected units
 # Try to avoid racing the oomctl output check by checking in a loop with a timeout
-oomctl_output=$(oomctl)
-timeout="$(date -ud "1 minutes" +%s)"
-while [[ $(date -u +%s) -le $timeout ]]; do
-    if grep -E "/user.slice.*/testsuite-55-workload.slice" <<< "$oomctl_output"; then
-        break
-    fi
-    oomctl_output=$(oomctl)
-    sleep 1
-done
-
-grep -E "/user.slice.*/testsuite-55-workload.slice" <<< "$oomctl_output"
-grep "20.00%" <<< "$oomctl_output"
-grep "Default Memory Pressure Duration: 2s" <<< "$oomctl_output"
+timeout 1m bash -xec 'until oomctl | grep "/testsuite-55-workload.slice"; do sleep 1; done'
+oomctl | grep -E "/user.slice.*/testsuite-55-workload.slice"
+oomctl | grep "20.00%"
+oomctl | grep "Default Memory Pressure Duration: 2s"
 
 systemctl --machine "testuser@.host" --user status testsuite-55-testchill.service
 
 # systemd-oomd watches for elevated pressure for 2 seconds before acting.
 # It can take time to build up pressure so either wait 2 minutes or for the service to fail.
-timeout="$(date -ud "2 minutes" +%s)"
-while [[ $(date -u +%s) -le $timeout ]]; do
+for _ in {0..59}; do
     if ! systemctl --machine "testuser@.host" --user status testsuite-55-testbloat.service; then
         break
     fi
@@ -166,8 +152,7 @@ EOF
     systemctl start testsuite-55-testmunch.service
     systemctl start testsuite-55-testbloat.service
 
-    timeout="$(date -ud "2 minutes" +%s)"
-    while [[ "$(date -u +%s)" -le "$timeout" ]]; do
+    for _ in {0..59}; do
         if ! systemctl status testsuite-55-testmunch.service; then
             break
         fi
