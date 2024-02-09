@@ -526,11 +526,13 @@ int bus_verify_polkit_async_full(
         }
 #endif
 
-        r = sd_bus_query_sender_privilege(call, -1);
-        if (r < 0)
-                return r;
-        if (r > 0)
-                return 1;
+        if (!FLAGS_SET(flags, POLKIT_SKIP_UID_CHECK)) {
+                r = sd_bus_query_sender_privilege(call, -1);
+                if (r < 0)
+                        return r;
+                if (r > 0)
+                        return 1;
+        }
 
 #if ENABLE_POLKIT
         bool interactive = FLAGS_SET(flags, POLKIT_ALLOW_INTERACTIVE);
