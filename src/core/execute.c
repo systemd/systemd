@@ -163,6 +163,8 @@ void exec_context_tty_reset(const ExecContext *context, const ExecParameters *p)
         lock_fd = lock_dev_console();
         if (ERRNO_IS_NEG_PRIVILEGE(lock_fd))
                 log_debug_errno(lock_fd, "No privileges to lock /dev/console, proceeding without: %m");
+        else if (ERRNO_IS_NEG_DEVICE_ABSENT(lock_fd))
+                log_debug_errno(lock_fd, "Device /dev/console does not exist, proceeding without locking it: %m");
         else if (lock_fd < 0)
                 return (void) log_debug_errno(lock_fd, "Failed to lock /dev/console: %m");
 
