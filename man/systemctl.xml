@@ -2814,6 +2814,7 @@ EOF
 
       <xi:include href="user-system-options.xml" xpointer="host" />
       <xi:include href="user-system-options.xml" xpointer="machine" />
+      <xi:include href="user-system-options.xml" xpointer="capsule" />
 
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="legend" />
