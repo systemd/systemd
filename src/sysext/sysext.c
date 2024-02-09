@@ -68,6 +68,7 @@ static const struct {
         const char *full_identifier;
         const char *short_identifier;
         const char *short_identifier_plural;
+        const char *blurb;
         const char *dot_directory_name;
         const char *directory_name;
         const char *level_env;
@@ -80,6 +81,7 @@ static const struct {
                 .full_identifier = "systemd-sysext",
                 .short_identifier = "sysext",
                 .short_identifier_plural = "extensions",
+                .blurb = "Merge system extension images into /usr/ and /opt/.",
                 .dot_directory_name = ".systemd-sysext",
                 .level_env = "SYSEXT_LEVEL",
                 .scope_env = "SYSEXT_SCOPE",
@@ -91,6 +93,7 @@ static const struct {
                 .full_identifier = "systemd-confext",
                 .short_identifier = "confext",
                 .short_identifier_plural = "confexts",
+                .blurb = "Merge configuration extension images into /etc/.",
                 .dot_directory_name = ".systemd-confext",
                 .level_env = "CONFEXT_LEVEL",
                 .scope_env = "CONFEXT_SCOPE",
@@ -1059,8 +1062,7 @@ static int verb_help(int argc, char **argv, void *userdata) {
                 return log_oom();
 
         printf("%1$s [OPTIONS...] COMMAND\n"
-               "\n%5$sMerge extension images into /usr/ and /opt/ hierarchies for\n"
-               "sysext and into the /etc/ hierarchy for confext.%6$s\n"
+               "\n%5$s%7$s%6$s\n"
                "\n%3$sCommands:%4$s\n"
                "  status                  Show current merge status (default)\n"
                "  merge                   Merge extensions into relevant hierarchies\n"
@@ -1086,7 +1088,8 @@ static int verb_help(int argc, char **argv, void *userdata) {
                ansi_underline(),
                ansi_normal(),
                ansi_highlight(),
-               ansi_normal());
+               ansi_normal(),
+               image_class_info[arg_image_class].blurb);
 
         return 0;
 }
