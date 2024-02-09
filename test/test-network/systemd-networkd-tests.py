@@ -996,7 +996,7 @@ class Utilities():
             self.fail(f'Timed out waiting for {link} to reach state {operstate}/{setup_state}')
         return False
 
-    def wait_online(self, links_with_operstate, timeout='20s', bool_any=False, ipv4=False, ipv6=False, setup_state='configured', setup_timeout=5):
+    def wait_online(self, *links_with_operstate, timeout='20s', bool_any=False, ipv4=False, ipv6=False, setup_state='configured', setup_timeout=5):
         """Wait for the links to reach the specified operstate and/or setup state.
 
         This is similar to wait_operstate() but can be used for multiple links,
@@ -1128,7 +1128,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
     def test_altname(self):
         copy_network_unit('26-netdev-link-local-addressing-yes.network', '12-dummy.netdev', '12-dummy.link')
         start_networkd()
-        self.wait_online(['dummy98:degraded'])
+        self.wait_online('dummy98:degraded')
 
         output = networkctl_status('dummy98')
         self.assertRegex(output, 'hogehogehogehogehogehoge')
@@ -1138,7 +1138,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         copy_network_unit('26-netdev-link-local-addressing-yes.network',
                           '12-dummy.netdev', '12-dummy-rename-to-altname.link')
         start_networkd()
-        self.wait_online(['dummyalt:degraded'])
+        self.wait_online('dummyalt:degraded')
 
         output = networkctl_status('dummyalt')
         self.assertIn('hogehogehogehogehogehoge', output)
@@ -1147,7 +1147,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
     def test_reconfigure(self):
         copy_network_unit('25-address-static.network', '12-dummy.netdev', copy_dropins=False)
         start_networkd()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         output = check_output('ip -4 address show dev dummy98')
         print(output)
@@ -1160,7 +1160,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         check_output('ip address del 10.2.2.4/16 dev dummy98')
 
         networkctl_reconfigure('dummy98')
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         output = check_output('ip -4 address show dev dummy98')
         print(output)
@@ -1181,7 +1181,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
 
         copy_network_unit('25-address-static.network', copy_dropins=False)
         networkctl_reload()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         output = check_output('ip -4 address show dev dummy98')
         print(output)
@@ -1191,7 +1191,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
 
     def test_renew(self):
         def check():
-            self.wait_online(['veth99:routable', 'veth-peer:routable'])
+            self.wait_online('veth99:routable', 'veth-peer:routable')
             output = networkctl_status('veth99')
             print(output)
             self.assertRegex(output, r'Address: 192.168.5.[0-9]* \(DHCP4 via 192.168.5.1\)')
@@ -1213,16 +1213,16 @@ class NetworkctlTests(unittest.TestCase, Utilities):
     def test_up_down(self):
         copy_network_unit('25-address-static.network', '12-dummy.netdev', copy_dropins=False)
         start_networkd()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         networkctl('down', 'dummy98')
-        self.wait_online(['dummy98:off'])
+        self.wait_online('dummy98:off')
         networkctl('up', 'dummy98')
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
         networkctl('down', 'dummy98', 'dummy98', 'dummy98')
-        self.wait_online(['dummy98:off'])
+        self.wait_online('dummy98:off')
         networkctl('up', 'dummy98', 'dummy98', 'dummy98')
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
     def test_reload(self):
         start_networkd()
@@ -1233,7 +1233,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
 
         copy_network_unit('11-dummy.network')
         networkctl_reload()
-        self.wait_online(['test1:degraded'])
+        self.wait_online('test1:degraded')
 
         remove_network_unit('11-dummy.network')
         networkctl_reload()
@@ -1251,7 +1251,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         copy_network_unit('11-dummy.netdev', '11-dummy.network')
         start_networkd()
 
-        self.wait_online(['test1:degraded'])
+        self.wait_online('test1:degraded')
 
         output = networkctl('list')
         self.assertRegex(output, '1 lo ')
@@ -1277,7 +1277,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
         copy_network_unit('11-dummy-mtu.netdev', '11-dummy.network')
         start_networkd()
 
-        self.wait_online(['test1:degraded'])
+        self.wait_online('test1:degraded')
 
         output = networkctl_status('test1')
         self.assertRegex(output, 'MTU: 1600')
@@ -1285,7 +1285,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
     def test_type(self):
         copy_network_unit('11-dummy.netdev', '11-dummy.network')
         start_networkd()
-        self.wait_online(['test1:degraded'])
+        self.wait_online('test1:degraded')
 
         output = networkctl_status('test1')
         print(output)
@@ -1298,7 +1298,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
     def test_unit_file(self):
         copy_network_unit('11-test-unit-file.netdev', '11-test-unit-file.network', '11-test-unit-file.link')
         start_networkd()
-        self.wait_online(['test1:degraded'])
+        self.wait_online('test1:degraded')
 
         output = networkctl_status('test1')
         print(output)
@@ -1324,7 +1324,7 @@ class NetworkctlTests(unittest.TestCase, Utilities):
                           '25-veth.netdev', '26-netdev-link-local-addressing-yes.network')
         start_networkd()
 
-        self.wait_online(['test1:degraded', 'veth99:degraded', 'veth-peer:degraded'])
+        self.wait_online('test1:degraded', 'veth99:degraded', 'veth-peer:degraded')
 
         networkctl('delete', 'test1', 'veth99')
         self.check_link_exists('test1', expected=False)
@@ -1352,7 +1352,7 @@ class NetworkdMatchTests(unittest.TestCase, Utilities):
                           '12-dummy-altname.link')
         start_networkd()
 
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
         output = networkctl_status('dummy98')
         self.assertIn('Network File: /run/systemd/network/12-dummy-match-mac-01.network', output)
         output = check_output('ip -4 address show dev dummy98')
@@ -1362,7 +1362,7 @@ class NetworkdMatchTests(unittest.TestCase, Utilities):
         check_output('ip link set dev dummy98 address 12:34:56:78:9a:02')
 
         self.wait_address('dummy98', '10.0.0.2/16', ipv='-4', timeout_sec=10)
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
         output = networkctl_status('dummy98')
         self.assertIn('Network File: /run/systemd/network/12-dummy-match-mac-02.network', output)
 
@@ -1370,7 +1370,7 @@ class NetworkdMatchTests(unittest.TestCase, Utilities):
         check_output('ip link set dev dummy98 name dummy98-1')
 
         self.wait_address('dummy98-1', '10.0.1.2/16', ipv='-4', timeout_sec=10)
-        self.wait_online(['dummy98-1:routable'])
+        self.wait_online('dummy98-1:routable')
         output = networkctl_status('dummy98-1')
         self.assertIn('Network File: /run/systemd/network/12-dummy-match-renamed.network', output)
 
@@ -1379,14 +1379,14 @@ class NetworkdMatchTests(unittest.TestCase, Utilities):
         check_output(*udevadm_cmd, 'trigger', '--action=add', '/sys/class/net/dummy98-2')
 
         self.wait_address('dummy98-2', '10.0.2.2/16', ipv='-4', timeout_sec=10)
-        self.wait_online(['dummy98-2:routable'])
+        self.wait_online('dummy98-2:routable')
         output = networkctl_status('dummy98-2')
         self.assertIn('Network File: /run/systemd/network/12-dummy-match-altname.network', output)
 
     def test_match_udev_property(self):
         copy_network_unit('12-dummy.netdev', '13-not-match-udev-property.network', '14-match-udev-property.network')
         start_networkd()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         output = networkctl_status('dummy98')
         print(output)
@@ -1404,7 +1404,7 @@ class WaitOnlineTests(unittest.TestCase, Utilities):
         copy_network_unit('25-bridge.netdev', '25-bridge.network', '11-dummy.netdev', '11-dummy.network')
         start_networkd()
 
-        self.wait_online(['bridge99', 'test1:degraded'], bool_any=True)
+        self.wait_online('bridge99', 'test1:degraded', bool_any=True)
 
         self.wait_operstate('bridge99', '(off|no-carrier)', setup_state='configuring')
         self.wait_operstate('test1', 'degraded')
@@ -1421,7 +1421,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         copy_network_unit('10-dropin-test.netdev', '15-name-conflict-test.netdev')
         start_networkd()
 
-        self.wait_online(['dropin-test:off'], setup_state='unmanaged')
+        self.wait_online('dropin-test:off', setup_state='unmanaged')
 
         output = check_output('ip link show dropin-test')
         print(output)
@@ -1432,7 +1432,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         copy_network_unit('25-bareudp.netdev', '26-netdev-link-local-addressing-yes.network')
         start_networkd()
 
-        self.wait_online(['bareudp99:degraded'])
+        self.wait_online('bareudp99:degraded')
 
         output = check_output('ip -d link show bareudp99')
         print(output)
@@ -1444,7 +1444,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         copy_network_unit('25-batadv.netdev', '26-netdev-link-local-addressing-yes.network')
         start_networkd()
 
-        self.wait_online(['batadv99:degraded'])
+        self.wait_online('batadv99:degraded')
 
         output = check_output('ip -d link show batadv99')
         print(output)
@@ -1454,7 +1454,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         copy_network_unit('25-bridge.netdev', '25-bridge-configure-without-carrier.network')
         start_networkd()
 
-        self.wait_online(['bridge99:no-carrier'])
+        self.wait_online('bridge99:no-carrier')
 
         tick = os.sysconf('SC_CLK_TCK')
         self.assertEqual(9, round(float(read_link_attr('bridge99', 'bridge', 'hello_time')) / tick))
@@ -1483,7 +1483,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         copy_network_unit('25-bond.netdev', '25-bond-balanced-tlb.netdev')
         start_networkd()
 
-        self.wait_online(['bond99:off', 'bond98:off'], setup_state='unmanaged')
+        self.wait_online('bond99:off', 'bond98:off', setup_state='unmanaged')
 
         self.check_link_attr('bond99', 'bonding', 'mode',              '802.3ad 4')
         self.check_link_attr('bond99', 'bonding', 'xmit_hash_policy',  'layer3+4 1')
@@ -1516,7 +1516,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                           '21-vlan.network', '21-vlan-test1.network')
         start_networkd()
 
-        self.wait_online(['test1:degraded', 'vlan99:routable'])
+        self.wait_online('test1:degraded', 'vlan99:routable')
 
         output = check_output('ip -d link show test1')
         print(output)
@@ -1549,7 +1549,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         copy_network_unit('21-bond-802.3ad.netdev', '21-bond-802.3ad.network',
                           '21-vlan-on-bond.netdev', '21-vlan-on-bond.network')
         start_networkd()
-        self.wait_online(['bond99:off'])
+        self.wait_online('bond99:off')
         self.wait_operstate('vlan99', operstate='off', setup_state='configuring', setup_timeout=10)
 
         # The commit b05e52000b4eee764b383cc3031da0a3739e996e adds ", ignoring". To make it easily confirmed
@@ -1565,7 +1565,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         copy_network_unit('11-dummy.netdev', '12-dummy.netdev', '21-dummy-bond-slave.network')
         networkctl_reload()
-        self.wait_online(['test1:enslaved', 'dummy98:enslaved', 'bond99:carrier', 'vlan99:routable'])
+        self.wait_online('test1:enslaved', 'dummy98:enslaved', 'bond99:carrier', 'vlan99:routable')
 
     def test_macvtap(self):
         first = True
@@ -1583,8 +1583,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                     f.write('[MACVTAP]\nMode=' + mode)
                 start_networkd()
 
-                self.wait_online(['macvtap99:degraded',
-                                  'test1:carrier' if mode == 'passthru' else 'test1:degraded'])
+                self.wait_online('macvtap99:degraded',
+                                  'test1:carrier' if mode == 'passthru' else 'test1:degraded')
 
                 output = check_output('ip -d link show macvtap99')
                 print(output)
@@ -1606,8 +1606,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                     f.write('[MACVLAN]\nMode=' + mode)
                 start_networkd()
 
-                self.wait_online(['macvlan99:degraded',
-                                  'test1:carrier' if mode == 'passthru' else 'test1:degraded'])
+                self.wait_online('macvlan99:degraded',
+                                  'test1:carrier' if mode == 'passthru' else 'test1:degraded')
 
                 output = check_output('ip -d link show test1')
                 print(output)
@@ -1622,8 +1622,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                 time.sleep(1)
 
                 check_output("ip link add test1 type dummy")
-                self.wait_online(['macvlan99:degraded',
-                                  'test1:carrier' if mode == 'passthru' else 'test1:degraded'])
+                self.wait_online('macvlan99:degraded',
+                                  'test1:carrier' if mode == 'passthru' else 'test1:degraded')
 
                 output = check_output('ip -d link show test1')
                 print(output)
@@ -1651,7 +1651,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                     f.write('[IPVLAN]\nMode=' + mode + '\nFlags=' + flag)
 
                 start_networkd()
-                self.wait_online(['ipvlan99:degraded', 'test1:degraded'])
+                self.wait_online('ipvlan99:degraded', 'test1:degraded')
 
                 output = check_output('ip -d link show ipvlan99')
                 print(output)
@@ -1674,7 +1674,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                     f.write('[IPVTAP]\nMode=' + mode + '\nFlags=' + flag)
 
                 start_networkd()
-                self.wait_online(['ipvtap99:degraded', 'test1:degraded'])
+                self.wait_online('ipvtap99:degraded', 'test1:degraded')
 
                 output = check_output('ip -d link show ipvtap99')
                 print(output)
@@ -1685,7 +1685,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                           '25-veth-mtu.netdev')
         start_networkd()
 
-        self.wait_online(['veth99:degraded', 'veth-peer:degraded', 'veth-mtu:degraded', 'veth-mtu-peer:degraded'])
+        self.wait_online('veth99:degraded', 'veth-peer:degraded', 'veth-mtu:degraded', 'veth-mtu-peer:degraded')
 
         output = check_output('ip -d link show veth99')
         print(output)
@@ -1707,7 +1707,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         copy_network_unit('25-tun.netdev', '25-tap.netdev', '26-netdev-link-local-addressing-yes.network')
         start_networkd()
 
-        self.wait_online(['testtun99:degraded', 'testtap99:degraded'])
+        self.wait_online('testtun99:degraded', 'testtap99:degraded')
 
         pid = networkd_pid()
         name = psutil.Process(pid).name()[:15]
@@ -1731,7 +1731,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         remove_network_unit('26-netdev-link-local-addressing-yes.network')
 
         restart_networkd()
-        self.wait_online(['testtun99:degraded', 'testtap99:degraded'], setup_state='unmanaged')
+        self.wait_online('testtun99:degraded', 'testtap99:degraded', setup_state='unmanaged')
 
         pid = networkd_pid()
         name = psutil.Process(pid).name()[:15]
@@ -1753,7 +1753,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         clear_network_units()
         restart_networkd()
-        self.wait_online(['testtun99:off', 'testtap99:off'], setup_state='unmanaged')
+        self.wait_online('testtun99:off', 'testtap99:off', setup_state='unmanaged')
 
         output = check_output('ip -d tuntap show')
         print(output)
@@ -1787,7 +1787,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         copy_network_unit('25-vrf.netdev', '26-netdev-link-local-addressing-yes.network')
         start_networkd()
 
-        self.wait_online(['vrf99:carrier'])
+        self.wait_online('vrf99:carrier')
 
     @expectedFailureIfModuleIsNotAvailable('vcan')
     def test_vcan(self):
@@ -1795,9 +1795,9 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                           '25-vcan98.netdev', '25-vcan98.network')
         start_networkd()
 
-        self.wait_online(['vcan99:carrier', 'vcan98:carrier'])
+        self.wait_online('vcan99:carrier', 'vcan98:carrier')
         # For can devices, 'carrier' is the default required operational state.
-        self.wait_online(['vcan99', 'vcan98'])
+        self.wait_online('vcan99', 'vcan98')
 
         # https://github.com/systemd/systemd/issues/30140
         output = check_output('ip -d link show vcan99')
@@ -1813,9 +1813,9 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         copy_network_unit('25-vxcan.netdev', '26-netdev-link-local-addressing-yes.network')
         start_networkd()
 
-        self.wait_online(['vxcan99:carrier', 'vxcan-peer:carrier'])
+        self.wait_online('vxcan99:carrier', 'vxcan-peer:carrier')
         # For can devices, 'carrier' is the default required operational state.
-        self.wait_online(['vxcan99', 'vxcan-peer'])
+        self.wait_online('vxcan99', 'vxcan-peer')
 
     @expectedFailureIfModuleIsNotAvailable('wireguard')
     def test_wireguard(self):
@@ -1828,7 +1828,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                           '25-wireguard-preshared-key.txt', '25-wireguard-private-key.txt',
                           '25-wireguard-no-peer.netdev', '25-wireguard-no-peer.network')
         start_networkd()
-        self.wait_online(['wg99:routable', 'wg98:routable', 'wg97:carrier'])
+        self.wait_online('wg99:routable', 'wg98:routable', 'wg97:carrier')
 
         output = check_output('ip -4 address show dev wg99')
         print(output)
@@ -1949,7 +1949,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         copy_network_unit('25-geneve.netdev', '26-netdev-link-local-addressing-yes.network')
         start_networkd()
 
-        self.wait_online(['geneve99:degraded'])
+        self.wait_online('geneve99:degraded')
 
         output = check_output('ip -d link show geneve99')
         print(output)
@@ -1965,7 +1965,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                           '25-ipip-tunnel-remote-any.netdev', '25-tunnel-remote-any.network',
                           '25-ipip-tunnel-any-any.netdev', '25-tunnel-any-any.network')
         start_networkd()
-        self.wait_online(['ipiptun99:routable', 'ipiptun98:routable', 'ipiptun97:routable', 'ipiptun96:routable', 'dummy98:degraded'])
+        self.wait_online('ipiptun99:routable', 'ipiptun98:routable', 'ipiptun97:routable', 'ipiptun96:routable', 'dummy98:degraded')
 
         output = check_output('ip -d link show ipiptun99')
         print(output)
@@ -1987,7 +1987,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                           '25-gre-tunnel-remote-any.netdev', '25-tunnel-remote-any.network',
                           '25-gre-tunnel-any-any.netdev', '25-tunnel-any-any.network')
         start_networkd()
-        self.wait_online(['gretun99:routable', 'gretun98:routable', 'gretun97:routable', 'gretun96:routable', 'dummy98:degraded'])
+        self.wait_online('gretun99:routable', 'gretun98:routable', 'gretun97:routable', 'gretun96:routable', 'dummy98:degraded')
 
         output = check_output('ip -d link show gretun99')
         print(output)
@@ -2048,7 +2048,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                           '25-gretap-tunnel.netdev', '25-tunnel.network',
                           '25-gretap-tunnel-local-any.netdev', '25-tunnel-local-any.network')
         start_networkd()
-        self.wait_online(['gretap99:routable', 'gretap98:routable', 'dummy98:degraded'])
+        self.wait_online('gretap99:routable', 'gretap98:routable', 'dummy98:degraded')
 
         output = check_output('ip -d link show gretap99')
         print(output)
@@ -2072,7 +2072,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                           '25-ip6gretap-tunnel.netdev', '25-tunnel.network',
                           '25-ip6gretap-tunnel-local-any.netdev', '25-tunnel-local-any.network')
         start_networkd()
-        self.wait_online(['ip6gretap99:routable', 'ip6gretap98:routable', 'dummy98:degraded'])
+        self.wait_online('ip6gretap99:routable', 'ip6gretap98:routable', 'dummy98:degraded')
 
         output = check_output('ip -d link show ip6gretap99')
         print(output)
@@ -2088,7 +2088,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                           '25-vti-tunnel-remote-any.netdev', '25-tunnel-remote-any.network',
                           '25-vti-tunnel-any-any.netdev', '25-tunnel-any-any.network')
         start_networkd()
-        self.wait_online(['vtitun99:routable', 'vtitun98:routable', 'vtitun97:routable', 'vtitun96:routable', 'dummy98:degraded'])
+        self.wait_online('vtitun99:routable', 'vtitun98:routable', 'vtitun97:routable', 'vtitun96:routable', 'dummy98:degraded')
 
         output = check_output('ip -d link show vtitun99')
         print(output)
@@ -2109,7 +2109,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                           '25-vti6-tunnel-local-any.netdev', '25-tunnel-local-any.network',
                           '25-vti6-tunnel-remote-any.netdev', '25-tunnel-remote-any.network')
         start_networkd()
-        self.wait_online(['vti6tun99:routable', 'vti6tun98:routable', 'vti6tun97:routable', 'dummy98:degraded'])
+        self.wait_online('vti6tun99:routable', 'vti6tun98:routable', 'vti6tun97:routable', 'dummy98:degraded')
 
         output = check_output('ip -d link show vti6tun99')
         print(output)
@@ -2130,9 +2130,9 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                           '25-ip6tnl-tunnel-local-slaac.netdev', '25-ip6tnl-tunnel-local-slaac.network',
                           '25-ip6tnl-tunnel-external.netdev', '26-netdev-link-local-addressing-yes.network')
         start_networkd()
-        self.wait_online(['ip6tnl99:routable', 'ip6tnl98:routable', 'ip6tnl97:routable',
+        self.wait_online('ip6tnl99:routable', 'ip6tnl98:routable', 'ip6tnl97:routable',
                           'ip6tnl-slaac:degraded', 'ip6tnl-external:degraded',
-                          'dummy98:degraded', 'veth99:routable', 'veth-peer:degraded'])
+                          'dummy98:degraded', 'veth99:routable', 'veth-peer:degraded')
 
         output = check_output('ip -d link show ip6tnl99')
         print(output)
@@ -2166,7 +2166,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                           '25-sit-tunnel-remote-any.netdev', '25-tunnel-remote-any.network',
                           '25-sit-tunnel-any-any.netdev', '25-tunnel-any-any.network')
         start_networkd()
-        self.wait_online(['sittun99:routable', 'sittun98:routable', 'sittun97:routable', 'sittun96:routable', 'dummy98:degraded'])
+        self.wait_online('sittun99:routable', 'sittun98:routable', 'sittun97:routable', 'sittun96:routable', 'dummy98:degraded')
 
         output = check_output('ip -d link show sittun99')
         print(output)
@@ -2185,7 +2185,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         copy_network_unit('12-dummy.netdev', '25-isatap.network',
                           '25-isatap-tunnel.netdev', '25-tunnel.network')
         start_networkd()
-        self.wait_online(['isataptun99:routable', 'dummy98:degraded'])
+        self.wait_online('isataptun99:routable', 'dummy98:degraded')
 
         output = check_output('ip -d link show isataptun99')
         print(output)
@@ -2195,7 +2195,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         copy_network_unit('12-dummy.netdev', '25-6rd.network',
                           '25-6rd-tunnel.netdev', '25-tunnel.network')
         start_networkd()
-        self.wait_online(['sittun99:routable', 'dummy98:degraded'])
+        self.wait_online('sittun99:routable', 'dummy98:degraded')
 
         output = check_output('ip -d link show sittun99')
         print(output)
@@ -2207,7 +2207,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                           '25-erspan0-tunnel.netdev', '25-tunnel.network',
                           '25-erspan0-tunnel-local-any.netdev', '25-tunnel-local-any.network')
         start_networkd()
-        self.wait_online(['erspan99:routable', 'erspan98:routable', 'dummy98:degraded'])
+        self.wait_online('erspan99:routable', 'erspan98:routable', 'dummy98:degraded')
 
         output = check_output('ip -d link show erspan99')
         print(output)
@@ -2235,7 +2235,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                           '25-erspan1-tunnel.netdev', '25-tunnel.network',
                           '25-erspan1-tunnel-local-any.netdev', '25-tunnel-local-any.network')
         start_networkd()
-        self.wait_online(['erspan99:routable', 'erspan98:routable', 'dummy98:degraded'])
+        self.wait_online('erspan99:routable', 'erspan98:routable', 'dummy98:degraded')
 
         output = check_output('ip -d link show erspan99')
         print(output)
@@ -2266,7 +2266,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                           '25-erspan2-tunnel.netdev', '25-tunnel.network',
                           '25-erspan2-tunnel-local-any.netdev', '25-tunnel-local-any.network')
         start_networkd()
-        self.wait_online(['erspan99:routable', 'erspan98:routable', 'dummy98:degraded'])
+        self.wait_online('erspan99:routable', 'erspan98:routable', 'dummy98:degraded')
 
         output = check_output('ip -d link show erspan99')
         print(output)
@@ -2295,13 +2295,13 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         copy_network_unit('25-ipip-tunnel-independent.netdev', '26-netdev-link-local-addressing-yes.network')
         start_networkd()
 
-        self.wait_online(['ipiptun99:carrier'])
+        self.wait_online('ipiptun99:carrier')
 
     def test_tunnel_independent_loopback(self):
         copy_network_unit('25-ipip-tunnel-independent-loopback.netdev', '26-netdev-link-local-addressing-yes.network')
         start_networkd()
 
-        self.wait_online(['ipiptun99:carrier'])
+        self.wait_online('ipiptun99:carrier')
 
     @expectedFailureIfModuleIsNotAvailable('xfrm_interface')
     def test_xfrm(self):
@@ -2310,7 +2310,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                           '26-netdev-link-local-addressing-yes.network')
         start_networkd()
 
-        self.wait_online(['dummy98:degraded', 'xfrm98:degraded', 'xfrm99:degraded'])
+        self.wait_online('dummy98:degraded', 'xfrm98:degraded', 'xfrm99:degraded')
 
         output = check_output('ip -d link show dev xfrm98')
         print(output)
@@ -2333,7 +2333,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                           '25-fou-gre.netdev', '25-fou-gretap.netdev')
         start_networkd()
 
-        self.wait_online(['ipiptun96:off', 'sittun96:off', 'gretun96:off', 'gretap96:off'], setup_state='unmanaged')
+        self.wait_online('ipiptun96:off', 'sittun96:off', 'gretun96:off', 'gretap96:off', setup_state='unmanaged')
 
         output = check_output('ip fou show')
         print(output)
@@ -2362,8 +2362,8 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                           '25-vxlan-local-slaac.netdev', '25-vxlan-local-slaac.network')
         start_networkd()
 
-        self.wait_online(['test1:degraded', 'veth99:routable', 'veth-peer:degraded',
-                          'vxlan99:degraded', 'vxlan98:degraded', 'vxlan97:degraded', 'vxlan-slaac:degraded'])
+        self.wait_online('test1:degraded', 'veth99:routable', 'veth-peer:degraded',
+                          'vxlan99:degraded', 'vxlan98:degraded', 'vxlan97:degraded', 'vxlan-slaac:degraded')
 
         output = check_output('ip -d -d link show vxlan99')
         print(output)
@@ -2414,7 +2414,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
                           '26-macsec.network', '12-dummy.netdev')
         start_networkd()
 
-        self.wait_online(['dummy98:degraded', 'macsec99:routable'])
+        self.wait_online('dummy98:degraded', 'macsec99:routable')
 
         output = check_output('ip -d link show macsec99')
         print(output)
@@ -2441,14 +2441,14 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         copy_network_unit('25-nlmon.netdev', '26-netdev-link-local-addressing-yes.network')
         start_networkd()
 
-        self.wait_online(['nlmon99:carrier'])
+        self.wait_online('nlmon99:carrier')
 
     @expectedFailureIfModuleIsNotAvailable('ifb')
     def test_ifb(self):
         copy_network_unit('25-ifb.netdev', '26-netdev-link-local-addressing-yes.network')
         start_networkd()
 
-        self.wait_online(['ifb99:degraded'])
+        self.wait_online('ifb99:degraded')
 
 class NetworkdL2TPTests(unittest.TestCase, Utilities):
 
@@ -2464,7 +2464,7 @@ class NetworkdL2TPTests(unittest.TestCase, Utilities):
                           '25-l2tp-udp.netdev', '25-l2tp.network')
         start_networkd()
 
-        self.wait_online(['test1:routable', 'l2tp-ses1:degraded', 'l2tp-ses2:degraded'])
+        self.wait_online('test1:routable', 'l2tp-ses1:degraded', 'l2tp-ses2:degraded')
 
         output = check_output('ip l2tp show tunnel tunnel_id 10')
         print(output)
@@ -2492,7 +2492,7 @@ class NetworkdL2TPTests(unittest.TestCase, Utilities):
                           '25-l2tp-ip.netdev', '25-l2tp.network')
         start_networkd()
 
-        self.wait_online(['test1:routable', 'l2tp-ses3:degraded', 'l2tp-ses4:degraded'])
+        self.wait_online('test1:routable', 'l2tp-ses3:degraded', 'l2tp-ses4:degraded')
 
         output = check_output('ip l2tp show tunnel tunnel_id 10')
         print(output)
@@ -2638,7 +2638,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.setup_nftset('ifindex', 'iface_index')
         start_networkd()
 
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         ip4_null_16 = None
         ip4_null_24 = None
@@ -2700,7 +2700,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         copy_network_unit('25-address-static.network.d/10-override.conf')
         networkctl_reload()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
         self.verify_address_static(
             label1='new-label1',
             label2='dummy98',
@@ -2732,7 +2732,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         )
 
         networkctl_reconfigure('dummy98')
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
         self.verify_address_static(
             label1='new-label1',
             label2='dummy98',
@@ -2774,7 +2774,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         # 2. reconfigure the interface, and check the deprecated flag is set again
         networkctl_reconfigure('dummy98')
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
         self.verify_address_static(
             label1='new-label1',
             label2='dummy98',
@@ -2808,14 +2808,14 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         # test for ENOBUFS issue #17012 (with reload)
         copy_network_unit('25-address-static.network.d/10-many-address.conf')
         networkctl_reload()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
         output = check_output('ip -4 address show dev dummy98')
         for i in range(1, 254):
             self.assertIn(f'inet 10.3.3.{i}/16 brd 10.3.255.255', output)
 
         # (with reconfigure)
         networkctl_reconfigure('dummy98')
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
         output = check_output('ip -4 address show dev dummy98')
         for i in range(1, 254):
             self.assertIn(f'inet 10.3.3.{i}/16 brd 10.3.255.255', output)
@@ -2823,7 +2823,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         # test for an empty string assignment for Address= in [Network]
         copy_network_unit('25-address-static.network.d/20-clear-addresses.conf')
         networkctl_reload()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
         output = check_output('ip -4 address show dev dummy98')
         for i in range(1, 254):
             self.assertNotIn(f'inet 10.3.3.{i}/16 brd 10.3.255.255', output)
@@ -2839,7 +2839,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         copy_network_unit('25-address-ipv4acd-veth99.network', copy_dropins=False)
         start_networkd()
-        self.wait_online(['veth99:routable'])
+        self.wait_online('veth99:routable')
 
         output = check_output('ip -4 address show dev veth99')
         print(output)
@@ -2865,7 +2865,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             else:
                 restart_networkd()
 
-            self.wait_online(['dummy98:routable'])
+            self.wait_online('dummy98:routable')
 
             output = check_output('ip -4 address show dev dummy98')
             self.assertIn('inet 100.64.0.1 peer 100.64.0.2/32 scope global', output)
@@ -2881,7 +2881,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             else:
                 restart_networkd()
 
-            self.wait_online(['dummy98:routable', 'test1:routable', 'vrf99:carrier'])
+            self.wait_online('dummy98:routable', 'test1:routable', 'vrf99:carrier')
 
             output = check_output('ip route show table 42 dev dummy98')
             print('### ip route show table 42 dev dummy98')
@@ -2945,7 +2945,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         copy_network_unit('25-test1.network.d/configure-without-carrier.conf', copy_dropins=False)
         restart_networkd()
-        self.wait_online(['test1:no-carrier'])
+        self.wait_online('test1:no-carrier')
 
         carrier_map = {'on': '1', 'off': '0'}
         routable_map = {'on': 'routable', 'off': 'no-carrier'}
@@ -2953,7 +2953,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             with self.subTest(carrier=carrier):
                 if carrier_map[carrier] != read_link_attr('test1', 'carrier'):
                     check_output(f'ip link set dev test1 carrier {carrier}')
-                self.wait_online([f'test1:{routable_map[carrier]}:{routable_map[carrier]}'])
+                self.wait_online(f'test1:{routable_map[carrier]}:{routable_map[carrier]}')
 
                 output = networkctl_status('test1')
                 print(output)
@@ -2969,7 +2969,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         copy_network_unit('25-test1.network')
         restart_networkd()
-        self.wait_online(['test1:no-carrier'])
+        self.wait_online('test1:no-carrier')
 
         carrier_map = {'on': '1', 'off': '0'}
         routable_map = {'on': 'routable', 'off': 'no-carrier'}
@@ -2977,7 +2977,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             with self.subTest(carrier=carrier, have_config=have_config):
                 if carrier_map[carrier] != read_link_attr('test1', 'carrier'):
                     check_output(f'ip link set dev test1 carrier {carrier}')
-                self.wait_online([f'test1:{routable_map[carrier]}:{routable_map[carrier]}'])
+                self.wait_online(f'test1:{routable_map[carrier]}:{routable_map[carrier]}')
 
                 output = networkctl_status('test1')
                 print(output)
@@ -2992,7 +2992,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
     def test_routing_policy_rule(self):
         copy_network_unit('25-routing-policy-rule-test1.network', '11-dummy.netdev')
         start_networkd()
-        self.wait_online(['test1:degraded'])
+        self.wait_online('test1:degraded')
 
         output = check_output('ip rule list iif test1 priority 111')
         print(output)
@@ -3032,7 +3032,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         for trial in range(3):
             restart_networkd(show_logs=(trial > 0))
-            self.wait_online(['test1:degraded', 'dummy98:degraded'])
+            self.wait_online('test1:degraded', 'dummy98:degraded')
 
             output = check_output('ip rule list table 7')
             print(output)
@@ -3045,7 +3045,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
     def test_routing_policy_rule_reconfigure(self):
         copy_network_unit('25-routing-policy-rule-reconfigure2.network', '11-dummy.netdev')
         start_networkd()
-        self.wait_online(['test1:degraded'])
+        self.wait_online('test1:degraded')
 
         output = check_output('ip rule list table 1011')
         print(output)
@@ -3060,7 +3060,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         copy_network_unit('25-routing-policy-rule-reconfigure1.network', '11-dummy.netdev')
         networkctl_reload()
-        self.wait_online(['test1:degraded'])
+        self.wait_online('test1:degraded')
 
         output = check_output('ip rule list table 1011')
         print(output)
@@ -3089,7 +3089,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertEqual(output, '')
 
         networkctl_reconfigure('test1')
-        self.wait_online(['test1:degraded'])
+        self.wait_online('test1:degraded')
 
         output = check_output('ip rule list table 1011')
         print(output)
@@ -3106,7 +3106,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
     def test_routing_policy_rule_port_range(self):
         copy_network_unit('25-fibrule-port-range.network', '11-dummy.netdev')
         start_networkd()
-        self.wait_online(['test1:degraded'])
+        self.wait_online('test1:degraded')
 
         output = check_output('ip rule')
         print(output)
@@ -3121,7 +3121,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
     def test_routing_policy_rule_invert(self):
         copy_network_unit('25-fibrule-invert.network', '11-dummy.netdev')
         start_networkd()
-        self.wait_online(['test1:degraded'])
+        self.wait_online('test1:degraded')
 
         output = check_output('ip rule')
         print(output)
@@ -3134,7 +3134,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
     def test_routing_policy_rule_l3mdev(self):
         copy_network_unit('25-fibrule-l3mdev.network', '11-dummy.netdev')
         start_networkd()
-        self.wait_online(['test1:degraded'])
+        self.wait_online('test1:degraded')
 
         output = check_output('ip rule')
         print(output)
@@ -3145,7 +3145,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
     def test_routing_policy_rule_uidrange(self):
         copy_network_unit('25-fibrule-uidrange.network', '11-dummy.netdev')
         start_networkd()
-        self.wait_online(['test1:degraded'])
+        self.wait_online('test1:degraded')
 
         output = check_output('ip rule')
         print(output)
@@ -3161,7 +3161,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         copy_network_unit('25-route-static.network', '12-dummy.netdev',
                           '25-route-static-test1.network', '11-dummy.netdev')
         start_networkd()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         output = networkctl_status('dummy98')
         print(output)
@@ -3270,7 +3270,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         copy_network_unit('25-address-static.network', copy_dropins=False)
         networkctl_reload()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         # check all routes managed by Manager are removed
         print('### ip -4 route show type blackhole')
@@ -3305,7 +3305,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         remove_network_unit('25-address-static.network')
         networkctl_reload()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         # check all routes managed by Manager are reconfigured
         print('### ip -4 route show type blackhole')
@@ -3388,7 +3388,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
     def test_route_via_ipv6(self):
         copy_network_unit('25-route-via-ipv6.network', '12-dummy.netdev')
         start_networkd()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         output = networkctl_status('dummy98')
         print(output)
@@ -3409,7 +3409,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
     def test_route_congctl(self):
         copy_network_unit('25-route-congctl.network', '12-dummy.netdev')
         start_networkd()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         print('### ip -6 route show dev dummy98 2001:1234:5:8fff:ff:ff:ff:ff')
         output = check_output('ip -6 route show dev dummy98 2001:1234:5:8fff:ff:ff:ff:ff')
@@ -3429,7 +3429,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         copy_network_unit('25-route-vrf.network', '12-dummy.netdev',
                           '25-vrf.netdev', '25-vrf.network')
         start_networkd()
-        self.wait_online(['dummy98:routable', 'vrf99:carrier'])
+        self.wait_online('dummy98:routable', 'vrf99:carrier')
 
         output = check_output('ip route show vrf vrf99')
         print(output)
@@ -3442,7 +3442,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
     def test_gateway_reconfigure(self):
         copy_network_unit('25-gateway-static.network', '12-dummy.netdev')
         start_networkd()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
         print('### ip -4 route show dev dummy98 default')
         output = check_output('ip -4 route show dev dummy98 default')
         print(output)
@@ -3452,7 +3452,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         remove_network_unit('25-gateway-static.network')
         copy_network_unit('25-gateway-next-static.network')
         networkctl_reload()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
         print('### ip -4 route show dev dummy98 default')
         output = check_output('ip -4 route show dev dummy98 default')
         print(output)
@@ -3465,7 +3465,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         # tentative state, and do our test on that
         copy_network_unit('23-active-slave.network', '25-route-ipv6-src.network', '25-bond-active-backup-slave.netdev', '12-dummy.netdev')
         start_networkd()
-        self.wait_online(['dummy98:enslaved', 'bond199:routable'])
+        self.wait_online('dummy98:enslaved', 'bond199:routable')
 
         output = check_output('ip -6 route list dev bond199')
         print(output)
@@ -3480,7 +3480,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
             if i != 0:
                 networkctl_reconfigure('dummy98')
 
-            self.wait_online(['dummy98:routable'])
+            self.wait_online('dummy98:routable')
 
             output = check_output('ip -6 route list dev dummy98')
             print(output)
@@ -3489,7 +3489,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
     def test_ip_link_mac_address(self):
         copy_network_unit('25-address-link-section.network', '12-dummy.netdev')
         start_networkd()
-        self.wait_online(['dummy98:degraded'])
+        self.wait_online('dummy98:degraded')
 
         output = check_output('ip link show dummy98')
         print(output)
@@ -3504,7 +3504,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
     def test_ipv6_address_label(self):
         copy_network_unit('25-ipv6-address-label-section.network', '12-dummy.netdev')
         start_networkd()
-        self.wait_online(['dummy98:degraded'])
+        self.wait_online('dummy98:degraded')
 
         output = check_output('ip addrlabel list')
         print(output)
@@ -3514,7 +3514,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         copy_network_unit('25-ipv6-proxy-ndp.network', '12-dummy.netdev')
         start_networkd()
 
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         output = check_output('ip neighbor show proxy dev dummy98')
         print(output)
@@ -3526,48 +3526,48 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         copy_network_unit('25-dummy.netdev', '25-dummy.network')
         start_networkd()
 
-        self.wait_online([f'{link}:degraded'])
+        self.wait_online(f'{link}:degraded')
         remove_network_unit('25-dummy.network')
 
         # expect retrans_time_ms updated
         copy_network_unit('25-ipv6-neigh-retrans-time-3s.network')
         networkctl_reload()
-        self.wait_online([f'{link}:degraded'])
+        self.wait_online(f'{link}:degraded')
         self.check_ipv6_neigh_sysctl_attr(link, 'retrans_time_ms', '3000')
         remove_network_unit('25-ipv6-neigh-retrans-time-3s.network')
 
         # expect retrans_time_ms unchanged
         copy_network_unit('25-ipv6-neigh-retrans-time-0s.network')
         networkctl_reload()
-        self.wait_online([f'{link}:degraded'])
+        self.wait_online(f'{link}:degraded')
         self.check_ipv6_neigh_sysctl_attr(link, 'retrans_time_ms', '3000')
         remove_network_unit('25-ipv6-neigh-retrans-time-0s.network')
 
         # expect retrans_time_ms unchanged
         copy_network_unit('25-ipv6-neigh-retrans-time-toobig.network')
         networkctl_reload()
-        self.wait_online([f'{link}:degraded'])
+        self.wait_online(f'{link}:degraded')
         self.check_ipv6_neigh_sysctl_attr(link, 'retrans_time_ms', '3000')
         remove_network_unit('25-ipv6-neigh-retrans-time-toobig.network')
 
         # expect retrans_time_ms unchanged
         copy_network_unit('25-ipv6-neigh-retrans-time-infinity.network')
         networkctl_reload()
-        self.wait_online([f'{link}:degraded'])
+        self.wait_online(f'{link}:degraded')
         self.check_ipv6_neigh_sysctl_attr(link, 'retrans_time_ms', '3000')
         remove_network_unit('25-ipv6-neigh-retrans-time-infinity.network')
 
         # expect retrans_time_ms unchanged
         copy_network_unit('25-ipv6-neigh-retrans-time-invalid.network')
         networkctl_reload()
-        self.wait_online([f'{link}:degraded'])
+        self.wait_online(f'{link}:degraded')
         self.check_ipv6_neigh_sysctl_attr(link, 'retrans_time_ms', '3000')
         remove_network_unit('25-ipv6-neigh-retrans-time-invalid.network')
 
         # expect retrans_time_ms updated
         copy_network_unit('25-ipv6-neigh-retrans-time-4s.network')
         networkctl_reload()
-        self.wait_online([f'{link}:degraded'])
+        self.wait_online(f'{link}:degraded')
         self.check_ipv6_neigh_sysctl_attr(link, 'retrans_time_ms', '4000')
         remove_network_unit('25-ipv6-neigh-retrans-time-4s.network')
 
@@ -3577,7 +3577,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
                           '25-ip6gre-tunnel-remote-any.netdev', '25-neighbor-ipv6.network',
                           copy_dropins=False)
         start_networkd()
-        self.wait_online(['dummy98:degraded', 'gretun97:routable', 'ip6gretun97:routable'])
+        self.wait_online('dummy98:degraded', 'gretun97:routable', 'ip6gretun97:routable')
 
         print('### ip neigh list dev gretun97')
         output = check_output('ip neigh list dev gretun97')
@@ -3606,7 +3606,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         # the valid configurations in 10-step1.conf.
         copy_network_unit('25-neighbor-dummy.network.d/10-step2.conf')
         networkctl_reload()
-        self.wait_online(['dummy98:degraded'])
+        self.wait_online('dummy98:degraded')
 
         print('### ip neigh list dev dummy98')
         output = check_output('ip neigh list dev dummy98')
@@ -3623,7 +3623,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
                             '25-neighbor-dummy.network.d/10-step2.conf')
         copy_network_unit('25-neighbor-dummy.network.d/10-step3.conf')
         networkctl_reload()
-        self.wait_online(['dummy98:degraded'])
+        self.wait_online('dummy98:degraded')
 
         print('### ip neigh list dev dummy98')
         output = check_output('ip neigh list dev dummy98')
@@ -3638,7 +3638,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         copy_network_unit('25-link-local-addressing-yes.network', '11-dummy.netdev',
                           '25-link-local-addressing-no.network', '12-dummy.netdev')
         start_networkd()
-        self.wait_online(['test1:degraded', 'dummy98:carrier'])
+        self.wait_online('test1:degraded', 'dummy98:carrier')
 
         output = check_output('ip address show dev test1')
         print(output)
@@ -3668,7 +3668,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
     def test_link_local_addressing_ipv6ll(self):
         copy_network_unit('26-link-local-addressing-ipv6.network', '12-dummy.netdev')
         start_networkd()
-        self.wait_online(['dummy98:degraded'])
+        self.wait_online('dummy98:degraded')
 
         # An IPv6LL address exists by default.
         output = check_output('ip address show dev dummy98')
@@ -3677,7 +3677,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         copy_network_unit('25-link-local-addressing-no.network')
         networkctl_reload()
-        self.wait_online(['dummy98:carrier'])
+        self.wait_online('dummy98:carrier')
 
         # Check if the IPv6LL address is removed.
         output = check_output('ip address show dev dummy98')
@@ -3686,7 +3686,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         remove_network_unit('25-link-local-addressing-no.network')
         networkctl_reload()
-        self.wait_online(['dummy98:degraded'])
+        self.wait_online('dummy98:degraded')
 
         # Check if a new IPv6LL address is assigned.
         output = check_output('ip address show dev dummy98')
@@ -3697,7 +3697,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         copy_networkd_conf_dropin('25-global-ipv6-privacy-extensions.conf')
         copy_network_unit('25-sysctl.network', '12-dummy.netdev', copy_dropins=False)
         start_networkd()
-        self.wait_online(['dummy98:degraded'])
+        self.wait_online('dummy98:degraded')
 
         self.check_ipv6_sysctl_attr('dummy98', 'forwarding', '1')
         self.check_ipv6_sysctl_attr('dummy98', 'use_tempaddr', '1')
@@ -3712,7 +3712,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         copy_network_unit('25-sysctl.network.d/25-ipv6-privacy-extensions.conf')
         networkctl_reload()
-        self.wait_online(['dummy98:degraded'])
+        self.wait_online('dummy98:degraded')
 
         self.check_ipv6_sysctl_attr('dummy98', 'use_tempaddr', '2')
 
@@ -3724,7 +3724,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         check_output('sysctl net.ipv6.conf.default.disable_ipv6=1')
 
         start_networkd()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         output = check_output('ip -4 address show dummy98')
         print(output)
@@ -3748,7 +3748,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         check_output('sysctl net.ipv6.conf.default.disable_ipv6=0')
 
         restart_networkd()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         output = check_output('ip -4 address show dummy98')
         print(output)
@@ -3779,7 +3779,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         # add one bound interface. The interface will be up.
         check_output('ip link add dummy98 type dummy')
         check_output('ip link set dummy98 up')
-        self.wait_online(['test1:routable'])
+        self.wait_online('test1:routable')
         output = check_output('ip address show test1')
         print(output)
         self.assertIn('UP,LOWER_UP', output)
@@ -3813,7 +3813,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         # bring up the bound interface. The interface will be up.
         check_output('ip link set dummy99 up')
-        self.wait_online(['test1:routable'])
+        self.wait_online('test1:routable')
         output = check_output('ip address show test1')
         print(output)
         self.assertIn('UP,LOWER_UP', output)
@@ -3832,7 +3832,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         # re-add one bound interface. The interface will be up.
         check_output('ip link add dummy98 type dummy')
         check_output('ip link set dummy98 up')
-        self.wait_online(['test1:routable'])
+        self.wait_online('test1:routable')
         output = check_output('ip address show test1')
         print(output)
         self.assertIn('UP,LOWER_UP', output)
@@ -3906,7 +3906,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         if policy.endswith('down') or policy == 'manual':
             self.wait_operstate('test1', 'off', setup_state='configuring')
         else:
-            self.wait_online(['test1'])
+            self.wait_online('test1')
 
         if policy == 'always-down':
             # if always-down, required for online is forced to no
@@ -3944,7 +3944,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
     def test_domain(self):
         copy_network_unit('12-dummy.netdev', '24-search-domain.network')
         start_networkd()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         output = networkctl_status('dummy98')
         print(output)
@@ -3965,7 +3965,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
 
         copy_network_unit('24-keep-configuration-static.network')
         start_networkd()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         output = check_output('ip address show dummy98')
         print(output)
@@ -3973,7 +3973,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         self.assertNotRegex(output, 'inet 10.2.3.4/16 scope global dynamic dummy98')
 
     def check_nexthop(self, manage_foreign_nexthops, first):
-        self.wait_online(['veth99:routable', 'veth-peer:routable', 'dummy98:routable'])
+        self.wait_online('veth99:routable', 'veth-peer:routable', 'dummy98:routable')
 
         output = check_output('ip nexthop list dev veth99')
         print(output)
@@ -4104,7 +4104,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         remove_network_unit('25-nexthop-2.network')
         copy_network_unit('25-nexthop-nothing.network')
         networkctl_reload()
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        self.wait_online('veth99:routable', 'veth-peer:routable')
 
         output = check_output('ip nexthop list dev veth99')
         print(output)
@@ -4146,7 +4146,7 @@ class NetworkdNetworkTests(unittest.TestCase, Utilities):
         # Reconfigure the interface that has nexthop with ID 20 and 21,
         # then the route requested by test1 can be configured.
         networkctl_reconfigure('dummy98')
-        self.wait_online(['test1:routable'])
+        self.wait_online('test1:routable')
 
         # Check if the requested route actually configured.
         output = check_output('ip route show 10.10.11.10')
@@ -4187,7 +4187,7 @@ class NetworkdTCTests(unittest.TestCase, Utilities):
     def test_qdisc_cake(self):
         copy_network_unit('25-qdisc-cake.network', '12-dummy.netdev')
         start_networkd()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         output = check_output('tc qdisc show dev dummy98')
         print(output)
@@ -4211,7 +4211,7 @@ class NetworkdTCTests(unittest.TestCase, Utilities):
     def test_qdisc_codel(self):
         copy_network_unit('25-qdisc-codel.network', '12-dummy.netdev')
         start_networkd()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         output = check_output('tc qdisc show dev dummy98')
         print(output)
@@ -4222,7 +4222,7 @@ class NetworkdTCTests(unittest.TestCase, Utilities):
     def test_qdisc_drr(self):
         copy_network_unit('25-qdisc-drr.network', '12-dummy.netdev')
         start_networkd()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         output = check_output('tc qdisc show dev dummy98')
         print(output)
@@ -4235,7 +4235,7 @@ class NetworkdTCTests(unittest.TestCase, Utilities):
     def test_qdisc_ets(self):
         copy_network_unit('25-qdisc-ets.network', '12-dummy.netdev')
         start_networkd()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         output = check_output('tc qdisc show dev dummy98')
         print(output)
@@ -4249,7 +4249,7 @@ class NetworkdTCTests(unittest.TestCase, Utilities):
     def test_qdisc_fq(self):
         copy_network_unit('25-qdisc-fq.network', '12-dummy.netdev')
         start_networkd()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         output = check_output('tc qdisc show dev dummy98')
         print(output)
@@ -4263,7 +4263,7 @@ class NetworkdTCTests(unittest.TestCase, Utilities):
     def test_qdisc_fq_codel(self):
         copy_network_unit('25-qdisc-fq_codel.network', '12-dummy.netdev')
         start_networkd()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         output = check_output('tc qdisc show dev dummy98')
         print(output)
@@ -4274,7 +4274,7 @@ class NetworkdTCTests(unittest.TestCase, Utilities):
     def test_qdisc_fq_pie(self):
         copy_network_unit('25-qdisc-fq_pie.network', '12-dummy.netdev')
         start_networkd()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         output = check_output('tc qdisc show dev dummy98')
         print(output)
@@ -4286,7 +4286,7 @@ class NetworkdTCTests(unittest.TestCase, Utilities):
     def test_qdisc_gred(self):
         copy_network_unit('25-qdisc-gred.network', '12-dummy.netdev')
         start_networkd()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         output = check_output('tc qdisc show dev dummy98')
         print(output)
@@ -4297,7 +4297,7 @@ class NetworkdTCTests(unittest.TestCase, Utilities):
     def test_qdisc_hhf(self):
         copy_network_unit('25-qdisc-hhf.network', '12-dummy.netdev')
         start_networkd()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         output = check_output('tc qdisc show dev dummy98')
         print(output)
@@ -4308,7 +4308,7 @@ class NetworkdTCTests(unittest.TestCase, Utilities):
     def test_qdisc_htb_fifo(self):
         copy_network_unit('25-qdisc-htb-fifo.network', '12-dummy.netdev')
         start_networkd()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         output = check_output('tc qdisc show dev dummy98')
         print(output)
@@ -4345,7 +4345,7 @@ class NetworkdTCTests(unittest.TestCase, Utilities):
         copy_network_unit('25-qdisc-clsact.network', '12-dummy.netdev',
                           '25-qdisc-ingress.network', '11-dummy.netdev')
         start_networkd()
-        self.wait_online(['dummy98:routable', 'test1:routable'])
+        self.wait_online('dummy98:routable', 'test1:routable')
 
         output = check_output('tc qdisc show dev dummy98')
         print(output)
@@ -4360,7 +4360,7 @@ class NetworkdTCTests(unittest.TestCase, Utilities):
         copy_network_unit('25-qdisc-netem.network', '12-dummy.netdev',
                           '25-qdisc-netem-compat.network', '11-dummy.netdev')
         start_networkd()
-        self.wait_online(['dummy98:routable', 'test1:routable'])
+        self.wait_online('dummy98:routable', 'test1:routable')
 
         output = check_output('tc qdisc show dev dummy98')
         print(output)
@@ -4376,7 +4376,7 @@ class NetworkdTCTests(unittest.TestCase, Utilities):
     def test_qdisc_pie(self):
         copy_network_unit('25-qdisc-pie.network', '12-dummy.netdev')
         start_networkd()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         output = check_output('tc qdisc show dev dummy98')
         print(output)
@@ -4387,7 +4387,7 @@ class NetworkdTCTests(unittest.TestCase, Utilities):
     def test_qdisc_qfq(self):
         copy_network_unit('25-qdisc-qfq.network', '12-dummy.netdev')
         start_networkd()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         output = check_output('tc qdisc show dev dummy98')
         print(output)
@@ -4401,7 +4401,7 @@ class NetworkdTCTests(unittest.TestCase, Utilities):
     def test_qdisc_sfb(self):
         copy_network_unit('25-qdisc-sfb.network', '12-dummy.netdev')
         start_networkd()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         output = check_output('tc qdisc show dev dummy98')
         print(output)
@@ -4412,7 +4412,7 @@ class NetworkdTCTests(unittest.TestCase, Utilities):
     def test_qdisc_sfq(self):
         copy_network_unit('25-qdisc-sfq.network', '12-dummy.netdev')
         start_networkd()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         output = check_output('tc qdisc show dev dummy98')
         print(output)
@@ -4423,7 +4423,7 @@ class NetworkdTCTests(unittest.TestCase, Utilities):
     def test_qdisc_tbf(self):
         copy_network_unit('25-qdisc-tbf.network', '12-dummy.netdev')
         start_networkd()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         output = check_output('tc qdisc show dev dummy98')
         print(output)
@@ -4438,7 +4438,7 @@ class NetworkdTCTests(unittest.TestCase, Utilities):
         start_networkd()
         self.wait_links('dummy98')
         check_output('modprobe sch_teql max_equalizers=2')
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         output = check_output('tc qdisc show dev dummy98')
         print(output)
@@ -4455,7 +4455,7 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
     def test_state_file(self):
         copy_network_unit('12-dummy.netdev', '25-state-file-tests.network')
         start_networkd()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
 
         # make link state file updated
         resolvectl('revert', 'dummy98')
@@ -4532,7 +4532,7 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
         copy_network_unit('12-dummy.netdev', '12-dummy-no-address.network')
         start_networkd()
 
-        self.wait_online(['dummy98:degraded'])
+        self.wait_online('dummy98:degraded')
 
         output = read_link_state_file('dummy98')
         self.assertIn('IPV4_ADDRESS_STATE=off', output)
@@ -4540,8 +4540,8 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
 
         # with a routable IPv4 address
         check_output('ip address add 10.1.2.3/16 dev dummy98')
-        self.wait_online(['dummy98:routable'], ipv4=True)
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable', ipv4=True)
+        self.wait_online('dummy98:routable')
 
         output = read_link_state_file('dummy98')
         self.assertIn('IPV4_ADDRESS_STATE=routable', output)
@@ -4551,8 +4551,8 @@ class NetworkdStateFileTests(unittest.TestCase, Utilities):
 
         # with a routable IPv6 address
         check_output('ip address add 2002:da8:1:0:1034:56ff:fe78:9abc/64 dev dummy98')
-        self.wait_online(['dummy98:routable'], ipv6=True)
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable', ipv6=True)
+        self.wait_online('dummy98:routable')
 
         output = read_link_state_file('dummy98')
         self.assertIn('IPV4_ADDRESS_STATE=off', output)
@@ -4573,7 +4573,7 @@ class NetworkdBondTests(unittest.TestCase, Utilities):
 
         copy_network_unit('23-keep-master.network')
         start_networkd()
-        self.wait_online(['dummy98:enslaved'])
+        self.wait_online('dummy98:enslaved')
 
         output = check_output('ip -d link show bond199')
         print(output)
@@ -4586,7 +4586,7 @@ class NetworkdBondTests(unittest.TestCase, Utilities):
     def test_bond_active_slave(self):
         copy_network_unit('23-active-slave.network', '23-bond199.network', '25-bond-active-backup-slave.netdev', '12-dummy.netdev')
         start_networkd()
-        self.wait_online(['dummy98:enslaved', 'bond199:degraded'])
+        self.wait_online('dummy98:enslaved', 'bond199:degraded')
 
         output = check_output('ip -d link show bond199')
         print(output)
@@ -4595,13 +4595,13 @@ class NetworkdBondTests(unittest.TestCase, Utilities):
         # test case for issue #31165.
         since = datetime.datetime.now()
         networkctl_reconfigure('dummy98')
-        self.wait_online(['dummy98:enslaved', 'bond199:degraded'])
+        self.wait_online('dummy98:enslaved', 'bond199:degraded')
         self.assertNotIn('dummy98: Bringing link down', read_networkd_log(since=since))
 
     def test_bond_primary_slave(self):
         copy_network_unit('23-primary-slave.network', '23-bond199.network', '25-bond-active-backup-slave.netdev', '12-dummy.netdev')
         start_networkd()
-        self.wait_online(['dummy98:enslaved', 'bond199:degraded'])
+        self.wait_online('dummy98:enslaved', 'bond199:degraded')
 
         output = check_output('ip -d link show bond199')
         print(output)
@@ -4614,7 +4614,7 @@ class NetworkdBondTests(unittest.TestCase, Utilities):
                 f.write(f'[Link]\nMACAddress={mac}\n')
 
             networkctl_reload()
-            self.wait_online(['dummy98:enslaved', 'bond199:degraded'])
+            self.wait_online('dummy98:enslaved', 'bond199:degraded')
 
             output = check_output('ip -d link show bond199')
             print(output)
@@ -4624,7 +4624,7 @@ class NetworkdBondTests(unittest.TestCase, Utilities):
         copy_network_unit('25-bond.netdev', '11-dummy.netdev', '12-dummy.netdev',
                           '25-bond99.network', '25-bond-slave.network')
         start_networkd()
-        self.wait_online(['dummy98:enslaved', 'test1:enslaved', 'bond99:routable'])
+        self.wait_online('dummy98:enslaved', 'test1:enslaved', 'bond99:routable')
 
         output = check_output('ip -d link show dummy98')
         print(output)
@@ -4677,7 +4677,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         copy_network_unit('12-dummy-mac.netdev', '26-bridge-mac-slave.network',
                           '26-bridge-mac.netdev', '26-bridge-mac-master.network', '26-bridge-mac.link')
         start_networkd()
-        self.wait_online(['dummy98:enslaved', 'bridge99:degraded'])
+        self.wait_online('dummy98:enslaved', 'bridge99:degraded')
 
         output = check_output('ip link show dev dummy98')
         print(output)
@@ -4692,7 +4692,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
                           '26-bridge.netdev', '26-bridge-vlan-master.network',
                           copy_dropins=False)
         start_networkd()
-        self.wait_online(['test1:enslaved', 'bridge99:degraded'])
+        self.wait_online('test1:enslaved', 'bridge99:degraded')
 
         output = check_output('bridge vlan show dev test1')
         print(output)
@@ -4726,7 +4726,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         copy_network_unit('26-bridge-vlan-slave.network.d/10-override.conf',
                           '26-bridge-vlan-master.network.d/10-override.conf')
         networkctl_reload()
-        self.wait_online(['test1:enslaved', 'bridge99:degraded'])
+        self.wait_online('test1:enslaved', 'bridge99:degraded')
 
         output = check_output('bridge vlan show dev test1')
         print(output)
@@ -4756,7 +4756,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         copy_network_unit('26-bridge-vlan-slave.network.d/20-override.conf',
                           '26-bridge-vlan-master.network.d/20-override.conf')
         networkctl_reload()
-        self.wait_online(['test1:enslaved', 'bridge99:degraded'])
+        self.wait_online('test1:enslaved', 'bridge99:degraded')
 
         output = check_output('bridge vlan show dev test1')
         print(output)
@@ -4786,7 +4786,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         copy_network_unit('26-bridge-vlan-slave.network.d/30-override.conf',
                           '26-bridge-vlan-master.network.d/30-override.conf')
         networkctl_reload()
-        self.wait_online(['test1:enslaved', 'bridge99:degraded'])
+        self.wait_online('test1:enslaved', 'bridge99:degraded')
 
         output = check_output('bridge vlan show dev test1')
         print(output)
@@ -4805,7 +4805,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
                           '26-bridge-issue-20373.netdev', '26-bridge-vlan-master-issue-20373.network',
                           '21-vlan.netdev', '21-vlan.network')
         start_networkd()
-        self.wait_online(['test1:enslaved', 'bridge99:degraded', 'vlan99:routable'])
+        self.wait_online('test1:enslaved', 'bridge99:degraded', 'vlan99:routable')
 
         output = check_output('bridge vlan show dev test1')
         print(output)
@@ -4823,7 +4823,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         copy_network_unit('11-dummy.netdev', '26-bridge-mdb-slave.network',
                           '26-bridge.netdev', '26-bridge-mdb-master.network')
         start_networkd()
-        self.wait_online(['test1:enslaved', 'bridge99:degraded'])
+        self.wait_online('test1:enslaved', 'bridge99:degraded')
 
         output = check_output('bridge mdb show dev bridge99')
         print(output)
@@ -4843,7 +4843,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
 
         copy_network_unit('23-keep-master.network')
         start_networkd()
-        self.wait_online(['dummy98:enslaved'])
+        self.wait_online('dummy98:enslaved')
 
         output = check_output('ip -d link show dummy98')
         print(output)
@@ -4870,7 +4870,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
                           '26-bridge-slave-interface-1.network', '26-bridge-slave-interface-2.network',
                           '25-bridge99.network')
         start_networkd()
-        self.wait_online(['dummy98:enslaved', 'test1:enslaved', 'bridge99:routable'])
+        self.wait_online('dummy98:enslaved', 'test1:enslaved', 'bridge99:routable')
 
         output = check_output('ip -d link show bridge99')
         print(output)
@@ -4955,7 +4955,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         self.assertRegex(output, 'ff00::/8 table local (proto kernel )?metric 256 (linkdown )?pref medium')
 
         check_output('ip link add dummy98 type dummy')
-        self.wait_online(['dummy98:enslaved', 'bridge99:routable'])
+        self.wait_online('dummy98:enslaved', 'bridge99:routable')
 
         output = check_output('ip -d link show bridge99')
         print(output)
@@ -4993,22 +4993,22 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
                 elif test == 'slave-up':
                     # bring up slave, which will have carrier; bridge gains carrier
                     check_output('ip link set dev test1 up')
-                    self.wait_online(['bridge99:routable'])
+                    self.wait_online('bridge99:routable')
                     self.check_link_attr('bridge99', 'carrier', '1')
                 elif test == 'slave-no-carrier':
                     # drop slave carrier; bridge loses carrier
                     check_output('ip link set dev test1 carrier off')
-                    self.wait_online(['bridge99:no-carrier:no-carrier'])
+                    self.wait_online('bridge99:no-carrier:no-carrier')
                     self.check_link_attr('bridge99', 'carrier', '0')
                 elif test == 'slave-carrier':
                     # restore slave carrier; bridge gains carrier
                     check_output('ip link set dev test1 carrier on')
-                    self.wait_online(['bridge99:routable'])
+                    self.wait_online('bridge99:routable')
                     self.check_link_attr('bridge99', 'carrier', '1')
                 elif test == 'slave-down':
                     # bring down slave; bridge loses carrier
                     check_output('ip link set dev test1 down')
-                    self.wait_online(['bridge99:no-carrier:no-carrier'])
+                    self.wait_online('bridge99:no-carrier:no-carrier')
                     self.check_link_attr('bridge99', 'carrier', '0')
 
                 output = networkctl_status('bridge99')
@@ -5020,7 +5020,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
                           '26-bridge-slave-interface-1.network', '26-bridge-slave-interface-2.network',
                           '25-bridge99-ignore-carrier-loss.network')
         start_networkd()
-        self.wait_online(['dummy98:enslaved', 'test1:enslaved', 'bridge99:routable'])
+        self.wait_online('dummy98:enslaved', 'test1:enslaved', 'bridge99:routable')
 
         check_output('ip address add 192.168.0.16/24 dev bridge99')
         remove_link('test1', 'dummy98')
@@ -5036,7 +5036,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
         copy_network_unit('26-bridge.netdev', '26-bridge-slave-interface-1.network',
                           '25-bridge99-ignore-carrier-loss.network')
         start_networkd()
-        self.wait_online(['bridge99:no-carrier'])
+        self.wait_online('bridge99:no-carrier')
 
         for trial in range(4):
             check_output('ip link add dummy98 type dummy')
@@ -5044,7 +5044,7 @@ class NetworkdBridgeTests(unittest.TestCase, Utilities):
             if trial < 3:
                 remove_link('dummy98')
 
-        self.wait_online(['bridge99:routable', 'dummy98:enslaved'])
+        self.wait_online('bridge99:routable', 'dummy98:enslaved')
 
         output = check_output('ip address show bridge99')
         print(output)
@@ -5075,7 +5075,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
             f.write('3')
 
         start_networkd()
-        self.wait_online(['eni99np1:routable'])
+        self.wait_online('eni99np1:routable')
 
         output = check_output('ip link show dev eni99np1')
         print(output)
@@ -5095,7 +5095,7 @@ class NetworkdSRIOVTests(unittest.TestCase, Utilities):
             f.write('99 1')
 
         start_networkd()
-        self.wait_online(['eni99np1:routable'])
+        self.wait_online('eni99np1:routable')
 
         # the name eni99np1 may be an alternative name.
         ifname = link_resolve('eni99np1')
@@ -5185,7 +5185,7 @@ class NetworkdLLDPTests(unittest.TestCase, Utilities):
     def test_lldp(self):
         copy_network_unit('23-emit-lldp.network', '24-lldp.network', '25-veth.netdev')
         start_networkd()
-        self.wait_online(['veth99:degraded', 'veth-peer:degraded'])
+        self.wait_online('veth99:degraded', 'veth-peer:degraded')
 
         for trial in range(10):
             if trial > 0:
@@ -5212,7 +5212,7 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         self.setup_nftset('network6', 'ipv6_addr', 'flags interval;')
         self.setup_nftset('ifindex', 'iface_index')
         start_networkd()
-        self.wait_online(['veth99:routable', 'veth-peer:degraded'])
+        self.wait_online('veth99:routable', 'veth-peer:degraded')
 
         output = resolvectl('dns', 'veth99')
         print(output)
@@ -5239,7 +5239,7 @@ class NetworkdRATests(unittest.TestCase, Utilities):
         self.teardown_nftset('addr6', 'network6', 'ifindex')
 
     def check_ipv6_token_static(self):
-        self.wait_online(['veth99:routable', 'veth-peer:degraded'])
+        self.wait_online('veth99:routable', 'veth-peer:degraded')
 
         output = networkctl_status('veth99')
         print(output)
@@ -5271,7 +5271,7 @@ class NetworkdRATests(unittest.TestCase, Utilities):
     def test_ipv6_token_prefixstable(self):
         copy_network_unit('25-veth.netdev', '25-ipv6-prefix.network', '25-ipv6-prefix-veth-token-prefixstable.network')
         start_networkd()
-        self.wait_online(['veth99:routable', 'veth-peer:degraded'])
+        self.wait_online('veth99:routable', 'veth-peer:degraded')
 
         output = networkctl_status('veth99')
         print(output)
@@ -5281,7 +5281,7 @@ class NetworkdRATests(unittest.TestCase, Utilities):
     def test_ipv6_token_prefixstable_without_address(self):
         copy_network_unit('25-veth.netdev', '25-ipv6-prefix.network', '25-ipv6-prefix-veth-token-prefixstable-without-address.network')
         start_networkd()
-        self.wait_online(['veth99:routable', 'veth-peer:degraded'])
+        self.wait_online('veth99:routable', 'veth-peer:degraded')
 
         output = networkctl_status('veth99')
         print(output)
@@ -5306,9 +5306,9 @@ class NetworkdRATests(unittest.TestCase, Utilities):
                           '25-veth-router-hop-limit.network',
                           '25-bridge99.network')
         start_networkd()
-        self.wait_online(['client-p:enslaved',
+        self.wait_online('client-p:enslaved',
                           'router:degraded', 'router-p:enslaved',
-                          'bridge99:routable'])
+                          'bridge99:routable')
 
         self.check_router_hop_limit(42)
 
@@ -5330,13 +5330,13 @@ class NetworkdRATests(unittest.TestCase, Utilities):
                           '25-veth-router-low.network',
                           '25-bridge99.network')
         start_networkd()
-        self.wait_online(['client-p:enslaved',
+        self.wait_online('client-p:enslaved',
                           'router-high:degraded', 'router-high-p:enslaved',
                           'router-low:degraded', 'router-low-p:enslaved',
-                          'bridge99:routable'])
+                          'bridge99:routable')
 
         networkctl_reconfigure('client')
-        self.wait_online(['client:routable'])
+        self.wait_online('client:routable')
 
         self.wait_address('client', '2002:da8:1:99:1034:56ff:fe78:9a00/64', ipv='-6', timeout_sec=10)
         self.wait_address('client', '2002:da8:1:98:1034:56ff:fe78:9a00/64', ipv='-6', timeout_sec=10)
@@ -5356,7 +5356,7 @@ class NetworkdRATests(unittest.TestCase, Utilities):
             f.write('\n[Link]\nMACAddress=12:34:56:78:9a:01\n[IPv6AcceptRA]\nRouteMetric=100:200:300\n')
 
         networkctl_reload()
-        self.wait_online(['client:routable'])
+        self.wait_online('client:routable')
 
         self.wait_address('client', '2002:da8:1:99:1034:56ff:fe78:9a01/64', ipv='-6', timeout_sec=10)
         self.wait_address('client', '2002:da8:1:98:1034:56ff:fe78:9a01/64', ipv='-6', timeout_sec=10)
@@ -5404,12 +5404,12 @@ class NetworkdRATests(unittest.TestCase, Utilities):
                           '25-veth-bridge-captive.network',
                           '25-bridge99.network')
         start_networkd()
-        self.wait_online(['bridge99:routable', 'client-p:enslaved',
-                          'router-captive:degraded', 'router-captivep:enslaved'])
+        self.wait_online('bridge99:routable', 'client-p:enslaved',
+                          'router-captive:degraded', 'router-captivep:enslaved')
 
         start_radvd(config_file='captive-portal.conf')
         networkctl_reconfigure('client')
-        self.wait_online(['client:routable'])
+        self.wait_online('client:routable')
 
         self.wait_address('client', '2002:da8:1:99:1034:56ff:fe78:9a00/64', ipv='-6', timeout_sec=10)
         output = networkctl_status('client')
@@ -5436,8 +5436,8 @@ class NetworkdRATests(unittest.TestCase, Utilities):
                           '25-veth-bridge-captive.network',
                           '25-bridge99.network')
         start_networkd()
-        self.wait_online(['bridge99:routable', 'client-p:enslaved',
-                          'router-captive:degraded', 'router-captivep:enslaved'])
+        self.wait_online('bridge99:routable', 'client-p:enslaved',
+                          'router-captive:degraded', 'router-captivep:enslaved')
 
         for uri in captive_portal_uris:
             print(f"Captive portal: {uri}")
@@ -5445,7 +5445,7 @@ class NetworkdRATests(unittest.TestCase, Utilities):
             stop_radvd()
             start_radvd(config_file='bogus-captive-portal.conf')
             networkctl_reconfigure('client')
-            self.wait_online(['client:routable'])
+            self.wait_online('client:routable')
 
             self.wait_address('client', '2002:da8:1:99:1034:56ff:fe78:9a00/64', ipv='-6', timeout_sec=10)
             output = networkctl_status('client')
@@ -5463,7 +5463,7 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
     def test_dhcp_server(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-client.network', '25-dhcp-server.network')
         start_networkd()
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        self.wait_online('veth99:routable', 'veth-peer:routable')
 
         output = networkctl_status('veth99')
         print(output)
@@ -5478,7 +5478,7 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
     def test_dhcp_server_null_server_address(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-client.network', '25-dhcp-server-null-server-address.network')
         start_networkd()
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        self.wait_online('veth99:routable', 'veth-peer:routable')
 
         output = check_output('ip --json address show dev veth-peer')
         server_address = json.loads(output)[0]['addr_info'][0]['local']
@@ -5502,7 +5502,7 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
         copy_network_unit('25-veth.netdev', '25-dhcp-client.network', '25-dhcp-server-downstream.network',
                           '12-dummy.netdev', '25-dhcp-server-uplink.network')
         start_networkd()
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        self.wait_online('veth99:routable', 'veth-peer:routable')
 
         output = networkctl_status('veth99')
         print(output)
@@ -5514,7 +5514,7 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
     def test_emit_router_timezone(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-client-timezone-router.network', '25-dhcp-server-timezone-router.network')
         start_networkd()
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        self.wait_online('veth99:routable', 'veth-peer:routable')
 
         output = networkctl_status('veth99')
         print(output)
@@ -5525,7 +5525,7 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
     def test_dhcp_server_static_lease(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-client-static-lease.network', '25-dhcp-server-static-lease.network')
         start_networkd()
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        self.wait_online('veth99:routable', 'veth-peer:routable')
 
         output = networkctl_status('veth99')
         print(output)
@@ -5535,7 +5535,7 @@ class NetworkdDHCPServerTests(unittest.TestCase, Utilities):
     def test_dhcp_server_static_lease_default_client_id(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-client.network', '25-dhcp-server-static-lease.network')
         start_networkd()
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        self.wait_online('veth99:routable', 'veth-peer:routable')
 
         output = networkctl_status('veth99')
         print(output)
@@ -5559,7 +5559,7 @@ class NetworkdDHCPServerRelayAgentTests(unittest.TestCase, Utilities):
                           '25-agent-server-peer.network')
         start_networkd()
 
-        self.wait_online(['client:routable'])
+        self.wait_online('client:routable')
 
         output = networkctl_status('client')
         print(output)
@@ -5572,7 +5572,7 @@ class NetworkdDHCPServerRelayAgentTests(unittest.TestCase, Utilities):
                           '25-agent-bridge-port.network',
                           '25-agent-client.network')
         start_networkd()
-        self.wait_online(['bridge-relay:routable', 'client-peer:enslaved'])
+        self.wait_online('bridge-relay:routable', 'client-peer:enslaved')
 
         # For issue #30763.
         expect = 'bridge-relay: DHCPv4 server: STARTED'
@@ -5595,7 +5595,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv6-only.network')
 
         start_networkd()
-        self.wait_online(['veth-peer:carrier'])
+        self.wait_online('veth-peer:carrier')
 
         # information request mode
         # The name ipv6-only option may not be supported by older dnsmasq
@@ -5604,7 +5604,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
                       '--dhcp-option=option6:dns-server,[2600::ee]',
                       '--dhcp-option=option6:ntp-server,[2600::ff]',
                       ra_mode='ra-stateless')
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        self.wait_online('veth99:routable', 'veth-peer:routable')
 
         # DHCPv6 REPLY for INFORMATION-REQUEST may be received after the link entered configured state.
         # Let's wait for the expected DNS server being listed in the state file.
@@ -5646,7 +5646,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
                       '--dhcp-option=option6:dns-server,[2600::ee]',
                       '--dhcp-option=option6:ntp-server,[2600::ff]')
         networkctl_reconfigure('veth99')
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        self.wait_online('veth99:routable', 'veth-peer:routable')
 
         # checking address
         output = check_output('ip address show dev veth99 scope global')
@@ -5704,7 +5704,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
                       '--dhcp-option=option6:ntp-server,[2600::ff]')
 
         networkctl_reload()
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        self.wait_online('veth99:routable', 'veth-peer:routable')
 
         # checking address
         output = check_output('ip address show dev veth99 scope global')
@@ -5750,7 +5750,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
     def test_dhcp_client_ipv6_dbus_status(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv6-only.network')
         start_networkd()
-        self.wait_online(['veth-peer:carrier'])
+        self.wait_online('veth-peer:carrier')
 
         # Note that at this point the DHCPv6 client has not been started because no RA (with managed
         # bit set) has yet been received and the configuration does not include WithoutRA=true
@@ -5763,7 +5763,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertEqual(state, 'selecting')
 
         start_dnsmasq('--dhcp-option=108,00:00:02:00')
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        self.wait_online('veth99:routable', 'veth-peer:routable')
 
         state = get_dhcp6_client_state('veth99')
         print(f"DHCPv6 client state = {state}")
@@ -5808,9 +5808,9 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv6-only-custom-client-identifier.network')
 
         start_networkd()
-        self.wait_online(['veth-peer:carrier'])
+        self.wait_online('veth-peer:carrier')
         start_dnsmasq()
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        self.wait_online('veth99:routable', 'veth-peer:routable')
 
         # checking address
         output = check_output('ip address show dev veth99 scope global')
@@ -5835,13 +5835,13 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.setup_nftset('ifindex', 'iface_index')
 
         start_networkd()
-        self.wait_online(['veth-peer:carrier'])
+        self.wait_online('veth-peer:carrier')
         start_dnsmasq('--dhcp-option=option:dns-server,192.168.5.6,192.168.5.7',
                       '--dhcp-option=option:sip-server,192.168.5.21,192.168.5.22',
                       '--dhcp-option=option:domain-search,example.com',
                       '--dhcp-alternate-port=67,5555',
                       ipv4_range='192.168.5.110,192.168.5.119')
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        self.wait_online('veth99:routable', 'veth-peer:routable')
         self.wait_address('veth99', r'inet 192.168.5.11[0-9]*/24', ipv='-4')
 
         print('## ip address show dev veth99 scope global')
@@ -5935,7 +5935,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.wait_address_dropped('veth99', f'inet {address1}/24', ipv='-4', timeout_sec=120)
         self.wait_address('veth99', r'inet 192.168.5.12[0-9]*/24', ipv='-4')
 
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        self.wait_online('veth99:routable', 'veth-peer:routable')
 
         print('## ip address show dev veth99 scope global')
         output = check_output('ip address show dev veth99 scope global')
@@ -6028,7 +6028,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
     def test_dhcp_client_ipv4_dbus_status(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-ipv4-only.network')
         start_networkd()
-        self.wait_online(['veth-peer:carrier'])
+        self.wait_online('veth-peer:carrier')
 
         state = get_dhcp4_client_state('veth99')
         print(f"State = {state}")
@@ -6038,7 +6038,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
                       '--dhcp-option=option:domain-search,example.com',
                       '--dhcp-alternate-port=67,5555',
                       ipv4_range='192.168.5.110,192.168.5.119')
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        self.wait_online('veth99:routable', 'veth-peer:routable')
         self.wait_address('veth99', r'inet 192.168.5.11[0-9]*/24', ipv='-4')
 
         state = get_dhcp4_client_state('veth99')
@@ -6049,7 +6049,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-allow-list.network', copy_dropins=False)
 
         start_networkd()
-        self.wait_online(['veth-peer:carrier'])
+        self.wait_online('veth-peer:carrier')
         since = datetime.datetime.now()
         start_dnsmasq()
 
@@ -6089,10 +6089,10 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
     def test_dhcp_client_rapid_commit(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client.network')
         start_networkd()
-        self.wait_online(['veth-peer:carrier'])
+        self.wait_online('veth-peer:carrier')
 
         start_dnsmasq('--dhcp-rapid-commit')
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        self.wait_online('veth99:routable', 'veth-peer:routable')
         self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24', ipv='-4')
 
         state = get_dhcp4_client_state('veth99')
@@ -6110,7 +6110,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
                           '25-dhcp-server-ipv6-only-mode.network',
                           '25-dhcp-client-ipv6-only-mode.network')
         start_networkd()
-        self.wait_online(['veth99:routable', 'veth-peer:routable'], timeout='40s')
+        self.wait_online('veth99:routable', 'veth-peer:routable', timeout='40s')
         self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24', ipv='-4')
 
         state = get_dhcp4_client_state('veth99')
@@ -6138,7 +6138,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         copy_network_unit(*testunits, copy_dropins=False)
 
         start_networkd()
-        self.wait_online(['veth-peer:carrier'])
+        self.wait_online('veth-peer:carrier')
         additional_options = [
             '--dhcp-option=option:dns-server,192.168.5.10,8.8.8.8',
             '--dhcp-option=option:ntp-server,192.168.5.11,9.9.9.9',
@@ -6149,7 +6149,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
                 '--dhcp-option=option:classless-static-route,0.0.0.0/0,192.168.5.4,8.0.0.0/8,192.168.5.5,192.168.5.64/26,192.168.5.5'
             ]
         start_dnsmasq(*additional_options)
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        self.wait_online('veth99:routable', 'veth-peer:routable')
 
         output = check_output('ip -4 route show dev veth99')
         print(output)
@@ -6214,9 +6214,9 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
     def test_dhcp_client_settings_anonymize(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-anonymize.network')
         start_networkd()
-        self.wait_online(['veth-peer:carrier'])
+        self.wait_online('veth-peer:carrier')
         start_dnsmasq()
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        self.wait_online('veth99:routable', 'veth-peer:routable')
 
         print('## dnsmasq log')
         output = read_dnsmasq_log_file()
@@ -6230,9 +6230,9 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
                           '25-dhcp-server-veth-peer.network',
                           '25-dhcp-client-keep-configuration-dhcp.network')
         start_networkd()
-        self.wait_online(['veth-peer:carrier'])
+        self.wait_online('veth-peer:carrier')
         start_dnsmasq()
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        self.wait_online('veth99:routable', 'veth-peer:routable')
 
         output = check_output('ip address show dev veth99 scope global')
         print(output)
@@ -6264,7 +6264,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
             f.write('[Network]\nDHCP=no\n')
 
         start_networkd()
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        self.wait_online('veth99:routable', 'veth-peer:routable')
 
         # Still the lease address should be kept after networkd restarted
         output = check_output('ip address show dev veth99 scope global')
@@ -6277,9 +6277,9 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
                           '25-dhcp-server-veth-peer.network',
                           '25-dhcp-client-keep-configuration-dhcp-on-stop.network')
         start_networkd()
-        self.wait_online(['veth-peer:carrier'])
+        self.wait_online('veth-peer:carrier')
         start_dnsmasq()
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        self.wait_online('veth99:routable', 'veth-peer:routable')
 
         output = check_output('ip address show dev veth99 scope global')
         print(output)
@@ -6293,7 +6293,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         self.assertRegex(output, r'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global dynamic veth99')
 
         start_networkd()
-        self.wait_online(['veth-peer:routable'])
+        self.wait_online('veth-peer:routable')
 
         output = check_output('ip address show dev veth99 scope global')
         print(output)
@@ -6302,9 +6302,9 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
     def test_dhcp_client_reuse_address_as_static(self):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client.network')
         start_networkd()
-        self.wait_online(['veth-peer:carrier'])
+        self.wait_online('veth-peer:carrier')
         start_dnsmasq()
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        self.wait_online('veth99:routable', 'veth-peer:routable')
 
         # link become 'routable' when at least one protocol provide an valid address.
         self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global dynamic', ipv='-4')
@@ -6322,7 +6322,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
             f.write(static_network)
 
         restart_networkd()
-        self.wait_online(['veth99:routable'])
+        self.wait_online('veth99:routable')
 
         output = check_output('ip -4 address show dev veth99 scope global')
         print(output)
@@ -6339,9 +6339,9 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client-vrf.network',
                           '25-vrf.netdev', '25-vrf.network')
         start_networkd()
-        self.wait_online(['veth-peer:carrier'])
+        self.wait_online('veth-peer:carrier')
         start_dnsmasq()
-        self.wait_online(['veth99:routable', 'veth-peer:routable', 'vrf99:carrier'])
+        self.wait_online('veth99:routable', 'veth-peer:routable', 'vrf99:carrier')
 
         # link become 'routable' when at least one protocol provide an valid address.
         self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global dynamic', ipv='-4')
@@ -6382,9 +6382,9 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network',
                           '25-dhcp-client-gateway-onlink-implicit.network')
         start_networkd()
-        self.wait_online(['veth-peer:carrier'])
+        self.wait_online('veth-peer:carrier')
         start_dnsmasq()
-        self.wait_online(['veth99:routable', 'veth-peer:routable'])
+        self.wait_online('veth99:routable', 'veth-peer:routable')
 
         output = networkctl_status('veth99')
         print(output)
@@ -6403,7 +6403,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         start_networkd()
         # we need to increase timeout above default, as this will need to wait for
         # systemd-networkd to get the dhcpv4 transient failure event
-        self.wait_online(['veth99:degraded', 'veth-peer:routable'], timeout='60s')
+        self.wait_online('veth99:degraded', 'veth-peer:routable', timeout='60s')
 
         output = check_output('ip -4 address show dev veth99')
         print(output)
@@ -6414,7 +6414,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         print('Wait for a DHCP lease to be acquired and the IPv4LL address to be dropped')
         self.wait_address('veth99', r'inet 192\.168\.5\.\d+/24 metric 1024 brd 192\.168\.5\.255 scope global dynamic', ipv='-4')
         self.wait_address_dropped('veth99', r'inet 169\.254\.\d+\.\d+/16 metric 2048 brd 169\.254\.255\.255 scope link', scope='link', ipv='-4')
-        self.wait_online(['veth99:routable'])
+        self.wait_online('veth99:routable')
 
         output = check_output('ip -4 address show dev veth99')
         print(output)
@@ -6443,7 +6443,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
                 f.write('\n[IPv6AcceptRA]\nUseDNS=no')
 
             networkctl_reload()
-            self.wait_online(['veth99:routable'])
+            self.wait_online('veth99:routable')
 
             # link becomes 'routable' when at least one protocol provide an valid address. Hence, we need to explicitly wait for both addresses.
             self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global dynamic', ipv='-4')
@@ -6468,7 +6468,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client.network', copy_dropins=False)
 
         start_networkd()
-        self.wait_online(['veth-peer:carrier'])
+        self.wait_online('veth-peer:carrier')
         start_dnsmasq('--dhcp-option=option:dns-server,192.168.5.1',
                       '--dhcp-option=option6:dns-server,[2600::1]')
 
@@ -6488,7 +6488,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
                 f.write('\n[IPv6AcceptRA]\nUseCaptivePortal=no')
 
             networkctl_reload()
-            self.wait_online(['veth99:routable'])
+            self.wait_online('veth99:routable')
 
             # link becomes 'routable' when at least one protocol provide an valid address. Hence, we need to explicitly wait for both addresses.
             self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global dynamic', ipv='-4')
@@ -6506,7 +6506,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client.network', copy_dropins=False)
 
         start_networkd()
-        self.wait_online(['veth-peer:carrier'])
+        self.wait_online('veth-peer:carrier')
         start_dnsmasq('--dhcp-option=114,http://systemd.io',
                       '--dhcp-option=option6:103,http://systemd.io')
 
@@ -6526,7 +6526,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
                 f.write('\n[IPv6AcceptRA]\nUseCaptivePortal=no')
 
             networkctl_reload()
-            self.wait_online(['veth99:routable'])
+            self.wait_online('veth99:routable')
 
             # link becomes 'routable' when at least one protocol provide an valid address. Hence, we need to explicitly wait for both addresses.
             self.wait_address('veth99', r'inet 192.168.5.[0-9]*/24 metric 1024 brd 192.168.5.255 scope global dynamic', ipv='-4')
@@ -6542,7 +6542,7 @@ class NetworkdDHCPClientTests(unittest.TestCase, Utilities):
         copy_network_unit('25-veth.netdev', '25-dhcp-server-veth-peer.network', '25-dhcp-client.network', copy_dropins=False)
 
         start_networkd()
-        self.wait_online(['veth-peer:carrier'])
+        self.wait_online('veth-peer:carrier')
         masq = lambda bs: ':'.join(f'{b:02x}' for b in bs)
         start_dnsmasq('--dhcp-option=114,' + masq(b'http://\x00invalid/url'),
                       '--dhcp-option=option6:103,' + masq(b'http://\x00/invalid/url'))
@@ -6585,9 +6585,9 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         self.setup_nftset('ifindex', 'iface_index')
 
         start_networkd()
-        self.wait_online(['veth-peer:routable'])
+        self.wait_online('veth-peer:routable')
         start_isc_dhcpd(conf_file='isc-dhcpd-dhcp6pd.conf', ipv='-6')
-        self.wait_online(['veth99:degraded'])
+        self.wait_online('veth99:degraded')
 
         # First, test UseAddress=no and Assign=no (issue #29979).
         # Note, due to the bug #29701, this test must be done at first.
@@ -6614,8 +6614,8 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
 
         copy_network_unit('25-dhcp6pd-upstream.network.d/with-address.conf')
         networkctl_reload()
-        self.wait_online(['veth99:routable', 'test1:routable', 'dummy98:routable', 'dummy99:degraded',
-                          'veth97:routable', 'veth97-peer:routable', 'veth98:routable', 'veth98-peer:routable'])
+        self.wait_online('veth99:routable', 'test1:routable', 'dummy98:routable', 'dummy99:degraded',
+                          'veth97:routable', 'veth97-peer:routable', 'veth98:routable', 'veth98-peer:routable')
 
         print('### ip -6 address show dev veth-peer scope global')
         output = check_output('ip -6 address show dev veth-peer scope global')
@@ -6753,7 +6753,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
 
         # Test case for a downstream which appears later
         check_output('ip link add dummy97 type dummy')
-        self.wait_online(['dummy97:routable'])
+        self.wait_online('dummy97:routable')
 
         print('### ip -6 address show dev dummy97 scope global')
         output = check_output('ip -6 address show dev dummy97 scope global')
@@ -6770,7 +6770,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
 
         # Test case for reconfigure
         networkctl_reconfigure('dummy98', 'dummy99')
-        self.wait_online(['dummy98:routable', 'dummy99:degraded'])
+        self.wait_online('dummy98:routable', 'dummy99:degraded')
 
         print('### ip -6 address show dev dummy98 scope global')
         output = check_output('ip -6 address show dev dummy98 scope global')
@@ -7009,7 +7009,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
                           '80-6rd-tunnel.network')
 
         start_networkd()
-        self.wait_online(['veth-peer:routable'])
+        self.wait_online('veth-peer:routable')
 
         # ipv4masklen: 8
         # 6rd-prefix: 2001:db8::/32
@@ -7018,8 +7018,8 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
         start_dnsmasq('--dhcp-option=212,08:20:20:01:0d:b8:00:00:00:00:00:00:00:00:00:00:00:00:0a:00:00:01',
                       ipv4_range='10.100.100.100,10.100.100.200',
                       ipv4_router='10.0.0.1')
-        self.wait_online(['veth99:routable', 'test1:routable', 'dummy98:routable', 'dummy99:degraded',
-                          'veth97:routable', 'veth97-peer:routable', 'veth98:routable', 'veth98-peer:routable'])
+        self.wait_online('veth99:routable', 'test1:routable', 'dummy98:routable', 'dummy99:degraded',
+                          'veth97:routable', 'veth97-peer:routable', 'veth98:routable', 'veth98-peer:routable')
 
         # Check the DBus interface for assigned prefix information
         prefixInfo = get_dhcp_6rd_prefix('veth99')
@@ -7031,7 +7031,7 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
 
         # Test case for a downstream which appears later
         check_output('ip link add dummy97 type dummy')
-        self.wait_online(['dummy97:routable'])
+        self.wait_online('dummy97:routable')
 
         # Find tunnel name
         tunnel_name = None
@@ -7040,21 +7040,21 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
                 tunnel_name = name
                 break
 
-        self.wait_online([f'{tunnel_name}:routable'])
+        self.wait_online(f'{tunnel_name}:routable')
 
         self.verify_dhcp4_6rd(tunnel_name)
 
         # Test case for reconfigure
         networkctl_reconfigure('dummy98', 'dummy99')
-        self.wait_online(['dummy98:routable', 'dummy99:degraded'])
+        self.wait_online('dummy98:routable', 'dummy99:degraded')
 
         self.verify_dhcp4_6rd(tunnel_name)
 
         print('Wait for the DHCP lease to be renewed/rebind')
         time.sleep(120)
 
-        self.wait_online(['veth99:routable', 'test1:routable', 'dummy97:routable', 'dummy98:routable', 'dummy99:degraded',
-                          'veth97:routable', 'veth97-peer:routable', 'veth98:routable', 'veth98-peer:routable'])
+        self.wait_online('veth99:routable', 'test1:routable', 'dummy97:routable', 'dummy98:routable', 'dummy99:degraded',
+                          'veth97:routable', 'veth97-peer:routable', 'veth98:routable', 'veth98-peer:routable')
 
         self.verify_dhcp4_6rd(tunnel_name)
 
@@ -7071,7 +7071,7 @@ class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
                           '12-dummy.netdev', '25-ipv6ra-uplink.network')
 
         start_networkd()
-        self.wait_online(['veth99:routable', 'veth-peer:routable', 'dummy98:routable'])
+        self.wait_online('veth99:routable', 'veth-peer:routable', 'dummy98:routable')
 
         output = check_output('ip address show dev veth-peer')
         print(output)
@@ -7122,7 +7122,7 @@ class NetworkdIPv6PrefixTests(unittest.TestCase, Utilities):
                           '12-dummy.netdev', '25-ipv6ra-uplink.network')
 
         start_networkd()
-        self.wait_online(['veth99:routable', 'veth-peer:routable', 'dummy98:routable'])
+        self.wait_online('veth99:routable', 'veth-peer:routable', 'dummy98:routable')
 
         output = check_output('ip address show dev veth-peer')
         print(output)
@@ -7163,13 +7163,13 @@ class NetworkdMTUTests(unittest.TestCase, Utilities):
 
         # test normal start
         start_networkd()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
         self.check_link_attr('dummy98', 'mtu', mtu)
         self.check_ipv6_sysctl_attr('dummy98', 'mtu', ipv6_mtu)
 
         # test normal restart
         restart_networkd()
-        self.wait_online(['dummy98:routable'])
+        self.wait_online('dummy98:routable')
         self.check_link_attr('dummy98', 'mtu', mtu)
         self.check_ipv6_sysctl_attr('dummy98', 'mtu', ipv6_mtu)
 
