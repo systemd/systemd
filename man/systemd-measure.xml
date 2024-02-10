@@ -158,6 +158,7 @@
       <varlistentry>
         <term><option>--private-key=<replaceable>PATH</replaceable></option></term>
         <term><option>--public-key=<replaceable>PATH</replaceable></option></term>
+        <term><option>--certificate=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>These switches take paths to a pair of PEM encoded RSA key files, for use with
         the <command>sign</command> command.</para>
@@ -172,7 +173,24 @@
         <para>If the <option>--public-key=</option> is not specified but <option>--private-key=</option> is
         specified the public key is automatically derived from the private key.</para>
 
+        <para><option>--certificate=</option> can be used to specify an X.509 certificate as an alternative
+        to <option>--public-key=</option> since v256.</para>
+
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--private-key=<replaceable>PATH/URI</replaceable></option></term>
+        <term><option>--private-key-source=<replaceable>TYPE[:NAME]</replaceable></option></term>
+        <term><option>--certificate=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>As an alternative to <option>--public-key=</option> for the
+        <command>sign</command> command, these switches can be used to sign with an hardware token. The
+        private key option can take a path or a URI that will be passed to the OpenSSL engine or
+        provider, as specified by <option>--private-key-source=</option> as a type:name tuple, such as
+        engine:pkcs11. The specified OpenSSL signing engine or provider will be used to sign.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
       <varlistentry>
