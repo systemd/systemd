@@ -27,6 +27,10 @@ test_append_files() {
         mkdir -p "$dropin_dir"
         printf '[Service]\nStandardOutput=journal+console\nStandardError=journal+console' >"$dropin_dir/99-stdout.conf"
     fi
+
+    image_install sudo
+    inst /etc/sudoers
+    inst_recursive /usr/libexec/sudo/
 }
 
 do_test "$@"
