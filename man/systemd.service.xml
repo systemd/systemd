@@ -790,62 +790,41 @@
 
       <varlistentry>
         <term><varname>Restart=</varname></term>
-        <listitem><para>Configures whether the service shall be
-        restarted when the service process exits, is killed, or a
-        timeout is reached. The service process may be the main
-        service process, but it may also be one of the processes
-        specified with <varname>ExecStartPre=</varname>,
-        <varname>ExecStartPost=</varname>,
-        <varname>ExecStop=</varname>,
-        <varname>ExecStopPost=</varname>, or
-        <varname>ExecReload=</varname>. When the death of the process
-        is a result of systemd operation (e.g. service stop or
-        restart), the service will not be restarted. Timeouts include
-        missing the watchdog "keep-alive ping" deadline and a service
-        start, reload, and stop operation timeouts.</para>
+        <listitem><para>Configures whether the service shall be restarted when the service process exits,
+        is killed, or a timeout is reached. The service process may be the main service process, but it may
+        also be one of the processes specified with <varname>ExecStartPre=</varname>,
+        <varname>ExecStartPost=</varname>, <varname>ExecStop=</varname>, <varname>ExecStopPost=</varname>,
+        or <varname>ExecReload=</varname>. When the death of the process is a result of systemd operation
+        (e.g. service stop or restart), the service will not be restarted. Timeouts include missing the watchdog
+        "keep-alive ping" deadline and a service start, reload, and stop operation timeouts.</para>
 
-        <para>Takes one of
-        <option>no</option>,
-        <option>on-success</option>,
-        <option>on-failure</option>,
-        <option>on-abnormal</option>,
-        <option>on-watchdog</option>,
-        <option>on-abort</option>, or
-        <option>always</option>.
-        If set to <option>no</option> (the default), the service will
-        not be restarted. If set to <option>on-success</option>, it
-        will be restarted only when the service process exits cleanly.
+        <para>Takes one of <option>no</option>, <option>on-success</option>, <option>on-failure</option>,
+        <option>on-abnormal</option>, <option>on-watchdog</option>, <option>on-abort</option>, or
+        <option>always</option>. If set to <option>no</option> (the default), the service will not be restarted.
+        If set to <option>on-success</option>, it will be restarted only when the service process exits cleanly.
         In this context, a clean exit means any of the following:
         <itemizedlist>
             <listitem><simpara>exit code of 0;</simpara></listitem>
-            <listitem><simpara>for types other than
-            <varname>Type=oneshot</varname>, one of the signals
-                <constant>SIGHUP</constant>,
-                <constant>SIGINT</constant>,
-                <constant>SIGTERM</constant>, or
-                <constant>SIGPIPE</constant>;</simpara></listitem>
+            <listitem><simpara>for types other than <varname>Type=oneshot</varname>, one of the signals
+                <constant>SIGHUP</constant>, <constant>SIGINT</constant>,
+                <constant>SIGTERM</constant>, or <constant>SIGPIPE</constant>;
+            </simpara></listitem>
             <listitem><simpara>exit statuses and signals specified in
                 <varname>SuccessExitStatus=</varname>.</simpara></listitem>
         </itemizedlist>
-        If set to
-        <option>on-failure</option>, the service will be restarted
-        when the process exits with a non-zero exit code, is
-        terminated by a signal (including on core dump, but excluding
-        the aforementioned four signals), when an operation (such as
-        service reload) times out, and when the configured watchdog
-        timeout is triggered. If set to <option>on-abnormal</option>,
-        the service will be restarted when the process is terminated
-        by a signal (including on core dump, excluding the
-        aforementioned four signals), when an operation times out, or
-        when the watchdog timeout is triggered. If set to
-        <option>on-abort</option>, the service will be restarted only
-        if the service process exits due to an uncaught signal not
-        specified as a clean exit status. If set to
-        <option>on-watchdog</option>, the service will be restarted
-        only if the watchdog timeout for the service expires. If set
-        to <option>always</option>, the service will be restarted
-        regardless of whether it exited cleanly or not, got terminated
-        abnormally by a signal, or hit a timeout.</para>
+        If set to <option>on-failure</option>, the service will be restarted when the process exits with
+        a non-zero exit code, is terminated by a signal (including on core dump, but excluding the aforementioned
+        four signals), when an operation (such as service reload) times out, and when the configured watchdog
+        timeout is triggered. If set to <option>on-abnormal</option>, the service will be restarted when
+        the process is terminated by a signal (including on core dump, excluding the aforementioned four signals),
+        when an operation times out, or when the watchdog timeout is triggered. If set to <option>on-abort</option>,
+        the service will be restarted only if the service process exits due to an uncaught signal not specified
+        as a clean exit status. If set to <option>on-watchdog</option>, the service will be restarted
+        only if the watchdog timeout for the service expires. If set to <option>always</option>, the service
+        will be restarted regardless of whether it exited cleanly or not, got terminated abnormally by
+        a signal, or hit a timeout. Note that <varname>Type=oneshot</varname> services will never be restarted
+        on a clean exit status, i.e. <option>always</option> and <option>on-success</option> are rejected
+        for them.</para>
 
         <table>
           <title>Exit causes and the effect of the <varname>Restart=</varname> settings</title>
@@ -1042,12 +1021,15 @@
 
       <varlistentry>
         <term><varname>RestartForceExitStatus=</varname></term>
-        <listitem><para>Takes a list of exit status definitions that,
-        when returned by the main service process, will force automatic
-        service restarts, regardless of the restart setting configured
-        with <varname>Restart=</varname>. The argument format is
-        similar to
-        <varname>RestartPreventExitStatus=</varname>.</para>
+
+        <listitem><para>Takes a list of exit status definitions that, when returned by the main service
+        process, will force automatic service restarts, regardless of the restart setting configured with
+        <varname>Restart=</varname>. The argument format is similar to <varname>RestartPreventExitStatus=</varname>.
+        </para>
+
+        <para>Note that for <varname>Type=oneshot</varname> services, a success exit status will prevent
+        them from auto-restarting, no matter whether the corresponding exit statuses are listed in this
+        option or not.</para>
 
         <xi:include href="version-info.xml" xpointer="v215"/></listitem>
       </varlistentry>
