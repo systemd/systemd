@@ -176,6 +176,19 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--private-key=<replaceable>PATH/URI</replaceable></option></term>
+        <term><option>--signing-engine=<replaceable>NAME</replaceable></option></term>
+        <term><option>--certificate=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>As an alternative to <option>--public-key=</option> for the
+        <command>sign</command> command, these switches can be used to sign with an hardware token. The
+        private key option can take a path or a URI that will be passed to the OpenSSL engine or
+        provider. The specified OpenSSL signing engine will be used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--tpm2-device=</option><replaceable>PATH</replaceable></term>
 
         <listitem><para>Controls which TPM2 device to use. Expects a device node path referring to the TPM2
