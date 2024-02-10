@@ -2092,7 +2092,7 @@ install_testuser() {
     # create unprivileged user for user manager tests
     mkdir -p "${initdir:?}/etc/sysusers.d"
     cat >"$initdir/etc/sysusers.d/testuser.conf" <<EOF
-u testuser    4711     "Test User" /home/testuser
+u testuser    4711     "Test User" /home/testuser /bin/bash
 EOF
 
     mkdir -p "$initdir/home/testuser"
