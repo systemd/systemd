@@ -176,6 +176,17 @@
       </varlistentry>
 
       <varlistentry>
+        <term><option>--private-key-uri=<replaceable>URI</replaceable></option></term>
+        <term><option>--certificate=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>These switches take a URI that will be passed to OpenSSL and a path to an X.509
+        certificate, for use with the <command>sign</command> command as an alternative to
+        <option>--public-key=</option> and <option>--private-key=</option>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--tpm2-device=</option><replaceable>PATH</replaceable></term>
 
         <listitem><para>Controls which TPM2 device to use. Expects a device node path referring to the TPM2
