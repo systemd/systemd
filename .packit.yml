@@ -44,10 +44,6 @@ actions:
     # Temporarily add libarchive-devel build dep and libarchive runtime dep
     # until the change propagates to Rawhide's specfile
     - "sed -ri '0,/^BuildRequires: .+$/s//&\\nBuildRequires: libarchive-devel\\nRequires: libarchive/' .packit_rpm/systemd.spec"
-    # FIXME: temporarily build without BPF stuff, since there's currently no
-    #        bpftool package in Rawhide (at least not until [0] lands)
-    # [0] https://bodhi.fedoraproject.org/updates/FEDORA-2024-bb73636f1d
-    - "sed -nri '1N;2N;/\\nBuildRequires:\\s+bpftool$/{N;N;d};P;N;D' .packit_rpm/systemd.spec"
 
 jobs:
 - job: copr_build
