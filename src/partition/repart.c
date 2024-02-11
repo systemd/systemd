@@ -6343,7 +6343,7 @@ static int context_fstab(Context *context) {
                 return false;
 
         if (!need_fstab(context)) {
-                log_notice("MountPoint= is not specified for any elligible partitions, not generating %s",
+                log_notice("MountPoint= is not specified for any eligible partitions, not generating %s",
                            arg_generate_fstab);
                 return 0;
         }
@@ -6437,7 +6437,7 @@ static int context_crypttab(Context *context) {
                 return false;
 
         if (!need_crypttab(context)) {
-                log_notice("EncryptedVolume= is not specified for any elligible partitions, not generating %s",
+                log_notice("EncryptedVolume= is not specified for any eligible partitions, not generating %s",
                            arg_generate_crypttab);
                 return 0;
         }
