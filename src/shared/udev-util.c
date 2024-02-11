@@ -232,13 +232,11 @@ int device_is_renaming(sd_device *dev) {
 
         assert(dev);
 
-        r = sd_device_get_property_value(dev, "ID_RENAMING", NULL);
+        r = device_get_property_bool(dev, "ID_RENAMING");
         if (r == -ENOENT)
-                return false;
-        if (r < 0)
-                return r;
+                return false; /* defaults to false */
 
-        return true;
+        return r;
 }
 
 bool device_for_action(sd_device *dev, sd_device_action_t a) {
