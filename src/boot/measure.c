@@ -31,6 +31,8 @@ static char **arg_banks = NULL;
 static char *arg_tpm2_device = NULL;
 static char *arg_private_key = NULL;
 static char *arg_public_key = NULL;
+static char *arg_private_key_uri = NULL;
+static char *arg_certificate = NULL;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO|JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static bool arg_current = false;
@@ -41,6 +43,8 @@ STATIC_DESTRUCTOR_REGISTER(arg_banks, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_public_key, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_private_key_uri, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_certificate, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_phase, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_append, freep);
 
@@ -75,6 +79,10 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --tpm2-device=PATH  Use specified TPM2 device\n"
                "     --private-key=KEY   Private key (PEM) to sign with\n"
                "     --public-key=KEY    Public key (PEM) to validate against\n"
+               "     --private-key-uri=URI\n"
+               "                         URI referring to private key to be passed to OpenSSL\n"
+               "                         to sign with\n"
+               "     --certificate=PATH  PEM certificate to use when signing with a URI\n"
                "     --json=MODE         Output as JSON\n"
                "  -j                     Same as --json=pretty on tty, --json=short otherwise\n"
                "     --append=PATH       Load specified JSON signature, and append new signature to it\n"
@@ -134,6 +142,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_BANK,
                 ARG_PRIVATE_KEY,
                 ARG_PUBLIC_KEY,
+                ARG_PRIVATE_KEY_URI,
+                ARG_CERTIFICATE,
                 ARG_TPM2_DEVICE,
                 ARG_JSON,
                 ARG_PHASE,
@@ -141,26 +151,28 @@ static int parse_argv(int argc, char *argv[]) {
         };
 
         static const struct option options[] = {
-                { "help",        no_argument,       NULL, 'h'             },
-                { "no-pager",    no_argument,       NULL, ARG_NO_PAGER    },
-                { "version",     no_argument,       NULL, ARG_VERSION     },
-                { "linux",       required_argument, NULL, ARG_LINUX       },
-                { "osrel",       required_argument, NULL, ARG_OSREL       },
-                { "cmdline",     required_argument, NULL, ARG_CMDLINE     },
-                { "initrd",      required_argument, NULL, ARG_INITRD      },
-                { "splash",      required_argument, NULL, ARG_SPLASH      },
-                { "dtb",         required_argument, NULL, ARG_DTB         },
-                { "uname",       required_argument, NULL, ARG_UNAME       },
-                { "sbat",        required_argument, NULL, ARG_SBAT        },
-                { "pcrpkey",     required_argument, NULL, ARG_PCRPKEY     },
-                { "current",     no_argument,       NULL, 'c'             },
-                { "bank",        required_argument, NULL, ARG_BANK        },
-                { "tpm2-device", required_argument, NULL, ARG_TPM2_DEVICE },
-                { "private-key", required_argument, NULL, ARG_PRIVATE_KEY },
-                { "public-key",  required_argument, NULL, ARG_PUBLIC_KEY  },
-                { "json",        required_argument, NULL, ARG_JSON        },
-                { "phase",       required_argument, NULL, ARG_PHASE       },
-                { "append",      required_argument, NULL, ARG_APPEND      },
+                { "help",            no_argument,       NULL, 'h'                 },
+                { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
+                { "version",         no_argument,       NULL, ARG_VERSION         },
+                { "linux",           required_argument, NULL, ARG_LINUX           },
+                { "osrel",           required_argument, NULL, ARG_OSREL           },
+                { "cmdline",         required_argument, NULL, ARG_CMDLINE         },
+                { "initrd",          required_argument, NULL, ARG_INITRD          },
+                { "splash",          required_argument, NULL, ARG_SPLASH          },
+                { "dtb",             required_argument, NULL, ARG_DTB             },
+                { "uname",           required_argument, NULL, ARG_UNAME           },
+                { "sbat",            required_argument, NULL, ARG_SBAT            },
+                { "pcrpkey",         required_argument, NULL, ARG_PCRPKEY         },
+                { "current",         no_argument,       NULL, 'c'                 },
+                { "bank",            required_argument, NULL, ARG_BANK            },
+                { "tpm2-device",     required_argument, NULL, ARG_TPM2_DEVICE     },
+                { "private-key",     required_argument, NULL, ARG_PRIVATE_KEY     },
+                { "public-key",      required_argument, NULL, ARG_PUBLIC_KEY      },
+                { "private-key-uri", required_argument, NULL, ARG_PRIVATE_KEY_URI },
+                { "certificate",     required_argument, NULL, ARG_CERTIFICATE     },
+                { "json",            required_argument, NULL, ARG_JSON            },
+                { "phase",           required_argument, NULL, ARG_PHASE           },
+                { "append",          required_argument, NULL, ARG_APPEND          },
                 {}
         };
 
@@ -219,8 +231,21 @@ static int parse_argv(int argc, char *argv[]) {
 
                         break;
 
+                case ARG_PRIVATE_KEY_URI:
+                        r = free_and_strdup_warn(&arg_private_key_uri, optarg);
+                        if (r < 0)
+                                return r;
+                        break;
+
                 case ARG_PUBLIC_KEY:
                         r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_public_key);
+                        if (r < 0)
+                                return r;
+
+                        break;
+
+                case ARG_CERTIFICATE:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_certificate);
                         if (r < 0)
                                 return r;
 
@@ -280,6 +305,12 @@ static int parse_argv(int argc, char *argv[]) {
                 default:
                         assert_not_reached();
                 }
+
+        if (arg_private_key && arg_private_key_uri)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Both --private-key= and --private-key-uri= specified, refusing.");
+
+        if (!!arg_private_key_uri != !!arg_certificate)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "When using --private-key-uri=, --certificate= must be specified.");
 
         if (strv_isempty(arg_banks)) {
                 /* If no banks are specifically selected, pick all known banks */
@@ -731,7 +762,7 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_(pcr_state_free_all) PcrState *pcr_states = NULL;
         _cleanup_(EVP_PKEY_freep) EVP_PKEY *privkey = NULL, *pubkey = NULL;
-        _cleanup_fclose_ FILE *privkeyf = NULL;
+        _cleanup_(X509_freep) X509 *certificate = NULL;
         size_t n;
         int r;
 
@@ -739,9 +770,9 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
                                        "Either --linux= or --current must be specified, refusing.");
 
-        if (!arg_private_key)
+        if (!arg_private_key && !arg_private_key_uri)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL),
-                                       "No private key specified, use --private-key=.");
+                                       "No private key specified, use --private-key= or --private-key-uri=.");
 
         assert(!strv_isempty(arg_banks));
         assert(!strv_isempty(arg_phase));
@@ -759,13 +790,49 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
         /* When signing we only support JSON output */
         arg_json_format_flags &= ~JSON_FORMAT_OFF;
 
-        privkeyf = fopen(arg_private_key, "re");
-        if (!privkeyf)
-                return log_error_errno(errno, "Failed to open private key file '%s': %m", arg_private_key);
+        /* This must be done before openssl_load_key_from_token() otherwise it will get stuck */
+        if (arg_certificate) {
+                _cleanup_(BIO_freep) BIO *cb = NULL;
+                _cleanup_free_ char *crt = NULL;
 
-        privkey = PEM_read_PrivateKey(privkeyf, NULL, NULL, NULL);
-        if (!privkey)
-                return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse private key '%s'.", arg_private_key);
+                r = read_full_file_full(
+                                AT_FDCWD, arg_certificate, UINT64_MAX, SIZE_MAX,
+                                READ_FULL_FILE_CONNECT_SOCKET,
+                                NULL,
+                                &crt, &n);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to read certificate file '%s': %m", arg_certificate);
+
+                cb = BIO_new_mem_buf(crt, n);
+                if (!cb)
+                        return log_oom();
+
+                certificate = PEM_read_bio_X509(cb, NULL, NULL, NULL);
+                if (!certificate)
+                        return log_error_errno(
+                                        SYNTHETIC_ERRNO(EBADMSG),
+                                        "Failed to parse X.509 certificate: %s",
+                                        ERR_error_string(ERR_get_error(), NULL));
+        }
+
+        if (arg_private_key) {
+                _cleanup_fclose_ FILE *privkeyf = NULL;
+
+                privkeyf = fopen(arg_private_key, "re");
+                if (!privkeyf)
+                        return log_error_errno(errno, "Failed to open private key file '%s': %m", arg_private_key);
+
+                privkey = PEM_read_PrivateKey(privkeyf, NULL, NULL, NULL);
+                if (!privkey)
+                        return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse private key '%s'.", arg_private_key);
+        } else if (arg_private_key_uri) {
+                r = openssl_load_key_from_token(arg_private_key_uri, &privkey);
+                if (r < 0)
+                        return log_error_errno(
+                                        r,
+                                        "Failed to load key '%s' from OpenSSL provider: %m",
+                                        arg_private_key_uri);
+        }
 
         if (arg_public_key) {
                 _cleanup_fclose_ FILE *pubkeyf = NULL;
@@ -777,6 +844,13 @@ static int verb_sign(int argc, char *argv[], void *userdata) {
                 pubkey = PEM_read_PUBKEY(pubkeyf, NULL, NULL, NULL);
                 if (!pubkey)
                         return log_error_errno(SYNTHETIC_ERRNO(EIO), "Failed to parse public key '%s'.", arg_public_key);
+        } else if (certificate) {
+                pubkey = X509_get_pubkey(certificate);
+                if (!pubkey)
+                        return log_error_errno(
+                                        SYNTHETIC_ERRNO(EIO),
+                                        "Failed to extract public key from certificate %s.",
+                                        arg_certificate);
         } else {
                 _cleanup_(memstream_done) MemStream m = {};
                 FILE *tf;

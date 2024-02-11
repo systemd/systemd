@@ -403,7 +403,7 @@ def check_cert_and_keys_nonexistent(opts):
         *((priv_key, pub_key)
           for priv_key, pub_key, _ in key_path_groups(opts)))
     for path in paths:
-        if path and path.exists():
+        if path and (not isinstance(path, pathlib.Path) or path.exists()):
             raise ValueError(f'{path} is present')
 
 
@@ -492,9 +492,14 @@ def call_systemd_measure(uki, linux, opts):
         ]
 
         for priv_key, pub_key, group in key_path_groups(opts):
-            extra = [f'--private-key={priv_key}']
-            if pub_key:
-                extra += [f'--public-key={pub_key}']
+            extra = []
+            if opts.signing_engine is not None:
+                extra += [f'--private-key-uri={priv_key}']
+                extra += [f'--certificate={pub_key}']
+            else:
+                extra += [f'--private-key={priv_key}']
+                if pub_key:
+                    extra += [f'--public-key={pub_key}']
             extra += [f'--phase={phase_path}' for phase_path in group or ()]
 
             print('+', shell_join(cmd + extra))
@@ -956,7 +961,7 @@ def generate_keys(opts):
 
         print(f'Writing private key for PCR signing to {priv_key}')
         with temporary_umask(0o077):
-            priv_key.write_bytes(priv_key_pem)
+            pathlib.Path(priv_key).write_bytes(priv_key_pem)
         if pub_key:
             print(f'Writing public key for PCR signing to {pub_key}')
             pub_key.write_bytes(pub_key_pem)
@@ -1359,10 +1364,8 @@ CONFIG_ITEMS = [
     ConfigItem(
         '--pcr-private-key',
         dest = 'pcr_private_keys',
-        metavar = 'PATH',
-        type = pathlib.Path,
         action = 'append',
-        help = 'private part of the keypair for signing PCR signatures',
+        help = 'private part of the keypair or engine-specific designation for signing PCR signatures',
         config_key = 'PCRSignature:/PCRPrivateKey',
         config_push = ConfigItem.config_set_group,
     ),
@@ -1372,7 +1375,7 @@ CONFIG_ITEMS = [
         metavar = 'PATH',
         type = pathlib.Path,
         action = 'append',
-        help = 'public part of the keypair for signing PCR signatures',
+        help = 'public part of the keypair or engine-specific designation for signing PCR signatures',
         config_key = 'PCRSignature:/PCRPublicKey',
         config_push = ConfigItem.config_set_group,
     ),
