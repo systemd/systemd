@@ -115,7 +115,7 @@ def test_apply_config(tmp_path):
     assert ns.sign_kernel is False
 
     assert ns._groups == ['NAME']
-    assert ns.pcr_private_keys == [pathlib.Path('some/path7')]
+    assert ns.pcr_private_keys == ['some/path7']
     assert ns.pcr_public_keys == [pathlib.Path('some/path8')]
     assert ns.phase_path_groups == [['enter-initrd:leave-initrd:sysinit:ready:shutdown:final']]
 
@@ -138,7 +138,7 @@ def test_apply_config(tmp_path):
     assert ns.sign_kernel is False
 
     assert ns._groups == ['NAME']
-    assert ns.pcr_private_keys == [pathlib.Path('some/path7')]
+    assert ns.pcr_private_keys == ['some/path7']
     assert ns.pcr_public_keys == [pathlib.Path('some/path8')]
     assert ns.phase_path_groups == [['enter-initrd:leave-initrd:sysinit:ready:shutdown:final']]
 
@@ -184,7 +184,7 @@ def test_parse_args_many_deprecated():
     assert opts.pcrpkey == pathlib.Path('PATH')
     assert opts.uname == '1.2.3'
     assert opts.stub == pathlib.Path('STUBPATH')
-    assert opts.pcr_private_keys == [pathlib.Path('PKEY1')]
+    assert opts.pcr_private_keys == ['PKEY1']
     assert opts.pcr_public_keys == [pathlib.Path('PKEY2')]
     assert opts.pcr_banks == ['SHA1', 'SHA256']
     assert opts.signing_engine == 'ENGINE'
@@ -230,7 +230,7 @@ def test_parse_args_many():
     assert opts.pcrpkey == pathlib.Path('PATH')
     assert opts.uname == '1.2.3'
     assert opts.stub == pathlib.Path('STUBPATH')
-    assert opts.pcr_private_keys == [pathlib.Path('PKEY1')]
+    assert opts.pcr_private_keys == ['PKEY1']
     assert opts.pcr_public_keys == [pathlib.Path('PKEY2')]
     assert opts.pcr_banks == ['SHA1', 'SHA256']
     assert opts.signing_engine == 'ENGINE'
@@ -337,8 +337,7 @@ def test_config_priority(tmp_path):
     assert opts.pcrpkey == pathlib.Path('PATH')
     assert opts.uname == '1.2.3'
     assert opts.stub == pathlib.Path('STUBPATH')
-    assert opts.pcr_private_keys == [pathlib.Path('PKEY1'),
-                                     pathlib.Path('some/path7')]
+    assert opts.pcr_private_keys == ['PKEY1', 'some/path7']
     assert opts.pcr_public_keys == [pathlib.Path('PKEY2'),
                                     pathlib.Path('some/path8')]
     assert opts.pcr_banks == ['SHA1', 'SHA256']
