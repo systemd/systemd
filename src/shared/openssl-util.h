@@ -123,7 +123,7 @@ int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_s
 
 int digest_and_sign(const EVP_MD *md, EVP_PKEY *privkey, const void *data, size_t size, void **ret, size_t *ret_size);
 
-int openssl_load_key_from_token(const char *private_key_uri, EVP_PKEY **ret);
+int openssl_load_key_from_token(const char *engine, const char *private_key_uri, EVP_PKEY **ret);
 
 #else
 
@@ -140,7 +140,7 @@ static inline void *EVP_PKEY_free(EVP_PKEY *p) {
         return NULL;
 }
 
-static inline int openssl_load_key_from_token(const char *private_key_uri, EVP_PKEY **ret) {
+static inline int openssl_load_key_from_token(const char *engine, const char *private_key_uri, EVP_PKEY **ret) {
         return -EOPNOTSUPP;
 }
 
