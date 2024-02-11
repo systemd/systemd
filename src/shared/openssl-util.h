@@ -5,6 +5,16 @@
 #include "macro.h"
 #include "sha256.h"
 
+typedef enum KeySourceType {
+        OPENSSL_KEY_SOURCE_FILE,
+        OPENSSL_KEY_SOURCE_ENGINE,
+        OPENSSL_KEY_SOURCE_PROVIDER,
+        _OPENSSL_KEY_SOURCE_MAX,
+        _OPENSSL_KEY_SOURCE_INVALID = -EINVAL,
+} KeySourceType;
+
+int parse_openssl_key_source_argument(const char *argument, char **private_key_source, KeySourceType *private_key_source_type);
+
 #define X509_FINGERPRINT_SIZE SHA256_DIGEST_SIZE
 
 #if HAVE_OPENSSL
@@ -123,7 +133,7 @@ int pubkey_fingerprint(EVP_PKEY *pk, const EVP_MD *md, void **ret, size_t *ret_s
 
 int digest_and_sign(const EVP_MD *md, EVP_PKEY *privkey, const void *data, size_t size, void **ret, size_t *ret_size);
 
-int openssl_load_key_from_token(const char *private_key_uri, EVP_PKEY **ret);
+int openssl_load_key_from_token(KeySourceType private_key_source_type, const char *private_key_source, const char *private_key, EVP_PKEY **ret);
 
 #else
 
@@ -140,7 +150,12 @@ static inline void *EVP_PKEY_free(EVP_PKEY *p) {
         return NULL;
 }
 
-static inline int openssl_load_key_from_token(const char *private_key_uri, EVP_PKEY **ret) {
+static inline int openssl_load_key_from_token(
+                KeySourceType private_key_source_type,
+                const char *private_key_source,
+                const char *private_key,
+                EVP_PKEY **ret) {
+
         return -EOPNOTSUPP;
 }
 
