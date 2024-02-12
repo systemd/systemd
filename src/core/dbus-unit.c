@@ -1216,10 +1216,30 @@ static int property_get_cgroup(
          * indicates the root cgroup, which we report as "/". c) all
          * other cases we report as-is. */
 
-        if (u->cgroup_path)
-                t = empty_to_root(u->cgroup_path);
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+
+        if (crt && crt->cgroup_path)
+                t = empty_to_root(crt->cgroup_path);
 
         return sd_bus_message_append(reply, "s", t);
+}
+
+static int property_get_cgroup_id(
+                sd_bus *bus,
+                const char *path,
+                const char *interface,
+                const char *property,
+                sd_bus_message *reply,
+                void *userdata,
+                sd_bus_error *error) {
+
+        Unit *u = ASSERT_PTR(userdata);
+
+        assert(bus);
+        assert(reply);
+
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+        return sd_bus_message_append(reply, "t", crt ? crt->cgroup_id : 0);
 }
 
 static int append_process(sd_bus_message *reply, const char *p, PidRef *pid, Set *pids) {
@@ -1350,8 +1370,10 @@ int bus_unit_method_get_processes(sd_bus_message *message, void *userdata, sd_bu
         if (r < 0)
                 return r;
 
-        if (u->cgroup_path) {
-                r = append_cgroup(reply, u->cgroup_path, pids);
+        CGroupRuntime *crt;
+        crt = unit_get_cgroup_runtime(u);
+        if (crt && crt->cgroup_path) {
+                r = append_cgroup(reply, crt->cgroup_path, pids);
                 if (r < 0)
                         return r;
         }
@@ -1558,7 +1580,7 @@ const sd_bus_vtable bus_unit_cgroup_vtable[] = {
         SD_BUS_VTABLE_START(0),
         SD_BUS_PROPERTY("Slice", "s", property_get_slice, 0, 0),
         SD_BUS_PROPERTY("ControlGroup", "s", property_get_cgroup, 0, 0),
-        SD_BUS_PROPERTY("ControlGroupId", "t", NULL, offsetof(Unit, cgroup_id), 0),
+        SD_BUS_PROPERTY("ControlGroupId", "t", property_get_cgroup_id, 0, 0),
         SD_BUS_PROPERTY("MemoryCurrent", "t", property_get_current_memory, 0, 0),
         SD_BUS_PROPERTY("MemoryPeak", "t", property_get_memory_accounting, 0, 0),
         SD_BUS_PROPERTY("MemorySwapCurrent", "t", property_get_memory_accounting, 0, 0),
