@@ -268,6 +268,15 @@ units = [
           'conditions' : ['ENABLE_BOOTLOADER'],
         },
         {
+          'file' : 'systemd-bootctl@.service.in',
+          'conditions' : ['ENABLE_BOOTLOADER'],
+        },
+        {
+          'file' : 'systemd-bootctl.socket',
+          'conditions' : ['ENABLE_BOOTLOADER'],
+          'symlinks' : ['sockets.target.wants/'],
+        },
+        {
           'file' : 'systemd-confext.service',
           'conditions' : ['ENABLE_SYSEXT'],
         },
