@@ -1668,6 +1668,63 @@ int show_boot_entry(
         return -status;
 }
 
+int boot_entry_to_json(const BootConfig *c, size_t i, JsonVariant **ret) {
+        _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
+        const BootEntry *e;
+        int r;
+
+        assert(c);
+        assert(ret);
+
+        if (i >= c->n_entries) {
+                *ret = NULL;
+                return 0;
+        }
+
+        e = c->entries + i;
+
+        r = json_variant_merge_objectb(
+                        &v, JSON_BUILD_OBJECT(
+                                        JSON_BUILD_PAIR("type", JSON_BUILD_STRING(boot_entry_type_json_to_string(e->type))),
+                                        JSON_BUILD_PAIR_CONDITION(e->id, "id", JSON_BUILD_STRING(e->id)),
+                                        JSON_BUILD_PAIR_CONDITION(e->path, "path", JSON_BUILD_STRING(e->path)),
+                                        JSON_BUILD_PAIR_CONDITION(e->root, "root", JSON_BUILD_STRING(e->root)),
+                                        JSON_BUILD_PAIR_CONDITION(e->title, "title", JSON_BUILD_STRING(e->title)),
+                                        JSON_BUILD_PAIR_CONDITION(boot_entry_title(e), "showTitle", JSON_BUILD_STRING(boot_entry_title(e))),
+                                        JSON_BUILD_PAIR_CONDITION(e->sort_key, "sortKey", JSON_BUILD_STRING(e->sort_key)),
+                                        JSON_BUILD_PAIR_CONDITION(e->version, "version", JSON_BUILD_STRING(e->version)),
+                                        JSON_BUILD_PAIR_CONDITION(e->machine_id, "machineId", JSON_BUILD_STRING(e->machine_id)),
+                                        JSON_BUILD_PAIR_CONDITION(e->architecture, "architecture", JSON_BUILD_STRING(e->architecture)),
+                                        JSON_BUILD_PAIR_CONDITION(e->kernel, "linux", JSON_BUILD_STRING(e->kernel)),
+                                        JSON_BUILD_PAIR_CONDITION(e->efi, "efi", JSON_BUILD_STRING(e->efi)),
+                                        JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->initrd), "initrd", JSON_BUILD_STRV(e->initrd)),
+                                        JSON_BUILD_PAIR_CONDITION(e->device_tree, "devicetree", JSON_BUILD_STRING(e->device_tree)),
+                                        JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->device_tree_overlay), "devicetreeOverlay", JSON_BUILD_STRV(e->device_tree_overlay))));
+        if (r < 0)
+                return log_oom();
+
+        /* Sanitizers (only memory sanitizer?) do not like function call with too many
+         * arguments and trigger false positive warnings. Let's not add too many json objects
+         * at once. */
+        r = json_variant_merge_objectb(
+                        &v, JSON_BUILD_OBJECT(
+                                        JSON_BUILD_PAIR("isReported", JSON_BUILD_BOOLEAN(e->reported_by_loader)),
+                                        JSON_BUILD_PAIR_CONDITION(e->tries_left != UINT_MAX, "triesLeft", JSON_BUILD_UNSIGNED(e->tries_left)),
+                                        JSON_BUILD_PAIR_CONDITION(e->tries_done != UINT_MAX, "triesDone", JSON_BUILD_UNSIGNED(e->tries_done)),
+                                        JSON_BUILD_PAIR_CONDITION(c->default_entry >= 0, "isDefault", JSON_BUILD_BOOLEAN(i == (size_t) c->default_entry)),
+                                        JSON_BUILD_PAIR_CONDITION(c->selected_entry >= 0, "isSelected", JSON_BUILD_BOOLEAN(i == (size_t) c->selected_entry))));
+
+        if (r < 0)
+                return log_oom();
+
+        r = json_cmdline(e, &c->global_addons, &v);
+        if (r < 0)
+                return log_oom();
+
+        *ret = TAKE_PTR(v);
+        return 1;
+}
+
 int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
         int r;
 
@@ -1677,44 +1734,9 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                 _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
 
                 for (size_t i = 0; i < config->n_entries; i++) {
-                        const BootEntry *e = config->entries + i;
                         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
 
-                        r = json_variant_merge_objectb(
-                                        &v, JSON_BUILD_OBJECT(
-                                                       JSON_BUILD_PAIR("type", JSON_BUILD_STRING(boot_entry_type_json_to_string(e->type))),
-                                                       JSON_BUILD_PAIR_CONDITION(e->id, "id", JSON_BUILD_STRING(e->id)),
-                                                       JSON_BUILD_PAIR_CONDITION(e->path, "path", JSON_BUILD_STRING(e->path)),
-                                                       JSON_BUILD_PAIR_CONDITION(e->root, "root", JSON_BUILD_STRING(e->root)),
-                                                       JSON_BUILD_PAIR_CONDITION(e->title, "title", JSON_BUILD_STRING(e->title)),
-                                                       JSON_BUILD_PAIR_CONDITION(boot_entry_title(e), "showTitle", JSON_BUILD_STRING(boot_entry_title(e))),
-                                                       JSON_BUILD_PAIR_CONDITION(e->sort_key, "sortKey", JSON_BUILD_STRING(e->sort_key)),
-                                                       JSON_BUILD_PAIR_CONDITION(e->version, "version", JSON_BUILD_STRING(e->version)),
-                                                       JSON_BUILD_PAIR_CONDITION(e->machine_id, "machineId", JSON_BUILD_STRING(e->machine_id)),
-                                                       JSON_BUILD_PAIR_CONDITION(e->architecture, "architecture", JSON_BUILD_STRING(e->architecture)),
-                                                       JSON_BUILD_PAIR_CONDITION(e->kernel, "linux", JSON_BUILD_STRING(e->kernel)),
-                                                       JSON_BUILD_PAIR_CONDITION(e->efi, "efi", JSON_BUILD_STRING(e->efi)),
-                                                       JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->initrd), "initrd", JSON_BUILD_STRV(e->initrd)),
-                                                       JSON_BUILD_PAIR_CONDITION(e->device_tree, "devicetree", JSON_BUILD_STRING(e->device_tree)),
-                                                       JSON_BUILD_PAIR_CONDITION(!strv_isempty(e->device_tree_overlay), "devicetreeOverlay", JSON_BUILD_STRV(e->device_tree_overlay))));
-                        if (r < 0)
-                                return log_oom();
-
-                        r = json_cmdline(e, &config->global_addons, &v);
-                        if (r < 0)
-                                return log_oom();
-
-                        /* Sanitizers (only memory sanitizer?) do not like function call with too many
-                         * arguments and trigger false positive warnings. Let's not add too many json objects
-                         * at once. */
-                        r = json_variant_merge_objectb(
-                                        &v, JSON_BUILD_OBJECT(
-                                                       JSON_BUILD_PAIR("isReported", JSON_BUILD_BOOLEAN(e->reported_by_loader)),
-                                                       JSON_BUILD_PAIR_CONDITION(e->tries_left != UINT_MAX, "triesLeft", JSON_BUILD_UNSIGNED(e->tries_left)),
-                                                       JSON_BUILD_PAIR_CONDITION(e->tries_done != UINT_MAX, "triesDone", JSON_BUILD_UNSIGNED(e->tries_done)),
-                                                       JSON_BUILD_PAIR_CONDITION(config->default_entry >= 0, "isDefault", JSON_BUILD_BOOLEAN(i == (size_t) config->default_entry)),
-                                                       JSON_BUILD_PAIR_CONDITION(config->selected_entry >= 0, "isSelected", JSON_BUILD_BOOLEAN(i == (size_t) config->selected_entry))));
-
+                        r = boot_entry_to_json(config, i, &v);
                         if (r < 0)
                                 return log_oom();
 
@@ -1723,8 +1745,7 @@ int show_boot_entries(const BootConfig *config, JsonFormatFlags json_format) {
                                 return log_oom();
                 }
 
-                json_variant_dump(array, json_format | JSON_FORMAT_EMPTY_ARRAY, NULL, NULL);
-
+                return json_variant_dump(array, json_format | JSON_FORMAT_EMPTY_ARRAY, NULL, NULL);
         } else {
                 for (size_t n = 0; n < config->n_entries; n++) {
                         r = show_boot_entry(

@@ -143,3 +143,5 @@ int show_boot_entries(
                 JsonFormatFlags json_format);
 
 int boot_filename_extract_tries(const char *fname, char **ret_stripped, unsigned *ret_tries_left, unsigned *ret_tries_done);
+
+int boot_entry_to_json(const BootConfig *c, size_t i, JsonVariant **ret);
