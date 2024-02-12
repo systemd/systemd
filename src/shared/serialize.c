@@ -46,7 +46,7 @@ int serialize_item_escaped(FILE *f, const char *key, const char *value) {
         if (!value)
                 return 0;
 
-        c = cescape(value);
+        c = xescape(value, " ");
         if (!c)
                 return log_oom();
 
