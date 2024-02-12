@@ -13,6 +13,7 @@
 #include "varlink-io.systemd.ManagedOOM.h"
 #include "varlink-io.systemd.Network.h"
 #include "varlink-io.systemd.PCRExtend.h"
+#include "varlink-io.systemd.PCRLock.h"
 #include "varlink-io.systemd.Resolve.Monitor.h"
 #include "varlink-io.systemd.Resolve.h"
 #include "varlink-io.systemd.UserDatabase.h"
@@ -142,6 +143,8 @@ TEST(parse_format) {
         test_parse_format_one(&vl_interface_io_systemd);
         print_separator();
         test_parse_format_one(&vl_interface_io_systemd_PCRExtend);
+        print_separator();
+        test_parse_format_one(&vl_interface_io_systemd_PCRLock);
         print_separator();
         test_parse_format_one(&vl_interface_io_systemd_service);
         print_separator();

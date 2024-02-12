@@ -48,6 +48,8 @@
 #include "unaligned.h"
 #include "unit-name.h"
 #include "utf8.h"
+#include "varlink.h"
+#include "varlink-io.systemd.PCRLock.h"
 #include "verbs.h"
 
 static PagerFlags arg_pager_flags = 0;
@@ -65,6 +67,7 @@ static char *arg_policy_path = NULL;
 static bool arg_force = false;
 static BootEntryTokenType arg_entry_token_type = BOOT_ENTRY_TOKEN_AUTO;
 static char *arg_entry_token = NULL;
+static bool arg_varlink = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_components, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_pcrlock_path, freep);
@@ -2412,6 +2415,75 @@ static int verb_show_log(int argc, char *argv[], void *userdata) {
         return 0;
 }
 
+static int event_log_record_to_cel(EventLogRecord *record, uint64_t *recnum, JsonVariant **ret) {
+        _cleanup_(json_variant_unrefp) JsonVariant *ja = NULL, *fj = NULL;
+        JsonVariant *cd = NULL;
+        const char *ct = NULL;
+        int r;
+
+        assert(record);
+        assert(recnum);
+        assert(ret);
+
+        LIST_FOREACH(banks, bank, record->banks) {
+                r = json_variant_append_arrayb(
+                                &ja, JSON_BUILD_OBJECT(
+                                                JSON_BUILD_PAIR_STRING("hashAlg", tpm2_hash_alg_to_string(bank->algorithm)),
+                                                JSON_BUILD_PAIR_HEX("digest", bank->hash.buffer, bank->hash.size)));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to append CEL digest entry: %m");
+        }
+
+        if (!ja) {
+                r = json_variant_new_array(&ja, NULL, 0);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate JSON array: %m");
+        }
+
+        if (EVENT_LOG_RECORD_IS_FIRMWARE(record)) {
+                _cleanup_free_ char *et = NULL;
+                const char *z;
+
+                z = tpm2_log_event_type_to_string(record->firmware_event_type);
+                if (z) {
+                        _cleanup_free_ char *b = NULL;
+
+                        b = strreplace(z, "-", "_");
+                        if (!b)
+                                return log_oom();
+
+                        et = strjoin("EV_", ascii_strupper(b));
+                        if (!et)
+                                return log_oom();
+                } else if (asprintf(&et, "%" PRIu32, record->firmware_event_type) < 0)
+                        return log_oom();
+
+                r = json_build(&fj, JSON_BUILD_OBJECT(
+                                               JSON_BUILD_PAIR_STRING("event_type", et),
+                                               JSON_BUILD_PAIR_HEX("event_data", record->firmware_payload, record->firmware_payload_size)));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to build firmware event data: %m");
+
+                cd = fj;
+                ct = "pcclient_std";
+        } else if (EVENT_LOG_RECORD_IS_USERSPACE(record)) {
+                cd = record->userspace_content;
+                ct = "systemd";
+        }
+
+        r = json_build(ret,
+                       JSON_BUILD_OBJECT(
+                                       JSON_BUILD_PAIR_UNSIGNED("pcr", record->pcr),
+                                       JSON_BUILD_PAIR_UNSIGNED("recnum", ++(*recnum)),
+                                       JSON_BUILD_PAIR_VARIANT("digests", ja),
+                                       JSON_BUILD_PAIR_CONDITION(ct, "content_type", JSON_BUILD_STRING(ct)),
+                                       JSON_BUILD_PAIR_CONDITION(cd, "content", JSON_BUILD_VARIANT(cd))));
+        if (r < 0)
+                return log_error_errno(r, "Failed to make CEL record: %m");
+
+        return 0;
+}
+
 static int verb_show_cel(int argc, char *argv[], void *userdata) {
         _cleanup_(json_variant_unrefp) JsonVariant *array = NULL;
         _cleanup_(event_log_freep) EventLog *el = NULL;
@@ -2429,64 +2501,13 @@ static int verb_show_cel(int argc, char *argv[], void *userdata) {
         /* Output the event log in TCG CEL-JSON. */
 
         FOREACH_ARRAY(rr, el->records, el->n_records) {
-                _cleanup_(json_variant_unrefp) JsonVariant *ja = NULL, *fj = NULL;
-                EventLogRecord *record = *rr;
-                JsonVariant *cd = NULL;
-                const char *ct = NULL;
+                _cleanup_(json_variant_unrefp) JsonVariant *cel = NULL;
 
-                LIST_FOREACH(banks, bank, record->banks) {
-                        r = json_variant_append_arrayb(
-                                        &ja, JSON_BUILD_OBJECT(
-                                                        JSON_BUILD_PAIR_STRING("hashAlg", tpm2_hash_alg_to_string(bank->algorithm)),
-                                                        JSON_BUILD_PAIR_HEX("digest", bank->hash.buffer, bank->hash.size)));
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to append CEL digest entry: %m");
-                }
+                r = event_log_record_to_cel(*rr, &recnum, &cel);
+                if (r < 0)
+                        return r;
 
-                if (!ja) {
-                        r = json_variant_new_array(&ja, NULL, 0);
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to allocate JSON array: %m");
-                }
-
-                if (EVENT_LOG_RECORD_IS_FIRMWARE(record)) {
-                        _cleanup_free_ char *et = NULL;
-                        const char *z;
-
-                        z = tpm2_log_event_type_to_string(record->firmware_event_type);
-                        if (z) {
-                                _cleanup_free_ char *b = NULL;
-
-                                b = strreplace(z, "-", "_");
-                                if (!b)
-                                        return log_oom();
-
-                                et = strjoin("EV_", ascii_strupper(b));
-                                if (!et)
-                                        return log_oom();
-                        } else if (asprintf(&et, "%" PRIu32, record->firmware_event_type) < 0)
-                                return log_oom();
-
-                        r = json_build(&fj, JSON_BUILD_OBJECT(
-                                                       JSON_BUILD_PAIR_STRING("event_type", et),
-                                                       JSON_BUILD_PAIR_HEX("event_data", record->firmware_payload, record->firmware_payload_size)));
-                        if (r < 0)
-                                return log_error_errno(r, "Failed to build firmware event data: %m");
-
-                        cd = fj;
-                        ct = "pcclient_std";
-                } else if (EVENT_LOG_RECORD_IS_USERSPACE(record)) {
-                        cd = record->userspace_content;
-                        ct = "systemd";
-                }
-
-                r = json_variant_append_arrayb(&array,
-                                         JSON_BUILD_OBJECT(
-                                                         JSON_BUILD_PAIR_UNSIGNED("pcr", record->pcr),
-                                                         JSON_BUILD_PAIR_UNSIGNED("recnum", ++recnum),
-                                                         JSON_BUILD_PAIR_VARIANT("digests", ja),
-                                                         JSON_BUILD_PAIR_CONDITION(ct, "content_type", JSON_BUILD_STRING(ct)),
-                                                         JSON_BUILD_PAIR_CONDITION(cd, "content", JSON_BUILD_VARIANT(cd))));
+                r = json_variant_append_array(&array, cel);
                 if (r < 0)
                         return log_error_errno(r, "Failed to append CEL record: %m");
         }
@@ -4292,7 +4313,7 @@ static int write_boot_policy_file(const char *json_text) {
         return 1;
 }
 
-static int verb_make_policy(int argc, char *argv[], void *userdata) {
+static int make_policy(bool force, bool recovery_pin) {
         int r;
 
         /* Here's how this all works: after predicting all possible PCR values for next boot (with
@@ -4367,11 +4388,11 @@ static int verb_make_policy(int argc, char *argv[], void *userdata) {
                 if (arg_nv_index != 0 && old_policy.nv_index != arg_nv_index)
                         return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Stored policy references different NV index (0x%x) than specified (0x%x), refusing.", old_policy.nv_index, arg_nv_index);
 
-                if (!arg_force &&
+                if (!force &&
                     old_policy.algorithm == el->primary_algorithm &&
                     tpm2_pcr_prediction_equal(&old_policy.prediction, &new_prediction, el->primary_algorithm)) {
                         log_info("Prediction is identical to current policy, skipping update.");
-                        return EXIT_SUCCESS;
+                        return 0; /* NOP */
                 }
         }
 
@@ -4416,7 +4437,7 @@ static int verb_make_policy(int argc, char *argv[], void *userdata) {
 
         /* Acquire a recovery PIN, either from the user, or create a randomized one */
         _cleanup_(erase_and_freep) char *pin = NULL;
-        if (arg_recovery_pin) {
+        if (recovery_pin) {
                 r = getenv_steal_erase("PIN", &pin);
                 if (r < 0)
                         return log_error_errno(r, "Failed to acquire PIN from environment: %m");
@@ -4694,7 +4715,11 @@ static int verb_make_policy(int argc, char *argv[], void *userdata) {
 
         log_info("Overall time spent: %s", FORMAT_TIMESPAN(usec_sub_unsigned(now(CLOCK_MONOTONIC), start_usec), 1));
 
-        return 0;
+        return 1; /* installed new policy */
+}
+
+static int verb_make_policy(int argc, char *argv[], void *userdata) {
+        return make_policy(arg_force, arg_recovery_pin);
 }
 
 static int undefine_policy_nv_index(
@@ -4750,7 +4775,7 @@ static int undefine_policy_nv_index(
         return 0;
 }
 
-static int verb_remove_policy(int argc, char *argv[], void *userdata) {
+static int remove_policy(void) {
         int ret = 0, r;
 
         _cleanup_(tpm2_pcrlock_policy_done) Tpm2PCRLockPolicy policy = {};
@@ -4787,6 +4812,10 @@ static int verb_remove_policy(int argc, char *argv[], void *userdata) {
                 RET_GATHER(ret, r);
 
         return ret;
+}
+
+static int verb_remove_policy(int argc, char *argv[], void *userdata) {
+        return remove_policy();
 }
 
 static int help(int argc, char *argv[], void *userdata) {
@@ -5064,6 +5093,14 @@ static int parse_argv(int argc, char *argv[]) {
                         return log_oom();
         }
 
+        r = varlink_invocation(VARLINK_ALLOW_ACCEPT);
+        if (r < 0)
+                return log_error_errno(r, "Failed to check if invoked in Varlink mode: %m");
+        if (r > 0) {
+                arg_varlink = true;
+                arg_pager_flags |= PAGER_DISABLE;
+        }
+
         return 1;
 }
 
@@ -5106,16 +5143,124 @@ static int pcrlock_main(int argc, char *argv[]) {
         return dispatch_verb(argc, argv, verbs, NULL);
 }
 
+static int vl_method_read_event_log(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        _cleanup_(event_log_freep) EventLog *el = NULL;
+        uint64_t recnum = 0;
+        int r;
+
+        assert(link);
+
+        if (json_variant_elements(parameters) > 0)
+                return varlink_error_invalid_parameter(link, parameters);
+
+        el = event_log_new();
+        if (!el)
+                return log_oom();
+
+        r = event_log_load(el);
+        if (r < 0)
+                return r;
+
+        _cleanup_(json_variant_unrefp) JsonVariant *rec_cel = NULL;
+
+        FOREACH_ARRAY(rr, el->records, el->n_records) {
+
+                if (rec_cel) {
+                        r = varlink_notifyb(link,
+                                            JSON_BUILD_OBJECT(JSON_BUILD_PAIR_VARIANT("record", rec_cel)));
+                        if (r < 0)
+                                return r;
+
+                        rec_cel = json_variant_unref(rec_cel);
+                }
+
+                r = event_log_record_to_cel(*rr, &recnum, &rec_cel);
+                if (r < 0)
+                        return r;
+        }
+
+        return varlink_replyb(link,
+                              JSON_BUILD_OBJECT(JSON_BUILD_PAIR_CONDITION(rec_cel, "record", JSON_BUILD_VARIANT(rec_cel))));
+}
+
+typedef struct MethodMakePolicyParameters {
+        bool force;
+} MethodMakePolicyParameters;
+
+static int vl_method_make_policy(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        static const JsonDispatch dispatch_table[] = {
+                { "force", JSON_VARIANT_BOOLEAN, json_dispatch_boolean, offsetof(MethodMakePolicyParameters, force), 0 },
+                {}
+        };
+        MethodMakePolicyParameters p = {};
+        int r;
+
+        assert(link);
+
+        r = varlink_dispatch(link, parameters, dispatch_table, &p);
+        if (r != 0)
+                return r;
+
+        r = make_policy(p.force, /* recovery_key= */ false);
+        if (r < 0)
+                return r;
+        if (r == 0)
+                return varlink_error(link, "io.systemd.PCRLock.NoChange", NULL);
+
+        return varlink_reply(link, NULL);
+}
+
+static int vl_method_remove_policy(Varlink *link, JsonVariant *parameters, VarlinkMethodFlags flags, void *userdata) {
+        int r;
+
+        assert(link);
+
+        if (json_variant_elements(parameters) > 0)
+                return varlink_error_invalid_parameter(link, parameters);
+
+        r = remove_policy();
+        if (r < 0)
+                return r;
+
+        return varlink_reply(link, NULL);
+}
+
 static int run(int argc, char *argv[]) {
         int r;
 
-        log_show_color(true);
-        log_parse_environment();
-        log_open();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
                 return r;
+
+        if (arg_varlink) {
+                _cleanup_(varlink_server_unrefp) VarlinkServer *varlink_server = NULL;
+
+                /* Invocation as Varlink service */
+
+                r = varlink_server_new(&varlink_server, VARLINK_SERVER_ROOT_ONLY);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to allocate Varlink server: %m");
+
+                r = varlink_server_add_interface(varlink_server, &vl_interface_io_systemd_PCRLock);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to add Varlink interface: %m");
+
+                r = varlink_server_bind_method_many(
+                                varlink_server,
+                                "io.systemd.PCRLock.ReadEventLog", vl_method_read_event_log,
+                                "io.systemd.PCRLock.MakePolicy",   vl_method_make_policy,
+                                "io.systemd.PCRLock.RemovePolicy", vl_method_remove_policy);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to bind Varlink methods: %m");
+
+                r = varlink_server_loop_auto(varlink_server);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to run Varlink event loop: %m");
+
+                return EXIT_SUCCESS;
+        }
 
         return pcrlock_main(argc, argv);
 }
