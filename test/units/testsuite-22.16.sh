@@ -12,6 +12,11 @@ rm -f /tmp/acl_exec
 touch /tmp/acl_exec
 
 # No ACL set yet
+systemd-tmpfiles --dry-run --create - <<EOF
+a /tmp/acl_exec - - - - u:root:rwX
+EOF
+assert_not_in 'user:root:rw-' "$(getfacl -Ec /tmp/acl_exec)"
+
 systemd-tmpfiles --create - <<EOF
 a /tmp/acl_exec - - - - u:root:rwX
 EOF
