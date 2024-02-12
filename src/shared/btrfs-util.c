@@ -310,7 +310,7 @@ int btrfs_subvol_get_info_fd(int fd, uint64_t subvol_id, BtrfsSubvolInfo *ret) {
 
         while (btrfs_ioctl_search_args_compare(&args) <= 0) {
                 const struct btrfs_ioctl_search_header *sh;
-                unsigned i;
+                size_t i;
 
                 args.key.nr_items = 256;
                 if (ioctl(fd, BTRFS_IOC_TREE_SEARCH, &args) < 0)
@@ -401,7 +401,7 @@ int btrfs_qgroup_get_quota_fd(int fd, uint64_t qgroupid, BtrfsQuotaInfo *ret) {
 
         while (btrfs_ioctl_search_args_compare(&args) <= 0) {
                 const struct btrfs_ioctl_search_header *sh;
-                unsigned i;
+                size_t i;
 
                 args.key.nr_items = 256;
                 if (ioctl(fd, BTRFS_IOC_TREE_SEARCH, &args) < 0) {
@@ -948,7 +948,7 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
 
         while (btrfs_ioctl_search_args_compare(&args) <= 0) {
                 const struct btrfs_ioctl_search_header *sh;
-                unsigned i;
+                size_t i;
 
                 args.key.nr_items = 256;
                 if (ioctl(fd, BTRFS_IOC_TREE_SEARCH, &args) < 0)
@@ -1076,7 +1076,7 @@ int btrfs_qgroup_copy_limits(int fd, uint64_t old_qgroupid, uint64_t new_qgroupi
 
         while (btrfs_ioctl_search_args_compare(&args) <= 0) {
                 const struct btrfs_ioctl_search_header *sh;
-                unsigned i;
+                size_t i;
 
                 args.key.nr_items = 256;
                 if (ioctl(fd, BTRFS_IOC_TREE_SEARCH, &args) < 0) {
@@ -1315,7 +1315,7 @@ static int subvol_snapshot_children(
 
         while (btrfs_ioctl_search_args_compare(&args) <= 0) {
                 const struct btrfs_ioctl_search_header *sh;
-                unsigned i;
+                size_t i;
 
                 args.key.nr_items = 256;
                 if (ioctl(old_fd, BTRFS_IOC_TREE_SEARCH, &args) < 0)
@@ -1583,7 +1583,7 @@ int btrfs_qgroup_find_parents(int fd, uint64_t qgroupid, uint64_t **ret) {
 
         while (btrfs_ioctl_search_args_compare(&args) <= 0) {
                 const struct btrfs_ioctl_search_header *sh;
-                unsigned i;
+                size_t i;
 
                 args.key.nr_items = 256;
                 if (ioctl(fd, BTRFS_IOC_TREE_SEARCH, &args) < 0) {
@@ -1830,7 +1830,7 @@ int btrfs_subvol_get_parent(int fd, uint64_t subvol_id, uint64_t *ret) {
 
         while (btrfs_ioctl_search_args_compare(&args) <= 0) {
                 const struct btrfs_ioctl_search_header *sh;
-                unsigned i;
+                size_t i;
 
                 args.key.nr_items = 256;
                 if (ioctl(fd, BTRFS_IOC_TREE_SEARCH, &args) < 0)
@@ -1937,7 +1937,7 @@ static int btrfs_read_chunk_tree_fd(int fd, BtrfsChunkTree *ret) {
 
         while (btrfs_ioctl_search_args_compare(&search_args) <= 0) {
                 const struct btrfs_ioctl_search_header *sh;
-                unsigned i;
+                size_t i;
 
                 search_args.key.nr_items = 256;
 
@@ -2095,7 +2095,7 @@ int btrfs_get_file_physical_offset_fd(int fd, uint64_t *ret) {
 
         while (btrfs_ioctl_search_args_compare(&search_args) <= 0) {
                 const struct btrfs_ioctl_search_header *sh;
-                unsigned i;
+                size_t i;
 
                 search_args.key.nr_items = 256;
 
