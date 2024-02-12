@@ -338,6 +338,24 @@ if [[ ! -v ASAN_OPTIONS ]] && systemctl --version | grep "+BPF_FRAMEWORK" && ker
     (! systemd-run --wait --pipe -p RestrictFileSystems="~proc devtmpfs sysfs" ls /sys)
 fi
 
+# Make sure we properly (de)serialize various string arrays, including whitespaces
+# See: https://github.com/systemd/systemd/issues/31214
+systemd-run --wait --pipe -p Environment="FOO='bar4    '" \
+            bash -xec '[[ $FOO == "bar4    " ]]'
+systemd-run --wait --pipe -p Environment="FOO='bar4    ' BAR='\n\n'" \
+            bash -xec "[[ \$FOO == 'bar4    ' && \$BAR == $'\n\n' ]]"
+systemd-run --wait --pipe -p Environment='FOO="bar4  \\  "' -p Environment="BAR='\n\t'" \
+            bash -xec "[[ \$FOO == 'bar4  \\  ' && \$BAR == $'\n\t' ]]"
+TEST_ENV_FILE="/tmp/test-env-file-$RANDOM-    "
+cat >"$TEST_ENV_FILE" <<EOF
+FOO="env file    "
+BAR="
+    "
+EOF
+systemd-run --wait --pipe -p EnvironmentFile="$TEST_ENV_FILE" \
+            bash -xec "[[ \$FOO == 'env file    ' && \$BAR == $'\n    ' ]]"
+rm -f "$TEST_ENV_FILE"
+
 # Ensure that clean-up codepaths work correctly if activation ultimately fails
 touch /run/not-a-directory
 mkdir /tmp/root
