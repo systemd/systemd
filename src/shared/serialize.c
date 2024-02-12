@@ -310,7 +310,7 @@ int deserialize_read_line(FILE *f, char **ret) {
         assert(f);
         assert(ret);
 
-        r = read_stripped_line(f, LONG_LINE_MAX, &line);
+        r = read_line(f, LONG_LINE_MAX, &line);
         if (r < 0)
                 return log_error_errno(r, "Failed to read serialization line: %m");
         if (r == 0) { /* eof */
