@@ -180,6 +180,7 @@ shared_sources = files(
         'varlink-io.systemd.ManagedOOM.c',
         'varlink-io.systemd.Network.c',
         'varlink-io.systemd.PCRExtend.c',
+        'varlink-io.systemd.PCRLock.c',
         'varlink-io.systemd.Resolve.c',
         'varlink-io.systemd.Resolve.Monitor.c',
         'varlink-io.systemd.UserDatabase.c',

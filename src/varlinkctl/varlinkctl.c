@@ -19,6 +19,7 @@
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
 static PagerFlags arg_pager_flags = 0;
 static VarlinkMethodFlags arg_method_flags = 0;
+static bool arg_collect = false;
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -47,6 +48,7 @@ static int help(void) {
                "     --version           Show package version\n"
                "     --no-pager          Do not pipe output into a pager\n"
                "     --more              Request multiple responses\n"
+               "     --collect           Collect multiple responses in a JSON array\n"
                "     --oneway            Do not request response\n"
                "     --json=MODE         Output as JSON\n"
                "  -j                     Same as --json=pretty on tty, --json=short otherwise\n"
@@ -73,6 +75,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_MORE,
                 ARG_ONEWAY,
                 ARG_JSON,
+                ARG_COLLECT,
         };
 
         static const struct option options[] = {
@@ -82,6 +85,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "more",     no_argument,       NULL, ARG_MORE     },
                 { "oneway",   no_argument,       NULL, ARG_ONEWAY   },
                 { "json",     required_argument, NULL, ARG_JSON     },
+                { "collect",  no_argument,       NULL, ARG_COLLECT  },
                 {},
         };
 
@@ -110,6 +114,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_ONEWAY:
                         arg_method_flags = (arg_method_flags & ~VARLINK_METHOD_MORE) | VARLINK_METHOD_ONEWAY;
+                        break;
+
+                case ARG_COLLECT:
+                        arg_collect = true;
                         break;
 
                 case ARG_JSON:
@@ -371,7 +379,13 @@ static int verb_call(int argc, char *argv[], void *userdata) {
         method = argv[2];
         parameter = argc > 3 && !streq(argv[3], "-") ? argv[3] : NULL;
 
-        arg_json_format_flags &= ~JSON_FORMAT_OFF;
+        /* No JSON mode explicitly configured? Then default to the same as -j */
+        if (FLAGS_SET(arg_json_format_flags, JSON_FORMAT_OFF))
+                arg_json_format_flags = JSON_FORMAT_PRETTY_AUTO|JSON_FORMAT_COLOR_AUTO;
+
+        /* For pipeable text tools it's kinda customary to finish output off in a newline character, and not
+         * leave incomplete lines hanging around. */
+        arg_json_format_flags |= JSON_FORMAT_NEWLINE;
 
         if (parameter) {
                 /* <argv[4]> is correct, as dispatch_verb() shifts arguments by one for the verb. */
@@ -388,7 +402,26 @@ static int verb_call(int argc, char *argv[], void *userdata) {
         if (r < 0)
                 return r;
 
-        if (arg_method_flags & VARLINK_METHOD_ONEWAY) {
+        if (arg_collect) {
+                JsonVariant *reply = NULL;
+                const char *error = NULL;
+
+                r = varlink_collect(vl, method, jp, &reply, &error);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to issue %s() call: %m", method);
+                if (error) {
+                        /* Propagate the error we received via sd_notify() */
+                        (void) sd_notifyf(/* unset_environment= */ false, "VARLINKERROR=%s", error);
+
+                        r = log_error_errno(SYNTHETIC_ERRNO(EBADE), "Method call %s() failed: %s", method, error);
+                } else
+                        r = 0;
+
+                pager_open(arg_pager_flags);
+                json_variant_dump(reply, arg_json_format_flags, stdout, NULL);
+                return r;
+
+        } else if (arg_method_flags & VARLINK_METHOD_ONEWAY) {
                 r = varlink_send(vl, method, jp);
                 if (r < 0)
                         return log_error_errno(r, "Failed to issue %s() call: %m", method);
