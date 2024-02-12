@@ -295,7 +295,7 @@ static int close_all_fds_special_case(const int except[], size_t n_except) {
         case 0:
                 /* Close everything. Yay! */
 
-                if (close_range(3, -1, 0) >= 0)
+                if (close_range(3, INT_MAX, 0) >= 0)
                         return 1;
 
                 if (ERRNO_IS_NOT_SUPPORTED(errno) || ERRNO_IS_PRIVILEGE(errno)) {
@@ -406,7 +406,7 @@ int close_all_fds(const int except[], size_t n_except) {
                                 if (sorted[n_sorted-1] >= INT_MAX) /* Dont let the addition below overflow */
                                         return 0;
 
-                                if (close_range(sorted[n_sorted-1] + 1, -1, 0) >= 0)
+                                if (close_range(sorted[n_sorted-1] + 1, INT_MAX, 0) >= 0)
                                         return 0;
 
                                 if (!ERRNO_IS_NOT_SUPPORTED(errno) && !ERRNO_IS_PRIVILEGE(errno))
