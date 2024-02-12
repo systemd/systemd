@@ -158,9 +158,11 @@
       <varlistentry>
         <term><option>--private-key=<replaceable>PATH</replaceable></option></term>
         <term><option>--public-key=<replaceable>PATH</replaceable></option></term>
+        <term><option>--certificate=<replaceable>PATH</replaceable></option></term>
 
         <listitem><para>These switches take paths to a pair of PEM encoded RSA key files, for use with
-        the <command>sign</command> command.</para>
+        the <command>sign</command> command. As an alternative to an RSA public key, an X.509 --certificate
+        can be used instead.</para>
 
         <para>Note the difference between the <option>--pcrpkey=</option> and <option>--public-key=</option>
         switches. The former selects the data to include in the <literal>.pcrpkey</literal> PE section of the
@@ -173,6 +175,19 @@
         specified the public key is automatically derived from the private key.</para>
 
         <xi:include href="version-info.xml" xpointer="v252"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term><option>--private-key=<replaceable>PATH/URI</replaceable></option></term>
+        <term><option>--signing-engine=<replaceable>NAME</replaceable></option></term>
+        <term><option>--certificate=<replaceable>PATH</replaceable></option></term>
+
+        <listitem><para>As an alternative to <option>--public-key=</option> for the
+        <command>sign</command> command, these switches can be used to sign with an hardware token. The
+        private key option can take a path or a URI that will be passed to the OpenSSL engine or
+        provider. The specified OpenSSL signing engine will be used.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
       <varlistentry>
