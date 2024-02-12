@@ -970,7 +970,7 @@ static int subvol_remove_children(int fd, const char *subvolume, uint64_t subvol
 
                         ref = BTRFS_IOCTL_SEARCH_HEADER_BODY(sh);
 
-                        p = strndup((char*) ref + sizeof(struct btrfs_root_ref), le64toh(ref->name_len));
+                        p = memdup_suffix0((char*) ref + sizeof(struct btrfs_root_ref), le64toh(ref->name_len));
                         if (!p)
                                 return -ENOMEM;
 
@@ -1345,7 +1345,7 @@ static int subvol_snapshot_children(
                                 continue;
 
                         ref = BTRFS_IOCTL_SEARCH_HEADER_BODY(sh);
-                        p = strndup((char*) ref + sizeof(struct btrfs_root_ref), le64toh(ref->name_len));
+                        p = memdup_suffix0((char*) ref + sizeof(struct btrfs_root_ref), le64toh(ref->name_len));
                         if (!p)
                                 return -ENOMEM;
 
