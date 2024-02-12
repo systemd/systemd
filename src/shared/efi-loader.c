@@ -116,6 +116,9 @@ int efi_loader_get_entries(char ***ret) {
                 if (!end && entries[i] != 0)
                         continue;
 
+                if (end && start == i) /* Empty string at the end? That's the trailer, we are done */
+                        break;
+
                 /* We reached the end of a string, let's decode it into UTF-8 */
                 decoded = utf16_to_utf8(entries + start, (i - start) * sizeof(char16_t));
                 if (!decoded)
