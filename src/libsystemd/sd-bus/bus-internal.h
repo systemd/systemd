@@ -254,6 +254,9 @@ struct sd_bus {
         char *address;
         unsigned address_index;
 
+        uid_t connect_as_uid;
+        gid_t connect_as_gid;
+
         int last_connect_error;
 
         enum bus_auth auth;

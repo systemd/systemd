@@ -1,0 +1,118 @@
+<?xml version="1.0"?>
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="capsule_.service">
+  <refentryinfo>
+    <title>capsule@.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>capsule@.service</refentrytitle>
+    <manvolnum>5</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>capsule@.service</refname>
+    <refpurpose>System unit for the capsule service manager</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>capsule@<replaceable>NAME</replaceable>.service</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para>Service managers for capsules run in
+    <filename>capsule@<replaceable>NAME</replaceable>.service</filename> system units, with the capsule name as the
+    instance identifier. Capsules are way to run additional instances of the service manager, under dynamic
+    user IDs, i.e. UIDs that are allocated when the capsule service manager is started, and released when it
+    is stopped.</para>
+
+    <para>In many ways <filename>capsule@.service</filename> is similar to the per-user
+    <filename>user@.service</filename> service manager, but there are a few important distinctions:</para>
+
+    <itemizedlist>
+      <listitem><para>The capsule service manager utilizes <varname>DynamicUser=</varname> (see
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>) to
+      allocate a new UID dynamically on invocation. The user name is automatically generated from the capsule
+      name, by prefixng <literal>p_</literal>. The UID is released when the service is terminated. The user
+      service manager on the other hand operates under a statically allocated user ID that must be
+      pre-existing, before the user service manager is invoked.</para></listitem>
+
+      <listitem><para>User service managers register themselves with <citerefentry
+      project='man-pages'><refentrytitle>pam</refentrytitle><manvolnum>8</manvolnum></citerefentry>, capsule
+      service managers do not.</para></listitem>
+
+      <listitem><para>User service managers typically read their configuration from a
+      <varname>$HOME</varname> directory below <filename>/home/</filename>, capsule service managers from a
+      <varname>$HOME</varname> directory below <filename>/var/lib/capsules/</filename>.</para></listitem>
+
+      <listitem><para>User service managers are collectively contained in the <filename>user.slice</filename>
+      unit, capsule service managers in <filename>capsule.slice</filename>. Also see
+      <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>.</para></listitem>
+
+      <listitem><para>User service managers start the user unit <filename>default.target</filename>
+      initially. Capsule service managers invoke the user unit <filename>capsule@.target</filename>
+      instead.</para></listitem>
+    </itemizedlist>
+
+    <para>The capsule service manager and the capsule's bus broker can be reached via the
+    <option>--capsule=</option> switch to
+    <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+    <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry> and
+    <citerefentry><refentrytitle>busctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+    <para>New capsules can be started via a simple <command>systemctl start
+    capsule@<replaceable>NAME</replaceable>.service</command> command, and stopped via <command>systemctl
+    stop capsule@<replaceable>NAME</replaceable>.service</command>. Starting a capsule will implicitly create
+    a home directory <filename>/var/lib/capsules/<replaceable>NAME</replaceable>/</filename>, if missing. A
+    runtime directory is created as <filename>/run/capsules/<replaceable>NAME</replaceable>/</filename>. To
+    remove these resources use <command>systemctl clean capsule@<replaceable>NAME</replaceable>.service</command>,
+    for example with the <option>--what=all</option> switch.</para>
+
+    <para>The <filename>capsule@.service</filename> unit invokes a <command>systemd --user</command>
+    service manager process. This means unit files are looked for according to the sames rules as for regular user
+    service managers, for example in
+    <filename>/var/lib/capsules/<replaceable>NAME</replaceable>/.config/systemd/user/</filename>.</para>
+
+    <para>Capsule names may be chosen freely by the user, however, they must be suitable as UNIX filenames
+    (i.e. 255 characters max, and contain no <literal>/</literal>), and when prefixed with
+    <literal>p-</literal> be suitable as a user name matching strict POSIX rules, see <ulink
+    url="https://systemd.io/USER_NAMES">User/Group Name Syntax</ulink> for details.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>Examples</title>
+    <example>
+      <title>Create a new capsule, invoke two programs in it (one interactively), terminate it, and clean everything up</title>
+
+      <programlisting># systemctl start capsule@tatze.service
+# systemd-run --capsule=tatze --unit=sleeptest.service sleep 999
+# systemctl --capsule=tatze status sleeptest.service
+# systemd-run -t --capsule=tatze bash
+# systemctl --capsule=tatze stop sleeptest.service
+# systemctl stop capsule@tatze.service
+# systemctl clean --all capsule@tatze.service</programlisting>
+    </example>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>user@.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.service</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.slice</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.special</refentrytitle><manvolnum>7</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-run</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>busctl</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>pam</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+</refentry>
