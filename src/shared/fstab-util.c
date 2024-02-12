@@ -105,6 +105,34 @@ static int fstab_is_same_node(const char *what_fstab, const char *path) {
         return false;
 }
 
+int fstab_has_mount_point_prefix_strv(char **prefixes) {
+        _cleanup_endmntent_ FILE *f = NULL;
+
+        assert(prefixes);
+
+        /* This function returns true if at least one entry in fstab has a mount point that starts with one
+         * of the passed prefixes. */
+
+        if (!fstab_enabled())
+                return false;
+
+        f = setmntent(fstab_path(), "re");
+        if (!f)
+                return errno == ENOENT ? false : -errno;
+
+        for (;;) {
+                struct mntent *me;
+
+                errno = 0;
+                me = getmntent(f);
+                if (!me)
+                        return errno != 0 ? -errno : false;
+
+                if (path_startswith_strv(me->mnt_dir, prefixes))
+                        return true;
+        }
+}
+
 int fstab_is_mount_point_full(const char *where, const char *path) {
         _cleanup_endmntent_ FILE *f = NULL;
         int r;
