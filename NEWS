@@ -13,6 +13,13 @@ CHANGES WITH 256 in spe:
           section, then all assigned VLAN IDs on the interface that are not
           configured in the .network file are removed.
 
+        * systemd-gpt-auto-generator will stop generating units for ESP or
+          XBOOTLDR partitions if it finds mount entries in the /boot/ or /efi/
+          hierarchies in fstab. This is to prevent the generator from
+          interfering with systems where ESP is explicitly configured to be
+          mounted at some path, for example /boot/efi/ (this type of setup is
+          obsolete but is still commonly found).
+
         Network Management:
 
         * systemd-networkd's proxy support gained a new option to configure

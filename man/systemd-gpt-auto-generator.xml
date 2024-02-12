@@ -32,18 +32,22 @@
 
     <para><filename>systemd-gpt-auto-generator</filename> is a unit generator that automatically discovers
     the root partition, <filename>/home/</filename>, <filename>/srv/</filename>, <filename>/var/</filename>,
-    <filename>/var/tmp/</filename>, the EFI System Partition, the Extended Boot Loader Partition, and swap
-    partitions and creates mount and swap units for them, based on the partition type GUIDs of GUID partition
-    tables (GPT). See <ulink url="https://uefi.org/specifications">UEFI Specification</ulink>, chapter 5 for
-    more details. It implements the <ulink
+    <filename>/var/tmp/</filename>, the EFI System Partition (ESP), the Extended Boot Loader Partition
+    (XBOOTLDR), and swap partitions and creates mount and swap units for them, based on the partition type
+    GUIDs of GUID partition tables (GPT). See <ulink url="https://uefi.org/specifications">UEFI
+    Specification</ulink>, chapter 5 for more details. It implements the <ulink
     url="https://uapi-group.org/specifications/specs/discoverable_partitions_specification">Discoverable
     Partitions Specification</ulink>.</para>
 
     <para>Note that this generator has no effect on non-GPT systems. It will also not create mount point
     configuration for directories which already contain files or if the mount point is explicitly configured
     in <citerefentry
-    project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>. If
-    the units this generator creates are overridden, for example by units in directories with higher
+    project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>. Additionally
+    no unit will be created for the ESP or the XBOOTLDR partition if mount entries are found in the
+    <filename>/boot/</filename> or <filename>/efi/</filename> hierarchies in <citerefentry
+    project='man-pages'><refentrytitle>fstab</refentrytitle><manvolnum>5</manvolnum></citerefentry>.</para>
+
+    <para>If the units this generator creates are overridden, for example by units in directories with higher
     precedence, drop-ins and additional dependencies created by this generator might still be used.</para>
 
     <para>This generator will only look for the root partition on the same physical disk where the EFI System
