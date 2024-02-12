@@ -22,6 +22,7 @@
 #include "exit-status.h"
 #include "fd-util.h"
 #include "format-util.h"
+#include "hostname-util.h"
 #include "main-func.h"
 #include "parse-argument.h"
 #include "parse-util.h"
@@ -186,6 +187,13 @@ static int help_sudo_mode(void) {
                link);
 
         return 0;
+}
+
+static bool privileged_execution(void) {
+        if (arg_runtime_scope != RUNTIME_SCOPE_SYSTEM)
+                return false;
+
+        return !arg_exec_user || STR_IN_SET(arg_exec_user, "root", "0");
 }
 
 static int add_timer_property(const char *name, const char *val) {
@@ -941,7 +949,7 @@ static int parse_argv_sudo_mode(int argc, char *argv[]) {
         if (!arg_background && arg_stdio == ARG_STDIO_PTY) {
                 double hue;
 
-                if (!arg_exec_user || STR_IN_SET(arg_exec_user, "root", "0"))
+                if (privileged_execution())
                         hue = 0; /* red */
                 else
                         hue = 60 /* yellow */;
@@ -1584,6 +1592,26 @@ static int acquire_invocation_id(sd_bus *bus, const char *unit, sd_id128_t *ret)
         return !sd_id128_is_null(*ret);
 }
 
+static void set_window_title(PTYForward *f) {
+        _cleanup_free_ char *hn = NULL, *cl = NULL, *dot = NULL;
+        assert(f);
+
+        if (!arg_host)
+                (void) gethostname_strict(&hn);
+
+        cl = strv_join(arg_cmdline, " ");
+        if (!cl)
+                return (void) log_oom();
+
+        if (emoji_enabled())
+                dot = strjoin(special_glyph(privileged_execution() ? SPECIAL_GLYPH_RED_CIRCLE : SPECIAL_GLYPH_YELLOW_CIRCLE), " ");
+
+        if (arg_host || hn)
+                (void) pty_forward_set_titlef(f, "%s%s on %s", strempty(dot), cl, arg_host ?: hn);
+        else
+                (void) pty_forward_set_titlef(f, "%s%s", strempty(dot), cl);
+}
+
 static int start_transient_service(sd_bus *bus) {
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
@@ -1739,6 +1767,8 @@ static int start_transient_service(sd_bus *bus) {
 
                         if (!isempty(arg_background))
                                 (void) pty_forward_set_background_color(c.forward, arg_background);
+
+                        set_window_title(c.forward);
                 }
 
                 path = unit_dbus_path_from_name(service);

@@ -89,6 +89,10 @@
 /* Set cursor to top left corner and clear screen */
 #define ANSI_HOME_CLEAR "\x1B[H\x1B[2J"
 
+/* Push/pop a window title off the stack of window titles */
+#define ANSI_WINDOW_TITLE_PUSH "\x1b[22;2t"
+#define ANSI_WINDOW_TITLE_POP "\x1b[23;2t"
+
 bool isatty_safe(int fd);
 
 int reset_terminal_fd(int fd, bool switch_to_text);
