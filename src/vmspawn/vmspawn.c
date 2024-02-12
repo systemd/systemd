@@ -2,10 +2,17 @@
 
 #include <getopt.h>
 #include <stdint.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <unistd.h>
 
+#include "bootspec.h"
+#include "chase.h"
+#include "dirent-util.h"
+#include "fd-util.h"
+#include "discover-image.h"
 #include "sd-daemon.h"
 #include "sd-event.h"
 #include "sd-id128.h"
@@ -43,6 +50,7 @@
 #include "rm-rf.h"
 #include "signal-util.h"
 #include "socket-util.h"
+#include "stat-util.h"
 #include "string-util.h"
 #include "strv.h"
 #include "tmpfile-util.h"
@@ -64,7 +72,7 @@ static int arg_qemu_vsock = -1;
 static unsigned arg_vsock_cid = VMADDR_CID_ANY;
 static int arg_tpm = -1;
 static char *arg_linux = NULL;
-static char *arg_initrd = NULL;
+static char **arg_initrds = NULL;
 static bool arg_qemu_gui = false;
 static QemuNetworkStack arg_network_stack = QEMU_NET_NONE;
 static int arg_secure_boot = -1;
@@ -86,7 +94,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_runtime_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_credentials, machine_credential_context_done);
 STATIC_DESTRUCTOR_REGISTER(arg_firmware, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_linux, freep);
-STATIC_DESTRUCTOR_REGISTER(arg_initrd, freep);
+STATIC_DESTRUCTOR_REGISTER(arg_initrds, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_runtime_mounts, runtime_mount_context_done);
 STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline_extra, strv_freep);
 
@@ -312,9 +320,15 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
 
                 case ARG_INITRD: {
-                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_initrd);
+                        _cleanup_free_ char *initrd_path = NULL;
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &initrd_path);
                         if (r < 0)
                                 return r;
+
+                        r = strv_consume(&arg_initrds, TAKE_PTR(initrd_path));
+                        if (r < 0)
+                                return log_oom();
+
                         break;
                 }
 
@@ -810,6 +824,122 @@ static int kernel_cmdline_maybe_append_root(void) {
         return 0;
 }
 
+static int discover_bootloader(const char *root, char **ret_linux, char ***ret_initrds) {
+        _cleanup_(boot_config_free) BootConfig config = BOOT_CONFIG_NULL;
+        _cleanup_free_ char *esp_path = NULL, *xbootldr_path = NULL;
+        int r;
+
+        assert(root);
+        assert(ret_linux);
+        assert(ret_initrds);
+
+        esp_path = path_join(root, "efi");
+        if (!esp_path)
+                return log_oom();
+
+        xbootldr_path = path_join(root, "boot");
+        if (!xbootldr_path)
+                return log_oom();
+
+        r = boot_config_load(&config, esp_path, xbootldr_path);
+        if (r < 0)
+                return r;
+
+        r = boot_config_select_special_entries(&config, /* skip_efivars= */ true);
+        if (r < 0)
+                return log_error_errno(r, "Failed to find special boot config entries: %m");
+
+        const BootEntry *boot_entry = boot_config_default_entry(&config);
+
+        /* if we cannot determine a default entry search for UKIs then confs */
+        if (!boot_entry)
+                FOREACH_ARRAY(entry, config.entries, config.n_entries)
+                        if (entry->type == BOOT_ENTRY_UNIFIED) {
+                                boot_entry = entry;
+                                break;
+                        }
+
+        if (!boot_entry)
+                FOREACH_ARRAY(entry, config.entries, config.n_entries)
+                        if (entry->type == BOOT_ENTRY_CONF) {
+                                boot_entry = entry;
+                                break;
+                        }
+
+        if (!boot_entry)
+                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Failed to discover any bootloader entries.");
+
+        log_debug("Discovered bootloader %s (%s)", boot_entry->id, boot_entry_type_to_string(boot_entry->type));
+
+        _cleanup_free_ char *linux_kernel = NULL;
+        _cleanup_strv_free_ char **initrds = NULL;
+        if (boot_entry->type == BOOT_ENTRY_UNIFIED) {
+                linux_kernel = path_join(boot_entry->root, boot_entry->kernel);
+                if (!linux_kernel)
+                        return log_oom();
+        } else {
+                linux_kernel = path_join(boot_entry->root, boot_entry->kernel);
+                if (!linux_kernel)
+                        return log_oom();
+
+                STRV_FOREACH(initrd, boot_entry->initrd) {
+                        _cleanup_free_ char *initrd_path = path_join(boot_entry->root, *initrd);
+                        if (!initrd_path)
+                                return log_oom();
+
+                        r = strv_consume(&initrds, TAKE_PTR(initrd_path));
+                        if (r < 0)
+                                return log_oom();
+                }
+        }
+
+        *ret_linux = TAKE_PTR(linux_kernel);
+        *ret_initrds = TAKE_PTR(initrds);
+
+        return 0;
+}
+
+static int merge_initrds(char **ret) {
+        _cleanup_(rm_rf_physical_and_freep) char *merged_initrd = NULL;
+        _cleanup_close_ int ofd = -EBADF;
+        int r;
+
+        assert(ret);
+
+        r = tempfn_random_child(NULL, "vmspawn-initrd-", &merged_initrd);
+        if (r < 0)
+                return log_error_errno(r, "Failed to create temp file to hold the combined initrd.");
+
+        ofd = open(merged_initrd, O_WRONLY|O_CREAT|O_EXCL|O_CLOEXEC, 0600);
+        if (ofd < 0)
+                return log_error_errno(errno, "Failed to create regular file for the combined initrd at %s: %m", merged_initrd);
+
+        size_t total_size = 0;
+        STRV_FOREACH(i, arg_initrds) {
+                _cleanup_close_ int ifd = -EBADF;
+                struct stat st;
+                size_t to_seek = (4 - (total_size % 4)) % 4;
+
+                /* seek to assure 4 byte alignment for each initrd */
+                if (to_seek != 0 && lseek(ofd, to_seek, SEEK_CUR) < 0)
+                        return log_error_errno(errno, "Failed to seek combined initrd file %s: %m", merged_initrd);
+
+                ifd = open(*i, O_RDONLY|O_CLOEXEC);
+                if (ifd < 0)
+                        return log_error_errno(errno, "Failed to open initrd file %s: %m", *i);
+
+                if (fstat(ifd, &st) < 0)
+                        return log_error_errno(errno, "Failed to stat initrd file %s: %m", *i);
+
+                r = copy_bytes(ifd, ofd, st.st_size, COPY_REFLINK);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to copy bytes from %s to %s: %m", *i, merged_initrd);
+        }
+
+        *ret = TAKE_PTR(merged_initrd);
+        return 0;
+}
+
 static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         _cleanup_(ovmf_config_freep) OvmfConfig *ovmf_config = NULL;
         _cleanup_(sd_bus_flush_close_unrefp) sd_bus *bus = NULL;
@@ -864,8 +994,14 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 kernel = strdup(arg_linux);
                 if (!kernel)
                         return log_oom();
-        } else if (arg_directory)
-                return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Please specify a kernel (--linux=) when using -D/--directory=, refusing.");
+        } else if (arg_directory) {
+                /* a kernel is required for directory type images so attempt to locate a UKI under /boot and /efi */
+                r = discover_bootloader(arg_directory, &kernel, &arg_initrds);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to locate UKI in directory type image, please specify one with --linux=.");
+
+                log_debug("Discovered UKI image at %s", kernel);
+        }
 
         r = find_qemu_binary(&qemu_binary);
         if (r == -EOPNOTSUPP)
@@ -1248,10 +1384,37 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
         }
 
-        if (arg_initrd) {
-                r = strv_extend_many(&cmdline, "-initrd", arg_initrd);
+        char *initrd = NULL;
+        _cleanup_(rm_rf_physical_and_freep) char *merged_initrd = NULL;
+        size_t n_initrds = strv_length(arg_initrds);
+        if (n_initrds == 1)
+                initrd = arg_initrds[0];
+        else if (n_initrds > 1) {
+                r = merge_initrds(&merged_initrd);
+                if (r < 0)
+                        return r;
+
+                initrd = merged_initrd;
+        }
+
+        if (initrd) {
+                r = strv_extend_many(&cmdline, "-initrd", initrd);
                 if (r < 0)
                         return log_oom();
+        } else if (kernel) {
+                KernelImageType kt;
+                r = inspect_kernel(
+                                AT_FDCWD,
+                                kernel,
+                                &kt,
+                                /* ret_cmdline= */ NULL,
+                                /* ret_uname= */ NULL,
+                                /* ret_pretty_name= */ NULL);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to inspect the type of the kernel: %m");
+
+                if (kt != KERNEL_IMAGE_TYPE_UKI)
+                        return log_error_errno(SYNTHETIC_ERRNO(ENOENT), "Detected non-UKI type kernel, please supply an initrd with --initrd=.");
         }
 
         if (use_vsock) {
@@ -1346,8 +1509,28 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 static int determine_names(void) {
         int r;
 
-        if (!arg_directory && !arg_image)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Failed to determine path, please use -D or -i.");
+        if (!arg_directory && !arg_image) {
+                if (arg_machine) {
+                        _cleanup_(image_unrefp) Image *i = NULL;
+
+                        r = image_find(IMAGE_MACHINE, arg_machine, NULL, &i);
+                        if (r == -ENOENT)
+                                return log_error_errno(r, "No image for machine '%s'.", arg_machine);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to find image for machine '%s': %m", arg_machine);
+
+                        if (IN_SET(i->type, IMAGE_RAW, IMAGE_BLOCK))
+                                r = free_and_strdup(&arg_image, i->path);
+                        else
+                                r = free_and_strdup(&arg_directory, i->path);
+                        if (r < 0)
+                                return log_oom();
+                } else {
+                        r = safe_getcwd(&arg_directory);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to determine current directory: %m");
+                }
+        }
 
         if (!arg_machine) {
                 if (arg_directory && path_equal(arg_directory, "/")) {
@@ -1382,6 +1565,9 @@ static int determine_names(void) {
 static int verify_arguments(void) {
         if (arg_network_stack == QEMU_NET_TAP && !arg_privileged)
                 return log_error_errno(SYNTHETIC_ERRNO(EPERM), "--network-tap requires root privileges, refusing.");
+
+        if (!strv_isempty(arg_initrds) && !arg_linux)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "--initrd= may not be specified on its own, please also specify a kernel (--linux=), refusing.");
 
         return 0;
 }
