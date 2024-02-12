@@ -16,6 +16,12 @@
 #define ARCHITECTURE_SUPPORTS_TPM 0
 #endif
 
+#if defined(__x86_64__) || defined(__i386__)
+#define ARCHITECTURE_SUPPORTS_SMM 1
+#else
+#define ARCHITECTURE_SUPPORTS_SMM 0
+#endif
+
 #if defined(__arm__) || defined(__aarch64__)
 #define DEFAULT_SERIAL_TTY "ttyAMA0"
 #elif defined(__s390__) || defined(__s390x__)
@@ -24,6 +30,18 @@
 #define DEFAULT_SERIAL_TTY "hvc0"
 #else
 #define DEFAULT_SERIAL_TTY "ttyS0"
+#endif
+
+#if defined(__x86_64__) || defined(__i386__)
+#define QEMU_MACHINE_TYPE "q35"
+#elif defined(__arm__) || defined(__aarch64__)
+#define QEMU_MACHINE_TYPE "virt"
+#elif defined(__s390__) || defined(__s390x__)
+#define QEMU_MACHINE_TYPE "s390-ccw-virtio"
+#elif defined(__powerpc__) || defined(__powerpc64__)
+#define QEMU_MACHINE_TYPE "pseries"
+#else
+#error "No qemu machine defined for this architecture"
 #endif
 
 typedef struct OvmfConfig {
