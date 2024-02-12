@@ -6145,7 +6145,7 @@ int config_parse_mount_node(
                 return log_oom();
 
         /* The source passed is not necessarily something we understand, and we pass it as-is to mount/swapon,
-         * so path_is_valid is not used. But let's check for basic sanety, i.e. if the source is longer than
+         * so path_is_valid is not used. But let's check for basic sanity, i.e. if the source is longer than
          * PATH_MAX, you're likely doing something wrong. */
         if (strlen(path) >= PATH_MAX) {
                 log_syntax(unit, LOG_WARNING, filename, line, 0, "Resolved mount path '%s' too long, ignoring.", path);
