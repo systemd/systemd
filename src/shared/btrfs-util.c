@@ -2030,19 +2030,20 @@ static BtrfsChunk* btrfs_find_chunk_from_logical_address(const BtrfsChunkTree *t
 }
 
 static int btrfs_is_nocow_fd(int fd) {
-        struct statfs sfs;
         unsigned flags;
+        int r;
 
         assert(fd >= 0);
 
-        if (fstatfs(fd, &sfs) < 0)
-                return -errno;
-
-        if (!is_fs_type(&sfs, BTRFS_SUPER_MAGIC))
+        r = fd_is_fs_type(fd, BTRFS_SUPER_MAGIC);
+        if (r < 0)
+                return r;
+        if (r == 0)
                 return -ENOTTY;
 
-        if (ioctl(fd, FS_IOC_GETFLAGS, &flags) < 0)
-                return -errno;
+        r = read_attr_fd(fd, &flags);
+        if (r < 0)
+                return r;
 
         return FLAGS_SET(flags, FS_NOCOW_FL) && !FLAGS_SET(flags, FS_COMPR_FL);
 }
