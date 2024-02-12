@@ -147,6 +147,7 @@ static void *arg_key = NULL;
 static size_t arg_key_size = 0;
 static EVP_PKEY *arg_private_key = NULL;
 static X509 *arg_certificate = NULL;
+static char *arg_signing_engine = NULL;
 static char *arg_tpm2_device = NULL;
 static uint32_t arg_tpm2_seal_key_handle = 0;
 static char *arg_tpm2_device_key = NULL;
@@ -178,6 +179,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_definitions, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_key, erase_and_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_private_key, EVP_PKEY_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_certificate, X509_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_signing_engine, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_device_key, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_tpm2_hash_pcr_values, freep);
@@ -6810,6 +6812,9 @@ static int help(void) {
                "                          signatures\n"
                "     --certificate=PATH   PEM certificate to use when generating verity\n"
                "                          roothash signatures\n"
+               "     --signing-engine=ENGINE\n"
+               "                          Specify OpenSSL engine to use when generating verity\n"
+               "                          roothash signatures\n"
                "     --tpm2-device=PATH   Path to TPM2 device node to use\n"
                "     --tpm2-device-key=PATH\n"
                "                          Enroll a TPM2 device using its public key\n"
@@ -6857,7 +6862,7 @@ static int help(void) {
 }
 
 static int parse_argv(int argc, char *argv[]) {
-        _cleanup_free_ char *private_key = NULL, *private_key_uri = NULL;
+        _cleanup_free_ char *private_key = NULL;
 
         enum {
                 ARG_VERSION = 0x100,
@@ -6878,8 +6883,8 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_JSON,
                 ARG_KEY_FILE,
                 ARG_PRIVATE_KEY,
-                ARG_PRIVATE_KEY_URI,
                 ARG_CERTIFICATE,
+                ARG_SIGNING_ENGINE,
                 ARG_TPM2_DEVICE,
                 ARG_TPM2_DEVICE_KEY,
                 ARG_TPM2_SEAL_KEY_HANDLE,
@@ -6921,8 +6926,8 @@ static int parse_argv(int argc, char *argv[]) {
                 { "json",                 required_argument, NULL, ARG_JSON                 },
                 { "key-file",             required_argument, NULL, ARG_KEY_FILE             },
                 { "private-key",          required_argument, NULL, ARG_PRIVATE_KEY          },
-                { "private-key-uri",      required_argument, NULL, ARG_PRIVATE_KEY_URI      },
                 { "certificate",          required_argument, NULL, ARG_CERTIFICATE          },
+                { "signing-engine",       required_argument, NULL, ARG_SIGNING_ENGINE       },
                 { "tpm2-device",          required_argument, NULL, ARG_TPM2_DEVICE          },
                 { "tpm2-device-key",      required_argument, NULL, ARG_TPM2_DEVICE_KEY      },
                 { "tpm2-seal-key-handle", required_argument, NULL, ARG_TPM2_SEAL_KEY_HANDLE },
@@ -7115,13 +7120,6 @@ static int parse_argv(int argc, char *argv[]) {
                         break;
                 }
 
-                case ARG_PRIVATE_KEY_URI: {
-                        r = free_and_strdup_warn(&private_key_uri, optarg);
-                        if (r < 0)
-                                return r;
-                        break;
-                }
-
                 case ARG_CERTIFICATE: {
                         _cleanup_free_ char *cert = NULL;
                         size_t n = 0;
@@ -7137,6 +7135,13 @@ static int parse_argv(int argc, char *argv[]) {
                         X509_free(arg_certificate);
                         arg_certificate = NULL;
                         r = parse_x509_certificate(cert, n, &arg_certificate);
+                        if (r < 0)
+                                return r;
+                        break;
+                }
+
+                case ARG_SIGNING_ENGINE: {
+                        r = free_and_strdup_warn(&arg_signing_engine, optarg);
                         if (r < 0)
                                 return r;
                         break;
@@ -7465,12 +7470,7 @@ static int parse_argv(int argc, char *argv[]) {
                         *p = gpt_partition_type_override_architecture(*p, arg_architecture);
         }
 
-        if (private_key && private_key_uri)
-                return log_error_errno(
-                                SYNTHETIC_ERRNO(EINVAL),
-                                "Cannot specify both --private-key= and --private-key-uri=.");
-
-        if (private_key) {
+        if (private_key && !arg_signing_engine) {
                 _cleanup_(erase_and_freep) char *k = NULL;
                 size_t n = 0;
 
@@ -7485,16 +7485,17 @@ static int parse_argv(int argc, char *argv[]) {
                 r = parse_private_key(k, n, &arg_private_key);
                 if (r < 0)
                         return r;
-        } else if (private_key_uri) {
+        } else if (private_key && arg_signing_engine) {
                 /* This must happen after parse_x509_certificate() is called above, otherwise
                  * signing later will get stuck as the parsed private key won't have the
                  * certificate, so this block cannot be inline in ARG_PRIVATE_KEY. */
-                r = openssl_load_key_from_token(private_key_uri, &arg_private_key);
+                r = openssl_load_key_from_token(arg_signing_engine, private_key, &arg_private_key);
                 if (r < 0)
                         return log_error_errno(
                                         r,
-                                        "Failed to load key '%s' from OpenSSL provider: %m",
-                                        private_key);
+                                        "Failed to load key '%s' from OpenSSL provider %s: %m",
+                                        private_key,
+                                        arg_signing_engine);
         }
 
         return 1;
