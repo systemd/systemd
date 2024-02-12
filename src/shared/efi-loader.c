@@ -102,7 +102,8 @@ int efi_loader_get_entries(char ***ret) {
         if (r < 0)
                 return r;
 
-        /* The variable contains a series of individually NUL terminated UTF-16 strings. */
+        /* The variable contains a series of individually NUL terminated UTF-16 strings. We gracefully
+         * consider the final NUL byte optional (i.e. the last string may or may not end in a NUL byte).*/
 
         for (size_t i = 0, start = 0;; i++) {
                 _cleanup_free_ char *decoded = NULL;
@@ -116,7 +117,9 @@ int efi_loader_get_entries(char ***ret) {
                 if (!end && entries[i] != 0)
                         continue;
 
-                if (end && start == i) /* Empty string at the end? That's the trailer, we are done */
+                /* Empty string at the end of variable? That's the trailer, we are done (i.e. we have a final
+                 * NUL terminator). */
+                if (end && start == i)
                         break;
 
                 /* We reached the end of a string, let's decode it into UTF-8 */
@@ -131,7 +134,8 @@ int efi_loader_get_entries(char ***ret) {
                 } else
                         log_debug("Ignoring invalid loader entry '%s'.", decoded);
 
-                /* We reached the end of the variable */
+                /* Exit the loop if we reached the end of the variable (i.e. we do not have a final NUL
+                 * terminator) */
                 if (end)
                         break;
 
