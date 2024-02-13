@@ -82,6 +82,23 @@ char *cpu_set_to_range_string(const CPUSet *set) {
         return TAKE_PTR(str) ?: strdup("");
 }
 
+char* cpu_set_to_mask_string(const CPUSet *a) {
+        _cleanup_free_ char *str = NULL;
+        unsigned mask = 0;
+        int i, r;
+
+        for (i = 0; (size_t) i < a->allocated * 8; i++) {
+                if (!CPU_ISSET_S(i, a->allocated, a->set))
+                        continue;
+
+                mask += 1 << i;
+        }
+        r = asprintf(&str, "%x", mask);
+        assert_se(r > 0);
+
+        return TAKE_PTR(str) ?: strdup("");
+}
+
 int cpu_set_realloc(CPUSet *cpu_set, unsigned ncpus) {
         size_t need;
 
@@ -288,5 +305,57 @@ int cpu_set_from_dbus(const uint8_t *bits, size_t size, CPUSet *set) {
                 }
 
         *set = TAKE_STRUCT(s);
+        return 0;
+}
+
+static int get_max_cpu(void) {
+        _cleanup_closedir_ DIR *d = NULL;
+        int r, max_cpu = 0;
+
+        d = opendir("/sys/devices/system/cpu");
+        if (!d)
+                return -errno;
+
+        FOREACH_DIRENT(de, d, break) {
+                int cpu;
+                const char *c;
+
+                if (de->d_type != DT_DIR)
+                        continue;
+
+                c = startswith(de->d_name, "cpu");
+                if (!c)
+                        continue;
+
+                r = safe_atoi(c, &cpu);
+                if (r < 0)
+                        continue;
+
+                if (cpu > max_cpu)
+                        max_cpu = cpu;
+        }
+
+        return max_cpu;
+}
+
+int cpu_mask_add_all(CPUSet *mask) {
+        int m;
+
+        assert(mask);
+
+        m = get_max_cpu();
+        if (m < 0) {
+                log_debug_errno(m, "Failed to determine maximum CPU index, assuming 1: %m");
+                m = 1;
+        }
+
+        for (int i = 0; i <= m; i++) {
+                int r;
+
+                r = cpu_set_add(mask, i);
+                if (r < 0)
+                        return r;
+        }
+
         return 0;
 }
