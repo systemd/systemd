@@ -1129,6 +1129,9 @@ _public_ PAM_EXTERN int pam_sm_open_session(
                          "id=%s object_path=%s runtime_path=%s session_fd=%d seat=%s vtnr=%u original_uid=%u",
                          id, object_path, runtime_path, session_fd, seat, vtnr, original_uid);
 
+        /* Please update manager_default_environment() in core/manager.c accordingly if more session envvars
+         * shall be added. */
+
         r = update_environment(handle, "XDG_SESSION_ID", id);
         if (r != PAM_SUCCESS)
                 return r;
