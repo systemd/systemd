@@ -5,6 +5,8 @@ set -e
 TEST_DESCRIPTION="systemd-nspawn tests"
 IMAGE_NAME="nspawn"
 TEST_NO_NSPAWN=1
+IMAGE_ADDITIONAL_ROOT_SIZE=500
+TEST_FORCE_NEWIMAGE=1
 
 # shellcheck source=test/test-functions
 . "${TEST_BASE_DIR:?}/test-functions"
