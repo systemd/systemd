@@ -6,6 +6,7 @@
 
 #include "condition.h"
 #include "conf-parser.h"
+#include "cpu-set-util.h"
 #include "ethtool-util.h"
 #include "hashmap.h"
 #include "list.h"
@@ -84,6 +85,7 @@ struct LinkConfig {
         int autoneg_flow_control;
         netdev_coalesce_param coalesce;
         uint8_t mdi;
+        CPUSet *rps_cpu_mask;
 
         uint32_t sr_iov_num_vfs;
         OrderedHashmap *sr_iov_by_section;
@@ -121,3 +123,4 @@ CONFIG_PARSER_PROTOTYPE(config_parse_wol_password);
 CONFIG_PARSER_PROTOTYPE(config_parse_mac_address_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_name_policy);
 CONFIG_PARSER_PROTOTYPE(config_parse_alternative_names_policy);
+CONFIG_PARSER_PROTOTYPE(config_parse_rps_cpu_mask);
