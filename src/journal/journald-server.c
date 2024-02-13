@@ -2904,8 +2904,12 @@ int config_parse_compress(
                 void *data,
                 void *userdata) {
 
-        JournalCompressOptions* compress = data;
+        JournalCompressOptions* compress = ASSERT_PTR(data);
         int r;
+
+        assert(unit);
+        assert(filename);
+        assert(rvalue);
 
         if (isempty(rvalue)) {
                 compress->enabled = true;
