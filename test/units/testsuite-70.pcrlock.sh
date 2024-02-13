@@ -156,7 +156,7 @@ SYSTEMD_XBOOTLDR_PATH=/tmp/fakexbootldr SYSTEMD_RELAX_XBOOTLDR_CHECKS=1 "$SD_PCR
 (! "$SD_PCRLOCK" lock-uki /bin/true)
 (! "$SD_PCRLOCK" lock-file-system "")
 
-# Excercise Varlink API a bit (but first turn off condition)
+# Exercise Varlink API a bit (but first turn off condition)
 
 mkdir -p /run/systemd/system/systemd-pcrlock.socket.d
 cat > /run/systemd/system/systemd-pcrlock.socket.d/50-no-condition.conf <<EOF
