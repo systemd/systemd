@@ -57,7 +57,7 @@ waitfor /tmp/foo.conn2
 socat - UNIX-CONNECT:/run/per-source-limit.sk > /tmp/foo.conn3 &
 J3="$!"
 
-# But this one should work, because done under a differen UID
+# But this one should work, because done under a different UID
 setpriv --reuid=1 socat - UNIX-CONNECT:/run/per-source-limit.sk > /tmp/foo.conn4 &
 J4="$!"
 
