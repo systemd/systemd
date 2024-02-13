@@ -606,6 +606,7 @@ static int apply_user_record_settings(
                 bool debug,
                 uint64_t default_capability_bounding_set,
                 uint64_t default_capability_ambient_set) {
+        _cleanup_strv_free_ char **langs = NULL;
         int r;
 
         assert(handle);
@@ -617,48 +618,25 @@ static int apply_user_record_settings(
         }
 
         STRV_FOREACH(i, ur->environment) {
-                _cleanup_free_ char *n = NULL;
-                const char *e;
-
-                assert_se(e = strchr(*i, '=')); /* environment was already validated while parsing JSON record, this thus must hold */
-
-                n = strndup(*i, e - *i);
-                if (!n)
-                        return pam_log_oom(handle);
-
-                if (pam_getenv(handle, n)) {
-                        pam_debug_syslog(handle, debug,
-                                         "PAM environment variable $%s already set, not changing based on record.", *i);
-                        continue;
-                }
-
                 r = pam_putenv_and_log(handle, *i, debug);
                 if (r != PAM_SUCCESS)
                         return r;
         }
 
         if (ur->email_address) {
-                if (pam_getenv(handle, "EMAIL"))
-                        pam_debug_syslog(handle, debug,
-                                         "PAM environment variable $EMAIL already set, not changing based on user record.");
-                else {
-                        _cleanup_free_ char *joined = NULL;
+                _cleanup_free_ char *joined = NULL;
 
-                        joined = strjoin("EMAIL=", ur->email_address);
-                        if (!joined)
-                                return pam_log_oom(handle);
+                joined = strjoin("EMAIL=", ur->email_address);
+                if (!joined)
+                        return pam_log_oom(handle);
 
-                        r = pam_putenv_and_log(handle, joined, debug);
-                        if (r != PAM_SUCCESS)
-                                return r;
-                }
+                r = pam_putenv_and_log(handle, joined, debug);
+                if (r != PAM_SUCCESS)
+                        return r;
         }
 
         if (ur->time_zone) {
-                if (pam_getenv(handle, "TZ"))
-                        pam_debug_syslog(handle, debug,
-                                         "PAM environment variable $TZ already set, not changing based on user record.");
-                else if (!timezone_is_valid(ur->time_zone, LOG_DEBUG))
+                if (!timezone_is_valid(ur->time_zone, LOG_DEBUG))
                         pam_debug_syslog(handle, debug,
                                          "Time zone specified in user record is not valid locally, not setting $TZ.");
                 else {
@@ -674,21 +652,38 @@ static int apply_user_record_settings(
                 }
         }
 
-        if (ur->preferred_language) {
-                if (pam_getenv(handle, "LANG"))
-                        pam_debug_syslog(handle, debug,
-                                         "PAM environment variable $LANG already set, not changing based on user record.");
-                else if (locale_is_installed(ur->preferred_language) <= 0)
-                        pam_debug_syslog(handle, debug,
-                                         "Preferred language specified in user record is not valid or not installed, not setting $LANG.");
-                else {
-                        _cleanup_free_ char *joined = NULL;
+        r = user_record_languages(ur, &langs);
+        if (r < 0)
+                pam_syslog_errno(handle, LOG_ERR, r,
+                                 "Failed to acquire user's language preferences, ignoring: %m");
+        else if (strv_isempty(langs))
+                ; /* User has no preference set so we do nothing */
+        else if (locale_is_installed(langs[0]) <= 0)
+                pam_debug_syslog(handle, debug,
+                                 "Preferred languages specified in user record are not installed locally, not setting $LANG or $LANGUAGE.");
+        else {
+                _cleanup_free_ char *lang = NULL;
 
-                        joined = strjoin("LANG=", ur->preferred_language);
+                lang = strjoin("LANG=", langs[0]);
+                if (!lang)
+                        return pam_log_oom(handle);
+
+                r = pam_putenv_and_log(handle, lang, debug);
+                if (r != PAM_SUCCESS)
+                        return r;
+
+                if (strv_length(langs) > 1) {
+                        _cleanup_free_ char *joined = NULL, *language = NULL;
+
+                        joined = strv_join(langs, ":");
                         if (!joined)
                                 return pam_log_oom(handle);
 
-                        r = pam_putenv_and_log(handle, joined, debug);
+                        language = strjoin("LANGUAGE=", joined);
+                        if (!language)
+                                return pam_log_oom(handle);
+
+                        r = pam_putenv_and_log(handle, language, debug);
                         if (r != PAM_SUCCESS)
                                 return r;
                 }
