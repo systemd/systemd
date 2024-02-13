@@ -529,7 +529,7 @@ static int parse_one_option(const char *option) {
                 /* cryptsetup (cli) supports <keyring_description> passed in various formats:
                  * - well-known keyrings prefixed with '@' (@u user, @s session, etc)
                  * - text descriptions prefixed with "%:" or "%keyring:".
-                 * - text desription with no prefix.
+                 * - text description with no prefix.
                  * - numeric keyring id (ignored in current patch set). */
                 if (*val == '@' || *val == '%')
                         keyring = strndup(val, sep - val);
