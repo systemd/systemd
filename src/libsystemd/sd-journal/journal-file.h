@@ -49,16 +49,6 @@ typedef enum LocationType {
         LOCATION_SEEK
 } LocationType;
 
-typedef enum OfflineState {
-        OFFLINE_JOINED,
-        OFFLINE_SYNCING,
-        OFFLINE_OFFLINING,
-        OFFLINE_CANCEL,
-        OFFLINE_AGAIN_FROM_SYNCING,
-        OFFLINE_AGAIN_FROM_OFFLINING,
-        OFFLINE_DONE
-} OfflineState;
-
 typedef struct JournalFile {
         int fd;
         MMapFileDescriptor *cache_fd;
@@ -67,7 +57,6 @@ typedef struct JournalFile {
 
         int open_flags;
         bool close_fd:1;
-        bool archive:1;
         bool strict_order:1;
 
         direction_t last_direction;
@@ -95,9 +84,6 @@ typedef struct JournalFile {
         usec_t post_change_timer_period;
 
         OrderedHashmap *chain_cache;
-
-        pthread_t offline_thread;
-        volatile OfflineState offline_state;
 
         unsigned last_seen_generation;
 
@@ -157,7 +143,7 @@ int journal_file_open(
                 JournalFile *template,
                 JournalFile **ret);
 
-int journal_file_set_offline_thread_join(JournalFile *f);
+int journal_file_set_state(JournalFile *f, uint8_t state);
 JournalFile* journal_file_close(JournalFile *j);
 int journal_file_fstat(JournalFile *f);
 DEFINE_TRIVIAL_CLEANUP_FUNC(JournalFile*, journal_file_close);
@@ -308,7 +294,7 @@ int journal_file_copy_entry(JournalFile *from, JournalFile *to, Object *o, uint6
 void journal_file_dump(JournalFile *f);
 void journal_file_print_header(JournalFile *f);
 
-int journal_file_archive(JournalFile *f, char **ret_previous_path);
+int journal_file_rename_for_archiving(JournalFile *f, char **ret_previous_path);
 int journal_file_parse_uid_from_filename(const char *path, uid_t *uid);
 
 int journal_file_dispose(int dir_fd, const char *fname);
