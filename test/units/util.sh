@@ -156,13 +156,13 @@ coverage_create_nspawn_dropin() {
 create_dummy_container() {
     local root="${1:?}"
 
-    if [[ ! -d /testsuite-13-container-template ]]; then
+    if [[ ! -d /usr/share/testsuite-13-container-template ]]; then
         echo >&2 "Missing container template, probably not running in TEST-13-NSPAWN?"
         exit 1
     fi
 
     mkdir -p "$root"
-    cp -a /testsuite-13-container-template/* "$root"
+    cp -a /usr/share/testsuite-13-container-template/* "$root"
     coverage_create_nspawn_dropin "$root"
 }
 
