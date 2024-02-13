@@ -13,6 +13,8 @@ Documentation=man:systemd-firstboot(1)
 
 ConditionPathIsReadWrite=/etc
 ConditionFirstBoot=yes
+# Check that '/dev/console' is active to handle the NULL TTY driver:
+ConditionPathExists=/sys/class/tty/console/active
 
 DefaultDependencies=no
 # This service may need to write to the file system:
