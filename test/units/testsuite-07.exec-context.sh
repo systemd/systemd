@@ -338,6 +338,39 @@ if [[ ! -v ASAN_OPTIONS ]] && systemctl --version | grep "+BPF_FRAMEWORK" && ker
     (! systemd-run --wait --pipe -p RestrictFileSystems="~proc devtmpfs sysfs" ls /sys)
 fi
 
+# Make sure we properly (de)serialize various string arrays, including whitespaces
+# See: https://github.com/systemd/systemd/issues/31214
+systemd-run --wait --pipe -p Environment="FOO='bar4    '" \
+            bash -xec '[[ $FOO == "bar4    " ]]'
+systemd-run --wait --pipe -p Environment="FOO='bar4    ' BAR='\n\n'" \
+            bash -xec "[[ \$FOO == 'bar4    ' && \$BAR == $'\n\n' ]]"
+systemd-run --wait --pipe -p Environment='FOO="bar4  \\  "' -p Environment="BAR='\n\t'" \
+            bash -xec "[[ \$FOO == 'bar4  \\  ' && \$BAR == $'\n\t' ]]"
+TEST_ENV_FILE="/tmp/test-env-file-$RANDOM-    "
+cat >"$TEST_ENV_FILE" <<EOF
+FOO="env file    "
+BAR="
+    "
+EOF
+systemd-run --wait --pipe cat "$TEST_ENV_FILE"
+systemd-run --wait --pipe -p ReadOnlyPaths="'$TEST_ENV_FILE'" \
+            bash -xec '[[ ! -w "$TEST_ENV_FILE" ]]'
+systemd-run --wait --pipe -p PrivateTmp=yes -p BindReadOnlyPaths="'$TEST_ENV_FILE':'/tmp/bar-    '" \
+            bash -xec '[[ -e "/tmp/bar-    " && ! -w "/tmp/bar-    " ]]'
+systemd-run --wait --pipe -p EnvironmentFile="$TEST_ENV_FILE" \
+            bash -xec "[[ \$FOO == 'env file    ' && \$BAR == $'\n    ' ]]"
+rm -f "$TEST_ENV_FILE"
+# manager_serialize()/manager_deserialize() uses similar machinery
+systemctl unset-environment FOO_WITH_SPACES
+systemctl set-environment FOO_WITH_SPACES="foo   " FOO_WITH_TABS="foo\t\t\t"
+systemctl show-environment
+systemctl show-environment | grep -F "FOO_WITH_SPACES=$'foo   '"
+systemctl show-environment | grep -F "FOO_WITH_TABS=$'foo\\\\t\\\\t\\\\t'"
+systemctl daemon-reexec
+systemctl show-environment
+systemctl show-environment | grep -F "FOO_WITH_SPACES=$'foo   '"
+systemctl show-environment | grep -F "FOO_WITH_TABS=$'foo\\\\t\\\\t\\\\t'"
+
 # Ensure that clean-up codepaths work correctly if activation ultimately fails
 touch /run/not-a-directory
 mkdir /tmp/root
