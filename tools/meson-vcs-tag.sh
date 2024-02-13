@@ -29,5 +29,7 @@ else
         fi
     fi
     [ -z "$c" ] && c="${fallback}"
-    echo "$c" | sed 's/^v//; s/-rc/~rc/'
+    # Replace any hyphens with carets so that git versions always sort higher than their non-git version
+    # counterpart.
+    echo "$c" | sed 's/^v//; s/-/^/g'
 fi
