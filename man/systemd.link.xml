@@ -968,6 +968,17 @@
         </listitem>
       </varlistentry>
       <varlistentry>
+        <term><varname>ReceivePacketSteeringCPUMask=</varname></term>
+        <listitem>
+          <para>Configures Receive Packet Steering (RPS) list of CPUs to which RPS may forward traffic.
+          RPS is disabled when it is zero (the default). Takes a list of CPUs and has the same syntax
+          as a list of CPUs for <varname>CPUAffinity=</varname> option or special "all" value which will
+          include all available CPUs in the mask.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
+      <varlistentry>
         <term><varname>ReceiveVLANCTAGHardwareAcceleration=</varname></term>
         <listitem>
           <para>Takes a boolean. If set to true, receive VLAN CTAG hardware acceleration is enabled.

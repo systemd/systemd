@@ -82,6 +82,53 @@ char *cpu_set_to_range_string(const CPUSet *set) {
         return TAKE_PTR(str) ?: strdup("");
 }
 
+char* cpu_set_to_mask_string(const CPUSet *a) {
+        _cleanup_free_ char *str = NULL;
+        size_t len = 0;
+        bool nz = 0;
+        int i, r;
+
+        assert(a);
+
+        /* Return CPU set in hexadecimal bitmap mask, e.g.
+         *   CPU   0 ->  "1"
+         *   CPU   1 ->  "2"
+         *   CPU 0,1 ->  "3"
+         *   CPU 0-3 ->  "f"
+         *   CPU 0-7 -> "ff"
+         *   CPU 4-7 -> "f0"
+         *   CPU   7 -> "80"
+         *   None    ->  "0" */
+
+        for (i = a->allocated * 8; i >= 0; i -= 4) {
+                unsigned char m = 0;
+
+                if (CPU_ISSET_S(i, a->allocated, a->set))
+                        m |= 1;
+                if (CPU_ISSET_S(i + 1, a->allocated, a->set))
+                        m |= 2;
+                if (CPU_ISSET_S(i + 2, a->allocated, a->set))
+                        m |= 4;
+                if (CPU_ISSET_S(i + 3, a->allocated, a->set))
+                        m |= 8;
+
+                if (!nz)
+                        nz = m > 0;
+
+                if (!nz && m == 0)
+                        continue;
+
+                if (!GREEDY_REALLOC(str, len + 2))
+                        return NULL;
+
+                r = sprintf(str + len, "%x", m);
+                assert_se(r > 0);
+                len += r;
+        }
+
+        return TAKE_PTR(str) ?: strdup("0");
+}
+
 int cpu_set_realloc(CPUSet *cpu_set, unsigned ncpus) {
         size_t need;
 
@@ -288,5 +335,24 @@ int cpu_set_from_dbus(const uint8_t *bits, size_t size, CPUSet *set) {
                 }
 
         *set = TAKE_STRUCT(s);
+        return 0;
+}
+
+int cpu_mask_add_all(CPUSet *mask) {
+        long m;
+
+        assert(mask);
+
+        m = sysconf(_SC_NPROCESSORS_ONLN);
+        assert_se(m > 0);
+
+        for (int i = 0; i < m; i++) {
+                int r;
+
+                r = cpu_set_add(mask, i);
+                if (r < 0)
+                        return r;
+        }
+
         return 0;
 }
