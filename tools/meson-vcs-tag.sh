@@ -29,5 +29,8 @@ else
         fi
     fi
     [ -z "$c" ] && c="${fallback}"
-    echo "$c" | sed 's/^v//; s/-rc/~rc/'
+    # Replace any hyphens with carets which are allowed in versions by pacman whereas hyphens are not. Git
+    # versions with carets will also sort higher than their non-git version counterpart both in pacman
+    # versioning and in version comparision spec versioning.
+    echo "$c" | sed 's/^v//; s/-/^/g'
 fi
