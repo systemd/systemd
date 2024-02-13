@@ -2205,7 +2205,7 @@ int varlink_collect_full(
                                 if (ret_parameters)
                                         *ret_parameters = p;
                                 if (ret_error_id)
-                                        *ret_error_id = e ? json_variant_string(e) : NULL;
+                                        *ret_error_id = json_variant_string(e);
                                 if (ret_flags)
                                         *ret_flags = v->current_reply_flags;
 
