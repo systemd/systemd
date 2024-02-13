@@ -23,9 +23,14 @@ at_exit() {
 
 trap at_exit EXIT
 
-# Mount tmpfs over /var/lib/machines to not pollute the image
-mkdir -p /var/lib/machines
-mount -t tmpfs tmpfs /var/lib/machines
+if mountpoint /var/tmp; then
+    # If there's scratch mounted to /var/tmp use it
+    mount --bind "$(TMPDIR=/var/tmp mktemp -d)" /var/lib/machines
+else
+    # Mount tmpfs over /var/lib/machines to not pollute the image
+    mkdir -p /var/lib/machines
+    mount -t tmpfs tmpfs /var/lib/machines
+fi
 
 # Setup a couple of dirs/devices for the OCI containers
 DEV="$(mktemp -u /dev/oci-dev-XXX)"
