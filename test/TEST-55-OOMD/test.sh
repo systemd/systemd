@@ -15,9 +15,7 @@ test_append_files() {
     # Create a swap file
     (
         image_install mkswap swapon swapoff stress
-
-        dd if=/dev/zero of="${initdir:?}/swapfile" bs=1M count=48
-        chmod 0600 "${initdir:?}/swapfile"
+        image_install -o btrfs
 
         mkdir -p "${initdir:?}/etc/systemd/system/init.scope.d/"
         cat >>"${initdir:?}/etc/systemd/system/init.scope.d/test-55-oomd.conf" <<EOF
