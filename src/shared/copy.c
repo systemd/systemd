@@ -985,12 +985,12 @@ static int fd_copy_directory(
 
         exists = r >= 0;
 
-        fdt = xopenat_lock(dt, to,
-                           O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW|(exists ? 0 : O_CREAT|O_EXCL),
-                           (copy_flags & COPY_MAC_CREATE ? XO_LABEL : 0)|(set_contains(subvolumes, st) ? XO_SUBVOLUME : 0),
-                           st->st_mode & 07777,
-                           copy_flags & COPY_LOCK_BSD ? LOCK_BSD : LOCK_NONE,
-                           LOCK_EX);
+        fdt = xopenat_lock_full(dt, to,
+                                O_RDONLY|O_DIRECTORY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW|(exists ? 0 : O_CREAT|O_EXCL),
+                                (copy_flags & COPY_MAC_CREATE ? XO_LABEL : 0)|(set_contains(subvolumes, st) ? XO_SUBVOLUME : 0),
+                                st->st_mode & 07777,
+                                copy_flags & COPY_LOCK_BSD ? LOCK_BSD : LOCK_NONE,
+                                LOCK_EX);
         if (fdt < 0)
                 return fdt;
 
@@ -1379,11 +1379,11 @@ int copy_file_at_full(
                 return r;
 
         WITH_UMASK(0000) {
-                fdt = xopenat_lock(dir_fdt, to,
-                                   flags|O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY,
-                                   (copy_flags & COPY_MAC_CREATE ? XO_LABEL : 0),
-                                   mode != MODE_INVALID ? mode : st.st_mode,
-                                   copy_flags & COPY_LOCK_BSD ? LOCK_BSD : LOCK_NONE, LOCK_EX);
+                fdt = xopenat_lock_full(dir_fdt, to,
+                                        flags|O_WRONLY|O_CREAT|O_CLOEXEC|O_NOCTTY,
+                                        (copy_flags & COPY_MAC_CREATE ? XO_LABEL : 0),
+                                        mode != MODE_INVALID ? mode : st.st_mode,
+                                        copy_flags & COPY_LOCK_BSD ? LOCK_BSD : LOCK_NONE, LOCK_EX);
                 if (fdt < 0)
                         return fdt;
         }
