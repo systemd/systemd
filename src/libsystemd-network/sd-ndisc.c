@@ -46,7 +46,7 @@ int sd_ndisc_is_running(sd_ndisc *nd) {
         if (!nd)
                 return false;
 
-        return sd_event_source_get_enabled(nd->recv_event_source, NULL) > 0;
+        return sd_event_source_get_enabled(nd->recv_router_event_source, NULL) > 0;
 }
 
 int sd_ndisc_set_callback(
@@ -148,7 +148,7 @@ static void ndisc_reset(sd_ndisc *nd) {
         (void) event_source_disable(nd->timeout_event_source);
         (void) event_source_disable(nd->timeout_no_ra);
         nd->retransmit_time = 0;
-        nd->recv_event_source = sd_event_source_disable_unref(nd->recv_event_source);
+        nd->recv_router_event_source = sd_event_source_disable_unref(nd->recv_router_event_source);
         nd->fd = safe_close(nd->fd);
 }
 
@@ -186,7 +186,7 @@ int sd_ndisc_new(sd_ndisc **ret) {
         return 0;
 }
 
-static int ndisc_handle_datagram(sd_ndisc *nd, sd_ndisc_router *rt) {
+static int ndisc_handle_router(sd_ndisc *nd, sd_ndisc_router *rt) {
         int r;
 
         assert(nd);
@@ -205,7 +205,7 @@ static int ndisc_handle_datagram(sd_ndisc *nd, sd_ndisc_router *rt) {
         return 0;
 }
 
-static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+static int ndisc_recv_router(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
         _cleanup_(sd_ndisc_router_unrefp) sd_ndisc_router *rt = NULL;
         sd_ndisc *nd = ASSERT_PTR(userdata);
         ssize_t buflen;
@@ -254,7 +254,7 @@ static int ndisc_recv(sd_event_source *s, int fd, uint32_t revents, void *userda
                 log_ndisc(nd, "Received RA from null address. Ignoring.");
 
         (void) event_source_disable(nd->timeout_event_source);
-        (void) ndisc_handle_datagram(nd, rt);
+        (void) ndisc_handle_router(nd, rt);
         return 0;
 }
 
@@ -332,9 +332,61 @@ int sd_ndisc_stop(sd_ndisc *nd) {
         return 1;
 }
 
+static int ndisc_setup_router_event(sd_ndisc *nd) {
+        int r;
+
+        assert(nd);
+        assert(nd->event);
+        assert(nd->ifindex > 0);
+
+        _cleanup_close_ int fd = -EBADF;
+        fd = icmp6_bind_router_solicitation(nd->ifindex);
+        if (fd < 0)
+                return fd;
+
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        r = sd_event_add_io(nd->event, &s, fd, EPOLLIN, ndisc_recv_router, nd);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_priority(s, nd->event_priority);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_source_set_description(s, "ndisc-receive-router-message");
+
+        nd->fd = TAKE_FD(fd);
+        nd->recv_router_event_source = TAKE_PTR(s);
+        return 1;
+}
+
+static int ndisc_setup_timer(sd_ndisc *nd) {
+        int r;
+
+        assert(nd);
+        assert(nd->event);
+
+        r = event_reset_time_relative(nd->event, &nd->timeout_event_source,
+                                      CLOCK_BOOTTIME,
+                                      USEC_PER_SEC / 2, 1 * USEC_PER_SEC, /* See RFC 8415 sec. 18.2.1 */
+                                      ndisc_timeout, nd,
+                                      nd->event_priority, "ndisc-timeout", true);
+        if (r < 0)
+                return r;
+
+        r = event_reset_time_relative(nd->event, &nd->timeout_no_ra,
+                                      CLOCK_BOOTTIME,
+                                      NDISC_TIMEOUT_NO_RA_USEC, 10 * USEC_PER_MSEC,
+                                      ndisc_timeout_no_ra, nd,
+                                      nd->event_priority, "ndisc-timeout-no-ra", true);
+        if (r < 0)
+                return r;
+
+        return 0;
+}
+
 int sd_ndisc_start(sd_ndisc *nd) {
         int r;
-        usec_t time_now;
 
         assert_return(nd, -EINVAL);
         assert_return(nd->event, -EINVAL);
@@ -343,39 +395,11 @@ int sd_ndisc_start(sd_ndisc *nd) {
         if (sd_ndisc_is_running(nd))
                 return 0;
 
-        assert(!nd->recv_event_source);
-
-        r = sd_event_now(nd->event, CLOCK_BOOTTIME, &time_now);
+        r = ndisc_setup_router_event(nd);
         if (r < 0)
                 goto fail;
 
-        nd->fd = icmp6_bind_router_solicitation(nd->ifindex);
-        if (nd->fd < 0)
-                return nd->fd;
-
-        r = sd_event_add_io(nd->event, &nd->recv_event_source, nd->fd, EPOLLIN, ndisc_recv, nd);
-        if (r < 0)
-                goto fail;
-
-        r = sd_event_source_set_priority(nd->recv_event_source, nd->event_priority);
-        if (r < 0)
-                goto fail;
-
-        (void) sd_event_source_set_description(nd->recv_event_source, "ndisc-receive-message");
-
-        r = event_reset_time(nd->event, &nd->timeout_event_source,
-                             CLOCK_BOOTTIME,
-                             time_now + USEC_PER_SEC / 2, 1 * USEC_PER_SEC, /* See RFC 8415 sec. 18.2.1 */
-                             ndisc_timeout, nd,
-                             nd->event_priority, "ndisc-timeout", true);
-        if (r < 0)
-                goto fail;
-
-        r = event_reset_time(nd->event, &nd->timeout_no_ra,
-                             CLOCK_BOOTTIME,
-                             time_now + NDISC_TIMEOUT_NO_RA_USEC, 10 * USEC_PER_MSEC,
-                             ndisc_timeout_no_ra, nd,
-                             nd->event_priority, "ndisc-timeout-no-ra", true);
+        r = ndisc_setup_timer(nd);
         if (r < 0)
                 goto fail;
 
