@@ -43,7 +43,7 @@ static JournalFile *test_open_internal(const char *name, JournalFileFlags flags)
         m = mmap_cache_new();
         assert_se(m != NULL);
 
-        assert_ret(journal_file_open(-1, name, O_RDWR|O_CREAT, flags, 0644, UINT64_MAX, NULL, m, NULL, &f));
+        assert_ret(journal_file_open(-EBADF, name, O_RDWR|O_CREAT, flags, 0644, UINT64_MAX, NULL, m, NULL, &f));
         return f;
 }
 
@@ -453,7 +453,7 @@ static void test_sequence_numbers_one(void) {
 
         mkdtemp_chdir_chattr(t);
 
-        assert_se(journal_file_open(-1, "one.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0644,
+        assert_se(journal_file_open(-EBADF, "one.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0644,
                                     UINT64_MAX, NULL, m, NULL, &one) == 0);
 
         append_number(one, 1, NULL, &seqnum, NULL);
@@ -470,7 +470,7 @@ static void test_sequence_numbers_one(void) {
 
         memcpy(&seqnum_id, &one->header->seqnum_id, sizeof(sd_id128_t));
 
-        assert_se(journal_file_open(-1, "two.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0644,
+        assert_se(journal_file_open(-EBADF, "two.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0644,
                                     UINT64_MAX, NULL, m, one, &two) == 0);
 
         assert_se(two->header->state == STATE_ONLINE);
@@ -507,7 +507,7 @@ static void test_sequence_numbers_one(void) {
                 /* restart server */
                 seqnum = 0;
 
-                assert_se(journal_file_open(-1, "two.journal", O_RDWR, JOURNAL_COMPRESS, 0,
+                assert_se(journal_file_open(-EBADF, "two.journal", O_RDWR, JOURNAL_COMPRESS, 0,
                                             UINT64_MAX, NULL, m, NULL, &two) == 0);
 
                 assert_se(sd_id128_equal(two->header->seqnum_id, seqnum_id));
@@ -781,7 +781,7 @@ static void test_generic_array_bisect_one(size_t n, size_t num_corrupted) {
 
         mkdtemp_chdir_chattr(t);
 
-        assert_se(journal_file_open(-1, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0644,
+        assert_se(journal_file_open(-EBADF, "test.journal", O_RDWR|O_CREAT, JOURNAL_COMPRESS, 0644,
                                     UINT64_MAX, NULL, m, NULL, &f) == 0);
 
         assert_se(seqnum = new0(uint64_t, n));

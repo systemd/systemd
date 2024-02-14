@@ -62,7 +62,7 @@ static int journal_corrupt_and_append(uint64_t start_offset, uint64_t step) {
         log_debug("Opening journal %s/system.journal", tempdir);
 
         r = journal_file_open(
-                        /* fd= */ -1,
+                        /* fd= */ -EBADF,
                         "system.journal",
                         O_RDWR|O_CREAT,
                         JOURNAL_COMPRESS,
@@ -114,7 +114,7 @@ static int journal_corrupt_and_append(uint64_t start_offset, uint64_t step) {
                  * the corrupted journal */
                 mj = journal_file_offline_close(mj);
                 r = journal_file_open(
-                                /* fd= */ -1,
+                                /* fd= */ -EBADF,
                                 "system.journal",
                                 O_RDWR|O_CREAT,
                                 JOURNAL_COMPRESS,
