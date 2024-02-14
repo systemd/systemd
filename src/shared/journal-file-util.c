@@ -446,7 +446,7 @@ int journal_file_rotate(
         set_clear_with_destructor(deferred_closes, journal_file_offline_close);
 
         r = journal_file_open(
-                        /* fd= */ -1,
+                        /* fd= */ -EBADF,
                         path,
                         (*f)->open_flags,
                         file_flags,
@@ -478,7 +478,7 @@ int journal_file_open_reliably(
         int r;
 
         r = journal_file_open(
-                        /* fd= */ -1,
+                        /* fd= */ -EBADF,
                         fname,
                         open_flags,
                         file_flags,
@@ -515,7 +515,7 @@ int journal_file_open_reliably(
         if (!template) {
                 /* The file is corrupted and no template is specified. Try opening it read-only as the
                  * template before rotating to inherit its sequence number and ID. */
-                r = journal_file_open(-1, fname,
+                r = journal_file_open(-EBADF, fname,
                                       (open_flags & ~(O_ACCMODE|O_CREAT|O_EXCL)) | O_RDONLY,
                                       file_flags, 0, compress_threshold_bytes, NULL,
                                       mmap_cache, NULL, &old_file);
@@ -529,6 +529,6 @@ int journal_file_open_reliably(
         if (r < 0)
                 return r;
 
-        return journal_file_open(-1, fname, open_flags, file_flags, mode, compress_threshold_bytes, metrics,
+        return journal_file_open(-EBADF, fname, open_flags, file_flags, mode, compress_threshold_bytes, metrics,
                                  mmap_cache, template, ret);
 }
