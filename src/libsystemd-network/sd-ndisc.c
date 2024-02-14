@@ -15,6 +15,7 @@
 #include "in-addr-util.h"
 #include "memory-util.h"
 #include "ndisc-internal.h"
+#include "ndisc-neighbor-internal.h"
 #include "ndisc-router-internal.h"
 #include "network-common.h"
 #include "random-util.h"
@@ -25,8 +26,9 @@
 #define NDISC_TIMEOUT_NO_RA_USEC (NDISC_ROUTER_SOLICITATION_INTERVAL * NDISC_MAX_ROUTER_SOLICITATIONS)
 
 static const char * const ndisc_event_table[_SD_NDISC_EVENT_MAX] = {
-        [SD_NDISC_EVENT_TIMEOUT] = "timeout",
-        [SD_NDISC_EVENT_ROUTER] = "router",
+        [SD_NDISC_EVENT_TIMEOUT]  = "timeout",
+        [SD_NDISC_EVENT_ROUTER]   = "router",
+        [SD_NDISC_EVENT_NEIGHBOR] = "neighbor",
 };
 
 DEFINE_STRING_TABLE_LOOKUP(ndisc_event, sd_ndisc_event_t);
@@ -148,6 +150,7 @@ static void ndisc_reset(sd_ndisc *nd) {
         (void) event_source_disable(nd->timeout_event_source);
         (void) event_source_disable(nd->timeout_no_ra);
         nd->retransmit_time = 0;
+        nd->recv_neighbor_event_source = sd_event_source_disable_unref(nd->recv_neighbor_event_source);
         nd->recv_router_event_source = sd_event_source_disable_unref(nd->recv_router_event_source);
         nd->fd = safe_close(nd->fd);
 }
@@ -183,6 +186,77 @@ int sd_ndisc_new(sd_ndisc **ret) {
 
         *ret = TAKE_PTR(nd);
 
+        return 0;
+}
+
+static int ndisc_handle_neighbor(sd_ndisc *nd, sd_ndisc_neighbor *na) {
+        int r;
+
+        assert(nd);
+        assert(na);
+
+        r = ndisc_neighbor_parse(nd, na);
+        if (r < 0)
+                return r;
+
+        log_ndisc(nd, "Received Neighbor Advertisement from %s: Router=%s, Solicited=%s, Override=%s",
+                  IN6_ADDR_TO_STRING(&na->address),
+                  yes_no(sd_ndisc_neighbor_is_router(na) > 0),
+                  yes_no(sd_ndisc_neighbor_is_solicited(na) > 0),
+                  yes_no(sd_ndisc_neighbor_is_override(na) > 0));
+
+        ndisc_callback(nd, SD_NDISC_EVENT_NEIGHBOR, na);
+        return 0;
+}
+
+static int ndisc_recv_neighbor(sd_event_source *s, int fd, uint32_t revents, void *userdata) {
+        _cleanup_(sd_ndisc_neighbor_unrefp) sd_ndisc_neighbor *na = NULL;
+        sd_ndisc *nd = ASSERT_PTR(userdata);
+        ssize_t buflen;
+        int r;
+
+        assert(fd >= 0);
+
+        buflen = next_datagram_size_fd(fd);
+        if (ERRNO_IS_NEG_TRANSIENT(buflen) || ERRNO_IS_NEG_DISCONNECT(buflen))
+                return 0;
+        if (buflen < 0) {
+                log_ndisc_errno(nd, buflen, "Failed to determine datagram size to read, ignoring: %m");
+                return 0;
+        }
+
+        na = ndisc_neighbor_new(buflen);
+        if (!na)
+                return -ENOMEM;
+
+        r = icmp6_receive(fd, NDISC_NEIGHBOR_RAW(na), na->raw_size, &na->address, &na->timestamp);
+        if (ERRNO_IS_NEG_TRANSIENT(r) || ERRNO_IS_NEG_DISCONNECT(r))
+                return 0;
+        if (r < 0)
+                switch (r) {
+                case -EADDRNOTAVAIL:
+                        log_ndisc(nd, "Received NA from neither link-local nor null address. Ignoring.");
+                        return 0;
+
+                case -EMULTIHOP:
+                        log_ndisc(nd, "Received NA with invalid hop limit. Ignoring.");
+                        return 0;
+
+                case -EPFNOSUPPORT:
+                        log_ndisc(nd, "Received invalid source address from ICMPv6 socket. Ignoring.");
+                        return 0;
+
+                default:
+                        log_ndisc_errno(nd, r, "Unexpected error while reading from ICMPv6, ignoring: %m");
+                        return 0;
+                }
+
+        /* The function icmp6_receive() accepts the null source address, but RFC 4861 Section 6.1.2 states
+         * that hosts MUST discard messages with the null source address. */
+        if (in6_addr_is_null(&na->address))
+                log_ndisc(nd, "Received NA from null address. Ignoring.");
+
+        (void) ndisc_handle_neighbor(nd, na);
         return 0;
 }
 
@@ -332,6 +406,38 @@ int sd_ndisc_stop(sd_ndisc *nd) {
         return 1;
 }
 
+static int ndisc_setup_neighbor_event(sd_ndisc *nd) {
+        int r;
+
+        assert(nd);
+        assert(nd->event);
+        assert(nd->ifindex > 0);
+
+        _cleanup_close_ int fd = -EBADF;
+        fd = icmp6_bind_neighbor_advertisement(nd->ifindex);
+        if (fd < 0)
+                return fd;
+
+        _cleanup_(sd_event_source_unrefp) sd_event_source *s = NULL;
+        r = sd_event_add_io(nd->event, &s, fd, EPOLLIN, ndisc_recv_neighbor, nd);
+        if (r < 0)
+                return r;
+
+        r = sd_event_source_set_io_fd_own(s, true);
+        if (r < 0)
+                return r;
+        TAKE_FD(fd);
+
+        r = sd_event_source_set_priority(s, nd->event_priority);
+        if (r < 0)
+                return r;
+
+        (void) sd_event_source_set_description(s, "ndisc-receive-neighbor-message");
+
+        nd->recv_neighbor_event_source = TAKE_PTR(s);
+        return 1;
+}
+
 static int ndisc_setup_router_event(sd_ndisc *nd) {
         int r;
 
@@ -394,6 +500,10 @@ int sd_ndisc_start(sd_ndisc *nd) {
 
         if (sd_ndisc_is_running(nd))
                 return 0;
+
+        r = ndisc_setup_neighbor_event(nd);
+        if (r < 0)
+                goto fail;
 
         r = ndisc_setup_router_event(nd);
         if (r < 0)
