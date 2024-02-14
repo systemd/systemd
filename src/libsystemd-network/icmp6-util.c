@@ -42,6 +42,7 @@ int icmp6_bind(int ifindex, bool is_router) {
                         .ipv6mr_interface = ifindex,
                 };
                 ICMP6_FILTER_SETPASS(ND_ROUTER_ADVERT, &filter);
+                ICMP6_FILTER_SETPASS(ND_NEIGHBOR_ADVERT, &filter);
         }
 
         s = socket(AF_INET6, SOCK_RAW | SOCK_CLOEXEC | SOCK_NONBLOCK, IPPROTO_ICMPV6);
