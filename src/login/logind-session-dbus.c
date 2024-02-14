@@ -426,16 +426,17 @@ static int method_set_class(sd_bus_message *message, void *userdata, sd_bus_erro
         /* For now, we'll allow only upgrades user-incomplete → user */
         if (class != SESSION_USER)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Class may only be set to 'user', refusing.");
+                                         "Class may only be set to 'user'");
+
         if (s->class == SESSION_USER) /* No change, shortcut */
                 return sd_bus_reply_method_return(message, NULL);
         if (s->class != SESSION_USER_INCOMPLETE)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Only sessions with class 'user-incomplete' may change class, refusing.");
+                                         "Only sessions with class 'user-incomplete' may change class");
 
         if (s->upgrade_message)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Set session class operation already in progress, refsuing.");
+                                         "Set session class operation already in progress");
 
         r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID, &creds);
         if (r < 0)
@@ -450,8 +451,7 @@ static int method_set_class(sd_bus_message *message, void *userdata, sd_bus_erro
 
         session_set_class(s, class);
 
-        sd_bus_message_unref(s->upgrade_message);
-        s->upgrade_message = sd_bus_message_ref(message);
+        unref_and_replace_full(s->upgrade_message, message, sd_bus_message_ref, sd_bus_message_unref);
 
         r = session_send_upgrade_reply(s, /* error= */ NULL);
         if (r < 0)
