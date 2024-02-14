@@ -158,8 +158,7 @@ static int verify_dhcp6_address(Link *link, const Address *address) {
         } else
                 log_level = LOG_DEBUG;
 
-        if (address->prefixlen == existing->prefixlen)
-                /* Currently, only conflict in prefix length is reported. */
+        if (address_can_update(existing, address))
                 goto simple_log;
 
         if (existing->source == NETWORK_CONFIG_SOURCE_NDISC)

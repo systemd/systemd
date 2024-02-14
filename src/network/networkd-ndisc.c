@@ -249,8 +249,7 @@ static int ndisc_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
         return 1;
 }
 
-static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
-        _cleanup_(address_unrefp) Address *address = in;
+static int ndisc_request_address(Address *address, Link *link, sd_ndisc_router *rt) {
         struct in6_addr router;
         bool is_new;
         int r;
@@ -270,7 +269,26 @@ static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return r;
 
-        is_new = address_get(link, address, NULL) < 0;
+        Address *existing;
+        if (address_get_harder(link, address, &existing) < 0)
+                is_new = true;
+        else if (address_can_update(existing, address))
+                is_new = false;
+        else if (existing->source == NETWORK_CONFIG_SOURCE_DHCP6) {
+                /* SLAAC address is preferred over DHCPv6 address. */
+                log_link_debug(link, "Conflicting DHCPv6 address %s exists, removing.",
+                               IN_ADDR_PREFIX_TO_STRING(existing->family, &existing->in_addr, existing->prefixlen));
+                r = address_remove(existing, link);
+                if (r < 0)
+                        return r;
+
+                is_new = true;
+        } else {
+                /* Conflicting static address is configured?? */
+                log_link_debug(link, "Conflicting address %s exists, ignoring request.",
+                               IN_ADDR_PREFIX_TO_STRING(existing->family, &existing->in_addr, existing->prefixlen));
+                return 0;
+        }
 
         r = link_request_address(link, address, &link->ndisc_messages,
                                  ndisc_address_handler, NULL);
@@ -485,7 +503,7 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
                 address->lifetime_valid_usec = lifetime_valid_usec;
                 address->lifetime_preferred_usec = lifetime_preferred_usec;
 
-                r = ndisc_request_address(TAKE_PTR(address), link, rt);
+                r = ndisc_request_address(address, link, rt);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not request SLAAC address: %m");
         }
