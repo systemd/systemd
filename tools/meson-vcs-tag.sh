@@ -5,7 +5,7 @@ set -u
 set -o pipefail
 
 dir="${1:?}"
-fallback="${2:?}"
+project_version="${2:?}"
 version_tag="${3:-}"
 
 if [ -n "${version_tag}" ]; then
@@ -22,13 +22,18 @@ else
     c=''
     if [ -e "${dir}/.git" ]; then
         c="$(git -C "$dir" describe --abbrev=7 --dirty=^ 2>/dev/null)"
-        if [ -z "$c" ]; then
+        if [ -n "$c" ]; then
+            # git describe uses the most recent tag. However, for development versions (e.g. v256~devel), the
+            # most recent tag will be v255 as there is no tag for development versions. To deal with this, we
+            # replace the tag with the project version instead.
+            c="$(sed "s/^[^-]*-/${project_version}-/" <<<"$c")"
+        else
             # This call might still fail with permission issues
             suffix="$(git -C "$dir" describe --always --abbrev=7 --dirty=^ 2>/dev/null)"
-            [ -n "$suffix" ] && c="${fallback}-${suffix}"
+            [ -n "$suffix" ] && c="${project_version}-${suffix}"
         fi
     fi
-    [ -z "$c" ] && c="${fallback}"
+    [ -z "$c" ] && c="${project_version}"
     # Replace any hyphens with carets which are allowed in versions by pacman whereas hyphens are not. Git
     # versions with carets will also sort higher than their non-git version counterpart both in pacman
     # versioning and in version comparision spec versioning.
