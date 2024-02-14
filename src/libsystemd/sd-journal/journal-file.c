@@ -4344,6 +4344,11 @@ int journal_file_archive(JournalFile *f, char **ret_previous_path) {
         if (!endswith(f->path, ".journal"))
                 return -EINVAL;
 
+        if (le64toh(f->header->head_entry_seqnum) == 0)
+                /* We may asynchronously copy file later e.g. on btrfs. During copying, if
+                 * journal_directory_vacuum() is called, a broken archive file may be created. */
+                return -ENODATA;
+
         if (asprintf(&p, "%.*s@" SD_ID128_FORMAT_STR "-%016"PRIx64"-%016"PRIx64".journal",
                      (int) strlen(f->path) - 8, f->path,
                      SD_ID128_FORMAT_VAL(f->header->seqnum_id),
