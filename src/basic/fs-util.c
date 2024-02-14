@@ -116,7 +116,11 @@ int rename_noreplace(int olddirfd, const char *oldpath, int newdirfd, const char
 int readlinkat_malloc(int fd, const char *p, char **ret) {
         size_t l = PATH_MAX;
 
-        assert(p);
+        assert(fd >= 0 || fd == AT_FDCWD);
+
+        if (fd < 0 && isempty(p))
+                return -EISDIR; /* In this case, the fd points to the current working directory, and is
+                                 * definitely not a symlink. Let's return earlier. */
 
         for (;;) {
                 _cleanup_free_ char *c = NULL;
@@ -126,7 +130,7 @@ int readlinkat_malloc(int fd, const char *p, char **ret) {
                 if (!c)
                         return -ENOMEM;
 
-                n = readlinkat(fd, p, c, l);
+                n = readlinkat(fd, strempty(p), c, l);
                 if (n < 0)
                         return -errno;
 
