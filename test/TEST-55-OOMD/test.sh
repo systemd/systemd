@@ -16,6 +16,11 @@ test_append_files() {
     (
         image_install mkswap swapon swapoff stress
 
+        if [[ "$FSTYPE" == btrfs ]]; then
+            # swapfile must not have CoW set, but the flag can be set/unset only on new or empty files
+            touch "${initdir:?}/swapfile"
+            chattr +C "${initdir:?}/swapfile"
+        fi
         dd if=/dev/zero of="${initdir:?}/swapfile" bs=1M count=48
         chmod 0600 "${initdir:?}/swapfile"
 
