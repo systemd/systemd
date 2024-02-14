@@ -313,6 +313,25 @@
     </refsect2>
 
     <refsect2>
+      <title>Integration Options</title>
+
+      <variablelist>
+        <varlistentry>
+          <term><option>--forward-journal=</option><replaceable>FILE|DIR</replaceable></term>
+
+          <listitem><para>Forward the virtual machine's journal entries to the host.</para>
+          <para><citerefentry><refentrytitle>systemd-journal-remote</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          Is currently used to receive the guest VM's forwarded journal entries. For more information on the semantics
+          of supplying a file vs a directory here see <option>-o</option>/<option>--output</option> in
+          <citerefentry><refentrytitle>systemd-journal-remote</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+          </listitem>
+        </varlistentry>
+      </variablelist>
+    </refsect2>
+
+    <refsect2>
       <title>Credentials</title>
 
       <variablelist>
