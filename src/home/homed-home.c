@@ -1383,11 +1383,14 @@ static int home_activate_internal(Home *h, UserRecord *secret, HomeState for_sta
         return 0;
 }
 
-int home_activate(Home *h, UserRecord *secret, sd_bus_error *error) {
+int home_activate(Home *h, bool if_referenced, UserRecord *secret, sd_bus_error *error) {
         int r;
 
         assert(h);
         assert(secret);
+
+        if (if_referenced && !home_is_referenced(h))
+                return sd_bus_error_setf(error, BUS_ERROR_HOME_NOT_REFERENCED, "Home %s is currently not referenced.", h->user_name);
 
         switch (home_get_state(h)) {
         case HOME_UNFIXATED:
@@ -2567,6 +2570,9 @@ int home_augment_status(
                        JSON_BUILD_OBJECT(
                                        JSON_BUILD_PAIR("state", JSON_BUILD_STRING(home_state_to_string(state))),
                                        JSON_BUILD_PAIR("service", JSON_BUILD_CONST_STRING("io.systemd.Home")),
+                                       JSON_BUILD_PAIR("useFallback", JSON_BUILD_BOOLEAN(!HOME_STATE_IS_ACTIVE(state))),
+                                       JSON_BUILD_PAIR("fallbackShell", JSON_BUILD_CONST_STRING(BINDIR "/systemd-home-fallback-shell")),
+                                       JSON_BUILD_PAIR("fallbackHomeDirectory", JSON_BUILD_CONST_STRING("/")),
                                        JSON_BUILD_PAIR_CONDITION(disk_size != UINT64_MAX, "diskSize", JSON_BUILD_UNSIGNED(disk_size)),
                                        JSON_BUILD_PAIR_CONDITION(disk_usage != UINT64_MAX, "diskUsage", JSON_BUILD_UNSIGNED(disk_usage)),
                                        JSON_BUILD_PAIR_CONDITION(disk_free != UINT64_MAX, "diskFree", JSON_BUILD_UNSIGNED(disk_free)),
