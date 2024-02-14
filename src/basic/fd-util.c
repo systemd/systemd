@@ -464,6 +464,55 @@ int close_all_fds(const int except[], size_t n_except) {
         return r;
 }
 
+int pack_fds(int *fds, size_t n_fds) {
+        if (n_fds <= 0)
+                return 0;
+
+        assert(fds);
+
+        /* Shifts around the fds in the provided array such that they
+         * all end up packed next to each-other, in order, starting
+         * from SD_LISTEN_FDS_START. This must be called after close_all_fds();
+         * it is likely to freeze up otherwise. You should probably use safe_fork_full
+         * with FORK_CLOSE_ALL_FDS|FORK_PACK_FDS set, to ensure that this is done correctly.
+         * The fds array is modified in place with the new FD numbers. */
+
+        assert(fds);
+
+        for (int start = 0;;) {
+                int restart_from = -1;
+
+                for (int i = start; i < (int) n_fds; i++) {
+                        int nfd;
+
+                        /* Already at right index? */
+                        if (fds[i] == i + 3)
+                                continue;
+
+                        nfd = fcntl(fds[i], F_DUPFD, i + 3);
+                        if (nfd < 0)
+                                return -errno;
+
+                        safe_close(fds[i]);
+                        fds[i] = nfd;
+
+                        /* Hmm, the fd we wanted isn't free? Then
+                         * let's remember that and try again from here */
+                        if (nfd != i + 3 && restart_from < 0)
+                                restart_from = i;
+                }
+
+                if (restart_from < 0)
+                        break;
+
+                start = restart_from;
+        }
+
+        assert(fds[0] == 3);
+
+        return 0;
+}
+
 int same_fd(int a, int b) {
         struct stat sta, stb;
         pid_t pid;
