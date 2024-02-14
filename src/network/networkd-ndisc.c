@@ -267,7 +267,26 @@ static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return r;
 
-        is_new = address_get(link, address, NULL) < 0;
+        Address *existing;
+        if (address_get_harder(link, address, &existing) < 0)
+                is_new = true;
+        else if (address_can_update(existing, address))
+                is_new = false;
+        else if (existing->source == NETWORK_CONFIG_SOURCE_DHCP6) {
+                /* SLAAC address is preferred over DHCPv6 address. */
+                log_link_debug(link, "Conflicting DHCPv6 address %s exists, removing.",
+                               IN_ADDR_PREFIX_TO_STRING(existing->family, &existing->in_addr, existing->prefixlen));
+                r = address_remove(existing, link);
+                if (r < 0)
+                        return r;
+
+                is_new = true;
+        } else {
+                /* Conflicting static address is configured?? */
+                log_link_debug(link, "Conflicting address %s exists, ignoring request.",
+                               IN_ADDR_PREFIX_TO_STRING(existing->family, &existing->in_addr, existing->prefixlen));
+                return 0;
+        }
 
         r = link_request_address(link, address, &link->ndisc_messages,
                                  ndisc_address_handler, NULL);
