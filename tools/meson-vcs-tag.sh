@@ -35,8 +35,11 @@ else
         fi
     fi
     [ -z "$c" ] && c="${project_version}"
-    # Replace any hyphens with dots which are allowed in versions by pacman whereas hyphens are not. Git
-    # versions with dots will also sort higher than their non-git version counterpart both in pacman
-    # versioning and in version format specification versioning.
-    echo "$c" | sed 's/^v//; s/-/./g'
+    # Add an 'r' prefix to the first component of git describe's output. Also replace any hyphens with dots
+    # which are allowed in versions by pacman whereas hyphens are not. Git versions with dots will also sort
+    # higher than their non-git version counterpart both in pacman versioning and in version format
+    # specification versioning.
+    #
+    # v255-1880-gcc45d5d => 255.r1880.gcc45d5d
+    echo "$c" | sed 's/^v//; s/\([^-]*-g\)/r\1/; s/-/./g'
 fi
