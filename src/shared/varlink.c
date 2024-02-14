@@ -1206,7 +1206,7 @@ static int generic_method_get_info(
         return varlink_replyb(link, JSON_BUILD_OBJECT(
                                               JSON_BUILD_PAIR_STRING("vendor", "The systemd Project"),
                                               JSON_BUILD_PAIR_STRING("product", product),
-                                              JSON_BUILD_PAIR_STRING("version", STRINGIFY(PROJECT_VERSION) " (" GIT_VERSION ")"),
+                                              JSON_BUILD_PAIR_STRING("version", PROJECT_VERSION_FULL " (" GIT_VERSION ")"),
                                               JSON_BUILD_PAIR_STRING("url", "https://systemd.io/"),
                                               JSON_BUILD_PAIR_STRV("interfaces", interfaces)));
 }

@@ -64,7 +64,7 @@ static void manager_dump_header(Manager *m, FILE *f, const char *prefix) {
          * stable between versions. We take the liberty to restructure it entirely between versions and
          * add/remove fields at will. */
 
-        fprintf(f, "%sManager: systemd " STRINGIFY(PROJECT_VERSION) " (" GIT_VERSION ")\n", strempty(prefix));
+        fprintf(f, "%sManager: systemd " PROJECT_VERSION_FULL " (" GIT_VERSION ")\n", strempty(prefix));
         fprintf(f, "%sFeatures: %s\n", strempty(prefix), systemd_features);
 
         for (ManagerTimestamp q = 0; q < _MANAGER_TIMESTAMP_MAX; q++) {
