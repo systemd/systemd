@@ -29,7 +29,7 @@ int chattr_full(
 
         assert(dir_fd >= 0 || dir_fd == AT_FDCWD);
 
-        fd = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, /* xopen_flags = */ 0, /* mode = */ 0);
+        fd = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW);
         if (fd < 0)
                 return fd;
 
