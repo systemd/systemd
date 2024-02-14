@@ -758,4 +758,39 @@ static int intro(void) {
         return EXIT_SUCCESS;
 }
 
+TEST(readlinkat_malloc) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+        _cleanup_free_ char *p = NULL, *q = NULL;
+        const char *expect = "hgoehogefoobar";
+
+        tfd = mkdtemp_open(NULL, O_PATH, &t);
+        assert_se(tfd >= 0);
+
+        assert_se(symlinkat(expect, tfd, "linkname") >= 0);
+
+        assert_se(readlinkat_malloc(tfd, "linkname", &p) >= 0);
+        assert_se(streq(p, expect));
+        p = mfree(p);
+
+        fd = openat(tfd, "linkname", O_PATH | O_NOFOLLOW | O_CLOEXEC);
+        assert_se(fd >= 0);
+        assert_se(readlinkat_malloc(fd, NULL, &p) >= 0);
+        assert_se(streq(p, expect));
+        p = mfree(p);
+        assert_se(readlinkat_malloc(fd, "", &p) >= 0);
+        assert_se(streq(p, expect));
+        p = mfree(p);
+        fd = safe_close(fd);
+
+        assert_se(q = path_join(t, "linkname"));
+        assert_se(readlinkat_malloc(AT_FDCWD, q, &p) >= 0);
+        assert_se(streq(p, expect));
+        p = mfree(p);
+        assert_se(readlinkat_malloc(INT_MAX, q, &p) >= 0);
+        assert_se(streq(p, expect));
+        p = mfree(p);
+        q = mfree(q);
+}
+
 DEFINE_TEST_MAIN_WITH_INTRO(LOG_INFO, intro);
