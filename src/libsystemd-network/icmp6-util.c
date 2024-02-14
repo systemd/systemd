@@ -108,6 +108,32 @@ int icmp6_bind_router_solicitation(int ifindex) {
         return icmp6_bind(&filter, &mreq);
 }
 
+int icmp6_bind_neighbor_advertisement(int ifindex) {
+        struct icmp6_filter filter = {};
+        struct ipv6_mreq mreq = {
+                .ipv6mr_multiaddr = IN6ADDR_ALL_NODES_MULTICAST_INIT,
+                .ipv6mr_interface = ifindex,
+        };
+
+        ICMP6_FILTER_SETBLOCKALL(&filter);
+        ICMP6_FILTER_SETPASS(ND_NEIGHBOR_ADVERT, &filter);
+
+        return icmp6_bind(&filter, &mreq);
+}
+
+int icmp6_bind_neighbor_solicitation(int ifindex) {
+        struct icmp6_filter filter = {};
+        struct ipv6_mreq mreq = {
+                .ipv6mr_multiaddr = IN6ADDR_ALL_ROUTERS_MULTICAST_INIT,
+                .ipv6mr_interface = ifindex,
+        };
+
+        ICMP6_FILTER_SETBLOCKALL(&filter);
+        ICMP6_FILTER_SETPASS(ND_NEIGHBOR_SOLICIT, &filter);
+
+        return icmp6_bind(&filter, &mreq);
+}
+
 int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
         struct sockaddr_in6 dst = {
                 .sin6_family = AF_INET6,
