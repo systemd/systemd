@@ -23,7 +23,14 @@ rm -rf /run/systemd/system/testsuite-55-testbloat.service.d
 
 # Activate swap file if we are in a VM
 if systemd-detect-virt --vm --quiet; then
-    mkswap /swapfile
+    if [[ "$(findmnt -n -o FSTYPE /)" == btrfs ]]; then
+        btrfs filesystem mkswapfile -s 64M /swapfile
+    else
+        dd if=/dev/zero of=/swapfile bs=1M count=64
+        chmod 0600 /swapfile
+        mkswap /swapfile
+    fi
+
     swapon /swapfile
     swapon --show
 fi
