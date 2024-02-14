@@ -402,7 +402,7 @@ int sd_radv_start(sd_radv *ra) {
         if (r < 0)
                 goto fail;
 
-        r = icmp6_bind_router_advertisement(ra->ifindex);
+        r = icmp6_bind_router_solicitation(ra->ifindex);
         if (r < 0)
                 goto fail;
 
