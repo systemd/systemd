@@ -13,6 +13,11 @@ if ! command -v bootctl >/dev/null; then
     exit 0
 fi
 
+if [[ ! -d /usr/lib/systemd/boot/efi ]]; then
+    echo "sd-boot is not installed, skipping."
+    exit 0
+fi
+
 # shellcheck source=test/units/util.sh
 . "$(dirname "$0")"/util.sh
 
