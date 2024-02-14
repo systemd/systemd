@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: LGPL-2.1-or-later
 
 project('systemd', 'c',
-        version : '255',
+        version : '256~devel',
         license : 'LGPLv2+',
         default_options: [
                 'c_std=gnu11',
@@ -18,8 +18,9 @@ libudev_version = '1.7.8'
 
 conf = configuration_data()
 conf.set_quoted('PROJECT_URL', 'https://systemd.io/')
-conf.set('PROJECT_VERSION', meson.project_version(),
+conf.set('PROJECT_VERSION', meson.project_version().split('~')[0],
          description : 'Numerical project version (used where a simple number is expected)')
+conf.set_quoted('PROJECT_VERSION_FULL', meson.project_version(), description : 'Full project version')
 
 # This is to be used instead of meson.source_root(), as the latter will return
 # the wrong result when systemd is being built as a meson subproject
@@ -2559,11 +2560,16 @@ foreach exec : public_programs
                      args : exec.full_path(),
                      depends: exec)
 
+                version = meson.project_version()
+                if name == 'udevadm'
+                        version = version.split('~')[0]
+                endif
+
                 test('check-version-' + name,
                      check_version,
                      suite : 'dist',
                      args : [exec.full_path(),
-                             meson.project_version()],
+                             version],
                      depends: exec)
         endif
 endforeach
