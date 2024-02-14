@@ -55,7 +55,7 @@ static inline bool must_serialise(struct iovec iov) {
 
         assert(iov.iov_len == 0 || iov.iov_base);
 
-        char *s = iov.iov_base;
+        const uint8_t *s = iov.iov_base;
         bool before_value = true;
 
         FOREACH_ARRAY(c, s, iov.iov_len) {
