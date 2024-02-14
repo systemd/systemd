@@ -15,7 +15,7 @@
 #include "missing_network.h"
 #include "ndisc-internal.h"
 #include "ndisc-protocol.h"
-#include "ndisc-router.h"
+#include "ndisc-router-internal.h"
 #include "strv.h"
 
 DEFINE_PUBLIC_TRIVIAL_REF_UNREF_FUNC(sd_ndisc_router, sd_ndisc_router, mfree);
