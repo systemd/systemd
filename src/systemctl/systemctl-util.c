@@ -434,6 +434,9 @@ int need_daemon_reload(sd_bus *bus, const char *unit) {
 void warn_unit_file_changed(const char *unit) {
         assert(unit);
 
+        if (arg_no_warn)
+                return;
+
         log_warning("Warning: The unit file, source configuration file or drop-ins of %s changed on disk. Run 'systemctl%s daemon-reload' to reload units.",
                     unit,
                     arg_runtime_scope == RUNTIME_SCOPE_SYSTEM ? "" : " --user");
