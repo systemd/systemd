@@ -205,7 +205,6 @@ static int ndisc_request_route(Route *route, Link *link, sd_ndisc_router *rt) {
         route->provider.in6 = router;
         if (!route->table_set)
                 route->table = link_get_ipv6_accept_ra_route_table(link);
-        ndisc_set_route_priority(link, route);
         if (!route->protocol_set)
                 route->protocol = RTPROT_RA;
         r = route_metric_set(&route->metric, RTAX_MTU, mtu);
@@ -221,6 +220,47 @@ static int ndisc_request_route(Route *route, Link *link, sd_ndisc_router *rt) {
         r = route_adjust_nexthops(route, link);
         if (r < 0)
                 return r;
+
+        uint8_t pref, pref_original = route->pref;
+        FOREACH_ARGUMENT(pref, SD_NDISC_PREFERENCE_LOW, SD_NDISC_PREFERENCE_MEDIUM, SD_NDISC_PREFERENCE_HIGH) {
+                Route *existing;
+                Request *req;
+
+                /* If the preference is specified by the user config (that is, for semi-static routes),
+                 * rather than RA, then only search conflicting routes that have the same preference. */
+                if (route->pref_set && pref != pref_original)
+                        continue;
+
+                route->pref = pref;
+                ndisc_set_route_priority(link, route);
+
+                /* Note, here do not call route_remove_and_cancel() with 'route' directly, otherwise
+                 * existing route(s) may be removed needlessly. */
+
+                if (route_get(link->manager, route, &existing) >= 0) {
+                        /* Found an existing route that may conflict with this route. */
+                        if (!route_can_update(existing, route)) {
+                                log_link_debug(link, "Found an existing route that conflicts with new route based on a received RA, removing.");
+                                r = route_remove_and_cancel(existing, link->manager);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+
+                if (route_get_request(link->manager, route, &req) >= 0) {
+                        existing = ASSERT_PTR(req->userdata);
+                        if (!route_can_update(existing, route)) {
+                                log_link_debug(link, "Found a pending route request that conflicts with new request based on a received RA, cancelling.");
+                                r = route_remove_and_cancel(existing, link->manager);
+                                if (r < 0)
+                                        return r;
+                        }
+                }
+        }
+
+        /* The preference (and priority) may be changed in the above loop. Restore it. */
+        route->pref = pref_original;
+        ndisc_set_route_priority(link, route);
 
         is_new = route_get(link->manager, route, NULL) < 0;
 
@@ -440,6 +480,41 @@ static int ndisc_router_process_retransmission_time(Link *link, sd_ndisc_router 
         if (r < 0)
                 log_link_warning_errno(
                         link, r, "Failed to apply neighbor retransmission time (%"PRIu64"), ignoring: %m", msec);
+
+        return 0;
+}
+
+static int ndisc_router_process_hop_limit(Link *link, sd_ndisc_router *rt) {
+        uint8_t hop_limit;
+        int r;
+
+        assert(link);
+        assert(link->network);
+        assert(rt);
+
+        if (!link->network->ipv6_accept_ra_use_hop_limit)
+                return 0;
+
+        r = sd_ndisc_router_get_hop_limit(rt, &hop_limit);
+        if (r < 0)
+                return log_link_warning_errno(link, r, "Failed to get hop limit from RA: %m");
+
+        /* 0 is the unspecified value and must not be set (see RFC4861, 6.3.4):
+         *
+         * A Router Advertisement field (e.g., Cur Hop Limit, Reachable Time, and Retrans Timer) may contain
+         * a value denoting that it is unspecified. In such cases, the parameter should be ignored and the
+         * host should continue using whatever value it is already using. In particular, a host MUST NOT
+         * interpret the unspecified value as meaning change back to the default value that was in use before
+         * the first Router Advertisement was received.
+         *
+         * If the received Cur Hop Limit value is non-zero, the host SHOULD set
+         * its CurHopLimit variable to the received value.*/
+        if (hop_limit <= 0)
+                return 0;
+
+        r = sysctl_write_ip_property_uint32(AF_INET6, link->ifname, "hop_limit", (uint32_t) hop_limit);
+        if (r < 0)
+                log_link_warning_errno(link, r, "Failed to apply hop_limit (%u), ignoring: %m", hop_limit);
 
         return 0;
 }
@@ -1480,6 +1555,10 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         if (r < 0)
                 return r;
 
+        r = ndisc_router_process_hop_limit(link, rt);
+        if (r < 0)
+                return r;
+
         r = ndisc_router_process_options(link, rt);
         if (r < 0)
                 return r;
@@ -1640,7 +1719,8 @@ int ndisc_stop(Link *link) {
 void ndisc_flush(Link *link) {
         assert(link);
 
-        /* Remove all RDNSS, DNSSL, and Captive Portal entries, without exception. */
+        /* Remove all addresses, routes, RDNSS, DNSSL, and Captive Portal entries, without exception. */
+        (void) ndisc_drop_outdated(link, /* timestamp_usec = */ USEC_INFINITY);
 
         link->ndisc_rdnss = set_free(link->ndisc_rdnss);
         link->ndisc_dnssl = set_free(link->ndisc_dnssl);
