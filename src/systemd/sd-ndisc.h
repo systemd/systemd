@@ -52,6 +52,7 @@ _SD_DEFINE_POINTER_CLEANUP_FUNC(sd_ndisc, sd_ndisc_unref);
 
 int sd_ndisc_start(sd_ndisc *nd);
 int sd_ndisc_stop(sd_ndisc *nd);
+int sd_ndisc_is_running(sd_ndisc *nd);
 
 int sd_ndisc_attach_event(sd_ndisc *nd, sd_event *event, int64_t priority);
 int sd_ndisc_detach_event(sd_ndisc *nd);
