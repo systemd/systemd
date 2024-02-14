@@ -1246,6 +1246,27 @@
 
         <xi:include href="version-info.xml" xpointer="v201"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>CoredumpLimitInterval=<replaceable>interval</replaceable></varname></term>
+        <term><varname>CoredumpLimitBurst=<replaceable>burst</replaceable></varname></term>
+        <term><varname>CoredumpLimitPerBoot=<replaceable>per_boot</replaceable></varname></term>
+        <listitem><para>Configures the rate limiting that is applied to
+        core dumps generated per service. Whenever a service crashes, the number of
+        core dump files present in the core dump path belonging to that service which
+        are generated within the interval time would be compared against the burst
+        value and per boot. If the burst value is reached, the core dump will not
+        be processed further for generation. Additionally, if the maximum number of
+        core dumps generated per service per boot is reached, the core dump will not
+        be processed further for generation. This rate limiting is applied per
+        service so that multiple services crashing together would not interfere with each
+        other's rate limits. Core dump generation rate limit is disabled by default.
+        <option>CoredumpLimitInterval=</option> may be specified in the following units:
+        <literal>s</literal>, <literal>min</literal>, <literal>h</literal>,
+        <literal>ms</literal>, <literal>us</literal>.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
     </variablelist>
 
     <refsect2>
