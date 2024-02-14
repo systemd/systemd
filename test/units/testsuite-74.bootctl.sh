@@ -263,4 +263,13 @@ EOF
     SYSTEMD_RELAX_ESP_CHECKS=yes SYSTEMD_RELAX_XBOOTLDR_CHECKS=yes basic_tests --root "${IMAGE_DIR}/root"
 }
 
+testcase_bootctl_varlink() {
+    varlinkctl call --collect /run/systemd/io.systemd.BootControl io.systemd.BootControl.ListBootEntries '{}'
+
+    # We have no UEFI in the test environment, hence just check that this fails cleanly
+    ( SYSTEMD_LOG_TARGET=console varlinkctl call --json=short /run/systemd/io.systemd.BootControl io.systemd.BootControl.GetRebootToFirmware '{}' 2>&1 || true ) | grep -q io.systemd.BootControl.RebootToFirmwareNotSupported
+    ( SYSTEMD_LOG_TARGET=console varlinkctl call --json=short /run/systemd/io.systemd.BootControl io.systemd.BootControl.SetRebootToFirmware '{"state":true}' 2>&1 || true ) | grep -q io.systemd.BootControl.RebootToFirmwareNotSupported
+    ( SYSTEMD_LOG_TARGET=console varlinkctl call --json=short /run/systemd/io.systemd.BootControl io.systemd.BootControl.SetRebootToFirmware '{"state":false}' 2>&1 || true ) | grep -q io.systemd.BootControl.RebootToFirmwareNotSupported
+}
+
 run_testcases
