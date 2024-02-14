@@ -31,7 +31,7 @@ static const char * const ndisc_event_table[_SD_NDISC_EVENT_MAX] = {
 
 DEFINE_STRING_TABLE_LOOKUP(ndisc_event, sd_ndisc_event_t);
 
-static void ndisc_callback(sd_ndisc *ndisc, sd_ndisc_event_t event, sd_ndisc_router *rt) {
+static void ndisc_callback(sd_ndisc *ndisc, sd_ndisc_event_t event, void *message) {
         assert(ndisc);
         assert(event >= 0 && event < _SD_NDISC_EVENT_MAX);
 
@@ -39,7 +39,7 @@ static void ndisc_callback(sd_ndisc *ndisc, sd_ndisc_event_t event, sd_ndisc_rou
                 return (void) log_ndisc(ndisc, "Received '%s' event.", ndisc_event_to_string(event));
 
         log_ndisc(ndisc, "Invoking callback for '%s' event.", ndisc_event_to_string(event));
-        ndisc->callback(ndisc, event, rt, ndisc->userdata);
+        ndisc->callback(ndisc, event, message, ndisc->userdata);
 }
 
 int sd_ndisc_is_running(sd_ndisc *nd) {
