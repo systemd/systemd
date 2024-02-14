@@ -1112,14 +1112,14 @@ install_fs_tools() {
 install_modules() {
     dinfo "Install modules"
 
-    instmods bridge dummy ipvlan macvlan vfat veth
+    instmods bridge dummy ext4 ipvlan macvlan vfat veth
     instmods loop =block
     instmods nls_ascii =nls
     instmods overlay =overlayfs
     instmods scsi_debug
 
     if get_bool "$LOOKS_LIKE_SUSE"; then
-        instmods ext4 af_packet
+        instmods af_packet
     fi
 }
 
