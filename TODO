@@ -2216,8 +2216,6 @@ Features:
   - fingerprint authentication, pattern authentication, …
   - make sure "classic" user records can also be managed by homed
   - make size of $XDG_RUNTIME_DIR configurable in user record
-  - query password from kernel keyring first
-  - update even if record is "absent"
   - move acct mgmt stuff from pam_systemd_home to pam_systemd?
   - when "homectl --pkcs11-token-uri=" is used, synthesize ssh-authorized-keys records for all keys we have private keys on the stick for
   - make slice for users configurable (requires logind rework)
@@ -2246,10 +2244,6 @@ Features:
     can easily set overall quota for all users
   - on login, if we can't fallocate initially, but rebalance is on, then allow
     login in discard mode, then immediately rebalance, then turn off discard
-  - extend user records with optional "bulk" data. Specifically, a user
-    avatar/photo or so. This data should be stored along with the user record,
-    but probably shouldn't be part of the record itself, since it might be
-    large.
   - add "homectl unbind" command to remove local user record of an inactive
     home dir
 
