@@ -202,7 +202,7 @@ static int send_ra(uint8_t flags) {
         return 0;
 }
 
-static void test_callback(sd_ndisc *nd, sd_ndisc_event_t event, sd_ndisc_router *rt, void *userdata) {
+static void test_callback(sd_ndisc *nd, sd_ndisc_event_t event, void *message, void *userdata) {
         sd_event *e = userdata;
         static unsigned idx = 0;
         uint64_t flags_array[] = {
@@ -218,6 +218,8 @@ static void test_callback(sd_ndisc *nd, sd_ndisc_event_t event, sd_ndisc_router 
 
         if (event != SD_NDISC_EVENT_ROUTER)
                 return;
+
+        sd_ndisc_router *rt = ASSERT_PTR(message);
 
         router_dump(rt);
 
