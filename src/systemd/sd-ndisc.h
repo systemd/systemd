@@ -26,6 +26,7 @@
 #include <sys/types.h>
 
 #include "sd-event.h"
+#include "sd-ndisc-neighbor.h"
 #include "sd-ndisc-protocol.h"
 #include "sd-ndisc-router.h"
 
@@ -38,6 +39,7 @@ typedef struct sd_ndisc sd_ndisc;
 __extension__ typedef enum sd_ndisc_event_t {
         SD_NDISC_EVENT_TIMEOUT,
         SD_NDISC_EVENT_ROUTER,
+        SD_NDISC_EVENT_NEIGHBOR,
         _SD_NDISC_EVENT_MAX,
         _SD_NDISC_EVENT_INVALID = -EINVAL,
         _SD_ENUM_FORCE_S64(NDISC_EVENT)
