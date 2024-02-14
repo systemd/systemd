@@ -132,6 +132,10 @@ Deprecations and removals:
 
 Features:
 
+* in os-release define a field that can be initialized at build time from
+  SOURCE_DATE_EPOCH (maybe even under that name?). Would then be used to
+  initialize the timestamp logic of ConditionNeedsUpdate=.
+
 * new systemd-analyze "join" verb or so, for debugging services. Would be
   nsenter on steroids, i.e invoke a shell or command line in an environment as
   close as we can make it for the MainPID of a service. Should be built around
