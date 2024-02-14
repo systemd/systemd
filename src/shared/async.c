@@ -63,7 +63,33 @@ static int close_func(void *p) {
         return 0;
 }
 
-int asynchronous_close(int fd) {
+static int fsync_and_close_func(void *p) {
+        unsigned v = PTR_TO_UINT(p);
+
+        (void) prctl(PR_SET_NAME, (unsigned long*) "(sd-fsync-close)");
+
+        /* Note: 💣 This function is invoked in a child process created via glibc's clone() wrapper. In such
+         *       children memory allocation is not allowed, since glibc does not release malloc mutexes in
+         *       clone() 💣 */
+
+        if (v & NEED_DOUBLE_FORK) {
+                pid_t pid;
+
+                v &= ~NEED_DOUBLE_FORK;
+
+                /* This inner child will be reparented to the subreaper/PID 1. Here we turn on SIGCHLD, so
+                 * that the reaper knows when it's time to reap. */
+                pid = clone_with_nested_stack(fsync_and_close_func, SIGCHLD|CLONE_FILES, UINT_TO_PTR(v));
+                if (pid >= 0)
+                        return 0;
+        }
+
+        fsync((int) v);
+        close((int) v); /* no assert() here, we are in the child and the result would be eaten up anyway */
+        return 0;
+}
+
+int asynchronous_close_full(int fd, bool also_fsync) {
         unsigned v;
         pid_t pid;
         int r;
@@ -92,10 +118,13 @@ int asynchronous_close(int fd) {
         if (r <= 0)
                 v |= NEED_DOUBLE_FORK;
 
-        pid = clone_with_nested_stack(close_func, CLONE_FILES | ((v & NEED_DOUBLE_FORK) ? 0 : SIGCHLD), UINT_TO_PTR(v));
-        if (pid < 0)
+        pid = clone_with_nested_stack(also_fsync ? fsync_and_close_func : close_func,
+                                      CLONE_FILES | ((v & NEED_DOUBLE_FORK) ? 0 : SIGCHLD), UINT_TO_PTR(v));
+        if (pid < 0) {
+                if (also_fsync)
+                        (void) fsync(fd);
                 safe_close(fd); /* local fallback */
-        else if (v & NEED_DOUBLE_FORK) {
+        } else if (v & NEED_DOUBLE_FORK) {
 
                 /* Reap the intermediate child. Key here is that we specify __WCLONE, since we didn't ask for
                  * any signal to be sent to us on process exit, and otherwise waitid() would refuse waiting
