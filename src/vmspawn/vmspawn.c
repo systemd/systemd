@@ -1212,13 +1212,18 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         if (r < 0)
                 return log_oom();
 
-        r = strv_extendf(&cmdline, "if=pflash,format=%s,readonly=on,file=%s", ovmf_config_format(ovmf_config), ovmf_config->path);
+        _cleanup_free_ char *escaped_ovmf_config_path = escape_qemu_value(ovmf_config->path);
+        if (!escaped_ovmf_config_path)
+                return log_oom();
+
+        r = strv_extendf(&cmdline, "if=pflash,format=%s,readonly=on,file=%s", ovmf_config_format(ovmf_config), escaped_ovmf_config_path);
         if (r < 0)
                 return log_oom();
 
         _cleanup_(unlink_and_freep) char *ovmf_vars_to = NULL;
         if (ovmf_config->supports_sb) {
                 const char *ovmf_vars_from = ovmf_config->vars;
+                _cleanup_free_ char *escaped_ovmf_vars_to = NULL;
                 _cleanup_close_ int source_fd = -EBADF, target_fd = -EBADF;
 
                 r = tempfn_random_child(NULL, "vmspawn-", &ovmf_vars_to);
@@ -1250,7 +1255,11 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return log_oom();
 
-                r = strv_extendf(&cmdline, "file=%s,if=pflash,format=%s", ovmf_vars_to, ovmf_config_format(ovmf_config));
+                escaped_ovmf_vars_to = escape_qemu_value(ovmf_vars_to);
+                if (!escaped_ovmf_vars_to)
+                        return log_oom();
+
+                r = strv_extendf(&cmdline, "file=%s,if=pflash,format=%s", escaped_ovmf_vars_to, ovmf_config_format(ovmf_config));
                 if (r < 0)
                         return log_oom();
         }
@@ -1270,13 +1279,19 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         if (arg_image) {
+                _cleanup_free_ char *escaped_image = NULL;
+
                 assert(!arg_directory);
 
                 r = strv_extend(&cmdline, "-drive");
                 if (r < 0)
                         return log_oom();
 
-                r = strv_extendf(&cmdline, "if=none,id=mkosi,file=%s,format=raw", arg_image);
+                escaped_image = escape_qemu_value(arg_image);
+                if (!escaped_image)
+                        log_oom();
+
+                r = strv_extendf(&cmdline, "if=none,id=mkosi,file=%s,format=raw", escaped_image);
                 if (r < 0)
                         return log_oom();
 
@@ -1288,16 +1303,21 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         if (arg_directory) {
-                _cleanup_free_ char *sock_path = NULL, *sock_name = NULL;
+                _cleanup_free_ char *sock_path = NULL, *sock_name = NULL, *escaped_sock_path = NULL;
+
                 r = start_virtiofsd(bus, trans_scope, arg_directory, /* uidmap= */ true, &sock_path, &sock_name);
                 if (r < 0)
                         return r;
+
+                escaped_sock_path = escape_qemu_value(sock_path);
+                if (!escaped_sock_path)
+                        log_oom();
 
                 r = strv_extend(&cmdline, "-chardev");
                 if (r < 0)
                         return log_oom();
 
-                r = strv_extendf(&cmdline, "socket,id=%1$s,path=%2$s/%1$s", sock_name, sock_path);
+                r = strv_extendf(&cmdline, "socket,id=%1$s,path=%2$s/%1$s", sock_name, escaped_sock_path);
                 if (r < 0)
                         return log_oom();
 
@@ -1319,16 +1339,20 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 return log_oom();
 
         FOREACH_ARRAY(mount, arg_runtime_mounts.mounts, arg_runtime_mounts.n_mounts) {
-                _cleanup_free_ char *sock_path = NULL, *sock_name = NULL, *clean_target = NULL;
+                _cleanup_free_ char *sock_path = NULL, *sock_name = NULL, *clean_target = NULL, *escaped_sock_path = NULL;
                 r = start_virtiofsd(bus, trans_scope, mount->source, /* uidmap= */ false, &sock_path, &sock_name);
                 if (r < 0)
                         return r;
+
+                escaped_sock_path = escape_qemu_value(sock_path);
+                if (!escaped_sock_path)
+                        log_oom();
 
                 r = strv_extend(&cmdline, "-chardev");
                 if (r < 0)
                         return log_oom();
 
-                r = strv_extendf(&cmdline, "socket,id=%1$s,path=%2$s/%1$s", sock_name, sock_path);
+                r = strv_extendf(&cmdline, "socket,id=%1$s,path=%2$s/%1$s", sock_name, escaped_sock_path);
                 if (r < 0)
                         return log_oom();
 
@@ -1351,7 +1375,7 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
         }
 
         if (ARCHITECTURE_SUPPORTS_SMBIOS) {
-                _cleanup_free_ char *kcl = strv_join(arg_kernel_cmdline_extra, " ");
+                _cleanup_free_ char *kcl = strv_join(arg_kernel_cmdline_extra, " "), *escaped_kcl = NULL;
                 if (!kcl)
                         return log_oom();
 
@@ -1361,11 +1385,15 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 return log_oom();
                 } else {
                         if (ARCHITECTURE_SUPPORTS_SMBIOS) {
+                                escaped_kcl = escape_qemu_value(kcl);
+                                if (!escaped_kcl)
+                                        log_oom();
+
                                 r = strv_extend(&cmdline, "-smbios");
                                 if (r < 0)
                                         return log_oom();
 
-                                r = strv_extendf(&cmdline, "type=11,value=io.systemd.stub.kernel-cmdline-extra=%s", kcl);
+                                r = strv_extendf(&cmdline, "type=11,value=io.systemd.stub.kernel-cmdline-extra=%s", escaped_kcl);
                                 if (r < 0)
                                         return log_oom();
                         } else
@@ -1398,6 +1426,8 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
 
         _cleanup_free_ const char *tpm_state_tempdir = NULL;
         if (swtpm) {
+                _cleanup_free_ char *escaped_state_dir = NULL;
+
                 r = start_tpm(bus, trans_scope, swtpm, &tpm_state_tempdir);
                 if (r < 0) {
                         /* only bail if the user asked for a tpm */
@@ -1406,11 +1436,15 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         log_debug_errno(r, "Failed to start tpm, ignoring: %m");
                 }
 
+                escaped_state_dir = escape_qemu_value(tpm_state_tempdir);
+                if (!escaped_state_dir)
+                        log_oom();
+
                 r = strv_extend(&cmdline, "-chardev");
                 if (r < 0)
                         return log_oom();
 
-                r = strv_extendf(&cmdline, "socket,id=chrtpm,path=%s/sock", tpm_state_tempdir);
+                r = strv_extendf(&cmdline, "socket,id=chrtpm,path=%s/sock", escaped_state_dir);
                 if (r < 0)
                         return log_oom();
 
