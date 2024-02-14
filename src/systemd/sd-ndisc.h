@@ -26,6 +26,7 @@
 #include <sys/types.h>
 
 #include "sd-event.h"
+#include "sd-ndisc-neighbor.h"
 #include "sd-ndisc-protocol.h"
 #include "sd-ndisc-router.h"
 
