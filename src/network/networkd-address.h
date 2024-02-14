@@ -85,6 +85,8 @@ void link_get_address_states(
 
 extern const struct hash_ops address_hash_ops;
 
+bool address_can_update(const Address *existing, const Address *requesting);
+
 Address* address_ref(Address *address);
 Address* address_unref(Address *address);
 
@@ -101,7 +103,7 @@ bool link_check_addresses_ready(Link *link, NetworkConfigSource source);
 
 DEFINE_SECTION_CLEANUP_FUNCTIONS(Address, address_unref);
 
-int link_drop_managed_addresses(Link *link);
+int link_drop_static_addresses(Link *link);
 int link_drop_foreign_addresses(Link *link);
 int link_drop_ipv6ll_addresses(Link *link);
 void link_foreignize_addresses(Link *link);
