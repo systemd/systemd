@@ -3,6 +3,10 @@
 set -e
 
 TEST_DESCRIPTION="Test various scenarios involving transition from/to initrd"
+# Note: for debugging systemd.journald.max_level_console=debug might come in handy
+#       as well, but it's not used here since it's _very_ noisy and slows the test
+#       down a lot
+KERNEL_APPEND="${KERNEL_APPEND:-} systemd.journald.forward_to_console=1"
 TEST_NO_NSPAWN=1
 
 # shellcheck source=test/test-functions
