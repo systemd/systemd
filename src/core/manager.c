@@ -4192,6 +4192,10 @@ int manager_set_unit_defaults(Manager *m, const UnitDefaults *defaults) {
         m->defaults.start_limit_interval = defaults->start_limit_interval;
         m->defaults.start_limit_burst = defaults->start_limit_burst;
 
+        m->defaults.coredump_limit_interval = defaults->coredump_limit_interval;
+        m->defaults.coredump_limit_burst = defaults->coredump_limit_burst;
+        m->defaults.coredump_limit_per_boot = defaults->coredump_limit_per_boot;
+
         m->defaults.cpu_accounting = defaults->cpu_accounting;
         m->defaults.memory_accounting = defaults->memory_accounting;
         m->defaults.io_accounting = defaults->io_accounting;
@@ -4959,6 +4963,9 @@ void unit_defaults_init(UnitDefaults *defaults, RuntimeScope scope) {
                 .device_timeout_usec = manager_default_timeout(scope),
                 .start_limit_interval = DEFAULT_START_LIMIT_INTERVAL,
                 .start_limit_burst = DEFAULT_START_LIMIT_BURST,
+                .coredump_limit_interval = DEFAULT_COREDUMP_LIMIT_INTERVAL,
+                .coredump_limit_burst = DEFAULT_COREDUMP_LIMIT_BURST,
+                .coredump_limit_per_boot = DEFAULT_COREDUMP_LIMIT_PER_BOOT,
 
                 /* On 4.15+ with unified hierarchy, CPU accounting is essentially free as it doesn't require the CPU
                  * controller to be enabled, so the default is to enable it unless we got told otherwise. */

@@ -350,6 +350,10 @@ typedef struct Unit {
         RateLimit start_ratelimit;
         EmergencyAction start_limit_action;
 
+        /* Put a ratelimit on coredump generation */
+        RateLimit coredump_ratelimit;
+        unsigned coredump_limit_per_boot;
+
         /* The unit has been marked for reload, restart, etc. Stored as 1u << marker1 | 1u << marker2. */
         unsigned markers;
 
@@ -515,6 +519,8 @@ typedef struct Unit {
         bool reset_accounting:1;
 
         bool start_limit_hit:1;
+        bool coredump_limit_hit:1;
+        bool coredump_limit_patched:1;
 
         /* Did we already invoke unit_coldplug() for this unit? */
         bool coldplugged:1;
