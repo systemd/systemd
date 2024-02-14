@@ -1037,7 +1037,9 @@ class Utilities():
                 for link in links_with_operstate:
                     name = link.split(':')[0]
                     if link_exists(name):
-                        networkctl_status(name)
+                        print(networkctl_status(name))
+                    else:
+                        print(f'Interface {name} not found.')
             raise
         if not bool_any and setup_state:
             for link in links_with_operstate:
