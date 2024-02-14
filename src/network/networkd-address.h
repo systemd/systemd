@@ -85,6 +85,8 @@ void link_get_address_states(
 
 extern const struct hash_ops address_hash_ops;
 
+bool address_can_update(const Address *existing, const Address *requesting);
+
 Address* address_ref(Address *address);
 Address* address_unref(Address *address);
 
