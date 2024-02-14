@@ -309,6 +309,15 @@
 
           <xi:include href="version-info.xml" xpointer="v256"/></listitem>
         </varlistentry>
+
+        <varlistentry>
+          <term><option>--extra-drive=</option><replaceable>PATH</replaceable></term>
+
+          <listitem><para>Takes a disk image or block device on the host and supplies it to the virtual machine as another drive.</para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+        </varlistentry>
+
       </variablelist>
     </refsect2>
 
