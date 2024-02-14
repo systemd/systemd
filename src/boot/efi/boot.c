@@ -2288,7 +2288,7 @@ static EFI_STATUS initrd_prepare(
                         continue;
 
                 size_t new_size, read_size = info->FileSize;
-                if (__builtin_add_overflow(size, read_size, &new_size))
+                if (!ADD_SAFE(&new_size, size, read_size))
                         return EFI_OUT_OF_RESOURCES;
                 initrd = xrealloc(initrd, size, new_size);
 

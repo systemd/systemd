@@ -1261,7 +1261,8 @@ foreach ident : ['crypt_set_metadata_size',
                  'crypt_reencrypt_init_by_passphrase',
                  'crypt_reencrypt',
                  'crypt_set_data_offset',
-                 'crypt_set_keyring_to_link']
+                 'crypt_set_keyring_to_link',
+                 'crypt_resume_by_volume_key']
         have_ident = have and cc.has_function(
                 ident,
                 prefix : '#include <libcryptsetup.h>',

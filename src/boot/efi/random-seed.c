@@ -4,7 +4,7 @@
 #include "proto/rng.h"
 #include "random-seed.h"
 #include "secure-boot.h"
-#include "sha256.h"
+#include "sha256-fundamental.h"
 #include "util.h"
 
 #define RANDOM_MAX_SIZE_MIN (32U)
