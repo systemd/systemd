@@ -67,7 +67,7 @@ if meson.is_cross_build() and get_option('sbat-distro') == 'auto'
         warning('Auto detection of SBAT information not supported when cross-building, disabling SBAT.')
 elif get_option('sbat-distro') != ''
         efi_conf.set_quoted('SBAT_PROJECT', meson.project_name())
-        efi_conf.set_quoted('PROJECT_VERSION', meson.project_version())
+        efi_conf.set_quoted('PROJECT_VERSION', meson.project_version().split('~')[0])
         efi_conf.set('PROJECT_URL', conf.get('PROJECT_URL'))
         if get_option('sbat-distro-generation') < 1
                 error('SBAT Distro Generation must be a positive integer')
@@ -385,7 +385,7 @@ foreach efi_elf_binary : efi_elf_binaries
                 install_tag : 'systemd-boot',
                 command : [
                         elf2efi_py,
-                        '--version-major=' + meson.project_version(),
+                        '--version-major=' + meson.project_version().split('~')[0],
                         '--version-minor=0',
                         '--efi-major=1',
                         '--efi-minor=1',

@@ -1366,7 +1366,7 @@ static int verb_monitor(int argc, char **argv, void *userdata) {
 static int verb_capture(int argc, char **argv, void *userdata) {
         _cleanup_free_ char *osname = NULL;
         static const char info[] =
-                "busctl (systemd) " STRINGIFY(PROJECT_VERSION) " (Git " GIT_VERSION ")";
+                "busctl (systemd) " PROJECT_VERSION_FULL " (Git " GIT_VERSION ")";
         int r;
 
         if (isatty(STDOUT_FILENO))
