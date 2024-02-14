@@ -38,5 +38,5 @@ else
     # Replace any hyphens with carets which are allowed in versions by pacman whereas hyphens are not. Git
     # versions with carets will also sort higher than their non-git version counterpart both in pacman
     # versioning and in version comparison spec versioning.
-    echo "$c" | sed 's/^v//; s/-/^/g'
+    echo "$c" | sed 's/^v//; s/\([^-]*-g\)/r\1/; s/-/^/g'
 fi
