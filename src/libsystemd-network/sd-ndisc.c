@@ -42,6 +42,13 @@ static void ndisc_callback(sd_ndisc *ndisc, sd_ndisc_event_t event, sd_ndisc_rou
         ndisc->callback(ndisc, event, rt, ndisc->userdata);
 }
 
+int sd_ndisc_is_running(sd_ndisc *nd) {
+        if (!nd)
+                return false;
+
+        return sd_event_source_get_enabled(nd->recv_event_source, NULL) > 0;
+}
+
 int sd_ndisc_set_callback(
                 sd_ndisc *nd,
                 sd_ndisc_callback_t callback,
@@ -58,7 +65,7 @@ int sd_ndisc_set_callback(
 int sd_ndisc_set_ifindex(sd_ndisc *nd, int ifindex) {
         assert_return(nd, -EINVAL);
         assert_return(ifindex > 0, -EINVAL);
-        assert_return(nd->fd < 0, -EBUSY);
+        assert_return(!sd_ndisc_is_running(nd), -EBUSY);
 
         nd->ifindex = ifindex;
         return 0;
@@ -104,7 +111,7 @@ int sd_ndisc_attach_event(sd_ndisc *nd, sd_event *event, int64_t priority) {
         int r;
 
         assert_return(nd, -EINVAL);
-        assert_return(nd->fd < 0, -EBUSY);
+        assert_return(!sd_ndisc_is_running(nd), -EBUSY);
         assert_return(!nd->event, -EBUSY);
 
         if (event)
@@ -123,7 +130,7 @@ int sd_ndisc_attach_event(sd_ndisc *nd, sd_event *event, int64_t priority) {
 int sd_ndisc_detach_event(sd_ndisc *nd) {
 
         assert_return(nd, -EINVAL);
-        assert_return(nd->fd < 0, -EBUSY);
+        assert_return(!sd_ndisc_is_running(nd), -EBUSY);
 
         nd->event = sd_event_unref(nd->event);
         return 0;
@@ -316,7 +323,7 @@ int sd_ndisc_stop(sd_ndisc *nd) {
         if (!nd)
                 return 0;
 
-        if (nd->fd < 0)
+        if (!sd_ndisc_is_running(nd))
                 return 0;
 
         log_ndisc(nd, "Stopping IPv6 Router Solicitation client");
@@ -333,7 +340,7 @@ int sd_ndisc_start(sd_ndisc *nd) {
         assert_return(nd->event, -EINVAL);
         assert_return(nd->ifindex > 0, -EINVAL);
 
-        if (nd->fd >= 0)
+        if (sd_ndisc_is_running(nd))
                 return 0;
 
         assert(!nd->recv_event_source);
