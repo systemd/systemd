@@ -43,7 +43,7 @@ __extension__ typedef enum sd_ndisc_event_t {
         _SD_ENUM_FORCE_S64(NDISC_EVENT)
 } sd_ndisc_event_t;
 
-typedef void (*sd_ndisc_callback_t)(sd_ndisc *nd, sd_ndisc_event_t event, sd_ndisc_router *rt, void *userdata);
+typedef void (*sd_ndisc_callback_t)(sd_ndisc *nd, sd_ndisc_event_t event, void *message, void *userdata);
 
 int sd_ndisc_new(sd_ndisc **ret);
 sd_ndisc *sd_ndisc_ref(sd_ndisc *nd);
