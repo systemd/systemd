@@ -892,11 +892,7 @@ static int dir_cleanup(
                                 continue;
 
                         if (!arg_dry_run) {
-                                fd = xopenat(dirfd(d),
-                                             de->d_name,
-                                             O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME|O_NONBLOCK,
-                                             /* xopen_flags = */ 0,
-                                             /* mode = */ 0);
+                                fd = xopenat(dirfd(d), de->d_name, O_RDONLY|O_CLOEXEC|O_NOFOLLOW|O_NOATIME|O_NONBLOCK);
                                 if (fd < 0 && !IN_SET(fd, -ENOENT, -ELOOP))
                                         log_warning_errno(fd, "Opening file \"%s\" failed, ignoring: %m", sub_path);
                                 if (fd >= 0 && flock(fd, LOCK_EX|LOCK_NB) < 0 && errno == EAGAIN) {
