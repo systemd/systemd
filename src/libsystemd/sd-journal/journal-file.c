@@ -281,6 +281,8 @@ JournalFile* journal_file_close(JournalFile *f) {
 
         assert(f->newest_boot_id_prioq_idx == PRIOQ_IDX_NULL);
 
+        sd_event_source_disable_unref(f->post_change_timer);
+
         if (f->cache_fd)
                 mmap_cache_fd_free(f->cache_fd);
 
@@ -4342,6 +4344,11 @@ int journal_file_archive(JournalFile *f, char **ret_previous_path) {
         if (!endswith(f->path, ".journal"))
                 return -EINVAL;
 
+        if (le64toh(f->header->head_entry_seqnum) == 0)
+                /* We may asynchronously copy file later e.g. on btrfs. During copying, if
+                 * journal_directory_vacuum() is called, a broken archive file may be created. */
+                return -ENODATA;
+
         if (asprintf(&p, "%.*s@" SD_ID128_FORMAT_STR "-%016"PRIx64"-%016"PRIx64".journal",
                      (int) strlen(f->path) - 8, f->path,
                      SD_ID128_FORMAT_VAL(f->header->seqnum_id),
@@ -4358,11 +4365,9 @@ int journal_file_archive(JournalFile *f, char **ret_previous_path) {
         (void) fsync_directory_of_file(f->fd);
 
         if (ret_previous_path)
-                *ret_previous_path = f->path;
-        else
-                free(f->path);
+                *ret_previous_path = TAKE_PTR(f->path);
 
-        f->path = TAKE_PTR(p);
+        free_and_replace(f->path, p);
 
         /* Set as archive so offlining commits w/state=STATE_ARCHIVED. Previously we would set old_file->header->state
          * to STATE_ARCHIVED directly here, but journal_file_set_offline() short-circuits when state != STATE_ONLINE,
