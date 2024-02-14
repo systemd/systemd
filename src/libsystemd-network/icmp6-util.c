@@ -29,8 +29,7 @@
         { { { 0xff, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
               0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01 } } }
 
-static int icmp6_bind_router_message(const struct icmp6_filter *filter,
-                                     const struct ipv6_mreq *mreq) {
+static int icmp6_bind(const struct icmp6_filter *filter, const struct ipv6_mreq *mreq) {
         int ifindex = mreq->ipv6mr_interface;
         _cleanup_close_ int s = -EBADF;
         int r;
@@ -83,7 +82,7 @@ static int icmp6_bind_router_message(const struct icmp6_filter *filter,
         return TAKE_FD(s);
 }
 
-int icmp6_bind_router_solicitation(int ifindex) {
+int icmp6_bind_router_advertisement(int ifindex) {
         struct icmp6_filter filter = {};
         struct ipv6_mreq mreq = {
                 .ipv6mr_multiaddr = IN6ADDR_ALL_NODES_MULTICAST_INIT,
@@ -93,10 +92,10 @@ int icmp6_bind_router_solicitation(int ifindex) {
         ICMP6_FILTER_SETBLOCKALL(&filter);
         ICMP6_FILTER_SETPASS(ND_ROUTER_ADVERT, &filter);
 
-        return icmp6_bind_router_message(&filter, &mreq);
+        return icmp6_bind(&filter, &mreq);
 }
 
-int icmp6_bind_router_advertisement(int ifindex) {
+int icmp6_bind_router_solicitation(int ifindex) {
         struct icmp6_filter filter = {};
         struct ipv6_mreq mreq = {
                 .ipv6mr_multiaddr = IN6ADDR_ALL_ROUTERS_MULTICAST_INIT,
@@ -106,7 +105,7 @@ int icmp6_bind_router_advertisement(int ifindex) {
         ICMP6_FILTER_SETBLOCKALL(&filter);
         ICMP6_FILTER_SETPASS(ND_ROUTER_SOLICIT, &filter);
 
-        return icmp6_bind_router_message(&filter, &mreq);
+        return icmp6_bind(&filter, &mreq);
 }
 
 int icmp6_send_router_solicitation(int s, const struct ether_addr *ether_addr) {
