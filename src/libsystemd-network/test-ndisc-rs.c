@@ -193,7 +193,7 @@ static int send_ra(uint8_t flags) {
 
         advertisement[5] = flags;
 
-        assert_se(write(test_fd[1], advertisement, sizeof(advertisement)) ==
+        assert_se(write(test_router_fd[1], advertisement, sizeof(advertisement)) ==
                   sizeof(advertisement));
 
         if (verbose)
@@ -262,13 +262,13 @@ TEST(rs) {
         assert_se(sd_ndisc_start(nd) >= 0);
         assert_se(sd_ndisc_start(nd) >= 0);
         assert_se(sd_ndisc_stop(nd) >= 0);
-        test_fd[1] = safe_close(test_fd[1]);
+        test_router_fd[1] = safe_close(test_router_fd[1]);
 
         assert_se(sd_ndisc_start(nd) >= 0);
 
         assert_se(sd_event_loop(e) >= 0);
 
-        test_fd[1] = safe_close(test_fd[1]);
+        test_router_fd[1] = safe_close(test_router_fd[1]);
 }
 
 static int send_ra_invalid_domain(uint8_t flags) {
@@ -308,7 +308,7 @@ static int send_ra_invalid_domain(uint8_t flags) {
 
         printf("sizeof(nd_router_advert)=%zu\n", sizeof(struct nd_router_advert));
 
-        assert_se(write(test_fd[1], advertisement, sizeof(advertisement)) ==
+        assert_se(write(test_router_fd[1], advertisement, sizeof(advertisement)) ==
                   sizeof(advertisement));
 
         if (verbose)
@@ -342,7 +342,7 @@ TEST(invalid_domain) {
 
         assert_se(sd_event_loop(e) >= 0);
 
-        test_fd[1] = safe_close(test_fd[1]);
+        test_router_fd[1] = safe_close(test_router_fd[1]);
 }
 
 static int test_timeout_value(uint8_t flags) {
@@ -420,7 +420,7 @@ TEST(timeout) {
 
         assert_se(sd_event_loop(e) >= 0);
 
-        test_fd[1] = safe_close(test_fd[1]);
+        test_router_fd[1] = safe_close(test_router_fd[1]);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
