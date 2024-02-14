@@ -516,11 +516,9 @@ static int address_compare_func(const Address *a1, const Address *a2) {
         }
 }
 
-static bool address_can_update(const Address *la, const Address *na) {
-        assert(la);
-        assert(la->link);
-        assert(na);
-        assert(na->network);
+bool address_can_update(const Address *existing, const Address *requesting) {
+        assert(existing);
+        assert(requesting);
 
         /*
          * property     |    IPv4     |  IPv6
@@ -545,32 +543,32 @@ static bool address_can_update(const Address *la, const Address *na) {
          * IPv6 : See inet6_addr_modify() in net/ipv6/addrconf.c.
          */
 
-        if (la->family != na->family)
+        if (existing->family != requesting->family)
                 return false;
 
-        if (la->prefixlen != na->prefixlen)
+        if (existing->prefixlen != requesting->prefixlen)
                 return false;
 
         /* When a null address is requested, the address to be assigned/updated will be determined later. */
-        if (!address_is_static_null(na) &&
-            in_addr_equal(la->family, &la->in_addr, &na->in_addr) <= 0)
+        if (!address_is_static_null(requesting) &&
+            in_addr_equal(existing->family, &existing->in_addr, &requesting->in_addr) <= 0)
                 return false;
 
-        switch (la->family) {
+        switch (existing->family) {
         case AF_INET: {
                 struct in_addr bcast;
 
-                if (la->scope != na->scope)
+                if (existing->scope != requesting->scope)
                         return false;
-                if (((la->flags ^ na->flags) & KNOWN_FLAGS & ~IPV6ONLY_FLAGS & ~UNMANAGED_FLAGS) != 0)
+                if (((existing->flags ^ requesting->flags) & KNOWN_FLAGS & ~IPV6ONLY_FLAGS & ~UNMANAGED_FLAGS) != 0)
                         return false;
-                if (!streq_ptr(la->label, na->label))
+                if (!streq_ptr(existing->label, requesting->label))
                         return false;
-                if (!in4_addr_equal(&la->in_addr_peer.in, &na->in_addr_peer.in))
+                if (!in4_addr_equal(&existing->in_addr_peer.in, &requesting->in_addr_peer.in))
                         return false;
-                if (address_get_broadcast(na, la->link, &bcast) >= 0) {
+                if (existing->link && address_get_broadcast(requesting, existing->link, &bcast) >= 0) {
                         /* If the broadcast address can be determined now, check if they match. */
-                        if (!in4_addr_equal(&la->broadcast, &bcast))
+                        if (!in4_addr_equal(&existing->broadcast, &bcast))
                                 return false;
                 } else {
                         /* When a null address is requested, then the broadcast address will be
@@ -578,7 +576,7 @@ static bool address_can_update(const Address *la, const Address *na) {
                          *     192.168.0.10/24 -> 192.168.0.255
                          * So, here let's only check if the broadcast is the last address in the range, e.g.
                          *     0.0.0.0/24 -> 0.0.0.255 */
-                        if (!FLAGS_SET(la->broadcast.s_addr, htobe32(UINT32_C(0xffffffff) >> la->prefixlen)))
+                        if (!FLAGS_SET(existing->broadcast.s_addr, htobe32(UINT32_C(0xffffffff) >> existing->prefixlen)))
                                 return false;
                 }
                 break;
@@ -1385,15 +1383,16 @@ int link_drop_foreign_addresses(Link *link) {
         return r;
 }
 
-int link_drop_managed_addresses(Link *link) {
+int link_drop_static_addresses(Link *link) {
         Address *address;
         int r = 0;
 
         assert(link);
 
         SET_FOREACH(address, link->addresses) {
-                /* Do not touch addresses managed by kernel or other tools. */
-                if (address->source == NETWORK_CONFIG_SOURCE_FOREIGN)
+                /* Remove only static addresses here. Dynamic addresses will be removed e.g. on lease
+                 * expiration or stopping the DHCP client. */
+                if (address->source != NETWORK_CONFIG_SOURCE_STATIC)
                         continue;
 
                 /* Ignore addresses not assigned yet or already removing. */
