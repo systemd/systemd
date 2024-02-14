@@ -22,6 +22,7 @@
 #include "journald-wall.h"
 #include "memfd-util.h"
 #include "memory-util.h"
+#include "missing_fcntl.h"
 #include "parse-util.h"
 #include "path-util.h"
 #include "process-util.h"
@@ -342,8 +343,33 @@ void server_process_native_file(
         assert(s);
         assert(fd >= 0);
 
-        /* If it's a memfd, check if it is sealed. If so, we can just
-         * mmap it and use it, and do not need to copy the data out. */
+        if (fstat(fd, &st) < 0) {
+                log_ratelimit_error_errno(errno, JOURNAL_LOG_RATELIMIT, "Failed to stat passed file, ignoring: %m");
+                return;
+        }
+
+        r = stat_verify_regular(&st);
+        if (r < 0) {
+                log_ratelimit_error_errno(r, JOURNAL_LOG_RATELIMIT, "File passed is not regular, ignoring: %m");
+                return;
+        }
+
+        if (st.st_size <= 0)
+                return;
+
+        int flags = fcntl(fd, F_GETFL);
+        if (flags < 0) {
+                log_ratelimit_error_errno(errno, JOURNAL_LOG_RATELIMIT, "Failed to get flags of passed file, ignoring: %m");
+                return;
+        }
+
+        if ((flags & ~(O_ACCMODE|RAW_O_LARGEFILE)) != 0) {
+                log_ratelimit_error(JOURNAL_LOG_RATELIMIT, "Unexpected flags of passed memory fd, ignoring message: %m");
+                return;
+        }
+
+        /* If it's a memfd, check if it is sealed. If so, we can just mmap it and use it, and do not need to
+         * copy the data out. */
         sealed = memfd_get_sealed(fd) > 0;
 
         if (!sealed && (!ucred || ucred->uid != 0)) {
@@ -374,23 +400,8 @@ void server_process_native_file(
                 }
         }
 
-        if (fstat(fd, &st) < 0) {
-                log_ratelimit_error_errno(errno, JOURNAL_LOG_RATELIMIT,
-                                          "Failed to stat passed file, ignoring: %m");
-                return;
-        }
-
-        if (!S_ISREG(st.st_mode)) {
-                log_ratelimit_error(JOURNAL_LOG_RATELIMIT,
-                                    "File passed is not regular. Ignoring.");
-                return;
-        }
-
-        if (st.st_size <= 0)
-                return;
-
-        /* When !sealed, set a lower memory limit. We have to read the file,
-         * effectively doubling memory use. */
+        /* When !sealed, set a lower memory limit. We have to read the file, effectively doubling memory
+         * use. */
         if (st.st_size > ENTRY_SIZE_MAX / (sealed ? 1 : 2)) {
                 log_ratelimit_error(JOURNAL_LOG_RATELIMIT,
                                     "File passed too large (%"PRIu64" bytes). Ignoring.",
