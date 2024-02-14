@@ -276,7 +276,7 @@ static int radv_recv(sd_event_source *s, int fd, uint32_t revents, void *userdat
         unsigned char buf[168];
         size_t i;
 
-        assert_se(read(test_fd[0], &buf, sizeof(buf)) == sizeof(buf));
+        assert_se(read(test_router_fd[0], &buf, sizeof(buf)) == sizeof(buf));
 
         /* router lifetime must be zero when test is stopped */
         if (test_stopped) {
@@ -322,7 +322,7 @@ TEST(ra) {
         _cleanup_(sd_event_source_unrefp) sd_event_source *recv_router_advertisement = NULL;
         _cleanup_(sd_radv_unrefp) sd_radv *ra = NULL;
 
-        assert_se(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd) >= 0);
+        assert_se(socketpair(AF_UNIX, SOCK_SEQPACKET | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_router_fd) >= 0);
 
         assert_se(sd_event_new(&e) >= 0);
 
@@ -361,7 +361,7 @@ TEST(ra) {
                 assert_se(!p);
         }
 
-        assert_se(sd_event_add_io(e, &recv_router_advertisement, test_fd[0], EPOLLIN, radv_recv, ra) >= 0);
+        assert_se(sd_event_add_io(e, &recv_router_advertisement, test_router_fd[0], EPOLLIN, radv_recv, ra) >= 0);
         assert_se(sd_event_source_set_io_fd_own(recv_router_advertisement, true) >= 0);
 
         assert_se(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
