@@ -57,7 +57,7 @@ int link_drop_nexthops(Link *link, bool foreign);
 static inline int link_drop_foreign_nexthops(Link *link) {
         return link_drop_nexthops(link, /* foreign = */ true);
 }
-static inline int link_drop_managed_nexthops(Link *link) {
+static inline int link_drop_static_nexthops(Link *link) {
         return link_drop_nexthops(link, /* foreign = */ false);
 }
 void link_foreignize_nexthops(Link *link);
