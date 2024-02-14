@@ -15,7 +15,7 @@
 #include "in-addr-util.h"
 #include "memory-util.h"
 #include "ndisc-internal.h"
-#include "ndisc-router.h"
+#include "ndisc-router-internal.h"
 #include "network-common.h"
 #include "random-util.h"
 #include "socket-util.h"
