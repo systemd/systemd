@@ -5,7 +5,8 @@
  * Compile with 'cc sd_bus_service_reconnect.c $(pkg-config --libs --cflags libsystemd)'
  *
  * To allow the program to take ownership of the name 'org.freedesktop.ReconnectExample',
- * add the following as /etc/dbus-1/system.d/org.freedesktop.ReconnectExample.conf:
+ * add the following as /etc/dbus-1/system.d/org.freedesktop.ReconnectExample.conf
+ * and then reload the broker with 'systemctl reload dbus':
 
 <?xml version="1.0"?> <!--*-nxml-*-->
 <!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-BUS Bus Configuration 1.0//EN"
@@ -92,6 +93,23 @@ static int on_disconnect(sd_bus_message *message, void *userdata, sd_bus_error *
   return 0;
 }
 
+/* Ensure the event loop exits with a clear error if acquiring the well-known service name fails */
+static int request_name_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
+  if (sd_bus_message_is_method_error(m, NULL)) {
+    int r = sd_bus_message_get_errno(m);
+
+    if (sd_bus_message_is_method_error(m, SD_BUS_ERROR_TIMEOUT) ||
+        sd_bus_message_is_method_error(m, SD_BUS_ERROR_NO_REPLY))
+      return 1; /* The bus is not available, try again later */
+
+    printf("Failed to request name: %s\n", strerror(r));
+    object *o = userdata;
+    check(sd_event_exit(*o->event, -r));
+  }
+
+  return 1;
+}
+
 static int setup(object *o) {
   /* If we are reconnecting, then the bus object needs to be closed, detached from
    * the event loop and recreated.
@@ -135,15 +153,16 @@ static int setup(object *o) {
                                  o));
   /* By default the service is only assigned an ephemeral name. Also add a well-known
    * one, so that clients know whom to call. This needs to be asynchronous, as
-   * D-Bus might not be yet available.
+   * D-Bus might not be yet available. The callback will check whether the error is
+   * expected or not, in case it fails.
    * https://www.freedesktop.org/software/systemd/man/sd_bus_request_name.html
    */
   check(sd_bus_request_name_async(*o->bus,
                                   NULL,
                                   "org.freedesktop.ReconnectExample",
                                   0,
-                                  NULL,
-                                  NULL));
+                                  request_name_callback,
+                                  o));
   /* When D-Bus is disconnected this callback will be invoked, which will
    * set up the connection again. This needs to be asynchronous, as D-Bus might not
    * yet be available.
