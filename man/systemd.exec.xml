@@ -1184,9 +1184,9 @@ CapabilityBoundingSet=~CAP_B CAP_C</programlisting>
       <varlistentry>
         <term><varname>IgnoreSIGPIPE=</varname></term>
 
-        <listitem><para>Takes a boolean argument. If true, causes <constant>SIGPIPE</constant> to be ignored in the
-        executed process. Defaults to true because <constant>SIGPIPE</constant> generally is useful only in shell
-        pipelines.</para></listitem>
+        <listitem><para>Takes a boolean argument. If true, <constant>SIGPIPE</constant> is ignored in the
+        executed process. Defaults to true since <constant>SIGPIPE</constant> is generally only useful in
+        shell pipelines.</para></listitem>
       </varlistentry>
 
     </variablelist>
