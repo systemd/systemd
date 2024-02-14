@@ -16,14 +16,14 @@ static struct in6_addr dummy_link_local = {
         },
 };
 
-int icmp6_bind_router_solicitation(int ifindex) {
+int icmp6_bind_router_advertisement(int ifindex) {
         if (socketpair(AF_UNIX, SOCK_DGRAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0, test_fd) < 0)
                 return -errno;
 
         return test_fd[0];
 }
 
-int icmp6_bind_router_advertisement(int ifindex) {
+int icmp6_bind_router_solicitation(int ifindex) {
         return test_fd[1];
 }
 
