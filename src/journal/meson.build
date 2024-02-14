@@ -24,8 +24,7 @@ libjournal_core = static_library(
         'journal-core',
         sources,
         include_directories : includes,
-        dependencies: [threads,
-                       userspace],
+        dependencies : userspace,
         build_by_default : false)
 
 if get_option('link-journalctl-shared')
@@ -66,7 +65,6 @@ executables += [
                         libselinux,
                         libxz,
                         libzstd,
-                        threads,
                 ],
         },
         libexec_template + {
@@ -85,7 +83,6 @@ executables += [
                         libjournal_core,
                         libshared,
                 ],
-                'dependencies' : threads,
         },
         executable_template + {
                 'name' : 'journalctl',
@@ -97,7 +94,6 @@ executables += [
                         liblz4,
                         libxz,
                         libzstd,
-                        threads,
                 ],
         },
         journal_test_template + {
@@ -114,7 +110,6 @@ executables += [
                         liblz4,
                         libselinux,
                         libxz,
-                        threads,
                 ],
         },
         journal_test_template + {
