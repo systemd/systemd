@@ -281,6 +281,8 @@ JournalFile* journal_file_close(JournalFile *f) {
 
         assert(f->newest_boot_id_prioq_idx == PRIOQ_IDX_NULL);
 
+        sd_event_source_disable_unref(f->post_change_timer);
+
         if (f->cache_fd)
                 mmap_cache_fd_free(f->cache_fd);
 
