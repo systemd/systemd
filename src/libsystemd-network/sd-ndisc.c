@@ -352,7 +352,7 @@ int sd_ndisc_start(sd_ndisc *nd) {
         if (r < 0)
                 goto fail;
 
-        nd->fd = icmp6_bind_router_solicitation(nd->ifindex);
+        nd->fd = icmp6_bind(nd->ifindex, /* is_router = */ false);
         if (nd->fd < 0)
                 return nd->fd;
 
