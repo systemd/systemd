@@ -8,7 +8,7 @@
 TEST(systemd_installation_has_version) {
         int r;
 
-        FOREACH_STRING(version, "0", "231", STRINGIFY(PROJECT_VERSION), "999") {
+        FOREACH_STRING(version, "0", "231", PROJECT_VERSION_FULL, "999") {
                 r = systemd_installation_has_version(saved_argv[1], version);
                 assert_se(r >= 0);
                 log_info("%s has systemd >= %s: %s",
