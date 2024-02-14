@@ -25,7 +25,6 @@ libsystemd_journal_remote = static_library(
                         liblz4,
                         libmicrohttpd,
                         libxz,
-                        threads,
                         userspace],
         build_by_default : false)
 
@@ -41,7 +40,6 @@ common_deps = [
         liblz4,
         libxz,
         libzstd,
-        threads,
 ]
 
 executables += [
