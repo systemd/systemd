@@ -1693,7 +1693,7 @@ static int ndisc_router_handler(Link *link, sd_ndisc_router *rt) {
         return 0;
 }
 
-static void ndisc_handler(sd_ndisc *nd, sd_ndisc_event_t event, sd_ndisc_router *rt, void *userdata) {
+static void ndisc_handler(sd_ndisc *nd, sd_ndisc_event_t event, void *message, void *userdata) {
         Link *link = ASSERT_PTR(userdata);
         int r;
 
@@ -1703,7 +1703,7 @@ static void ndisc_handler(sd_ndisc *nd, sd_ndisc_event_t event, sd_ndisc_router 
         switch (event) {
 
         case SD_NDISC_EVENT_ROUTER:
-                r = ndisc_router_handler(link, rt);
+                r = ndisc_router_handler(link, ASSERT_PTR(message));
                 if (r < 0 && r != -EBADMSG) {
                         link_enter_failed(link);
                         return;
