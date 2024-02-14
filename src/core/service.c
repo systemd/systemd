@@ -34,6 +34,7 @@
 #include "path-util.h"
 #include "process-util.h"
 #include "random-util.h"
+#include "rlimit-util.h"
 #include "selinux-util.h"
 #include "serialize.h"
 #include "service.h"
@@ -167,6 +168,8 @@ static void service_init(Unit *u) {
         s->reload_signal = SIGHUP;
 
         s->fd_store_preserve_mode = EXEC_PRESERVE_RESTART;
+
+        s->n_coredumps = 0;
 }
 
 static void service_unwatch_control_pid(Service *s) {
@@ -1899,6 +1902,50 @@ static int cgroup_good(Service *s) {
         return r == 0;
 }
 
+static void service_process_coredump_rate_limits(Service *s) {
+        assert(s);
+
+        usec_t interval = UNIT(s)->coredump_ratelimit.interval;
+        unsigned burst = UNIT(s)->coredump_ratelimit.burst;
+        unsigned per_boot = UNIT(s)->coredump_limit_per_boot;
+
+        if ((burst == 0 || interval == 0) && per_boot == 0)
+                /* No rate limiting */
+                return;
+
+        ExecContext *ec = &s->exec_context;
+
+        if (!UNIT(s)->coredump_limit_patched && burst > 0) {
+                /* Minus one since we receive SIGCHLD after coredumps are generated
+                 * and since ratelimit_below() uses weak inequality. */
+                UNIT(s)->coredump_ratelimit.burst--;
+                UNIT(s)->coredump_limit_patched = true;
+        }
+
+        if (!UNIT(s)->coredump_limit_hit) {
+                /* Prevent overflow */
+                if (_unlikely_(s->n_coredumps == UINT_MAX))
+                        s->n_coredumps--;
+
+                s->n_coredumps++;
+        }
+
+        bool rate_limit_hit = (s->n_coredumps >= per_boot) || (!ratelimit_below(&UNIT(s)->coredump_ratelimit));
+
+        if ((!UNIT(s)->coredump_limit_hit) && rate_limit_hit) {
+                UNIT(s)->coredump_limit_hit = true;
+                log_unit_warning(UNIT(s), "Core dump generation rate limit has been reached.");
+                struct rlimit rl = (struct rlimit) { .rlim_cur = 0, .rlim_max = 0 };
+                ec->rlimit[RLIMIT_CORE] = newdup(struct rlimit, &rl, 1);
+        } else if (UNIT(s)->coredump_limit_hit && (!rate_limit_hit)) {
+                UNIT(s)->coredump_limit_hit = false;
+                log_unit_debug(UNIT(s), "Core dump generation has been re-enabled.");
+                ec->rlimit[RLIMIT_CORE] = UNIT(s)->manager->defaults.rlimit[RLIMIT_CORE];
+        }
+
+        return;
+}
+
 static bool service_shall_restart(Service *s, const char **reason) {
         assert(s);
 
@@ -2038,6 +2085,15 @@ static void service_enter_dead(Service *s, ServiceResult f, bool allow_restart) 
                  * user can still introspect the counter. Do so on the next start. */
                 s->flush_n_restarts = true;
         }
+
+        /* Process coredump rate limits if necessary. A known limitation is that any
+         * resource limits would be imposed until the next execution of service_enter_dead()
+         * for that service. This is because the kernel generates the coredump first before
+         * sending SIGCHLD. That said, this approach provides the ability for userspace to
+         * use custom coredump handlers while still having the option to enforce these
+         * rate limits without manually implementing these limits in the custom handlers. */
+        if (s->result == SERVICE_FAILURE_CORE_DUMP)
+                service_process_coredump_rate_limits(s);
 
         /* The new state is in effect, let's decrease the fd store ref counter again. Let's also re-add us to the GC
          * queue, so that the fd store is possibly gc'ed again */

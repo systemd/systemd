@@ -695,6 +695,9 @@ static int parse_config_file(void) {
                 { "Manager", "DefaultStartLimitInterval",    config_parse_sec,                   0,                        &arg_defaults.start_limit_interval}, /* obsolete alias */
                 { "Manager", "DefaultStartLimitIntervalSec", config_parse_sec,                   0,                        &arg_defaults.start_limit_interval},
                 { "Manager", "DefaultStartLimitBurst",       config_parse_unsigned,              0,                        &arg_defaults.start_limit_burst   },
+                { "Manager", "DefaultCoredumpLimitInterval", config_parse_sec,                   0,                        &arg_defaults.coredump_limit_interval},
+                { "Manager", "DefaultCoredumpLimitBurst",    config_parse_unsigned,              0,                        &arg_defaults.coredump_limit_burst},
+                { "Manager", "DefaultCoredumpLimitPerBoot",  config_parse_unsigned,              0,                        &arg_defaults.coredump_limit_per_boot},
                 { "Manager", "DefaultEnvironment",           config_parse_environ,               arg_runtime_scope,        &arg_default_environment          },
                 { "Manager", "ManagerEnvironment",           config_parse_environ,               arg_runtime_scope,        &arg_manager_environment          },
                 { "Manager", "DefaultLimitCPU",              config_parse_rlimit,                RLIMIT_CPU,               arg_defaults.rlimit               },
