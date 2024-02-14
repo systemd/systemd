@@ -516,7 +516,7 @@ static int address_compare_func(const Address *a1, const Address *a2) {
         }
 }
 
-static bool address_can_update(const Address *existing, const Address *requesting) {
+bool address_can_update(const Address *existing, const Address *requesting) {
         assert(existing);
         assert(requesting);
 
