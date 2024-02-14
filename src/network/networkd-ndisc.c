@@ -249,8 +249,7 @@ static int ndisc_address_handler(sd_netlink *rtnl, sd_netlink_message *m, Reques
         return 1;
 }
 
-static int ndisc_request_address(Address *in, Link *link, sd_ndisc_router *rt) {
-        _cleanup_(address_unrefp) Address *address = in;
+static int ndisc_request_address(Address *address, Link *link, sd_ndisc_router *rt) {
         struct in6_addr router;
         bool is_new;
         int r;
@@ -485,7 +484,7 @@ static int ndisc_router_process_autonomous_prefix(Link *link, sd_ndisc_router *r
                 address->lifetime_valid_usec = lifetime_valid_usec;
                 address->lifetime_preferred_usec = lifetime_preferred_usec;
 
-                r = ndisc_request_address(TAKE_PTR(address), link, rt);
+                r = ndisc_request_address(address, link, rt);
                 if (r < 0)
                         return log_link_warning_errno(link, r, "Could not request SLAAC address: %m");
         }
