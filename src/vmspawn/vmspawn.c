@@ -85,6 +85,7 @@ static char *arg_runtime_directory = NULL;
 static bool arg_runtime_directory_created = false;
 static bool arg_privileged = false;
 static char **arg_kernel_cmdline_extra = NULL;
+static char **arg_extra_drives = NULL;
 
 STATIC_DESTRUCTOR_REGISTER(arg_directory, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_image, freep);
@@ -97,6 +98,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_linux, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_initrds, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_runtime_mounts, runtime_mount_context_done);
 STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline_extra, strv_freep);
+STATIC_DESTRUCTOR_REGISTER(arg_extra_drives, strv_freep);
 
 static int help(void) {
         _cleanup_free_ char *link = NULL;
@@ -145,6 +147,7 @@ static int help(void) {
                "                            the VM.\n"
                "     --bind-ro=SOURCE[:TARGET]\n"
                "                            Similar, but creates a read-only mount\n"
+               "     --extra-drive=PATH     Adds an additional disk to the virtual machine\n"
                "\n%3$sCredentials:%4$s\n"
                "     --set-credential=ID:VALUE\n"
                "                            Pass a credential with literal value to the\n"
@@ -179,6 +182,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_NETWORK_USER_MODE,
                 ARG_BIND,
                 ARG_BIND_RO,
+                ARG_EXTRA_DRIVE,
                 ARG_SECURE_BOOT,
                 ARG_PRIVATE_USERS,
                 ARG_SET_CREDENTIAL,
@@ -207,6 +211,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "network-user-mode", no_argument,       NULL, ARG_NETWORK_USER_MODE },
                 { "bind",              required_argument, NULL, ARG_BIND              },
                 { "bind-ro",           required_argument, NULL, ARG_BIND_RO           },
+                { "extra-drive",       required_argument, NULL, ARG_EXTRA_DRIVE       },
                 { "secure-boot",       required_argument, NULL, ARG_SECURE_BOOT       },
                 { "private-users",     required_argument, NULL, ARG_PRIVATE_USERS     },
                 { "set-credential",    required_argument, NULL, ARG_SET_CREDENTIAL    },
@@ -352,6 +357,18 @@ static int parse_argv(int argc, char *argv[]) {
 
                         arg_settings_mask |= SETTING_BIND_MOUNTS;
                         break;
+
+                case ARG_EXTRA_DRIVE: {
+                        _cleanup_free_ char *drive_path = NULL;
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &drive_path);
+                        if (r < 0)
+                                return r;
+
+                        r = strv_consume(&arg_extra_drives, TAKE_PTR(drive_path));
+                        if (r < 0)
+                                return log_oom();
+                        break;
+                }
 
                 case ARG_SECURE_BOOT:
                         r = parse_tristate(optarg, &arg_secure_boot);
@@ -1224,6 +1241,22 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                         return log_oom();
 
                 r = strv_extendf(&cmdline, "file=%s,if=pflash,format=%s", escaped_ovmf_vars_to, ovmf_config_format(ovmf_config));
+                if (r < 0)
+                        return log_oom();
+        }
+
+        STRV_FOREACH(drive, arg_extra_drives) {
+                _cleanup_free_ char *escaped_drive = NULL;
+
+                r = strv_extend(&cmdline, "-drive");
+                if (r < 0)
+                        return log_oom();
+
+                escaped_drive = escape_qemu_value(*drive);
+                if (!escaped_drive)
+                        return log_oom();
+
+                r = strv_extendf(&cmdline, "format=raw,cache=unsafe,file=%s", escaped_drive);
                 if (r < 0)
                         return log_oom();
         }
