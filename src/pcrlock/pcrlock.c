@@ -91,6 +91,7 @@ static RecoveryPinMode arg_recovery_pin = RECOVERY_PIN_HIDE;
 static char *arg_policy_path = NULL;
 static bool arg_force = false;
 static BootEntryTokenType arg_entry_token_type = BOOT_ENTRY_TOKEN_AUTO;
+static bool arg_strict = false;
 static char *arg_entry_token = NULL;
 static bool arg_varlink = false;
 static bool arg_quiet = false;
@@ -3068,6 +3069,7 @@ static int unlink_pcrlock(const char *default_pcrlock_path) {
 
 static int event_log_reduce_to_safe_pcrs(EventLog *el, uint32_t *pcrs) {
         _cleanup_free_ char *dropped = NULL, *kept = NULL;
+        bool dropped_relevant_pcr = false;
 
         assert(el);
         assert(pcrs);
@@ -3110,6 +3112,9 @@ static int event_log_reduce_to_safe_pcrs(EventLog *el, uint32_t *pcrs) {
                 continue;
 
         drop:
+                if (arg_strict)
+                        dropped_relevant_pcr = true;
+
                 *pcrs &= ~(UINT32_C(1) << pcr);
 
                 if (strextendf_with_separator(&dropped, ", ", "%" PRIu32 " (%s)", pcr, tpm2_pcr_index_to_string(pcr)) < 0)
@@ -3117,7 +3122,7 @@ static int event_log_reduce_to_safe_pcrs(EventLog *el, uint32_t *pcrs) {
         }
 
         if (dropped)
-                log_notice("PCRs dropped from protection mask: %s", dropped);
+                log_full(dropped_relevant_pcr ? LOG_ERR : LOG_NOTICE, "PCRs dropped from protection mask: %s", dropped);
         else
                 log_debug("No PCRs dropped from protection mask.");
 
@@ -3126,7 +3131,7 @@ static int event_log_reduce_to_safe_pcrs(EventLog *el, uint32_t *pcrs) {
         else
                 log_notice("No PCRs kept in protection mask.");
 
-        return 0;
+        return dropped_relevant_pcr ? -ENOEXEC : 0;
 }
 
 static int pcr_prediction_add_result(
@@ -5499,6 +5504,13 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                             "Boot entry token to use for this installation "
                             "(machine-id, os-id, os-image-id, auto, literal:…)"):
                         r = parse_boot_entry_token_type(opts.arg, &arg_entry_token_type, &arg_entry_token);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                OPTION_LONG("strict", "BOOL",
+                            "Require all PCRs configured via --pcr= included in policy"):
+                        r = parse_boolean_argument("--strict", opts.arg, &arg_strict);
                         if (r < 0)
                                 return r;
                         break;
