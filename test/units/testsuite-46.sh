@@ -314,7 +314,7 @@ if command -v ssh &> /dev/null && command -v sshd &> /dev/null && ! [[ -v ASAN_O
         rm -f /tmp/homed.id_rsa /run/systemd/system/mysshserver.socket /run/systemd/system/mysshserver@.service
         systemctl daemon-reload
         homectl remove homedsshtest ||:
-        mv /etc/pam.d/sshd.save46 mv /etc/pam.d/sshd
+        mv /etc/pam.d/sshd.save46 /etc/pam.d/sshd
     }
 
     trap at_exit EXIT
