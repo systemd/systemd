@@ -25,6 +25,17 @@ executables += [
                         threads,
                 ],
         },
+        executable_template + {
+                'name' : 'bpfctl',
+                'public' : true,
+                'conditions' : ['ENABLE_BPFD'],
+                'sources' : files (
+                        'bpfctl.c',
+                ),
+                'dependencies' : [
+                        threads,
+                ],
+        },
 ]
 
 if conf.get('ENABLE_BPFD') == 1
