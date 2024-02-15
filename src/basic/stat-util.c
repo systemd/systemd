@@ -260,6 +260,26 @@ int path_is_network_fs(const char *path) {
         return is_network_fs(&s);
 }
 
+int stat_verify_linked(const struct stat *st) {
+        assert(st);
+
+        if (st->st_nlink <= 0)
+                return -EIDRM; /* recognizable error. */
+
+        return 0;
+}
+
+int fd_verify_linked(int fd) {
+        struct stat st;
+
+        assert(fd >= 0);
+
+        if (fstat(fd, &st) < 0)
+                return -errno;
+
+        return stat_verify_linked(&st);
+}
+
 int stat_verify_regular(const struct stat *st) {
         assert(st);
 
