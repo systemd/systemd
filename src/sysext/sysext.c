@@ -51,6 +51,15 @@
 #include "varlink-io.systemd.sysext.h"
 #include "verbs.h"
 
+typedef enum MutableMode {
+        MUTABLE_YES,
+        MUTABLE_NO,
+        MUTABLE_AUTO,
+        MUTABLE_IMPORT,
+        _MUTABLE_MAX,
+        _MUTABLE_INVALID = -EINVAL,
+} MutableMode;
+
 static char **arg_hierarchies = NULL; /* "/usr" + "/opt" by default for sysext and /etc by default for confext */
 static char *arg_root = NULL;
 static JsonFormatFlags arg_json_format_flags = JSON_FORMAT_OFF;
@@ -61,6 +70,7 @@ static bool arg_no_reload = false;
 static int arg_noexec = -1;
 static ImagePolicy *arg_image_policy = NULL;
 static bool arg_varlink = false;
+static MutableMode arg_mutable = MUTABLE_AUTO;
 
 /* Is set to IMAGE_CONFEXT when systemd is called with the confext functionality instead of the default */
 static ImageClass arg_image_class = IMAGE_SYSEXT;
@@ -745,9 +755,27 @@ static int resolve_mutable_directory(const char *hierarchy, char **ret_resolved_
         assert(hierarchy);
         assert(ret_resolved_mutable_directory);
 
+        if (arg_mutable == MUTABLE_NO) {
+                log_debug("Mutability for hierarchy '%s' is disabled, not resolving mutable directory.", hierarchy);
+                *ret_resolved_mutable_directory = NULL;
+                return 0;
+        }
+
         path = determine_mutable_directory_path_for_hierarchy(hierarchy);
         if (!path)
                 return log_oom();
+
+        if (arg_mutable == MUTABLE_YES) {
+                _cleanup_free_ char *path_in_root = NULL;
+
+                path_in_root = path_join(arg_root, path);
+                if (!path_in_root)
+                        return log_oom();
+
+                r = mkdir_p(path_in_root, 0700);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to create a directory '%s': %m", path_in_root);
+        }
 
         r = chase(path, arg_root, CHASE_PREFIX_ROOT, &resolved_path, NULL);
         if (r < 0 && r != -ENOENT)
@@ -800,6 +828,13 @@ static int determine_top_lower_dirs(OverlayFSPaths *op, const char *meta_path) {
         r = strv_extend(&op->lower_dirs, meta_path);
         if (r < 0)
                 return log_oom();
+
+        /* If importing mutable layer and it actually exists, add it just below the meta path */
+        if (arg_mutable == MUTABLE_IMPORT && op->resolved_mutable_directory) {
+                r = strv_extend(&op->lower_dirs, op->resolved_mutable_directory);
+                if (r < 0)
+                        return r;
+        }
 
         return 0;
 }
@@ -860,6 +895,11 @@ static int hierarchy_as_lower_dir(OverlayFSPaths *op) {
         if (r > 0) {
                 log_debug("Host hierarchy '%s' is empty, will not be used as lower dir.", op->resolved_hierarchy);
                 return 1;
+        }
+
+        if (arg_mutable == MUTABLE_IMPORT) {
+                log_debug("Mutability for host hierarchy '%s' is disabled, so it will be a lowerdir", op->resolved_hierarchy);
+                return 0;
         }
 
         if (!op->resolved_mutable_directory) {
@@ -933,6 +973,11 @@ static int determine_upper_dir(OverlayFSPaths *op) {
         assert(op);
         assert(!op->upper_dir);
 
+        if (arg_mutable == MUTABLE_IMPORT) {
+                log_debug("Mutability is disabled, there will be no upperdir for host hierarchy '%s'", op->hierarchy);
+                return 0;
+        }
+
         if (!op->resolved_mutable_directory) {
                 log_debug("No mutable directory found for host hierarchy '%s', there will be no upperdir", op->hierarchy);
                 return 0;
@@ -961,6 +1006,9 @@ static int determine_work_dir(OverlayFSPaths *op) {
         assert(!op->work_dir);
 
         if (!op->upper_dir)
+                return 0;
+
+        if (arg_mutable == MUTABLE_IMPORT)
                 return 0;
 
         r = work_dir_for_hierarchy(op->hierarchy, op->upper_dir, &work_dir);
@@ -1981,6 +2029,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_IMAGE_POLICY,
                 ARG_NOEXEC,
                 ARG_NO_RELOAD,
+                ARG_MUTABLE,
         };
 
         static const struct option options[] = {
@@ -1994,6 +2043,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "image-policy", required_argument, NULL, ARG_IMAGE_POLICY },
                 { "noexec",       required_argument, NULL, ARG_NOEXEC       },
                 { "no-reload",    no_argument,       NULL, ARG_NO_RELOAD    },
+                { "mutable",      required_argument, NULL, ARG_MUTABLE      },
                 {}
         };
 
@@ -2055,6 +2105,19 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_RELOAD:
                         arg_no_reload = true;
+                        break;
+
+                case ARG_MUTABLE:
+                        if (streq(optarg, "auto"))
+                                arg_mutable = MUTABLE_AUTO;
+                        else if (streq(optarg, "import"))
+                                arg_mutable = MUTABLE_IMPORT;
+                        else {
+                                r = parse_boolean(optarg);
+                                if (r < 0)
+                                        return log_error_errno(r, "Failed to parse argument to --mutable=: %s", optarg);
+                                arg_mutable = r ? MUTABLE_YES : MUTABLE_NO;
+                        }
                         break;
 
                 case '?':
