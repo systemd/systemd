@@ -430,6 +430,14 @@
 
     <variablelist>
       <varlistentry>
+        <term><option>--full</option></term>
+
+        <listitem><para>Show full hash value instead of abbreviating to 7 characters.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
+      <varlistentry>
         <term><option>--raw-description</option></term>
 
         <listitem><para>When displaying the TPM2 event log do not attempt to decode the records to provide a
