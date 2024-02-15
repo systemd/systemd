@@ -1,0 +1,11 @@
+[Unit]
+Description=Test Coredumping Program
+CoredumpLimitInterval=10s
+CoredumpLimitBurst=3
+CoredumpLimitPerBoot=5
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+Restart=on-abort
+ExecStart=/bin/sleep 60s

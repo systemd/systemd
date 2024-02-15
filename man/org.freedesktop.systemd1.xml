@@ -467,6 +467,12 @@ node /org/freedesktop/systemd1 {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly u DefaultStartLimitBurst = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t DefaultCoredumpLimitInterval = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly u DefaultCoredumpLimitBurst = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly u DefaultCoredumpLimitPerBoot = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b DefaultCPUAccounting = ...;
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly b DefaultBlockIOAccounting = ...;
@@ -710,6 +716,12 @@ node /org/freedesktop/systemd1 {
     <!--property DefaultStartLimitIntervalUSec is not documented!-->
 
     <!--property DefaultStartLimitBurst is not documented!-->
+
+    <!--property DefaultCoredumpLimitInterval is not documented!-->
+
+    <!--property DefaultCoredumpLimitBurst is not documented!-->
+
+    <!--property DefaultCoredumpLimitPerBoot is not documented!-->
 
     <!--property DefaultCPUAccounting is not documented!-->
 
@@ -1152,6 +1164,12 @@ node /org/freedesktop/systemd1 {
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultStartLimitIntervalUSec"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultStartLimitBurst"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DefaultCoredumpLimitInterval"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DefaultCoredumpLimitBurst"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="DefaultCoredumpLimitPerBoot"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="DefaultCPUAccounting"/>
 
@@ -2083,6 +2101,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s StartLimitAction = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly t CoredumpLimitInterval = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly u CoredumpLimitBurst = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
+      readonly u CoredumpLimitPerBoot = ...;
+      @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly s FailureAction = '...';
       @org.freedesktop.DBus.Property.EmitsChangedSignal("const")
       readonly i FailureActionExitStatus = ...;
@@ -2184,6 +2208,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <!--property StartLimitIntervalUSec is not documented!-->
 
     <!--property StartLimitAction is not documented!-->
+
+    <!--property CoredumpLimitInterval is not documented!-->
+
+    <!--property CoredumpLimitBurst is not documented!-->
+
+    <!--property CoredumpLimitPerBoot is not documented!-->
 
     <!--property FailureAction is not documented!-->
 
@@ -2422,6 +2452,12 @@ node /org/freedesktop/systemd1/unit/avahi_2ddaemon_2eservice {
     <variablelist class="dbus-property" generated="True" extra-ref="StartLimitBurst"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="StartLimitAction"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CoredumpLimitInterval"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CoredumpLimitBurst"/>
+
+    <variablelist class="dbus-property" generated="True" extra-ref="CoredumpLimitPerBoot"/>
 
     <variablelist class="dbus-property" generated="True" extra-ref="FailureAction"/>
 
