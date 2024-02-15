@@ -2420,6 +2420,18 @@
           <xi:include href="version-info.xml" xpointer="v220"/>
         </listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>ARPMissedMax=</varname></term>
+        <listitem>
+          <para>Specify the maximum number of arp interval monitor cycle
+          for missed ARP replies. If this number is exceeded, link is reported as
+          down. Defaults to unset.
+          </para>
+
+          <xi:include href="version-info.xml" xpointer="v256"/>
+        </listitem>
+      </varlistentry>
     </variablelist>
 
     <para>For more detail information see
