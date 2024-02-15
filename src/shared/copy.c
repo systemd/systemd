@@ -247,6 +247,10 @@ int copy_bytes_full(
         for (;;) {
                 ssize_t n;
 
+                r = fd_verify_regular_full(fdf, /* check_removed = */ true);
+                if (r < 0)
+                        return r;
+
                 if (max_bytes <= 0)
                         break;
 
@@ -483,6 +487,10 @@ int copy_bytes_full(
 
                 copied_something = true;
         }
+
+        r = fd_verify_regular_full(fdf, /* check_removed = */ true);
+        if (r < 0)
+                return r;
 
         if (copy_flags & COPY_TRUNCATE) {
                 off_t off = lseek(fdt, 0, SEEK_CUR);
@@ -797,6 +805,10 @@ static int fd_copy_regular(
 
         (void) futimens(fdt, (struct timespec[]) { st->st_atim, st->st_mtim });
         (void) copy_xattr(fdf, NULL, fdt, NULL, copy_flags);
+
+        r = fd_verify_regular_full(fdf, /* check_removed = */ true);
+        if (r < 0)
+                return r;
 
         if (copy_flags & COPY_FSYNC) {
                 if (fsync(fdt) < 0) {
@@ -1314,7 +1326,7 @@ int copy_file_fd_at_full(
         if (fdf < 0)
                 return -errno;
 
-        r = fd_verify_regular(fdf);
+        r = fd_verify_regular_full(fdf, /* check_removed = */ true);
         if (r < 0)
                 return r;
 
@@ -1332,6 +1344,10 @@ int copy_file_fd_at_full(
                 (void) copy_times(fdf, fdt, copy_flags);
                 (void) copy_xattr(fdf, NULL, fdt, NULL, copy_flags);
         }
+
+        r = fd_verify_regular_full(fdf, /* check_removed = */ true);
+        if (r < 0)
+                return r;
 
         if (copy_flags & COPY_FSYNC_FULL) {
                 r = fsync_full(fdt);
@@ -1374,7 +1390,7 @@ int copy_file_at_full(
         if (fstat(fdf, &st) < 0)
                 return -errno;
 
-        r = stat_verify_regular(&st);
+        r = stat_verify_regular_full(&st, /* check_removed = */ true);
         if (r < 0)
                 return r;
 
@@ -1403,6 +1419,10 @@ int copy_file_at_full(
 
         (void) copy_times(fdf, fdt, copy_flags);
         (void) copy_xattr(fdf, NULL, fdt, NULL, copy_flags);
+
+        r = fd_verify_regular_full(fdf, /* check_removed = */ true);
+        if (r < 0)
+                return r;
 
         if (chattr_mask != 0)
                 (void) chattr_fd(fdt, chattr_flags, chattr_mask & ~CHATTR_EARLY_FL, NULL);
