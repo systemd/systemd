@@ -124,7 +124,7 @@ int manager_serialize(
         if (!switching_root)
                 (void) serialize_strv(f, "env", m->client_environment);
 
-        if (m->notify_fd >= 0) {
+        if ((m->notify_fd >= 0) && !switching_root) {
                 r = serialize_fd(f, fds, "notify-fd", m->notify_fd);
                 if (r < 0)
                         return r;
