@@ -61,6 +61,8 @@ DLSYM_PROTOTYPE(ring_buffer__poll) = NULL;
 int (*sym_bpf_map_create)(enum bpf_map_type,  const char *, __u32, __u32, __u32, const struct bpf_map_create_opts *);
 int (*sym_libbpf_probe_bpf_prog_type)(enum bpf_prog_type, const void *);
 struct bpf_map* (*sym_bpf_object__next_map)(const struct bpf_object *obj, const struct bpf_map *map);
+const char* (*sym_libbpf_bpf_map_type_str)(enum bpf_map_type t);
+const char* (*sym_libbpf_bpf_prog_type_str)(enum bpf_prog_type t);
 
 /* compat symbols removed in libbpf 1.0 */
 int (*sym_bpf_create_map)(enum bpf_map_type,  int key_size, int value_size, int max_entries, __u32 map_flags);
@@ -127,12 +129,16 @@ int dlopen_bpf(void) {
 #if MODERN_LIBBPF
                                 DLSYM_ARG(bpf_map_create),
                                 DLSYM_ARG(libbpf_probe_bpf_prog_type),
-                                DLSYM_ARG(bpf_object__next_map)
+                                DLSYM_ARG(bpf_object__next_map),
+                                DLSYM_ARG(libbpf_bpf_map_type_str),
+                                DLSYM_ARG(libbpf_bpf_prog_type_str)
 #else
                                 /* These symbols did not exist in old libbpf, hence we cannot type check them */
                                 DLSYM_ARG_FORCE(bpf_map_create),
                                 DLSYM_ARG_FORCE(libbpf_probe_bpf_prog_type),
-                                DLSYM_ARG_FORCE(bpf_object__next_map)
+                                DLSYM_ARG_FORCE(bpf_object__next_map),
+                                DLSYM_ARG_FORCE(libbpf_bpf_map_type_str),
+                                DLSYM_ARG_FORCE(libbpf_bpf_prog_type_str)
 #endif
                 );
         }
