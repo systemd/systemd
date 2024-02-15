@@ -209,6 +209,7 @@ int copy_bytes_full(
                                         r = reflink_range(fdf, foffset, fdt, toffset, max_bytes == UINT64_MAX ? 0 : max_bytes); /* partial reflink */
                                 if (r >= 0) {
                                         off_t t;
+                                        int ret;
 
                                         /* This worked, yay! Now — to be fully correct — let's adjust the file pointers */
                                         if (max_bytes == UINT64_MAX) {
@@ -227,7 +228,14 @@ int copy_bytes_full(
                                                 if (t < 0)
                                                         return -errno;
 
-                                                return 0; /* we copied the whole thing, hence hit EOF, return 0 */
+                                                if (FLAGS_SET(copy_flags, COPY_VERIFY_LINKED)) {
+                                                        r = fd_verify_linked(fdf);
+                                                        if (r < 0)
+                                                                return r;
+                                                }
+
+                                                /* We copied the whole thing, hence hit EOF, return 0. */
+                                                ret = 0;
                                         } else {
                                                 t = lseek(fdf, foffset + max_bytes, SEEK_SET);
                                                 if (t < 0)
@@ -237,8 +245,18 @@ int copy_bytes_full(
                                                 if (t < 0)
                                                         return -errno;
 
-                                                return 1; /* we copied only some number of bytes, which worked, but this means we didn't hit EOF, return 1 */
+                                                /* We copied only some number of bytes, which worked, but
+                                                 * this means we didn't hit EOF, return 1. */
+                                                ret = 1;
                                         }
+
+                                        if (FLAGS_SET(copy_flags, COPY_VERIFY_LINKED)) {
+                                                r = fd_verify_linked(fdf);
+                                                if (r < 0)
+                                                        return r;
+                                        }
+
+                                        return ret;
                                 }
                         }
                 }
@@ -482,6 +500,12 @@ int copy_bytes_full(
                 m = MAX(MIN(COPY_BUFFER_SIZE, max_bytes), m - n);
 
                 copied_something = true;
+        }
+
+        if (FLAGS_SET(copy_flags, COPY_VERIFY_LINKED)) {
+                r = fd_verify_linked(fdf);
+                if (r < 0)
+                        return r;
         }
 
         if (copy_flags & COPY_TRUNCATE) {
@@ -798,6 +822,12 @@ static int fd_copy_regular(
 
         (void) futimens(fdt, (struct timespec[]) { st->st_atim, st->st_mtim });
         (void) copy_xattr(fdf, NULL, fdt, NULL, copy_flags);
+
+        if (FLAGS_SET(copy_flags, COPY_VERIFY_LINKED)) {
+                r = fd_verify_linked(fdf);
+                if (r < 0)
+                        return r;
+        }
 
         if (copy_flags & COPY_FSYNC) {
                 if (fsync(fdt) < 0) {
@@ -1334,6 +1364,12 @@ int copy_file_fd_at_full(
                 (void) copy_xattr(fdf, NULL, fdt, NULL, copy_flags);
         }
 
+        if (FLAGS_SET(copy_flags, COPY_VERIFY_LINKED)) {
+                r = fd_verify_linked(fdf);
+                if (r < 0)
+                        return r;
+        }
+
         if (copy_flags & COPY_FSYNC_FULL) {
                 r = fsync_full(fdt);
                 if (r < 0)
@@ -1403,6 +1439,12 @@ int copy_file_at_full(
 
         (void) copy_times(fdf, fdt, copy_flags);
         (void) copy_xattr(fdf, NULL, fdt, NULL, copy_flags);
+
+        if (FLAGS_SET(copy_flags, COPY_VERIFY_LINKED)) {
+                r = fd_verify_linked(fdf);
+                if (r < 0)
+                        goto fail;
+        }
 
         if (chattr_mask != 0)
                 (void) chattr_fd(fdt, chattr_flags, chattr_mask & ~CHATTR_EARLY_FL, NULL);

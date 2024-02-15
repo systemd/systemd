@@ -566,4 +566,26 @@ TEST(copy_lock) {
         fd = safe_close(fd);
 }
 
+TEST(copy_verify_linked) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, fd_1 = -EBADF, fd_2 = -EBADF;
+
+        tfd = mkdtemp_open(NULL, O_PATH, &t);
+        assert_se(tfd >= 0);
+
+        assert_se(write_string_file_at(tfd, "hoge", "bar bar", WRITE_STRING_FILE_CREATE) >= 0);
+
+        fd_1 = openat(tfd, "hoge", O_CLOEXEC | O_NOCTTY | O_RDONLY);
+        assert_se(fd_1 >= 0);
+        fd_2 = openat(tfd, "hoge", O_CLOEXEC | O_NOCTTY | O_RDONLY);
+        assert_se(fd_2 >= 0);
+        assert_se(unlinkat(tfd, "hoge", 0) >= 0);
+
+        assert_se(copy_file_at(fd_1, NULL, tfd, "to_1", 0, 0644, 0) >= 0);
+        assert_se(read_file_at_and_streq(tfd, "to_1", "bar bar\n"));
+
+        assert_se(copy_file_at(fd_2, NULL, tfd, "to_2", O_EXCL, 0644, COPY_VERIFY_LINKED) == -EIDRM);
+        assert_se(faccessat(tfd, "to_2", F_OK, AT_SYMLINK_NOFOLLOW) < 0 && errno == ENOENT);
+}
+
 DEFINE_TEST_MAIN(LOG_DEBUG);
