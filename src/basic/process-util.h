@@ -185,12 +185,13 @@ typedef enum ForkFlags {
         FORK_KEEP_NOTIFY_SOCKET = 1 << 17, /* Unless this specified, $NOTIFY_SOCKET will be unset. */
         FORK_DETACH             = 1 << 18, /* Double fork if needed to ensure PID1/subreaper is parent */
         FORK_NEW_NETNS          = 1 << 19, /* Run child in its own network namespace                             💣 DO NOT USE IN THREADED PROGRAMS! 💣 */
+        FORK_PACK_FDS           = 1 << 20, /* Rearrange the passed FDs to be FD 3,4,5,etc. Updates the array in place (combine with FORK_CLOSE_ALL_FDS!) */
 } ForkFlags;
 
 int safe_fork_full(
                 const char *name,
                 const int stdio_fds[3],
-                const int except_fds[],
+                int except_fds[],
                 size_t n_except_fds,
                 ForkFlags flags,
                 pid_t *ret_pid);
@@ -202,7 +203,7 @@ static inline int safe_fork(const char *name, ForkFlags flags, pid_t *ret_pid) {
 int pidref_safe_fork_full(
                 const char *name,
                 const int stdio_fds[3],
-                const int except_fds[],
+                int except_fds[],
                 size_t n_except_fds,
                 ForkFlags flags,
                 PidRef *ret_pid);
@@ -211,7 +212,18 @@ static inline int pidref_safe_fork(const char *name, ForkFlags flags, PidRef *re
         return pidref_safe_fork_full(name, NULL, NULL, 0, flags, ret_pid);
 }
 
-int namespace_fork(const char *outer_name, const char *inner_name, const int except_fds[], size_t n_except_fds, ForkFlags flags, int pidns_fd, int mntns_fd, int netns_fd, int userns_fd, int root_fd, pid_t *ret_pid);
+int namespace_fork(
+                const char *outer_name,
+                const char *inner_name,
+                int except_fds[],
+                size_t n_except_fds,
+                ForkFlags flags,
+                int pidns_fd,
+                int mntns_fd,
+                int netns_fd,
+                int userns_fd,
+                int root_fd,
+                pid_t *ret_pid);
 
 int set_oom_score_adjust(int value);
 int get_oom_score_adjust(int *ret);
