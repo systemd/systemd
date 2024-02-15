@@ -1,0 +1,34 @@
+#!/bin/bash
+# SPDX-License-Identifier: LGPL-2.1-or-later
+set -ex
+
+if [ ! -d rpm/ ]; then
+    exit 0
+fi
+
+# TODO: Replace meson_build and meson_install overrides with "--undefine __meson_verbose" once
+# https://github.com/mesonbuild/meson/pull/12835 is available.
+rpmbuild \
+    -bb \
+    --build-in-place \
+    --with upstream \
+    "$([ "$WITH_TESTS" = "0" ] && echo --nocheck)" \
+    --define "_topdir /var/tmp" \
+    --define "_sourcedir rpm" \
+    --define "_rpmdir $PACKAGEDIR" \
+    ${BUILDDIR:+--define} \
+    ${BUILDDIR:+"_vpath_builddir $BUILDDIR"} \
+    --define "_build_name_fmt %%{NAME}-%%{VERSION}-%%{RELEASE}.%%{ARCH}.rpm" \
+    --define "_binary_payload w.ufdio" \
+    --define "debug_package %{nil}" \
+    --define "__brp_strip %{nil}" \
+    --define "__brp_compress %{nil}" \
+    --define "__brp_mangle_shebangs %{nil}" \
+    --define "__brp_strip_comment_note %{nil}" \
+    --define "__brp_strip_static_archive %{nil}" \
+    --define "__brp_check_rpaths %{nil}" \
+    --define "_distro_extra_cflags -Og" \
+    --define "meson_build %{shrink:%{__meson} compile -C %{_vpath_builddir} -j %{_smp_build_ncpus} %{nil}}" \
+    --define "meson_install %{shrink:DESTDIR=%{buildroot} %{__meson} install -C %{_vpath_builddir} --no-rebuild --quiet %{nil}}" \
+    --undefine _lto_cflags \
+    rpm/systemd.spec
