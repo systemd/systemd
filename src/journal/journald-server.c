@@ -289,11 +289,10 @@ static int server_open_journal(
                                 s->compress.threshold_bytes,
                                 metrics,
                                 s->mmap,
-                                /* template= */ NULL,
                                 &f);
         else
                 r = journal_file_open(
-                                /* fd= */ -1,
+                                /* fd= */ -EBADF,
                                 fname,
                                 open_flags,
                                 file_flags,
