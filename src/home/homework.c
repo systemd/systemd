@@ -11,6 +11,7 @@
 #include "filesystems.h"
 #include "fs-util.h"
 #include "home-util.h"
+#include "homework-blob.h"
 #include "homework-cifs.h"
 #include "homework-directory.h"
 #include "homework-fido2.h"
@@ -24,6 +25,7 @@
 #include "memory-util.h"
 #include "missing_magic.h"
 #include "mount-util.h"
+#include "parse-util.h"
 #include "path-util.h"
 #include "recovery-key.h"
 #include "rm-rf.h"
@@ -61,9 +63,25 @@ int user_record_authenticate(
          * times over the course of an operation (think: on login we authenticate the host user record, the
          * record embedded in the LUKS record and the one embedded in $HOME). Hence we keep a list of
          * passwords we already decrypted, so that we don't have to do the (slow and potentially interactive)
-         * PKCS#11/FIDO2 dance for the relevant token again and again. */
+         * PKCS#11/FIDO2 dance for the relevant token again and again.
+         *
+         * The 'cache' parameter might also contain the LUKS volume key, loaded from the kernel keyring.
+         * In this case, authentication becomes optional - if a secret section is provided it will be
+         * verified, but if missing then authentication is skipped entirely. Thus, callers should
+         * consider carefuly whether it is safe to load the volume key into 'cache' before doing so.
+         * Note that most of the time this is safe, because the home area must be active for the key
+         * to exist in the keyring, and the user would have had to authenticate when activating their
+         * home area; however, for some methods (i.e. ChangePassword, Authenticate) it makes more sense
+         * to force re-authentication. */
 
-        /* First, let's see if the supplied plain-text passwords work? */
+        /* First, let's see if we already have a volume key from the keyring */
+        if (cache && cache->volume_key &&
+            json_variant_is_blank_object(json_variant_by_key(secret->json, "secret"))) {
+                log_info("LUKS volume key from keyring unlocks user record.");
+                return 1;
+        }
+
+        /* Next, let's see if the supplied plain-text passwords work? */
         r = user_record_test_password(h, secret);
         if (r == -ENOKEY)
                 need_password = true;
@@ -96,7 +114,7 @@ int user_record_authenticate(
         else
                 log_info("None of the supplied plaintext passwords unlock the user record's hashed recovery keys.");
 
-        /* Second, test cached PKCS#11 passwords */
+        /* Next, test cached PKCS#11 passwords */
         for (size_t n = 0; n < h->n_pkcs11_encrypted_key; n++)
                 STRV_FOREACH(pp, cache->pkcs11_passwords) {
                         r = test_password_one(h->pkcs11_encrypted_key[n].hashed_password, *pp);
@@ -108,7 +126,7 @@ int user_record_authenticate(
                         }
                 }
 
-        /* Third, test cached FIDO2 passwords */
+        /* Next, test cached FIDO2 passwords */
         for (size_t n = 0; n < h->n_fido2_hmac_salt; n++)
                 /* See if any of the previously calculated passwords work */
                 STRV_FOREACH(pp, cache->fido2_passwords) {
@@ -121,7 +139,7 @@ int user_record_authenticate(
                         }
                 }
 
-        /* Fourth, let's see if any of the PKCS#11 security tokens are plugged in and help us */
+        /* Next, let's see if any of the PKCS#11 security tokens are plugged in and help us */
         for (size_t n = 0; n < h->n_pkcs11_encrypted_key; n++) {
 #if HAVE_P11KIT
                 _cleanup_(pkcs11_callback_data_release) struct pkcs11_callback_data data = {
@@ -177,7 +195,7 @@ int user_record_authenticate(
 #endif
         }
 
-        /* Fifth, let's see if any of the FIDO2 security tokens are plugged in and help us */
+        /* Next, let's see if any of the FIDO2 security tokens are plugged in and help us */
         for (size_t n = 0; n < h->n_fido2_hmac_salt; n++) {
 #if HAVE_LIBFIDO2
                 _cleanup_(erase_and_freep) char *decrypted_password = NULL;
@@ -695,7 +713,7 @@ int home_load_embedded_identity(
         if (ret_new_home)
                 *ret_new_home = TAKE_PTR(new_home);
 
-        return 0;
+        return r; /* We pass along who won the reconciliation */
 }
 
 int home_store_embedded_identity(UserRecord *h, int root_fd, UserRecord *old_home) {
@@ -826,7 +844,7 @@ int home_refresh(
                 UserRecord **ret_new_home) {
 
         _cleanup_(user_record_unrefp) UserRecord *embedded_home = NULL, *new_home = NULL;
-        int r;
+        int r, reconciled;
 
         assert(h);
         assert(setup);
@@ -835,9 +853,9 @@ int home_refresh(
         /* When activating a home directory, does the identity work: loads the identity from the $HOME
          * directory, reconciles it with our idea, chown()s everything. */
 
-        r = home_load_embedded_identity(h, setup->root_fd, header_home, USER_RECONCILE_ANY, cache, &embedded_home, &new_home);
-        if (r < 0)
-                return r;
+        reconciled = home_load_embedded_identity(h, setup->root_fd, header_home, USER_RECONCILE_ANY, cache, &embedded_home, &new_home);
+        if (reconciled < 0)
+                return reconciled;
 
         r = home_maybe_shift_uid(h, flags, setup);
         if (r < 0)
@@ -848,6 +866,10 @@ int home_refresh(
                 return r;
 
         r = home_store_embedded_identity(new_home, setup->root_fd, embedded_home);
+        if (r < 0)
+                return r;
+
+        r = home_reconcile_blob_dirs(new_home, setup->root_fd, reconciled);
         if (r < 0)
                 return r;
 
@@ -1068,6 +1090,10 @@ int home_populate(UserRecord *h, int dir_fd) {
                 return r;
 
         r = home_store_embedded_identity(h, dir_fd, NULL);
+        if (r < 0)
+                return r;
+
+        r = home_reconcile_blob_dirs(h, dir_fd, USER_RECONCILE_HOST_WON);
         if (r < 0)
                 return r;
 
@@ -1305,7 +1331,7 @@ static int determine_default_storage(UserStorage *ret) {
         return 0;
 }
 
-static int home_create(UserRecord *h, UserRecord **ret_home) {
+static int home_create(UserRecord *h, Hashmap *blobs, UserRecord **ret_home) {
         _cleanup_strv_free_erase_ char **effective_passwords = NULL;
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL;
@@ -1366,6 +1392,10 @@ static int home_create(UserRecord *h, UserRecord **ret_home) {
                 return r;
         if (!IN_SET(r, USER_TEST_ABSENT, USER_TEST_UNDEFINED, USER_TEST_MAYBE))
                 return log_error_errno(SYNTHETIC_ERRNO(EEXIST), "Image path %s already exists, refusing.", user_record_image_path(h));
+
+        r = home_apply_new_blob_dir(h, blobs);
+        if (r < 0)
+                return r;
 
         switch (user_record_storage(h)) {
 
@@ -1518,6 +1548,21 @@ static int home_remove(UserRecord *h) {
         return 0;
 }
 
+static int home_basic_validate_update(UserRecord *h) {
+        assert(h);
+
+        if (!h->user_name)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User record lacks user name, refusing.");
+
+        if (!uid_is_valid(h->uid))
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User record lacks UID, refusing.");
+
+        if (!IN_SET(user_record_storage(h), USER_LUKS, USER_DIRECTORY, USER_SUBVOLUME, USER_FSCRYPT, USER_CIFS))
+                return log_error_errno(SYNTHETIC_ERRNO(ENOTTY), "Processing home directories of type '%s' currently not supported.", user_storage_to_string(user_record_storage(h)));
+
+        return 0;
+}
+
 static int home_validate_update(UserRecord *h, HomeSetup *setup, HomeSetupFlags *flags) {
         bool has_mount = false;
         int r;
@@ -1525,12 +1570,9 @@ static int home_validate_update(UserRecord *h, HomeSetup *setup, HomeSetupFlags 
         assert(h);
         assert(setup);
 
-        if (!h->user_name)
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User record lacks user name, refusing.");
-        if (!uid_is_valid(h->uid))
-                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "User record lacks UID, refusing.");
-        if (!IN_SET(user_record_storage(h), USER_LUKS, USER_DIRECTORY, USER_SUBVOLUME, USER_FSCRYPT, USER_CIFS))
-                return log_error_errno(SYNTHETIC_ERRNO(ENOTTY), "Processing home directories of type '%s' currently not supported.", user_storage_to_string(user_record_storage(h)));
+        r = home_basic_validate_update(h);
+        if (r < 0)
+                return r;
 
         r = user_record_test_home_directory_and_warn(h);
         if (r < 0)
@@ -1572,24 +1614,49 @@ static int home_validate_update(UserRecord *h, HomeSetup *setup, HomeSetupFlags 
         return has_mount; /* return true if the home record is already active */
 }
 
-static int home_update(UserRecord *h, UserRecord **ret) {
+static int home_update(UserRecord *h, Hashmap *blobs, UserRecord **ret) {
         _cleanup_(user_record_unrefp) UserRecord *new_home = NULL, *header_home = NULL, *embedded_home = NULL;
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
         HomeSetupFlags flags = 0;
+        bool offline;
         int r;
 
         assert(h);
         assert(ret);
 
-        r = user_record_authenticate(h, h, &cache, /* strict_verify= */ true);
-        if (r < 0)
-                return r;
-        assert(r > 0); /* Insist that a password was verified */
+        offline = getenv_bool("SYSTEMD_HOMEWORK_UPDATE_OFFLINE") > 0;
 
-        r = home_validate_update(h, &setup, &flags);
+        if (!offline) {
+                password_cache_load_keyring(h, &cache);
+
+                r = user_record_authenticate(h, h, &cache, /* strict_verify= */ true);
+                if (r < 0)
+                        return r;
+                assert(r > 0); /* Insist that a password was verified */
+
+                r = home_validate_update(h, &setup, &flags);
+                if (r < 0)
+                        return r;
+        } else {
+                /* In offline mode we skip all authentication, since we're
+                 * not propagating anything into the home area. The new home
+                 * records's authentication will still be checked when the user
+                 * next logs in, so this is fine */
+
+                r = home_basic_validate_update(h);
+                if (r < 0)
+                        return r;
+        }
+
+        r = home_apply_new_blob_dir(h, blobs);
         if (r < 0)
                 return r;
+
+        if (offline) {
+                log_info("Offline update requested. Not touching embedded records.");
+                return user_record_clone(h, USER_RECORD_LOAD_MASK_SECRET|USER_RECORD_PERMISSIVE, ret);
+        }
 
         r = home_setup(h, flags, &setup, &cache, &header_home);
         if (r < 0)
@@ -1611,6 +1678,10 @@ static int home_update(UserRecord *h, UserRecord **ret) {
         if (r < 0)
                 return r;
 
+        r = home_reconcile_blob_dirs(new_home, setup.root_fd, USER_RECONCILE_HOST_WON);
+        if (r < 0)
+                return r;
+
         r = home_extend_embedded_identity(new_home, h, &setup);
         if (r < 0)
                 return r;
@@ -1629,7 +1700,7 @@ static int home_update(UserRecord *h, UserRecord **ret) {
         return 0;
 }
 
-static int home_resize(UserRecord *h, bool automatic, UserRecord **ret) {
+static int home_resize(UserRecord *h, UserRecord **ret) {
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
         HomeSetupFlags flags = 0;
@@ -1641,25 +1712,16 @@ static int home_resize(UserRecord *h, bool automatic, UserRecord **ret) {
         if (h->disk_size == UINT64_MAX)
                 return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "No target size specified, refusing.");
 
-        if (automatic)
-                /* In automatic mode don't want to ask the user for the password, hence load it from the kernel keyring */
-                password_cache_load_keyring(h, &cache);
-        else {
-                /* In manual mode let's ensure the user is fully authenticated */
-                r = user_record_authenticate(h, h, &cache, /* strict_verify= */ true);
-                if (r < 0)
-                        return r;
-                assert(r > 0); /* Insist that a password was verified */
-        }
+        password_cache_load_keyring(h, &cache);
+
+        r = user_record_authenticate(h, h, &cache, /* strict_verify= */ true);
+        if (r < 0)
+                return r;
+        assert(r > 0); /* Insist that a password was verified */
 
         r = home_validate_update(h, &setup, &flags);
         if (r < 0)
                 return r;
-
-        /* In automatic mode let's skip syncing identities, because we can't validate them, since we can't
-         * ask the user for reauthentication */
-        if (automatic)
-                flags |= HOME_SETUP_RESIZE_DONT_SYNC_IDENTITIES;
 
         switch (user_record_storage(h)) {
 
@@ -1682,7 +1744,7 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         _cleanup_(home_setup_done) HomeSetup setup = HOME_SETUP_INIT;
         _cleanup_(password_cache_free) PasswordCache cache = {};
         HomeSetupFlags flags = 0;
-        int r;
+        int r, reconciled;
 
         assert(h);
         assert(ret_home);
@@ -1702,9 +1764,9 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
         if (r < 0)
                 return r;
 
-        r = home_load_embedded_identity(h, setup.root_fd, header_home, USER_RECONCILE_REQUIRE_NEWER_OR_EQUAL, &cache, &embedded_home, &new_home);
-        if (r < 0)
-                return r;
+        reconciled = home_load_embedded_identity(h, setup.root_fd, header_home, USER_RECONCILE_REQUIRE_NEWER_OR_EQUAL, &cache, &embedded_home, &new_home);
+        if (reconciled < 0)
+                return reconciled;
 
         r = home_maybe_shift_uid(h, flags, &setup);
         if (r < 0)
@@ -1733,6 +1795,10 @@ static int home_passwd(UserRecord *h, UserRecord **ret_home) {
                 return r;
 
         r = home_store_embedded_identity(new_home, setup.root_fd, embedded_home);
+        if (r < 0)
+                return r;
+
+        r = home_reconcile_blob_dirs(new_home, setup.root_fd, reconciled);
         if (r < 0)
                 return r;
 
@@ -1815,6 +1881,9 @@ static int home_lock(UserRecord *h) {
         if (r < 0)
                 return r;
 
+        /* Explicitly flush any per-user key from the keyring */
+        (void) keyring_flush(h);
+
         log_info("Everything completed.");
         return 1;
 }
@@ -1850,10 +1919,12 @@ static int run(int argc, char *argv[]) {
         _cleanup_(user_record_unrefp) UserRecord *home = NULL, *new_home = NULL;
         _cleanup_(json_variant_unrefp) JsonVariant *v = NULL;
         _cleanup_fclose_ FILE *opened_file = NULL;
+        _cleanup_hashmap_free_ Hashmap *blobs = NULL;
         unsigned line = 0, column = 0;
-        const char *json_path = NULL;
+        const char *json_path = NULL, *blob_filename;
         FILE *json_file;
         usec_t start;
+        JsonVariant *fdmap, *blob_fd_variant;
         int r;
 
         start = now(CLOCK_MONOTONIC);
@@ -1883,6 +1954,48 @@ static int run(int argc, char *argv[]) {
         r = json_parse_file(json_file, json_path, JSON_PARSE_SENSITIVE, &v, &line, &column);
         if (r < 0)
                 return log_error_errno(r, "[%s:%u:%u] Failed to parse JSON data: %m", json_path, line, column);
+
+        fdmap = json_variant_by_key(v, HOMEWORK_BLOB_FDMAP_FIELD);
+        if (fdmap) {
+                r = hashmap_ensure_allocated(&blobs, &blob_fd_hash_ops);
+                if (r < 0)
+                        return log_oom();
+
+                JSON_VARIANT_OBJECT_FOREACH(blob_filename, blob_fd_variant, fdmap) {
+                        _cleanup_free_ char *filename = NULL;
+                        _cleanup_close_ int fd = -EBADF;
+
+                        assert(json_variant_is_integer(blob_fd_variant));
+                        assert(json_variant_integer(blob_fd_variant) >= 0);
+                        assert(json_variant_integer(blob_fd_variant) <= INT_MAX - SD_LISTEN_FDS_START);
+                        fd = SD_LISTEN_FDS_START + (int) json_variant_integer(blob_fd_variant);
+
+                        if (DEBUG_LOGGING) {
+                                _cleanup_free_ char *resolved = NULL;
+                                r = fd_get_path(fd, &resolved);
+                                log_debug("Got blob from daemon: %s (%d) → %s",
+                                          blob_filename, fd, resolved ?: STRERROR(r));
+                        }
+
+                        filename = strdup(blob_filename);
+                        if (!filename)
+                                return log_oom();
+
+                        r = fd_cloexec(fd, true);
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to enable O_CLOEXEC on blob %s: %m", filename);
+
+                        r = hashmap_put(blobs, filename, FD_TO_PTR(fd));
+                        if (r < 0)
+                                return log_error_errno(r, "Failed to insert blob %s into map: %m", filename);
+                        TAKE_PTR(filename); /* Ownership transfers to hashmap */
+                        TAKE_FD(fd);
+                }
+
+                r = json_variant_filter(&v, STRV_MAKE(HOMEWORK_BLOB_FDMAP_FIELD));
+                if (r < 0)
+                        return log_error_errno(r, "Failed to strip internal fdmap from JSON: %m");
+        }
 
         home = user_record_new();
         if (!home)
@@ -1927,15 +2040,13 @@ static int run(int argc, char *argv[]) {
         else if (streq(argv[1], "deactivate-force"))
                 r = home_deactivate(home, true);
         else if (streq(argv[1], "create"))
-                r = home_create(home, &new_home);
+                r = home_create(home, blobs, &new_home);
         else if (streq(argv[1], "remove"))
                 r = home_remove(home);
         else if (streq(argv[1], "update"))
-                r = home_update(home, &new_home);
-        else if (streq(argv[1], "resize")) /* Resize on user request */
-                r = home_resize(home, false, &new_home);
-        else if (streq(argv[1], "resize-auto")) /* Automatic resize */
-                r = home_resize(home, true, &new_home);
+                r = home_update(home, blobs, &new_home);
+        else if (streq(argv[1], "resize"))
+                r = home_resize(home, &new_home);
         else if (streq(argv[1], "passwd"))
                 r = home_passwd(home, &new_home);
         else if (streq(argv[1], "inspect"))
