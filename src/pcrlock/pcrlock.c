@@ -66,6 +66,7 @@ static bool arg_recovery_pin = false;
 static char *arg_policy_path = NULL;
 static bool arg_force = false;
 static BootEntryTokenType arg_entry_token_type = BOOT_ENTRY_TOKEN_AUTO;
+static bool arg_strict = false;
 static char *arg_entry_token = NULL;
 static bool arg_varlink = false;
 static bool arg_full = false;
@@ -3701,6 +3702,7 @@ static int verb_lock_uki(int argc, char *argv[], void *userdata) {
 
 static int event_log_reduce_to_safe_pcrs(EventLog *el, uint32_t *pcrs) {
         _cleanup_free_ char *dropped = NULL, *kept = NULL;
+        bool dropped_relevant_pcr = false;
 
         assert(el);
         assert(pcrs);
@@ -3721,7 +3723,7 @@ static int event_log_reduce_to_safe_pcrs(EventLog *el, uint32_t *pcrs) {
                         continue;
 
                 if (!FLAGS_SET(el->has_component_pcrs, UINT32_C(1) << pcr)) {
-                        log_notice("PCR %" PRIu32 " (%s) has no component. Removing from set of PCRs.", pcr, strna(tpm2_pcr_index_to_string(pcr)));
+                        log_info("PCR %" PRIu32 " (%s) has no component. Removing from set of PCRs.", pcr, strna(tpm2_pcr_index_to_string(pcr)));
                         goto drop;
                 }
 
@@ -3748,6 +3750,9 @@ static int event_log_reduce_to_safe_pcrs(EventLog *el, uint32_t *pcrs) {
                 continue;
 
         drop:
+                if (arg_strict && FLAGS_SET(*pcrs, UINT32_C(1) << pcr))
+                        dropped_relevant_pcr = true;
+
                 *pcrs &= ~(UINT32_C(1) << pcr);
 
                 if (strextendf_with_separator(&dropped, ", ", "%" PRIu32 " (%s)", pcr, tpm2_pcr_index_to_string(pcr)) < 0)
@@ -3755,7 +3760,7 @@ static int event_log_reduce_to_safe_pcrs(EventLog *el, uint32_t *pcrs) {
         }
 
         if (dropped)
-                log_notice("PCRs dropped from protection mask: %s", dropped);
+                log_full(dropped_relevant_pcr?LOG_ERR:LOG_NOTICE, "PCRs dropped from protection mask: %s", dropped);
         else
                 log_debug("No PCRs dropped from protection mask.");
 
@@ -3764,7 +3769,7 @@ static int event_log_reduce_to_safe_pcrs(EventLog *el, uint32_t *pcrs) {
         else
                 log_notice("No PCRs kept in protection mask.");
 
-        return 0;
+        return (arg_strict && dropped_relevant_pcr)?-1:0;
 }
 
 static int verb_lock_kernel_cmdline(int argc, char *argv[], void *userdata) {
@@ -4911,6 +4916,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "     --force                  Write policy even if it matches existing policy\n"
                "     --entry-token=machine-id|os-id|os-image-id|auto|literal:…\n"
                "                              Boot entry token to use for this installation\n"
+               "     --strict                 All PCRs for which components exist must be predicted\n"
                "\nSee the %2$s for details.\n",
                program_invocation_short_name,
                link,
@@ -4937,6 +4943,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_POLICY,
                 ARG_FORCE,
                 ARG_ENTRY_TOKEN,
+                ARG_STRICT,
         };
 
         static const struct option options[] = {
@@ -4955,6 +4962,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "policy",          required_argument, NULL, ARG_POLICY          },
                 { "force",           no_argument,       NULL, ARG_FORCE           },
                 { "entry-token",     required_argument, NULL, ARG_ENTRY_TOKEN     },
+                { "strict",          no_argument,       NULL, ARG_STRICT           },
                 {}
         };
 
@@ -5110,6 +5118,10 @@ static int parse_argv(int argc, char *argv[]) {
                         r = parse_boot_entry_token_type(optarg, &arg_entry_token_type, &arg_entry_token);
                         if (r < 0)
                                 return r;
+                        break;
+
+                case ARG_STRICT:
+                        arg_strict = true;
                         break;
 
                 case '?':
