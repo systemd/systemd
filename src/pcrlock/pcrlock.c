@@ -94,6 +94,8 @@ static BootEntryTokenType arg_entry_token_type = BOOT_ENTRY_TOKEN_AUTO;
 static char *arg_entry_token = NULL;
 static bool arg_varlink = false;
 static bool arg_quiet = false;
+/* abbreviate to 7 chars, just like git */
+static size_t arg_abbreviate_hash = 7;
 
 STATIC_DESTRUCTOR_REGISTER(arg_components, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_pcrlock_path, freep);
@@ -2274,6 +2276,9 @@ static int show_log_table(EventLog *el, sd_json_variant **ret_variant) {
                                 if (!hex)
                                         return log_oom();
 
+                                if (!sd_json_format_enabled(arg_json_format_flags))
+                                        strshorten(hex, arg_abbreviate_hash);
+
                                 r = table_add_cell(table, NULL, TABLE_STRING, hex);
                         } else
                                 r = table_add_cell(table, NULL, TABLE_EMPTY, NULL);
@@ -2422,6 +2427,9 @@ static int show_pcr_table(EventLog *el, sd_json_variant **ret_variant) {
                                 if (!hex)
                                         return log_oom();
 
+                                if (!sd_json_format_enabled(arg_json_format_flags))
+                                        strshorten(hex, arg_abbreviate_hash);
+
                                 r = table_add_many(table,
                                                    TABLE_STRING, hex,
                                                    TABLE_SET_COLOR, color);
@@ -2440,6 +2448,9 @@ static int show_pcr_table(EventLog *el, sd_json_variant **ret_variant) {
                         hex = hexmem(el->registers[pcr].banks[i].observed.buffer, el->registers[pcr].banks[i].observed.size);
                         if (!hex)
                                 return log_oom();
+
+                        if (!sd_json_format_enabled(arg_json_format_flags))
+                                strshorten(hex, arg_abbreviate_hash);
 
                         color = !hash_match ? ansi_highlight_red() :
                                 is_unset_pcr(el->registers[pcr].banks[i].observed.buffer, el->registers[pcr].banks[i].observed.size) ? ansi_grey() : NULL;
@@ -5332,6 +5343,11 @@ static int parse_argv(int argc, char *argv[], char ***ret_args) {
                         r = parse_json_argument(opts.arg, &arg_json_format_flags);
                         if (r <= 0)
                                 return r;
+                        break;
+
+                OPTION_LONG("full", NULL,
+                            "Print full hash in measurement log"):
+                        arg_abbreviate_hash = SIZE_MAX;
                         break;
 
                 OPTION_LONG("raw-description", NULL,
