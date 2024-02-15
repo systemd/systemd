@@ -68,6 +68,7 @@ static bool arg_force = false;
 static BootEntryTokenType arg_entry_token_type = BOOT_ENTRY_TOKEN_AUTO;
 static char *arg_entry_token = NULL;
 static bool arg_varlink = false;
+static bool arg_full = false;
 
 STATIC_DESTRUCTOR_REGISTER(arg_components, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_pcrlock_path, freep);
@@ -2101,7 +2102,7 @@ static int show_log_table(EventLog *el, JsonVariant **ret_variant) {
                         if (bank) {
                                 _cleanup_free_ char *hex = NULL;
 
-                                hex = hexmem(bank->hash.buffer, bank->hash.size);
+                                hex = hexmem(bank->hash.buffer, arg_full?bank->hash.size:5);
                                 if (!hex)
                                         return log_oom();
 
@@ -2249,7 +2250,7 @@ static int show_pcr_table(EventLog *el, JsonVariant **ret_variant) {
                         if (el->registers[pcr].banks[i].calculated.size > 0) {
                                 _cleanup_free_ char *hex = NULL;
 
-                                hex = hexmem(el->registers[pcr].banks[i].calculated.buffer, el->registers[pcr].banks[i].calculated.size);
+                                hex = hexmem(el->registers[pcr].banks[i].calculated.buffer, arg_full?el->registers[pcr].banks[i].calculated.size:5);
                                 if (!hex)
                                         return log_oom();
 
@@ -2268,7 +2269,7 @@ static int show_pcr_table(EventLog *el, JsonVariant **ret_variant) {
                         _cleanup_free_ char *hex = NULL;
                         const char *color;
 
-                        hex = hexmem(el->registers[pcr].banks[i].observed.buffer, el->registers[pcr].banks[i].observed.size);
+                        hex = hexmem(el->registers[pcr].banks[i].observed.buffer, arg_full?el->registers[pcr].banks[i].observed.size:5);
                         if (!hex)
                                 return log_oom();
 
@@ -4877,6 +4878,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "  -h --help                   Show this help\n"
                "     --version                Print version\n"
                "     --no-pager               Do not pipe output into a pager\n"
+               "     --full                   Print full hash in measurement log\n"
                "     --json=pretty|short|off  Generate JSON output\n"
                "     --raw-description        Show raw firmware record data as description in table\n"
                "     --pcr=NR                 Generate .pcrlock for specified PCR\n"
@@ -4922,6 +4924,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "help",            no_argument,       NULL, 'h'                 },
                 { "version",         no_argument,       NULL, ARG_VERSION         },
                 { "no-pager",        no_argument,       NULL, ARG_NO_PAGER        },
+                { "full",            no_argument,       NULL, 'f'                 },
                 { "json",            required_argument, NULL, ARG_JSON            },
                 { "raw-description", no_argument,       NULL, ARG_RAW_DESCRIPTION },
                 { "pcr",             required_argument, NULL, ARG_PCR             },
@@ -4954,6 +4957,10 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_NO_PAGER:
                         arg_pager_flags |= PAGER_DISABLE;
+                        break;
+
+                case 'f':
+                        arg_full = true;
                         break;
 
                 case ARG_JSON:
