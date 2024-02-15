@@ -74,13 +74,19 @@ inspect test-user
 homectl deactivate test-user
 inspect test-user
 
+homectl update test-user --real-name "Offline test" --offline
+inspect test-user
+
 PASSWORD=xEhErW0ndafV4s homectl activate test-user
 inspect test-user
+
+# Ensure that the offline changes were propagated in
+grep "Offline test" /home/test-user/.identity
 
 homectl deactivate test-user
 inspect test-user
 
-PASSWORD=xEhErW0ndafV4s homectl update test-user --real-name="Offline test"
+PASSWORD=xEhErW0ndafV4s homectl update test-user --real-name="Inactive test"
 inspect test-user
 
 PASSWORD=xEhErW0ndafV4s homectl activate test-user
@@ -150,25 +156,206 @@ if ! systemd-detect-virt -cq ; then
     homectl rebalance
     inspect test-user
     inspect test-user2
+
+    wait_for_state test-user active
+    homectl deactivate test-user
+    wait_for_state test-user inactive
+
+    wait_for_state test-user2 active
+    homectl deactivate test-user2
+    wait_for_state test-user2 inactive
+    homectl remove test-user2
+fi
+
+# Do some keyring tests, but only on real kernels, since keyring access inside of containers will fail
+# (See: https://github.com/systemd/systemd/issues/17606)
+if ! systemd-detect-virt -cq ; then
+        PASSWORD=xEhErW0ndafV4s homectl activate test-user
+        inspect test-user
+
+        # Key should now be in the keyring
+        homectl update test-user --real-name "Keyring Test"
+        inspect test-user
+
+        # These commands shouldn't use the keyring
+        (! homectl authenticate test-user </dev/null )
+        (! NEWPASSWORD="foobar" homectl passwd test-user </dev/null )
+
+        homectl lock test-user
+        inspect test-user
+
+        # Key should be gone from keyring
+        (! homectl update test-user --real-name "Keyring Test 2" </dev/null )
+
+        PASSWORD=xEhErW0ndafV4s homectl unlock test-user
+        inspect test-user
+
+        # Key should have been re-instantiated into the keyring
+        homectl update test-user --real-name "Keyring Test 3"
+        inspect test-user
+
+        homectl deactivate test-user
+        inspect test-user
 fi
 
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- test ! -f /home/test-user/xyz
 (! PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz)
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- touch /home/test-user/xyz
 PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz
-PASSWORD=xEhErW0ndafV4s homectl with test-user -- rm /home/test-user/xyz
-PASSWORD=xEhErW0ndafV4s homectl with test-user -- test ! -f /home/test-user/xyz
-(! PASSWORD=xEhErW0ndafV4s homectl with test-user -- test -f /home/test-user/xyz)
+# CAREFUL adding more `homectl with` tests here. Auth can get rate-limited and cause the tests to fail.
 
 wait_for_state test-user inactive
 homectl remove test-user
 
-if ! systemd-detect-virt -cq ; then
-    wait_for_state test-user2 active
-    homectl deactivate test-user2
-    wait_for_state test-user2 inactive
-    homectl remove test-user2
-fi
+# blob directory tests
+# See docs/USER_RECORD_BLOB_DIRS.md
+checkblob() {
+        test -f "/var/cache/systemd/home/blob-user/$1"
+        stat -c "%u %#a" "/var/cache/systemd/home/blob-user/$1" | grep "^0 0644"
+        test -f "/home/blob-user/.identity-blob/$1"
+        stat -c "%u %#a" "/home/blob-user/.identity-blob/$1" | grep "^12345 0644"
+
+        diff "/var/cache/systemd/home/blob-user/$1" "$2"
+        diff "/var/cache/systemd/home/blob-user/$1" "/home/blob-user/.identity-blob/$1"
+}
+
+mkdir /tmp/blob1 /tmp/blob2
+echo data1 blob1 > /tmp/blob1/test1
+echo data1 blob2 > /tmp/blob2/test1
+echo data2 blob1 > /tmp/blob1/test2
+echo data2 blob2 > /tmp/blob2/test2
+echo invalid filename > /tmp/blob1/файл
+ln -s /tmp/blob1/test1 /tmp/blob1/symlink
+echo data3 > /tmp/external-test3
+echo avatardata > /tmp/external-avatar
+ln -s /tmp/external-avatar /tmp/external-avatar-lnk
+dd if=/dev/urandom of=/tmp/external-barely-fits bs=1M count=64
+dd if=/dev/urandom of=/tmp/external-toobig bs=1M count=65
+
+# create w/ prepopulated blob dir
+NEWPASSWORD=EMJuc3zQaMibJo homectl create blob-user \
+           --disk-size=min --luks-discard=yes \
+           --luks-pbkdf-type=pbkdf2 --luks-pbkdf-time-cost=1ms \
+           --uid=12345 \
+           --blob=/tmp/blob1
+inspect blob-user
+PASSWORD=EMJuc3zQaMibJo homectl activate blob-user
+inspect blob-user
+
+test -d /var/cache/systemd/home/blob-user
+stat -c "%u %#a" /var/cache/systemd/home/blob-user | grep "^0 0755"
+test -d /home/blob-user/.identity-blob
+stat -c "%u %#a" /home/blob-user/.identity-blob | grep "^12345 0700"
+
+checkblob test1 /tmp/blob1/test1
+(! checkblob test1 /tmp/blob2/test1 )
+checkblob test2 /tmp/blob1/test2
+(! checkblob test2 /tmp/blob2/test2 )
+(! checkblob фаил /tmp/blob1/фаил )
+(! checkblob symlink /tmp/blob1/symlink )
+(! checkblob test3 /tmp/external-test3 )
+(! checkblob avatar /tmp/external-avatar )
+
+# append files to existing blob, both well-known and other
+PASSWORD=EMJuc3zQaMibJo homectl update blob-user \
+        -b test3=/tmp/external-test3 --avatar=/tmp/external-avatar
+inspect blob-user
+checkblob test1 /tmp/blob1/test1
+(! checkblob test1 /tmp/blob2/test1 )
+checkblob test2 /tmp/blob1/test2
+(! checkblob test2 /tmp/blob2/test2 )
+(! checkblob фаил /tmp/blob1/фаил )
+(! checkblob symlink /tmp/blob1/symlink )
+checkblob test3 /tmp/external-test3
+checkblob avatar /tmp/external-avatar
+
+# delete files from existing blob, both well-known and other
+PASSWORD=EMJuc3zQaMibJo homectl update blob-user \
+        -b test3= --avatar=
+inspect blob-user
+checkblob test1 /tmp/blob1/test1
+(! checkblob test1 /tmp/blob2/test1 )
+checkblob test2 /tmp/blob1/test2
+(! checkblob test2 /tmp/blob2/test2 )
+(! checkblob фаил /tmp/blob1/фаил )
+(! checkblob symlink /tmp/blob1/symlink )
+(! checkblob test3 /tmp/external-test3 )
+(! checkblob avatar /tmp/external-avatar )
+
+# swap entire blob directory
+PASSWORD=EMJuc3zQaMibJo homectl update blob-user \
+        -b /tmp/blob2
+inspect blob-user
+(! checkblob test1 /tmp/blob1/test1 )
+checkblob test1 /tmp/blob2/test1
+(! checkblob test2 /tmp/blob1/test2 )
+checkblob test2 /tmp/blob2/test2
+(! checkblob фаил /tmp/blob1/фаил )
+(! checkblob symlink /tmp/blob1/symlink )
+(! checkblob test3 /tmp/external-test3 )
+(! checkblob avatar /tmp/external-avatar )
+
+# create and delete files while swapping blob directory. Also symlinks.
+PASSWORD=EMJuc3zQaMibJo homectl update blob-user \
+        -b /tmp/blob1 -b test2= -b test3=/tmp/external-test3 --avatar=/tmp/external-avatar-lnk
+inspect blob-user
+checkblob test1 /tmp/blob1/test1
+(! checkblob test1 /tmp/blob2/test1 )
+(! checkblob test2 /tmp/blob1/test2 )
+(! checkblob test2 /tmp/blob2/test2 )
+(! checkblob фаил /tmp/blob1/фаил )
+(! checkblob symlink /tmp/blob1/symlink )
+checkblob test3 /tmp/external-test3
+checkblob avatar /tmp/external-avatar # target of the link
+
+# clear the blob directory
+PASSWORD=EMJuc3zQaMibJo homectl update blob-user \
+        -b /tmp/blob2 -b test3=/tmp/external-test3 --blob=
+inspect blob-user
+(! checkblob test1 /tmp/blob1/test1 )
+(! checkblob test1 /tmp/blob2/test1 )
+(! checkblob test2 /tmp/blob1/test2 )
+(! checkblob test2 /tmp/blob2/test2 )
+(! checkblob фаил /tmp/blob1/фаил )
+(! checkblob symlink /tmp/blob1/symlink )
+(! checkblob test3 /tmp/external-test3 )
+(! checkblob avatar /tmp/external-avatar )
+
+# file that's exactly 64M still fits
+PASSWORD=EMJuc3zQaMibJo homectl update blob-user \
+        -b barely-fits=/tmp/external-barely-fits
+(! checkblob test1 /tmp/blob1/test1 )
+(! checkblob test1 /tmp/blob2/test1 )
+(! checkblob test2 /tmp/blob1/test2 )
+(! checkblob test2 /tmp/blob2/test2 )
+(! checkblob фаил /tmp/blob1/фаил )
+(! checkblob symlink /tmp/blob1/symlink )
+(! checkblob test3 /tmp/external-test3 )
+(! checkblob avatar /tmp/external-avatar )
+checkblob barely-fits /tmp/external-barely-fits
+
+# error out if the file is too big
+(! PASSWORD=EMJuc3zQaMibJo homectl update blob-user -b huge=/tmp/external-toobig )
+
+# error out if filenames are invalid
+(! PASSWORD=EMJuc3zQaMibJo homectl update blob-user -b .hidden=/tmp/external-test3 )
+(! PASSWORD=EMJuc3zQaMibJo homectl update blob-user -b "with spaces=/tmp/external-test3" )
+(! PASSWORD=EMJuc3zQaMibJo homectl update blob-user -b with=equals=/tmp/external-test3 )
+(! PASSWORD=EMJuc3zQaMibJo homectl update blob-user -b файл=/tmp/external-test3 )
+(! PASSWORD=EMJuc3zQaMibJo homectl update blob-user -b special@chars=/tmp/external-test3 )
+
+# Make sure offline updates to blobs get propagated in
+homectl deactivate blob-user
+inspect blob-user
+homectl update blob-user --offline -b propagated=/tmp/external-test3
+inspect blob-user
+PASSWORD=EMJuc3zQaMibJo homectl activate blob-user
+inspect-blob-user
+checkblob propagated /tmp/external-test3
+
+homectl deactivate blob-user
+wait_for_state blob-user inactive
+homectl remove blob-user
 
 # userdbctl tests
 export PAGER=
