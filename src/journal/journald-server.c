@@ -18,6 +18,7 @@
 #include "audit-util.h"
 #include "cgroup-util.h"
 #include "conf-parser.h"
+#include "creds-util.h"
 #include "dirent-util.h"
 #include "extract-word.h"
 #include "fd-util.h"
@@ -39,6 +40,7 @@
 #include "journald-native.h"
 #include "journald-rate-limit.h"
 #include "journald-server.h"
+#include "journald-socket.h"
 #include "journald-stream.h"
 #include "journald-syslog.h"
 #include "log.h"
@@ -51,6 +53,7 @@
 #include "rm-rf.h"
 #include "selinux-util.h"
 #include "signal-util.h"
+#include "socket-netlink.h"
 #include "socket-util.h"
 #include "stdio-util.h"
 #include "string-table.h"
@@ -1151,6 +1154,8 @@ static void server_dispatch_message_real(
         else
                 journal_uid = 0;
 
+        server_forward_socket(s, iovec, n, priority);
+
         server_write_to_journal(s, journal_uid, iovec, n, priority);
 }
 
@@ -1838,6 +1843,17 @@ static int parse_proc_cmdline_item(const char *key, const char *value, void *dat
                 else
                         s->max_level_wall = r;
 
+        } else if (proc_cmdline_key_streq(key, "systemd.journald.max_level_socket")) {
+
+                if (proc_cmdline_value_missing(key, value))
+                        return 0;
+
+                r = log_level_from_string(value);
+                if (r < 0)
+                        log_warning("Failed to parse max level socket value \"%s\". Ignoring.", value);
+                else
+                        s->max_level_socket = r;
+
         } else if (startswith(key, "systemd.journald"))
                 log_warning("Unknown journald kernel command line option \"%s\". Ignoring.", key);
 
@@ -2443,6 +2459,29 @@ static int server_setup_memory_pressure(Server *s) {
         return 0;
 }
 
+static void server_load_credentials(Server *s) {
+        _cleanup_free_ void *data = NULL;
+        int r;
+
+        assert(s);
+
+        /* if we already have a forward address from config don't load the credential */
+        if (s->forward_to_socket.sockaddr.sa.sa_family != AF_UNSPEC) {
+                log_debug("Socket forward address already set not loading journal.forward_to_socket");
+                return;
+        }
+
+        r = read_credential("journal.forward_to_socket", &data, NULL);
+        if (r < 0) {
+                log_debug_errno(r, "Failed to read credential journal.forward_to_socket, ignoring: %m");
+                return;
+        }
+
+        r = socket_address_parse(&s->forward_to_socket, data);
+        if (r < 0)
+                log_debug_errno(r, "Failed to parse credential journal.forward_to_socket, ignoring: %m");
+}
+
 int server_new(Server **ret) {
         _cleanup_(server_freep) Server *s = NULL;
 
@@ -2460,6 +2499,7 @@ int server_new(Server **ret) {
                 .audit_fd = -EBADF,
                 .hostname_fd = -EBADF,
                 .notify_fd = -EBADF,
+                .forward_socket_fd = -EBADF,
 
                 .compress.enabled = true,
                 .compress.threshold_bytes = UINT64_MAX,
@@ -2476,6 +2516,7 @@ int server_new(Server **ret) {
                 .ratelimit_burst = DEFAULT_RATE_LIMIT_BURST,
 
                 .forward_to_wall = true,
+                .forward_to_socket = { .sockaddr.sa.sa_family = AF_UNSPEC },
 
                 .max_file_usec = DEFAULT_MAX_FILE_USEC,
 
@@ -2484,6 +2525,7 @@ int server_new(Server **ret) {
                 .max_level_kmsg = LOG_NOTICE,
                 .max_level_console = LOG_INFO,
                 .max_level_wall = LOG_EMERG,
+                .max_level_socket = LOG_DEBUG,
 
                 .line_max = DEFAULT_LINE_MAX,
 
@@ -2523,6 +2565,8 @@ int server_init(Server *s, const char *namespace) {
         journal_reset_metrics(&s->runtime_storage.metrics);
 
         server_parse_config_file(s);
+
+        server_load_credentials(s);
 
         if (!s->namespace) {
                 /* Parse kernel command line, but only if we are not a namespace instance */
@@ -2796,6 +2840,7 @@ Server* server_free(Server *s) {
         safe_close(s->audit_fd);
         safe_close(s->hostname_fd);
         safe_close(s->notify_fd);
+        safe_close(s->forward_socket_fd);
 
         if (s->ratelimit)
                 journal_ratelimit_free(s->ratelimit);
@@ -2898,8 +2943,12 @@ int config_parse_compress(
                 void *data,
                 void *userdata) {
 
-        JournalCompressOptions* compress = data;
+        JournalCompressOptions* compress = ASSERT_PTR(data);
         int r;
+
+        assert(unit);
+        assert(filename);
+        assert(rvalue);
 
         if (isempty(rvalue)) {
                 compress->enabled = true;
@@ -2923,6 +2972,37 @@ int config_parse_compress(
                                 compress->enabled = true;
                 } else
                         compress->enabled = r;
+        }
+
+        return 0;
+}
+
+int config_parse_forward_to_socket(
+                const char* unit,
+                const char *filename,
+                unsigned line,
+                const char *section,
+                unsigned section_line,
+                const char *lvalue,
+                int ltype,
+                const char *rvalue,
+                void *data,
+                void *userdata) {
+
+        SocketAddress* addr = ASSERT_PTR(data);
+        int r;
+
+        assert(unit);
+        assert(filename);
+        assert(rvalue);
+
+        if (isempty(rvalue))
+                *addr = (SocketAddress) { .sockaddr.sa.sa_family = AF_UNSPEC };
+        else {
+                r = socket_address_parse(addr, rvalue);
+                if (r < 0)
+                        log_syntax(unit, LOG_WARNING, filename, line, r,
+                                   "Failed to parse ForwardToSocket= value, ignoring: %s", rvalue);
         }
 
         return 0;
