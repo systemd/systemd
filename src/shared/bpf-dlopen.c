@@ -50,6 +50,8 @@ DLSYM_FUNCTION(btf__free);
 DLSYM_FUNCTION(btf__load_from_kernel_by_id);
 DLSYM_FUNCTION(btf__name_by_offset);
 DLSYM_FUNCTION(btf__type_by_id);
+DLSYM_FUNCTION(libbpf_bpf_map_type_str);
+DLSYM_FUNCTION(libbpf_bpf_prog_type_str);
 DLSYM_FUNCTION(libbpf_get_error);
 DLSYM_FUNCTION(libbpf_set_print);
 DLSYM_FUNCTION(ring_buffer__epoll_fd);
@@ -122,12 +124,16 @@ int dlopen_bpf(void) {
 #if MODERN_LIBBPF
                                 DLSYM_ARG(bpf_map_create),
                                 DLSYM_ARG(libbpf_probe_bpf_prog_type),
-                                DLSYM_ARG(bpf_object__next_map)
+                                DLSYM_ARG(bpf_object__next_map),
+                                DLSYM_ARG(libbpf_bpf_map_type_str),
+                                DLSYM_ARG(libbpf_bpf_prog_type_str)
 #else
                                 /* These symbols did not exist in old libbpf, hence we cannot type check them */
                                 DLSYM_ARG_FORCE(bpf_map_create),
                                 DLSYM_ARG_FORCE(libbpf_probe_bpf_prog_type),
-                                DLSYM_ARG_FORCE(bpf_object__next_map)
+                                DLSYM_ARG_FORCE(bpf_object__next_map),
+                                DLSYM_ARG(libbpf_bpf_map_type_str),
+                                DLSYM_ARG(libbpf_bpf_prog_type_str)
 #endif
                 );
         }
