@@ -920,10 +920,15 @@ static int merge_initrds(char **ret) {
         if (ofd < 0)
                 return log_error_errno(errno, "Failed to create regular file %s: %m", merged_initrd);
 
-        size_t total_size = 0;
         STRV_FOREACH(i, arg_initrds) {
                 _cleanup_close_ int ifd = -EBADF;
-                size_t to_seek = (4 - (total_size % 4)) % 4;
+                off_t off, to_seek;
+
+                off = lseek(ofd, 0, SEEK_CUR);
+                if (off < 0)
+                        return log_error_errno(errno, "Failed to get file offset of %s: %m", merged_initrd);
+
+                to_seek = (4 - (off % 4)) % 4;
 
                 /* seek to assure 4 byte alignment for each initrd */
                 if (to_seek != 0 && lseek(ofd, to_seek, SEEK_CUR) < 0)
