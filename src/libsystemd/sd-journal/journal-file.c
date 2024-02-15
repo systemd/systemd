@@ -716,8 +716,6 @@ static int journal_file_verify_header(JournalFile *f) {
 }
 
 int journal_file_fstat(JournalFile *f) {
-        int r;
-
         assert(f);
         assert(f->fd >= 0);
 
@@ -726,16 +724,9 @@ int journal_file_fstat(JournalFile *f) {
 
         f->last_stat_usec = now(CLOCK_MONOTONIC);
 
-        /* Refuse dealing with files that aren't regular */
-        r = stat_verify_regular(&f->last_stat);
-        if (r < 0)
-                return r;
-
-        /* Refuse appending to files that are already deleted */
-        if (f->last_stat.st_nlink <= 0)
-                return -EIDRM;
-
-        return 0;
+        /* Refuse dealing with files that aren't regular. Also, refuse appending to files that are already
+         * deleted. */
+        return stat_verify_regular_full(&f->last_stat, /* check_removed = */ true);
 }
 
 static int journal_file_allocate(JournalFile *f, uint64_t offset, uint64_t size) {
