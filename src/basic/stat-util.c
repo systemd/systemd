@@ -263,8 +263,8 @@ int path_is_network_fs(const char *path) {
 int stat_verify_regular(const struct stat *st) {
         assert(st);
 
-        /* Checks whether the specified stat() structure refers to a regular file. If not returns an appropriate error
-         * code. */
+        /* Checks whether the specified stat() structure refers to a regular file. If not returns an
+         * appropriate error code. */
 
         if (S_ISDIR(st->st_mode))
                 return -EISDIR;
