@@ -86,6 +86,7 @@ const sd_bus_vtable bus_socket_vtable[] = {
         SD_BUS_PROPERTY("Transparent", "b", bus_property_get_bool, offsetof(Socket, transparent), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Broadcast", "b", bus_property_get_bool, offsetof(Socket, broadcast), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PassCredentials", "b", bus_property_get_bool, offsetof(Socket, pass_cred), SD_BUS_VTABLE_PROPERTY_CONST),
+        SD_BUS_PROPERTY("PassFileDescriptorsToExec", "b", bus_property_get_bool, offsetof(Socket, pass_fds_to_exec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PassSecurity", "b", bus_property_get_bool, offsetof(Socket, pass_sec), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("PassPacketInfo", "b", bus_property_get_bool, offsetof(Socket, pass_pktinfo), SD_BUS_VTABLE_PROPERTY_CONST),
         SD_BUS_PROPERTY("Timestamping", "s", property_get_timestamping, offsetof(Socket, timestamping), SD_BUS_VTABLE_PROPERTY_CONST),
@@ -189,6 +190,9 @@ static int bus_socket_set_transient_property(
 
         if (streq(name, "PassCredentials"))
                 return bus_set_transient_bool(u, name, &s->pass_cred, message, flags, error);
+
+        if (streq(name, "PassFileDescriptorsToExec"))
+                return bus_set_transient_bool(u, name, &s->pass_fds_to_exec, message, flags, error);
 
         if (streq(name, "PassSecurity"))
                 return bus_set_transient_bool(u, name, &s->pass_sec, message, flags, error);
