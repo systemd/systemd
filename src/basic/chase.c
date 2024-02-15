@@ -760,10 +760,10 @@ int chase_and_open(const char *path, const char *root, ChaseFlags chase_flags, i
         if (empty_or_root(root) && !ret_path &&
             (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0)
                 /* Shortcut this call if none of the special features of this call are requested */
-                return RET_NERRNO(xopenat(AT_FDCWD, path,
-                                          open_flags | (FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? O_NOFOLLOW : 0),
-                                          /* xopen_flags = */ 0,
-                                          mode));
+                return xopenat(AT_FDCWD, path,
+                               open_flags | (FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? O_NOFOLLOW : 0),
+                               /* xopen_flags = */ 0,
+                               mode);
 
         r = chase(path, root, CHASE_PARENT|chase_flags, &p, &path_fd);
         if (r < 0)
@@ -964,10 +964,10 @@ int chase_and_openat(int dir_fd, const char *path, ChaseFlags chase_flags, int o
         if (dir_fd == AT_FDCWD && !ret_path &&
             (chase_flags & (CHASE_NO_AUTOFS|CHASE_SAFE|CHASE_PROHIBIT_SYMLINKS|CHASE_PARENT|CHASE_MKDIR_0755)) == 0)
                 /* Shortcut this call if none of the special features of this call are requested */
-                return RET_NERRNO(xopenat(dir_fd, path,
-                                          open_flags | (FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? O_NOFOLLOW : 0),
-                                          /* xopen_flags = */ 0,
-                                          mode));
+                return xopenat(dir_fd, path,
+                               open_flags | (FLAGS_SET(chase_flags, CHASE_NOFOLLOW) ? O_NOFOLLOW : 0),
+                               /* xopen_flags = */ 0,
+                               mode);
 
         r = chaseat(dir_fd, path, chase_flags|CHASE_PARENT, &p, &path_fd);
         if (r < 0)
