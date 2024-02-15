@@ -44,6 +44,8 @@ DLSYM_PROTOTYPE(btf__free);
 DLSYM_PROTOTYPE(btf__load_from_kernel_by_id);
 DLSYM_PROTOTYPE(btf__name_by_offset);
 DLSYM_PROTOTYPE(btf__type_by_id);
+// DLSYM_PROTOTYPE(libbpf_bpf_map_type_str);
+// DLSYM_PROTOTYPE(libbpf_bpf_prog_type_str);
 DLSYM_PROTOTYPE(libbpf_get_error);
 DLSYM_PROTOTYPE(libbpf_set_print);
 DLSYM_PROTOTYPE(ring_buffer__epoll_fd);
