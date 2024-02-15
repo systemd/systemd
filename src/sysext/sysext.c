@@ -835,7 +835,7 @@ static int store_info_in_meta(
         return 0;
 }
 
-static int make_mounts_read_only(ImageClass image_class, const char *overlay_path) {
+static int make_mounts_read_only(ImageClass image_class, const char *overlay_path, bool mutable) {
         int r;
 
         assert(overlay_path);
@@ -883,11 +883,11 @@ static int merge_hierarchy(
         if (r < 0)
                 return r;
 
-        r = store_info_in_meta(image_class, extensions, meta_path, overlay_path);
+        r = store_info_in_meta(image_class, extensions, meta_path, overlay_path, op->work_dir);
         if (r < 0)
                 return r;
 
-        r = make_mounts_read_only(image_class, overlay_path);
+        r = make_mounts_read_only(image_class, overlay_path, op->upper_dir && op->work_dir);
         if (r < 0)
                 return r;
 
