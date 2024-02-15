@@ -17,8 +17,22 @@ at_exit() {
     fi
 
     if mountpoint -q /var/log/journal; then
+        # In order to preserve the journal from the just run test we need to do a little dance, as
+        # --relinquish-var is not a "true" opposite of --flush, meaning that it won't move the existing
+        # journal(s) from /var/log/ to /run/log/. To do that, let's rotate the journal first, so all
+        # important bits are in the archived journal(s)...
+        journalctl --rotate
+        # ...then instruct sd-journald to write further entries to the runtime journal...
         journalctl --relinquish-var
+        # ...make sure there are no outstanding writes to the persistent journal that might block us from
+        # unmounting the tmpfs...
+        journalctl --sync
+        # ...move the archived journals to the runtime storage...
+        mv -v "/var/log/journal/$(</etc/machine-id)"/system@*.journal "/run/log/journal/$(</etc/machine-id)/"
+        # ...get rid of the tmpfs on /var/log/journal/...
         umount /var/log/journal
+        # ...and finally flush everything to the "real" persistent journal, so we can collect it after the
+        # test finishes.
         journalctl --flush
     fi
 
@@ -88,6 +102,7 @@ systemctl daemon-reload
 systemctl start systemd-bsod
 systemd-cat -p emerg echo "Service emergency message"
 vcs_dump_and_check "Service emergency message"
+systemctl status systemd-bsod
 systemctl stop systemd-bsod
 
 # Wipe the journal
