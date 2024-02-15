@@ -426,16 +426,17 @@ static int method_set_class(sd_bus_message *message, void *userdata, sd_bus_erro
         /* For now, we'll allow only upgrades user-incomplete → user */
         if (class != SESSION_USER)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Class may only be set to 'user', refusing.");
+                                         "Class may only be set to 'user'");
+
         if (s->class == SESSION_USER) /* No change, shortcut */
                 return sd_bus_reply_method_return(message, NULL);
         if (s->class != SESSION_USER_INCOMPLETE)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Only sessions with class 'user-incomplete' may change class, refusing.");
+                                         "Only sessions with class 'user-incomplete' may change class");
 
         if (s->upgrade_message)
                 return sd_bus_error_setf(error, SD_BUS_ERROR_INVALID_ARGS,
-                                         "Set session class operation already in progress, refsuing.");
+                                         "Set session class operation already in progress");
 
         r = sd_bus_query_sender_creds(message, SD_BUS_CREDS_EUID, &creds);
         if (r < 0)
@@ -450,8 +451,7 @@ static int method_set_class(sd_bus_message *message, void *userdata, sd_bus_erro
 
         session_set_class(s, class);
 
-        sd_bus_message_unref(s->upgrade_message);
-        s->upgrade_message = sd_bus_message_ref(message);
+        unref_and_replace_full(s->upgrade_message, message, sd_bus_message_ref, sd_bus_message_unref);
 
         r = session_send_upgrade_reply(s, /* error= */ NULL);
         if (r < 0)
@@ -868,13 +868,17 @@ int session_send_lock_all(Manager *m, bool lock) {
         return r;
 }
 
-static bool session_ready(Session *s) {
+static bool session_job_pending(Session *s) {
         assert(s);
+        assert(s->user);
 
-        /* Returns true when the session is ready, i.e. all jobs we enqueued for it are done (regardless if successful or not) */
+        /* Check if we have some jobs enqueued and not finished yet. Each time we get JobRemoved signal about
+         * relevant units, session_send_create_reply and hence us is called (see match_job_removed).
+         * Note that we don't care about job result here. */
 
-        return !s->scope_job &&
-                (!SESSION_CLASS_WANTS_SERVICE_MANAGER(s->class) || !s->user->service_job);
+        return s->scope_job ||
+               s->user->runtime_dir_job ||
+               (SESSION_CLASS_WANTS_SERVICE_MANAGER(s->class) && s->user->service_manager_job);
 }
 
 int session_send_create_reply(Session *s, sd_bus_error *error) {
@@ -890,7 +894,9 @@ int session_send_create_reply(Session *s, sd_bus_error *error) {
         if (!s->create_message)
                 return 0;
 
-        if (!sd_bus_error_is_set(error) && !session_ready(s))
+        /* If error occurred, return it immediately. Otherwise let's wait for all jobs to finish before
+         * continuing. */
+        if (!sd_bus_error_is_set(error) && session_job_pending(s))
                 return 0;
 
         c = TAKE_PTR(s->create_message);
@@ -938,7 +944,8 @@ int session_send_upgrade_reply(Session *s, sd_bus_error *error) {
         if (!s->upgrade_message)
                 return 0;
 
-        if (!sd_bus_error_is_set(error) && !session_ready(s))
+        /* See comments in session_send_create_reply */
+        if (!sd_bus_error_is_set(error) && session_job_pending(s))
                 return 0;
 
         c = TAKE_PTR(s->upgrade_message);

@@ -4105,14 +4105,19 @@ int match_job_removed(sd_bus_message *message, void *userdata, sd_bus_error *err
         user = hashmap_get(m->user_units, unit);
         if (user) {
                 /* If the user is stopping, we're tracking stop jobs here. So don't send reply. */
-                if (!user->stopping && streq_ptr(path, user->service_job)) {
-                        user->service_job = mfree(user->service_job);
+                if (!user->stopping) {
+                        char **user_job;
+                        FOREACH_ARGUMENT(user_job, &user->runtime_dir_job, &user->service_manager_job)
+                                if (streq_ptr(path, *user_job)) {
+                                        *user_job = mfree(*user_job);
 
-                        LIST_FOREACH(sessions_by_user, s, user->sessions)
-                                /* Don't propagate user service failures to the client */
-                                session_jobs_reply(s, id, unit, /* error = */ NULL /* don't propagate user service failures to the client */);
+                                        LIST_FOREACH(sessions_by_user, s, user->sessions)
+                                                /* Don't propagate user service failures to the client */
+                                                session_jobs_reply(s, id, unit, /* error = */ NULL);
 
-                        user_save(user);
+                                        user_save(user);
+                                        break;
+                                }
                 }
 
                 user_add_to_gc_queue(user);
@@ -4242,12 +4247,12 @@ int manager_start_scope(
                 const PidRef *pidref,
                 const char *slice,
                 const char *description,
-                char **wants,
-                char **after,
+                const char * const *requires,
+                const char * const *extra_after,
                 const char *requires_mounts_for,
                 sd_bus_message *more_properties,
                 sd_bus_error *error,
-                char **job) {
+                char **ret_job) {
 
         _cleanup_(sd_bus_message_unrefp) sd_bus_message *m = NULL, *reply = NULL;
         int r;
@@ -4255,13 +4260,13 @@ int manager_start_scope(
         assert(manager);
         assert(scope);
         assert(pidref_is_set(pidref));
-        assert(job);
+        assert(ret_job);
 
         r = bus_message_new_method_call(manager->bus, &m, bus_systemd_mgr, "StartTransientUnit");
         if (r < 0)
                 return r;
 
-        r = sd_bus_message_append(m, "ss", strempty(scope), "fail");
+        r = sd_bus_message_append(m, "ss", scope, "fail");
         if (r < 0)
                 return r;
 
@@ -4281,13 +4286,17 @@ int manager_start_scope(
                         return r;
         }
 
-        STRV_FOREACH(i, wants) {
-                r = sd_bus_message_append(m, "(sv)", "Wants", "as", 1, *i);
+        STRV_FOREACH(i, requires) {
+                r = sd_bus_message_append(m, "(sv)", "Requires", "as", 1, *i);
+                if (r < 0)
+                        return r;
+
+                r = sd_bus_message_append(m, "(sv)", "After", "as", 1, *i);
                 if (r < 0)
                         return r;
         }
 
-        STRV_FOREACH(i, after) {
+        STRV_FOREACH(i, extra_after) {
                 r = sd_bus_message_append(m, "(sv)", "After", "as", 1, *i);
                 if (r < 0)
                         return r;
@@ -4339,7 +4348,7 @@ int manager_start_scope(
         if (r < 0)
                 return r;
 
-        return strdup_job(reply, job);
+        return strdup_job(reply, ret_job);
 }
 
 int manager_start_unit(Manager *manager, const char *unit, sd_bus_error *error, char **job) {

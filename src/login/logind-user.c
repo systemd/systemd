@@ -77,11 +77,11 @@ int user_new(User **ret,
         if (r < 0)
                 return r;
 
-        r = unit_name_build("user", lu, ".service", &u->service);
+        r = unit_name_build("user-runtime-dir", lu, ".service", &u->runtime_dir_unit);
         if (r < 0)
                 return r;
 
-        r = unit_name_build("user-runtime-dir", lu, ".service", &u->runtime_dir_service);
+        r = unit_name_build("user", lu, ".service", &u->service_manager_unit);
         if (r < 0)
                 return r;
 
@@ -93,11 +93,11 @@ int user_new(User **ret,
         if (r < 0)
                 return r;
 
-        r = hashmap_put(m->user_units, u->service, u);
+        r = hashmap_put(m->user_units, u->runtime_dir_unit, u);
         if (r < 0)
                 return r;
 
-        r = hashmap_put(m->user_units, u->runtime_dir_service, u);
+        r = hashmap_put(m->user_units, u->service_manager_unit, u);
         if (r < 0)
                 return r;
 
@@ -115,24 +115,27 @@ User *user_free(User *u) {
         while (u->sessions)
                 session_free(u->sessions);
 
-        if (u->service)
-                (void) hashmap_remove_value(u->manager->user_units, u->service, u);
+        sd_event_source_unref(u->timer_event_source);
 
-        if (u->runtime_dir_service)
-                (void) hashmap_remove_value(u->manager->user_units, u->runtime_dir_service, u);
+        if (u->service_manager_unit) {
+                (void) hashmap_remove_value(u->manager->user_units, u->service_manager_unit, u);
+                free(u->service_manager_job);
+                free(u->service_manager_unit);
+        }
 
-        if (u->slice)
+        if (u->runtime_dir_unit) {
+                (void) hashmap_remove_value(u->manager->user_units, u->runtime_dir_unit, u);
+                free(u->runtime_dir_job);
+                free(u->runtime_dir_unit);
+        }
+
+        if (u->slice) {
                 (void) hashmap_remove_value(u->manager->user_units, u->slice, u);
+                free(u->slice);
+        }
 
         (void) hashmap_remove_value(u->manager->users, UID_TO_PTR(u->user_record->uid), u);
 
-        sd_event_source_unref(u->timer_event_source);
-
-        free(u->service_job);
-
-        free(u->service);
-        free(u->runtime_dir_service);
-        free(u->slice);
         free(u->runtime_path);
         free(u->state_file);
 
@@ -174,8 +177,11 @@ static int user_save_internal(User *u) {
         if (u->runtime_path)
                 fprintf(f, "RUNTIME=%s\n", u->runtime_path);
 
-        if (u->service_job)
-                fprintf(f, "SERVICE_JOB=%s\n", u->service_job);
+        if (u->runtime_dir_job)
+                fprintf(f, "RUNTIME_DIR_JOB=%s\n", u->runtime_dir_job);
+
+        if (u->service_manager_job)
+                fprintf(f, "SERVICE_JOB=%s\n", u->service_manager_job);
 
         if (u->display)
                 fprintf(f, "DISPLAY=%s\n", u->display->id);
@@ -311,7 +317,8 @@ int user_load(User *u) {
         assert(u);
 
         r = parse_env_file(NULL, u->state_file,
-                           "SERVICE_JOB",            &u->service_job,
+                           "RUNTIME_DIR_JOB",        &u->runtime_dir_job,
+                           "SERVICE_JOB",            &u->service_manager_job,
                            "STOPPING",               &stopping,
                            "REALTIME",               &realtime,
                            "MONOTONIC",              &monotonic,
@@ -326,8 +333,11 @@ int user_load(User *u) {
                 r = parse_boolean(stopping);
                 if (r < 0)
                         log_debug_errno(r, "Failed to parse 'STOPPING' boolean: %s", stopping);
-                else
+                else {
                         u->stopping = r;
+                        if (u->stopping && !u->runtime_dir_job)
+                                log_debug("User '%s' is stopping, but no job is being tracked.", u->user_record->user_name);
+                }
         }
 
         if (realtime)
@@ -344,6 +354,26 @@ int user_load(User *u) {
         return 0;
 }
 
+static int user_start_runtime_dir(User *u) {
+        _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
+        int r;
+
+        assert(u);
+        assert(!u->stopping);
+        assert(u->manager);
+        assert(u->runtime_dir_unit);
+
+        u->runtime_dir_job = mfree(u->runtime_dir_job);
+
+        r = manager_start_unit(u->manager, u->runtime_dir_unit, &error, &u->runtime_dir_job);
+        if (r < 0)
+                return log_full_errno(sd_bus_error_has_name(&error, BUS_ERROR_UNIT_MASKED) ? LOG_DEBUG : LOG_ERR,
+                                      r, "Failed to start user service '%s': %s",
+                                      u->runtime_dir_unit, bus_error_message(&error, r));
+
+        return 0;
+}
+
 static bool user_wants_service_manager(User *u) {
         assert(u);
 
@@ -354,28 +384,34 @@ static bool user_wants_service_manager(User *u) {
         return false;
 }
 
-void user_start_service_manager(User *u) {
+int user_start_service_manager(User *u) {
         _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
         int r;
 
         assert(u);
+        assert(!u->stopping);
+        assert(u->manager);
+        assert(u->service_manager_unit);
 
-        /* Start the service containing the "systemd --user" instance (user@.service). Note that we don't explicitly
-         * start the per-user slice or the systemd-runtime-dir@.service instance, as those are pulled in both by
-         * user@.service and the session scopes as dependencies. */
+        if (u->service_manager_started)
+                return 1;
 
-        if (u->stopping) /* Don't try to start this if the user is going down */
-                return;
+        /* Only start user service manager if there's at least one session which wants it */
+        if (!user_wants_service_manager(u))
+                return 0;
 
-        if (!user_wants_service_manager(u)) /* Only start user service manager if there's at least one session which wants it */
-                return;
+        u->service_manager_job = mfree(u->service_manager_job);
 
-        u->service_job = mfree(u->service_job);
+        r = manager_start_unit(u->manager, u->service_manager_unit, &error, &u->service_manager_job);
+        if (r < 0) {
+                if (sd_bus_error_has_name(&error, BUS_ERROR_UNIT_MASKED))
+                        return 0;
 
-        r = manager_start_unit(u->manager, u->service, &error, &u->service_job);
-        if (r < 0)
-                log_full_errno(sd_bus_error_has_name(&error, BUS_ERROR_UNIT_MASKED) ? LOG_DEBUG : LOG_WARNING, r,
-                               "Failed to start user service '%s', ignoring: %s", u->service, bus_error_message(&error, r));
+                return log_error_errno(r, "Failed to start user service '%s': %s",
+                                       u->service_manager_unit, bus_error_message(&error, r));
+        }
+
+        return (u->service_manager_started = true);
 }
 
 static int update_slice_callback(sd_bus_message *m, void *userdata, sd_bus_error *ret_error) {
@@ -460,33 +496,47 @@ static int user_update_slice(User *u) {
 }
 
 int user_start(User *u) {
+        int r;
+
         assert(u);
 
-        if (u->started && !u->stopping)
+        if (u->service_manager_started) {
+                /* Everything is up. No action needed. */
+                assert(u->started && !u->stopping);
                 return 0;
+        }
 
-        /* If u->stopping is set, the user is marked for removal and service stop-jobs are queued. We have to clear
-         * that flag before queueing the start-jobs again. If they succeed, the user object can be re-used just fine
-         * (pid1 takes care of job-ordering and proper restart), but if they fail, we want to force another user_stop()
-         * so possibly pending units are stopped. */
-        u->stopping = false;
+        if (!u->started || u->stopping) {
+                /* If u->stopping is set, the user is marked for removal and service stop-jobs are queued.
+                 * We have to clear that flag before queueing the start-jobs again. If they succeed, the
+                 * user object can be re-used just fine (pid1 takes care of job-ordering and proper restart),
+                 * but if they fail, we want to force another user_stop() so possibly pending units are
+                 * stopped. */
+                u->stopping = false;
 
-        if (!u->started)
-                log_debug("Tracking new user %s.", u->user_record->user_name);
+                if (!u->started)
+                        log_debug("Tracking new user %s.", u->user_record->user_name);
 
-        /* Save the user data so far, because pam_systemd will read the XDG_RUNTIME_DIR out of it while starting up
-         * systemd --user.  We need to do user_save_internal() because we have not "officially" started yet. */
-        user_save_internal(u);
+                /* Save the user data so far, because pam_systemd will read the XDG_RUNTIME_DIR out of it
+                 * while starting up systemd --user. We need to do user_save_internal() because we have not
+                 * "officially" started yet. */
+                user_save_internal(u);
 
-        /* Set slice parameters */
-        (void) user_update_slice(u);
+                /* Set slice parameters */
+                (void) user_update_slice(u);
 
-        /* Start user@UID.service */
-        user_start_service_manager(u);
+                (void) user_start_runtime_dir(u);
+        }
+
+        /* Start user@UID.service if needed. */
+        r = user_start_service_manager(u);
+        if (r < 0)
+                return r;
 
         if (!u->started) {
                 if (!dual_timestamp_is_set(&u->timestamp))
                         dual_timestamp_now(&u->timestamp);
+
                 user_send_signal(u, true);
                 u->started = true;
         }
@@ -502,16 +552,22 @@ static void user_stop_service(User *u, bool force) {
         int r;
 
         assert(u);
-        assert(u->service);
+        assert(u->manager);
+        assert(u->runtime_dir_unit);
 
-        /* The reverse of user_start_service(). Note that we only stop user@UID.service here, and let StopWhenUnneeded=
-         * deal with the slice and the user-runtime-dir@.service instance. */
+        /* Note that we only stop user-runtime-dir@.service here, and let BindsTo= deal with the user@.service
+         * instance. However, we still need to clear service_manager_job here, so that if the stop is
+         * interrupted, the new sessions won't be confused by leftovers. */
 
-        u->service_job = mfree(u->service_job);
+        u->service_manager_job = mfree(u->service_manager_job);
+        u->service_manager_started = false;
 
-        r = manager_stop_unit(u->manager, u->service, force ? "replace" : "fail", &error, &u->service_job);
+        u->runtime_dir_job = mfree(u->runtime_dir_job);
+
+        r = manager_stop_unit(u->manager, u->runtime_dir_unit, force ? "replace" : "fail", &error, &u->runtime_dir_job);
         if (r < 0)
-                log_warning_errno(r, "Failed to stop user service '%s', ignoring: %s", u->service, bus_error_message(&error, r));
+                log_warning_errno(r, "Failed to stop user service '%s', ignoring: %s",
+                                  u->runtime_dir_unit, bus_error_message(&error, r));
 }
 
 int user_stop(User *u, bool force) {
@@ -638,11 +694,11 @@ int user_check_linger_file(User *u) {
 static bool user_unit_active(User *u) {
         int r;
 
-        assert(u->service);
-        assert(u->runtime_dir_service);
         assert(u->slice);
+        assert(u->runtime_dir_unit);
+        assert(u->service_manager_unit);
 
-        FOREACH_STRING(i, u->service, u->runtime_dir_service, u->slice) {
+        FOREACH_STRING(i, u->slice, u->runtime_dir_unit, u->service_manager_unit) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
                 r = manager_unit_is_active(u->manager, i, &error);
@@ -722,18 +778,23 @@ bool user_may_gc(User *u, bool drop_not_started) {
                 return false;
 
         /* Check if our job is still pending */
-        if (u->service_job) {
+        const char *j;
+        FOREACH_ARGUMENT(j, u->runtime_dir_job, u->service_manager_job) {
                 _cleanup_(sd_bus_error_free) sd_bus_error error = SD_BUS_ERROR_NULL;
 
-                r = manager_job_is_active(u->manager, u->service_job, &error);
+                if (!j)
+                        continue;
+
+                r = manager_job_is_active(u->manager, j, &error);
                 if (r < 0)
-                        log_debug_errno(r, "Failed to determine whether job '%s' is pending, ignoring: %s", u->service_job, bus_error_message(&error, r));
+                        log_debug_errno(r, "Failed to determine whether job '%s' is pending, ignoring: %s",
+                                        j, bus_error_message(&error, r));
                 if (r != 0)
                         return false;
         }
 
-        /* Note that we don't care if the three units we manage for each user object are up or not, as we are managing
-         * their state rather than tracking it. */
+        /* Note that we don't care if the three units we manage for each user object are up or not, as we are
+         * managing their state rather than tracking it. */
 
         return true;
 }
@@ -754,7 +815,7 @@ UserState user_get_state(User *u) {
         if (u->stopping)
                 return USER_CLOSING;
 
-        if (!u->started || u->service_job)
+        if (!u->started || u->runtime_dir_job)
                 return USER_OPENING;
 
         bool any = false, all_closing = true;
