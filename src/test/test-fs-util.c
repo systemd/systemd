@@ -673,37 +673,37 @@ TEST(openat_report_new) {
         assert_se(b);
 }
 
-TEST(xopenat) {
+TEST(xopenat_full) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int tfd = -EBADF, fd = -EBADF, fd2 = -EBADF;
 
         assert_se((tfd = mkdtemp_open(NULL, 0, &t)) >= 0);
 
-        /* Test that xopenat() creates directories if O_DIRECTORY is specified. */
+        /* Test that xopenat_full() creates directories if O_DIRECTORY is specified. */
 
-        assert_se((fd = xopenat(tfd, "abc", O_DIRECTORY|O_CREAT|O_EXCL|O_CLOEXEC, 0, 0755)) >= 0);
+        assert_se((fd = xopenat_full(tfd, "abc", O_DIRECTORY|O_CREAT|O_EXCL|O_CLOEXEC, 0, 0755)) >= 0);
         assert_se((fd_verify_directory(fd) >= 0));
         fd = safe_close(fd);
 
-        assert_se(xopenat(tfd, "abc", O_DIRECTORY|O_CREAT|O_EXCL|O_CLOEXEC, 0, 0755) == -EEXIST);
+        assert_se(xopenat_full(tfd, "abc", O_DIRECTORY|O_CREAT|O_EXCL|O_CLOEXEC, 0, 0755) == -EEXIST);
 
-        assert_se((fd = xopenat(tfd, "abc", O_DIRECTORY|O_CREAT|O_CLOEXEC, 0, 0755)) >= 0);
+        assert_se((fd = xopenat_full(tfd, "abc", O_DIRECTORY|O_CREAT|O_CLOEXEC, 0, 0755)) >= 0);
         assert_se((fd_verify_directory(fd) >= 0));
         fd = safe_close(fd);
 
-        /* Test that xopenat() creates regular files if O_DIRECTORY is not specified. */
+        /* Test that xopenat_full() creates regular files if O_DIRECTORY is not specified. */
 
-        assert_se((fd = xopenat(tfd, "def", O_CREAT|O_EXCL|O_CLOEXEC, 0, 0644)) >= 0);
+        assert_se((fd = xopenat_full(tfd, "def", O_CREAT|O_EXCL|O_CLOEXEC, 0, 0644)) >= 0);
         assert_se(fd_verify_regular(fd) >= 0);
         fd = safe_close(fd);
 
-        /* Test that we can reopen an existing fd with xopenat() by specifying an empty path. */
+        /* Test that we can reopen an existing fd with xopenat_full() by specifying an empty path. */
 
-        assert_se((fd = xopenat(tfd, "def", O_PATH|O_CLOEXEC, 0, 0)) >= 0);
-        assert_se((fd2 = xopenat(fd, "", O_RDWR|O_CLOEXEC, 0, 0644)) >= 0);
+        assert_se((fd = xopenat_full(tfd, "def", O_PATH|O_CLOEXEC, 0, 0)) >= 0);
+        assert_se((fd2 = xopenat_full(fd, "", O_RDWR|O_CLOEXEC, 0, 0644)) >= 0);
 }
 
-TEST(xopenat_lock) {
+TEST(xopenat_lock_full) {
         _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
         _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
         siginfo_t si;
@@ -714,11 +714,11 @@ TEST(xopenat_lock) {
          * and close the file descriptor and still properly create the directory and acquire the lock in
          * another process.  */
 
-        fd = xopenat_lock(tfd, "abc", O_CREAT|O_DIRECTORY|O_CLOEXEC, 0, 0755, LOCK_BSD, LOCK_EX);
+        fd = xopenat_lock_full(tfd, "abc", O_CREAT|O_DIRECTORY|O_CLOEXEC, 0, 0755, LOCK_BSD, LOCK_EX);
         assert_se(fd >= 0);
         assert_se(faccessat(tfd, "abc", F_OK, 0) >= 0);
         assert_se(fd_verify_directory(fd) >= 0);
-        assert_se(xopenat_lock(tfd, "abc", O_DIRECTORY|O_CLOEXEC, 0, 0755, LOCK_BSD, LOCK_EX|LOCK_NB) == -EAGAIN);
+        assert_se(xopenat_lock_full(tfd, "abc", O_DIRECTORY|O_CLOEXEC, 0, 0755, LOCK_BSD, LOCK_EX|LOCK_NB) == -EAGAIN);
 
         pid_t pid = fork();
         assert_se(pid >= 0);
@@ -726,21 +726,21 @@ TEST(xopenat_lock) {
         if (pid == 0) {
                 safe_close(fd);
 
-                fd = xopenat_lock(tfd, "abc", O_CREAT|O_DIRECTORY|O_CLOEXEC, 0, 0755, LOCK_BSD, LOCK_EX);
+                fd = xopenat_lock_full(tfd, "abc", O_CREAT|O_DIRECTORY|O_CLOEXEC, 0, 0755, LOCK_BSD, LOCK_EX);
                 assert_se(fd >= 0);
                 assert_se(faccessat(tfd, "abc", F_OK, 0) >= 0);
                 assert_se(fd_verify_directory(fd) >= 0);
-                assert_se(xopenat_lock(tfd, "abc", O_DIRECTORY|O_CLOEXEC, 0, 0755, LOCK_BSD, LOCK_EX|LOCK_NB) == -EAGAIN);
+                assert_se(xopenat_lock_full(tfd, "abc", O_DIRECTORY|O_CLOEXEC, 0, 0755, LOCK_BSD, LOCK_EX|LOCK_NB) == -EAGAIN);
 
                 _exit(EXIT_SUCCESS);
         }
 
-        /* We need to give the child process some time to get past the xopenat() call in xopenat_lock() and
-         * block in the call to lock_generic() waiting for the lock to become free. We can't modify
-         * xopenat_lock() to signal an eventfd to let us know when that has happened, so we just sleep for a
-         * little and assume that's enough time for the child process to get along far enough. It doesn't
-         * matter if it doesn't get far enough, in that case we just won't trigger the fallback logic in
-         * xopenat_lock(), but the test will still succeed. */
+        /* We need to give the child process some time to get past the xopenat() call in xopenat_lock_full()
+         * and block in the call to lock_generic() waiting for the lock to become free. We can't modify
+         * xopenat_lock_full() to signal an eventfd to let us know when that has happened, so we just sleep
+         * for a little and assume that's enough time for the child process to get along far enough. It
+         * doesn't matter if it doesn't get far enough, in that case we just won't trigger the fallback logic
+         * in xopenat_lock_full(), but the test will still succeed. */
         assert_se(usleep_safe(20 * USEC_PER_MSEC) >= 0);
 
         assert_se(unlinkat(tfd, "abc", AT_REMOVEDIR) >= 0);
@@ -749,13 +749,48 @@ TEST(xopenat_lock) {
         assert_se(wait_for_terminate(pid, &si) >= 0);
         assert_se(si.si_code == CLD_EXITED);
 
-        assert_se(xopenat_lock(tfd, "abc", 0, 0, 0755, LOCK_POSIX, LOCK_EX) == -EBADF);
-        assert_se(xopenat_lock(tfd, "def", O_DIRECTORY, 0, 0755, LOCK_POSIX, LOCK_EX) == -EBADF);
+        assert_se(xopenat_lock_full(tfd, "abc", 0, 0, 0755, LOCK_POSIX, LOCK_EX) == -EBADF);
+        assert_se(xopenat_lock_full(tfd, "def", O_DIRECTORY, 0, 0755, LOCK_POSIX, LOCK_EX) == -EBADF);
 }
 
 static int intro(void) {
         arg_test_dir = saved_argv[1];
         return EXIT_SUCCESS;
+}
+
+TEST(readlinkat_malloc) {
+        _cleanup_(rm_rf_physical_and_freep) char *t = NULL;
+        _cleanup_close_ int tfd = -EBADF, fd = -EBADF;
+        _cleanup_free_ char *p = NULL, *q = NULL;
+        const char *expect = "hgoehogefoobar";
+
+        tfd = mkdtemp_open(NULL, O_PATH, &t);
+        assert_se(tfd >= 0);
+
+        assert_se(symlinkat(expect, tfd, "linkname") >= 0);
+
+        assert_se(readlinkat_malloc(tfd, "linkname", &p) >= 0);
+        assert_se(streq(p, expect));
+        p = mfree(p);
+
+        fd = openat(tfd, "linkname", O_PATH | O_NOFOLLOW | O_CLOEXEC);
+        assert_se(fd >= 0);
+        assert_se(readlinkat_malloc(fd, NULL, &p) >= 0);
+        assert_se(streq(p, expect));
+        p = mfree(p);
+        assert_se(readlinkat_malloc(fd, "", &p) >= 0);
+        assert_se(streq(p, expect));
+        p = mfree(p);
+        fd = safe_close(fd);
+
+        assert_se(q = path_join(t, "linkname"));
+        assert_se(readlinkat_malloc(AT_FDCWD, q, &p) >= 0);
+        assert_se(streq(p, expect));
+        p = mfree(p);
+        assert_se(readlinkat_malloc(INT_MAX, q, &p) >= 0);
+        assert_se(streq(p, expect));
+        p = mfree(p);
+        q = mfree(q);
 }
 
 DEFINE_TEST_MAIN_WITH_INTRO(LOG_INFO, intro);
