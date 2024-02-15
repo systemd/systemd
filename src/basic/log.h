@@ -383,7 +383,7 @@ typedef struct LogRateLimit {
         RateLimit ratelimit;
 } LogRateLimit;
 
-#define log_ratelimit_internal(_level, _error, _ratelimit, _format, _file, _line, _func, ...)        \
+#define log_ratelimit_internal(_level, _error, _ratelimit, _file, _line, _func, _format, ...)        \
 ({                                                                              \
         int _log_ratelimit_error = (_error);                                    \
         int _log_ratelimit_level = (_level);                                    \
@@ -407,7 +407,7 @@ typedef struct LogRateLimit {
         ({                                                              \
                 int _level = (level), _e = (error);                     \
                 _e = (log_get_max_level() >= LOG_PRI(_level))           \
-                        ? log_ratelimit_internal(_level, _e, _ratelimit, format, PROJECT_FILE, __LINE__, __func__, ##__VA_ARGS__) \
+                        ? log_ratelimit_internal(_level, _e, _ratelimit, PROJECT_FILE, __LINE__, __func__, format, ##__VA_ARGS__) \
                         : -ERRNO_VALUE(_e);                             \
                 _e < 0 ? _e : -ESTRPIPE;                                \
         })
