@@ -14,5 +14,6 @@ MinLinks=1
 AdActorSystemPriority=1218
 AdUserPortKey=811
 AdActorSystem=00:11:22:33:44:55
+ARPMissedMax=10
 # feed the sanitizer
 AdActorSystem=00:11:22:33:44:55
