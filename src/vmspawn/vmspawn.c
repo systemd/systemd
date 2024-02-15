@@ -851,7 +851,7 @@ static int discover_boot_entry(const char *root, char **ret_linux, char ***ret_i
 
         const BootEntry *boot_entry = boot_config_default_entry(&config);
 
-        if (!IN_SET(boot_entry->type, BOOT_ENTRY_UNIFIED, BOOT_ENTRY_CONF))
+        if (boot_entry && !IN_SET(boot_entry->type, BOOT_ENTRY_UNIFIED, BOOT_ENTRY_CONF))
                 boot_entry = NULL;
 
         /* If we cannot determine a default entry search for UKIs (Type #2 EFI Unified Kernel Images)
