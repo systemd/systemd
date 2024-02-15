@@ -644,10 +644,7 @@ static char *determine_mutable_directory_path_for_hierarchy(const char *hierarch
         if (!dir_name)
                 return NULL;
 
-        if (!strextend(&dir_name, ".local"))
-                return NULL;
-
-        return path_join("/var/lib/extension-data", dir_name);
+        return path_join("/var/lib/extensions.mutable", dir_name);
 }
 
 static int paths_on_same_fs(const char *path1, const char *path2) {

@@ -49,7 +49,7 @@ prep_root() {
     local r=${1}; shift
     local h=${1}; shift
 
-    mkdir -p "${r}${h}" "${r}/usr/lib" "${r}/var/lib/extensions" "${r}/var/lib/extension-data"
+    mkdir -p "${r}${h}" "${r}/usr/lib" "${r}/var/lib/extensions" "${r}/var/lib/extensions.mutable"
 }
 
 gen_os_release() {
@@ -86,14 +86,14 @@ hierarchy_ext_data_path() {
     n="${n%%+(/)}"
     n="${n//\//.}"
 
-    printf '%s' "${r}/var/lib/extension-data/${n}.local"
+    printf '%s' "${r}/var/lib/extensions.mutable/${n}"
 }
 
 prep_ext_data() {
     local p=${1}; shift
 
     mkdir -p "${p}"
-    touch "${p}/preexisting-file-in-extension-data"
+    touch "${p}/preexisting-file-in-extensions-mutable"
 }
 
 make_ro() {
@@ -142,7 +142,7 @@ check_usual_suspects() {
     local pairs=(
         e:preexisting-file-in-extension-image
         h:preexisting-file-in-hierarchy
-        u:preexisting-file-in-extension-data
+        u:preexisting-file-in-extensions-mutable
     )
     local pair name file desc full_path
     for pair in "${pairs[@]}"; do
@@ -183,7 +183,7 @@ check_usual_suspects_after_unmerge() {
 
 
 #
-# simple case, no extension data in /var/lib/extension-data/…
+# simple case, no extension data in /var/lib/extensions.mutable/…
 #
 
 
@@ -210,7 +210,8 @@ check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
 
 
 #
-# simple case, no extension data in /var/lib/extension-data/… and no hierarchy either
+# simple case, no extension data in /var/lib/extensions.mutable/… and no
+# hierarchy either
 #
 
 
@@ -234,7 +235,8 @@ check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}"
 
 
 #
-# simple case, no extension data in /var/lib/extension-data/… and an empty hierarchy
+# simple case, no extension data in /var/lib/extensions.mutable/… and an empty
+# hierarchy
 #
 
 
@@ -261,7 +263,7 @@ check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}"
 
 
 #
-# simple case, extension data in /var/lib/extension-data/…
+# simple case, extension data in /var/lib/extensions.mutable/…
 #
 
 
@@ -294,7 +296,8 @@ test ! -f "${fake_root}${hierarchy}/now-is-mutable" || die "now-is-mutable did n
 
 
 #
-# simple case, extension data in /var/lib/extension-data/…, missing hierarchy
+# simple case, extension data in /var/lib/extensions.mutable/…, missing
+# hierarchy
 #
 
 
@@ -324,7 +327,7 @@ test ! -f "${fake_root}${hierarchy}/now-is-mutable" || die "now-is-mutable did n
 
 
 #
-# simple case, extension data in /var/lib/extension-data/…, empty hierarchy
+# simple case, extension data in /var/lib/extensions.mutable/…, empty hierarchy
 #
 
 
@@ -357,7 +360,7 @@ test ! -f "${fake_root}${hierarchy}/now-is-mutable" || die "now-is-mutable did n
 
 
 #
-# /var/lib/extension-data/… is a symlink to /some/other/dir
+# /var/lib/extensions.mutable/… is a symlink to /some/other/dir
 #
 
 
@@ -395,7 +398,7 @@ test ! -f "${fake_root}${hierarchy}/now-is-mutable" || die "now-is-mutable did n
 
 
 #
-# /var/lib/extension-data/… is a symlink to the hierarchy itself
+# /var/lib/extensions.mutable/… is a symlink to the hierarchy itself
 #
 # for this to work, hierarchy must be writable
 #
@@ -433,7 +436,8 @@ test -f "${real_ext_dir}/now-is-mutable" || die "now-is-mutable disappeared from
 
 
 #
-# /var/lib/extension-data/… is a symlink to the hierarchy itself, which is read-only
+# /var/lib/extensions.mutable/… is a symlink to the hierarchy itself, which is
+# read-only
 #
 # expecting a failure here
 #
@@ -459,7 +463,7 @@ SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" m
 
 
 #
-# /var/lib/extension-data/… is a dangling symlink, assuming immutable mode
+# /var/lib/extensions.mutable/… is a dangling symlink, assuming immutable mode
 #
 
 
@@ -490,7 +494,7 @@ check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
 
 
 #
-# /var/lib/extension-data/… exists, but it's ignored
+# /var/lib/extensions.mutable/… exists, but it's ignored
 #
 
 
@@ -521,7 +525,7 @@ check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
 
 
 #
-# /var/lib/extension-data/… exists, but it's imported instead
+# /var/lib/extensions.mutable/… exists, but it's imported instead
 #
 
 
@@ -552,7 +556,8 @@ check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
 
 
 #
-# /var/lib/extension-data/… does not exist, but mutability is enabled anyway
+# /var/lib/extensions.mutable/… does not exist, but mutability is enabled
+# anyway
 #
 
 
@@ -569,12 +574,12 @@ prep_ro_hierarchy "${fake_root}" "${hierarchy}"
 
 touch "${fake_root}${hierarchy}/should-fail-on-read-only-fs" && die "${fake_root}${hierarchy} is not read-only"
 
-test ! -d "${ext_data_path}" || die "extension-data should not exist"
+test ! -d "${ext_data_path}" || die "extensions.mutable should not exist"
 
 # run systemd-sysext
 SYSTEMD_SYSEXT_HIERARCHIES="${hierarchy}" systemd-sysext --root="${fake_root}" --mutable=yes merge
 
-test -d "${ext_data_path}" || die "extension-data should exist now"
+test -d "${ext_data_path}" || die "extensions.mutable should exist now"
 touch "${fake_root}${hierarchy}/now-is-mutable" || die "${fake_root}${hierarchy} is not mutable"
 check_usual_suspects_after_merge "${fake_root}" "${hierarchy}" e h
 test -f "${ext_data_path}/now-is-mutable" || die "now-is-mutable is not stored in expected location"
@@ -587,8 +592,8 @@ test ! -f "${fake_root}${hierarchy}/now-is-mutable" || die "now-is-mutable did n
 
 
 #
-# /var/lib/extension-data/… does not exist, mutability is set to auto (same as
-# simple read-only, but explicit)
+# /var/lib/extensions.mutable/… does not exist, mutability is set to auto (same
+# as simple read-only, but explicit)
 #
 
 
@@ -615,8 +620,8 @@ check_usual_suspects_after_unmerge "${fake_root}" "${hierarchy}" h
 
 
 #
-# /var/lib/extension-data/… exists, mutability is set to auto (same as simple
-# mutable, but explicit)
+# /var/lib/extensions.mutable/… exists, mutability is set to auto (same as
+# simple mutable, but explicit)
 #
 
 
