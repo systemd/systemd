@@ -31,7 +31,7 @@ int chattr_full(
 
         fd = xopenat(dir_fd, path, O_RDONLY|O_CLOEXEC|O_NOCTTY|O_NOFOLLOW, /* xopen_flags = */ 0, /* mode = */ 0);
         if (fd < 0)
-                return -errno;
+                return fd;
 
         if (fstat(fd, &st) < 0)
                 return -errno;
