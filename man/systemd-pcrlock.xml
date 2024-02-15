@@ -575,6 +575,15 @@
         <xi:include href="version-info.xml" xpointer="v256"/></listitem>
       </varlistentry>
 
+      <varlistentry>
+        <term><option>--strict=</option></term>
+
+        <listitem><para>Takes a boolean. Defaults to false. Honoured by <command>make-policy</command>. If
+        true all specified PCRs must be included in the policy otherwise the command returns failure.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
+
       <xi:include href="standard-options.xml" xpointer="json" />
       <xi:include href="standard-options.xml" xpointer="no-pager" />
       <xi:include href="standard-options.xml" xpointer="help" />
