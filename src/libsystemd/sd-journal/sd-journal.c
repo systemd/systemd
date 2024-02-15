@@ -1594,6 +1594,41 @@ error:
         return r;
 }
 
+int journal_get_directories(sd_journal *j, char ***ret) {
+        _cleanup_strv_free_ char **paths = NULL;
+        JournalFile *f;
+        const char *p;
+        size_t n = SIZE_MAX;
+        int r;
+
+        assert(j);
+        assert(ret);
+
+        /* This returns parent directories of opened journal files. */
+
+        ORDERED_HASHMAP_FOREACH_KEY(f, p, j->files) {
+                _cleanup_free_ char *d = NULL;
+
+                /* Ignore paths generated from fd. */
+                if (path_startswith(p, "/proc/"))
+                        continue;
+
+                r = path_extract_directory(p, &d);
+                if (r < 0)
+                        return r;
+
+                if (path_strv_contains(paths, d))
+                        continue;
+
+                r = strv_extend_with_size(&paths, &n, d);
+                if (r < 0)
+                        return r;
+        }
+
+        *ret = TAKE_PTR(paths);
+        return 0;
+}
+
 static int add_file_by_name(
                 sd_journal *j,
                 const char *prefix,

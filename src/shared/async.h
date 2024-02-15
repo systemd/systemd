@@ -20,7 +20,13 @@
  * for avoiding threads. */
 
 int asynchronous_sync(pid_t *ret_pid);
-int asynchronous_close(int fd);
+int asynchronous_close_full(int fd, bool also_fsync);
+static inline int asynchronous_close(int fd) {
+        return asynchronous_close_full(fd, false);
+}
+static inline int asynchronous_fsync_and_close(int fd) {
+        return asynchronous_close_full(fd, true);
+}
 int asynchronous_rm_rf(const char *p, RemoveFlags flags);
 
 DEFINE_TRIVIAL_CLEANUP_FUNC(int, asynchronous_close);

@@ -4,7 +4,6 @@
 #include <fcntl.h>
 #include <linux/fs.h>
 #include <linux/magic.h>
-#include <pthread.h>
 #include <stddef.h>
 #include <sys/mman.h>
 #include <sys/statvfs.h>
@@ -179,95 +178,23 @@ int journal_file_tail_end_by_mmap(JournalFile *f, uint64_t *ret_offset) {
         return 0;
 }
 
-int journal_file_set_offline_thread_join(JournalFile *f) {
-        int r;
-
+int journal_file_set_state(JournalFile *f, uint8_t state) {
         assert(f);
-
-        if (f->offline_state == OFFLINE_JOINED)
-                return 0;
-
-        r = pthread_join(f->offline_thread, NULL);
-        if (r)
-                return -r;
-
-        f->offline_state = OFFLINE_JOINED;
-
-        if (mmap_cache_fd_got_sigbus(f->cache_fd))
-                return -EIO;
-
-        return 0;
-}
-
-static int journal_file_set_online(JournalFile *f) {
-        bool wait = true;
-
-        assert(f);
+        assert(state < _STATE_MAX);
 
         if (!journal_file_writable(f))
                 return -EPERM;
 
-        if (f->fd < 0 || !f->header)
+        if (!f->header)
                 return -EINVAL;
-
-        while (wait) {
-                switch (f->offline_state) {
-                case OFFLINE_JOINED:
-                        /* No offline thread, no need to wait. */
-                        wait = false;
-                        break;
-
-                case OFFLINE_SYNCING: {
-                                OfflineState tmp_state = OFFLINE_SYNCING;
-                                if (!__atomic_compare_exchange_n(&f->offline_state, &tmp_state, OFFLINE_CANCEL,
-                                    false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
-                                        continue;
-                        }
-                        /* Canceled syncing prior to offlining, no need to wait. */
-                        wait = false;
-                        break;
-
-                case OFFLINE_AGAIN_FROM_SYNCING: {
-                                OfflineState tmp_state = OFFLINE_AGAIN_FROM_SYNCING;
-                                if (!__atomic_compare_exchange_n(&f->offline_state, &tmp_state, OFFLINE_CANCEL,
-                                    false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
-                                        continue;
-                        }
-                        /* Canceled restart from syncing, no need to wait. */
-                        wait = false;
-                        break;
-
-                case OFFLINE_AGAIN_FROM_OFFLINING: {
-                                OfflineState tmp_state = OFFLINE_AGAIN_FROM_OFFLINING;
-                                if (!__atomic_compare_exchange_n(&f->offline_state, &tmp_state, OFFLINE_CANCEL,
-                                    false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST))
-                                        continue;
-                        }
-                        /* Canceled restart from offlining, must wait for offlining to complete however. */
-                        _fallthrough_;
-                default: {
-                        int r;
-
-                        r = journal_file_set_offline_thread_join(f);
-                        if (r < 0)
-                                return r;
-
-                        wait = false;
-                        break;
-                }
-                }
-        }
 
         if (mmap_cache_fd_got_sigbus(f->cache_fd))
                 return -EIO;
 
         switch (f->header->state) {
                 case STATE_ONLINE:
-                        return 0;
-
                 case STATE_OFFLINE:
-                        f->header->state = STATE_ONLINE;
-                        (void) fsync(f->fd);
+                        f->header->state = state;
                         return 0;
 
                 default:
@@ -452,7 +379,7 @@ static int journal_file_refresh_header(JournalFile *f) {
         /* We used to update the header's boot ID field here, but we don't do that anymore, as per
          * HEADER_COMPATIBLE_TAIL_ENTRY_BOOT_ID */
 
-        r = journal_file_set_online(f);
+        r = journal_file_set_state(f, STATE_ONLINE);
 
         /* Sync the online state to disk; likely just created a new file, also sync the directory this file
          * is located in. */
@@ -734,8 +661,9 @@ int journal_file_fstat(JournalFile *f) {
                 return r;
 
         /* Refuse appending to files that are already deleted */
-        if (f->last_stat.st_nlink <= 0)
-                return -EIDRM;
+        r = stat_verify_linked(&f->last_stat);
+        if (r < 0)
+                return r;
 
         return 0;
 }
@@ -1233,7 +1161,7 @@ int journal_file_append_object(
         assert(type > OBJECT_UNUSED && type < _OBJECT_TYPE_MAX);
         assert(size >= sizeof(ObjectHeader));
 
-        r = journal_file_set_online(f);
+        r = journal_file_set_state(f, STATE_ONLINE);
         if (r < 0)
                 return r;
 
@@ -4328,7 +4256,7 @@ int journal_file_parse_uid_from_filename(const char *path, uid_t *ret_uid) {
         return parse_uid(buf, ret_uid);
 }
 
-int journal_file_archive(JournalFile *f, char **ret_previous_path) {
+int journal_file_rename_for_archiving(JournalFile *f, char **ret_previous_path) {
         _cleanup_free_ char *p = NULL;
 
         assert(f);
@@ -4363,14 +4291,6 @@ int journal_file_archive(JournalFile *f, char **ret_previous_path) {
                 *ret_previous_path = TAKE_PTR(f->path);
 
         free_and_replace(f->path, p);
-
-        /* Set as archive so offlining commits w/state=STATE_ARCHIVED. Previously we would set old_file->header->state
-         * to STATE_ARCHIVED directly here, but journal_file_set_offline() short-circuits when state != STATE_ONLINE,
-         * which would result in the rotated journal never getting fsync() called before closing.  Now we simply queue
-         * the archive state by setting an archive bit, leaving the state as STATE_ONLINE so proper offlining
-         * occurs. */
-        f->archive = true;
-
         return 0;
 }
 
