@@ -198,6 +198,12 @@ static int netdev_bond_fill_message_create(NetDev *netdev, Link *link, sd_netlin
                         return r;
         }
 
+        if (b->arp_missed_max > 0) {
+                r = sd_netlink_message_append_u8(m, IFLA_BOND_MISSED_MAX, b->arp_missed_max);
+                if (r < 0)
+                        return r;
+        }
+
         if (b->arp_interval > 0 && !ordered_set_isempty(b->arp_ip_targets)) {
                 void *val;
                 int n = 0;

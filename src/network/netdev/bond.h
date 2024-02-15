@@ -34,6 +34,8 @@ typedef struct Bond {
         uint16_t ad_user_port_key;
         struct ether_addr ad_actor_system;
 
+        uint8_t arp_missed_max;
+
         usec_t miimon;
         usec_t updelay;
         usec_t downdelay;

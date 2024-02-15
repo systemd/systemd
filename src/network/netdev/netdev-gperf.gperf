@@ -218,6 +218,7 @@ Bond.LearnPacketIntervalSec,              config_parse_sec,                     
 Bond.AdActorSystemPriority,               config_parse_ad_actor_sys_prio,            0,                             offsetof(Bond, ad_actor_sys_prio)
 Bond.AdUserPortKey,                       config_parse_ad_user_port_key,             0,                             offsetof(Bond, ad_user_port_key)
 Bond.AdActorSystem,                       config_parse_ad_actor_system,              0,                             offsetof(Bond, ad_actor_system)
+Bond.ARPMissedMax,                        config_parse_uint8,                        0,                             offsetof(Bond, arp_missed_max)
 Bridge.HelloTimeSec,                      config_parse_sec,                          0,                             offsetof(Bridge, hello_time)
 Bridge.MaxAgeSec,                         config_parse_sec,                          0,                             offsetof(Bridge, max_age)
 Bridge.AgeingTimeSec,                     config_parse_sec,                          0,                             offsetof(Bridge, ageing_time)
