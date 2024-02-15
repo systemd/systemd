@@ -26,7 +26,8 @@ struct sd_ndisc {
 
         struct ether_addr mac_addr;
 
-        sd_event_source *recv_event_source;
+        sd_event_source *recv_neighbor_event_source;
+        sd_event_source *recv_router_event_source;
         sd_event_source *timeout_event_source;
         sd_event_source *timeout_no_ra;
 

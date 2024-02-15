@@ -193,7 +193,7 @@ static int send_ra(uint8_t flags) {
 
         advertisement[5] = flags;
 
-        assert_se(write(test_fd[1], advertisement, sizeof(advertisement)) ==
+        assert_se(write(test_router_fd[1], advertisement, sizeof(advertisement)) ==
                   sizeof(advertisement));
 
         if (verbose)
@@ -202,7 +202,7 @@ static int send_ra(uint8_t flags) {
         return 0;
 }
 
-static void test_callback(sd_ndisc *nd, sd_ndisc_event_t event, sd_ndisc_router *rt, void *userdata) {
+static void test_callback_ns(sd_ndisc *nd, sd_ndisc_event_t event, void *message, void *userdata) {
         sd_event *e = userdata;
         static unsigned idx = 0;
         uint64_t flags_array[] = {
@@ -218,6 +218,8 @@ static void test_callback(sd_ndisc *nd, sd_ndisc_event_t event, sd_ndisc_router 
 
         if (event != SD_NDISC_EVENT_ROUTER)
                 return;
+
+        sd_ndisc_router *rt = ASSERT_PTR(message);
 
         router_dump(rt);
 
@@ -242,6 +244,7 @@ TEST(rs) {
         _cleanup_(sd_ndisc_unrefp) sd_ndisc *nd = NULL;
 
         send_ra_function = send_ra;
+        send_na_function = NULL;
 
         assert_se(sd_event_new(&e) >= 0);
 
@@ -252,7 +255,7 @@ TEST(rs) {
 
         assert_se(sd_ndisc_set_ifindex(nd, 42) >= 0);
         assert_se(sd_ndisc_set_mac(nd, &mac_addr) >= 0);
-        assert_se(sd_ndisc_set_callback(nd, test_callback, e) >= 0);
+        assert_se(sd_ndisc_set_callback(nd, test_callback_ns, e) >= 0);
 
         assert_se(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
                                              30 * USEC_PER_SEC, 0,
@@ -262,13 +265,15 @@ TEST(rs) {
         assert_se(sd_ndisc_start(nd) >= 0);
         assert_se(sd_ndisc_start(nd) >= 0);
         assert_se(sd_ndisc_stop(nd) >= 0);
-        test_fd[1] = safe_close(test_fd[1]);
+        test_router_fd[1] = safe_close(test_router_fd[1]);
+        test_neighbor_fd[1] = safe_close(test_neighbor_fd[1]);
 
         assert_se(sd_ndisc_start(nd) >= 0);
 
         assert_se(sd_event_loop(e) >= 0);
 
-        test_fd[1] = safe_close(test_fd[1]);
+        test_router_fd[1] = safe_close(test_router_fd[1]);
+        test_neighbor_fd[1] = safe_close(test_neighbor_fd[1]);
 }
 
 static int send_ra_invalid_domain(uint8_t flags) {
@@ -308,7 +313,7 @@ static int send_ra_invalid_domain(uint8_t flags) {
 
         printf("sizeof(nd_router_advert)=%zu\n", sizeof(struct nd_router_advert));
 
-        assert_se(write(test_fd[1], advertisement, sizeof(advertisement)) ==
+        assert_se(write(test_router_fd[1], advertisement, sizeof(advertisement)) ==
                   sizeof(advertisement));
 
         if (verbose)
@@ -317,11 +322,12 @@ static int send_ra_invalid_domain(uint8_t flags) {
         return 0;
 }
 
-TEST(invalid_domain) {
+TEST(ns_invalid_domain) {
         _cleanup_(sd_event_unrefp) sd_event *e = NULL;
         _cleanup_(sd_ndisc_unrefp) sd_ndisc *nd = NULL;
 
         send_ra_function = send_ra_invalid_domain;
+        send_na_function = NULL;
 
         assert_se(sd_event_new(&e) >= 0);
 
@@ -332,7 +338,7 @@ TEST(invalid_domain) {
 
         assert_se(sd_ndisc_set_ifindex(nd, 42) >= 0);
         assert_se(sd_ndisc_set_mac(nd, &mac_addr) >= 0);
-        assert_se(sd_ndisc_set_callback(nd, test_callback, e) >= 0);
+        assert_se(sd_ndisc_set_callback(nd, test_callback_ns, e) >= 0);
 
         assert_se(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
                                              30 * USEC_PER_SEC, 0,
@@ -342,7 +348,113 @@ TEST(invalid_domain) {
 
         assert_se(sd_event_loop(e) >= 0);
 
-        test_fd[1] = safe_close(test_fd[1]);
+        test_router_fd[1] = safe_close(test_router_fd[1]);
+        test_neighbor_fd[1] = safe_close(test_neighbor_fd[1]);
+}
+
+static void neighbor_dump(sd_ndisc_neighbor *na) {
+        struct in6_addr addr;
+        uint32_t flags;
+
+        assert_se(na);
+
+        log_info("--");
+        assert_se(sd_ndisc_neighbor_get_address(na, &addr) >= 0);
+        log_info("Sender: %s", IN6_ADDR_TO_STRING(&addr));
+
+        assert_se(sd_ndisc_neighbor_get_flags(na, &flags) >= 0);
+        log_info("Flags: Router:%s, Solicited:%s, Override: %s",
+                 yes_no(flags & ND_NA_FLAG_ROUTER),
+                 yes_no(flags & ND_NA_FLAG_SOLICITED),
+                 yes_no(flags & ND_NA_FLAG_OVERRIDE));
+
+        assert_se(sd_ndisc_neighbor_is_router(na) == FLAGS_SET(flags, ND_NA_FLAG_ROUTER));
+        assert_se(sd_ndisc_neighbor_is_solicited(na) == FLAGS_SET(flags, ND_NA_FLAG_SOLICITED));
+        assert_se(sd_ndisc_neighbor_is_override(na) == FLAGS_SET(flags, ND_NA_FLAG_OVERRIDE));
+}
+
+static int send_na(uint32_t flags) {
+        uint8_t advertisement[] = {
+                /* struct nd_neighbor_advert */
+                0x88, 0x00, 0xde, 0x83, 0x00, 0x00, 0x00, 0x00,
+                0xfe, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                0xfe, 0x80, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
+        };
+
+        ((struct nd_neighbor_advert*) advertisement)->nd_na_flags_reserved = flags;
+
+        assert_se(write(test_neighbor_fd[1], advertisement, sizeof(advertisement)) == sizeof(advertisement));
+        if (verbose)
+                printf("  sent NA with flag 0x%02x\n", flags);
+
+        return 0;
+}
+
+static void test_callback_na(sd_ndisc *nd, sd_ndisc_event_t event, void *message, void *userdata) {
+        sd_event *e = userdata;
+        static unsigned idx = 0;
+        uint32_t flags_array[] = {
+                0,
+                0,
+                ND_NA_FLAG_ROUTER,
+                ND_NA_FLAG_SOLICITED,
+                ND_NA_FLAG_SOLICITED | ND_NA_FLAG_OVERRIDE,
+        };
+        uint32_t flags;
+
+        assert_se(nd);
+
+        if (event != SD_NDISC_EVENT_NEIGHBOR)
+                return;
+
+        sd_ndisc_neighbor *rt = ASSERT_PTR(message);
+
+        neighbor_dump(rt);
+
+        assert_se(sd_ndisc_neighbor_get_flags(rt, &flags) >= 0);
+        assert_se(flags == flags_array[idx]);
+        idx++;
+
+        if (verbose)
+                printf("  got event 0x%02" PRIx32 "\n", flags);
+
+        if (idx < ELEMENTSOF(flags_array)) {
+                send_na(flags_array[idx]);
+                return;
+        }
+
+        idx = 0;
+        sd_event_exit(e, 0);
+}
+
+TEST(ns) {
+        _cleanup_(sd_event_unrefp) sd_event *e = NULL;
+        _cleanup_(sd_ndisc_unrefp) sd_ndisc *nd = NULL;
+
+        send_ra_function = NULL;
+        send_na_function = send_na;
+
+        assert_se(sd_event_new(&e) >= 0);
+
+        assert_se(sd_ndisc_new(&nd) >= 0);
+        assert_se(nd);
+
+        assert_se(sd_ndisc_attach_event(nd, e, 0) >= 0);
+
+        assert_se(sd_ndisc_set_ifindex(nd, 42) >= 0);
+        assert_se(sd_ndisc_set_mac(nd, &mac_addr) >= 0);
+        assert_se(sd_ndisc_set_callback(nd, test_callback_na, e) >= 0);
+
+        assert_se(sd_event_add_time_relative(e, NULL, CLOCK_BOOTTIME,
+                                             30 * USEC_PER_SEC, 0,
+                                             NULL, INT_TO_PTR(-ETIMEDOUT)) >= 0);
+
+        assert_se(sd_ndisc_start(nd) >= 0);
+
+        assert_se(sd_event_loop(e) >= 0);
+
+        test_router_fd[1] = safe_close(test_router_fd[1]);
+        test_neighbor_fd[1] = safe_close(test_neighbor_fd[1]);
 }
 
 static int test_timeout_value(uint8_t flags) {
@@ -420,7 +532,7 @@ TEST(timeout) {
 
         assert_se(sd_event_loop(e) >= 0);
 
-        test_fd[1] = safe_close(test_fd[1]);
+        test_router_fd[1] = safe_close(test_router_fd[1]);
 }
 
 DEFINE_TEST_MAIN(LOG_DEBUG);
