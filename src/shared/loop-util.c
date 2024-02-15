@@ -679,7 +679,7 @@ int loop_device_make_by_path_at(
         else
                 direct = direct_flags != 0;
         if (fd < 0) {
-                r = -errno;
+                r = fd;
 
                 /* Retry read-only? */
                 if (open_flags >= 0 || !(ERRNO_IS_PRIVILEGE(r) || r == -EROFS))
