@@ -124,6 +124,7 @@ static const NLAPolicy rtnl_link_info_data_bond_policies[] = {
         [IFLA_BOND_AD_ACTOR_SYSTEM]     = BUILD_POLICY_WITH_SIZE(ETHER_ADDR, ETH_ALEN),
         [IFLA_BOND_TLB_DYNAMIC_LB]      = BUILD_POLICY(U8),
         [IFLA_BOND_PEER_NOTIF_DELAY]    = BUILD_POLICY(U32),
+        [IFLA_BOND_MISSED_MAX]          = BUILD_POLICY(U8),
 };
 
 static const NLAPolicy rtnl_link_info_data_bridge_policies[] = {
