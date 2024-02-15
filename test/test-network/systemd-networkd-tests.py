@@ -1498,6 +1498,7 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.check_link_attr('bond99', 'bonding', 'ad_actor_sys_prio', '1218')
         self.check_link_attr('bond99', 'bonding', 'ad_user_port_key',  '811')
         self.check_link_attr('bond99', 'bonding', 'ad_actor_system',   '00:11:22:33:44:55')
+        self.check_link_attr('bond99', 'bonding', 'arp_missed_max',    '10')
 
         self.check_link_attr('bond98', 'bonding', 'mode',              'balance-tlb 5')
         self.check_link_attr('bond98', 'bonding', 'tlb_dynamic_lb',    '1')
