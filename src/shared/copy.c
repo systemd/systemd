@@ -170,13 +170,14 @@ int copy_bytes_full(
         assert(fdt >= 0);
         assert(!FLAGS_SET(copy_flags, COPY_LOCK_BSD));
 
-        /* Tries to copy bytes from the file descriptor 'fdf' to 'fdt' in the smartest possible way. Copies a maximum
-         * of 'max_bytes', which may be specified as UINT64_MAX, in which no maximum is applied. Returns negative on
-         * error, zero if EOF is hit before the bytes limit is hit and positive otherwise. If the copy fails for some
-         * reason but we read but didn't yet write some data an ret_remains/ret_remains_size is not NULL, then it will
-         * be initialized with an allocated buffer containing this "remaining" data. Note that these two parameters are
-         * initialized with a valid buffer only on failure and only if there's actually data already read. Otherwise
-         * these parameters if non-NULL are set to NULL. */
+        /* Tries to copy bytes from the file descriptor 'fdf' to 'fdt' in the smartest possible way. Copies a
+         * maximum of 'max_bytes', which may be specified as UINT64_MAX, in which no maximum is applied.
+         * Returns negative on error, zero if EOF is hit before the bytes limit is hit and positive
+         * otherwise. If the copy fails for some reason but we read but didn't yet write some data and
+         * ret_remains/ret_remains_size is not NULL, then it will be initialized with an allocated buffer
+         * containing this "remaining" data. Note that these two parameters are initialized with a valid
+         * buffer only on failure and only if there's actually data already read. Otherwise these parameters
+         * if non-NULL are set to NULL. */
 
         if (ret_remains)
                 *ret_remains = NULL;
