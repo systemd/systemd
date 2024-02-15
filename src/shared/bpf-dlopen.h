@@ -38,6 +38,8 @@ extern struct btf* (*sym_btf__load_from_kernel_by_id)(__u32);
 extern const struct btf_type* (*sym_btf__type_by_id)(const struct btf *, __u32);
 extern const char* (*sym_btf__name_by_offset)(const struct btf *, __u32);
 extern void (*sym_btf__free)(struct btf *);
+extern const char* (*sym_libbpf_bpf_map_type_str)(enum bpf_map_type);
+extern const char* (*sym_libbpf_bpf_prog_type_str)(enum bpf_prog_type);
 
 #endif
 

@@ -47,6 +47,8 @@ struct btf* (*sym_btf__load_from_kernel_by_id)(__u32);
 const struct btf_type* (*sym_btf__type_by_id)(const struct btf *, __u32);
 const char* (*sym_btf__name_by_offset)(const struct btf *, __u32);
 void (*sym_btf__free)(struct btf *);
+const char* (*sym_libbpf_bpf_map_type_str)(enum bpf_map_type);
+const char* (*sym_libbpf_bpf_prog_type_str)(enum bpf_prog_type);
 
 /* compat symbols removed in libbpf 1.0 */
 int (*sym_bpf_create_map)(enum bpf_map_type,  int key_size, int value_size, int max_entries, __u32 map_flags);
@@ -143,7 +145,9 @@ int dlopen_bpf(void) {
                         DLSYM_ARG(btf__load_from_kernel_by_id),
                         DLSYM_ARG(btf__type_by_id),
                         DLSYM_ARG(btf__name_by_offset),
-                        DLSYM_ARG(btf__free));
+                        DLSYM_ARG(btf__free),
+                        DLSYM_ARG(libbpf_bpf_map_type_str),
+                        DLSYM_ARG(libbpf_bpf_prog_type_str));
         if (r < 0)
                 return r;
 
