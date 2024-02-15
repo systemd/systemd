@@ -391,6 +391,31 @@ static int verb_status(int argc, char **argv, void *userdata) {
         return ret;
 }
 
+static int append_overlayfs_path_option(
+                char **options,
+                const char *separator,
+                const char *option,
+                const char *path) {
+
+        _cleanup_free_ char *escaped = NULL;
+
+        assert(options);
+        assert(separator);
+        assert(path);
+
+        escaped = shell_escape(path, ",:");
+        if (!escaped)
+                return log_oom();
+
+        if (option) {
+                if (!strextend(options, separator, option, "=", escaped))
+                        return log_oom();
+        } else if (!strextend(options, separator, escaped))
+                return log_oom();
+
+        return 0;
+}
+
 static int mount_overlayfs(
                 const char *where,
                 char **layers) {
@@ -407,14 +432,9 @@ static int mount_overlayfs(
                 return log_oom();
 
         STRV_FOREACH(l, layers) {
-                _cleanup_free_ char *escaped = NULL;
-
-                escaped = shell_escape(*l, ",:");
-                if (!escaped)
-                        return log_oom();
-
-                if (!strextend(&options, separator ? ":" : "", escaped))
-                        return log_oom();
+                r = append_overlayfs_path_option(&options, separator ? ":" : "", NULL, *l);
+                if (r < 0)
+                        return r;
 
                 separator = true;
         }
