@@ -27,7 +27,7 @@ typedef struct BootEntryAddon {
 
 typedef struct BootEntryAddons {
         BootEntryAddon *items;
-        size_t count;
+        size_t n_items;
 } BootEntryAddons;
 
 BootEntryAddon* boot_entry_addon_free(BootEntryAddon *t);
