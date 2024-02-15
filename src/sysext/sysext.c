@@ -268,7 +268,7 @@ static int unmerge_hierarchy(
 
                 r = umount_verbose(LOG_ERR, p, MNT_DETACH|UMOUNT_NOFOLLOW);
                 if (r < 0)
-                        return log_error_errno(r, "Failed to unmount file system '%s': %m", p);
+                        return r;
 
                 log_info("Unmerged '%s'.", p);
         }
