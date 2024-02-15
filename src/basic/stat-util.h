@@ -72,8 +72,14 @@ int path_is_network_fs(const char *path);
  */
 #define F_TYPE_EQUAL(a, b) (a == (typeof(a)) b)
 
-int stat_verify_regular(const struct stat *st);
-int fd_verify_regular(int fd);
+int stat_verify_regular_full(const struct stat *st, bool check_removed);
+static inline int stat_verify_regular(const struct stat *st) {
+        return stat_verify_regular_full(st, false);
+}
+int fd_verify_regular_full(int fd, bool check_removed);
+static inline int fd_verify_regular(int fd) {
+        return fd_verify_regular_full(fd, false);
+}
 int verify_regular_at(int dir_fd, const char *path, bool follow);
 
 int stat_verify_directory(const struct stat *st);
