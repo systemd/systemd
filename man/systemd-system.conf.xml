@@ -640,6 +640,20 @@
 
         <xi:include href="version-info.xml" xpointer="v254"/></listitem>
       </varlistentry>
+
+      <varlistentry>
+        <term><varname>DefaultCoredumpLimitInterval=</varname></term>
+        <term><varname>DefaultCoredumpLimitBurst=</varname></term>
+        <term><varname>DefaultCoredumpLimitPerBoot=</varname></term>
+
+        <listitem><para>Configures the default settings for the per-unit
+        <varname>CoredumpLimitInterval=</varname>, <varname>CoredumpLimitBurst=</varname> and
+        <varname>CoredumpLimitPerBoot=</varname> settings.
+        Defaults to <literal>0</literal>, <literal>0</literal>, and <literal>0</literal>,
+        respectively.</para>
+
+        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+      </varlistentry>
     </variablelist>
   </refsect1>
 
