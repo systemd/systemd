@@ -288,7 +288,7 @@ int version(void) {
         if (colors_enabled())
                 b = systemd_features_with_color();
 
-        printf("%ssystemd " STRINGIFY(PROJECT_VERSION) "%s (" GIT_VERSION ")\n%s\n",
+        printf("%ssystemd " PROJECT_VERSION_FULL "%s (" GIT_VERSION ")\n%s\n",
                ansi_highlight(), ansi_normal(),
                b ?: systemd_features);
         return 0;
