@@ -129,6 +129,7 @@ struct Socket {
         bool transparent;
         bool broadcast;
         bool pass_cred;
+        bool pass_fds_to_exec;
         bool pass_sec;
         bool pass_pktinfo;
         SocketTimestamping timestamping;
