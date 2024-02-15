@@ -641,8 +641,7 @@ static char** sanitize_environment(char **l) {
                         "TRIGGER_TIMER_REALTIME_USEC",
                         "TRIGGER_UNIT",
                         "WATCHDOG_PID",
-                        "WATCHDOG_USEC",
-                        NULL);
+                        "WATCHDOG_USEC");
 
         /* Let's order the environment alphabetically, just to make it pretty */
         return strv_sort(l);
@@ -668,7 +667,9 @@ int manager_default_environment(Manager *m) {
                 /* Import locale variables LC_*= from configuration */
                 (void) locale_setup(&m->transient_environment);
         } else {
-                /* The user manager passes its own environment along to its children, except for $PATH. */
+                /* The user manager passes its own environment along to its children, except for $PATH and
+                 * session envs. */
+
                 m->transient_environment = strv_copy(environ);
                 if (!m->transient_environment)
                         return log_oom();
@@ -676,6 +677,16 @@ int manager_default_environment(Manager *m) {
                 r = strv_env_replace_strdup(&m->transient_environment, "PATH=" DEFAULT_USER_PATH);
                 if (r < 0)
                         return log_oom();
+
+                /* Envvars set for our 'manager' class session are private and should not be propagated
+                 * to children. Also it's likely that the graphical session will set these on their own. */
+                strv_env_unset_many(m->transient_environment,
+                                    "XDG_SESSION_ID",
+                                    "XDG_SESSION_CLASS",
+                                    "XDG_SESSION_TYPE",
+                                    "XDG_SESSION_DESKTOP",
+                                    "XDG_SEAT",
+                                    "XDG_VTNR");
         }
 
         sanitize_environment(m->transient_environment);
