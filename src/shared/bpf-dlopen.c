@@ -45,6 +45,8 @@ DLSYM_FUNCTION(btf__name_by_offset);
 DLSYM_FUNCTION(btf__type_by_id);
 DLSYM_FUNCTION(libbpf_set_print);
 DLSYM_FUNCTION(libbpf_get_error);
+// DLSYM_FUNCTION(libbpf_bpf_map_type_str);
+// DLSYM_FUNCTION(libbpf_bpf_prog_type_str);
 
 /* new symbols available from libbpf 0.7.0 */
 int (*sym_bpf_map_create)(enum bpf_map_type,  const char *, __u32, __u32, __u32, const struct bpf_map_create_opts *);
@@ -146,6 +148,8 @@ int dlopen_bpf(void) {
                         DLSYM_ARG(btf__type_by_id),
                         DLSYM_ARG(btf__name_by_offset),
                         DLSYM_ARG(btf__free));
+                        // DLSYM_ARG(libbpf_bpf_map_type_str),
+                        // DLSYM_ARG(libbpf_bpf_prog_type_str));
         if (r < 0)
                 return r;
 
