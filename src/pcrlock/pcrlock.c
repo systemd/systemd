@@ -3684,7 +3684,7 @@ static int verb_lock_uki(int argc, char *argv[], void *userdata) {
         return write_pcrlock(array, NULL);
 }
 
-static int event_log_reduce_to_safe_pcrs(EventLog *el, uint32_t *pcrs) {
+static int event_log_reduce_to_safe_pcrs(EventLog *el, uint32_t pcrs_requested, uint32_t *pcrs) {
         _cleanup_free_ char *dropped = NULL, *kept = NULL;
 
         assert(el);
@@ -3735,7 +3735,7 @@ static int event_log_reduce_to_safe_pcrs(EventLog *el, uint32_t *pcrs) {
         }
 
         if (dropped)
-                log_notice("PCRs dropped from protection mask: %s", dropped);
+                log_full(pcrs_requested?LOG_ERR:LOG_NOTICE, "PCRs dropped from protection mask: %s", dropped);
         else
                 log_debug("No PCRs dropped from protection mask.");
 
@@ -3744,7 +3744,7 @@ static int event_log_reduce_to_safe_pcrs(EventLog *el, uint32_t *pcrs) {
         else
                 log_notice("No PCRs kept in protection mask.");
 
-        return 0;
+        return (pcrs_requested && dropped)?-1:0;
 }
 
 static int verb_lock_kernel_cmdline(int argc, char *argv[], void *userdata) {
@@ -4166,7 +4166,7 @@ static int verb_predict(int argc, char *argv[], void *userdata) {
 
         log_info("%zi combinations of components.", count);
 
-        r = event_log_reduce_to_safe_pcrs(el, &context.pcrs);
+        r = event_log_reduce_to_safe_pcrs(el, arg_pcr_mask, &context.pcrs);
         if (r < 0)
                 return r;
 
@@ -4348,7 +4348,7 @@ static int make_policy(bool force, bool recovery_pin) {
         _cleanup_(tpm2_pcr_prediction_done) Tpm2PCRPrediction new_prediction = {
                 arg_pcr_mask != 0 ? arg_pcr_mask : DEFAULT_PCR_MASK,
         };
-        r = event_log_reduce_to_safe_pcrs(el, &new_prediction.pcrs);
+        r = event_log_reduce_to_safe_pcrs(el, arg_pcr_mask, &new_prediction.pcrs);
         if (r < 0)
                 return r;
 
