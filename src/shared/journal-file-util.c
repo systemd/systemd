@@ -210,11 +210,15 @@ static void journal_file_set_offline_internal(JournalFile *f) {
 
                                 log_debug_errno(r, "Failed to re-enable copy-on-write for %s: %m, rewriting file", f->path);
 
+                                /* Here, setting COPY_VERIFY_LINKED flag is crucial. Otherwise, a broken
+                                 * journal file may be created, if journal_directory_vacuum() ->
+                                 * unlinkat_deallocate() is called in the main thread while this thread is
+                                 * copying the file. See issue #24150 and #31222. */
                                 r = copy_file_atomic_at_full(
                                                 f->fd, NULL, AT_FDCWD, f->path, f->mode,
                                                 0,
                                                 FS_NOCOW_FL,
-                                                COPY_REPLACE | COPY_FSYNC | COPY_HOLES | COPY_ALL_XATTRS,
+                                                COPY_REPLACE | COPY_FSYNC | COPY_HOLES | COPY_ALL_XATTRS | COPY_VERIFY_LINKED,
                                                 NULL, NULL);
                                 if (r < 0) {
                                         log_debug_errno(r, "Failed to rewrite %s: %m", f->path);
