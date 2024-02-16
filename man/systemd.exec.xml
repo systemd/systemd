@@ -588,6 +588,8 @@
         <para>Note that usage from user units requires overlayfs support in unprivileged user namespaces,
         which was first introduced in kernel v5.11.</para>
 
+        <xi:include href="vpick.xml" xpointer="directory"/>
+
         <xi:include href="system-or-user-ns.xml" xpointer="singular"/>
 
         <xi:include href="version-info.xml" xpointer="v251"/></listitem>
