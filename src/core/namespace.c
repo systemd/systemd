@@ -550,7 +550,8 @@ static int append_extensions(
          * Bind mount them in the same location as the ExtensionImages, so that we
          * can check that they are valid trees (extension-release.d). */
         STRV_FOREACH(extension_directory, extension_directories) {
-                _cleanup_free_ char *mount_point = NULL, *source = NULL;
+                _cleanup_(pick_result_done) PickResult result = PICK_RESULT_NULL;
+                _cleanup_free_ char *mount_point = NULL;
                 const char *e = *extension_directory;
                 bool ignore_enoent = false;
 
@@ -567,9 +568,19 @@ static int append_extensions(
                 if (startswith(e, "+"))
                         e++;
 
-                source = strdup(e);
-                if (!source)
-                        return -ENOMEM;
+                r = path_pick(/* toplevel_path= */ NULL,
+                              /* toplevel_fd= */ AT_FDCWD,
+                              e,
+                              &pick_filter_image_dir,
+                              PICK_ARCHITECTURE|PICK_TRIES,
+                              &result);
+                if (r < 0)
+                        return r;
+                if (!result.path)
+                        return log_debug_errno(
+                                        SYNTHETIC_ERRNO(ENOENT),
+                                        "No matching entry in .v/ directory %s found.",
+                                        e);
 
                 for (size_t j = 0; hierarchies && hierarchies[j]; ++j) {
                         char *prefixed_hierarchy = path_join(mount_point, hierarchies[j]);
@@ -587,7 +598,7 @@ static int append_extensions(
 
                 *me = (MountEntry) {
                         .path_malloc = TAKE_PTR(mount_point),
-                        .source_malloc = TAKE_PTR(source),
+                        .source_malloc = TAKE_PTR(result.path),
                         .mode = MOUNT_EXTENSION_DIRECTORY,
                         .ignore = ignore_enoent,
                         .has_prefix = true,

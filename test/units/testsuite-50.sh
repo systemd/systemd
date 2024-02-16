@@ -479,6 +479,19 @@ RemainAfterExit=yes
 EOF
 systemctl start testservice-50f.service
 systemctl is-active testservice-50f.service
+
+# Check vpick support in ExtensionDirectories=
+VBASE="vtest$RANDOM"
+VDIR="/tmp/${VBASE}.v"
+mkdir "$VDIR"
+
+ln -s "${image_dir}/app0" "$VDIR/${VBASE}_0"
+ln -s "${image_dir}/app1" "$VDIR/${VBASE}_1"
+
+systemd-run -P --property ExtensionDirectories="$VDIR" cat /opt/script1.sh | grep -q -F "extension-release.app2"
+
+rm -rf "$VDIR"
+
 systemd-dissect --umount "${image_dir}/app0"
 systemd-dissect --umount "${image_dir}/app1"
 
