@@ -2339,6 +2339,131 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
 
         self.wait_online(['ifb99:degraded'])
 
+    def test_rps_cpu_0(self):
+        copy_network_unit('12-dummy.netdev', '25-rps-cpu-0.link')
+        start_networkd()
+
+        self.wait_links('dummy98')
+
+        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
+        print(output)
+        self.assertEqual(int(output.replace(',', ''), base=16), 1)
+
+    @unittest.skipUnless(os.cpu_count() >= 2, reason="CPU count should be >= 2 to pass this test")
+    def test_rps_cpu_1(self):
+        copy_network_unit('12-dummy.netdev', '25-rps-cpu-1.link')
+        start_networkd()
+
+        self.wait_links('dummy98')
+
+        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
+        print(output)
+        self.assertEqual(int(output.replace(',', ''), base=16), 2)
+
+    @unittest.skipUnless(os.cpu_count() >= 2, reason="CPU count should be >= 2 to pass this test")
+    def test_rps_cpu_0_1(self):
+        copy_network_unit('12-dummy.netdev', '25-rps-cpu-0-1.link')
+        start_networkd()
+
+        self.wait_links('dummy98')
+
+        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
+        print(output)
+        self.assertEqual(int(output.replace(',', ''), base=16), 3)
+
+    @unittest.skipUnless(os.cpu_count() >= 4, reason="CPU count should be >= 4 to pass this test")
+    def test_rps_cpu_multi(self):
+        copy_network_unit('12-dummy.netdev', '25-rps-cpu-multi.link')
+        start_networkd()
+
+        self.wait_links('dummy98')
+
+        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
+        print(output)
+        self.assertEqual(int(output.replace(',', ''), base=16), 15)
+
+    def test_rps_cpu_all(self):
+        cpu_count = os.cpu_count()
+
+        copy_network_unit('12-dummy.netdev', '25-rps-cpu-all.link')
+        start_networkd()
+
+        self.wait_links('dummy98')
+
+        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
+        print(output)
+        self.assertEqual(f"{int(output.replace(',', ''), base=16):x}", f'{(1 << cpu_count) - 1:x}')
+
+    def test_rps_cpu_disable(self):
+        copy_network_unit('12-dummy.netdev', '25-rps-cpu-all.link', '24-rps-cpu-disable.link')
+        start_networkd()
+
+        self.wait_links('dummy98')
+
+        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
+        print(output)
+        self.assertEqual(int(output.replace(',', ''), base=16), 0)
+
+    def test_rps_cpu_empty(self):
+        copy_network_unit('12-dummy.netdev', '24-rps-cpu-empty.link')
+        start_networkd()
+
+        self.wait_links('dummy98')
+
+        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
+        print(output)
+        self.assertEqual(int(output.replace(',', ''), base=16), 0)
+
+    def test_rps_cpu_0_empty(self):
+        copy_network_unit('12-dummy.netdev', '25-rps-cpu-0-empty.link')
+        start_networkd()
+
+        self.wait_links('dummy98')
+
+        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
+        print(output)
+        self.assertEqual(int(output.replace(',', ''), base=16), 0)
+
+    def test_rps_cpu_0_and_empty(self):
+        copy_network_unit('12-dummy.netdev', '25-rps-cpu-0.link', '24-rps-cpu-empty.link')
+        start_networkd()
+
+        self.wait_links('dummy98')
+
+        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
+        print(output)
+        self.assertEqual(int(output.replace(',', ''), base=16), 0)
+
+    def test_rps_cpu_invalid(self):
+        copy_network_unit('12-dummy.netdev', '24-rps-cpu-invalid.link')
+        start_networkd()
+
+        self.wait_links('dummy98')
+
+        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
+        print(output)
+        self.assertEqual(int(output.replace(',', ''), base=16), 0)
+
+    def test_rps_cpu_0_invalid(self):
+        copy_network_unit('12-dummy.netdev', '25-rps-cpu-0-invalid.link')
+        start_networkd()
+
+        self.wait_links('dummy98')
+
+        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
+        print(output)
+        self.assertEqual(int(output.replace(',', ''), base=16), 1)
+
+    def test_rps_cpu_0_and_invalid(self):
+        copy_network_unit('12-dummy.netdev', '25-rps-cpu-0.link', '24-rps-cpu-invalid.link')
+        start_networkd()
+
+        self.wait_links('dummy98')
+
+        output = check_output('cat /sys/class/net/dummy98/queues/rx-0/rps_cpus')
+        print(output)
+        self.assertEqual(int(output.replace(',', ''), base=16), 0)
+
 class NetworkdL2TPTests(unittest.TestCase, Utilities):
 
     def setUp(self):
