@@ -1,0 +1,81 @@
+<?xml version='1.0'?> <!--*-nxml-*-->
+<!DOCTYPE refentry PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN"
+  "http://www.oasis-open.org/docbook/xml/4.2/docbookx.dtd">
+<!-- SPDX-License-Identifier: LGPL-2.1-or-later -->
+
+<refentry id="systemd-nsresourced.service" conditional='ENABLE_NSRESOURCED'>
+
+  <refentryinfo>
+    <title>systemd-nsresourced.service</title>
+    <productname>systemd</productname>
+  </refentryinfo>
+
+  <refmeta>
+    <refentrytitle>systemd-nsresourced.service</refentrytitle>
+    <manvolnum>8</manvolnum>
+  </refmeta>
+
+  <refnamediv>
+    <refname>systemd-nsresourced.service</refname>
+    <refname>systemd-nsresourced</refname>
+    <refpurpose>User Namespace Resource Delegation Service</refpurpose>
+  </refnamediv>
+
+  <refsynopsisdiv>
+    <para><filename>systemd-nsresourced.service</filename></para>
+    <para><filename>/usr/lib/systemd/systemd-nsresourced</filename></para>
+  </refsynopsisdiv>
+
+  <refsect1>
+    <title>Description</title>
+
+    <para><command>systemd-nsresourced</command> is a system service that permits transient delegation of a a
+    UID/GID range to a user namespace (see <citerefentry
+    project='man-pages'><refentrytitle>user_namespaces</refentrytitle><manvolnum>7</manvolnum></citerefentry>)
+    allocated by a client, via a Varlink IPC API.</para>
+
+    <para>Unprivileged clients may allocate a user namespace, and then request a UID/GID range to be assigned
+    to it via this service. The user namespace may then be used to run containers and other sandboxes, and/or
+    apply it to an id-mapped mount.</para>
+
+    <para>Allocations of UIDs/GIDs this way are transient: when a user namespace goes away, its UID/GID range
+    is returned to the pool of available ranges. In order to ensure that clients cannot gain persistency in
+    their transient UID/GID range a BPF-LSM based policy is enforced that ensures that user namespaces set up
+    this way can only write to file systems they allocate themselves or that are explicitly allowlisted via
+    <command>systemd-nsresourced</command>.</para>
+
+    <para><command>systemd-nsresourced</command> automatically ensures that any registered UID ranges show up
+    in the system's NSS database via the <ulink url="https://systemd.io/USER_GROUP_API">User/Group Record
+    Lookup API via Varlink</ulink>.</para>
+
+    <para>Currently, only UID/GID ranges consisting of either exactly 1 or exactly 65536 UIDs/GIDs can be
+    registered with this service. Moreover, UIDs and GIDs are always allocated together, and
+    symmetrically.</para>
+
+    <para>The service provides API calls to allowlist mounts (referenced via their mount file descriptors as
+    per Linux <function>fsmount()</function> API), to pass ownership of a cgroup subtree to the user
+    namespace and to delegate a virtual Ethernet device pair to the user namespace. When used in combination
+    this is sufficient to implement fully unprivileged container environments, as implemented by
+    <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>, fully
+    unprivileged <varname>RootImage=</varname> (see
+    <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>) or
+    fully unprivileged disk image tools such as
+    <citerefentry><refentrytitle>systemd-dissect</refentrytitle><manvolnum>1</manvolnum></citerefentry>.</para>
+
+    <para>This service provides one <ulink url="https://varlink.org/">Varlink</ulink> service:
+    <constant>io.systemd.NamespaceResource</constant> allows registering user namespaces, and assign mounts,
+    cgroups and network interfaces to it.</para>
+  </refsect1>
+
+  <refsect1>
+    <title>See Also</title>
+    <para>
+      <citerefentry><refentrytitle>systemd</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-mntfsd.service</refentrytitle><manvolnum>8</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd.exec</refentrytitle><manvolnum>5</manvolnum></citerefentry>,
+      <citerefentry><refentrytitle>systemd-dissect</refentrytitle><manvolnum>1</manvolnum></citerefentry>,
+      <citerefentry project='man-pages'><refentrytitle>user_namespaces</refentrytitle><manvolnum>7</manvolnum></citerefentry>
+    </para>
+  </refsect1>
+</refentry>
