@@ -82,6 +82,7 @@ static RuntimeMountContext arg_runtime_mounts = {};
 static SettingsMask arg_settings_mask = 0;
 static char *arg_firmware = NULL;
 static char *arg_runtime_directory = NULL;
+static char *arg_forward_journal = NULL;
 static bool arg_runtime_directory_created = false;
 static bool arg_privileged = false;
 static char **arg_kernel_cmdline_extra = NULL;
@@ -96,6 +97,7 @@ STATIC_DESTRUCTOR_REGISTER(arg_firmware, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_linux, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_initrds, strv_freep);
 STATIC_DESTRUCTOR_REGISTER(arg_runtime_mounts, runtime_mount_context_done);
+STATIC_DESTRUCTOR_REGISTER(arg_forward_journal, freep);
 STATIC_DESTRUCTOR_REGISTER(arg_kernel_cmdline_extra, strv_freep);
 
 static int help(void) {
@@ -145,6 +147,10 @@ static int help(void) {
                "                            the VM.\n"
                "     --bind-ro=SOURCE[:TARGET]\n"
                "                            Similar, but creates a read-only mount\n"
+               "\n%3$sIntegration:%4$s\n"
+               "     --forward-journal=FILE|DIR\n"
+               "                            Forward the virtual machine's journal entries to\n"
+               "                            the host.\n"
                "\n%3$sCredentials:%4$s\n"
                "     --set-credential=ID:VALUE\n"
                "                            Pass a credential with literal value to the\n"
@@ -181,6 +187,7 @@ static int parse_argv(int argc, char *argv[]) {
                 ARG_BIND_RO,
                 ARG_SECURE_BOOT,
                 ARG_PRIVATE_USERS,
+                ARG_FORWARD_JOURNAL,
                 ARG_SET_CREDENTIAL,
                 ARG_LOAD_CREDENTIAL,
                 ARG_FIRMWARE,
@@ -209,6 +216,7 @@ static int parse_argv(int argc, char *argv[]) {
                 { "bind-ro",           required_argument, NULL, ARG_BIND_RO           },
                 { "secure-boot",       required_argument, NULL, ARG_SECURE_BOOT       },
                 { "private-users",     required_argument, NULL, ARG_PRIVATE_USERS     },
+                { "forward-journal",   required_argument, NULL, ARG_FORWARD_JOURNAL   },
                 { "set-credential",    required_argument, NULL, ARG_SET_CREDENTIAL    },
                 { "load-credential",   required_argument, NULL, ARG_LOAD_CREDENTIAL   },
                 { "firmware",          required_argument, NULL, ARG_FIRMWARE          },
@@ -361,6 +369,12 @@ static int parse_argv(int argc, char *argv[]) {
 
                 case ARG_PRIVATE_USERS:
                         r = parse_userns_uid_range(optarg, &arg_uid_shift, &arg_uid_range);
+                        if (r < 0)
+                                return r;
+                        break;
+
+                case ARG_FORWARD_JOURNAL:
+                        r = parse_path_argument(optarg, /* suppress_root= */ false, &arg_forward_journal);
                         if (r < 0)
                                 return r;
                         break;
@@ -660,6 +674,45 @@ static int start_tpm(sd_bus *bus, const char *scope, const char *tpm, const char
                 return r;
 
         *ret_state_tempdir = TAKE_PTR(state_dir);
+
+        return 0;
+}
+
+static int start_systemd_journal_remote(sd_bus *bus, const char *scope, unsigned port, const char *sd_journal_remote, char **listen_address) {
+        _cleanup_free_ char *scope_prefix = NULL;
+        _cleanup_(socket_service_pair_done) SocketServicePair ssp = {
+                .socket_type = SOCK_STREAM,
+        };
+        int r;
+
+        assert(bus);
+        assert(scope);
+        assert(sd_journal_remote);
+
+        r = unit_name_to_prefix(scope, &scope_prefix);
+        if (r < 0)
+                return log_error_errno(r, "Failed to strip .scope suffix from scope: %m");
+
+        ssp.unit_name_prefix = strjoin(scope_prefix, "-forward-journal");
+        if (!ssp.unit_name_prefix)
+                return log_oom();
+
+        r = asprintf(&ssp.listen_address, "vsock:2:%u", port);
+        if (r < 0)
+                return log_oom();
+
+        ssp.exec_start = strv_new(sd_journal_remote,
+                        "--output", arg_forward_journal,
+                        "--split-mode", endswith(arg_forward_journal, ".journal") ? "none" : "host");
+        if (!ssp.exec_start)
+                return log_oom();
+
+        r = start_socket_service_pair(bus, scope, &ssp);
+        if (r < 0)
+                return r;
+
+        if (listen_address)
+                *listen_address = TAKE_PTR(ssp.listen_address);
 
         return 0;
 }
@@ -1105,9 +1158,9 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 return log_oom();
 
         _cleanup_close_ int child_vsock_fd = -EBADF;
+        unsigned child_cid = arg_vsock_cid;
         if (use_vsock) {
                 int device_fd = vhost_device_fd;
-                unsigned child_cid = arg_vsock_cid;
 
                 if (device_fd < 0) {
                         child_vsock_fd = open("/dev/vhost-vsock", O_RDWR|O_CLOEXEC);
@@ -1154,24 +1207,6 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                                 "-mon", "console");
         if (r < 0)
                 return log_oom();
-
-        if (ARCHITECTURE_SUPPORTS_SMBIOS)
-                FOREACH_ARRAY(cred, arg_credentials.credentials, arg_credentials.n_credentials) {
-                        _cleanup_free_ char *cred_data_b64 = NULL;
-                        ssize_t n;
-
-                        n = base64mem(cred->data, cred->size, &cred_data_b64);
-                        if (n < 0)
-                                return log_oom();
-
-                        r = strv_extend(&cmdline, "-smbios");
-                        if (r < 0)
-                                return log_oom();
-
-                        r = strv_extendf(&cmdline, "type=11,value=io.systemd.credential.binary:%s=%s", cred->id, cred_data_b64);
-                        if (r < 0)
-                                return log_oom();
-                }
 
         r = strv_extend(&cmdline, "-drive");
         if (r < 0)
@@ -1410,6 +1445,43 @@ static int run_virtual_machine(int kvm_device_fd, int vhost_device_fd) {
                 if (r < 0)
                         return log_oom();
         }
+
+        if (arg_forward_journal) {
+                _cleanup_free_ char *sd_journal_remote = NULL, *listen_address = NULL, *cred = NULL;
+                r = find_executable("systemd-journal-remote", &sd_journal_remote);
+                if (r < 0)
+                        return log_error_errno(r, "Failed to find systemd-journal-remote binary: %m");
+
+                r = start_systemd_journal_remote(bus, trans_scope, child_cid, sd_journal_remote, &listen_address);
+                if (r < 0)
+                        return r;
+
+                cred = strjoin("journal.forward_to_socket:", listen_address);
+                if (!cred)
+                        return log_oom();
+
+                r = machine_credential_set(&arg_credentials, cred);
+                if (r < 0)
+                        return r;
+        }
+
+        if (ARCHITECTURE_SUPPORTS_SMBIOS)
+                FOREACH_ARRAY(cred, arg_credentials.credentials, arg_credentials.n_credentials) {
+                        _cleanup_free_ char *cred_data_b64 = NULL;
+                        ssize_t n;
+
+                        n = base64mem(cred->data, cred->size, &cred_data_b64);
+                        if (n < 0)
+                                return log_oom();
+
+                        r = strv_extend(&cmdline, "-smbios");
+                        if (r < 0)
+                                return log_oom();
+
+                        r = strv_extendf(&cmdline, "type=11,value=io.systemd.credential.binary:%s=%s", cred->id, cred_data_b64);
+                        if (r < 0)
+                                return log_oom();
+                }
 
         if (use_vsock) {
                 notify_sock_fd = open_vsock();

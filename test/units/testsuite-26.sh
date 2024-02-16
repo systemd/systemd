@@ -343,7 +343,7 @@ done
 
 # Aux verbs & assorted checks
 systemctl is-active "*-journald.service"
-systemctl cat "*journal*"
+systemctl cat "*udevd*"
 systemctl cat "$UNIT_NAME"
 systemctl help "$UNIT_NAME"
 systemctl service-watchdogs
