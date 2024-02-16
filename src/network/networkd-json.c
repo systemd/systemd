@@ -1076,6 +1076,24 @@ static int dhcp6_client_pd_append_json(Link *link, JsonVariant **v) {
         return json_variant_set_field_non_null(v, "Prefixes", array);
 }
 
+static int dhcp6_client_duid_append_json(Link *link, JsonVariant **v) {
+        const void *data;
+        size_t data_size;
+        int r;
+
+        assert(link);
+        assert(v);
+
+        if (!link->dhcp6_client || !sd_dhcp_duid_is_set(&link->dhcp6_client->duid))
+                return 0;
+
+        r = sd_dhcp_duid_get_raw(&link->dhcp6_client->duid, &data, &data_size);
+        if (r < 0)
+                return 0;
+
+        return json_variant_merge_objectb(v, JSON_BUILD_OBJECT(JSON_BUILD_PAIR_BYTE_ARRAY("DUID", data, data_size)));
+}
+
 static int dhcp6_client_append_json(Link *link, JsonVariant **v) {
         _cleanup_(json_variant_unrefp) JsonVariant *w = NULL;
         int r;
@@ -1095,6 +1113,10 @@ static int dhcp6_client_append_json(Link *link, JsonVariant **v) {
                 return r;
 
         r = dhcp6_client_vendor_options_append_json(link, &w);
+        if (r < 0)
+                return r;
+
+        r = dhcp6_client_duid_append_json(link, &w);
         if (r < 0)
                 return r;
 
