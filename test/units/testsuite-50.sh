@@ -435,6 +435,18 @@ EOF
 systemctl start testservice-50e.service
 systemctl is-active testservice-50e.service
 
+# Check vpick support in ExtensionImages=
+VBASE="vtest$RANDOM"
+VDIR="/tmp/${VBASE}.v"
+mkdir "$VDIR"
+
+ln -s /usr/share/app0.raw "$VDIR/${VBASE}_0.raw"
+ln -s /usr/share/app1.raw "$VDIR/${VBASE}_1.raw"
+
+systemd-run -P -p ExtensionImages="$VDIR" bash -c '/opt/script1.sh | grep ID'
+
+rm -rf "$VDIR"
+
 # ExtensionDirectories will set up an overlay
 mkdir -p "${image_dir}/app0" "${image_dir}/app1" "${image_dir}/app-nodistro" "${image_dir}/service-scoped-test"
 (! systemd-run -P --property ExtensionDirectories="${image_dir}/nonexistent" --property RootImage="${image}.raw" cat /opt/script0.sh)
@@ -467,6 +479,19 @@ RemainAfterExit=yes
 EOF
 systemctl start testservice-50f.service
 systemctl is-active testservice-50f.service
+
+# Check vpick support in ExtensionDirectories=
+VBASE="vtest$RANDOM"
+VDIR="/tmp/${VBASE}.v"
+mkdir "$VDIR"
+
+ln -s "${image_dir}/app0" "$VDIR/${VBASE}_0"
+ln -s "${image_dir}/app1" "$VDIR/${VBASE}_1"
+
+systemd-run -P --property ExtensionDirectories="$VDIR" cat /opt/script1.sh | grep -q -F "extension-release.app2"
+
+rm -rf "$VDIR"
+
 systemd-dissect --umount "${image_dir}/app0"
 systemd-dissect --umount "${image_dir}/app1"
 
