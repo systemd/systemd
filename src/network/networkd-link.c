@@ -535,7 +535,7 @@ void link_check_ready(Link *link) {
         if (dhcp_pd_is_uplink(link, link, /* accept_auto = */ false)) {
                 if (link_dhcp4_enabled(link) && link->network->dhcp_use_6rd &&
                     sd_dhcp_lease_has_6rd(link->dhcp_lease)) {
-                        if (!dhcp4_ready)
+                        if (!link->dhcp4_configured)
                                 return (void) log_link_debug(link, "%s(): DHCPv4 6rd prefix is assigned, but DHCPv4 protocol is not finished yet.", __func__);
                         if (!dhcp_pd_ready)
                                 return (void) log_link_debug(link, "%s(): DHCPv4 is finished, but prefix acquired by DHCPv4-6rd is not assigned yet.", __func__);
@@ -543,7 +543,7 @@ void link_check_ready(Link *link) {
 
                 if (link_dhcp6_enabled(link) && link->network->dhcp6_use_pd_prefix &&
                     sd_dhcp6_lease_has_pd_prefix(link->dhcp6_lease)) {
-                        if (!dhcp6_ready)
+                        if (!link->dhcp6_configured)
                                 return (void) log_link_debug(link, "%s(): DHCPv6 IA_PD prefix is assigned, but DHCPv6 protocol is not finished yet.", __func__);
                         if (!dhcp_pd_ready)
                                 return (void) log_link_debug(link, "%s(): DHCPv6 is finished, but prefix acquired by DHCPv6 IA_PD is not assigned yet.", __func__);
