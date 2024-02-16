@@ -28,21 +28,15 @@ void server_open_forward_socket(Server *s) {
 
         family = socket_address_family(addr);
 
-        if (!IN_SET(family, AF_UNIX, AF_INET, AF_INET6, AF_VSOCK)) {
-                log_debug("Unsupported socket type for forward socket: %d", family);
-                return;
-        }
+        if (!IN_SET(family, AF_UNIX, AF_INET, AF_INET6, AF_VSOCK))
+                return (void) log_debug("Unsupported socket type for forward socket: %d", family);
 
         socket_fd = socket(family, SOCK_STREAM|SOCK_CLOEXEC, 0);
-        if (socket_fd < 0) {
-                log_debug_errno(errno, "Failed to create forward socket, ignoring: %m");
-                return;
-        }
+        if (socket_fd < 0)
+                return (void) log_debug_errno(errno, "Failed to create forward socket, ignoring: %m");
 
-        if (connect(socket_fd, &addr->sockaddr.sa, addr->size) < 0) {
-                log_debug_errno(errno, "Failed to connect to remote address for forwarding, ignoring: %m");
-                return;
-        }
+        if (connect(socket_fd, &addr->sockaddr.sa, addr->size) < 0)
+                return (void) log_debug_errno(errno, "Failed to connect to remote address for forwarding, ignoring: %m");
 
         s->forward_socket_fd = TAKE_FD(socket_fd);
         log_debug("Successfully connected to remote address for forwarding");
@@ -58,12 +52,11 @@ static inline bool must_serialise(struct iovec iov) {
         const uint8_t *s = iov.iov_base;
         bool before_value = true;
 
-        FOREACH_ARRAY(c, s, iov.iov_len) {
+        FOREACH_ARRAY(c, s, iov.iov_len)
                 if (before_value)
                         before_value = *c != (uint8_t)'=';
                 else if (*c < (uint8_t)' ' && *c != (uint8_t)'\t')
                         return true;
-        }
 
         return false;
 }
@@ -101,18 +94,14 @@ void server_forward_socket(
                 len = newa(le64_t, n_iovec);
         } else {
                 iov_alloc = new(struct iovec, n);
-                if (!iov_alloc) {
-                        log_oom();
-                        return;
-                }
+                if (!iov_alloc)
+                        return (void) log_oom();
 
                 iov = iov_alloc;
 
                 len_alloc = new(le64_t, n_iovec);
-                if (!len_alloc) {
-                        log_oom();
-                        return;
-                }
+                if (!len_alloc)
+                        return (void) log_oom();
 
                 len = len_alloc;
         }
@@ -125,10 +114,8 @@ void server_forward_socket(
                         c = memchr(i->iov_base, '=', i->iov_len);
 
                         /* this should never happen */
-                        if (_unlikely_(!c || c == i->iov_base)) {
-                                log_error("Found invalid journal field, refusing to forward.");
-                                return;
-                        }
+                        if (_unlikely_(!c || c == i->iov_base))
+                                return log_error("Found invalid journal field, refusing to forward.");
 
                         /* write the field name */
                         iov[iov_idx++] = IOVEC_MAKE(i->iov_base, c - (uint8_t*) i->iov_base);
