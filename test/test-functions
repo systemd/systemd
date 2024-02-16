@@ -1839,7 +1839,7 @@ save_journal() {
 
     # Show messages from the testsuite-XX.service or messages with priority "warning" and higher
     echo " --- $source_dir ---"
-    "$JOURNALCTL" --no-pager --no-hostname -o short-monotonic -D "$source_dir" \
+    "$JOURNALCTL" --all --no-pager --no-hostname -o short-monotonic -D "$source_dir" \
         _SYSTEMD_UNIT="testsuite-${TESTID:?}.service" + SYSLOG_IDENTIFIER="testsuite-$TESTID.sh" + \
         PRIORITY=4 + PRIORITY=3 + PRIORITY=2 + PRIORITY=1 + PRIORITY=0
 
