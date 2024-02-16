@@ -1482,10 +1482,10 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         self.assertIn('vlan_default_pvid 9 ', output)
 
     def test_bond(self):
-        copy_network_unit('25-bond.netdev', '25-bond-balanced-tlb.netdev')
+        copy_network_unit('25-bond.netdev', '25-bond-balanced-tlb.netdev', '25-bond-property.netdev')
         start_networkd()
 
-        self.wait_online('bond99:off', 'bond98:off', setup_state='unmanaged')
+        self.wait_online('bond99:off', 'bond98:off', 'bond97:off', setup_state='unmanaged')
 
         self.check_link_attr('bond99', 'bonding', 'mode',              '802.3ad 4')
         self.check_link_attr('bond99', 'bonding', 'xmit_hash_policy',  'layer3+4 1')
@@ -1512,6 +1512,11 @@ class NetworkdNetDevTests(unittest.TestCase, Utilities):
         output = networkctl_status('bond98')
         print(output)
         self.assertIn('Mode: balance-tlb', output)
+
+        output = networkctl_status('bond97')
+        print(output)
+
+        self.check_link_attr('bond97', 'bonding', 'arp_missed_max',    '10')
 
     def test_vlan(self):
         copy_network_unit('21-vlan.netdev', '11-dummy.netdev',
