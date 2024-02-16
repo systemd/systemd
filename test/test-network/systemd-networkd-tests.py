@@ -6567,62 +6567,63 @@ class NetworkdDHCPPDTests(unittest.TestCase, Utilities):
     def tearDown(self):
         tear_down_common()
 
-    def test_dhcp6pd(self):
-        def get_dhcp6_prefix(link):
-            description = get_link_description(link)
+    def check_dhcp6_prefix(self, link):
+        description = get_link_description(link)
 
-            self.assertIn('DHCPv6Client', description.keys())
-            self.assertIn('Prefixes', description['DHCPv6Client'])
+        self.assertIn('DHCPv6Client', description.keys())
+        self.assertIn('Prefixes', description['DHCPv6Client'])
 
-            prefixInfo = description['DHCPv6Client']['Prefixes']
+        prefixInfo = description['DHCPv6Client']['Prefixes']
 
-            return prefixInfo
+        self.assertEqual(len(prefixInfo), 1)
 
-        copy_network_unit('25-veth.netdev', '25-dhcp6pd-server.network', '25-dhcp6pd-upstream.network',
-                          '25-veth-downstream-veth97.netdev', '25-dhcp-pd-downstream-veth97.network', '25-dhcp-pd-downstream-veth97-peer.network',
-                          '25-veth-downstream-veth98.netdev', '25-dhcp-pd-downstream-veth98.network', '25-dhcp-pd-downstream-veth98-peer.network',
-                          '11-dummy.netdev', '25-dhcp-pd-downstream-test1.network',
-                          '25-dhcp-pd-downstream-dummy97.network',
-                          '12-dummy.netdev', '25-dhcp-pd-downstream-dummy98.network',
-                          '13-dummy.netdev', '25-dhcp-pd-downstream-dummy99.network',
-                          copy_dropins=False)
+        self.assertIn('Prefix', prefixInfo[0].keys())
+        self.assertIn('PrefixLength', prefixInfo[0].keys())
+        self.assertIn('PreferredLifetimeUSec', prefixInfo[0].keys())
+        self.assertIn('ValidLifetimeUSec', prefixInfo[0].keys())
 
-        self.setup_nftset('addr6', 'ipv6_addr')
-        self.setup_nftset('network6', 'ipv6_addr', 'flags interval;')
-        self.setup_nftset('ifindex', 'iface_index')
+        self.assertEqual(prefixInfo[0]['Prefix'][0:6], [63, 254, 5, 1, 255, 255])
+        self.assertEqual(prefixInfo[0]['PrefixLength'], 56)
+        self.assertGreater(prefixInfo[0]['PreferredLifetimeUSec'], 0)
+        self.assertGreater(prefixInfo[0]['ValidLifetimeUSec'], 0)
+
+    def test_dhcp6pd_no_address(self):
+        # For issue #29979.
+        copy_network_unit('25-veth.netdev', '25-dhcp6pd-server.network', '25-dhcp6pd-upstream-no-address.network')
 
         start_networkd()
         self.wait_online('veth-peer:routable')
         start_isc_dhcpd(conf_file='isc-dhcpd-dhcp6pd.conf', ipv='-6')
         self.wait_online('veth99:degraded')
 
-        # First, test UseAddress=no and Assign=no (issue #29979).
-        # Note, due to the bug #29701, this test must be done at first.
         print('### ip -6 address show dev veth99 scope global')
         output = check_output('ip -6 address show dev veth99 scope global')
         print(output)
         self.assertNotIn('inet6 3ffe:501:ffff', output)
 
-        # Check DBus assigned prefix information to veth99
-        prefixInfo = get_dhcp6_prefix('veth99')
+        self.check_dhcp6_prefix('veth99')
 
-        self.assertEqual(len(prefixInfo), 1)
-        prefixInfo = prefixInfo[0]
+    def test_dhcp6pd(self):
+        copy_network_unit('25-veth.netdev', '25-dhcp6pd-server.network', '25-dhcp6pd-upstream.network',
+                          '25-veth-downstream-veth97.netdev', '25-dhcp-pd-downstream-veth97.network', '25-dhcp-pd-downstream-veth97-peer.network',
+                          '25-veth-downstream-veth98.netdev', '25-dhcp-pd-downstream-veth98.network', '25-dhcp-pd-downstream-veth98-peer.network',
+                          '11-dummy.netdev', '25-dhcp-pd-downstream-test1.network',
+                          '25-dhcp-pd-downstream-dummy97.network',
+                          '12-dummy.netdev', '25-dhcp-pd-downstream-dummy98.network',
+                          '13-dummy.netdev', '25-dhcp-pd-downstream-dummy99.network')
 
-        self.assertIn('Prefix', prefixInfo.keys())
-        self.assertIn('PrefixLength', prefixInfo.keys())
-        self.assertIn('PreferredLifetimeUSec', prefixInfo.keys())
-        self.assertIn('ValidLifetimeUSec', prefixInfo.keys())
-
-        self.assertEqual(prefixInfo['Prefix'][0:6], [63, 254, 5, 1, 255, 255])
-        self.assertEqual(prefixInfo['PrefixLength'], 56)
-        self.assertGreater(prefixInfo['PreferredLifetimeUSec'], 0)
-        self.assertGreater(prefixInfo['ValidLifetimeUSec'], 0)
-
-        copy_network_unit('25-dhcp6pd-upstream.network.d/with-address.conf')
-        networkctl_reload()
+        start_networkd()
+        self.wait_online('veth-peer:routable')
+        start_isc_dhcpd(conf_file='isc-dhcpd-dhcp6pd.conf', ipv='-6')
         self.wait_online('veth99:routable', 'test1:routable', 'dummy98:routable', 'dummy99:degraded',
                          'veth97:routable', 'veth97-peer:routable', 'veth98:routable', 'veth98-peer:routable')
+
+        self.setup_nftset('addr6', 'ipv6_addr')
+        self.setup_nftset('network6', 'ipv6_addr', 'flags interval;')
+        self.setup_nftset('ifindex', 'iface_index')
+
+        # Check DBus assigned prefix information to veth99
+        self.check_dhcp6_prefix('veth99')
 
         print('### ip -6 address show dev veth-peer scope global')
         output = check_output('ip -6 address show dev veth-peer scope global')
