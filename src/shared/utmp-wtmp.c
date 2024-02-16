@@ -201,7 +201,7 @@ int utmp_put_init_process(const char *id, pid_t pid, pid_t sid, const char *line
 
         if (ut_type == USER_PROCESS) {
                 store.ut_type = USER_PROCESS;
-                strncpy(store.ut_user, user, sizeof(store.ut_user)-1);
+                strncpy(store.ut_user, user ?: "", sizeof(store.ut_user)-1);
                 r = write_entry_both(&store);
                 if (r < 0)
                         return r;
