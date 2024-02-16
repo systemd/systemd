@@ -15,6 +15,7 @@
 #include "constants.h"
 #include "daemon-util.h"
 #include "env-util.h"
+#include "event-util.h"
 #include "fd-util.h"
 #include "float.h"
 #include "hostname-util.h"
@@ -68,7 +69,7 @@ struct Transfer {
 
         char *format;
 
-        pid_t pid;
+        PidRef pidref;
 
         int log_fd;
 
@@ -131,8 +132,7 @@ static Transfer *transfer_unref(Transfer *t) {
         free(t->format);
         free(t->object_path);
 
-        if (t->pid > 1)
-                sigkill_wait(t->pid);
+        pidref_done_sigkill_wait(&t->pidref);
 
         safe_close(t->log_fd);
         safe_close(t->stdin_fd);
@@ -302,7 +302,7 @@ static int transfer_cancel(Transfer *t) {
 
         assert(t);
 
-        r = kill_and_sigcont(t->pid, t->n_canceled < 3 ? SIGTERM : SIGKILL);
+        r = pidref_kill_and_sigcont(&t->pidref, t->n_canceled < 3 ? SIGTERM : SIGKILL);
         if (r < 0)
                 return r;
 
@@ -329,7 +329,7 @@ static int transfer_on_pid(sd_event_source *s, const siginfo_t *si, void *userda
         else
                 log_error("Transfer process failed due to unknown reason.");
 
-        t->pid = 0;
+        pidref_done(&t->pidref);
 
         return transfer_finalize(t, success);
 }
@@ -363,15 +363,17 @@ static int transfer_start(Transfer *t) {
         int r;
 
         assert(t);
-        assert(t->pid <= 0);
+        assert(!pidref_is_set(&t->pidref));
 
         if (pipe2(pipefd, O_CLOEXEC) < 0)
                 return -errno;
 
-        r = safe_fork_full("(sd-transfer)",
-                           (int[]) { t->stdin_fd, t->stdout_fd < 0 ? pipefd[1] : t->stdout_fd, pipefd[1] },
-                           NULL, 0,
-                           FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO, &t->pid);
+        r = pidref_safe_fork_full(
+                        "(sd-transfer)",
+                        (int[]) { t->stdin_fd, t->stdout_fd < 0 ? pipefd[1] : t->stdout_fd, pipefd[1] },
+                        /* except_fds= */ NULL, /* n_except_fds= */ 0,
+                        FORK_RESET_SIGNALS|FORK_CLOSE_ALL_FDS|FORK_DEATHSIG_SIGTERM|FORK_REARRANGE_STDIO,
+                        &t->pidref);
         if (r < 0)
                 return r;
         if (r == 0) {
@@ -488,8 +490,13 @@ static int transfer_start(Transfer *t) {
 
         t->stdin_fd = safe_close(t->stdin_fd);
 
-        r = sd_event_add_child(t->manager->event, &t->pid_event_source,
-                               t->pid, WEXITED, transfer_on_pid, t);
+        r = event_add_child_pidref(
+                        t->manager->event,
+                        &t->pid_event_source,
+                        &t->pidref,
+                        WEXITED,
+                        transfer_on_pid,
+                        t);
         if (r < 0)
                 return r;
 
@@ -584,7 +591,7 @@ static int manager_on_notify(sd_event_source *s, int fd, uint32_t revents, void 
         }
 
         HASHMAP_FOREACH(t, m->transfers)
-                if (ucred->pid == t->pid)
+                if (ucred->pid == t->pidref.pid)
                         break;
 
         if (!t) {
