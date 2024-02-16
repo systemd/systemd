@@ -108,11 +108,11 @@ struct Manager {
 static const char* const transfer_type_table[_TRANSFER_TYPE_MAX] = {
         [TRANSFER_IMPORT_TAR] = "import-tar",
         [TRANSFER_IMPORT_RAW] = "import-raw",
-        [TRANSFER_IMPORT_FS] = "import-fs",
+        [TRANSFER_IMPORT_FS]  = "import-fs",
         [TRANSFER_EXPORT_TAR] = "export-tar",
         [TRANSFER_EXPORT_RAW] = "export-raw",
-        [TRANSFER_PULL_TAR] = "pull-tar",
-        [TRANSFER_PULL_RAW] = "pull-raw",
+        [TRANSFER_PULL_TAR]   = "pull-tar",
+        [TRANSFER_PULL_RAW]   = "pull-raw",
 };
 
 DEFINE_PRIVATE_STRING_TABLE_LOOKUP_TO_STRING(transfer_type, TransferType);
@@ -391,7 +391,7 @@ static int transfer_start(Transfer *t) {
                         NULL, /* local */
                         NULL
                 };
-                unsigned k = 0;
+                size_t k = 0;
 
                 /* Child */
 

@@ -210,7 +210,7 @@ static int help(int argc, char *argv[], void *userdata) {
                "\n%2$sOptions:%3$s\n"
                "  -h --help                    Show this help\n"
                "     --version                 Show package version\n"
-               "     --format=FORMAT           Select format\n\n",
+               "     --format=FORMAT           Select format\n",
                program_invocation_short_name,
                ansi_underline(),
                ansi_normal(),
@@ -288,8 +288,7 @@ static int run(int argc, char *argv[]) {
         int r;
 
         setlocale(LC_ALL, "");
-        log_parse_environment();
-        log_open();
+        log_setup();
 
         r = parse_argv(argc, argv);
         if (r <= 0)
