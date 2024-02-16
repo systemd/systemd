@@ -219,7 +219,7 @@ static int tar_pull_determine_path(
 
 static int tar_pull_make_local_copy(TarPull *i) {
         _cleanup_(rm_rf_subvolume_and_freep) char *t = NULL;
-        const char *p;
+        _cleanup_free_ char *p = NULL;
         int r;
 
         assert(i);
@@ -230,7 +230,9 @@ static int tar_pull_make_local_copy(TarPull *i) {
 
         assert(i->final_path);
 
-        p = prefix_roota(i->image_root, i->local);
+        p = path_join(i->image_root, i->local);
+        if (!p)
+                return log_oom();
 
         r = tempfn_random(p, NULL, &t);
         if (r < 0)
