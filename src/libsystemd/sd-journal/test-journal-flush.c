@@ -73,7 +73,7 @@ static void test_journal_flush_one(int argc, char *argv[]) {
         if (n == 0)
                 return (void) log_tests_skipped("No journal entry found");
 
-        /* Open the new journal before archiving and offlining the file. */
+        /* Open the new journal before archiving the file. */
         sd_journal_close(j);
         assert_se(sd_journal_open_directory(&j, dn, SD_JOURNAL_ASSUME_IMMUTABLE) >= 0);
 
@@ -93,10 +93,9 @@ static void test_journal_flush_one(int argc, char *argv[]) {
         }
 
         /* Archive and offline file. */
-        assert_se(journal_file_archive(new_journal, NULL) >= 0);
-        assert_se(journal_file_set_offline(new_journal, /* wait = */ true) >= 0);
+        assert_se(journal_file_archive(&new_journal, /* async = */ false) >= 0);
 
-        /* Read the archived and offline journal. */
+        /* Read the archived journal. */
         for (uint64_t q = ALIGN64(p + 1); q < (uint64_t) j->current_file->last_stat.st_size; q = ALIGN64(q + 1)) {
                 Object *o;
 
