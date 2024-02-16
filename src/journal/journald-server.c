@@ -42,6 +42,7 @@
 #include "journald-stream.h"
 #include "journald-syslog.h"
 #include "log.h"
+#include "memory-util.h"
 #include "missing_audit.h"
 #include "mkdir.h"
 #include "parse-util.h"
@@ -1274,6 +1275,10 @@ int server_flush_to_var(Server *s, bool require_flag_file) {
         if (!s->system_journal)
                 return 0;
 
+        /* Reset current seqnum data to avoid unnecessary rotation when switching to system journal.
+         * See issue #30092. */
+        zero(*s->seqnum);
+
         log_debug("Flushing to %s...", s->system_storage.path);
 
         start = now(CLOCK_MONOTONIC);
@@ -1347,12 +1352,29 @@ finish:
         if (s->system_journal)
                 journal_file_post_change(s->system_journal);
 
+        /* Save parent directories of runtime journals before closing runtime journals. */
+        _cleanup_strv_free_ char **dirs = NULL;
+        (void) journal_get_directories(j, &dirs);
+
+        /* First, close all runtime journals opened in the above. */
+        sd_journal_close(j);
+
+        /* Offline and close the 'main' runtime journal file. */
         s->runtime_journal = journal_file_offline_close(s->runtime_journal);
 
-        if (r >= 0)
+        /* Remove the runtime directory if the all entries are successfully flushed to /var/. */
+        if (r >= 0) {
                 (void) rm_rf(s->runtime_storage.path, REMOVE_ROOT);
 
-        sd_journal_close(j);
+                /* The initrd may have a different machine ID from the host's one. Typically, that happens
+                 * when our tests running on qemu, as the host's initrd is picked as is without updating
+                 * the machine ID in the initrd with the one used in the image. Even in such the case, the
+                 * runtime journals in the subdirectory named with the initrd's machine ID are flushed to
+                 * the persistent journal. To make not the runtime journal flushed multiple times, let's
+                 * also remove the runtime directories. */
+                STRV_FOREACH(p, dirs)
+                        (void) rm_rf(*p, REMOVE_ROOT);
+        }
 
         server_driver_message(s, 0, NULL,
                               LOG_MESSAGE("Time spent on flushing to %s is %s for %u entries.",
