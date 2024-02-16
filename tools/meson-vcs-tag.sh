@@ -17,26 +17,16 @@ else
     # and that we don't get confused if a tarball is extracted in a higher-level
     # git repository.
     #
-    # If the working tree has no tags (CI builds), the first git-describe will fail
-    # and we fall back to project_version-commitid instead.
+    # If the working tree has no tags (CI builds), we fall back to a version without
+    # the git commit sha in it.
 
-    c=''
+    c="${project_version}.$(date '+%Y%m%d%H%M%S')"
     if [ -e "${dir}/.git" ]; then
-        c="$(git -C "$dir" describe --abbrev=7 --dirty=^ 2>/dev/null)"
-        if [ -n "$c" ]; then
-            # git describe uses the most recent tag. However, for development versions (e.g. v256~devel), the
-            # most recent tag will be v255 as there is no tag for development versions. To deal with this, we
-            # replace the tag with the project version instead.
-            c="${project_version}-${c#*-}"
-        else
-            # This call might still fail with permission issues
-            suffix="$(git -C "$dir" describe --always --abbrev=7 --dirty=^ 2>/dev/null)"
-            [ -n "$suffix" ] && c="${project_version}-${suffix}"
-        fi
+        suffix="$(git -C "$dir" rev-parse --short HEAD 2>/dev/null)"
+        c="${c}.g${suffix}"
+        # Add a caret if the git tree is dirty.
+        [[ "$(git -C "$dir" describe --dirty=^)" == *^ ]] && c="${c}^"
     fi
-    [ -z "$c" ] && c="${project_version}"
-    # Replace any hyphens with carets which are allowed in versions by pacman whereas hyphens are not. Git
-    # versions with carets will also sort higher than their non-git version counterpart both in pacman
-    # versioning and in version format specification versioning.
-    echo "$c" | sed 's/^v//; s/-/^/g'
+
+    echo "$c"
 fi
