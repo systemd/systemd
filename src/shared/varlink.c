@@ -2198,6 +2198,13 @@ int varlink_collect_full(
                         JsonVariant *e = json_variant_by_key(v->current, "error"),
                                 *p = json_variant_by_key(v->current, "parameters");
 
+                        /* Unless there is more to collect we reset state to idle */
+                        if (!FLAGS_SET(v->current_reply_flags, VARLINK_REPLY_CONTINUES)) {
+                                varlink_set_state(v, VARLINK_IDLE_CLIENT);
+                                assert(v->n_pending == 1);
+                                v->n_pending--;
+                        }
+
                         if (e) {
                                 if (!ret_error_id)
                                         return varlink_error_to_errno(json_variant_string(e), p);
@@ -2225,10 +2232,6 @@ int varlink_collect_full(
                                 varlink_set_state(v, VARLINK_COLLECTING);
                                 continue;
                         }
-
-                        varlink_set_state(v, VARLINK_IDLE_CLIENT);
-                        assert(v->n_pending == 1);
-                        v->n_pending--;
 
                         if (ret_parameters)
                                 /* Install the collection array in the connection object, so that we can hand
