@@ -68,6 +68,7 @@ if meson.is_cross_build() and get_option('sbat-distro') == 'auto'
 elif get_option('sbat-distro') != ''
         efi_conf.set_quoted('SBAT_PROJECT', meson.project_name())
         efi_conf.set_quoted('PROJECT_VERSION', meson.project_version().split('~')[0])
+        efi_conf.set_quoted('VERSION_TAG', version_tag)
         efi_conf.set('PROJECT_URL', conf.get('PROJECT_URL'))
         if get_option('sbat-distro-generation') < 1
                 error('SBAT Distro Generation must be a positive integer')
