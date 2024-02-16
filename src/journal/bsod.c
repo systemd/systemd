@@ -51,14 +51,15 @@ static int help(void) {
         return 0;
 }
 
-static int acquire_first_emergency_log_message(char **ret) {
+static int acquire_first_emergency_log_message(char **ret_message, char **ret_message_id) {
         _cleanup_(sd_journal_closep) sd_journal *j = NULL;
-        _cleanup_free_ char *message = NULL;
+        _cleanup_free_ char *message = NULL, *message_id = NULL;
         const void *d;
         size_t l;
         int r;
 
-        assert(ret);
+        assert(ret_message);
+        assert(ret_message_id);
 
         r = sd_journal_open(&j, SD_JOURNAL_LOCAL_ONLY | (arg_continuous ? 0 : SD_JOURNAL_ASSUME_IMMUTABLE));
         if (r < 0)
@@ -90,7 +91,8 @@ static int acquire_first_emergency_log_message(char **ret) {
 
                 if (!arg_continuous) {
                         log_debug("No emergency level entries in the journal");
-                        *ret = NULL;
+                        *ret_message = NULL;
+                        *ret_message_id = NULL;
                         return 0;
                 }
 
@@ -107,7 +109,26 @@ static int acquire_first_emergency_log_message(char **ret) {
         if (!message)
                 return log_oom();
 
-        *ret = TAKE_PTR(message);
+        r = sd_journal_get_data(j, "MESSAGE_ID", &d, &l);
+        if (r == -ENOENT) {
+                *ret_message = TAKE_PTR(message);
+                *ret_message_id = NULL;
+                return 0;
+        }
+        if (r < 0)
+                return log_error_errno(r, "Failed to read message ID from journal: %m");
+
+        d = memory_startswith(d, l, "MESSAGE_ID=");
+        if(!d)
+                return log_error_errno(SYNTHETIC_ERRNO(EINVAL), "Wrong message ID.");
+
+        assert(l >= STRLEN("MESSAGE_ID="));
+        message_id = memdup_suffix0(d, l - STRLEN("MESSAGE_ID="));
+        if (!message_id)
+                return log_oom();
+
+        *ret_message = TAKE_PTR(message);
+        *ret_message_id = TAKE_PTR(message_id);
 
         return 0;
 }
@@ -132,8 +153,8 @@ static int find_next_free_vt(int fd, int *ret_free_vt, int *ret_original_vt) {
         return log_error_errno(SYNTHETIC_ERRNO(ENOTTY), "No free VT found: %m");
 }
 
-static int display_emergency_message_fullscreen(const char *message) {
-        int r, ret = 0, free_vt = 0, original_vt = 0;
+static int display_emergency_message_fullscreen(const char *message, const char *message_id) {
+        int r, ret = 0, free_vt = 0, original_vt = 0, message_length = 0;
         unsigned qr_code_start_row = 1, qr_code_start_column = 1;
         char tty[STRLEN("/dev/tty") + DECIMAL_STR_MAX(int) + 1];
         _cleanup_close_ int fd = -EBADF;
@@ -145,6 +166,13 @@ static int display_emergency_message_fullscreen(const char *message) {
         };
 
         assert(message);
+
+        if (message_id)
+                message_length = strlen(message) + STRLEN(". Message ID: ") + strlen(message_id) + 2;
+        else
+                message_length = strlen(message) + STRLEN(". Message ID: ") + 2;
+
+        char message_with_id[message_length];
 
         fd = open_terminal("/dev/tty1", O_RDWR|O_NOCTTY|O_CLOEXEC);
         if (fd < 0)
@@ -188,10 +216,19 @@ static int display_emergency_message_fullscreen(const char *message) {
         if (r < 0)
                 log_warning_errno(r, "Failed to move terminal cursor position, ignoring: %m");
 
-        r = loop_write(fd, message, SIZE_MAX);
-        if (r < 0) {
-                ret = log_warning_errno(r, "Failed to write emergency message to terminal: %m");
-                goto cleanup;
+        if (message_id) {
+                xsprintf(message_with_id, "%s. Message ID: %s", message, message_id);
+                r = loop_write(fd, message_with_id, SIZE_MAX);
+                if (r < 0) {
+                        ret = log_warning_errno(r, "Failed to write emergency message to terminal: %m");
+                        goto cleanup;
+                }
+        } else {
+                r = loop_write(fd, message, SIZE_MAX);
+                if (r < 0) {
+                        ret = log_warning_errno(r, "Failed to write emergency message to terminal: %m");
+                        goto cleanup;
+                }
         }
 
         r = fdopen_independent(fd, "r+", &stream);
@@ -200,9 +237,23 @@ static int display_emergency_message_fullscreen(const char *message) {
                 goto cleanup;
         }
 
-        r = print_qrcode_full(stream, "Scan the QR code", message, qr_code_start_row, qr_code_start_column, w.ws_col, w.ws_row);
-        if (r < 0)
-                log_warning_errno(r, "QR code could not be printed, ignoring: %m");
+        if (message_id) {
+                r = print_qrcode_full(stream,
+                                      "", (const char *) message_with_id,
+                                      qr_code_start_row, qr_code_start_column,
+                                      w.ws_col,
+                                      w.ws_row);
+                if (r < 0)
+                        log_warning_errno(r, "QR code could not be printed, ignoring: %m");
+        } else {
+                r = print_qrcode_full(stream,
+                                      "", message,
+                                      qr_code_start_row, qr_code_start_column,
+                                      w.ws_col,
+                                      w.ws_row);
+                if (r < 0)
+                        log_warning_errno(r, "QR code could not be printed, ignoring: %m");
+        }
 
         r = set_terminal_cursor_position(fd, w.ws_row - 1, w.ws_col * 2U / 5U);
         if (r < 0)
@@ -278,8 +329,8 @@ static int run(int argc, char *argv[]) {
                 .sa_handler = nop_signal_handler,
                 .sa_flags = 0,
         };
-        _cleanup_free_ char *message = NULL;
         int r;
+        _cleanup_free_ char *message = NULL, *message_id = NULL;
 
         log_open();
         log_parse_environment();
@@ -290,7 +341,7 @@ static int run(int argc, char *argv[]) {
         if (r <= 0)
                 return r;
 
-        r = acquire_first_emergency_log_message(&message);
+        r = acquire_first_emergency_log_message(&message, &message_id);
         if (r < 0)
                 return log_error_errno(r, "Failed to acquire first emergency log message: %m");
 
@@ -301,7 +352,7 @@ static int run(int argc, char *argv[]) {
 
         assert_se(sigaction_many(&nop_sigaction, SIGTERM, SIGINT) >= 0);
 
-        r = display_emergency_message_fullscreen((const char*) message);
+        r = display_emergency_message_fullscreen(message, message_id);
         if (r < 0)
                 return log_error_errno(r, "Failed to display emergency message on terminal: %m");
 
