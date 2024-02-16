@@ -4822,26 +4822,15 @@ int exec_invoke(
         _cleanup_close_ int executable_fd = -EBADF;
         r = find_executable_full(command->path, /* root= */ NULL, context->exec_search_path, false, &executable, &executable_fd);
         if (r < 0) {
-                if (r != -ENOMEM && (command->flags & EXEC_COMMAND_IGNORE_FAILURE)) {
-                        log_exec_struct_errno(context, params, LOG_INFO, r,
-                                              "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
-                                              LOG_EXEC_INVOCATION_ID(params),
-                                              LOG_EXEC_MESSAGE(params,
-                                                               "Executable %s missing, skipping: %m",
-                                                               command->path),
-                                              "EXECUTABLE=%s", command->path);
-                        *exit_status = EXIT_SUCCESS;
-                        return 0;
-                }
-
                 *exit_status = EXIT_EXEC;
-                return log_exec_struct_errno(context, params, LOG_INFO, r,
-                                             "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
-                                             LOG_EXEC_INVOCATION_ID(params),
-                                             LOG_EXEC_MESSAGE(params,
-                                                              "Failed to locate executable %s: %m",
-                                                              command->path),
-                                             "EXECUTABLE=%s", command->path);
+                log_exec_struct_errno(context, params, LOG_INFO, r,
+                                      "MESSAGE_ID=" SD_MESSAGE_SPAWN_FAILED_STR,
+                                      LOG_EXEC_INVOCATION_ID(params),
+                                      LOG_EXEC_MESSAGE(params,
+                                                       "Unable to locate executable '%s': %m",
+                                                       command->path),
+                                      "EXECUTABLE=%s", command->path);
+                return r != -ENOMEM && FLAGS_SET(command->flags, EXEC_COMMAND_IGNORE_FAILURE) ? 1 : r;
         }
 
         r = add_shifted_fd(keep_fds, ELEMENTSOF(keep_fds), &n_keep_fds, &executable_fd);
