@@ -250,7 +250,9 @@ static int run(int argc, char *argv[]) {
                                                        status, command.path),
                                       "EXECUTABLE=%s", command.path);
         } else
-                assert(exit_status == EXIT_SUCCESS); /* When 'skip' is chosen in the confirm spawn prompt */
+                /* r == 0: 'skip' is chosen in the confirm spawn prompt
+                 * r > 0:  expected/ignored failure, do not log at error level */
+                assert((r == 0) == (exit_status == EXIT_SUCCESS));
 
         return exit_status;
 }
