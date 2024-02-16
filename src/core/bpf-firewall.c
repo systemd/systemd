@@ -196,19 +196,26 @@ static int bpf_firewall_compile_bpf(
         _cleanup_(bpf_program_freep) BPFProgram *p = NULL;
         int accounting_map_fd, r;
         bool access_enabled;
+        CGroupRuntime *crt;
 
         assert(u);
         assert(ret);
 
+        crt = unit_get_cgroup_runtime(u);
+        if (!crt) {
+                *ret = NULL;
+                return 0;
+        }
+
         accounting_map_fd = is_ingress ?
-                u->ip_accounting_ingress_map_fd :
-                u->ip_accounting_egress_map_fd;
+                crt->ip_accounting_ingress_map_fd :
+                crt->ip_accounting_egress_map_fd;
 
         access_enabled =
-                u->ipv4_allow_map_fd >= 0 ||
-                u->ipv6_allow_map_fd >= 0 ||
-                u->ipv4_deny_map_fd >= 0 ||
-                u->ipv6_deny_map_fd >= 0 ||
+                crt->ipv4_allow_map_fd >= 0 ||
+                crt->ipv6_allow_map_fd >= 0 ||
+                crt->ipv4_deny_map_fd >= 0 ||
+                crt->ipv6_deny_map_fd >= 0 ||
                 ip_allow_any ||
                 ip_deny_any;
 
@@ -234,26 +241,26 @@ static int bpf_firewall_compile_bpf(
                  * - Otherwise, access will be granted
                  */
 
-                if (u->ipv4_deny_map_fd >= 0) {
-                        r = add_lookup_instructions(p, u->ipv4_deny_map_fd, ETH_P_IP, is_ingress, ACCESS_DENIED);
+                if (crt->ipv4_deny_map_fd >= 0) {
+                        r = add_lookup_instructions(p, crt->ipv4_deny_map_fd, ETH_P_IP, is_ingress, ACCESS_DENIED);
                         if (r < 0)
                                 return r;
                 }
 
-                if (u->ipv6_deny_map_fd >= 0) {
-                        r = add_lookup_instructions(p, u->ipv6_deny_map_fd, ETH_P_IPV6, is_ingress, ACCESS_DENIED);
+                if (crt->ipv6_deny_map_fd >= 0) {
+                        r = add_lookup_instructions(p, crt->ipv6_deny_map_fd, ETH_P_IPV6, is_ingress, ACCESS_DENIED);
                         if (r < 0)
                                 return r;
                 }
 
-                if (u->ipv4_allow_map_fd >= 0) {
-                        r = add_lookup_instructions(p, u->ipv4_allow_map_fd, ETH_P_IP, is_ingress, ACCESS_ALLOWED);
+                if (crt->ipv4_allow_map_fd >= 0) {
+                        r = add_lookup_instructions(p, crt->ipv4_allow_map_fd, ETH_P_IP, is_ingress, ACCESS_ALLOWED);
                         if (r < 0)
                                 return r;
                 }
 
-                if (u->ipv6_allow_map_fd >= 0) {
-                        r = add_lookup_instructions(p, u->ipv6_allow_map_fd, ETH_P_IPV6, is_ingress, ACCESS_ALLOWED);
+                if (crt->ipv6_allow_map_fd >= 0) {
+                        r = add_lookup_instructions(p, crt->ipv6_allow_map_fd, ETH_P_IPV6, is_ingress, ACCESS_ALLOWED);
                         if (r < 0)
                                 return r;
                 }
@@ -495,37 +502,36 @@ static int bpf_firewall_prepare_access_maps(
         return 0;
 }
 
-static int bpf_firewall_prepare_accounting_maps(Unit *u, bool enabled, int *fd_ingress, int *fd_egress) {
+static int bpf_firewall_prepare_accounting_maps(Unit *u, bool enabled, CGroupRuntime *crt) {
         int r;
 
         assert(u);
-        assert(fd_ingress);
-        assert(fd_egress);
+        assert(crt);
 
         if (enabled) {
-                if (*fd_ingress < 0) {
+                if (crt->ip_accounting_ingress_map_fd < 0) {
                         char *name = strjoina("I_", u->id);
                         r = bpf_map_new(name, BPF_MAP_TYPE_ARRAY, sizeof(int), sizeof(uint64_t), 2, 0);
                         if (r < 0)
                                 return r;
 
-                        *fd_ingress = r;
+                        crt->ip_accounting_ingress_map_fd = r;
                 }
 
-                if (*fd_egress < 0) {
+                if (crt->ip_accounting_egress_map_fd < 0) {
                         char *name = strjoina("E_", u->id);
                         r = bpf_map_new(name, BPF_MAP_TYPE_ARRAY, sizeof(int), sizeof(uint64_t), 2, 0);
                         if (r < 0)
                                 return r;
 
-                        *fd_egress = r;
+                        crt->ip_accounting_egress_map_fd = r;
                 }
 
         } else {
-                *fd_ingress = safe_close(*fd_ingress);
-                *fd_egress = safe_close(*fd_egress);
+                crt->ip_accounting_ingress_map_fd = safe_close(crt->ip_accounting_ingress_map_fd);
+                crt->ip_accounting_egress_map_fd = safe_close(crt->ip_accounting_egress_map_fd);
 
-                zero(u->ip_accounting_extra);
+                zero(crt->ip_accounting_extra);
         }
 
         return 0;
@@ -535,6 +541,7 @@ int bpf_firewall_compile(Unit *u) {
         const char *ingress_name = NULL, *egress_name = NULL;
         bool ip_allow_any = false, ip_deny_any = false;
         CGroupContext *cc;
+        CGroupRuntime *crt;
         int r, supported;
 
         assert(u);
@@ -542,6 +549,10 @@ int bpf_firewall_compile(Unit *u) {
         cc = unit_get_cgroup_context(u);
         if (!cc)
                 return -EINVAL;
+
+        crt = unit_setup_cgroup_runtime(u);
+        if (!crt)
+                return -ENOMEM;
 
         supported = bpf_firewall_supported();
         if (supported < 0)
@@ -569,14 +580,14 @@ int bpf_firewall_compile(Unit *u) {
          * but we reuse the accounting maps. That way the firewall in effect always maps to the actual
          * configuration, but we don't flush out the accounting unnecessarily */
 
-        u->ip_bpf_ingress = bpf_program_free(u->ip_bpf_ingress);
-        u->ip_bpf_egress = bpf_program_free(u->ip_bpf_egress);
+        crt->ip_bpf_ingress = bpf_program_free(crt->ip_bpf_ingress);
+        crt->ip_bpf_egress = bpf_program_free(crt->ip_bpf_egress);
 
-        u->ipv4_allow_map_fd = safe_close(u->ipv4_allow_map_fd);
-        u->ipv4_deny_map_fd = safe_close(u->ipv4_deny_map_fd);
+        crt->ipv4_allow_map_fd = safe_close(crt->ipv4_allow_map_fd);
+        crt->ipv4_deny_map_fd = safe_close(crt->ipv4_deny_map_fd);
 
-        u->ipv6_allow_map_fd = safe_close(u->ipv6_allow_map_fd);
-        u->ipv6_deny_map_fd = safe_close(u->ipv6_deny_map_fd);
+        crt->ipv6_allow_map_fd = safe_close(crt->ipv6_allow_map_fd);
+        crt->ipv6_deny_map_fd = safe_close(crt->ipv6_deny_map_fd);
 
         if (u->type != UNIT_SLICE) {
                 /* In inner nodes we only do accounting, we do not actually bother with access control. However, leaf
@@ -585,24 +596,24 @@ int bpf_firewall_compile(Unit *u) {
                  * means that all configure IP access rules *will* take effect on processes, even though we never
                  * compile them for inner nodes. */
 
-                r = bpf_firewall_prepare_access_maps(u, ACCESS_ALLOWED, &u->ipv4_allow_map_fd, &u->ipv6_allow_map_fd, &ip_allow_any);
+                r = bpf_firewall_prepare_access_maps(u, ACCESS_ALLOWED, &crt->ipv4_allow_map_fd, &crt->ipv6_allow_map_fd, &ip_allow_any);
                 if (r < 0)
                         return log_unit_error_errno(u, r, "bpf-firewall: Preparation of BPF allow maps failed: %m");
 
-                r = bpf_firewall_prepare_access_maps(u, ACCESS_DENIED, &u->ipv4_deny_map_fd, &u->ipv6_deny_map_fd, &ip_deny_any);
+                r = bpf_firewall_prepare_access_maps(u, ACCESS_DENIED, &crt->ipv4_deny_map_fd, &crt->ipv6_deny_map_fd, &ip_deny_any);
                 if (r < 0)
                         return log_unit_error_errno(u, r, "bpf-firewall: Preparation of BPF deny maps failed: %m");
         }
 
-        r = bpf_firewall_prepare_accounting_maps(u, cc->ip_accounting, &u->ip_accounting_ingress_map_fd, &u->ip_accounting_egress_map_fd);
+        r = bpf_firewall_prepare_accounting_maps(u, cc->ip_accounting, crt);
         if (r < 0)
                 return log_unit_error_errno(u, r, "bpf-firewall: Preparation of BPF accounting maps failed: %m");
 
-        r = bpf_firewall_compile_bpf(u, ingress_name, true, &u->ip_bpf_ingress, ip_allow_any, ip_deny_any);
+        r = bpf_firewall_compile_bpf(u, ingress_name, true, &crt->ip_bpf_ingress, ip_allow_any, ip_deny_any);
         if (r < 0)
                 return log_unit_error_errno(u, r, "bpf-firewall: Compilation of ingress BPF program failed: %m");
 
-        r = bpf_firewall_compile_bpf(u, egress_name, false, &u->ip_bpf_egress, ip_allow_any, ip_deny_any);
+        r = bpf_firewall_compile_bpf(u, egress_name, false, &crt->ip_bpf_egress, ip_allow_any, ip_deny_any);
         if (r < 0)
                 return log_unit_error_errno(u, r, "bpf-firewall: Compilation of egress BPF program failed: %m");
 
@@ -634,12 +645,16 @@ static int load_bpf_progs_from_fs_to_set(Unit *u, char **filter_paths, Set **set
 
 int bpf_firewall_load_custom(Unit *u) {
         CGroupContext *cc;
+        CGroupRuntime *crt;
         int r, supported;
 
         assert(u);
 
         cc = unit_get_cgroup_context(u);
         if (!cc)
+                return 0;
+        crt = unit_get_cgroup_runtime(u);
+        if (!crt)
                 return 0;
 
         if (!(cc->ip_filters_ingress || cc->ip_filters_egress))
@@ -653,10 +668,10 @@ int bpf_firewall_load_custom(Unit *u) {
                 return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EOPNOTSUPP),
                                             "bpf-firewall: BPF_F_ALLOW_MULTI not supported, cannot attach custom BPF programs.");
 
-        r = load_bpf_progs_from_fs_to_set(u, cc->ip_filters_ingress, &u->ip_bpf_custom_ingress);
+        r = load_bpf_progs_from_fs_to_set(u, cc->ip_filters_ingress, &crt->ip_bpf_custom_ingress);
         if (r < 0)
                 return r;
-        r = load_bpf_progs_from_fs_to_set(u, cc->ip_filters_egress, &u->ip_bpf_custom_egress);
+        r = load_bpf_progs_from_fs_to_set(u, cc->ip_filters_egress, &crt->ip_bpf_custom_egress);
         if (r < 0)
                 return r;
 
@@ -686,6 +701,7 @@ int bpf_firewall_install(Unit *u) {
         _cleanup_(bpf_program_freep) BPFProgram *ip_bpf_ingress_uninstall = NULL, *ip_bpf_egress_uninstall = NULL;
         _cleanup_free_ char *path = NULL;
         CGroupContext *cc;
+        CGroupRuntime *crt;
         int r, supported;
         uint32_t flags;
 
@@ -694,9 +710,12 @@ int bpf_firewall_install(Unit *u) {
         cc = unit_get_cgroup_context(u);
         if (!cc)
                 return -EINVAL;
-        if (!u->cgroup_path)
+        crt = unit_get_cgroup_runtime(u);
+        if (!crt)
                 return -EINVAL;
-        if (!u->cgroup_realized)
+        if (!crt->cgroup_path)
+                return -EINVAL;
+        if (!crt->cgroup_realized)
                 return -EINVAL;
 
         supported = bpf_firewall_supported();
@@ -709,11 +728,11 @@ int bpf_firewall_install(Unit *u) {
                 return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EOPNOTSUPP),
                                             "bpf-firewall: BPF_F_ALLOW_MULTI not supported, not doing BPF firewall on slice units.");
         if (supported != BPF_FIREWALL_SUPPORTED_WITH_MULTI &&
-            (!set_isempty(u->ip_bpf_custom_ingress) || !set_isempty(u->ip_bpf_custom_egress)))
+            (!set_isempty(crt->ip_bpf_custom_ingress) || !set_isempty(crt->ip_bpf_custom_egress)))
                 return log_unit_debug_errno(u, SYNTHETIC_ERRNO(EOPNOTSUPP),
                                             "bpf-firewall: BPF_F_ALLOW_MULTI not supported, cannot attach custom BPF programs.");
 
-        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, u->cgroup_path, NULL, &path);
+        r = cg_get_path(SYSTEMD_CGROUP_CONTROLLER, crt->cgroup_path, NULL, &path);
         if (r < 0)
                 return log_unit_error_errno(u, r, "bpf-firewall: Failed to determine cgroup path: %m");
 
@@ -724,44 +743,44 @@ int bpf_firewall_install(Unit *u) {
                  * after attaching the new programs, so that there's no time window where neither program is
                  * attached. (There will be a program where both are attached, but that's OK, since this is a
                  * security feature where we rather want to lock down too much than too little */
-                ip_bpf_egress_uninstall = TAKE_PTR(u->ip_bpf_egress_installed);
-                ip_bpf_ingress_uninstall = TAKE_PTR(u->ip_bpf_ingress_installed);
+                ip_bpf_egress_uninstall = TAKE_PTR(crt->ip_bpf_egress_installed);
+                ip_bpf_ingress_uninstall = TAKE_PTR(crt->ip_bpf_ingress_installed);
         } else {
                 /* If we don't have BPF_F_ALLOW_MULTI then unref the old BPF programs (which will implicitly
                  * detach them) right before attaching the new program, to minimize the time window when we
                  * don't account for IP traffic. */
-                u->ip_bpf_egress_installed = bpf_program_free(u->ip_bpf_egress_installed);
-                u->ip_bpf_ingress_installed = bpf_program_free(u->ip_bpf_ingress_installed);
+                crt->ip_bpf_egress_installed = bpf_program_free(crt->ip_bpf_egress_installed);
+                crt->ip_bpf_ingress_installed = bpf_program_free(crt->ip_bpf_ingress_installed);
         }
 
-        if (u->ip_bpf_egress) {
-                r = bpf_program_cgroup_attach(u->ip_bpf_egress, BPF_CGROUP_INET_EGRESS, path, flags);
+        if (crt->ip_bpf_egress) {
+                r = bpf_program_cgroup_attach(crt->ip_bpf_egress, BPF_CGROUP_INET_EGRESS, path, flags);
                 if (r < 0)
                         return log_unit_error_errno(u, r,
                                 "bpf-firewall: Attaching egress BPF program to cgroup %s failed: %m", path);
 
                 /* Remember that this BPF program is installed now. */
-                u->ip_bpf_egress_installed = TAKE_PTR(u->ip_bpf_egress);
+                crt->ip_bpf_egress_installed = TAKE_PTR(crt->ip_bpf_egress);
         }
 
-        if (u->ip_bpf_ingress) {
-                r = bpf_program_cgroup_attach(u->ip_bpf_ingress, BPF_CGROUP_INET_INGRESS, path, flags);
+        if (crt->ip_bpf_ingress) {
+                r = bpf_program_cgroup_attach(crt->ip_bpf_ingress, BPF_CGROUP_INET_INGRESS, path, flags);
                 if (r < 0)
                         return log_unit_error_errno(u, r,
                                 "bpf-firewall: Attaching ingress BPF program to cgroup %s failed: %m", path);
 
-                u->ip_bpf_ingress_installed = TAKE_PTR(u->ip_bpf_ingress);
+                crt->ip_bpf_ingress_installed = TAKE_PTR(crt->ip_bpf_ingress);
         }
 
         /* And now, definitely get rid of the old programs, and detach them */
         ip_bpf_egress_uninstall = bpf_program_free(ip_bpf_egress_uninstall);
         ip_bpf_ingress_uninstall = bpf_program_free(ip_bpf_ingress_uninstall);
 
-        r = attach_custom_bpf_progs(u, path, BPF_CGROUP_INET_EGRESS, &u->ip_bpf_custom_egress, &u->ip_bpf_custom_egress_installed);
+        r = attach_custom_bpf_progs(u, path, BPF_CGROUP_INET_EGRESS, &crt->ip_bpf_custom_egress, &crt->ip_bpf_custom_egress_installed);
         if (r < 0)
                 return r;
 
-        r = attach_custom_bpf_progs(u, path, BPF_CGROUP_INET_INGRESS, &u->ip_bpf_custom_ingress, &u->ip_bpf_custom_ingress_installed);
+        r = attach_custom_bpf_progs(u, path, BPF_CGROUP_INET_INGRESS, &crt->ip_bpf_custom_ingress, &crt->ip_bpf_custom_ingress_installed);
         if (r < 0)
                 return r;
 
@@ -954,21 +973,25 @@ void emit_bpf_firewall_warning(Unit *u) {
 void bpf_firewall_close(Unit *u) {
         assert(u);
 
-        u->ip_accounting_ingress_map_fd = safe_close(u->ip_accounting_ingress_map_fd);
-        u->ip_accounting_egress_map_fd = safe_close(u->ip_accounting_egress_map_fd);
+        CGroupRuntime *crt = unit_get_cgroup_runtime(u);
+        if (!crt)
+                return;
 
-        u->ipv4_allow_map_fd = safe_close(u->ipv4_allow_map_fd);
-        u->ipv6_allow_map_fd = safe_close(u->ipv6_allow_map_fd);
-        u->ipv4_deny_map_fd = safe_close(u->ipv4_deny_map_fd);
-        u->ipv6_deny_map_fd = safe_close(u->ipv6_deny_map_fd);
+        crt->ip_accounting_ingress_map_fd = safe_close(crt->ip_accounting_ingress_map_fd);
+        crt->ip_accounting_egress_map_fd = safe_close(crt->ip_accounting_egress_map_fd);
 
-        u->ip_bpf_ingress = bpf_program_free(u->ip_bpf_ingress);
-        u->ip_bpf_ingress_installed = bpf_program_free(u->ip_bpf_ingress_installed);
-        u->ip_bpf_egress = bpf_program_free(u->ip_bpf_egress);
-        u->ip_bpf_egress_installed = bpf_program_free(u->ip_bpf_egress_installed);
+        crt->ipv4_allow_map_fd = safe_close(crt->ipv4_allow_map_fd);
+        crt->ipv6_allow_map_fd = safe_close(crt->ipv6_allow_map_fd);
+        crt->ipv4_deny_map_fd = safe_close(crt->ipv4_deny_map_fd);
+        crt->ipv6_deny_map_fd = safe_close(crt->ipv6_deny_map_fd);
 
-        u->ip_bpf_custom_ingress = set_free(u->ip_bpf_custom_ingress);
-        u->ip_bpf_custom_egress = set_free(u->ip_bpf_custom_egress);
-        u->ip_bpf_custom_ingress_installed = set_free(u->ip_bpf_custom_ingress_installed);
-        u->ip_bpf_custom_egress_installed = set_free(u->ip_bpf_custom_egress_installed);
+        crt->ip_bpf_ingress = bpf_program_free(crt->ip_bpf_ingress);
+        crt->ip_bpf_ingress_installed = bpf_program_free(crt->ip_bpf_ingress_installed);
+        crt->ip_bpf_egress = bpf_program_free(crt->ip_bpf_egress);
+        crt->ip_bpf_egress_installed = bpf_program_free(crt->ip_bpf_egress_installed);
+
+        crt->ip_bpf_custom_ingress = set_free(crt->ip_bpf_custom_ingress);
+        crt->ip_bpf_custom_egress = set_free(crt->ip_bpf_custom_egress);
+        crt->ip_bpf_custom_ingress_installed = set_free(crt->ip_bpf_custom_ingress_installed);
+        crt->ip_bpf_custom_egress_installed = set_free(crt->ip_bpf_custom_egress_installed);
 }
