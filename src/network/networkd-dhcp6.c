@@ -102,6 +102,7 @@ int dhcp6_check_ready(Link *link) {
         }
 
         if (link->network->dhcp6_use_address &&
+            sd_dhcp6_lease_has_address(link->dhcp6_lease) &&
             !link_check_addresses_ready(link, NETWORK_CONFIG_SOURCE_DHCP6)) {
                 Address *address;
 
