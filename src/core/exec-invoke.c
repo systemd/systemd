@@ -66,46 +66,6 @@
 
 #define SNDBUF_SIZE (8*1024*1024)
 
-static int shift_fds(int fds[], size_t n_fds) {
-        if (n_fds <= 0)
-                return 0;
-
-        /* Modifies the fds array! (sorts it) */
-
-        assert(fds);
-
-        for (int start = 0;;) {
-                int restart_from = -1;
-
-                for (int i = start; i < (int) n_fds; i++) {
-                        int nfd;
-
-                        /* Already at right index? */
-                        if (fds[i] == i+3)
-                                continue;
-
-                        nfd = fcntl(fds[i], F_DUPFD, i + 3);
-                        if (nfd < 0)
-                                return -errno;
-
-                        safe_close(fds[i]);
-                        fds[i] = nfd;
-
-                        /* Hmm, the fd we wanted isn't free? Then
-                         * let's remember that and try again from here */
-                        if (nfd != i+3 && restart_from < 0)
-                                restart_from = i;
-                }
-
-                if (restart_from < 0)
-                        break;
-
-                start = restart_from;
-        }
-
-        return 0;
-}
-
 static int flag_fds(
                 const int fds[],
                 size_t n_socket_fds,
@@ -4890,7 +4850,7 @@ int exec_invoke(
 
         r = close_all_fds(keep_fds, n_keep_fds);
         if (r >= 0)
-                r = shift_fds(params->fds, n_fds);
+                r = pack_fds(params->fds, n_fds);
         if (r >= 0)
                 r = flag_fds(params->fds, n_socket_fds, n_fds, context->non_blocking);
         if (r < 0) {
