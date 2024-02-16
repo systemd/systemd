@@ -32,14 +32,15 @@
   <refsect1>
     <title>Description</title>
     <para><command>systemd-vmspawn</command> may be used to start a virtual machine from an OS image. In many ways it is similar to <citerefentry
-    project='man-pages'><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>, but it
+    project='man-pages'><refentrytitle>systemd-nspawn</refentrytitle><manvolnum>1</manvolnum></citerefentry>, but
     launches a full virtual machine instead of using namespaces.</para>
 
     <para>File descriptors for <filename>/dev/kvm</filename> and <filename>/dev/vhost-vsock</filename> can be
     passed to <command>systemd-vmspawn</command> via systemd's native socket passing interface (see
     <citerefentry><refentrytitle>sd_listen_fds</refentrytitle><manvolnum>3</manvolnum></citerefentry> for
     details about the precise protocol used and the order in which the file descriptors are passed), these
-    fds must be passed with the names <literal>kvm</literal> and <literal>vhost-vsock</literal> respectively.</para>
+    file descriptors must be passed with the names <literal>kvm</literal> and <literal>vhost-vsock</literal>
+    respectively.</para>
 
     <para>Note: on Ubuntu/Debian derivatives systemd-vmspawn requires the user to be in the <literal>kvm</literal> group to use the VSock options.</para>
   </refsect1>
@@ -76,6 +77,7 @@
         <listitem><para>Directory to use as file system root for the virtual machine.</para>
 
         <para>One of either <option>--directory=</option> or <option>--image=</option> must be specified.</para>
+
         <para>Note: If mounting a non-root owned directory you may require <option>--private-users=</option>
               to map into the user's subuid namespace.</para>
 
@@ -120,129 +122,145 @@
           </listitem>
         </varlistentry>
 
-      <varlistentry>
-        <term><option>--qemu-kvm=</option><replaceable>BOOL</replaceable></term>
+        <varlistentry>
+          <term><option>--qemu-kvm=</option><replaceable>BOOL</replaceable></term>
 
-        <listitem><para>Configures whether to use KVM. If the option is not specified KVM support will be
-        detected automatically. If true, KVM is always used, and if false, KVM is never used.</para>
+          <listitem><para>Configures whether to use KVM. If the option is not specified KVM support will be
+          detected automatically. If true, KVM is always used, and if false, KVM is never used.</para>
 
-        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
-      </varlistentry>
+          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><option>--qemu-vsock=</option><replaceable>BOOL</replaceable></term>
+        <varlistentry>
+          <term><option>--qemu-vsock=</option><replaceable>BOOL</replaceable></term>
 
-        <listitem>
-          <para>Configure whether to use VSock networking.</para>
-          <para>If the option is not specified VSock support will be detected automatically.
-          If yes is specified VSocks are always used, and vice versa if no is set VSocks are never used.</para>
-          <xi:include href="version-info.xml" xpointer="v255"/>
-        </listitem>
-      </varlistentry>
+          <listitem>
+            <para>Configure whether to use VSock networking.</para>
 
-      <varlistentry>
-        <term><option>--vsock-cid=</option><replaceable>CID</replaceable></term>
+            <para>If the option is not specified VSock support will be detected automatically.
+            If yes is specified VSocks are always used, and vice versa if no is set VSocks are never used.</para>
+            <xi:include href="version-info.xml" xpointer="v255"/>
+          </listitem>
+        </varlistentry>
 
-        <listitem>
-          <para>Configure vmspawn to use a specific CID for the guest.</para>
-          <para>If the option is not specified or an empty argument is supplied the guest will be assigned a random CID.</para>
-          <para>Valid CIDs are in the range <constant>3</constant> to <constant>4294967294</constant> (<constant>0xFFFF_FFFE</constant>).
-          CIDs outside of this range are reserved.</para>
-          <xi:include href="version-info.xml" xpointer="v255"/>
-        </listitem>
-      </varlistentry>
+        <varlistentry>
+          <term><option>--vsock-cid=</option><replaceable>CID</replaceable></term>
 
-      <varlistentry>
-        <term><option>--tpm=</option><replaceable>BOOL</replaceable></term>
+          <listitem>
+            <para>Configure vmspawn to use a specific CID for the guest.</para>
 
-        <listitem>
-          <para>Configure whether to use qemu with a virtual TPM or not.</para>
-          <para>If the option is not specified vmspawn will detect the presence of <citerefentry project='man-pages'>
-          <refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry> and use it if available.
-          If yes is specified <citerefentry project='man-pages'><refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-          is always used, and vice versa if no is set <citerefentry project='man-pages'><refentrytitle>swtpm</refentrytitle>
-          <manvolnum>8</manvolnum></citerefentry> is never used.</para>
-          <para>Note: the virtual TPM used may change in future.</para>
-          <xi:include href="version-info.xml" xpointer="v256"/>
-        </listitem>
-      </varlistentry>
+            <para>If the option is not specified or an empty argument is supplied the guest will be assigned a random CID.</para>
 
-      <varlistentry>
-        <term><option>--linux=</option><replaceable>PATH</replaceable></term>
+            <para>Valid CIDs are in the range <constant>3</constant> to <constant>4294967294</constant> (<constant>0xFFFF_FFFE</constant>).
+            CIDs outside of this range are reserved.</para>
 
-        <listitem>
-          <para>Set the linux kernel image to use for direct kernel boot.</para>
-          <para>If no kernel was installed into the image then the image will fail to boot.</para>
-          <xi:include href="version-info.xml" xpointer="v256"/>
-        </listitem>
-      </varlistentry>
+            <xi:include href="version-info.xml" xpointer="v255"/>
+          </listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><option>--initrd=</option><replaceable>PATH</replaceable></term>
+        <varlistentry>
+          <term><option>--tpm=</option><replaceable>BOOL</replaceable></term>
 
-        <listitem>
-          <para>Set the initrd to use for direct kernel boot.</para>
-          <para>If the linux kernel supplied is a UKI then this argument is not required.</para>
-          <para>If the option is specified multiple times vmspawn will merge the initrds together.</para>
-          <para>If no initrd was installed into the image then the image will fail to boot.</para>
-          <xi:include href="version-info.xml" xpointer="v256"/>
-        </listitem>
-      </varlistentry>
+          <listitem>
+            <para>Configure whether to use qemu with a virtual TPM or not.</para>
 
-      <varlistentry>
-        <term><option>--qemu-gui</option></term>
+            <para>If the option is not specified vmspawn will detect the presence of <citerefentry project='man-pages'>
+            <refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry> and use it if available.
+            If yes is specified <citerefentry project='man-pages'><refentrytitle>swtpm</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+            is always used, and vice versa if no is set <citerefentry project='man-pages'><refentrytitle>swtpm</refentrytitle>
+            <manvolnum>8</manvolnum></citerefentry> is never used.</para>
 
-        <listitem><para>Start QEMU in graphical mode.</para>
+            <para>Note: the virtual TPM used may change in future.</para>
 
-        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
-      </varlistentry>
+            <xi:include href="version-info.xml" xpointer="v256"/>
+          </listitem>
+        </varlistentry>
 
-      <varlistentry>
-        <term><option>-n</option></term>
-        <term><option>--network-tap</option></term>
+        <varlistentry>
+          <term><option>--linux=</option><replaceable>PATH</replaceable></term>
 
-        <listitem>
-          <para>Create a TAP device to network with the virtual machine.</para>
-          <para>
-            Note: root privileges are required to use TAP networking.
-            Additionally requires a correctly setup
+          <listitem>
+            <para>Set the linux kernel image to use for direct kernel boot.</para>
+
+            <para>If no kernel was installed into the image then the image will fail to boot.</para>
+
+            <xi:include href="version-info.xml" xpointer="v256"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--initrd=</option><replaceable>PATH</replaceable></term>
+
+          <listitem>
+            <para>Set the initrd to use for direct kernel boot.</para>
+
+            <para>If the linux kernel supplied is a UKI then this argument is not required.</para>
+
+            <para>If the option is specified multiple times vmspawn will merge the initrds together.</para>
+
+            <para>If no initrd was installed into the image then the image will fail to boot.</para>
+
+            <xi:include href="version-info.xml" xpointer="v256"/>
+          </listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>--qemu-gui</option></term>
+
+          <listitem><para>Start QEMU in graphical mode.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+        </varlistentry>
+
+        <varlistentry>
+          <term><option>-n</option></term>
+          <term><option>--network-tap</option></term>
+
+          <listitem>
+            <para>Create a TAP device to network with the virtual machine.</para>
+
+            <para>Note: root privileges are required to use TAP networking.
+            Additionally,
             <citerefentry><refentrytitle>systemd-networkd</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-            to be running on the host to ensure the host interface is correctly configured.
-            The relevant <literal>.network</literal> file can be found at <filename>/usr/lib/systemd/network/80-vm-vt.network</filename>.
-          </para>
-          <xi:include href="version-info.xml" xpointer="v255"/>
-        </listitem>
-      </varlistentry>
+            must be running and correctly set up on the host to provision the host interface. The relevant
+            <literal>.network</literal> file can be found at
+            <filename>/usr/lib/systemd/network/80-vm-vt.network</filename>.
+            </para>
 
-      <varlistentry>
-        <term><option>--network-user-mode</option></term>
+            <xi:include href="version-info.xml" xpointer="v255"/>
+          </listitem>
+        </varlistentry>
 
-        <listitem><para>Use user mode networking with QEMU.</para>
+        <varlistentry>
+          <term><option>--network-user-mode</option></term>
 
-        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
-      </varlistentry>
+          <listitem><para>Use user mode networking with QEMU.</para>
 
-      <varlistentry>
-        <term><option>--firmware=</option><replaceable>PATH</replaceable></term>
+          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+        </varlistentry>
 
-        <listitem><para>Takes an absolute path, or a relative path beginning with
-        <filename>./</filename>. Specifies a JSON firmware definition file, which allows selecting the
-        firmware to boot in the VM. If not specified a suitable firmware is automatically discovered. If the
-        special string <literal>list</literal> is specified lists all discovered firmwares.</para>
+        <varlistentry>
+          <term><option>--firmware=</option><replaceable>PATH</replaceable></term>
 
-        <xi:include href="version-info.xml" xpointer="v256"/></listitem>
-      </varlistentry>
+          <listitem><para>Takes an absolute path, or a relative path beginning with
+          <filename>./</filename>. Specifies a JSON firmware definition file, which allows selecting the
+          firmware to boot in the VM. If not specified a suitable firmware is automatically discovered. If the
+          special string <literal>list</literal> is specified lists all discovered firmwares.</para>
 
-      <varlistentry>
-        <term><option>--secure-boot=</option><replaceable>BOOL</replaceable></term>
+          <xi:include href="version-info.xml" xpointer="v256"/></listitem>
+        </varlistentry>
 
-        <listitem><para>Configure whether to search for firmware which supports Secure Boot.</para>
-        <para>If the option is not specified the first firmware which is detected will be used.
-        If the option is set to yes then the first firmware with Secure Boot support will be selected.
-        If no is specified then the first firmware without Secure Boot will be selected.</para>
+        <varlistentry>
+          <term><option>--secure-boot=</option><replaceable>BOOL</replaceable></term>
 
-        <xi:include href="version-info.xml" xpointer="v255"/></listitem>
-      </varlistentry>
+          <listitem><para>Configure whether to search for firmware which supports Secure Boot.</para>
+
+          <para>If the option is not specified the first firmware which is detected will be used.
+          If the option is set to yes then the first firmware with Secure Boot support will be selected.
+          If no is specified then the first firmware without Secure Boot will be selected.</para>
+
+          <xi:include href="version-info.xml" xpointer="v255"/></listitem>
+        </varlistentry>
       </variablelist>
     </refsect2>
 
@@ -259,6 +277,7 @@
           (for example in tools like
           <citerefentry><refentrytitle>machinectl</refentrytitle><manvolnum>1</manvolnum></citerefentry>
           and similar).</para>
+
           <xi:include href="version-info.xml" xpointer="v255"/>
           </listitem>
         </varlistentry>
@@ -319,10 +338,11 @@
         <varlistentry>
           <term><option>--forward-journal=</option><replaceable>FILE|DIR</replaceable></term>
 
-          <listitem><para>Forward the virtual machine's journal entries to the host.</para>
-          <para><citerefentry><refentrytitle>systemd-journal-remote</refentrytitle><manvolnum>8</manvolnum></citerefentry>
-          Is currently used to receive the guest VM's forwarded journal entries. For more information on the semantics
-          of supplying a file vs a directory here see <option>-o</option>/<option>--output</option> in
+          <listitem><para>Forward the virtual machine's journal to the host.
+          <citerefentry><refentrytitle>systemd-journal-remote</refentrytitle><manvolnum>8</manvolnum></citerefentry>
+          is currently used to receive the guest VM's forwarded journal entries. This option determines where
+          this journal is saved on the host and has the same semantics as
+          <option>-o</option>/<option>--output</option> described in
           <citerefentry><refentrytitle>systemd-journal-remote</refentrytitle><manvolnum>8</manvolnum></citerefentry>.</para>
 
           <xi:include href="version-info.xml" xpointer="v256"/>
